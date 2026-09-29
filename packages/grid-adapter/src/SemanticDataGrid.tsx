@@ -178,6 +178,137 @@ function useGridDomPresentation(
 
 const fillAffordanceLabel = "Drag to fill this value";
 
+function useGroupedGridFocusPresentation(
+  vendorHandle: MutableRefObject<DataGridHandle | null>,
+): void {
+  useLayoutEffect(() => {
+    const grid = vendorHandle.current?.element;
+    if (!grid) return;
+    let sink: HTMLElement | null = null;
+    let sinkAriaHidden: string | null = null;
+    let sinkTabIndex: string | null = null;
+    let promoted:
+      | { button: HTMLButtonElement; tabIndex: string | null }
+      | undefined;
+    let focusedButton: HTMLButtonElement | null = null;
+    let focusedGroupId: string | null = null;
+
+    // RDG leaves this empty direct child in a treegrid even before it selects a row.
+    const focusSink = () =>
+      Array.from(grid.children).find(
+        (child): child is HTMLElement =>
+          child instanceof HTMLElement &&
+          child.tagName === "DIV" &&
+          child.getAttribute("role") === null &&
+          child.hasAttribute("tabindex") &&
+          child.childElementCount === 0,
+      ) ?? null;
+    const selectedGroupButton = (target: HTMLElement) => {
+      const rowIndex = target.style.gridRowStart;
+      if (!/^\d+$/.test(rowIndex)) return null;
+      const row = grid.querySelector<HTMLElement>(
+        `:scope > [role="row"][aria-level="1"][aria-rowindex="${rowIndex}"].rdg-row-selected`,
+      );
+      const button = row?.querySelector<HTMLButtonElement>(
+        "button[data-cartulary-grid-group-id]",
+      );
+      return button?.isConnected ? button : null;
+    };
+    const restorePromoted = (except: HTMLButtonElement | null = null) => {
+      if (!promoted || promoted.button === except) return;
+      const { button, tabIndex } = promoted;
+      if (button.isConnected && button.getAttribute("tabindex") === "0") {
+        if (tabIndex === null) button.removeAttribute("tabindex");
+        else button.setAttribute("tabindex", tabIndex);
+      }
+      promoted = undefined;
+    };
+    const reconcile = () => {
+      const nextSink = focusSink();
+      if (sink !== nextSink) {
+        sink = nextSink;
+        sinkAriaHidden = sink?.getAttribute("aria-hidden") ?? null;
+        sinkTabIndex = sink?.getAttribute("tabindex") ?? null;
+      }
+      if (!sink) {
+        restorePromoted();
+        return;
+      }
+      const button = selectedGroupButton(sink);
+      const focusedGroupWasReplaced =
+        focusedButton !== null &&
+        focusedGroupId !== null &&
+        (!focusedButton.isConnected ||
+          focusedButton.dataset.cartularyGridGroupId !== focusedGroupId);
+      restorePromoted(button);
+      if (button && button.getAttribute("tabindex") !== "0") {
+        promoted = { button, tabIndex: button.getAttribute("tabindex") };
+        button.setAttribute("tabindex", "0");
+      }
+      if (document.activeElement === sink) {
+        if (button && !focusedGroupWasReplaced)
+          button.focus({ preventScroll: true });
+        else grid.focus({ preventScroll: true });
+      }
+      if (sink.getAttribute("aria-hidden") !== "true")
+        sink.setAttribute("aria-hidden", "true");
+      if (sink.getAttribute("tabindex") !== "-1")
+        sink.setAttribute("tabindex", "-1");
+      if (focusedGroupWasReplaced && document.activeElement === document.body) {
+        focusedButton = null;
+        focusedGroupId = null;
+        grid.focus({ preventScroll: true });
+      }
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      if (event.target === sink) {
+        reconcile();
+      } else if (
+        event.target instanceof HTMLButtonElement &&
+        event.target.matches("button[data-cartulary-grid-group-id]")
+      ) {
+        focusedButton = event.target;
+        focusedGroupId = event.target.dataset.cartularyGridGroupId ?? null;
+      }
+    };
+    const onFocusOut = (event: FocusEvent) => {
+      if (
+        event.relatedTarget instanceof Node &&
+        !grid.contains(event.relatedTarget)
+      ) {
+        focusedButton = null;
+        focusedGroupId = null;
+      }
+    };
+    grid.addEventListener("focusin", onFocusIn, true);
+    grid.addEventListener("focusout", onFocusOut, true);
+    reconcile();
+    const observer = new MutationObserver(reconcile);
+    observer.observe(grid, {
+      attributes: true,
+      attributeFilter: ["class", "tabindex", "aria-rowindex"],
+      childList: true,
+      subtree: true,
+    });
+    return () => {
+      observer.disconnect();
+      grid.removeEventListener("focusin", onFocusIn, true);
+      grid.removeEventListener("focusout", onFocusOut, true);
+      restorePromoted();
+      if (sink?.isConnected) {
+        if (sink.getAttribute("aria-hidden") === "true") {
+          if (sinkAriaHidden === null) sink.removeAttribute("aria-hidden");
+          else sink.setAttribute("aria-hidden", sinkAriaHidden);
+        }
+        if (sink.getAttribute("tabindex") === "-1") {
+          if (sinkTabIndex === null) sink.removeAttribute("tabindex");
+          else sink.setAttribute("tabindex", sinkTabIndex);
+        }
+      }
+    };
+  }, [vendorHandle]);
+}
+
 function useGridFillAccessiblePresentation(
   vendorHandle: MutableRefObject<DataGridHandle | null>,
   activeCell: GridCellAnchor | null,
@@ -1966,6 +2097,7 @@ function useSemanticDataGrid<Row>(
         props={props}
         rowStateFor={rowStateFor}
         sharedProps={sharedProps}
+        vendorHandle={vendorHandle}
       />
     </GridBindingFrame>
   );
@@ -1979,6 +2111,7 @@ function ProductionGridBinding<Row>({
   props,
   rowStateFor,
   sharedProps,
+  vendorHandle,
 }: {
   readonly density: GridDensity;
   readonly grouping: SemanticDataGridProps<Row>["grouping"];
@@ -1993,6 +2126,7 @@ function ProductionGridBinding<Row>({
     GridDraftRow<Row>,
     string
   >;
+  readonly vendorHandle: MutableRefObject<DataGridHandle | null>;
 }) {
   if (grouping === null || grouping === undefined) {
     return (
@@ -2007,6 +2141,7 @@ function ProductionGridBinding<Row>({
       publishPresentation={publishPresentation}
       rowStateFor={rowStateFor}
       sharedProps={sharedProps}
+      vendorHandle={vendorHandle}
     />
   );
 }
@@ -2441,6 +2576,7 @@ function GroupedSemanticDataGrid<Row>({
   rowStateFor,
   sharedProps,
   surface,
+  vendorHandle,
 }: SemanticDataGridProps<Row> & {
   readonly sharedProps: DataGridProps<
     GridDataRow<Row>,
@@ -2454,10 +2590,12 @@ function GroupedSemanticDataGrid<Row>({
     model: GridSemanticPresentationModel<Row>,
   ) => void;
   readonly rowStateFor: (row: GridDataRow<Row>) => GridRowStateInput;
+  readonly vendorHandle: MutableRefObject<DataGridHandle | null>;
 }) {
   if (grouping === null || grouping === undefined) {
     throw new Error("Grouped grid requires a grouping descriptor.");
   }
+  useGroupedGridFocusPresentation(vendorHandle);
   const [collapsedGroupIdsByScope, setCollapsedGroupIdsByScope] = useState<
     ReadonlyMap<string, ReadonlySet<string>>
   >(() => new Map());
@@ -2524,7 +2662,7 @@ function GroupedSemanticDataGrid<Row>({
     minWidth: Math.max(gutterColumn?.minWidth ?? 48, 128),
     name: grouping.label ?? grouping.fieldKey,
     renderCell: gutterColumn?.renderCell ?? (() => null),
-    renderGroupCell: ({ groupKey, isExpanded, toggleGroup }) => {
+    renderGroupCell: ({ groupKey, isExpanded, tabIndex, toggleGroup }) => {
       const id = String(groupKey);
       const group = metadata.get(id);
       const label = group?.label ?? null;
@@ -2538,7 +2676,24 @@ function GroupedSemanticDataGrid<Row>({
               : grouping.getTestId?.(grouping.fieldKey, group.value, label)
           }
           type="button"
-          onClick={toggleGroup}
+          tabIndex={tabIndex}
+          onMouseDown={(event) => {
+            if (event.button === 0)
+              event.currentTarget.focus({ preventScroll: true });
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleGroup();
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Tab") return;
+            event.preventDefault();
+            event.stopPropagation();
+            focusAdjacentOutsideGrid(
+              vendorHandle.current?.element ?? null,
+              event.shiftKey,
+            );
+          }}
         >
           {label ?? gridUnassignedGroupLabel}
         </button>

@@ -157,7 +157,13 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
+import type {
+  APIRequestContext,
+  Locator,
+  Page,
+  Request,
+  Route,
+} from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
@@ -2589,7 +2595,7 @@ if (
 test.describe("browser.grid-interaction accessibility readiness", () => {
   test(
     gridInteractionAccessibilityScenarioTitles[0],
-    async ({ page }, testInfo) => {
+    async ({ browser, page, sessionTracker }, testInfo) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       const incidentId = await createIncident(
         page,
@@ -2618,6 +2624,15 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
           "timeline.raw_activity_text": "Grouped grid coverage",
         },
       );
+      const viewerPassword = "A11yGroupedViewer1!";
+      const viewer = await createIncidentMemberUser(page, incidentId, {
+        display_name: "A11y Grouped Viewer",
+        email: uniqueEmail("a11y-grouped-viewer"),
+        initial_password: viewerPassword,
+        role: "viewer",
+        is_deployment_admin: false,
+        mfa_required: false,
+      });
 
       await page.goto(`/?incident_id=${incidentId}`);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -2767,6 +2782,156 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
       await expect(reviewedGroup).toContainText("reviewed");
       const grouped = await inspectFillAccessibility("grouped");
       await expect(page.locator(gridFillHandleSelector())).toHaveCount(0);
+      const groupWrites: string[] = [];
+      const recordGroupWrite = (request: Request) => {
+        if (
+          ["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) &&
+          new URL(request.url()).pathname.startsWith("/api/")
+        )
+          groupWrites.push(
+            `${request.method()} ${new URL(request.url()).pathname}`,
+          );
+      };
+      page.on("request", recordGroupWrite);
+
+      const roughGroup = page.getByTestId(
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          "rough",
+        ),
+      );
+      await expect(roughGroup).toBeVisible();
+      const inspectGroupFocus = async (state: string) => {
+        const axe = await new AxeBuilder({ page })
+          .include(gridScrollportSelector())
+          .withRules(["aria-required-children", "aria-hidden-focus"])
+          .analyze();
+        const active = await cdp.send("Runtime.evaluate", {
+          expression: "document.activeElement",
+          returnByValue: false,
+        });
+        const activeAx = active.result.objectId
+          ? await cdp.send("Accessibility.getPartialAXTree", {
+              objectId: active.result.objectId,
+              fetchRelatives: true,
+            })
+          : null;
+        const activeNode = activeAx?.nodes[0];
+        const observation = {
+          state,
+          activeAccessible: activeNode
+            ? {
+                role: activeNode.role?.value,
+                name: activeNode.name?.value,
+                properties: activeNode.properties?.map((property) => ({
+                  name: property.name,
+                  value: property.value?.value,
+                })),
+              }
+            : null,
+          dom: await grid.evaluate((element) => {
+            const focus = document.activeElement;
+            const selected = element.querySelector(
+              '[role="row"][aria-level="1"].rdg-row-selected',
+            );
+            const sink = element.querySelector(
+              ":scope > div:not([role])[tabindex]",
+            );
+            return {
+              focusHtml: focus?.outerHTML ?? null,
+              focusInsideGrid: focus === element || element.contains(focus),
+              focusRole: focus?.getAttribute("role") ?? null,
+              selectedRowHtml: selected?.outerHTML ?? null,
+              sinkHtml: sink?.outerHTML ?? null,
+              toggleCount:
+                selected?.querySelectorAll(
+                  "button[data-cartulary-grid-group-id]",
+                ).length ?? 0,
+            };
+          }),
+          accessibilitySnapshot: await grid.ariaSnapshot(),
+          violations: axe.violations.filter((violation) =>
+            ["aria-required-children", "aria-hidden-focus"].includes(
+              violation.id,
+            ),
+          ),
+        };
+        await testInfo.attach(`timeline-group-focus-${state}`, {
+          body: Buffer.from(JSON.stringify(observation, null, 2)),
+          contentType: "application/json",
+        });
+        return observation;
+      };
+      const initialGroupFocus = await inspectGroupFocus("initial");
+      expect(initialGroupFocus.dom.toggleCount).toBe(0);
+      await reviewedGroup.click();
+      await expect(reviewedGroup).toHaveAttribute("aria-expanded", "false");
+      const pointerGroupFocus = await inspectGroupFocus("pointer-collapse");
+      expect(pointerGroupFocus.dom.toggleCount).toBe(1);
+      expect(pointerGroupFocus.dom.focusHtml).toContain("<button");
+      expect(pointerGroupFocus.activeAccessible?.name).toBe("reviewed");
+      await page.keyboard.press("Enter");
+      await expect(reviewedGroup).toHaveAttribute("aria-expanded", "true");
+      const enterGroupFocus = await inspectGroupFocus("button-enter-expand");
+      await page.keyboard.press("Space");
+      await expect(reviewedGroup).toHaveAttribute("aria-expanded", "false");
+      const spaceGroupFocus = await inspectGroupFocus("button-space-collapse");
+      await page.keyboard.press("ArrowRight");
+      await expect(reviewedGroup).toHaveAttribute("aria-expanded", "true");
+      const rightGroupFocus = await inspectGroupFocus("right-expand");
+      await page.keyboard.press("ArrowLeft");
+      await expect(reviewedGroup).toHaveAttribute("aria-expanded", "false");
+      const leftGroupFocus = await inspectGroupFocus("left-collapse");
+      await page.keyboard.press("Shift+Tab");
+      const regionExit = await inspectGroupFocus("group-shift-tab-exit");
+      expect(regionExit.dom.focusInsideGrid).toBe(false);
+      await reviewedGroup.click();
+      await expect(reviewedGroup).toHaveAttribute("aria-expanded", "true");
+      const returnGroupFocus = await inspectGroupFocus(
+        "pointer-after-region-exit",
+      );
+      await expect(reviewedGroup).toBeFocused();
+      await page.keyboard.press("Tab");
+      const forwardTab = await inspectGroupFocus("tab");
+      expect(forwardTab.dom.focusInsideGrid).toBe(false);
+      await page.keyboard.press("Shift+Tab");
+      const backwardTab = await inspectGroupFocus("shift-tab");
+      expect(backwardTab.dom.focusInsideGrid).toBe(true);
+      for (const observation of [
+        initialGroupFocus,
+        pointerGroupFocus,
+        enterGroupFocus,
+        spaceGroupFocus,
+        rightGroupFocus,
+        leftGroupFocus,
+        returnGroupFocus,
+        forwardTab,
+        backwardTab,
+        regionExit,
+      ]) {
+        expect(observation.violations, observation.state).toEqual([]);
+      }
+      page.off("request", recordGroupWrite);
+      expect(groupWrites).toEqual([]);
+      for (const observation of [
+        pointerGroupFocus,
+        enterGroupFocus,
+        spaceGroupFocus,
+        rightGroupFocus,
+        leftGroupFocus,
+        returnGroupFocus,
+      ]) {
+        expect(observation.dom.focusHtml, observation.state).toContain(
+          "<button",
+        );
+        expect(observation.activeAccessible?.role, observation.state).toBe(
+          "button",
+        );
+        expect(observation.activeAccessible?.name, observation.state).toBe(
+          "reviewed",
+        );
+      }
 
       for (const observation of [navigation, editing, restored, moved]) {
         expect(observation.violations, observation.state).toEqual([]);
@@ -2824,6 +2989,97 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
         rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
         saveStateTestId(),
       ]);
+
+      const viewerSession = await openIncidentAsTrackedUserReady(
+        browser,
+        sessionTracker,
+        {
+          createdBy: "a11y.grid-interaction.row-01",
+          email: viewer.email,
+          incidentId,
+          password: viewerPassword,
+          purpose: "grouped Timeline viewer accessibility",
+          readyRecordId: betaRow.record_id,
+          userId: viewer.user_id,
+        },
+      );
+      try {
+        const viewerPage = viewerSession.page;
+        await viewerPage
+          .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
+          .selectOption("timeline.capture_state");
+        const viewerGrid = viewerPage.locator(gridScrollportSelector());
+        await expect(viewerGrid).toHaveAttribute("role", "treegrid");
+        await expect(viewerGrid).toHaveAttribute("aria-readonly", "true");
+        const viewerInitialAxe = await new AxeBuilder({ page: viewerPage })
+          .withRules(["aria-required-children", "aria-hidden-focus"])
+          .analyze();
+        await testInfo.attach("timeline-group-focus-viewer-initial", {
+          body: Buffer.from(
+            JSON.stringify(
+              {
+                focused: await viewerPage.evaluate(() => ({
+                  tag: document.activeElement?.tagName ?? null,
+                  role: document.activeElement?.getAttribute("role") ?? null,
+                  name:
+                    document.activeElement?.getAttribute("aria-label") ?? null,
+                })),
+                rootChildren: await viewerGrid.evaluate((element) =>
+                  Array.from(element.children).map((child) => ({
+                    tag: child.tagName,
+                    role: child.getAttribute("role"),
+                    ariaHidden: child.getAttribute("aria-hidden"),
+                    tabIndex: child.getAttribute("tabindex"),
+                    className: child.className,
+                    style: child.getAttribute("style"),
+                  })),
+                ),
+                violations: viewerInitialAxe.violations,
+              },
+              null,
+              2,
+            ),
+          ),
+          contentType: "application/json",
+        });
+        expect(viewerInitialAxe.violations).toEqual([]);
+        const viewerGroup = viewerPage.getByTestId(
+          gridGroupRowTestId(
+            timelineViewSchemaId,
+            "timeline.capture_state",
+            "enriched",
+          ),
+        );
+        await expect(viewerGroup).toBeVisible();
+        await viewerGroup.click();
+        await expect(viewerGroup).toBeFocused();
+        await expect(viewerGroup).toHaveAttribute("aria-expanded", "false");
+        await viewerPage.keyboard.press("Enter");
+        await expect(viewerGroup).toHaveAttribute("aria-expanded", "true");
+        const viewerAxe = await new AxeBuilder({ page: viewerPage })
+          .include(gridScrollportSelector())
+          .withRules(["aria-required-children", "aria-hidden-focus"])
+          .analyze();
+        expect(viewerAxe.violations).toEqual([]);
+        await testInfo.attach("timeline-group-focus-viewer", {
+          body: Buffer.from(
+            JSON.stringify(
+              {
+                accessibilitySnapshot: await viewerGrid.ariaSnapshot(),
+                focused: await viewerPage.evaluate(
+                  () => document.activeElement?.outerHTML ?? null,
+                ),
+                violations: viewerAxe.violations,
+              },
+              null,
+              2,
+            ),
+          ),
+          contentType: "application/json",
+        });
+      } finally {
+        await viewerSession.page.context().close();
+      }
     },
   );
 });

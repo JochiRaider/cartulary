@@ -2908,7 +2908,7 @@ describe("grid-adapter", () => {
       },
     ];
 
-    render(
+    const { unmount } = render(
       <GridViewport testId="grid-shell">
         <SemanticDataGrid
           ref={groupedHandle}
@@ -2973,9 +2973,30 @@ describe("grid-adapter", () => {
     ).toHaveLength(0);
     expect(openGroupRow.querySelectorAll("button")).toHaveLength(1);
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("true");
+    const sink = grid.querySelector<HTMLElement>(
+      ":scope > div:not([role])[tabindex]",
+    );
+    expect(sink?.getAttribute("aria-hidden")).toBe("true");
+    expect(sink?.getAttribute("tabindex")).toBe("-1");
+    expect(openGroupToggle.getAttribute("tabindex")).toBe("-1");
+    expect(
+      screen.getByTestId("group-state-reviewed").getAttribute("tabindex"),
+    ).toBe("-1");
+    fireEvent.mouseDown(openGroupToggle);
+    await waitFor(() => expect(document.activeElement).toBe(openGroupToggle));
+    expect(openGroupToggle.getAttribute("tabindex")).toBe("0");
+    expect(sink?.getAttribute("aria-hidden")).toBe("true");
+    expect(sink?.getAttribute("tabindex")).toBe("-1");
     fireEvent.click(openGroupToggle);
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("false");
     expect(openGroupRow.matches(gridGroupRowSelector(false))).toBe(true);
+    const external = document.createElement("button");
+    document.body.append(external);
+    external.focus();
+    expect(document.activeElement).toBe(external);
+    fireEvent.mouseDown(openGroupToggle);
+    expect(document.activeElement).toBe(openGroupToggle);
+    external.remove();
     expect(screen.queryByTestId("row-record-1")).toBeNull();
     expect(
       await groupedHandle.current?.requestFocus({
@@ -3011,6 +3032,8 @@ describe("grid-adapter", () => {
     );
     fireEvent.click(stateHeader);
     expect(onSortChange).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(sink?.isConnected).toBe(false);
   });
 
   it("preserves typed bucket order, scoped expansion, and draft exclusion", async () => {
@@ -3054,7 +3077,7 @@ describe("grid-adapter", () => {
         data: { group: null, label: "Null" },
       },
     ];
-    const grid = (fieldKey: string, recordRows = rows) => (
+    const grid = (fieldKey: string | null, recordRows = rows) => (
       <SemanticDataGrid
         surface={{ kind: "view_schema", viewSchemaId: "typed.view" }}
         columns={typedColumns}
@@ -3062,13 +3085,17 @@ describe("grid-adapter", () => {
           kind: "draft",
           data: { group: "draft-only", label: "Draft" },
         }}
-        grouping={{
-          fieldKey,
-          formatLabel: (value) => (value === null ? null : String(value)),
-          getTestId: (key, value) =>
-            `typed-${key}-${value === null ? "null" : typeof value}-${String(value)}`,
-          getValue: (row) => row.group,
-        }}
+        grouping={
+          fieldKey === null
+            ? null
+            : {
+                fieldKey,
+                formatLabel: (value) => (value === null ? null : String(value)),
+                getTestId: (key, value) =>
+                  `typed-${key}-${value === null ? "null" : typeof value}-${String(value)}`,
+                getValue: (row) => row.group,
+              }
+        }
         dataRows={recordRows}
       />
     );
@@ -3083,7 +3110,10 @@ describe("grid-adapter", () => {
       document.querySelector('[data-cartulary-grid-group-id="s:draft-only"]'),
     ).toBeNull();
 
-    fireEvent.click(screen.getByTestId("typed-primary-string-1"));
+    const stringGroup = screen.getByTestId("typed-primary-string-1");
+    fireEvent.mouseDown(stringGroup);
+    await waitFor(() => expect(document.activeElement).toBe(stringGroup));
+    fireEvent.click(stringGroup);
     rerender(grid("secondary"));
     expect(
       screen
@@ -3100,6 +3130,7 @@ describe("grid-adapter", () => {
     await waitFor(() =>
       expect(screen.queryByTestId("typed-primary-string-1")).toBeNull(),
     );
+    expect(document.activeElement?.getAttribute("role")).toBe("treegrid");
     rerender(grid("primary"));
     await waitFor(() =>
       expect(
@@ -3108,6 +3139,41 @@ describe("grid-adapter", () => {
           .getAttribute("aria-expanded"),
       ).toBe("true"),
     );
+    const restoredGroup = screen.getByTestId("typed-primary-string-1");
+    fireEvent.mouseDown(restoredGroup);
+    await waitFor(() => expect(document.activeElement).toBe(restoredGroup));
+    rerender(
+      grid("primary", [
+        {
+          ...rows[0],
+          data: { group: "replacement", label: "Replacement" },
+        } as GridDataRow<GroupRow>,
+        ...rows.slice(1),
+      ]),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("typed-primary-string-replacement"),
+      ).toBeTruthy(),
+    );
+    expect(document.activeElement?.getAttribute("role")).toBe("treegrid");
+    const external = document.createElement("button");
+    document.body.append(external);
+    external.focus();
+    rerender(grid(null));
+    expect(document.activeElement).toBe(external);
+    expect(document.querySelector('[role="treegrid"]')).toBeNull();
+    rerender(grid("primary"));
+    const regroupedGrid =
+      document.querySelector<HTMLElement>('[role="treegrid"]');
+    expect(regroupedGrid).toBeTruthy();
+    const regroupedSink = regroupedGrid?.querySelector<HTMLElement>(
+      ":scope > div:not([role])[tabindex]",
+    );
+    expect(regroupedSink?.getAttribute("aria-hidden")).toBe("true");
+    expect(regroupedSink?.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(external);
+    external.remove();
   });
 
   it("can fill available inline space on demand", async () => {
