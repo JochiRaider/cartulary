@@ -109,7 +109,10 @@ product assertions and publication are distinct. This amendment adds no product
 or test HTTP route, authentication bypass, product requirement, visual comparator,
 or golden promotion path. Presentation remains design/product owned. Executable
 inputs never include Markdown or documentation. The adopted amendment identifier
-is `ui-review-api-1`; the harness document and conformance profile remain v3.
+is `ui-review-api-2`; the harness document and conformance profile remain v3.
+This amendment retains the seven command identities and eight V1 review
+envelopes. It corrects lifecycle/artifact failure handling and adopts minimal
+control readiness, exact recovery proof, and weighted parallel work admission.
 
 Verified by: TH-HARNESS-AC-102, TH-HARNESS-AC-125, TH-HARNESS-AC-126, TH-HARNESS-AC-128, TH-HARNESS-AC-129
 
@@ -1032,7 +1035,7 @@ The current runtime profiles are:
 The current resource profiles are `standard`, `io_heavy`, `managed_process`,
 `backend_capacity_isolated`, `performance_fixture_builder`,
 `browser_functional`, `browser_isolated`, `browser_measurement_quiet`, and
-`postgres_catalog_isolated`. Every resource profile MUST
+`postgres_catalog_isolated`, `ui_review_raster`, and `ui_review_report`. Every resource profile MUST
 bound executable work with positive `cpu`, `io`, `memory_mb`, and `process`
 claims; a zero-claim executable profile is forbidden. Their exact claims MUST
 be present in the authored topology; omission has no implicit fallback. The fixture capability set is closed by
@@ -3700,6 +3703,23 @@ historical capture. For imported evidence, the observation context is null unles
 its complete fields can be proven from the exact source; available capture
 metadata remains in the validated private import reference.
 
+Source/component semantics are closed independently of nullable field shapes:
+
+| Source | Required components and context | Forbidden claims |
+| --- | --- | --- |
+| `sealed_review` | `original`, `observations`, complete `observation`, frontend receipt; optional proved binding | `expected`, `actual`, `diff`, `trace`, imported-source metadata |
+| `live_unattested` | `original`, `observations`, complete `observation`, `live_unattested` limitation | Binding, seal, expected/actual/diff/trace channels |
+| `reference_image` | `original`; null observation and binding; `reference_only`, `no_dom`, `no_axe`, `no_trace` | Expected/actual/diff/observations/trace channels |
+| `canonical_visual` | At least expected or actual; exact binding and import metadata; `no_actual` exactly when actual is absent | Fabricated original, epoch or DOM; diff without both expected and actual |
+
+For the current canonical adapter, observation and observations are null and
+`no_dom`/`no_axe` are required. `no_trace` agrees exactly with trace absence.
+Page captures require `rendered_nodes_only`; `no_axe` agrees with a disabled or
+unavailable scan, and truncation limitations agree with observation channels.
+Analysis preserves the source/component rules of its left parent. Derivations
+name copied input refs; captures have no parents or analysis. Expected pixels
+never substitute for the primary actual/original image.
+
 #### 8.5.2 Private observation component
 
 `cartulary.ui_review_observations.v1` contains exactly `schema_id`, `elements`,
@@ -4863,6 +4883,30 @@ a browser action or capture retry. Resource acquisition cannot bypass the shared
 because the command is helper-only. Review outputs and results are never reusable
 verification cache entries. Existing sealed frontend build reuse remains governed
 by its current receipt/cache contract.
+
+Every costly review operation, including PNG validation/import and report
+construction, MUST execute in an owned cancellable worker under host admission.
+The authored topology owns `ui_review_raster` claims of 1 CPU, 1 process and
+1024 MiB, and `ui_review_report` claims of 1 CPU, 1 process and 512 MiB.
+Both profiles also declare 1 IO token, matching executable-profile requirements.
+Workers are single-operation; separate sessions may execute concurrently only
+when their aggregate numeric reservations fit the effective CPU, process and
+memory capacities. Scheduled host-activity participants declare their existing
+numeric claims to the same arbiter. These are admission envelopes, not an
+operating-system memory-isolation guarantee; qualification measures process-tree
+peak memory against the reserved envelope. Exceeding it blocks qualification.
+
+Browser-bearing work inherits the session's admitted shared-activity lease;
+its worker reserves additional numeric resources without acquiring a second
+activity lease. Dead, mismatched or released parent leases reject admission.
+New activity requests cannot bypass an earlier quiet waiter. A child reservation
+under an already admitted activity lease preserves that lease's entitlement;
+it cannot prolong the lease or survive its owner. Numeric waiters use FIFO
+ordering. Admission waits at most five seconds or the remaining operation
+deadline, whichever is shorter, and fails with `resource_conflict` without work
+when capacity is insufficient. Cancellation removes queued reservations.
+All operation stages share one deadline; nested decode/render calls cannot reset
+it. Control handling remains independent of native work and large file processing.
 
 
 
@@ -6217,6 +6261,30 @@ attempts a failed locator publication with a null terminal reference, reports
 remaining cleanup. Terminal status without a valid terminal receipt is an artifact
 failure; it does not fabricate a successful receipt.
 
+The lifecycle coordinator is the sole owner of admission and terminal transition.
+An acquisition that completes after cancellation is registered and released before
+closure; it cannot publish ready state. Once stopping begins no operation may
+commit a bundle or publish a successful outcome. Each release is attempted within
+its existing owner deadline, once per cleanup attempt; a stalled release cannot
+prevent attempts for independent resources.
+
+Private detail and minimum recovery proof have separate deletion boundaries.
+Delete safely removable screenshots, observations, credentials and staged work
+even when another resource release fails. Persist exact provider-returned lease
+handles and process boot/start identities as private proof before exposing the
+acquisition. Never reconstruct allocation names. Proof needed by unreleased
+resources or failed terminal publication survives detail deletion and stale
+janitor evaluation. Age alone cannot delete an active runtime or unresolved proof.
+Status is observational. Stop may recover an exact proven-dead nonterminal
+session after both original supervisors are lost; ordinary terminal repetition
+returns the immutable recorded outcome. When a failed terminal outcome retains
+unresolved ownership, an explicit stop may retry those exact resources after the
+controller is proven dead. The original failed receipt remains byte-identical;
+successful later cleanup removes recovery proof without rewriting history.
+Missing, changed, cross-user or ambiguous
+proof fails closed without touching unrelated resources. Registry removal requires
+successful owned cleanup, validated terminal publication and retained-boundary scan.
+
 
 Verified by: TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-125, TH-HARNESS-AC-127
 
@@ -6284,11 +6352,19 @@ browser is the repository-installed Chromium 1217 (147.0.7727.15). No standalone
 Playwright CLI is installed. The API adapter owns private browser interactions.
 
 Bootstrap installs the profile through repository-pinned package tooling; doctor
-checks installed versions without installing. Review commands fail before
+checks installed versions without installing. Review work commands fail before
 acquisition for a missing/wrong core dependency. Artifact mode needs the Node
 packages but neither a browser executable nor Docker. Ambient PATH tools do not
 select package or browser versions. Optional Python, OCR, video and MCP tools are
 outside required readiness. No ordinary review command downloads or upgrades tools.
+
+`ui-review-status` and `ui-review-stop` use a minimal control profile: pinned
+Node, local contract validation, secure IO and exact session identity. They MUST
+NOT import, load or require Sharp, Playwright or axe. Exact recovery additionally
+requires only the tools used by the acquired resource's existing release owner;
+an unavailable release tool is a visible cleanup failure, not a reason to skip
+independent detail cleanup. No ambient tool fallback is permitted. Start and
+data-producing commands retain the complete core profile.
 
 Supported execution remains Linux/WSL2 amd64. Package updates require explicit
 qualification of action, PNG, transparency, accessibility, privacy, and lifecycle
@@ -7047,15 +7123,15 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | ID | Contract | Fixture or boundary condition | Required observable result | Failure/cleanup obligation |
 | --- | --- | --- | --- | --- |
 | TH-HARNESS-AC-102 | TH-HARNESS-REQ-415, TH-HARNESS-REQ-081, TH-HARNESS-REQ-552 | Inspect default, CI, release, owner-slice, and direct review plans | Seven helper commands have exact IDs/contracts; no review command closes or is selected as product-row work; existing design-review commands retain their interface. | Unexpected row evidence or aggregate selection blocks acceptance. |
-| TH-HARNESS-AC-103 | TH-HARNESS-REQ-552 | Empty ambient Node/pnpm PATH; conflicting global browser/image tools; missing/wrong core pin; absent optional tools | Qualified pinned core runs identically with conflicting ambient tools; missing core fails before acquisition; absent optional tools do not fail core readiness. | Exit 2 for core mismatch; no implicit install, browser upgrade, or fallback. |
+| TH-HARNESS-AC-103 | TH-HARNESS-REQ-552 | Empty ambient Node/pnpm PATH; conflicting global tools; missing/wrong core pin; damaged analysis installation during control | Work rejects core mismatch before acquisition; exact status/stop remain usable without analysis packages; unsafe identity rejects before effects. | Exit 2 for work/core mismatch; no implicit install, browser upgrade, or fallback. |
 | TH-HARNESS-AC-104 | TH-HARNESS-REQ-415, TH-HARNESS-REQ-416 | Omitted mode; explicit seeded profiles; invalid/blank mode; profile in dev/artifacts | Omission creates a fresh claimed seeded session; valid profile changes only its adopted claim set; invalid combinations fail before startup. | Exit 2; no service/data side effects on rejection. |
 | TH-HARNESS-AC-105 | TH-HARNESS-REQ-415, TH-HARNESS-REQ-416 | Borrowed dev origin; other loopback service; unavailable origin; external redirect | Only explicit selected origin is used; source remains live_unattested; stop leaves borrowed service and data intact; redirect is not followed. | Readiness 3 or navigation 1; no fallback/reset/migrate/borrowed teardown. |
 | TH-HARNESS-AC-106 | TH-HARNESS-REQ-415, TH-HARNESS-REQ-416 | Artifact mode with no Docker/browser installation | Exact imported files can be analyzed/reported; no services/browser are started. Browser operation is rejected. | Unsupported browser work exits 2; borrowed input files unchanged. |
 | TH-HARNESS-AC-107 | TH-HARNESS-REQ-081, TH-HARNESS-REQ-285, TH-HARNESS-REQ-616 | Every finite command in machine mode; start in machine mode; invalid preflight | Finite result is one schema-valid JSON object plus LF, no page data; start rejects machine mode; private refs appear only in transient results. | Exit 2 before child work for unsupported mode; stderr/receipt behavior matches contract. |
-| TH-HARNESS-AC-108 | TH-HARNESS-REQ-159, TH-HARNESS-REQ-416 | Two concurrent commands; two concurrent sessions; competing quiet measurement | One operation per session; independent sessions remain isolated; declared resource fairness applies; contention is bounded. | Lock failure 4; no browser capacity or host-activity bypass. |
+| TH-HARNESS-AC-108 | TH-HARNESS-REQ-159, TH-HARNESS-REQ-381, TH-HARNESS-REQ-416 | Concurrent commands and sessions; mixed raster/report/scheduled workers; quiet waiter; insufficient memory/CPU/process capacity | One operation per session; parallel reservations remain within capacity; parent activity is counted once; cancellation removes queued claims; process-tree peaks fit declared envelopes. | Contention 4 within five seconds or remaining deadline; no resource or quiet-waiter bypass. |
 | TH-HARNESS-AC-109 | TH-HARNESS-REQ-159, TH-HARNESS-REQ-417 | Action followed by stale ref/epoch; zero/two matching controls; disabled control; text containing shell metacharacters | Stale/ambiguous target is not acted on; text is passed as data; exact action is executed no more than once. | Stale exit 2, non-actionable exit 1; no forced/first-match action. |
 | TH-HARNESS-AC-110 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311 | Stop while busy; repeated stop; SIGINT/SIGTERM; owner/browser death; preparation failure | Session reaches closed/failed with exact primary cause; owned resources and private tree are removed where cleanup succeeds; status survives through retained locator. | Signal codes retained; cleanup-only 12; earlier failure stays primary. |
-| TH-HARNESS-AC-111 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-616 | Inject each partial-acquisition, file-open, close, cleanup, and terminal-publication failure | Remaining owned releases are attempted; failed ownership/cleanup remains visible; no unrelated session or borrowed file is removed. | No success after unsafe production or incomplete cleanup. |
+| TH-HARNESS-AC-111 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-502, TH-HARNESS-REQ-616 | Partial/late acquisition; stalled release; parent/controller/double death; PID reuse; aged live runtime; rollback and terminal-publication faults | Bounded independent releases continue; safe detail is purged; minimal unresolved proof survives; exact nonterminal recovery works; no late publication, unaccounted residue or unrelated deletion. | No success after unsafe production, missing terminal receipt or incomplete cleanup; valid terminal repetition remains immutable. |
 | TH-HARNESS-AC-112 | TH-HARNESS-REQ-284 | Font delay; geometry changing until timeout; geometry changes after screenshot; stable geometry with dynamic text | Stable case publishes one bundle; unstable candidate is discarded; dynamic text is labeled ordinary review without invented pixel stability. | Timeout 13 or unstable artifact 11; no action replay, tolerance adjustment, or recapture. |
 | TH-HARNESS-AC-113 | TH-HARNESS-REQ-417, TH-HARNESS-REQ-284 | Virtualized row absent, then explicitly scrolled into view; focus before/after capture | Absent rendered target is reported; explicit reveal enables observation; capture does not move focus/scroll or infer offscreen record absence. | Unavailable target 1; no hidden data mutation. |
 | TH-HARNESS-AC-114 | TH-HARNESS-REQ-284, TH-HARNESS-REQ-285 | Active registered/unregistered canonical capture; expected-only passing capture; wrong catalog join | Exact current joins import; fixture IDs may be empty; expected-only report shows no_actual; invalid join fails. | Invalid artifact 11; no filename-derived owner or fake actual pixels. |

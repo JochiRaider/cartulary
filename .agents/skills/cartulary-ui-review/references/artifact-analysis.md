@@ -38,7 +38,14 @@ diagnostic runs can be useful inputs. Expected-only imports remain `no_actual`:
 they can be reported, but cannot support operations requiring an actual/original
 image. A standalone PNG supplies no DOM or accessibility observations.
 
-Open the imported image and inspect the returned bundle's source and limitations.
+Read the exact `private_refs` entry whose `kind` is `bundle`. This points to
+`bundle.json`, not a PNG. Select `components.actual` or `components.original` when
+present; use `components.expected` for expected-only diagnostic inspection. Each
+component carries its relative `path`, `bytes`, media type and `sha256`. Resolve
+that path against this manifest's directory, verify bytes and digest, then open
+the resulting exact file with the local image viewer. Derived images use
+`derived[].ref` with the same resolution rule. Inspect source and limitations
+before interpreting pixels; a null channel has no image to inspect.
 Only load relevant fields of the
 [bundle schema](../../../../tools/schemas/cartulary.ui_review_bundle.v1.schema.json)
 when interpreting provenance or components.
@@ -83,7 +90,11 @@ CARTULARY_OUTPUT_MODE=machine make ui-review-report UI_SESSION="$review_session"
 
 Open the returned local HTML with an available local viewer while the session is
 alive. The report is offline and private; do not start a hosted viewer or upload
-it. If the available viewer cannot open local HTML, inspect returned images and
+it. Its bundled manifest resolves to the same digest-checked component bytes.
+Use Tab to reach zoom/reveal sliders, then arrows or Home/End to operate them.
+Inspect native-resolution images, relevant observations and unavailable-channel
+labels. A successful command or existing HTML file is not consumption evidence.
+If the available viewer cannot open local HTML, inspect returned images and
 observations directly and state that the interactive report was not inspected.
 Unavailable channels and expected-only evidence must remain visible in findings.
 

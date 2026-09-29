@@ -4,8 +4,15 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { ReviewFailure } from "./failure.mjs";
 
-export const repoRoot = path.resolve(import.meta.dirname, "../../../..");
+import { repoRoot } from "./policy.mjs";
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+export function controlProfile(root = repoRoot) {
+  try {
+    const pins = JSON.parse(readFileSync(path.join(root, "tools/toolchain_pins.json")));
+    if (process.version !== `v${pins.node_version}`) throw new Error("node pin mismatch");
+    return { node_version: pins.node_version };
+  } catch (cause) { throw new ReviewFailure("tool_configuration", { cause }); }
+}
 export function toolProfile(root = repoRoot) {
   try {
     const pinBytes = readFileSync(path.join(root, "tools/toolchain_pins.json"));

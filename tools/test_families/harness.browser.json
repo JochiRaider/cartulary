@@ -378,29 +378,6 @@
       "service_dependencies": []
     },
     {
-      "row_id": "harness.browser.boundary_support.private_ui_review_session_ownership_and_strict_b_b785350fa4",
-      "owner_id": "harness.browser",
-      "family_id": "harness.browser.boundary_support",
-      "collaborator_ids": [
-        "harness.command_surface"
-      ],
-      "verification_ids": [
-        "harness.browser.verification.support_contract"
-      ],
-      "runner": "shell",
-      "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_contract.v1"
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "standard",
-      "service_dependencies": []
-    },
-    {
       "row_id": "harness.browser.boundary_support.publicjsonclient_suite_a3aedb76f9",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -556,6 +533,144 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.ui_review_artifacts",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.ui_review_artifacts"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_artifacts.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "ui_review_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.ui_review_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.ui_review_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "ui_review_raster",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.ui_review_execution",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.ui_review_execution"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_execution.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "ui_review_parallel",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.ui_review_lifecycle",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.ui_review_lifecycle"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_lifecycle.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "ui_review_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.ui_review_presentation",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.ui_review_presentation"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_presentation.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "ui_review_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.ui_review_workflow",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.ui_review_workflow"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_workflow.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "ui_review_browser",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
@@ -813,6 +928,58 @@
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
       "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.integration.ui_review_seeded_default",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.ui_review_workflow"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_seeded_default.v1"
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.integration.ui_review_seeded_network_flow_claimed",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "harness.command_surface"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.ui_review_workflow"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_ui_review_seeded_network_flow_claimed.v1"
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
         "postgres"
       ]
     },

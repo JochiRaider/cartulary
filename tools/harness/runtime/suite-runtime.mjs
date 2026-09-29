@@ -16,6 +16,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
+import { processIdentity, processIdentityAlive } from "./host-admission.mjs";
+import { atomicLocalFile, readLocalFile } from "./secure-local-files.mjs";
 import path from "node:path";
 
 const ownerSchemaID = "cartulary.harness_suite_runtime_owner.v1";
@@ -173,6 +175,13 @@ export function cleanupStaleSuiteRuntimeRoots({
         throw new Error(`suite runtime janitor found an invalid creation time: ${candidate}`);
       }
       if (now - createdAt >= staleAgeMS) {
+        // Old roots without process proof are unresolved, not deletion authority.
+        // Recovery records belong to resource owners and outlive supervisor death.
+        let processProof;
+        try { processProof = JSON.parse(readLocalFile(path.join(candidate, "runtime-process.json"))); }
+        catch (error) { if (error.code === "ENOENT") continue; throw error; }
+        if (Object.keys(processProof ?? {}).sort().join(",") !== "boot,pid,start" || typeof processProof.boot !== "string" || !Number.isSafeInteger(processProof.pid) || processProof.pid < 1 || !/^\d+$/u.test(processProof.start)) throw new Error("invalid runtime process proof");
+        if (processIdentityAlive(processProof) || existsSync(path.join(candidate, "recovery"))) continue;
         removeOwnedRuntime(candidate, base, owner.lease_id);
         removed += 1;
       }
@@ -202,6 +211,16 @@ function runtimeBasePath({ repoRoot, runRoot, scratchRoot, create }) {
     }
   }
   return base;
+}
+
+function secretRegistry() {
+  const secrets = new Set();
+  const registerSecret = (value) => { const secret = String(value ?? ""); if (secret.length >= 8) secrets.add(secret); };
+  return {
+    registerSecret,
+    registerEnvironment(values) { for (const [name, value] of Object.entries(values ?? {})) if (sensitiveEnvironmentName.test(name)) registerSecret(value); },
+    forbiddenValues() { return [...secrets]; },
+  };
 }
 
 export function createSuiteRuntime({ repoRoot, runRoot, runID, scratchRoot } = {}) {
@@ -237,13 +256,14 @@ export function createSuiteRuntime({ repoRoot, runRoot, runID, scratchRoot } = {
     renameSync(staging, root);
     assertPrivateDirectory(root, "suite runtime root");
     readOwner(root);
+    atomicLocalFile(path.join(root, "runtime-process.json"), `${JSON.stringify(processIdentity())}\n`);
   } catch (error) {
     if (existsSync(staging)) rmSync(staging, { recursive: true, force: true });
     throw error;
   }
-  const secrets = new Set();
   let closed = false;
   return {
+    ...secretRegistry(),
     root,
     leaseID,
     runID,
@@ -254,18 +274,6 @@ export function createSuiteRuntime({ repoRoot, runRoot, runID, scratchRoot } = {
       const child = path.join(root, ...parts.map(String));
       if (!contained(root, child)) throw new Error("suite runtime child path escapes root");
       return child;
-    },
-    registerSecret(value) {
-      const secret = String(value ?? "");
-      if (secret.length >= 8) secrets.add(secret);
-    },
-    registerEnvironment(environment) {
-      for (const [name, value] of Object.entries(environment ?? {})) {
-        if (sensitiveEnvironmentName.test(name)) this.registerSecret(value);
-      }
-    },
-    forbiddenValues() {
-      return [...secrets];
     },
     close() {
       if (closed) return;
@@ -292,6 +300,7 @@ export function borrowSuiteRuntime({ repoRoot, runRoot, environment = process.en
     throw new Error("borrowed suite runtime identity does not match ownership proof");
   }
   return {
+    ...secretRegistry(),
     leaseID,
     root: resolved,
     runID,

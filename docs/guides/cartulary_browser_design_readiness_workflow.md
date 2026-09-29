@@ -82,6 +82,14 @@ capture/test-result association, including structurally valid failed diagnostics
 Expected-only evidence remains `no_actual`; it supports reports, not analysis
 requiring a primary image. No old schema translation or filename guessing occurs.
 
+Capture and analysis return a `kind: "bundle"` private reference to the exact
+manifest. Read it before opening an image: select a non-null component (actual or
+original, or expected for expected-only evidence) or a `derived[].ref`, resolve
+its `path` relative to the manifest directory, and verify its byte length and
+SHA-256. These references, not directory order or guessed filenames, identify the
+image. Inspect relevant native-resolution pixels and observation fields before
+recording findings. A command pass alone is not evidence consumption.
+
 Analyze a returned bundle with `make ui-analyze UI_SESSION=<exact-session.json>
 UI_REQUEST=<private-analysis.json>`:
 
@@ -100,6 +108,9 @@ Render the exact bundle with `make ui-review-report UI_SESSION=<exact-session.js
 UI_BUNDLE=bundle-1`. Open its returned local HTML while the session is live. It
 contains native-resolution originals, zoom, eligible comparisons and explicit
 unavailable/disabled channels. No server, remote viewer or upload is started.
+Its copy of the manifest resolves to the same exact component bytes. Tab reaches
+zoom and comparison sliders; arrows and Home/End operate them. Inspect the images
+and controls while the session lives, coordinate any human review, then stop.
 Axe violations/incomplete findings and nonzero image differences are diagnostics;
 command success does not assert accessibility, golden, product, release or
 publication success. Keyboard, focus and canonical contrast checks remain
@@ -118,6 +129,22 @@ artifacts fail without a partial bundle. Read the structured failure class,
 reason and diagnostic code rather than the generic Make exit. Cleanup failure is
 visible and retains ownership evidence for recovery; do not delete arbitrary
 runtime directories to conceal it.
+
+Status and stop use minimal control readiness and remain available when analysis
+engine packages are missing or damaged. Status never performs recovery. Exact
+stop can recover proven-dead nonterminal ownership after supervisor loss, with
+bounded independent releases. It removes safe private detail while retaining only
+unresolved proof. A later cleanup retry preserves any valid failed terminal receipt;
+missing or invalid terminal evidence is an artifact failure. Age is never enough
+to delete live resources or unresolved proof. Drain owned sessions before private
+layout changes and restart them afterward; preserve borrowed inputs and unrelated
+work. Do not delete proof to make rollback or cleanup appear successful.
+
+Raster and report operations use bounded worker processes with shared host
+admission. Raster claims are 1 CPU, 1 process, 1,024 MiB and 1 IO token; reports
+claim 1 CPU, 1 process, 512 MiB and 1 IO token. Parallel sessions share those
+capacities and quiet-work priority. Admission waits at most five seconds or the
+remaining operation deadline; insufficient capacity reports resource conflict.
 
 ### Interactive preparation
 

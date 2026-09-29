@@ -28,7 +28,7 @@ import {
   startManagedSuite,
 } from "../fixture-broker/providers.mjs";
 import { WorkGraphCache, workGraphCacheRootRelative } from "./cache.mjs";
-import { acquireHostAdmission } from "../../runtime/host-admission.mjs";
+import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
 import { createAtomicNDJSONWriter } from "./atomic-ndjson.mjs";
 import {
   captureCapabilitySnapshot,
@@ -960,7 +960,7 @@ async function main() {
       hostAdmission: (unit, signal) => {
         const exclusive = unit.exclusive_locks.includes("host_activity");
         if (!exclusive && !unit.shared_locks.includes("host_activity")) return null;
-        return acquireHostAdmission({ mode: exclusive ? "exclusive" : "shared", browsers: unit.resource_claims.browser_stack ?? 0, browserCapacity: resourceCapacities(snapshot).get("browser_stack"), signal, timeoutMs: unit.timeout_ms });
+        return acquireHostAdmission({ mode: exclusive ? "exclusive" : "shared", claims: unit.resource_claims, capacities: Object.fromEntries(resourceCapacities(snapshot)), parent: inheritedHostLease(), signal, timeoutMs: unit.timeout_ms });
       },
       fixtureBroker: broker,
       cache,

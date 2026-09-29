@@ -623,6 +623,11 @@ async function assertSuiteRuntimeBoundary() {
     owner.created_at = "2000-01-01T00:00:00.000Z";
     writeFileSync(ownerPath, `${JSON.stringify(owner)}\n`, { mode: 0o600 });
     chmodSync(ownerPath, 0o600);
+    assert.equal(cleanupStaleSuiteRuntimeRoots({ repoRoot: repo, runRoot, scratchRoot: scratch }).removed, 0);
+    const processFile = path.join(stale.root, "runtime-process.json");
+    const processProof = JSON.parse(readFileSync(processFile, "utf8"));
+    processProof.boot = "proven-other-boot";
+    writeFileSync(processFile, `${JSON.stringify(processProof)}\n`, { mode: 0o600 });
     const cleanup = cleanupStaleSuiteRuntimeRoots({
       repoRoot: repo,
       runRoot,

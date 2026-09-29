@@ -22,17 +22,21 @@ function json(file, value) {
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 }
 
-function child(command, args, environment, signal, output = "inherit") {
+function child(command, args, environment, signal, output = "inherit", onChildProcess = () => () => {}) {
   return new Promise((resolve, reject) => {
     signal?.throwIfAborted();
     const subprocess = spawn(command, args, { cwd: root, env: environment, stdio: output, detached: true });
+    let released = () => {};
+    try { if (subprocess.pid) released = onChildProcess(subprocess.pid); }
+    catch (error) { subprocess.kill("SIGKILL"); reject(error); }
     const stop = () => {
       try { process.kill(-subprocess.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") reject(error); }
     };
     signal?.addEventListener("abort", stop, { once: true });
     subprocess.once("error", (error) => { signal?.removeEventListener("abort", stop); reject(error); });
-    subprocess.once("close", (code, reason) => {
+    subprocess.once("close", async (code, reason) => {
       signal?.removeEventListener("abort", stop);
+      try { await released(); } catch (error) { reject(error); return; }
       if (code === 0 && !signal?.aborted) resolve();
       else reject(new Error(`${path.basename(command)} failed (${reason ?? code})`));
     });
@@ -71,7 +75,7 @@ export async function holdReviewSession({ check, signal, intervalMs = 3000 }) {
   }
 }
 
-export async function runPreparedReview({ environment = process.env, signal, onReady, hold, verifySamples = false, target = "browser-design-review", runID: selectedRunID, runRoot: selectedRunRoot, runtime: borrowedRuntime, provision = true, retainDetail = true, writeOutput = (value) => process.stdout.write(value) } = {}) {
+export async function runPreparedReview({ environment = process.env, signal, onReady, onOwnedResource = () => {}, onChildProcess, hold, verifySamples = false, target = "browser-design-review", runID: selectedRunID, runRoot: selectedRunRoot, runtime: borrowedRuntime, provision = true, retainDetail = true, writeOutput = (value) => process.stdout.write(value) } = {}) {
   const profile = reviewProfile(environment.REVIEW_PROFILE);
   const runID = selectedRunID ?? `design-review-${Date.now()}-${randomUUID().slice(0, 8)}`;
   const runRoot = selectedRunRoot ?? path.join(root, ".cartulary/test-results", runID);
@@ -115,7 +119,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
   let state = "preparing";
   const suiteController = {
     ensure() {
-      suite ??= startManagedSuite({ root, target, suiteRuntime: runtime, environment: base });
+      suite ??= startManagedSuite({ root, target, suiteRuntime: runtime, environment: base, onOwnedResource });
       return suite;
     },
     close() { suite?.close(); },
@@ -133,11 +137,11 @@ export async function runPreparedReview({ environment = process.env, signal, onR
     async acquire() {
       const buildEnvironment = { ...base, CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1", ...(provision ? {} : { CARTULARY_READINESS_CHECK_ONLY: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" }) };
       for (const prerequisite of provision ? ["build-web", "build-server-harness", "build-migrate", "test-service-images", "playwright-install"] : ["build-web"]) {
-        await child("make", ["--no-print-directory", prerequisite], { ...buildEnvironment, CARTULARY_TEST_TARGET: prerequisite }, signal, retainDetail ? "inherit" : "ignore");
+        await child("make", ["--no-print-directory", prerequisite], { ...buildEnvironment, CARTULARY_TEST_TARGET: prerequisite }, signal, retainDetail ? "inherit" : "ignore", onChildProcess);
       }
       signal?.throwIfAborted();
       broker = new FixtureBroker({
-        providers: productionFixtureProviders({ root, runtimeEnvironment: base, suiteRuntime: runtime, suiteController, signal }),
+        providers: productionFixtureProviders({ root, runtimeEnvironment: base, suiteRuntime: runtime, suiteController, signal, onOwnedResource, onChildProcess }),
         recordSink: (record) => json(path.join(runRoot, "_shared/fixture-leases", `${record.lease_id}.json`), record),
       });
       const lease = await broker.acquire("browser_stack", { affinityKey: `design-review-${profile}`, unitID: target, browserStage: "webserver-backed", runtimeProfileID: profile });
@@ -158,18 +162,22 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       writeOutput(`Browser review ready: ${attached.CARTULARY_WEB_E2E_PUBLIC_ORIGIN}\nPrivate login instructions: ${path.join(privateDirectory, "access.json")}\nSample files: ${review.samples}\nScenario index: ${path.join(runRoot, "review-session.json")}\n`);
       for (const scenario of review.scenarios) writeOutput(`  ${scenario.name}: ${scenario.url}\n`);
       writeOutput(hold ? "Smoke complete; cleaning up owned resources.\n" : "Press Ctrl-C to stop and remove this session's data.\n");
-      await onReady?.({ attached, review, runRoot, privateDirectory, check: () => child(process.execPath, ["tools/harness/browser/browser-session-evidence.mjs", "attach-json", attached.CARTULARY_WEB_E2E_STACK_JSON_FILE], attached, signal, "ignore") });
+      await onReady?.({ attached, review, runRoot, privateDirectory, check: () => child(process.execPath, ["tools/harness/browser/browser-session-evidence.mjs", "attach-json", attached.CARTULARY_WEB_E2E_STACK_JSON_FILE], attached, signal, "ignore", onChildProcess) });
     },
     async hold(attached) {
       if (hold) return hold(attached);
       // Check process identity, immutable build, and active ownership without
       // blocking signal handling or misclassifying interruption as a dead stack.
       await holdReviewSession({ signal, check: () => child(process.execPath,
-        ["tools/harness/browser/browser-session-evidence.mjs", "attach-json", attached.CARTULARY_WEB_E2E_STACK_JSON_FILE], attached, signal, "ignore") });
+        ["tools/harness/browser/browser-session-evidence.mjs", "attach-json", attached.CARTULARY_WEB_E2E_STACK_JSON_FILE], attached, signal, "ignore", onChildProcess) });
     },
     async close(error) {
       state = error ? "failed" : "closed";
-      try { await broker?.close(); } finally { suiteController.close(); }
+      const failures = [];
+      for (const release of [() => broker?.close(), () => suiteController.close()]) {
+        try { await release(); } catch (failure) { failures.push(failure); }
+      }
+      if (failures.length) throw new AggregateError(failures, "review resource cleanup failed");
     },
     async finish(error) {
       if (error) state = "failed";
@@ -191,16 +199,21 @@ export async function runPreparedReview({ environment = process.env, signal, onR
 
 // Recovery knows the exact single allocation owned by this preparation, never a
 // newest lease or a borrowed development service. The original owners terminate it.
-export async function recoverReviewPreparation({ runtime, profile, environment = process.env }) {
+export async function recoverReviewPreparation({ runtime, resources, onReleased = () => {}, environment = process.env }) {
   const { existsSync } = await import("node:fs");
   const { terminateBrowserStackLease, terminateManagedSuiteLease } = await import("../scheduler/fixture-broker/providers.mjs");
   const failures = [];
-  const base = { ...environment, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID, NODE_BIN: process.execPath };
-  const stack = runtime.privatePath("browser-stack-leases", `design-review-${reviewProfile(profile)}-allocation-001`, "stack.lease");
-  const suite = runtime.privatePath("test-services", "suite-lease.json");
-  for (const release of [
-    () => { if (existsSync(stack)) terminateBrowserStackLease({ root, leaseFile: stack, environment: base }); },
-    () => { if (existsSync(suite)) terminateManagedSuiteLease({ root, leaseFile: suite, executable: path.join(root, "tmp/toolbin/cartulary-test-services"), environment: base }); },
-  ]) { try { release(); } catch (error) { failures.push(error); } }
+  const privateResults = runtime.privatePath("lifecycle");
+  mkdirSync(path.join(privateResults, runtime.runID), { recursive: true, mode: 0o700 });
+  const base = { ...environment, CARTULARY_TEST_RESULTS_DIR: privateResults, CARTULARY_TEST_RUN_ID: runtime.runID, CARTULARY_TEST_TARGET: "ui-review", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID, NODE_BIN: process.execPath };
+  for (const kind of ["browser_stack", "managed_suite"]) for (const resource of resources.filter((entry) => entry.kind === kind)) {
+    try {
+      if (existsSync(resource.target)) {
+        if (kind === "browser_stack") terminateBrowserStackLease({ root, leaseFile: resource.target, environment: base });
+        else terminateManagedSuiteLease({ root, leaseFile: resource.target, executable: path.join(root, "tmp/toolbin/cartulary-test-services"), environment: base });
+      } else if (resource.state !== "pending") throw new Error("missing acquired recovery proof");
+      onReleased(resource);
+    } catch (error) { failures.push(error); }
+  }
   if (failures.length) throw new AggregateError(failures, "review resource recovery failed");
 }

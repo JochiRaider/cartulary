@@ -99,6 +99,27 @@ func TestStartSuiteIdentityRequiresExplicitPersistentProof(t *testing.T) {
 }
 
 func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
+	t.Run("discarded diagnostic history", func(t *testing.T) {
+		deps := defaultTestDependencies(t)
+		env := cloneEnv(deps.env)
+		env[suiteservices.SuiteIDEnv] = "suite-redaction"
+		lease := serviceLease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", OwnershipMode: "attach"}
+		payload, err := json.Marshal(lease)
+		if err != nil {
+			t.Fatal(err)
+		}
+		leasePath := filepath.Join(t.TempDir(), "lease.json")
+		if err := os.WriteFile(leasePath, payload, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if status := runTerminateSuite([]string{"--lease", leasePath}, env, deps.dependencies); status != 0 {
+			t.Fatalf("cleanup depended on discarded diagnostic history: %d", status)
+		}
+		events, err := suiteservices.ReadLifecycleEvents(env)
+		if (err != nil && !os.IsNotExist(err)) || len(events) != 0 {
+			t.Fatalf("cleanup fabricated lifecycle history: %v, %v", events, err)
+		}
+	})
 	deps := defaultTestDependencies(t)
 	env := cloneEnv(deps.env)
 	env[suiteservices.SuiteIDEnv] = "suite-redaction"

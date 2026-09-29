@@ -4,9 +4,10 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { repoRoot } from "../ui-review/toolchain.mjs";
+import { repoRoot } from "../ui-review/policy.mjs";
 import { schemaID, validate } from "../ui-review/contract.mjs";
 import { digest } from "../ui-review/session-files.mjs";
+import { importFixture } from "./ui-review-import-fixture.mjs";
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const cleanEnvironment = () => {
@@ -20,7 +21,8 @@ function make(args, env) {
   child.stdout.on("data", (part) => { output += part; }); child.stderr.on("data", (part) => { error += part; });
   return { child, output: () => output, ended: new Promise((resolve, reject) => { child.once("error", reject); child.once("close", (code) => resolve({ code, output, error })); }) };
 }
-export async function publicWorkflow({ seeded = false, resultsRoot, runID = "workflow" } = {}) {
+export async function publicWorkflow({ seeded = false, profile = "default", resultsRoot, runID = "workflow" } = {}) {
+  assert.ok(["default", "network_flow_claimed"].includes(profile));
   const privateRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-public-workflow-"));
   const env = cleanEnvironment(), privateRefs = [], manifests = [], sentinel = "review-private-sentinel-392884";
   let server, running, locator, requestIndex = 0;
@@ -52,7 +54,7 @@ export async function publicWorkflow({ seeded = false, resultsRoot, runID = "wor
       server = createServer((_request, response) => { response.setHeader("content-type", "text/html"); response.end(`<!doctype html><html lang="en"><title>Private review</title><body><main><h1>${sentinel}</h1><input aria-label="Private field" data-testid="field"><button data-testid="apply" onclick="document.querySelector('h1').textContent=document.querySelector('input').value">Apply</button><script>console.error('${sentinel}')</script></main></body></html>`); });
       await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     }
-    await start(seeded ? "seeded" : "dev", seeded ? ["REVIEW_PROFILE=default"] : [`UI_ORIGIN=http://127.0.0.1:${server.address().port}`]);
+    await start(seeded ? "seeded" : "dev", seeded ? [`REVIEW_PROFILE=${profile}`] : [`UI_ORIGIN=http://127.0.0.1:${server.address().port}`]);
     let epoch = (await invoke("ui-review-status")).epoch;
     const action = async (name, parameters = {}) => { const result = await invoke("ui-browser", { schema_id: schemaID("action"), expected_epoch: epoch, action: name, parameters }); epoch = result.epoch; return result; };
     const review = async () => {
@@ -60,6 +62,7 @@ export async function publicWorkflow({ seeded = false, resultsRoot, runID = "wor
       const captured = await invoke("ui-capture", { schema_id: schemaID("capture_request"), source: "page", expected_epoch: epoch });
       const file = captured.private_refs[0].absolute_path, bytes = readFileSync(file), bundle = JSON.parse(bytes); manifests.push([file, digest(bytes)]);
       assert.equal(bundle.source.kind, seeded ? "sealed_review" : "live_unattested");
+      if (seeded) assert.equal(bundle.source.runtime_profile_id, profile);
       const analyzed = await invoke("ui-analyze", { schema_id: schemaID("analysis_request"), bundle_id: captured.bundle_id, operations: ["contact_sheet", "crop"], crops: [{ x: 0, y: 0, width: 100, height: 100 }] });
       const rendered = await invoke("ui-review-report", null, [`UI_BUNDLE=${analyzed.bundle_id}`]);
       assert.match(readFileSync(rendered.private_refs[0].absolute_path, "utf8"), /Private UI review/u);
@@ -83,6 +86,17 @@ export async function publicWorkflow({ seeded = false, resultsRoot, runID = "wor
     const analyzed = await invoke("ui-analyze", { schema_id: schemaID("analysis_request"), bundle_id: imported[0].bundle_id, operations: ["exact_diff", "contact_sheet"], comparison: { kind: "reference", bundle_id: imported[1].bundle_id } });
     const bundle = JSON.parse(readFileSync(analyzed.private_refs[0].absolute_path)); assert.equal(bundle.analysis.comparison.different_pixels, 0);
     await invoke("ui-review-report", null, [`UI_BUNDLE=${analyzed.bundle_id}`]);
+    const canonical = importFixture(path.join(privateRoot, "canonical"));
+    const expected = readFileSync(path.join(repoRoot, canonical.goldenPath));
+    for (let index = 0; index < 2; index++) {
+      const imported = await invoke("ui-capture", { schema_id: schemaID("capture_request"), ...canonical.request });
+      const importedBundle = JSON.parse(readFileSync(imported.private_refs[0].absolute_path));
+      assert.equal(importedBundle.source.kind, "canonical_visual");
+      assert.equal(importedBundle.components.actual, null); assert.ok(importedBundle.limitations.includes("no_actual"));
+      assert.equal(importedBundle.components.expected.sha256, digest(expected));
+      await invoke("ui-review-report", null, [`UI_BUNDLE=${imported.bundle_id}`]);
+    }
+    assert.deepEqual(readFileSync(path.join(repoRoot, canonical.goldenPath)), expected);
     const artifactResult = await stop(); assert.deepEqual(readFileSync(reference), original);
     assert.ok(privateRefs.every((file) => !existsSync(file)));
     const inspect = (root) => { for (const entry of readdirSync(root, { withFileTypes: true })) { const file = path.join(root, entry.name); if (entry.isDirectory()) inspect(file); else { assert.ok(["session.json", "receipt.json", "terminal.json"].includes(entry.name)); const text = readFileSync(file, "utf8"); for (const secret of [sentinel, privateRoot, "private-telemetry", "private_refs"]) assert.ok(!text.includes(secret)); } } };

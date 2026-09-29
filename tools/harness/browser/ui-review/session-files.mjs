@@ -7,7 +7,7 @@ import { parseStrictJSON } from "../../contract/index.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { processIdentity, processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { restrictedExecutableInputRoots } from "../../test-catalog/restricted-input-boundary.mjs";
-import { repoRoot } from "./toolchain.mjs";
+import { repoRoot } from "./policy.mjs";
 import { ReviewFailure, validate, limits } from "./contract.mjs";
 
 export const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -55,31 +55,48 @@ export function registerSession({ locatorFile, sessionID, runtime }) {
   atomicLocalFile(path.join(registry, `${stem}.json`), jsonBytes(record));
   return record;
 }
-export function resolveSession(identity) {
+export function resolveSession(identity, { allowDead = false, allowAbsent = false } = {}) {
   try {
     const file = path.join(registry, `${identity.locator.session_id.slice(9)}.json`);
-    const record = JSON.parse(readLocalFile(file));
-    if (record.repository !== repoRoot || record.session_id !== identity.locator.session_id || record.locator !== identity.file || record.runtime.run_id !== identity.locator.run_id || !processIdentityAlive(record.process) || !/^[0-9a-f]{64}$/u.test(record.token) || record.socket !== path.join(registry, `${identity.locator.session_id.slice(9)}.sock`)) throw new Error("lease mismatch");
+    let bytes;
+    try { bytes = readLocalFile(file); }
+    catch (error) { if (allowAbsent && error.code === "ENOENT") return null; throw error; }
+    const record = JSON.parse(bytes);
+    if (!record.process || Object.keys(record.process).sort().join(",") !== "boot,pid,start" || !/^[a-f0-9-]{36}$/u.test(record.process.boot) || !Number.isSafeInteger(record.process.pid) || record.process.pid < 2 || !/^\d+$/u.test(record.process.start) || !/^\d+$/u.test(record.started_tick_ns) || !record.runtime || Object.keys(record.runtime).sort().join(",") !== "lease_id,root,run_id") throw new Error("invalid ownership identity");
+    if (record.repository !== repoRoot || record.session_id !== identity.locator.session_id || record.locator !== identity.file || record.runtime.run_id !== identity.locator.run_id || !/^[0-9a-f]{64}$/u.test(record.token) || record.socket !== path.join(registry, `${identity.locator.session_id.slice(9)}.sock`)) throw new Error("lease mismatch");
+    if (!processIdentityAlive(record.process)) {
+      if (!allowDead) throw new Error("dead owner");
+      return { ...record, dead: true };
+    }
     const socket = lstatSync(record.socket);
     if (!socket.isSocket() || socket.uid !== process.getuid() || (socket.mode & 0o777) !== 0o600) throw new Error("socket ownership");
     return record;
   } catch (cause) { throw new ReviewFailure("session_mismatch", { cause }); }
 }
 export function unregisterSession(record) {
-  for (const file of [record.socket, path.join(registry, `${record.session_id.slice(9)}.json`)]) {
+  for (const file of [record.socket, path.join(registry, `${record.session_id.slice(9)}.json`), `${record.socket}.recovery-lock`]) {
     try { unlinkSync(file); } catch (error) { if (error.code !== "ENOENT") throw error; }
   }
 }
+export function updateSessionRecord(record, fields) {
+  Object.assign(record, fields);
+  const { dead: _dead, ...persisted } = record;
+  atomicLocalFile(path.join(registry, `${record.session_id.slice(9)}.json`), jsonBytes(persisted), { replace: true });
+}
 export function terminalResult(identity, command, makeResult) {
   const ref = identity.locator.terminal_receipt;
+  if (!ref) throw new ReviewFailure("unsafe_artifact");
   let receipt;
   if (ref) {
     if (ref.path !== "ui-review/terminal.json" || ref.media_type !== "application/json") throw new ReviewFailure("invalid_artifact");
     const file = path.join(identity.runRoot, ref.path);
     if (path.relative(identity.runRoot, file).startsWith("..")) throw new ReviewFailure("invalid_artifact");
-    const bytes = readLocalFile(file);
+    let bytes;
+    try { bytes = readLocalFile(file); }
+    catch (cause) { throw new ReviewFailure("unsafe_artifact", { cause }); }
     if (bytes.length !== ref.bytes || digest(bytes) !== ref.sha256) throw new ReviewFailure("invalid_artifact");
-    receipt = validate("receipt", JSON.parse(bytes));
+    try { receipt = validate("receipt", JSON.parse(bytes)); }
+    catch (cause) { throw new ReviewFailure("invalid_artifact", { cause }); }
     if (receipt.session_id !== identity.locator.session_id || receipt.state !== identity.locator.state) throw new ReviewFailure("invalid_artifact");
   }
   return makeResult(receipt, ref);

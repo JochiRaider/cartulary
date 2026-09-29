@@ -33,11 +33,13 @@ function contained(parent, child) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-function run(command, args, { cwd, environment }) {
+function run(command, args, { cwd, environment, timeoutMS }) {
   const result = spawnSync(command, args, {
     cwd,
     env: { ...process.env, ...environment },
     stdio: "ignore",
+    timeout: timeoutMS,
+    killSignal: "SIGKILL",
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
@@ -47,15 +49,19 @@ function run(command, args, { cwd, environment }) {
   }
 }
 
-function acquireProcess(command, args, { cwd, environment, signal }) {
+function acquireProcess(command, args, { cwd, environment, signal, onChildProcess = () => () => {} }) {
   return new Promise((resolve, reject) => {
     signal?.throwIfAborted();
     const child = spawn(command, args, { cwd, env: { ...process.env, ...environment }, stdio: "ignore", detached: true });
+    let released = () => {};
+    try { if (child.pid) released = onChildProcess(child.pid); }
+    catch (error) { child.kill("SIGKILL"); reject(error); }
     const abort = () => { try { process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") reject(error); } };
     signal?.addEventListener("abort", abort, { once: true });
     child.once("error", (error) => { signal?.removeEventListener("abort", abort); reject(error); });
-    child.once("close", (status) => {
+    child.once("close", async (status) => {
       signal?.removeEventListener("abort", abort);
+      try { await released(); } catch (error) { reject(error); return; }
       if (signal?.aborted) reject(signal.reason);
       else if (status === 0) resolve();
       else reject(new Error(`${path.basename(command)} acquisition failed`));
@@ -264,13 +270,13 @@ function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }) {
 
 export function terminateManagedSuiteLease({ root, executable, leaseFile, environment }) {
   requireOwnerOnlyRegularFile(leaseFile, "managed suite recovery lease");
-  run(executable, ["terminate-suite", "--lease", leaseFile], { cwd: root, environment });
+  run(executable, ["terminate-suite", "--lease", leaseFile], { cwd: root, environment, timeoutMS: 120000 });
   rmSync(leaseFile, { force: true });
 }
 
 export function terminateBrowserStackLease({ root, leaseFile, environment }) {
   requireOwnerOnlyRegularFile(leaseFile, "browser stack recovery lease");
-  run(path.join(root, "tools/harness/browser/start-web-e2e.sh"), ["--session-stop", "--lease-file", leaseFile], { cwd: root, environment });
+  run(path.join(root, "tools/harness/browser/start-web-e2e.sh"), ["--session-stop", "--lease-file", leaseFile], { cwd: root, environment, timeoutMS: 120000 });
 }
 
 export function startManagedSuite({
@@ -280,6 +286,7 @@ export function startManagedSuite({
   environment = {},
   executable: configuredExecutable,
   executableArgs = [],
+  onOwnedResource = () => {},
 }) {
   const suiteRoot = suiteRuntime.privatePath("test-services");
   mkdirSync(suiteRoot, { recursive: true, mode: 0o700 });
@@ -299,6 +306,7 @@ export function startManagedSuite({
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
   };
+  onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "pending" });
   const start = spawnSync(executable, [
     ...executableArgs,
     "start-suite",
@@ -415,6 +423,7 @@ export function startManagedSuite({
   suiteRuntime.registerEnvironment(suiteEnvironment);
   rmSync(envFile, { force: true });
   let closed = false;
+  onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "acquired" });
   return {
     environment: suiteEnvironment,
     leaseFile,
@@ -422,6 +431,7 @@ export function startManagedSuite({
     close() {
       if (closed) return;
       terminateManagedSuiteLease({ root, executable, leaseFile, environment: { ...environment, ...suiteEnvironment } });
+      onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "released" });
       closed = true;
     },
   };
@@ -465,6 +475,8 @@ export function productionFixtureProviders({
   suiteController,
   suiteRuntime,
   signal,
+  onOwnedResource = () => {},
+  onChildProcess,
 }) {
   const cloneOrdinals = new Map();
   const browserAllocationOrdinals = new Map();
@@ -504,6 +516,7 @@ export function productionFixtureProviders({
         mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
         const envFile = path.join(sessionRoot, "stack.env");
         const leaseFile = path.join(sessionRoot, "stack.lease");
+        onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "pending" });
         const lifecycle = path.join(root, "tools/harness/browser/start-web-e2e.sh");
         const profiled = Boolean(fixtureProfileID || snapshotKey || builderUnitID);
         if (
@@ -541,7 +554,7 @@ export function productionFixtureProviders({
             : {}),
         };
         try {
-          await acquireProcess(lifecycle, ["--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal });
+          await acquireProcess(lifecycle, ["--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal, onChildProcess });
         } catch (error) {
           if (existsSync(leaseFile)) {
             try { terminateBrowserStackLease({ root, leaseFile, environment }); }
@@ -585,7 +598,11 @@ export function productionFixtureProviders({
           CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
           CARTULARY_WEB_E2E_SESSION_LEASE_FILE: leaseFile,
         };
-        const close = () => terminateBrowserStackLease({ root, leaseFile, environment: { ...environment, ...unitEnvironment } });
+        onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "acquired" });
+        const close = () => {
+          terminateBrowserStackLease({ root, leaseFile, environment: { ...environment, ...unitEnvironment } });
+          onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "released" });
+        };
         return {
           ownership: "owned",
           resource_ids: [

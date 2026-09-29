@@ -1,10 +1,8 @@
 import sharp from "sharp";
+import { fraction } from "./image-math.mjs";
 import { ReviewFailure, limits } from "./contract.mjs";
 import { decodePNG, encodePNG } from "./png.mjs";
 
-export function fraction(count, total) {
-  return Number((BigInt(count) * 2000000n + BigInt(total)) / (2n * BigInt(total))) / 1000000;
-}
 export function exactDifference(left, right) {
   if (left.width !== right.width || left.height !== right.height) throw new ReviewFailure("invalid_artifact");
   const data = Buffer.alloc(left.data.length); let different_pixels = 0;
@@ -58,21 +56,27 @@ export async function contactSheet(images) {
 export async function computeImages(job) {
   if (!Array.isArray(job.operations) || job.primary.length > limits.png || (job.secondary?.length ?? 0) > limits.png) throw new ReviewFailure("invalid_artifact");
   const image = await decodePNG(job.primary), outputs = [], cropped = [];
+  let outputBytes = 0;
+  const append = (output) => {
+    outputBytes += output.bytes.length;
+    if (outputBytes > (job.maximumBytes ?? limits.bundle)) throw new ReviewFailure("observation_limit");
+    outputs.push(output);
+  };
   if (job.operations.includes("crop")) for (const rectangle of job.crops) {
-    const bytes = await encodePNG(cropImage(image, rectangle)); cropped.push(bytes); outputs.push({ kind: "crop", rectangle, bytes });
+    const bytes = await encodePNG(cropImage(image, rectangle)); append({ kind: "crop", rectangle, bytes }); cropped.push(bytes);
   }
-  if (job.operations.includes("overlay")) outputs.push({ kind: "overlay", rectangle: null, bytes: await encodePNG(overlayImage(image, job.rectangles, job.transform)) });
+  if (job.operations.includes("overlay")) append({ kind: "overlay", rectangle: null, bytes: await encodePNG(overlayImage(image, job.rectangles, job.transform)) });
   let comparison = null, diff;
   if (job.operations.includes("exact_diff")) {
     const computed = exactDifference(image, await decodePNG(job.secondary));
-    diff = await encodePNG(computed.image); outputs.push({ kind: "exact_diff", rectangle: null, bytes: diff });
+    diff = await encodePNG(computed.image); append({ kind: "exact_diff", rectangle: null, bytes: diff });
     comparison = { width: image.width, height: image.height, different_pixels: computed.different_pixels, total_pixels: computed.total_pixels, different_fraction: computed.different_fraction };
   }
   if (job.operations.includes("contact_sheet")) {
     const inputs = [...job.contactInputs, ...cropped];
     // A requested exact diff is a newly derived diagnostic, not the source
     // bundle's optional diff channel. The specified sheet uses source channels.
-    outputs.push({ kind: "contact_sheet", rectangle: null, bytes: await encodePNG(await contactSheet(inputs)) });
+    append({ kind: "contact_sheet", rectangle: null, bytes: await encodePNG(await contactSheet(inputs)) });
   }
   return { outputs, comparison };
 }

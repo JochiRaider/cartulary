@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { commands, ReviewFailure } from "./contract.mjs";
-import { repoRoot } from "./toolchain.mjs";
+import { repoRoot } from "./policy.mjs";
 import { resolveOutputMode } from "../../contract/index.mjs";
 
 export function resolveInputs(command, environment = process.env) {

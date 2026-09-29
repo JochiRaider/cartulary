@@ -1,8 +1,11 @@
+import { freeze } from "./immutable.mjs";
+import { captureObservation } from "./browser-observation.mjs";
 import { chromium } from "playwright";
 import { randomBytes } from "node:crypto";
 import { accessSync, constants } from "node:fs";
 import { ReviewFailure, limits, schemaID, validate } from "./contract.mjs";
 import { reviewTotp } from "../design-review-seed.mjs";
+import { boundedCleanup, ownedProcess, stopOwnedProcess } from "./ownership.mjs";
 
 export function browserReady() {
   try { accessSync(chromium.executablePath(), constants.X_OK); }
@@ -15,16 +18,22 @@ function boundedText(value, maximum = 4096) {
   while (end > 0 && (bytes[end] & 0xc0) === 0x80) end--;
   return { value: bytes.subarray(0, end).toString("utf8"), truncated: true };
 }
-export const unavailableAxe = (status = "unavailable") => ({ status, engine_version: null, scope: "main_document", violations: [], incomplete: [], unassessed_frames: null });
+const unavailableAxe = (status = "unavailable") => ({ status, engine_version: null, scope: "main_document", violations: [], incomplete: [], unassessed_frames: null });
 export class ReviewBrowser {
-  constructor({ origin, mode, actors = {}, onLost = () => {} }) {
+  constructor({ origin, mode, actors = {}, onLost = () => {}, onOwnedResource = () => {} }) {
     this.origin = origin; this.mode = mode; this.actors = actors; this.onLost = onLost;
+    this.onOwnedResource = onOwnedResource;
     this.epoch = 0; this.generation = 0; this.references = new Map(); this.sequence = 0; this.needsSnapshot = false; this.closing = false;
     this.channels = { console: { records: [], truncated: false }, network: { records: [], truncated: false } };
   }
   async start() {
     browserReady();
-    try { this.browser = await chromium.launch({ headless: true, timeout: 30000, env: { PATH: "/usr/bin:/bin", HOME: process.env.HOME ?? "/tmp", LANG: "en_US.UTF-8" } }); }
+    try {
+      this.server = await chromium.launchServer({ host: "127.0.0.1", headless: true, timeout: 30000, env: { PATH: "/usr/bin:/bin", HOME: process.env.HOME ?? "/tmp", LANG: "en_US.UTF-8" } });
+      this.process = ownedProcess(this.server.process().pid);
+      await this.onOwnedResource({ kind: "browser_process", target: this.process });
+      this.browser = await chromium.connect(this.server.wsEndpoint(), { timeout: 30000 });
+    }
     catch (cause) { throw new ReviewFailure("startup_failed", { cause }); }
     this.browser.on("disconnected", () => { if (!this.closing) this.onLost(new ReviewFailure("session_lost")); });
     await this.newContext();
@@ -180,7 +189,24 @@ export class ReviewBrowser {
     const fonts = await this.page.evaluate(() => Array.from(document.fonts, ({ family, style, weight, status }) => ({ family, style, weight, status })));
     if (fonts.length > 128 || fonts.some((font) => Object.values(font).some((value) => Buffer.byteLength(value) > 1024))) throw new ReviewFailure("observation_limit");
     const axe = { ...unavailableAxe("disabled"), unassessed_frames: await this.page.locator("iframe").count() };
-    return validate("observations", { schema_id: schemaID("observations"), elements, fonts, accessibility_snapshot, axe, ...structuredClone(this.channels) });
+    return freeze(validate("observations", { schema_id: schemaID("observations"), elements, fonts, accessibility_snapshot, axe, ...structuredClone(this.channels) }));
   }
-  async close() { this.closing = true; await this.browser?.close(); }
+  version() { return this.browser.version(); }
+  async capture(request, context, operationID, stage) {
+    if (request.expected_epoch !== this.epoch || this.needsSnapshot) throw new ReviewFailure("session_mismatch");
+    // Only this adapter grants driver access to its observation implementation.
+    const owner = this;
+    const capability = Object.freeze({ page: this.page, get epoch() { return owner.epoch; }, get generation() { return owner.generation; }, resolve: (target) => owner.resolve(target), observe: (entries) => owner.observe(entries) });
+    return captureObservation(capability, request, context, operationID, stage);
+  }
+  async close() {
+    this.closing = true;
+    try { await boundedCleanup(async () => { await this.browser?.close(); await this.server?.close(); }, 10000); }
+    finally {
+      if (this.process) {
+        await stopOwnedProcess(this.process);
+        await this.onOwnedResource({ kind: "browser_process", target: this.process, state: "released" });
+      }
+    }
+  }
 }

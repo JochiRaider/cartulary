@@ -1,9 +1,11 @@
 import path from "node:path";
+import { freeze } from "./immutable.mjs";
+import { reviewPins } from "./policy.mjs";
 import { validateSchemaSync, parseStrictJSON } from "../../contract/index.mjs";
 import { artifact, components } from "./bundles.mjs";
 import { digest, inputPath, readInput } from "./session-files.mjs";
 import { catalogRow, containedFile, one, readJSON } from "./source.mjs";
-import { repoRoot } from "./toolchain.mjs";
+import { repoRoot } from "./policy.mjs";
 import { ReviewFailure, limits } from "./contract.mjs";
 
 function exactAttachmentFile(runRoot, file) {
@@ -24,7 +26,7 @@ function specs(suites, depth = 0) {
   return suites.flatMap((suite) => [...(suite.specs ?? []), ...specs(suite.suites ?? [], depth + 1)]);
 }
 export function selectCaptureResult(report, capture, runRoot) {
-  if (report.config?.version !== "1.59.1") throw new ReviewFailure("invalid_artifact");
+  if (report.config?.version !== reviewPins().playwright) throw new ReviewFailure("invalid_artifact");
   const matches = [];
   for (const spec of specs(report.suites)) for (const test of spec.tests ?? []) for (const result of test.results ?? []) {
     if (test.projectName !== capture.project_id || spec.title !== capture.test_title || path.resolve(report.config.rootDir, spec.file) !== path.resolve(repoRoot, capture.assertion_file)) continue;
@@ -118,10 +120,20 @@ export async function importCanonical(request) {
       put("trace", bytes, "application/zip");
     }
     if (!refs.expected && !refs.actual) throw new ReviewFailure("invalid_artifact");
-    return { files, metadata: {
+    return { files, metadata: freeze({
       source: { kind: "canonical_visual", workspace_digest: manifest.source_digest.slice(7), served_source_digest: receipt.source_digest.slice(7), renderer_profile_id: renderer.profile_id, browser_version: renderer.chromium_version, runtime_profile_id: group.runtime_profile_id, import_ref: { input_path: reconciliation.path, input_sha256: digest(reconciliation.bytes), metadata: { reconciliation: reconciliation.value, capture_intent: capture, source_identity: manifest, fixture } } },
       binding: { owner_id: capture.owner_id, row_id: capture.row_id, scenario_id: capture.scenario_id, capture_id: capture.capture_id, fixture_ids: fixtures.map((entry) => entry.fixture_id).sort() },
       components: refs, limitations: ["no_axe", "no_dom", ...(!refs.actual ? ["no_actual"] : []), ...(!refs.trace ? ["no_trace"] : [])].sort(),
-    } };
+    }) };
   } catch (cause) { if (cause instanceof ReviewFailure) throw cause; throw new ReviewFailure("invalid_artifact", { cause }); }
+}
+
+/** Producer-specific joins end here. Missing scope is not comparable evidence;
+ * it does not prevent an expected-only diagnostic import or report.
+ */
+export function canonicalComparison(source) {
+  if (source.kind !== "canonical_visual") return null;
+  const metadata = source.import_ref?.metadata, fixture = metadata?.fixture;
+  if (!metadata || !fixture?.capture_scope || !Array.isArray(fixture.dynamic_masks) || typeof fixture.no_dynamic_regions !== "boolean" || (fixture.no_dynamic_regions ? fixture.dynamic_masks.length !== 0 : fixture.dynamic_masks.length === 0)) return null;
+  return freeze({ renderer: source.renderer_profile_id, source_kind: source.kind, runtime: source.runtime_profile_id, profile: structuredClone(metadata.capture_intent.capture_profile), capture_id: metadata.capture_intent.capture_id, scenario: metadata.capture_intent.scenario_id, scope: structuredClone(fixture.capture_scope), masks: [...fixture.dynamic_masks].sort(), no_dynamic_regions: fixture.no_dynamic_regions });
 }

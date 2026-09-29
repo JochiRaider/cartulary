@@ -913,7 +913,10 @@ func beginCleanupLifecycleIfNeeded(env map[string]string) (bool, error) {
 	if err != nil || !ok {
 		return false, err
 	}
-	if state == "failed_start" || state == "cleaned" {
+	// The exact validated service lease remains cleanup authority after private
+	// diagnostic history is discarded. Do not reconstruct lifecycle events when
+	// there is no started lifecycle to finish.
+	if state == "requested" || state == "failed_start" || state == "cleaned" {
 		return false, nil
 	}
 	if state == "cleaning" {

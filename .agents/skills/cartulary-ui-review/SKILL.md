@@ -54,7 +54,12 @@ The adopted owner governs behavior; schemas are its machine projections.
 - Write requests as UTF-8 JSON in unique caller-owned scratch storage: directories
   `0700`, files `0600`, outside documentation paths. Keep private text in request
   files, not command arguments. Do not tee transient results into retained logs.
-- Open returned image paths with the available local image viewer. Inspect
+- A capture/analysis result returns a `kind: "bundle"` manifest path, not an
+  image path. Read that exact manifest, select a non-null `components` reference
+  or `derived[].ref`, and resolve its `path` relative to the manifest directory.
+  Verify its byte length and SHA-256 before opening it with the local image viewer.
+  Never infer layout from bundle IDs, sibling directories or report filenames.
+  Inspect
   originals at useful resolution; contact sheets help triage, and crops help
   inspect detail. Read only the observation fields relevant to the question.
   Capture success alone is not a visual assessment.

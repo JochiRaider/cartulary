@@ -611,7 +611,7 @@ export async function runWorkGraph({
               try {
                 result = await executeUnit(unit, {
                   cwd,
-                  environment,
+                  environment: hostLease ? { ...environment, CARTULARY_HOST_ADMISSION_LEASE: hostLease.token } : environment,
                   fixtureLease: lease,
                   signal: controller.signal,
                 });

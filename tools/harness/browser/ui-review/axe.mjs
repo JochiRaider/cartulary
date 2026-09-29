@@ -1,10 +1,12 @@
+import { reviewPins } from "./policy.mjs";
+import { freeze } from "./immutable.mjs";
 import AxeBuilder from "@axe-core/playwright";
 import { ReviewFailure, limits } from "./contract.mjs";
 
 export const axeTags = Object.freeze(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]);
 export function normalizeAxe(value, unassessedFrames) {
   try {
-    if (value?.testEngine?.version !== "4.13.0" || !Number.isSafeInteger(unassessedFrames) || unassessedFrames < 0 || !Array.isArray(value.violations) || !Array.isArray(value.incomplete)) throw new Error("unsupported engine result");
+    if (value?.testEngine?.version !== reviewPins()["axe-core"] || !Number.isSafeInteger(unassessedFrames) || unassessedFrames < 0 || !Array.isArray(value.violations) || !Array.isArray(value.incomplete)) throw new Error("unsupported engine result");
     let occurrences = 0;
     const normalize = (entries) => entries.map((entry) => {
       if (typeof entry.id !== "string" || !entry.id || Buffer.byteLength(entry.id) > 1024 || ![null, "minor", "moderate", "serious", "critical"].includes(entry.impact) || !Array.isArray(entry.nodes) || !entry.nodes.length) throw new Error("malformed finding");
@@ -19,9 +21,9 @@ export function normalizeAxe(value, unassessedFrames) {
       });
       return { rule_id: entry.id, impact: entry.impact, node_refs };
     });
-    const result = { status: "completed", engine_version: "4.13.0", scope: "main_document", violations: normalize(value.violations), incomplete: normalize(value.incomplete), unassessed_frames: unassessedFrames };
+    const result = { status: "completed", engine_version: reviewPins()["axe-core"], scope: "main_document", violations: normalize(value.violations), incomplete: normalize(value.incomplete), unassessed_frames: unassessedFrames };
     if (Buffer.byteLength(JSON.stringify(result)) > limits.component) throw new ReviewFailure("observation_limit");
-    return result;
+    return freeze(result);
   } catch (cause) { if (cause instanceof ReviewFailure) throw cause; throw new ReviewFailure("invalid_artifact", { cause }); }
 }
 export async function observeAxe(page) {

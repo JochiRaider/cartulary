@@ -1,4 +1,6 @@
+import { reviewPins } from "./policy.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../../contract/index.mjs";
+import { validateBundleSemantics } from "./bundle-semantics.mjs";
 
 export const schemaID = (name) => `cartulary.ui_review_${name}.v1`;
 export const commandID = (name) => `cartulary.harness.command.${name.replaceAll("-", "_")}.v1`;
@@ -25,6 +27,7 @@ export function validate(name, value, code = "invalid_artifact") {
     }
     if (name === "session" && value.terminal_receipt && !["closed", "failed"].includes(value.state)) throw new Error("live terminal reference");
     if (name === "bundle") {
+      validateBundleSemantics(value);
       for (const values of [value.limitations, value.binding?.fixture_ids ?? []]) if (values.some((item, index) => index > 0 && item <= values[index - 1])) throw new Error("unordered set");
       if (value.source.kind === "reference_image" && value.source.import_ref.metadata !== null) throw new Error("reference metadata");
       if (value.source.kind === "canonical_visual" && value.source.import_ref.metadata === null) throw new Error("missing canonical metadata");
@@ -34,7 +37,7 @@ export function validate(name, value, code = "invalid_artifact") {
       for (const entry of value.derived) if ((entry.kind === "crop") !== (entry.rectangle !== null)) throw new Error("crop rectangle");
     }
     if (name === "observations") {
-      if ((value.axe.status === "completed") !== (value.axe.engine_version === "4.13.0") || (value.axe.status !== "completed" && value.axe.engine_version !== null)) throw new Error("axe engine identity");
+      if ((value.axe.status === "completed") !== (value.axe.engine_version === reviewPins()["axe-core"]) || (value.axe.status !== "completed" && value.axe.engine_version !== null)) throw new Error("axe engine identity");
       if (value.axe.violations.concat(value.axe.incomplete).reduce((sum, entry) => sum + entry.node_refs.length, 0) > 1000) throw new Error("axe occurrence limit");
       if (value.accessibility_snapshot !== null && Buffer.byteLength(value.accessibility_snapshot) > limits.snapshot) throw new Error("snapshot limit");
       if (value.axe.status !== "completed" && (value.axe.violations.length || value.axe.incomplete.length)) throw new Error("unavailable findings");

@@ -161,7 +161,14 @@
   ui-analyze \
   ui-review-report \
   ui-review-stop \
-  harness-ui-review-contract
+  harness-ui-review-contract \
+  harness-ui-review-lifecycle \
+  harness-ui-review-artifacts \
+  harness-ui-review-presentation \
+  harness-ui-review-execution \
+  harness-ui-review-workflow \
+  harness-ui-review-seeded-default \
+  harness-ui-review-seeded-network-flow-claimed
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -1760,5 +1767,40 @@ ui-review-stop:
 harness-ui-review-contract: export CARTULARY_TEST_TARGET ?= harness-ui-review-contract
 harness-ui-review-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-ui-review-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-lifecycle.mjs ./tools/harness/browser/tests/test-ui-review-bundles.mjs ./tools/harness/browser/tests/test-ui-review-analysis.mjs ./tools/harness/browser/tests/test-ui-review-workflow.mjs
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-contract.mjs
+
+harness-ui-review-lifecycle: export CARTULARY_TEST_TARGET ?= harness-ui-review-lifecycle
+harness-ui-review-lifecycle: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-ui-review-lifecycle: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-lifecycle" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-lifecycle.mjs
+
+harness-ui-review-artifacts: export CARTULARY_TEST_TARGET ?= harness-ui-review-artifacts
+harness-ui-review-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-ui-review-artifacts: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-artifacts" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-bundles.mjs
+
+harness-ui-review-presentation: export CARTULARY_TEST_TARGET ?= harness-ui-review-presentation
+harness-ui-review-presentation: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-ui-review-presentation: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-presentation" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-analysis.mjs
+
+harness-ui-review-execution: export CARTULARY_TEST_TARGET ?= harness-ui-review-execution
+harness-ui-review-execution: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-ui-review-execution: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-execution" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-execution.mjs
+
+harness-ui-review-workflow: export CARTULARY_TEST_TARGET ?= harness-ui-review-workflow
+harness-ui-review-workflow: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-ui-review-workflow: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-workflow" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-workflow.mjs
+
+harness-ui-review-seeded-default: export CARTULARY_TEST_TARGET ?= harness-ui-review-seeded-default
+harness-ui-review-seeded-default: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-ui-review-seeded-default: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-seeded-default" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env CARTULARY_UI_REVIEW_TEST_PROFILE=default $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-seeded.mjs
+
+harness-ui-review-seeded-network-flow-claimed: export CARTULARY_TEST_TARGET ?= harness-ui-review-seeded-network-flow-claimed
+harness-ui-review-seeded-network-flow-claimed: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-ui-review-seeded-network-flow-claimed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-seeded-network-flow-claimed" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env CARTULARY_UI_REVIEW_TEST_PROFILE=network_flow_claimed $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-seeded.mjs
 

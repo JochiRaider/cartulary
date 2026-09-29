@@ -70,6 +70,10 @@ const expectedProfiles = Object.freeze({
     "performance_fixture_builder",
     "postgres_catalog_isolated",
     "standard",
+    "ui_review_browser",
+    "ui_review_parallel",
+    "ui_review_raster",
+    "ui_review_report",
   ],
 });
 function readStrictJSON(file) {

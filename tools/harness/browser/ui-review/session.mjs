@@ -2,15 +2,18 @@ import { randomBytes } from "node:crypto";
 import { accessSync, constants } from "node:fs";
 import path from "node:path";
 import { createSuiteRuntime, scanRetainedRoot } from "../../runtime/suite-runtime.mjs";
-import { acquireHostAdmission } from "../../runtime/host-admission.mjs";
-import { atomicLocalFile, privateDirectory, readLocalFile } from "../../runtime/secure-local-files.mjs";
-import { captureCapabilitySnapshot } from "../../scheduler/work-graph/capability.mjs";
+import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
+import { readLocalFile } from "../../runtime/secure-local-files.mjs";
+import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/source-snapshot.mjs";
-import { runPreparedReview } from "../review-preparation.mjs";
+import { prepareReview } from "./preparation.mjs";
+import { boundedCleanup, purgeReviewDetail, recordResource, recoveryResources, stopOwnedProcess } from "./ownership.mjs";
 import { ReviewBrowser, browserReady } from "./browser.mjs";
 import { commandID, emptyCounts, failureRecord, limits, result, ReviewFailure, schemaID } from "./contract.mjs";
-import { jsonBytes, newRunRoot, publishJSON, registerSession, unregisterSession } from "./session-files.mjs";
-import { repoRoot } from "./toolchain.mjs";
+import { newRunRoot, publishJSON, registerSession, updateSessionRecord } from "./session-files.mjs";
+import { finishTerminal } from "./terminal.mjs";
+import { ArtifactStore } from "./artifact-store.mjs";
+import { repoRoot } from "./policy.mjs";
 
 const now = () => new Date().toISOString();
 const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -20,7 +23,7 @@ export class ReviewSession {
     this.operationID = 0; this.total = emptyCounts(); this.started = now(); this.startedTick = performance.now();
     this.sessionID = `uireview-${randomBytes(16).toString("hex")}`; this.state = "preparing";
     this.failures = []; this.exitCode = 0; this.abort = new AbortController(); this.receipt = null;
-    this.privateBytes = 0;
+    this.store = new ArtifactStore({ sessionID: this.sessionID, profile, signal: this.abort.signal, privatePath: (...parts) => this.runtime.privatePath(...parts) });
   }
   initialize(environment) {
     if (this.mode !== "artifacts") {
@@ -40,20 +43,24 @@ export class ReviewSession {
     publishJSON(this.locatorFile, "session", { schema_id: schemaID("session"), session_id: this.sessionID, run_id: this.runID, mode: this.mode, state: this.state, created_at: this.started, updated_at: now(), terminal_receipt: this.receipt }, { replace: true });
   }
   async prepare() {
-    this.capacity = captureCapabilitySnapshot({ root: repoRoot }).port_lanes;
+    if (this.preparing) return this.preparing;
+    this.preparing = this.prepareMode();
+    return this.preparing;
+  }
+  async prepareMode() {
+    this.capacities = Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot })));
+    this.parentLease = inheritedHostLease();
     if (this.mode !== "artifacts") {
-      try { this.hostLease = await acquireHostAdmission({ browsers: 1, browserCapacity: this.capacity, signal: this.abort.signal }); }
+      try { this.hostLease = await acquireHostAdmission({ claims: { browser_stack: 1 }, capacities: this.capacities, parent: this.parentLease, signal: this.abort.signal }); }
       catch (cause) { throw new ReviewFailure("capacity_exceeded", { cause }); }
       this.workspaceDigest = buildSourceSnapshot(repoRoot).digest.replace(/^sha256:/u, "");
       let origin = this.input.UI_ORIGIN;
       let actors = {};
       if (this.mode === "seeded") {
-        const ready = Promise.withResolvers();
-        const hold = Promise.withResolvers(); this.releasePreparation = hold.resolve;
-        const lifecycleRoot = this.runtime.privatePath("lifecycle", this.runID);
-        this.preparation = runPreparedReview({ environment: { ...process.env, REVIEW_PROFILE: this.input.REVIEW_PROFILE }, signal: this.abort.signal, target: "ui-review", runID: this.runID, runRoot: lifecycleRoot, runtime: this.runtime, provision: false, retainDetail: false, writeOutput: () => {}, onReady: ready.resolve, hold: () => hold.promise });
-        this.preparation.catch(ready.reject);
-        const prepared = await ready.promise;
+        this.preparedOwner = prepareReview({ input: this.input, runtime: this.runtime, runID: this.runID, signal: this.abort.signal, onProcess: ({ boot, pid, start }) => this.hostLease.bind({ boot, pid, start }) });
+        this.preparation = this.preparedOwner.done;
+        const prepared = await this.preparedOwner.ready;
+        this.abort.signal.throwIfAborted();
         origin = prepared.attached.CARTULARY_WEB_E2E_PUBLIC_ORIGIN;
         const accounts = JSON.parse(readLocalFile(path.join(prepared.privateDirectory, "access.json"))).accounts;
         actors = { admin: accounts[0], empty: accounts[1], viewer: accounts[2], editor: accounts[3] };
@@ -72,7 +79,8 @@ export class ReviewSession {
         }
         if (!reached) throw new ReviewFailure("readiness_expired");
       }
-      this.browser = new ReviewBrowser({ origin, mode: this.mode, actors, onLost: (error) => { void this.stop(error); } });
+      this.abort.signal.throwIfAborted();
+      this.browser = new ReviewBrowser({ origin, mode: this.mode, actors, onOwnedResource: async (resource) => { recordResource(this.runtime, resource); if (resource.state !== "released") { const { boot, pid, start } = resource.target; await this.hostLease.bind({ boot, pid, start }); } }, onLost: (error) => { void this.stop(error); } });
       await this.browser.start();
     }
     this.abort.signal.throwIfAborted(); this.state = "ready"; this.publishLocator();
@@ -80,12 +88,6 @@ export class ReviewSession {
   }
   value(command, fields = {}) {
     return result(command, { session_id: this.sessionID, state: this.state, epoch: ["closed", "failed"].includes(this.state) ? null : this.browser?.epoch ?? null, ...fields });
-  }
-  reserveBytes(bytes) {
-    if (!Number.isSafeInteger(bytes) || bytes < 0 || this.privateBytes + bytes > limits.storage) throw new ReviewFailure("capacity_exceeded");
-    this.privateBytes += bytes;
-    let released = false;
-    return () => { if (!released) { this.privateBytes -= bytes; released = true; } };
   }
   fail(command, error, fields = {}) {
     const normalized = error instanceof ReviewFailure ? error : new ReviewFailure("unsafe_artifact", { cause: error });
@@ -128,17 +130,21 @@ export class ReviewSession {
       if (command === "ui-browser") {
         if (request.action === "fill") this.runtime.registerSecret(request.parameters.text);
         const observed = await this.browser.action(request);
-        const file = this.runtime.privatePath(`operation-${operationID}`, "observations.json");
-        const bytes = jsonBytes(observed), release = this.reserveBytes(bytes.length);
-        try { atomicLocalFile(file, bytes); } catch (error) { release(); throw error; }
+        this.abort.signal.throwIfAborted();
+        const private_refs = await this.store.observations(operationID, observed);
         counts.observed_elements = observed.elements.length;
         counts.console_errors = observed.console.records.filter((record) => record.level === "error").length;
         counts.failed_requests = observed.network.records.filter((record) => record.outcome === "failed").length;
-        outcome = this.value(command, { operation_id: operationID, private_refs: [{ kind: "observations", absolute_path: file }] });
+        outcome = this.value(command, { operation_id: operationID, private_refs });
       } else {
-        // Capture/import and analysis owners are installed by the following slices.
-        const owner = command === "ui-capture" ? await import("./capture.mjs") : command === "ui-analyze" ? await import("./analysis.mjs") : await import("./report.mjs");
-        const produced = await owner.execute(this, request ?? bundleID, operationID);
+        const { executeWork } = await import("./executor.mjs");
+        const produced = await executeWork({ store: this.store, identity: { sessionID: this.sessionID, profile: this.profile }, onResource: (resource) => recordResource(this.runtime, resource), signal: this.abort.signal, capacities: this.capacities, parentLease: this.hostLease?.token ?? this.parentLease, deadline: tick + limits.operation, command, request: request ?? bundleID, operationID,
+          observe: async (staging) => {
+            const { pageSource } = await import("./source.mjs");
+            const source = pageSource({ mode: this.mode, profile: this.input.REVIEW_PROFILE, workspaceDigest: this.workspaceDigest, runID: this.runID, prepared: this.seeded, browserVersion: this.browser.version() }, request.binding);
+            return this.browser.capture(request, { identity: { sessionID: this.sessionID, profile: this.profile }, source }, operationID, staging);
+          } });
+        this.abort.signal.throwIfAborted();
         counts = produced.counts ?? counts;
         outcome = this.value(command, { operation_id: operationID, bundle_id: produced.bundle_id, private_refs: produced.private_refs });
       }
@@ -146,8 +152,9 @@ export class ReviewSession {
       const failure = this.abort.signal.aborted ? this.abort.signal.reason : error;
       outcome = this.fail(command, failure, { operation_id: operationID });
       if (error.cleanupFailures?.length) outcome.failures.push(failureRecord(new ReviewFailure("cleanup_failed")));
-      if (this.offlineLeases?.size) queueMicrotask(() => { void this.stop(failure instanceof ReviewFailure ? failure : new ReviewFailure("unsafe_artifact")); });
+      if (error.cleanupFailures?.length) queueMicrotask(() => { void this.stop(failure instanceof ReviewFailure ? failure : new ReviewFailure("unsafe_artifact")); });
     }
+    if (this.abort.signal.aborted && outcome.status === "ok") outcome = this.fail(command, this.abort.signal.reason, { operation_id: operationID });
     if (outcome.status === "ok") for (const [key, value] of Object.entries(counts)) this.total[key] += value;
     const receipt = { schema_id: schemaID("receipt"), command_id: commandID(command), session_id: this.sessionID, operation_id: operationID, mode: this.mode, state: "ready", status: outcome.status, exit_code: outcome.exit_code, started_at: started, finished_at: now(), duration_ms: Math.floor(performance.now() - tick), failures: outcome.failures, counts, bundle_id: outcome.bundle_id, cleanup: "not_terminal" };
     try {
@@ -170,37 +177,42 @@ export class ReviewSession {
   async finish() {
     this.state = "stopping"; clearTimeout(this.expiry); clearInterval(this.health);
     const cleanupFailures = [];
-    const attempt = async (release) => { try { await release(); } catch (error) { cleanupFailures.push(error); } };
+    const attempt = async (release, timeout = 30000) => { try { await boundedCleanup(release, timeout); } catch (error) { cleanupFailures.push(error); } };
     await attempt(() => this.publishLocator());
     this.abort.abort(this.stopCause ?? new ReviewFailure("interrupted"));
+    const preparedStop = this.preparedOwner?.stop(); preparedStop?.catch(() => {});
+    await attempt(async () => { try { await this.preparing; } catch (error) { if (!this.abort.signal.aborted) throw error; } }, 250000);
     await attempt(() => this.browser?.close());
-    this.releasePreparation?.();
-    try { await this.preparation; } catch (error) {
+    try { await boundedCleanup(() => preparedStop ?? this.preparation, 250000); } catch (error) {
       // Acquisition/action failure already belongs to the primary lifecycle
       // outcome. Only failures of the preparation owner's release are secondary.
-      cleanupFailures.push(...(error.cleanupFailures ?? []));
+      cleanupFailures.push(...(error.cleanupFailures ?? (error.diagnostic === "cleanup_failed" ? [error] : [])));
       if (!this.failures.length && !this.abort.signal.aborted) { this.failures.push(failureRecord(new ReviewFailure("startup_failed"))); this.exitCode ||= 3; }
     }
     await attempt(async () => { await this.active; });
+    await attempt(async () => {
+      for (const resource of recoveryResources(this.runtime).filter((entry) => entry.kind.endsWith("_process"))) {
+        await attempt(async () => { await stopOwnedProcess(resource.target); recordResource(this.runtime, { ...resource, state: "released" }); });
+      }
+    });
     await attempt(() => this.hostLease?.release());
-    for (const lease of this.offlineLeases ?? []) await attempt(async () => { await lease.release(); this.offlineLeases.delete(lease); });
+    await attempt(() => this.store.close());
+    await attempt(() => purgeReviewDetail(this.runtime));
     await attempt(async () => {
       const scan = await scanRetainedRoot(this.runRoot, { forbiddenValues: this.runtime.forbiddenValues(), removeUnsafe: true });
       if (scan.status !== "pass") throw new ReviewFailure("unsafe_artifact");
     });
-    if (cleanupFailures.length === 0) await attempt(() => this.runtime.close());
+    if (cleanupFailures.length === 0) await attempt(() => {
+      // Keep minimum controller proof outside the private tree until terminal
+      // publication succeeds, including when the tree is already gone.
+      updateSessionRecord(this.record, { resources_released: true });
+      return this.runtime.close();
+    });
     if (cleanupFailures.length) {
       const artifact = cleanupFailures.some((failure) => failure instanceof ReviewFailure && failure.diagnostic === "unsafe_artifact");
       const failure = new ReviewFailure(artifact ? "unsafe_artifact" : "cleanup_failed");
       this.failures.push(failureRecord(failure)); this.exitCode ||= failure.exitCode;
     }
-    this.failures = [...new Map(this.failures.map((failure) => [JSON.stringify(failure), failure])).values()];
-    this.state = this.failures.length ? "failed" : "closed";
-    const receipt = { schema_id: schemaID("receipt"), command_id: commandID("ui-review"), session_id: this.sessionID, operation_id: null, mode: this.mode, state: this.state, status: this.failures.length ? "error" : "ok", exit_code: this.exitCode, started_at: this.started, finished_at: now(), duration_ms: Math.floor(performance.now() - this.startedTick), failures: this.failures, counts: this.total, bundle_id: null, cleanup: cleanupFailures.length ? "failed" : "complete" };
-    try { this.receipt = { path: "ui-review/terminal.json", ...publishJSON(path.join(this.runRoot, "ui-review/terminal.json"), "receipt", receipt) }; }
-    catch { this.state = "failed"; this.receipt = null; this.failures.push(failureRecord(new ReviewFailure("unsafe_artifact"))); this.exitCode ||= 11; }
-    try { this.publishLocator(); }
-    catch { this.state = "failed"; this.receipt = null; this.failures.push(failureRecord(new ReviewFailure("unsafe_artifact"))); this.exitCode ||= 11; }
-    if (!cleanupFailures.length && this.record) unregisterSession(this.record);
+    Object.assign(this, await finishTerminal({ record: this.record, locator: { schema_id: schemaID("session"), session_id: this.sessionID, run_id: this.runID, mode: this.mode, created_at: this.started }, runRoot: this.runRoot, counts: this.total, failures: this.failures, exitCode: this.exitCode, duration: Math.floor(performance.now() - this.startedTick), cleanupFailed: cleanupFailures.length > 0, forbiddenValues: this.runtime.forbiddenValues() }));
   }
 }

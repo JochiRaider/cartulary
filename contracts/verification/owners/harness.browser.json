@@ -12,6 +12,54 @@
         "shell",
         "vitest"
       ]
+    },
+    {
+      "verification_id": "harness.browser.verification.ui_review_artifacts",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ]
+    },
+    {
+      "verification_id": "harness.browser.verification.ui_review_contract",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ]
+    },
+    {
+      "verification_id": "harness.browser.verification.ui_review_execution",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ]
+    },
+    {
+      "verification_id": "harness.browser.verification.ui_review_lifecycle",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ]
+    },
+    {
+      "verification_id": "harness.browser.verification.ui_review_presentation",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ]
+    },
+    {
+      "verification_id": "harness.browser.verification.ui_review_workflow",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ]
     }
   ]
 }

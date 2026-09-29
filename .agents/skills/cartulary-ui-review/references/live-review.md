@@ -96,6 +96,7 @@ limitation. Distinguish completed violations/incomplete results from disabled,
 unavailable, and execution failure; frames are excluded. Automated scans do not
 replace keyboard, focus, or canonical contrast checks.
 
-Open the returned image before drawing visual conclusions. Load
+Resolve an image through the returned bundle manifest's component reference,
+verify its bytes/digest, and open it before drawing visual conclusions. Load
 [artifact analysis](artifact-analysis.md) only if a crop, comparison, or report
 would help. Finish through the cleanup path in `SKILL.md`.

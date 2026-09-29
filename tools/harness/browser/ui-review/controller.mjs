@@ -7,16 +7,15 @@ import { parseStrictJSON } from "../../contract/index.mjs";
 import { parseRequest, result, ReviewFailure, failureRecord, limits } from "./contract.mjs";
 import { emitResult } from "./output.mjs";
 import { readInput, readLocator, resolveSession, terminalResult } from "./session-files.mjs";
-import { ReviewSession } from "./session.mjs";
 
 function terminal(identity, command) {
   if (!["ui-review-status", "ui-review-stop"].includes(command)) throw new ReviewFailure("session_mismatch");
-  return terminalResult(identity, command, (receipt, ref) => result(command, { session_id: identity.locator.session_id, state: identity.locator.state, receipt: ref, ...(command === "ui-review-stop" ? receipt ? { status: receipt.status, exit_code: receipt.exit_code, failures: receipt.failures } : { status: "error", exit_code: 11, failures: [failureRecord(new ReviewFailure("unsafe_artifact"))] } : {}) }));
+  return terminalResult(identity, command, (receipt, ref) => result(command, { session_id: identity.locator.session_id, state: identity.locator.state, receipt: ref, status: receipt.status, exit_code: receipt.exit_code, failures: receipt.failures }));
 }
 async function send(record, message) {
   return new Promise((resolve, reject) => {
     const connection = net.createConnection(record.socket); let data = Buffer.alloc(0), completed = false;
-    const timer = setTimeout(() => { connection.destroy(new ReviewFailure("session_lost")); }, message.command === "ui-review-stop" ? 180000 : limits.operation + limits.lock + 10000);
+    const timer = setTimeout(() => { connection.destroy(new ReviewFailure("session_lost")); }, message.command === "ui-review-stop" ? 360000 : limits.operation + limits.lock + 10000);
     const interrupt = () => connection.destroy(new ReviewFailure("interrupted"));
     process.once("SIGINT", interrupt); process.once("SIGTERM", interrupt);
     const finish = (error, response) => { if (completed) return; completed = true; clearTimeout(timer); process.off("SIGINT", interrupt); process.off("SIGTERM", interrupt); connection.destroy(); if (error) reject(error); else resolve(response); };
@@ -34,11 +33,24 @@ export async function execute(command, input, profile) {
   if (command === "ui-review") return start(input, profile);
   const identity = readLocator(input.UI_SESSION);
   if (["closed", "failed"].includes(identity.locator.state)) {
-    const response = terminal(identity, command); emitResult(response, input.output); process.exitCode = response.exit_code; return;
+    let response = terminal(identity, command);
+    if (command === "ui-review-stop" && identity.locator.state === "failed") {
+      const record = resolveSession(identity, { allowDead: true, allowAbsent: true });
+      if (record?.dead) {
+        const { recoverSession } = await import("./recovery.mjs");
+        response = { ...await recoverSession(record), command_id: response.command_id };
+      }
+    }
+    emitResult(response, input.output); process.exitCode = response.exit_code; return;
   }
   let request;
   if (input.UI_REQUEST) request = parseRequest(readInput(input.UI_REQUEST, { extension: ".json", maximum: limits.request }), command === "ui-browser" ? "action" : command === "ui-capture" ? "capture_request" : "analysis_request");
-  const record = resolveSession(identity);
+  const record = resolveSession(identity, { allowDead: command === "ui-review-stop" });
+  if (record.dead) {
+    const { recoverSession } = await import("./recovery.mjs");
+    const response = { ...await recoverSession(record), command_id: result(command).command_id };
+    emitResult(response, input.output); process.exitCode = response.exit_code; return;
+  }
   const response = await send(record, { command, request: request ?? null, bundle_id: input.UI_BUNDLE ?? null });
   emitResult(response, input.output); process.exitCode = response.exit_code;
 }
@@ -67,7 +79,7 @@ async function start(input, profile) {
           if (record) {
             const identity = readLocator(record.locator);
             const { recoverSession } = await import("./recovery.mjs");
-            const response = ["closed", "failed"].includes(identity.locator.state) ? terminal(identity, "ui-review-stop") : await recoverSession(record, input, profile);
+            const response = ["closed", "failed"].includes(identity.locator.state) ? terminal(identity, "ui-review-stop") : await recoverSession(record);
             emitResult(response, input.output); process.exitCode = response.exit_code;
           } else throw new ReviewFailure("startup_failed");
         } catch (error) { reject(error); return; }
@@ -78,6 +90,7 @@ async function start(input, profile) {
 }
 async function serve() {
   const { input, profile } = await new Promise((resolve) => process.once("message", resolve));
+  const { ReviewSession } = await import("./session.mjs");
   const session = new ReviewSession(input, profile);
   let server, stopping;
   const end = (error) => {

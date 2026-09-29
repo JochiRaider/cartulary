@@ -121,6 +121,43 @@
         "memory_mb": 256,
         "process": 1
       }
+    },
+    {
+      "id": "ui_review_browser",
+      "resource_claims": {
+        "browser_stack": 1,
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 1536,
+        "process": 1
+      }
+    },
+    {
+      "id": "ui_review_parallel",
+      "resource_claims": {
+        "cpu": 2,
+        "io": 2,
+        "memory_mb": 2048,
+        "process": 2
+      }
+    },
+    {
+      "id": "ui_review_raster",
+      "resource_claims": {
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 1024,
+        "process": 1
+      }
+    },
+    {
+      "id": "ui_review_report",
+      "resource_claims": {
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 512,
+        "process": 1
+      }
     }
   ],
   "browser_reset_policy": {

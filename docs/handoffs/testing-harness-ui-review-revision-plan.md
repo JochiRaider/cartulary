@@ -1,16 +1,24 @@
 ---
 doc_id: cartulary.testing_harness.ui_review.revision_plan
-title: UI Review Tooling — Testing Harness NLSpec Revision Plan
+title: UI Review Harness — Revision and Production Readiness Plan
 doc_type: revision_plan
-status: implementation_complete
-authority_boundary: Completed execution tracker and human handoff; the adopted Testing Harness NLSpec remains runtime authority and product owners retain product authority.
+status: TODO
+authority_boundary: Human planning and execution tracker; iteration 1 is complete and iteration 2 is planned only. The adopted Testing Harness NLSpec remains runtime authority and product owners retain product authority.
 ---
 
-# UI Review Tooling — Testing Harness NLSpec Revision Plan
+# UI Review Harness — Revision and Production Readiness Plan
+
+**Current iteration:** [Iteration 2 — production readiness](#18-iteration-2--production-readiness-plan),
+planned on 2026-09-28 against `25806426bae985528ee14de9e2595316da93ba8f`.
+Implementation has not started. The current request authorizes updating this
+document only; implementation requires a later authorized task. Section 18 is the
+active plan and tracker. Sections 1–17 preserve iteration 1's adopted decisions,
+completed workstreams, and historical validation; their completion claims do not
+establish readiness at the new baseline.
 
 ## 1. Status, objective, and normative convention
 
-This plan records the completed specification and implementation remediation for
+Sections 1–17 record the completed specification and implementation remediation for
 the [Testing Harness NLSpec](../testing-harness-nlspec.md). It applies the behavioral
 completeness, interface completeness, boundary completeness, conceptual fidelity,
 and spec-economy criteria in [What an NLSpec Is](../research/nlspec-spec.md), version 0.2.2.
@@ -18,7 +26,7 @@ Its objective is a reproducible, inspectable UI review loop for developers and
 agents, integrating browser control, screenshots, measured observations,
 accessibility analysis, and existing harness evidence.
 
-This artifact is the sole execution tracker. All six workstreams are complete;
+This artifact is the sole execution tracker. All six iteration-1 workstreams are complete;
 their ordered checkpoints, failures, final acceptance matrix and handoff appear
 below. The contracts were adopted as amendment `ui-review-api-1` in the owning
 NLSpec before their implementation. The planning contract retained in Sections
@@ -1077,7 +1085,7 @@ and skipped checks with reasons. Completion of this plan means the planning
 artifact is written and reviewed; completion of the amendment and implementation
 requires their separate exits above.
 
-## 16. Execution tracker
+## 16. Iteration-1 execution tracker — historical
 
 This is the sole execution tracker for the user-authorized remediation. The
 implementation baseline is `ce3ef227c`, initially clean, inspected on 2026-09-27
@@ -1102,7 +1110,11 @@ never executable inputs.
 | --- | --- | --- | --- |
 | 2026-09-27 | WS1 | Rechecked clean baseline, existing lifecycle, pinned Make runtime and installed Chromium 1217; corrected the research link and driver decision. | Qualify dependencies in disposable storage before adopting the amendment. No implementation pass claimed. |
 
-### Outstanding risks
+### Risks recorded at iteration-1 startup — historical
+
+These were startup concerns, subsequently dispositioned by the WS1–WS6
+checkpoints. They are not the current iteration's unresolved-work list; use
+Section 18.11 for that list.
 
 - Qualification candidates are Playwright 1.59.1, Sharp 0.35.4, axe integration
   4.13.0 and axe engine 4.13.0; package metadata alone is not qualification.
@@ -1682,5 +1694,1079 @@ Rollback before public acceptance is to stop owned review sessions, revert the
 new authored additions/changes and regenerate downstream outputs through Make;
 borrowed development data and canonical artifacts remain untouched. After public
 adoption, retiring these versioned interfaces requires a superseding amendment.
-The next action is ordinary code review of this completed change; no pending
-implementation work is required for this plan.
+At that checkpoint the next action was ordinary code review; no iteration-1
+implementation slice remained. Section 18 records the subsequently requested
+production-readiness iteration.
+
+## 18. Iteration 2 — production readiness plan
+
+### 18.1 Scope and source posture
+
+**Planning status: DONE. Implementation status: DONE (R2-W1–R2-W7).** This iteration targets
+`tools/harness/browser/ui-review/` (`testing-harness-ui-review`), including its
+shared preparation seam, public command projections, verification routing, and
+human consumption workflow. The inspected branch is `main`, commit
+`25806426bae985528ee14de9e2595316da93ba8f`; the working tree was clean before this
+document edit. Inspection occurred on 2026-09-28. Findings below are source-review
+evidence, not newly reproduced failures or passing runtime evidence.
+
+Production readiness means a dependable **private local development/review tool**:
+bounded operations, responsive cancellation, exact resource recovery, trustworthy
+observations, maintainable owner boundaries, and repeatable validation on its
+declared platforms. It does not mean a production application service, a remotely
+accessible browser agent, a release gate, or Core 05 publication approval.
+
+The user authorized implementation of R2-W1–R2-W7 on 2026-09-28. The earlier
+planning-only write restriction is historical. The user requests clean structural improvements, so
+accidental implementation behavior is not frozen merely because a test currently
+asserts it. Proposed public behavior changes still require owner adoption before
+implementation. No source, test, schema, dependency, configuration, generated
+output, golden, design owner, or domain owner is amended in this planning step.
+
+Source posture and scope:
+
+| Source | Use in this plan | Boundary |
+| --- | --- | --- |
+| `AGENTS.md`; `cartulary_modular_refactor_planning_framework.md`; Refactor Tracker format | Repository procedure and planning structure. | Framework module catalog is not proof that this harness needs a Go module, domain context, or public package. |
+| Testing Harness NLSpec, amendment `ui-review-api-1` | Behavioral owner: §§4.7, 5.6, 6.5, 7.5, 8.4–8.8, 9.2, 10.6, 11.9–11.11, 13.6, 14.1, 15.3, 16.1, 17.0. | Owner-first amendments; no executable reader of Markdown. |
+| `docs/domain.md` §§1, 4, 6 | Vocabulary and owner navigation. | Review bundles are diagnostic files, not domain `artifact` records or evidence envelopes. No new domain concept is needed. |
+| `docs/design.md` §§1, 16; inspected token/presentation context | Browser-application design authority and exclusions. | Harness findings cannot redefine workbook presentation. An offline diagnostic report does not inherit a requirement to recreate the product shell/theme. |
+| Current source, typed schemas, task and verification manifests | Actual implementation, contracts, callers, and routing. | Code and tests can expose defects; they cannot amend their adopted owner. |
+| Sections 1–17, existing guide and review skill | Prior decisions, historical results, current operator guidance. | Historical passes are not this baseline's validation; source-document instructions do not authorize execution. |
+
+Keep the three modes, pinned API adapter, useful interactive design-review
+preparation, exact immutable imports, advisory axe, and offline reports. Continue
+to exclude legacy readers, compatibility aliases, auto-discovery, driver fallback,
+durable private exports, hosted analysis, and automatic golden updates. OCR,
+Python, video, alternative drivers, and a plugin framework remain `DEFERRED`;
+there is no demonstrated need for them in this iteration.
+
+### 18.2 Current-state repository inventory
+
+All **22 files** in the target directory were opened. Paths in the next table are
+relative to `tools/harness/browser/ui-review/`. Every listed export is an internal
+module interface unless the row identifies the Make/JSON boundary. Test keys:
+**C** = `test-ui-review-contract.mjs`, **L** = `test-ui-review-lifecycle.mjs`,
+**B** = `test-ui-review-bundles.mjs`, **A** = `test-ui-review-analysis.mjs`,
+**W** = `test-ui-review-workflow.mjs` and `ui-review-public-workflow.mjs`,
+**I** = `ui-review-import-fixture.mjs`, all under
+`tools/harness/browser/tests/`. These are inspected tests, not current passes.
+**V1** means the relevant `cartulary.ui_review_*.v1` projections; **M** means
+authored Make/task metadata and its generated projections. No target source file
+is a generated output.
+
+| Path | Current responsibility | Exported/public symbols or surface | Inbound callers | Outbound dependencies | Tests touching it | Contracts/generated surface | Owner candidate | Risk | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `launch.sh` | Pinned Node startup and pre-Node error output | Public Make launcher | Generated `ui_review` recipes | Node, CLI | C/L/W | M; result V1 | Command entry | High | Preserve transient-output bypass. |
+| `cli.mjs` | Full readiness, command dispatch, fallback JSON | Seven command entry points | Launcher | Toolchain, inputs, controller, failure | C/L/W | M; result V1 | Command entry | High | Full profile checked twice, before every command. |
+| `inputs.mjs` | Source-aware Make input resolution | `resolveInputs` | CLI | Authored task owner, output resolver | C | M; input contracts | Command admission | Medium | Keep explicit UI assignments and mode exclusions. |
+| `output.mjs` | Transient result presentation | `emitResult` | Controller | Contract validator | C/L/W | Result V1 | Output projection | High | Never move into generic stdout tee. |
+| `contract.mjs` | IDs, limits, defaults, cross-field validation | `validate`, `parseRequest`, `result`, `emptyCounts` | Most target modules/tests | Shared schema/JSON validation, failures | C/L/B/A | All V1 | Review contracts | High | Separate stable vocabulary from resource/runtime owners. |
+| `failure.mjs` | Closed diagnostics and mapping | `ReviewFailure`, mappings/record | Contract, CLI, toolchain | None | C/L | Result/receipt V1 | Review contracts | High | Preserve primary ordering and signal exits. |
+| `toolchain.mjs` | Pin/native resolution and root location | `toolProfile`, `repoRoot`, doctor mode | CLI, doctor, most modules | Package/lock/pin files, Sharp | C/W | Tool profile V1; pins | Readiness adapter | High | Lightweight control must not import native analysis. |
+| `controller.mjs` | Client IPC, parent supervision, controller server | `execute`; private `send/start/serve` | CLI and self-fork | Sockets, process fork, session, recovery | L/W | Result/session V1 | Session transport/composition | High | Framing, parent acknowledgement, cancellation share one file. |
+| `session.mjs` | Modes, locks, operations, storage totals, shutdown | `ReviewSession` | Controller; tests | Broker preparation, browser, runtime, admission, all operations | L/B/A/W | Most V1 | Session coordinator | High | Broad mutable object passed to operation owners. |
+| `session-files.mjs` | Path boundary, registry, locator, receipts, hash helpers | Input/read/publish/register/resolve/terminal helpers | Controller/session/recovery, source, bundles/tests | Secure files, process identity, restricted inputs | L/B/W | Session/receipt V1 | Split registry identity from artifact IO | High | Live-only resolver blocks dead-controller attachment. |
+| `recovery.mjs` | Parent-triggered controller-death cleanup | `recoverSession` | Controller parent | Runtime, preparation recovery, receipts | L | Session/receipt V1 | Lifecycle recovery | High | Distinct terminal builder; depends on original input. |
+| `browser.mjs` | Browser contexts, targeting, action epochs, observations | `ReviewBrowser`, `browserReady`, `unavailableAxe` | Session/capture; tests | Playwright, seed TOTP, contracts | L/B/A | Action/observations V1 | Browser adapter | High | DOM sampling and actor login currently share adapter. |
+| `capture.mjs` | Stable page capture, imports, image crop, bundle construction | `execute`, `scopeRectangle` | Session; tests | Browser internals, Sharp, PNG, source/import/store | B/A/W | Capture/bundle/observations V1 | Capture coordinator | High | Accesses page, generation, seeded details directly. |
+| `source.mjs` | Canonical catalog/profile binding and source reads | `pageBinding`, `catalogRow`, `readJSON`, containment | Capture/import | Current catalog, fixture/golden manifests | B | Current producer schemas; bundle V1 | Source adapter | High | Exact identity joins stay here, not in report code. |
+| `canonical-import.mjs` | Full run/result/attachment association | `importCanonical`, `selectCaptureResult` | Capture; tests | Source adapter, pinned report format, bundles | B/I | Reconciliation v3, target v4, group v6, bundle V1 | Canonical adapter | High | Dense join procedure; uses current workspace source refs. |
+| `bundles.mjs` | Build, validate, publish and load immutable bundles | Bundle builders/store functions | Capture, analysis, report | Secure files, PNG, contracts, session budget/maps | B/A/W | Bundle V1 | Private artifact store | High | Publication and rollback mutate session-owned maps. |
+| `png.mjs` | PNG framing/CRC/profile checks and native decode/encode | `pngHeader`, `decodePNG`, `encodePNG`, `crc32` | Capture, store, algorithms, report | Sharp, limits | B/A | Encoding/limit contract | Raster adapter | High | Native decode runs outside image worker on several paths. |
+| `image-worker.mjs` | Analysis subprocess and cancellation | `runImageWork`; self-fork | Analysis | Child process, algorithms | A | Private job protocol | Bounded work executor | High | Current isolation covers compute, not all raster work. |
+| `image-algorithms.mjs` | RGBA difference, crop, overlay, contact sheet | Pure raster functions, `computeImages` | Worker; tests | PNG/Sharp | A | Image algorithm contract | Image analysis | Medium | Preserve exact math; avoid new tolerance policies. |
+| `analysis.mjs` | Parent provenance, compatibility, admission, result assembly | `execute`, `compatible`, `primary` | Session; report imports `primary` | Store, worker, host admission | A/W | Analysis/bundle V1 | Analysis coordinator | High | Resource ownership and presentation helper are mixed. |
+| `axe.mjs` | Advisory engine invocation and normalization | `observeAxe`, `normalizeAxe`, tags | Capture; tests | Axe, contracts | A | Observations V1 | Accessibility adapter | Medium | Keep explicit incomplete/unavailable/failure outcomes. |
+| `report.mjs` | HTML/CSS/JS, assets, cache, publication | `renderReport`, `execute`, escaping | Session; tests | Store, analysis helper, PNG, secure files | A/W | Report/private refs; bundle V1 | Report presenter + store consumer | Medium | Rendering and persistence currently share implementation. |
+
+Adjacent seams were inspected to establish callers and ownership, not to open
+unbounded refactors:
+
+| Seam | Evidence inspected | Scope/disposition |
+| --- | --- | --- |
+| Shared review preparation | Entire `review-preparation.mjs` and `design-review.mjs` | Reuse the broker/service owners. Recovery currently constructs `design-review-<profile>-allocation-001`; replace the naming dependency with returned exact ownership data. |
+| Runtime security/admission | `secure-local-files.mjs`, `host-admission.mjs`; close, borrow, private-path and stale-cleanup sections of `suite-runtime.mjs` | Existing authority for secure IO, process proof, admission and suite-private lifetime. Extend only the narrow missing primitive; do not duplicate these systems. Uninspected provider internals remain out of scope until a changed port requires them. |
+| Commands and generation | UI-review recipes/targets and contract-test recipes in `task_surface_owner.json`; UI recipe in `task-surface/make-renderer.mjs`; generated policy search | Authored projections change before Make regeneration. Existing generated task/topology outputs are not editing targets. |
+| Contracts/readiness | Eight schema attachments; selected action/capture/result/bundle fields; `contract.mjs`; doctor UI-profile invocation | Eight public identities remain tracked. Full future schema audit belongs to R2-W1; no claim that sampling proves every constraint. |
+| Verification | All seven review test/helper files named above, `harness.browser.json` review row, command-surface routing, public owner guidance | Most execution tests enter one static/standard shell row. Public test calls `publicWorkflow()` with `seeded=false`; seeded helper branch exists but is not invoked by that wrapper. |
+| Human consumers | Existing browser design-readiness guide and repository `cartulary-ui-review/SKILL.md` | Maintain progressive disclosure. Current capture returns a bundle manifest ref; image consumers must resolve its exact components. |
+| Product and optional code | Product UI, Go feature modules, goldens, optional OCR/video/MCP integrations | Explicitly excluded. No product behavior/design refactor is justified by this harness iteration. |
+
+### 18.3 Module boundary diagnosis
+
+The target is a local orchestration subsystem with browser, filesystem, native
+image and producer-format adapters. It is not a domain bounded context and does
+not need a separately published package. Preserve its repo-local placement while
+making the decisions below private behind small, concrete interfaces.
+
+| Responsibility found | Current location | Correct owner candidate | Keep / move / split / defer | Evidence | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Public command admission and transient result | CLI/inputs/output/launcher | One command composition boundary | keep | Dedicated Make recipe bypasses retained capture | Dispatch control commands before optional engine readiness only after adoption. |
+| Session state, operation ordering and cancellation | Session plus controller timers | Session coordinator; IPC transport is separate | split | `handle/operation/finish`, `serve/end` | One state-transition owner; no owner mutates another owner's state flags. |
+| Mode resources and exact recovery proof | Session/preparation/recovery | Mode preparation adapters using existing resource owners | split | Inline seeded/dev branches; reconstructed allocation name | Return exact handles/proofs at acquisition; account for late acquisition during stop. |
+| Private bytes, immutable publication, rollback and lookup | Session/bundles/report/session-files | Session-scoped artifact store over secure runtime IO | move | Operations share mutable maps/counters and duplicate rollback | Store owns reservation/commit/release; callers receive immutable refs. |
+| Expensive raster execution and budgets | PNG, capture, store, image worker, analysis | One bounded work boundary over pinned native tools | split | Decoding occurs both in controller and subprocess | Retain algorithms; make every expensive path cancelable and admitted. |
+| Browser targeting and observation | Browser/capture/axe | Browser adapter plus observation/capture coordinator | split | Capture reads adapter internals and seeded runtime details | Narrow observation handle hides Playwright/CDP; no new generic driver framework. |
+| Canonical producer-format interpretation | Import/source; comparison reads raw metadata | Canonical adapter with normalized private source view | keep | Exact join logic, `compatible` | Preserve frozen public provenance; consumers should not redo joins. |
+| Offline presentation | Report plus `analysis.primary` | Report renderer consuming store/read model | split | Rendering imports execution coordinator | Share primary-image selection with bundle model, not analysis execution. |
+| Future tool plugins or exported SDK | None required | No current owner | defer | No second production adapter/use case | Growth means local changes at real boundaries, not speculative abstraction. |
+
+Directional rule: command composition selects session/mode capabilities; session
+admits operations and publishes structural outcomes; operations use a narrow
+artifact-store and browser/work capability. Adapters do not import the session
+coordinator. Presentation does not import execution/resource acquisition. Private
+helper exports with only one caller need no compatibility shim. Consolidate small
+helpers when they do not hide an independent decision; file count is not a goal.
+
+### 18.4 Public contract and behavior freeze map
+
+Freeze adopted behavior, not internal object layouts or historical test setup.
+The following surfaces have an owner and a characterization obligation. Proposed
+departures are explicitly called out; all implementation remains a later task.
+
+| Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| Seven Make commands, input source rules, helper-only selection | Harness §§4.7, 5.6, 7.5; task owner | Dedicated recipe and closed input resolver | C | All finite commands via Make, invalid input before side effects, exact one-object output, exclusion from product/default/CI/release selections | High | Keep names/IDs and no aliases. Proposed readiness exception below needs adoption. |
+| Mode and service ownership | REQ-415/416, shared preparation | Fresh seeded resources, explicit borrowed dev, browser-free artifacts | L/W; historical seeded smoke | Both seeded profiles and actors through a routed public workflow; partial/late acquisition | High | Preserve existing interactive design-review interface. |
+| Epochs, target handles, action effects | REQ-159/417 | Snapshot refs, exact matches, consumed epoch, uncertain timeout | L/B | Sequential/concurrent public calls, cancellation before/after admission, detached targets and navigation | High | No replay/force/eval; internal handles are not public compatibility. |
+| Terminal status, stop and cleanup | REQ-416/502/616 | Stop cache, terminal refs, registry and recovery | L | Parent+controller loss, missing receipt, damaged engine install, hung release, cleanup failure plus private-data purge | Critical | Correct existing owner mismatches; new recovery availability is an owner amendment. |
+| Private/retained boundary | REQ-081/285/616 | Private runtime plus closed receipts and special launcher | C/L/W | Sentinel across argv metadata/stdout/stderr/telemetry/receipts; injected publication and cleanup failures | Critical | No durable detail export or raw-error retention. |
+| Bundle/source identity and exact imports | REQ-284/285/552 | Eight V1 schemas, exact run/capture joins | B/A | Valid producer fixtures plus missing/duplicate joins, supported failed runs, drifted source refs, illegal source/component combinations | High | Current forms only; no archive compatibility layer. |
+| Capture, image math and axe | REQ-284/286/287 | Three-frame/post-image check; exact RGBA; main-frame advisory scan | B/A | Native-work cancellation, boundary budgets, navigation/disposal during observation, all axe states | High | No automatic masks/alignment/tolerance, missing data stays explicit. |
+| Offline report and local consumption | Harness §8.8, REQ-616/679 | Escaped CSP viewer, digest-checked cache | A/W | Images resolved from bundle refs, keyboard-operated zoom/slider, no network, cache corruption, expiry | Medium | Diagnostic UI; no product redesign or accessibility-complete claim. |
+| Product HTTP/WS/records/views/revisions/selectors | Core/product owners; unchanged here | Authentication calls ordinary login; targets observe existing DOM | Existing product rows, only if shared seam changes | Select current canonical browser/accessibility/visual rows by affected owner | High if widened | No new route, bypass, stored field, DB migration, view schema, selector policy, or golden change is proposed. |
+
+R2-W1 must adopt the explicit control-command dependency profile and any new
+bounded-work/admission rules before code changes. Keep current external schemas
+where their meaning is unchanged. If a required semantic change cannot be
+expressed faithfully by V1, adopt one successor and a deliberate cutover: stop old
+sessions, preserve their structural evidence, and reimport explicitly selected
+sources. Do not add dual readers, implicit conversion, aliases, or version-shaped
+internal branches. Retiring an adopted interface needs a superseding amendment.
+
+### 18.5 Coupling and boundary findings
+
+Classification is `must_fix`, `should_fix`, `defer`, or `intentional/no_action`.
+Priority P0 precedes P1; P2 follows the risk-reducing foundations. A source-level
+finding is not a claim that its failure was reproduced in this planning session.
+
+| Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
+| --- | --- | --- | --- | --- | --- |
+| R2-F01 — Distributed lifecycle decisions and broad mutable operation context | `session.handle/operation/finish`; `controller.serve`; operations accept the full session and mutate its maps/leases | Growth adds temporal coupling; late acquisition/publication can outlive cancellation | must_fix, P0 | Session coordinator and mode owners | R2-W1/W2: explicit transition/admission boundary, narrow capabilities, cancel/drain/terminal ordering with fault injection. |
+| R2-F02 — Recovery and private-data purge share failure-sensitive teardown | `finish` skips `runtime.close()` after any earlier cleanup failure; resolver rejects dead process; recovery is called by surviving parent; preparation reconstructs allocation name | Private content can remain after failed release; loss of both supervisors lacks proven exact recovery | must_fix, P0 | Lifecycle recovery and suite-runtime owners | R2-W2: separate removable detail from minimum recovery proof; bounded best-effort release; persist exact owner handles; prove double-death handling. |
+| R2-F03 — Control requires analysis dependencies; terminal evidence has exceptional-path gaps | CLI calls full `toolProfile()` before every command; `terminal()` defaults status to success with null receipt; `finish` unregisters on no cleanup failures even if publication failed | Dependency damage obstructs stop/status; missing proof can be misread or recovery records dropped | must_fix, P0 | Command readiness and terminal publication | R2-W1/W2: adopt minimal control profile; enforce REQ-502 null-receipt artifact failure and preserve required proof. No ambient fallback. |
+| R2-F04 — Artifact operations own storage mutations and failure rollback | Bundle/report `execute` manage maps and reservations; both release reservation before recursive rollback; rollback error can replace the original | Multiple extensions would duplicate commit logic, mis-account surviving staging files, or obscure primary failure | must_fix, P0 | Private artifact store | R2-W3: one transaction/reservation owner; account for failed cleanup, preserve both errors, close source/component invariants. |
+| R2-F05 — Expensive work is not uniformly isolated or budgeted | `decodePNG` called from capture/store; report renders in controller; analysis worker receives copied buffers; offline operation admission acquired only inside analysis | Large valid inputs can delay control, multiply memory use, or contend with quiet measurements on paths not covered by the current analysis-only admission rule | must_fix, P1 | Work executor and existing host admission | R2-W1/W4: close execution/admission policy; bound aggregate in-flight work, isolate native work, keep controller responsive. This is a risk needing stress proof, not a measured OOM. |
+| R2-F06 — Capture and import knowledge crosses adapter boundaries | Capture reads browser page/generation and seeded internals; comparison reads nested reconciliation/fixture data; importer performs all joins inline | New source channels require edits across coordinators; ownership and provenance become harder to review | should_fix, P1 | Capture and canonical adapters | R2-W5: immutable normalized source/observation views; retain exact public provenance and current-only input checks. |
+| R2-F07 — Repeated semantic facts and permissive cross-field cases | Engine version repeated in toolchain/axe/contract/import; bundle schema permits nullable components broadly; tests construct expected-only reference-image bundles | Pin/semantic drift can validate impossible evidence combinations or require synchronized manual edits | should_fix, P1 | Review contracts and bundle model | R2-W1/W3/W5: audit owner-required invariants; one typed source for shared facts and explicit variant validators. Do not infer required combinations without owner review. |
+| R2-F08 — Repeatable acceptance is coarser than the previous handoff | One static/standard row launches L/B/A/W; public wrapper never selects seeded helper branch; recovery test kills controller only | Broad passing row obscures which boundary/platform actually ran; manual seeded evidence is hard to reproduce | must_fix, P1 | Harness browser/command-surface verification owners | Add semantic routed tests with each slice; final R2-W7 matrix must show automated versus manual evidence and exact omissions. |
+| R2-F09 — Presentation and agent consumption depend on incidental structure | Report imports `analysis.primary` and embeds rendering/publication; skill says open returned image paths, while capture returns a bundle ref | Presentation growth couples to execution; agents may capture without locating/inspecting pixels | should_fix, P2 | Report presenter and human workflow docs | R2-W6: immutable view model/store consumer; explicit component-resolution recipe and real local-consumption trial. |
+| R2-F10 — Existing owner boundaries are useful | Secure anchored IO, host arbiter, shared preparation, current-only adapter, three modes | Replacing these with another runtime/plugin/driver adds compatibility burden | intentional/no_action | Existing owners | Keep and strengthen their narrow ports; no parallel infrastructure or driver/tool upgrade for convenience. |
+
+The following dispositions make the long-term tradeoffs explicit:
+
+| Finding | Remediation and areas | Rationale and long-term benefit | Compatibility/migration impact | Risk if unresolved | Validation for completion |
+| --- | --- | --- | --- | --- | --- |
+| R2-F01 | Implementation + tests; owner clarification only for newly specified transitions | One state owner makes cancellation, ordering, and additional operations locally understandable | Internal API moves; preserve command/epoch semantics | New operations inherit hidden timing dependencies | Transition/race tests and public concurrent commands prove one admission, one effect, one terminal outcome. |
+| R2-F02 | Specification clarification + runtime/preparation/implementation + tests + recovery guide | Separate privacy deletion from resource-recovery proof; exact handles survive process factoring | Stop existing sessions before private-layout cutover; no legacy registry reader | Stale resources or sensitive details require manual cleanup | Every release attempted within its owner deadline; detail absent when safely deletable, residual proof minimal; borrowed resources survive; double-death exact recovery verified. |
+| R2-F03 | Specification + CLI/readiness/terminal implementation + command tests + docs | Recovery remains available when an unrelated engine is damaged; evidence semantics remain honest | Intentional change: validated status/stop no longer require Sharp/axe/Playwright readiness. Still require pinned Node, contract validation, and applicable recovery owners | Operator may be unable to stop; absent receipts mistaken for proof | Missing/wrong analysis package tests leave control usable and data work rejected; null receipt is artifact failure; repeated terminal receipt stays immutable. |
+| R2-F04 | Implementation + semantic validators/schemas where justified + security tests | A transactional store centralizes bytes, provenance, publication and rollback | No public shape change intended; reject owner-invalid combinations rather than preserve test artifacts | Partial storage/accounting corruption spreads to every producer | Fail after each publication step, fail rollback, tamper inputs, fill all limits, and assert no published partial bundle or hidden secondary failure. |
+| R2-F05 | Specification + executor/resource policy + implementation + stress tests | One bounded execution path supports future operations without degrading control responsiveness | Any new externally observable cap or admission rule is adopted first; current image algorithms stay exact | Timeout/cancellation claims weaken under large valid workloads | Upper-bound inputs, native stall, abort during decode/render/publication, and quiet contention prove bounded completion, reaping and accounting. |
+| R2-F06 | Implementation + adapter fixtures/tests; spec only if actual meaning changes | Vendor/current-producer knowledge stays local; operations consume Cartulary observations | Keep current-only sources and exact joins; no cross-checkout/archive reader added | New formats require edits throughout analysis/report/lifecycle | Producer-shaped fixtures exercise successful/failed/expected-only and ambiguous captures; parent hashes and comparison identity unchanged. |
+| R2-F07 | Specification review + machine projections + semantic tests | Single typed facts and valid variants reduce synchronized maintenance and impossible states | Preserve valid V1 inputs; owner correction may tighten invalid acceptance; deliberate successor only if meaning changes | Pin drift and fabricated channel/source combinations erode trust | Exhaustive source/channel truth table and pin mismatch tests; no executable Markdown dependency. |
+| R2-F08 | Tests + authored routing + generated projections + evidence docs | Pure contracts, browser behavior and service-backed ownership can be run and assessed separately | Internal row selection may change with regenerated current mappings; seven helper commands stay outside product selections | Historical manual checks silently substitute for repeatable readiness | Every required obligation has a routed test or explicitly named manual trial; seeded editor/viewer and both profiles have reproducible Make-owned execution. |
+| R2-F09 | Report implementation/tests + guide/skill documentation | Presentation depends on a stable read model; agents actually inspect the selected evidence | Keep private offline report and expiry semantics; no export feature or new product design | Reports become costly to extend and capture success is confused with review | Native-size image inspection, keyboard controls, expected-only limitations, escaping/no-network, digest cache and post-stop expiry all verified. |
+
+### 18.6 Refactor workstreams
+
+Each workstream is exactly one implementation slice with its own checkpoint.
+Execute in order **R2-W1 → R2-W2 → R2-W3 → R2-W4 → R2-W5 → R2-W6 → R2-W7**.
+Sequential execution limits simultaneous ownership changes; it is not a runtime
+module or test-row naming scheme. Do not advance past a required blocked exit.
+
+| Workflow ID | Name | Class | Required previous | Required subsequent | Goal | Files likely involved | Validation | Handoff checkpoint |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| R2-W1 | Owner decisions and contract characterization | root | Later implementation authorization | R2-W2 | Close new behavior and map current acceptance before movement | NLSpec, schemas/contract, task/verification owners, focused tests | C; shape/command checks; editorial review | Adopted clause/AC map, source/channel matrix, baseline results and version decision |
+| R2-W2 | Session control, ownership and recovery | chain | R2-W1 | R2-W3 | One lifecycle owner with usable, bounded control and exact recovery | CLI/toolchain/controller/session/session-files/recovery; shared preparation/runtime seams | L/C, service cleanup, public stop/status, design-review smoke | Resource acquisition/release proof, death matrix, terminal/privacy evidence |
+| R2-W3 | Transactional private artifact store | chain | R2-W2 | R2-W4 | One reservation/publication/load/rollback owner | Bundles, report persistence, session accounting, secure IO, semantic validators | B/A, publication faults and retained-boundary checks | Ownership and byte accounting for success and every failure stage |
+| R2-W4 | Bounded raster and report work | chain | R2-W3 | R2-W5 | Responsive control while costly operations run under explicit budgets | Image worker/algorithms/PNG, capture/store/report execution, admission | A/B/L, cancellation/limit/quiet-contention fixtures | Boundaries, timings, child reaping and admission records |
+| R2-W5 | Browser and canonical source adapters | chain | R2-W4 | R2-W6 | Hide source/tool internals behind immutable operation inputs | Browser/capture/axe/source/canonical-import/analysis, producer fixtures | L/B/A plus affected canonical rows | Exact-source association and capture invariants; no compatibility branches |
+| R2-W6 | Offline presentation and review consumption | chain | R2-W5 | R2-W7 | Clear local evidence consumption independent of execution internals | Report/bundle read model, guide, repository review skill | Offline viewer tests and agent/human trial | Inspected pixels/report, privacy/expiry proof, progressive-disclosure guide |
+| R2-W7 | Validation and handoff completion | chain | All prior exits | None | Requalify this iteration and retire superseded internal paths | Routed tests, authored manifests, generated outputs, guide and this tracker | Full applicable matrix and public Make workflows | Exact evidence, platform support, cleanup, limitations and final readiness disposition |
+
+### 18.7 Proposed refactor slice plan
+
+All slices **are authorized by the 2026-09-28 implementation request**. `Preserve` below means
+adopted observable behavior; `correct` repairs an owner mismatch; `change` requires
+R2-W1 adoption. A test that preserves a defect must be replaced with owner-backed
+characterization rather than treated as a compatibility veto.
+
+| Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add/preserve | Validation command | Rollback note | Completion criterion |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| R2-S1 / R2-W1 | Authorization | Change: define minimal control readiness, expensive-work admission and recoverable proof disposition. Preserve all useful public behavior. Audit cross-field requirements and actual coverage | Owning NLSpec first, then typed inputs and C/B fixtures | Accidentally relaxing recovery identity or redefining retained data | Current V1 positives/negatives; source/channel matrix; dependency failure contracts | `make test-slice OWNER=harness.command_surface`; `make json-shape-check`; Markdown review | Revert unadopted proposals; no runtime movement until adopted | Every F01–F09 has an owner, adoption decision, acceptance test and route; no unresolved owner contradiction. |
+| R2-S2 / R2-W2 | R2-S1 | Preserve: explicit coordinator/mode ports. Correct: receipt/proof failure paths. Change: light control and supported exact recovery after both supervisors are gone | Lifecycle files and existing runtime/preparation owners | Hung releases, PID reuse, stop during prepare, changed internal registry layout | Fault each acquire/release/publication; stalled child; missing dependencies; double death; borrowed survival | Browser row below; command-surface slice; `make service-backed-test-slice OWNER=harness.browser`; `make browser-design-review-smoke` | Stop owned sessions before reverting private layout; never delete proof to permit rollback | Stop is responsive; every owned release attempted once; bounded failure retains only necessary proof; valid terminal repetition is byte-stable. |
+| R2-S3 / R2-W3 | R2-S2 | Preserve: immutable bundles. Correct: error/accounting closure through one private transaction store | Bundle/session/report storage, secure file port, schema semantics | Releasing budget while failed staging remains; aliasing source and derived bytes | Existing digest/limit fixtures; failure before/after commit; rollback error paired with primary; source variants | Browser row; `make json-shape-check`; `make lint-scripts` | Keep prior published bytes read-only; remove only proven owned staging | Callers cannot mutate store maps/counters; no partial ref returned; budget matches owned surviving files; primary and cleanup errors survive. |
+| R2-S4 / R2-W4 | R2-S3 | Preserve exact algorithms; change only adopted execution budgets. Isolate native decode/encode and heavy report work; reserve before allocation and publication | Worker/PNG/algorithms and their capture/store/report callers; host admission port | CPU/memory amplification, uncancelable codec, quiet-measurement interference | Maximal valid inputs, one-over limits, injected stalled work, cancellation at each stage, event-loop/control responsiveness | Browser row; `make service-backed-test-slice OWNER=harness.browser` where scheduler/resource owners require it | Remove new execution path as one owner; no parallel legacy worker remains | One shared operation deadline is enforced across stages; child death is drained; measured bounds and quiet admission meet R2-W1 contract. |
+| R2-S5 / R2-W5 | R2-S4 | Preserve: strict targeting, geometry, provenance, current-only imports. Split browser observation and source normalization from coordinators | Browser/capture/axe/source/import/analysis; narrow test fixtures | Changing coordinates, accessible observations, attachment association or renderer claims | Stable/moving geometry; iframe/axe outcomes; duplicate results; multiple captures; expected-only; two source revisions; pin drift | Browser row; command slice if input semantics change; selected canonical owner rows discovered with task guide | Move one adapter at a time; remove redundant forwarding exports after callers switch | Analysis/report no longer know Playwright report layout; capture does not operate through unrestricted session internals; expected bytes/metadata stay immutable. |
+| R2-S6 / R2-W6 | R2-S5 | Preserve report meaning; separate rendering/read model from store. Correct guide/skill component resolution and recovery instructions | Report, bundle model; existing guide and skill only where needed | Lost escaping, inaccessible controls, inferred observations, stale links | No-network/HTML injection, keyboard zoom/slider, correct original dimensions, report cache/digest, agent reads manifest then image | Browser row; `make lint-markdown`; manual local report/image trial | Retain report semantics, not incidental markup; no product golden refresh | Human and agent inspect the same source bundle while live; inaccessible/absent evidence explicitly reported; all private links expire. |
+| R2-S7 / R2-W7 | R2-S1–S6 | Complete routing, supported-platform qualification, removal of obsolete internals and handoff | Test families/task owner/generated outputs; guide; tracker | Calling unit coverage end-to-end proof; accepting platform assumptions | Complete matrix in §18.8, seeded/dev/artifacts, public failure/interrupt and cleanup workflows | `make agent-finalize`, then affected owner/drift/contract checks and public workflows below | Revert authored changes and regenerate only after owned sessions stop; adopted public retirement needs amendment | Every required acceptance row has current evidence; zero unresolved required gaps; no private residue/unowned process claim; final handoff complete. |
+
+Per-workstream risks and exits in these tables are gates, not optional aspirations.
+After each completion and **before starting the next workstream**, update §18.9
+and append §18.10 evidence: changed/inspected files, owner/contract decisions,
+exact commands and run roots, normalized failures with relatedness, skipped
+checks and reasons, resource/retention disposition, residual risks and next step.
+Use only `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, and `DROPPED`.
+
+### 18.8 Validation plan
+
+Initial discovery ran through public Make help, task-guide and explain-target
+commands; that planning step ran no runtime baseline. R2-W7 retired the coarse
+browser row and adopted separate contract, lifecycle, artifact, execution,
+presentation and workflow rows. Current examples are:
+
+```bash
+make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.ui_review_contract,harness.browser.boundary_support.ui_review_artifacts
+make service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.integration.ui_review_seeded_default,harness.browser.integration.ui_review_seeded_network_flow_claimed
+```
+
+Use `make explain-test-owner OWNER=harness.browser` for the complete current
+semantic row inventory. The old row has no compatibility alias. Historical
+checkpoints retain the commands actually executed. Harness mechanics remain separate from review
+commands: running a helper never becomes product-row evidence.
+
+| Validation layer | Discovered command | Scope | Required before implementation? | Notes |
+| --- | --- | --- | --- | --- |
+| Navigation | `make help-all`; `make task-guide ROLE=module-author OWNER=harness.browser`; corresponding command-surface/generated-artifacts guides | Current public commands and owners | Yes; done for planning | Recheck if baseline changes. |
+| Unit/contract | `make test-slice OWNER=harness.command_surface`; narrow browser row above | Inputs, JSON variants, output, algorithms, ownership | Capture baseline in R2-W1 | Existing browser row contains real-browser tests; it is not browser-free unit coverage. |
+| Integration/resource | `make service-backed-test-slice OWNER=harness.browser` | Shared fixture and cleanup seams | Baseline before shared-owner change | Broaden only when those owners change or failure remains unresolved. |
+| Public compatibility | `make browser-design-review-smoke`; `make browser-design-review-smoke REVIEW_PROFILE=default` | Both interactive preparation profiles | Before and after lifecycle change | Existing helper-only interface remains useful. |
+| Public workflow | `make ui-review`, finite review commands and explicit dev/artifacts starts | Seeded editor/viewer, both profiles; borrowed dev; exact imports/reimports; report and stop | After relevant slices | R2-W7 routes W and both seeded integration rows through authored Make commands; no raw-script workaround. |
+| Affected canonical rows | `make test-slice OWNER=<discovered-owner> ROWS=<selected-row-ids>` or service-backed equivalent | Current visual/a11y/browser rows touched by shared lifecycle/import changes | Select before those edits | Use owner guidance; no broad golden refresh, no carry-forward of historical row hashes. |
+| Shape and generated contracts | `make json-shape-check`; `make generated-artifact-policy-check`; `make generate`; `make generate-drift`; `make toolchain-drift` | Authored schema/task/routing changes and downstream outputs | Establish relevant baseline in R2-W1 | Generate only in implementation; never hand-edit generated outputs/lockfiles. |
+| Static | `make lint-scripts`; `make lint-shell` for shell edits | Changed executable sources | After affected edits | Existing owner mechanisms, no new phase-name scanner. |
+| Documentation | `make lint-markdown`; `git diff --check`; human link/table review | Configured Markdown plus this tracker manually | This planning step | Current lint globs omit this tracker; a passing lint run is not direct tracker coverage. |
+| Final owner closure | `make agent-finalize`, then browser/command-surface/generated-artifacts owner slices and `make harness-contract` | End-of-implementation integration | R2-W7 | Supply `RESULTS_DIR` only for an eligible full warm run; otherwise record retained-run maintenance skipped. |
+| Full repository checks | `make check`, CI/release targets as separately warranted | Only changed ownership or unresolved risk justifies broader scope | No | This iteration does not assert product release readiness from helper tests. |
+
+Required acceptance supplements below are human planning IDs, not machine inputs.
+Map them to owner clauses and semantic test claims in R2-W1 alongside all still
+applicable AC-102–AC-129; do not replace the adopted matrix with this table.
+
+| ID | Required evidence | Completion rule |
+| --- | --- | --- |
+| R2-A01 | Control with damaged/missing analysis dependencies; malformed and cross-user locators | Valid exact control works under the adopted minimal profile; unsafe identities fail before side effects; work commands still fail readiness. |
+| R2-A02 | Acquire/prepare/action/stop interleavings, two sessions, lock contention, action timeout | No duplicated effects, no late admission or successful publication after terminal cancellation, correct epochs, borrowed isolation. |
+| R2-A03 | Controller death, parent death, both lost, PID reuse, hung release | Existing resource owners recover only proven owned resources; all releases bounded, failed proof retained, no unrelated process/service touched. |
+| R2-A04 | Cleanup and terminal publication fail independently and together | Primary/secondary diagnostics survive; no false successful terminal evidence; safely removable detail is purged; receipt digest immutable. |
+| R2-A05 | Artifact transaction faults, symlink/ownership races, changed bytes, each storage bound | No partial publication, overwritten parent/source, budget leakage, unsafe access or hidden rollback failure. |
+| R2-A06 | Native-worker stall, maximal inputs, abort during decode/encode/report, quiet waiter | Control remains responsive; shared deadline/admission respected; children reaped; measured peak resources satisfy adopted limits. |
+| R2-A07 | Every source/channel combination and current producer join | Impossible claims rejected; failed/expected-only valid cases stay diagnostic; multiple captures cannot cross-associate. |
+| R2-A08 | Browser observation, geometry, fonts, iframe/axe states, exact raster fixtures | Existing algorithms and limitations preserved; missing coverage is never labeled successful assessment. |
+| R2-A09 | Retained stdout/argv/errors/telemetry/private-path sentinels and transient outputs | Only structural receipts persist; no private detail retained on success, interruption, or injected failure. |
+| R2-A10 | Public seeded editor/viewer + both profiles, dev service survival, browser-free artifacts | Reproducible Make-owned tests pass and cleanup is proved; product/golden/release selections remain unchanged. |
+| R2-A11 | Real image/report consumption using guide/skill; malicious observed content | Exact manifest components viewed, offline controls usable, no network/active observed URL, expiry observed, no retained private copy. |
+| R2-A12 | Platform qualification and final repository closure | WSL2 Linux x64 and separately supported native Linux amd64 have exact dependency/workflow evidence, or support is explicitly narrowed by an adopted amendment before claiming readiness. |
+
+### 18.9 Top-level work tracker
+
+| ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| R2-T00 | Inventory, owner review, findings and next-iteration plan | Planning | DONE | Current document request | §18.1–18.8; source/command inspection in §18.10 | Only tracker changed; current evidence distinguished from history. |
+| R2-T01 | Adopt decisions and characterize contracts | R2-W1 | DONE | Authorized implementation request | Amendment ui-review-api-2, typed work profiles, acceptance map and W1 checkpoint | Specification and valid-variant/version decisions closed. |
+| R2-T02 | Session control and recovery | R2-W2 | DONE | R2-T01 | W2 checkpoint; lifecycle/death matrix, shared contracts, both smoke profiles and direct seeded trial | Exact, bounded recovery and honest terminal outcome. |
+| R2-T03 | Private artifact store | R2-W3 | DONE | R2-T02 | W3 checkpoint; transaction faults, residual accounting, immutable provenance and source matrix | Transaction, reservation, provenance and rollback closure. |
+| R2-T04 | Bounded work execution | R2-W4 | DONE | R2-T03 | W4 checkpoint; weighted tree admission, worker cancellation, measured WSL2 envelopes | Stress/cancellation/admission criteria satisfied. |
+| R2-T05 | Observation and source adapters | R2-W5 | DONE | R2-T04 | W5 checkpoint; scoped browser observation, normalized canonical comparison and current producer fixtures | Narrow adapters preserve exact capture/source meaning. |
+| R2-T06 | Report and agent/human consumption | R2-W6 | DONE | R2-T05 | W6 checkpoint; user accepted regenerated review, exact image inspection, keyboard/offline tests and verified expiry | Local inspection succeeds before verified expiry. |
+| R2-T07 | Validation and handoff completion | R2-W7 | DONE | R2-T01–R2-T06 | W7 completion checkpoint; all semantic rows, both profiles, owner suites, harness contract and full check 977/977; verified cleanup | Required WSL2 evidence complete; native qualification user-deferred. |
+| R2-T08 | Optional engines, hosted/export workflows and plugin framework | Outside iteration | DEFERRED | Separate demonstrated need and adoption | §18.1 exclusions | Not required for this iteration's completion. |
+
+### 18.10 Session handoff log
+
+The original records describe the 2026-09-28 planning session. Implementation
+checkpoints appended below distinguish current execution from that history.
+
+#### R2-W1 execution start — 2026-09-28
+
+- User authorized the complete seven-workstream plan; R2-W1 is IN_PROGRESS.
+- Baseline: `main`, `25806426bae985528ee14de9e2595316da93ba8f`; only this tracker
+  had pre-existing edits (414 additions, 10 deletions), preserved in place.
+- Host: WSL2 Linux x86_64, kernel `6.6.114.1-microsoft-standard-WSL2`.
+- User subsequently directed: **skip native Linux amd64 qualification in this
+  iteration**. WSL2 qualification remains mandatory. Native qualification is
+  DEFERRED by that explicit scope correction; existing declared platform support
+  is not rewritten and this iteration makes no new native-Linux readiness claim.
+  R2-A12 and W4/W7 exits are assessed against this authorized WSL2-only scope.
+- Adopt bounded parallel work through the existing host arbiter: raster jobs
+  reserve 1 CPU/1 process/1024 MiB; report jobs 1 CPU/1 process/512 MiB. These
+  are admission envelopes pending measured qualification, not measured peaks.
+- Preserve public V1 review envelopes, current-only imports, private lifetimes,
+  and existing input bounds. Retire invalid test fixtures and private internals.
+- Additional F02 evidence: the shared suite-runtime stale janitor currently
+  removes aged runtime trees without process-liveness/recovery checks. W2 must
+  protect live ownership and unresolved proof before shared layout changes.
+- Commands: `git status --short`, `git log -1 --format='%H %s'`, `uname -a`,
+  targeted source reads. No runtime validation yet; no resources acquired.
+- Next: amend owner contracts and typed policy, establish fresh baselines, then
+  record the W1 exit before starting W2.
+
+
+#### Scope and authority
+
+#### R2-W1 adoption and validation map — current
+
+Adopted amendment: `ui-review-api-2`. Public review V1 wire shapes and identities
+remain current; invalid semantic variants are rejected rather than translated.
+Machine work envelopes are authored topology profiles, read through the private
+review policy module; no generator or runtime consumes this document. W2 owns
+minimal-control/cleanup implementation, W3 owns semantic storage enforcement,
+and W4 owns worker/admission enforcement. Limits are unchanged apart from the
+explicit newly adopted aggregate worker reservations.
+
+| Acceptance / findings | Implementation owner | Current baseline and required extension |
+| --- | --- | --- |
+| AC-102–107, 125–128; A01/A09; F03/F07 | Command surface, private control and contracts | C baseline; add engine-damage control and semantic source cases; retain output/input/privacy rejection coverage. |
+| AC-108–111, 127; A02–04; F01–03 | Session coordinator, preparation, runtime recovery | L baseline; add prepare/stop races, both-supervisor death, publication/cleanup faults, live aged runtime and unresolved proof. |
+| AC-114–118; A05/A07; F04/F07 | Private store and source adapter | B baseline; add transactional fault stages, failed-rollback accounting and all source/channel variants. |
+| AC-108/111/118–120; A06; F05 | Worker executor and existing host arbiter | A/L baseline; add weighted parallel mixed jobs, shared deadline, large input, native stall and process-tree peak qualification. |
+| AC-109/112–116/119–122; A07–08; F06/F07 | Browser/canonical/axe adapters | B/A/L baseline; add producer associations and preserve exact raster/observation semantics. |
+| AC-123–126; A11; F09 | Presenter and private evidence consumers | A/W baseline; add actual component resolution, keyboard use and real local inspection before expiry. |
+| AC-129; A10/A12; F08 | Routed public workflows and final handoff | W currently covers dev/artifacts; add both seeded profiles with editor/viewer. WSL2 required; native host qualification explicitly deferred by user. |
+
+Fresh pre-change baselines passed: browser slice run
+`.cartulary/test-results/20260928T230116Z-p2153` (1/1 units, 60703 ms),
+command-surface slice `.cartulary/test-results/20260928T230116Z-p2166`
+(1/1 units, 28487 ms). These are baseline evidence, not proof of new behavior.
+
+#### R2-W1 completion checkpoint — 2026-09-28
+
+- Owner amendment and updated AC-103/108/111 adopted; source/component truth
+  table, control-only readiness, recovery/detail boundaries and parallel resource
+  policy specified. No owner contradiction found. Review schemas/commands remain V1.
+- Changed: NLSpec; authored topology resource profiles; catalog profile roster;
+  family/work-graph-owner schema enums; private `policy.mjs`; contract tests;
+  generated topology render index via Make; this tracker. No product or golden edit.
+- Profiles also declare 1 IO token, as required by the existing executable-profile
+  contract. CPU/process/memory claims remain the user-approved values.
+- `make generate` PASS: `.cartulary/test-results/20260928T230631Z-p19114`.
+  Earlier attempts `20260928T230442Z-p12339` and `20260928T230528Z-p15817`
+  failed at topology generation due to ordering and the closed profile roster;
+  both were related authored-projection omissions, corrected before the passing run.
+- `make test-slice OWNER=harness.command_surface` PASS:
+  `.cartulary/test-results/20260928T230648Z-p22324`.
+- `make json-shape-check` PASS: `20260928T230648Z-p22293` (3/3 units).
+- `make generated-artifact-policy-check` PASS: `20260928T230835Z-p28351` (3/3).
+- `make lint-markdown` PASS: `20260928T230649Z-p22556`,
+  `adhoc/lint-markdown/tool-run-summary.json`; tracker itself reviewed directly
+  because configured lint globs exclude it. `git diff --check` PASS.
+- New lifecycle/store/worker behavior is specified, not yet implemented or
+  claimed passing. Full repository/platform qualification and retained-run
+  maintenance remain for W7; no eligible warm RESULTS_DIR supplied.
+- No session or service acquired by this workstream beyond baseline test-owned
+  disposable resources. No private artifact handed off. Next: R2-W2.
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-28 | Planning-only repository session | Iteration 1 historical; iteration 2 planned | AGENTS, framework, tracker format, relevant NLSpec/domain/design sections; only this tracker edited | `git status --short`; `git log -1 --format='%H %s'`; `git branch --show-current`; targeted `rg`, `sed`, `cat`, `wc` | Clean baseline on main; 22 target files inspected; current scope documented | No owner-to-owner contradiction identified | Start R2-W1 only under a later implementation request. |
+
+#### Backend and resource boundary
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-28 | Source inspection | No product backend edit | Session/controller/recovery/registry; shared preparation and runtime/admission/secure-IO seams | Targeted source reads and inbound import searches | Resource owners exist; session context and private cleanup/proof need separation | RB-002 | Characterize failure paths without inventing a new service owner. |
+
+#### Frontend and presentation boundary
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-28 | Source inspection | Product UI unchanged | Browser/capture/axe/report/analysis; design scope; guide and skill entry point | Targeted reads | Offline presenter and evidence-consumer seam identified; no design rewrite proposed | None for planning | R2-W5/W6 preserve observations and inspect actual pixels. |
+
+#### Contract and code generation
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-28 | Contract inspection | No projection/generation changes | Contract/failure modules, selected schema fields, eight attachments, task recipes, Make renderer, generated policy search | Targeted reads; `make explain-target TARGET=harness-ui-review-contract DETAIL=summary` | Seven public helpers and V1 identities retained; new readiness policy requires adoption | RB-001/RB-002 | R2-W1 resolves owner clauses before typed changes; generate only in implementation. |
+
+#### Tests and harness
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-28 | Verification discovery | No runtime suites run | C/L/B/A/W and import fixture; browser/command routing; Markdown config | `make help-all`; task guides for `harness.browser`, `harness.command_surface`, `harness.generated_artifacts`; explanations for `harness-ui-review-contract`, `browser-design-review-smoke`, `lint-markdown` | All discovery commands passed; seeded automated route gap and coarse row identified | RB-003 | Establish fresh baseline and semantic routing in R2-W1; old roots remain historical only. |
+| 2026-09-28 | Document validation | PASS within stated coverage | This tracker manually reviewed; configured Markdown lint selection | `make lint-markdown`; `git diff --check`; direct structure, table and link review | Both commands passed. Lint run `.cartulary/test-results/20260928T223217Z-p89243`, summary `adhoc/lint-markdown/tool-run-summary.json`. Lint configuration omits this tracker; its new section, navigation, tables and historical/current boundaries were reviewed directly. | No runtime verification implied | Planning complete; establish runtime evidence in R2-W1. |
+
+#### Security and authorization
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-28 | Boundary inspection | No browser/service acquired | Secure IO, retained projections, stop/recovery, owner privacy clauses | Source reads only | No new credentials/private artifacts produced; failed-cleanup detail retention is a current structural risk | RB-002 | Plan proof/detail separation and tests; do not delete runtime evidence during planning. |
+
+#### Open risks and next session
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-28 | Planning handoff | R2-T00 DONE; R2-T01–T07 TODO | Sole controlling tracker updated | Runtime/shape/generation/finalization suites intentionally not run: documentation-only scope; no eligible full warm `RESULTS_DIR` supplied | Document-only scope preserved; retained-run maintenance skipped; no new production-readiness claim | §18.11 adoption/evidence gates | Recheck HEAD/dirty state and owner guidance, mark R2-W1 IN_PROGRESS after implementation authorization; record each completed slice before the next. |
+
+#### R2-W2 completion checkpoint — 2026-09-28
+
+- Control loads pinned Node and contracts without image/browser engines. The
+  controller loads lifecycle code only for a new session. Preparation uses an
+  owned subprocess; exact provider handles and boot/start process identities
+  are recorded at acquisition. Cancellation drains late acquisitions, reaps
+  detached groups even after leader death, and prevents successful late actions.
+- One terminal publisher now serves shutdown and recovery. Missing/invalid
+  receipts are artifact failures. Registry deletion follows cleanup, receipt
+  publication and the retained scan. Age cannot remove live or unresolved roots.
+- Owner clarification in REQ-502: explicit stop may retry exact unresolved
+  resources after a failed terminal controller dies; it preserves the original
+  failed receipt byte-for-byte. This adds no command, schema, alias or reader.
+- Private detail disposal is separate from ownership proof, including credentials,
+  preparation history and frontend copies. Borrowed runtimes use the same secret
+  registry implementation. Existing testservices cleanup now accepts its exact
+  lease independently of discarded diagnostic history, without fabricating events.
+- Changed: review CLI/toolchain/controller/session/registry/browser/recovery;
+  new ownership, preparation and terminal modules; shared preparation, provider,
+  secure IO and suite-runtime ports; testservices cleanup and its existing test;
+  lifecycle/contract/shared-runtime tests; owner text and generated topology index.
+- Final focused lifecycle plus service-owner rows PASS (2/2):
+  `.cartulary/test-results/20260928T234601Z-p92805`.
+  Tests include hung release, PID reuse, late acquisition, parent/controller/both
+  deaths, real browser reaping, borrowed-origin survival, engine-blocked exact
+  status/stop, publication faults and immutable terminal repetition.
+- Command-surface slice PASS: `20260928T233056Z-p47321`.
+  Service-backed browser slice PASS (15/15): `20260928T233236Z-p80446`.
+  Shared `make harness-contract-tests` PASS: `20260928T234643Z-p2608`,
+  `harness-contract-tests/harness-contract-tests/step-summary.json`.
+- Both `make browser-design-review-smoke` profiles PASS, closed with private
+  roots removed: `design-review-1790638292506-64a31823` (default) and
+  `design-review-1790638370674-4713f5ff` (network_flow_claimed).
+- Direct public seeded default trial `r2-w2-seeded-default-2` reached ready and
+  explicit stop closed successfully with cleanup complete. Earlier
+  `r2-w2-seeded-default` failed: borrowed runtime lacked secret-registration
+  capabilities, then recovery incorrectly depended on deleted lifecycle history.
+  Both defects were repaired. Exact stop subsequently removed that trial's
+  resources, private root and registry while preserving its failed receipt.
+  Accidental auxiliary recovery diagnostics in that trial's retained `_shared`
+  directory were removed by exact named-file deletion; only UI receipts remain.
+  Temporary private debugging instrumentation was removed, and its private file
+  disappeared with the recovered root. No unresolved trial resource remains.
+- Related failures: shared contracts `20260928T233236Z-p80951` detected stale
+  generated topology inputs (fixed by Make regeneration); service-owner row
+  `20260928T234209Z-p71577` found a new test incorrectly rejecting ENOENT for
+  intentionally absent history (assertion corrected; rerun
+  `20260928T234303Z-p80284` passed). Invalid owner discovery for
+  `harness.scheduler` was corrected to existing harness targets.
+- Final `make generate` PASS: `20260928T234559Z-p92081`; shape PASS:
+  `20260928T234644Z-p3105`; scripts lint PASS: `20260928T234633Z-p1243`;
+  shell lint PASS: `20260928T234210Z-p71977`; Markdown lint PASS:
+  `20260928T234631Z-p99766`. `git diff --check` and direct tracker review PASS.
+- Compatibility: restart private sessions after cutover; old unresolved proof
+  is preserved, never interpreted as deletion authority. Public V1 outcomes remain
+  current. No database, product UI, canonical golden or borrowed input changed.
+  Remaining work is artifact transactions, worker/resource qualification,
+  adapters, presentation and final routed acceptance. Native qualification is
+  user-deferred. Finalize/full closure and warm retained-run maintenance remain W7.
+- R2-W2 DONE. R2-W3 is now IN_PROGRESS; no W3 implementation preceded this exit.
+
+#### R2-W3 completion checkpoint — 2026-09-29
+
+- Added the session-scoped `artifact-store.mjs`; migrated capture, analysis,
+  reports and operation observations to its reservations, immutable publication,
+  verified lookup, cache and disposal. Removed producer/session storage maps.
+  Secure IO now preserves initiating failures alongside rollback failures and
+  returns the surviving quarantine path so residual bytes remain charged.
+- Added `bundle-semantics.mjs` and enforced the adopted source/channel truth
+  table, exact immutable parent provenance and observation/image consistency.
+  Updated bundle, analysis and command-contract fixtures to use real canonical
+  expected-only evidence. No wire version, dependency, product or golden change.
+- Fault injection covers writes before/after materialization and commit, failed
+  rollback, cancellation, shared report/observation accounting, tampering and
+  byte/count limits. No partial reference escapes; failed deletion keeps its
+  reservation until later verified disposal. Test-owned private roots are removed.
+- PASS `make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.private_ui_review_session_ownership_and_strict_b_b785350fa4`:
+  `.cartulary/test-results/20260929T000307Z-p40910`.
+- PASS `make test-slice OWNER=harness.command_surface`:
+  `.cartulary/test-results/20260929T000602Z-p50661`.
+- PASS `make generate`: `20260929T000415Z-p47641`; `make json-shape-check`:
+  `20260929T000603Z-p50868`; `make lint-scripts`: `20260929T000306Z-p40624`;
+  `make harness-contract-tests`: `20260929T000605Z-p51364` (all under
+  `.cartulary/test-results/`). `git diff --check` and direct tracker review pass.
+- Related failures: command run `20260929T000019Z-p24692` rejected fabricated
+  canonical metadata; replaced it with the current producer fixture. Run
+  `20260929T000220Z-p34381` passed those cases but concurrent generation changed
+  its source fingerprint; generation was completed and the final run passed with
+  edits frozen. Neither failure is waived.
+- Deferred to ordered successors: worker isolation/resource qualification (W4),
+  narrow observation adapters (W5), consumption (W6), final routing/drift/full
+  closure (W7). Retained-run maintenance remains skipped: no eligible full warm
+  `RESULTS_DIR`. Native platform qualification is user-deferred for this iteration.
+- R2-W3 DONE. R2-W4 is now IN_PROGRESS; no W4 implementation preceded this exit.
+
+#### R2-W4 completion checkpoint — 2026-09-29
+
+- Replaced the analysis-only buffer IPC worker with `executor.mjs`: one admitted,
+  cancellable process per data operation, one 30-second deadline, exact process
+  registration before work, reaping before input disposal and store adoption only
+  after successful exit and a final cancellation check. Raster validation,
+  import, derivation, encoding, report construction and cache validation run there.
+  Browser observation spools its screenshot for that worker; IPC carries metadata
+  and private paths rather than image collections.
+- Extended the existing host arbiter with CPU/process/memory/IO claims using the
+  existing capability resolver. Scheduled host-activity participants propagate
+  their exact parent token. Subtrees consume the maximum of inherited claims and
+  summed children, preventing duplicate credit. Existing activity can drain while
+  a quiet waiter blocks new activity; nested quiet work excludes other roots.
+  Exact browser, preparation and worker proofs preserve claims after controller
+  death. Corrupt proof is rejected rather than treated as dead ownership.
+- Added store work reservations and immutable file payloads. Secure IO streams
+  parent/report copies and rechecks source digests; loading materializes only
+  selected files. Failed workers retain their full staging reservation until
+  confirmed deletion. Derivation stops at the existing cumulative bundle limit.
+  Shared pure fraction arithmetic also repairs the W3 semantic check to apply
+  the specified rounding. No image algorithm, public command or V1 envelope changed.
+- Changed areas: executor, store, payload/secure IO, capture, analysis, report,
+  image math/algorithms, session/preparation/browser process guards, host admission,
+  scheduler/runner integration, execution fixtures, authored task backing inputs
+  and Make-generated projections. Removed `image-worker.mjs` and its callers.
+- PASS final browser slice (the exact W3 command):
+  `.cartulary/test-results/20260929T003319Z-p77910` (63,783 ms). Includes maximum
+  32-MiB PNG/16,777,216-pixel inputs, sixteen full-size crops, mixed parallel
+  raster/report work, stalled workers, cancellation, resource exhaustion,
+  inherited sibling claims, quiet order, corrupt proof and dead-parent/live-worker
+  retention. Final measured process-tree peaks: raster **474,406,912 bytes** of
+  1,073,741,824; report **416,043,008 bytes** of 536,870,912. Node 24.15.0,
+  Linux x64, WSL2 kernel 6.6.114.1. Envelopes were not raised.
+- PASS `make harness-contract-tests`: `20260929T003319Z-p78482`;
+  `make service-backed-test-slice OWNER=harness.browser`: 15/15,
+  `20260929T002543Z-p10393`; `make lint-scripts`: `20260929T003319Z-p78113`;
+  `make json-shape-check`: `20260929T002829Z-p49469`; final `make generate`:
+  `20260929T003258Z-p74749` (roots under `.cartulary/test-results/`).
+  Shared contracts were rerun after final admission changes. `git diff --check`
+  and direct tracker review pass.
+- Related generation failure `20260929T001725Z-p61929` referenced the removed
+  worker in authored backing inputs; replacing that registration and adding the
+  new owners repaired it. No runtime failure was waived. Intermediate passing
+  runs remain historical; the final peak values above belong to the final code.
+- Cutover inspection found the host registry empty and no active review process
+  before changing its private shape. No legacy lease was translated or deleted.
+  Final inspection again shows zero leases and no review worker/controller.
+  Borrowed sources survive; task-owned staging and test roots were disposed.
+- Remaining work is W5–W7. Native Linux qualification is explicitly user-deferred;
+  no new native readiness claim. Full closure/drift and retained-run maintenance
+  remain W7; no eligible full warm `RESULTS_DIR` is currently available.
+- R2-W4 DONE. R2-W5 is now IN_PROGRESS; no W5 implementation preceded this exit.
+
+#### R2-W5 completion checkpoint — 2026-09-29
+
+- Browser capture now goes through its observation adapter with scoped driver
+  access, immutable observations and an explicit source-attestation capability.
+  Capture/analysis/report operations receive identity, store and staged-input
+  ports; they no longer receive a mutable session or unrestricted browser page.
+  Preserved exact targeting/epochs, focus/scroll, font readiness, three settled
+  frames, immediate post-screenshot geometry checks, native scale and RGBA math.
+- Canonical producer joins and comparison identities now belong to the canonical
+  adapter. The store exposes an immutable normalized comparison identity; analysis
+  compares that identity without interpreting producer report/fixture formats.
+  Missing scope remains unavailable for matched comparison while valid expected-only
+  evidence remains importable and reportable. Source bytes and revisions stay exact.
+- Centralized pin-derived engine facts; work-policy loading is separate so control
+  does not depend on worker configuration. Added shared immutable and bundle-model
+  helpers. Removed the old analysis primary/comparison exports, capture forwarding,
+  duplicate repository-root ownership and unused public axe-state helper export.
+- Changed: browser and new browser-observation adapter; source/canonical-import;
+  capture, analysis, report, store and bundle model; axe/contract/semantic facts;
+  policy/work-policy, immutable helper; affected narrow imports, producer fixtures,
+  authored backing scripts and generated projections. No product, schema version,
+  image algorithm, canonical driver or golden changes.
+- PASS `make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.private_ui_review_session_ownership_and_strict_b_b785350fa4`:
+  `.cartulary/test-results/20260929T004426Z-p14409` (63,361 ms). Extended cases
+  cover multiple real fixture captures in one failed producer result, duplicate
+  result joins, expected-only sources, changed source revisions, incompatible
+  comparison identities and immutable normalized output. Existing capture/axe,
+  exact raster, privacy, cancellation and resource-envelope regressions also pass.
+- PASS selected canonical visual-support rows via
+  `make service-backed-test-slice OWNER=harness.browser` with `ROWS` equal to
+  `harness.browser.boundary_support.visual_anchor_geometry`,
+  `harness.browser.boundary_support.visual_asset_failure`,
+  `harness.browser.boundary_support.visual_preference_isolation`,
+  `harness.browser.boundary_support.visual_preference_lifetime`, and
+  `harness.browser.boundary_support.visual_presentation_profiles`:
+  `.cartulary/test-results/20260929T004426Z-p14437` (11/11 units).
+- PASS command surface `20260929T004013Z-p94621`; final generation
+  `20260929T004354Z-p11204`; script lint `20260929T004426Z-p14612` (roots under
+  `.cartulary/test-results/`). Owner guidance rediscovered through Make.
+  `git diff --check`, removed-interface search and direct tracker review pass.
+- No runtime acceptance failure or skipped required W5 check. Test-owned processes,
+  leases and private roots were cleaned by their owners; no private evidence copied
+  into this tracker. W6 owns actual image/report consumption and W7 owns remaining
+  routing and full closure. Native qualification remains user-deferred; retained-run
+  maintenance remains skipped without an eligible full warm `RESULTS_DIR`.
+- R2-W5 DONE. R2-W6 is now IN_PROGRESS; no W6 implementation preceded this exit.
+
+#### R2-W6 implementation and validation — 2026-09-29
+
+- Presentation now consumes an immutable store read model with selected,
+  digest-checked component capabilities. It receives no mutable store map or
+  storage root. Primary image selection belongs to the shared bundle model.
+- Fixed a report resolution defect: the copied manifest previously named
+  components that the report renamed or omitted. Reports now preserve exact
+  component filenames and bytes, including observations/provenance, and reuse
+  the same assets across views. Cache version is 2. Local inspection links have
+  no download workflow; escaping, CSP, native resolution and missing-channel
+  labels remain in place.
+- Changed store/report, analysis/report tests, the existing browser-readiness
+  guide, and the review skill plus its artifact/live/recovery references. The
+  documentation explains exact manifest lookup, digest/size verification,
+  inspection before stop, minimal control readiness, dead-owner recovery and
+  retained proof. No product UI, canonical golden or public V1 schema changed.
+- PASS generation `20260929T005030Z-p56713`; browser slice
+  `20260929T005051Z-p60166`; script lint `20260929T005051Z-p60335`; Markdown
+  lint `20260929T005051Z-p60378`. Roots are under `.cartulary/test-results/`.
+  The configured Markdown glob omits this tracker; direct table/link/diff review
+  is separate. Tests cover manifest resolution, forged read-model references,
+  escaping, no HTTP(S) requests, keyboard zoom/reveal, cache integrity and expiry.
+- Corrected the W4 stress fixture during this audit: sixteen identical crop
+  rectangles bypassed the public unique-items constraint. The fixture now uses
+  sixteen distinct large crops and passes through the public request parser.
+  The W4 measurements remain historical worker stress evidence, superseded for
+  public-request qualification by the fresh valid-input run below.
+- PASS corrected browser slice `20260929T005752Z-p79466` (63,114 ms), generation
+  `20260929T005737Z-p76214`, and script lint `20260929T005753Z-p79746`.
+  Measured WSL2 process-tree peaks: raster **571,531,264 bytes** of 1,073,741,824;
+  report **351,223,808 bytes** of 536,870,912. Neither envelope was raised.
+  A subsequent keyboard test also requires reaching controls through Tab rather
+  than direct programmatic focus. Final generation PASS:
+  `20260929T005954Z-p87962`; browser slice PASS: `20260929T010013Z-p91275`
+  (63,076 ms); script lint PASS: `20260929T010015Z-p91548`. Private successful
+  test logs were disposed by their owner; the earlier recorded peak trial uses
+  the same executor and valid stress request. No additional runtime failure.
+- Live public trial: `CARTULARY_TEST_RUN_ID=r2-w6-consumption make ui-review
+  REVIEW_PROFILE=default`; exact status, editor authentication, page capture and
+  report commands succeeded through Make. Agent inspected the manifest-selected
+  1440×900 original in bundle-2, showing the editor incident directory. Source
+  and report image bytes match SHA-256
+  `62cd3e8082838c18b292fc84a520ba1f88f73025d0e40866e67ef4373e539c89`.
+  The app returned queued for the local report tab; this is not proof of human
+  inspection. An explicit human trial question is pending. The session remains
+  live for that inspection; private paths and image content are not copied here.
+- W6 is IN_PROGRESS. Human inspection and subsequent exact stop/expiry/structural
+  retention checks remain required. W7 has not begun. Native Linux qualification
+  remains user-deferred; final closure and warm retained-run maintenance remain
+  W7, with no eligible full warm `RESULTS_DIR` supplied.
+
+#### R2-W6 report regeneration — 2026-09-29
+
+- User requested a regenerated Private UI review. Exact Make stop closed the
+  original `r2-w6-consumption` session with cleanup complete; the foreground
+  process exited zero and its private root, source image and report disappeared.
+  Repeated stop returned the identical terminal SHA-256
+  `a7a90dce2b63a7af76f61fb5a8367b3d4d94da9983f8382bd165487be668ad27`.
+  The retained run contains only the locator and structural operation/terminal
+  receipts. Human inspection of that original report was not confirmed.
+- Started `CARTULARY_TEST_RUN_ID=r2-w6-consumption-refresh make ui-review
+  REVIEW_PROFILE=default`, authenticated editor, captured the page with axe and
+  rendered bundle-2 using the exact public Make commands. All succeeded. This
+  creates a fresh sealed capture and report without overwriting an immutable
+  bundle or circumventing the report cache.
+- Agent inspected the fresh 1440×900 original. Its 53,946 bytes and SHA-256
+  `ae7d0d0b41cb8c3fc675211dd86b0ea871db9e71f95c3907d94cb38eae8fd96f`
+  match the manifest and report image. The app queued the new local HTML tab.
+  The fresh session stays live for human consumption; caller-owned request
+  scratch remains in use and will be removed after the final stop.
+- W6 remains IN_PROGRESS pending human inspection and final session cleanup;
+  W7 remains TODO. No implementation or dependency changed during regeneration.
+  No new runtime failure; `git diff --check` passes. The prior W6 validation
+  remains applicable, and native qualification remains explicitly deferred.
+
+#### R2-W6 completion checkpoint — 2026-09-29
+
+- User accepted the regenerated live review with “Great close WS 6”. This
+  resolves the pending human-consumption gate for the same manifest-selected
+  source image inspected by the agent. Automated Tab/arrow/Home/End, escaping,
+  offline, cache and source-resolution evidence is recorded above; no additional
+  manual keyboard result is invented from that acceptance.
+- Exact public Make stop closed `r2-w6-consumption-refresh`; the foreground
+  process exited zero, cleanup is complete, and repeated stop returned identical
+  terminal SHA-256
+  `ef9321e187921871af0e335ec9c16565941f28f2d3b244e5df2802e5be89e44a`.
+  The complete private root and exact registry record are absent. Image/report
+  links have expired. Only the locator and structural receipts remain under
+  `.cartulary/test-results/r2-w6-consumption-refresh`.
+- Removed the two exact caller-owned request files and their now-empty scratch
+  directory. No borrowed resource was acquired or removed by this seeded trial.
+  No cleanup failure or unresolved proof remains from either consumption session.
+- Changed files, specification decisions, compatibility and validation results
+  are in the preceding W6 records. No product/golden/dependency change; no durable
+  private export. Native Linux remains user-deferred. Final owner suites, routing,
+  full repository closure and handoff belong to W7. Retained-run maintenance has
+  no eligible full warm `RESULTS_DIR` yet.
+- R2-W6 DONE. R2-W7 is now IN_PROGRESS; no W7 implementation preceded this exit.
+
+#### R2-W7 routing qualification — 2026-09-29
+
+- Added six semantic shell rows: `harness.browser.boundary_support.ui_review_`
+  followed by `contract`, `lifecycle`, `artifacts`, `execution`, `presentation`,
+  or `workflow`. Separate verification identities own these responsibilities.
+  Retired the old coarse row without an alias; its existing internal contract
+  target now runs only the semantic request/source contract tests.
+- Added `harness.browser.integration.ui_review_seeded_default` and
+  `harness.browser.integration.ui_review_seeded_network_flow_claimed`, each with
+  explicit profile, service dependencies and resource claims. Their public Make
+  workflow owns preparation through the existing review coordinator, so the
+  row does not acquire a redundant fixture lease. Both authenticate editor and
+  viewer, then navigate, snapshot, capture with axe, derive and report.
+- Extended the public artifacts workflow to import and reimport exact current
+  producer-shaped failed/expected-only canonical evidence and report it without
+  inventing actual pixels. Borrowed goldens are checked unchanged. Every workflow
+  checks immutable parents, repeated terminal results, private-link expiry,
+  borrowed dev survival and structural-only retained output.
+- Changed authored task surface, browser test family, verification projection,
+  public workflow fixture, seeded wrapper and pin-derived producer fixture;
+  downstream task/topology outputs were generated through Make.
+- PASS `make generate`: `20260929T012231Z-p13886`; six-row `make test-slice
+  OWNER=harness.browser ROWS=<the six semantic rows above>`: 6/6,
+  `20260929T012254Z-p17220`; two-profile `make service-backed-test-slice
+  OWNER=harness.browser ROWS=<the two integration rows above>`: 4/4,
+  `20260929T012254Z-p17257`; `make lint-scripts`: `20260929T012254Z-p17431`.
+  All roots are under `.cartulary/test-results/`. No runtime failure; all workflow
+  cleanup assertions pass. Owner guidance and full-check plan were rediscovered.
+- R2-W7 remains IN_PROGRESS. Finalize runs before broader owner/contract/check
+  validation. No eligible full warm `RESULTS_DIR` is supplied. Native Linux
+  qualification remains user-deferred; no platform result is inferred.
+
+#### R2-W7 broad-validation correction — 2026-09-29
+
+- First finalize PASS: `20260929T012438Z-p62394`; command-surface PASS:
+  `20260929T012553Z-p66981`; generated-artifact owner PASS: 5/5,
+  `20260929T012553Z-p67021`; service-backed browser owner PASS: 17/17,
+  `20260929T012553Z-p66951`. Retained-run maintenance was skipped because
+  `RESULTS_DIR` was unset. These are fresh evidence, not iteration-1 carry-over.
+- Broader browser run `20260929T012553Z-p66931` exposed a lifecycle assertion
+  failure and a worker cancellation test failure under concurrent load. The
+  latter left its interval alive after an assertion, preventing termination.
+  Interrupted this exact owned run after observing the failure: 41 passed,
+  1 failed, 5 cancelled. Its outer retained-boundary check then failed on an
+  unpublished Playwright trace resource. This failed run is not waived or counted
+  as passing. Its temporary `.playwright-artifacts-0` files were disposed after
+  the runner stopped; structural failed/cancelled evidence remains intact.
+- Corrected test ownership/routing: browser tests now inherit their scheduled
+  host lease, rather than acquiring a competing root lease. Added authored
+  qualification profiles reserving a browser plus raster envelope (1 CPU,
+  1 process, 1536 MiB, 1 browser stack), and two parallel raster jobs (2 CPU,
+  2 process, 2048 MiB). These describe test composition; production worker
+  envelopes and five-second admission/30-second operation limits are unchanged.
+- The stalled-worker test now always clears its interval, aborts/reaps pending
+  work and disposes its store, including when an assertion fails. Its injected
+  deadline allows five seconds for startup and stall detection; responsiveness
+  requires a timer tick while work is pending rather than an arbitrary tick rate
+  sensitive to other host activity. Remaining fixture engine identities now
+  derive from the typed pins, with explicit invalid-version probes retained.
+- Changed execution/browser fixture tests, authored resource/routing projections
+  and their exact schema/catalog rosters. PASS regeneration:
+  `20260929T013110Z-p99022`. Fresh narrow reruns and a real canonical auth capture
+  are in progress before finalization and broader closure are repeated.
+- No unresolved review registry record remained after the interrupted run;
+  a pre-existing empty recovery-lock file was left untouched. No unrelated
+  service or process was terminated. W7 remains IN_PROGRESS.
+
+#### R2-W7 acceptance audit — current implementation
+
+The following aliases identify exact current semantic rows under
+`harness.browser.boundary_support`: C=`ui_review_contract`,
+L=`ui_review_lifecycle`, B=`ui_review_artifacts`, E=`ui_review_execution`,
+P=`ui_review_presentation`, W=`ui_review_workflow`. Their files are respectively
+`test-ui-review-contract.mjs`, `test-ui-review-lifecycle.mjs`,
+`test-ui-review-bundles.mjs`, `test-ui-review-execution.mjs`,
+`test-ui-review-analysis.mjs` and `test-ui-review-workflow.mjs`, all under
+`tools/harness/browser/tests/`. S denotes the two exact integration rows in the
+routing checkpoint. No acceptance assertion is derived from reading Markdown.
+
+Fresh corrected C/L/B/E/P/W evidence: 6/6 in
+`.cartulary/test-results/20260929T013154Z-p2752`; script lint passed in
+`20260929T013154Z-p2932`. Finalization after those corrections passed in
+`20260929T013311Z-p44874`, including generated drift, shapes and catalog/tier
+coverage. Broader final closure is recorded separately when it completes.
+
+| Adopted acceptance | Exact verification responsibility and evidence |
+| --- | --- |
+| AC-102 | C public Make rejection/input cases; command-surface owner; authored helper-only commands remain outside product evidence. Both design-review smoke profiles passed in W2. |
+| AC-103 | C core readiness and mode cases; L parent/both-supervisor tests reject engine loading while exact status/stop recover. |
+| AC-104 | C mode/omission/cross-mode cases; S explicit default and claimed seeded workflows with both actors. |
+| AC-105 | L exact actions, unavailable origin, redirects, busy stop; W explicitly borrowed origin survives teardown and stays live_unattested. |
+| AC-106 | W/S artifact startup has absent browser path and unusable Docker endpoint; exact PNG/canonical import, analysis and report still pass. |
+| AC-107 | C transient JSON/output/preflight; W/S validate every finite public result and receipt without retaining private refs. |
+| AC-108 | L serialization and admission ordering; E inherited sibling claims, quiet waiters, exact worker proof, capacity limits and parallel raster/report work. |
+| AC-109 | L exact handles/epochs, duplicate and disabled controls, stale/detached refs and literal shell-like input; no action replay. |
+| AC-110 | L busy stop, signals, controller/parent/both loss, repeated receipts and exact lifetime expiry; W/S complete owned cleanup. |
+| AC-111 | L late preparation, bounded/hung release, PID reuse, stale-runtime proof and terminal faults; B transactional rollback; E cancel/reap before input disposal. |
+| AC-112 | B page capture case covers delayed fonts, real geometry deadline, post-screenshot mutation, dynamic text and stable frames. |
+| AC-113 | L explicit rendered-row reveal; B focus/scroll preservation during native capture. |
+| AC-114 | B exact canonical joins, unregistered/expected-only and multiple captures; W/S failed expected-only reimports. Fresh real passing canonical trial is recorded below. |
+| AC-115 | B old/wrong report and reconciliation versions, source/digest/renderer divergence, duplicate associations and frozen provenance. |
+| AC-116 | B native scope transforms, nonunit scales, outward rounding, clipping and no repeated CSS zoom. |
+| AC-117 | B immutable publication, missing/mismatched components, every write/commit/rollback fault, retained residual accounting and secure path checks. |
+| AC-118 | C request/semantic bounds; B PNG byte/pixel/dimension and bundle/file/count/storage limits; E maximal valid public request; P observation overflow. |
+| AC-119 | P exact RGBA math, transparent RGB, integer rounding, unequal dimensions and immutable source bytes. |
+| AC-120 | P crop/overlay/contact-sheet pixels and comparison identity; B changed source revisions and producer associations; no golden changes. |
+| AC-121 | P axe findings, incomplete/empty, disabled and unavailable states; live iframe exclusion; C source/channel truth table. |
+| AC-122 | P engine throw/timeout/malformed/oversize failures, with no successful partial result. |
+| AC-123 | P real offline HTML execution, escaped injection/URLs, zero HTTP(S) requests, keyboard zoom/reveal, cache tampering and exact manifest resolution. |
+| AC-124 | W6 user acceptance of the regenerated report and agent inspection of its exact source bytes; both public trial roots removed after stop. |
+| AC-125 | W/S private text/URL/console/telemetry sentinels and retained-tree inspection; C closed output fields; L failure/interrupt cleanup. |
+| AC-126 | C/L restricted input and secure path probes; existing source-boundary/command checks; typed contracts remain upstream of executable behavior. |
+| AC-127 | L every normalized primary paired with secondary cleanup failure and immutable terminal repetition; C JSON result consistency. |
+| AC-128 | Human owner/guide review; B rejects obsolete producer versions; pin-derived current fixtures and unchanged canonical goldens. |
+| AC-129 | W/S all seven public commands, editor/viewer and both profiles, dev survival, PNG/canonical reimports and verified expiry. W6 supplies actual report consumption. |
+
+| Supplement | Current disposition |
+| --- | --- |
+| R2-A01 | PASS — C/L exact minimal control, engine-damage and identity rejection coverage. |
+| R2-A02 | PASS — L serialized transitions/actions and late-acquisition drain; E cancellation and admission. |
+| R2-A03 | PASS — L controller/parent/both loss, PID reuse, bounded release and borrowed survival. |
+| R2-A04 | PASS — L/B terminal and cleanup faults preserve primary/secondary outcomes and unresolved proof. |
+| R2-A05 | PASS — B store faults, immutable provenance, secure paths and every storage boundary; P cache integrity. |
+| R2-A06 | PASS — E schema-valid maximal workload, mixed workers, inherited claims, quiet ordering, stalls and reaping; W6 records measured WSL2 peaks within unchanged worker envelopes. |
+| R2-A07 | PASS — C source/channel truth table; B producer-shaped multiple/duplicate/failed/expected-only joins; W/S public canonical reimports. |
+| R2-A08 | PASS — B/P/L observation, geometry/fonts, exact raster and distinct advisory axe states. |
+| R2-A09 | PASS — C/L/W/S privacy, transient output, failed/interrupted cleanup and structural-only receipts. |
+| R2-A10 | PASS — both routed S profiles and actors, W borrowed dev and browser-free artifacts. |
+| R2-A11 | PASS — W6 user/agent trial, source/report hash equality, keyboard/offline/injection checks and physical expiry. |
+| R2-A12 | PASS — WSL2 runtime/dependency qualification, final full check 977/977 and cleanup inspection complete. Native Linux is DEFERRED by explicit user instruction; no native qualification is claimed. |
+
+Fresh real canonical trial: `make service-backed-test-slice OWNER=module.auth
+ROWS=module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99`
+passed 11/11 in `.cartulary/test-results/20260929T013154Z-p2762`. Its exact
+`auth-initial` capture `visual.capture.f9d688041051343ee0c9` was imported through
+public Make into artifacts run `r2-w7-canonical`. Manifest, expected image and
+report resolved correctly with `no_actual`, `no_axe`, `no_dom`, `no_trace`;
+the agent inspected the digest-checked expected image. Exact stop and foreground
+exit succeeded, cleanup is complete, private root/registry and caller scratch
+are absent. Terminal SHA-256:
+`d36a3d4aaf40d88bb40cee8ad38f009a2c83e7102212bf65a6bf7a409c748a1a`.
+The borrowed canonical run and golden remain unchanged. No golden refresh.
+
+#### R2-W7 cancellation race found during closure — 2026-09-29
+
+- Full browser rerun `20260929T013350Z-p49394` completed 46/47; lifecycle and
+  both seeded profiles passed. Execution failed only the cancellation case.
+  Its retained unit diagnostic identifies `host admission unavailable` where
+  `interrupted` was required: abort killed the worker during ownership binding,
+  and the failed bind replaced the cancellation cause. The maximal workload
+  itself passed, with raster 589,144,064 bytes and report 343,560,192 bytes within
+  the unchanged envelopes. The run as a whole remains failed evidence.
+- Fixed the executor to check cancellation before binding and give cancellation
+  precedence when that binding fails after abort. A non-cancellation binding
+  failure is normalized to resource conflict. Reaping and reservation disposal
+  remain in the existing finally path. The regression now holds resource
+  registration until an explicit abort, making this boundary deterministic.
+- This is a production ordering correction, not a waived timing failure. The
+  prior fixture/routing fixes remain useful: they removed leaked test intervals,
+  repeated pin facts and duplicate browser admission. Fresh execution validation,
+  finalization and broader closure follow this last implementation change.
+- Additional completed checks before this correction: `make harness-contract`
+  PASS `20260929T013350Z-p49701`; generated policy PASS
+  `20260929T013350Z-p49318`; toolchain drift PASS `20260929T013350Z-p49412`;
+  shell lint PASS `20260929T013350Z-p49905`; Markdown lint PASS
+  `20260929T013350Z-p49950`. All roots are under `.cartulary/test-results/`.
+  W7 remains IN_PROGRESS; no failed check is represented as a pass.
+
+#### R2-W7 handoff facts
+
+- Adopted owner remains `cartulary.testing_harness.v3`, amendment
+  `ui-review-api-2`. The seven public Make commands and their existing V1 command
+  IDs remain current: start, status, browser actions, capture, analyze, report
+  and stop. The eight review V1 schemas remain current; impossible owner-invalid
+  variants fail validation, while valid expected-only imports stay supported.
+- Responsibility is now cohesive: the session coordinator owns admission,
+  transitions, cancellation and terminal outcomes; exact ownership/recovery
+  proof uses existing runtime/service owners; the artifact store owns private
+  transactions and accounting; one bounded worker owns each admitted data
+  operation; browser/canonical adapters normalize source observations and
+  comparison identities; presentation consumes an immutable store read model.
+  Secure IO, fixture preparation, host arbitration and pinned Playwright remain
+  the shared owners. No alternate driver, scheduler, store or legacy reader.
+- Production raster/report reservations remain respectively 1 CPU/1 process/
+  1024 MiB and 1 CPU/1 process/512 MiB, each with 1 IO unit. Parallel work uses
+  the same weighted host tree as scheduled activity and respects quiet waiters.
+  Admission is bounded by five seconds and the remaining operation deadline;
+  the single operation budget is 30 seconds. Qualification-only test composition
+  profiles are separate authored claims, not changes to worker envelopes.
+- Existing bounds remain: 64-KiB requests, 32-MiB PNGs, 8192 maximum dimension,
+  16,777,216 pixels, 8-MiB structured components, 128-MiB/64-file bundles,
+  100 bundles, 512-MiB private session storage, 32-MiB report HTML and eight-hour
+  session lifetime. Observations remain advisory/private; cleanup expires images
+  and reports, retaining only structural receipts plus genuinely unresolved
+  minimum ownership proof when recovery still needs it.
+- Fresh qualification is WSL2 Linux x86_64, kernel
+  `6.6.114.1-microsoft-standard-WSL2`, Node 24.15.0, Playwright/core 1.59.1,
+  Chromium 147.0.7727.15, Sharp 0.35.4, axe/core integration 4.13.0;
+  installed native packages are `@img/sharp-linux-x64@0.35.4` and
+  `@img/sharp-libvips-linux-x64@1.3.3`. Final file inspection and runtime suites
+  establish these facts. Pin SHA-256:
+  `0d113cb824430fab98503a36606045493c8c37adb61a020af3d9e39f11e9f23b`;
+  lock SHA-256:
+  `e1db2a82e1433557a34ec6509d802cc6adb5ad254993f5fde87a29698c50fb31`.
+  Native Linux amd64 is explicitly user-deferred this iteration; no new native,
+  Windows-native or macOS qualification is claimed.
+- Compatibility: drain owned sessions before private registry/layout cutover and
+  restart after deployment. Existing unresolved ownership is preserved rather
+  than translated or erased. Public commands, epochs and immutable source meaning
+  remain supported. The coarse internal verification row and obsolete worker/
+  forwarding interfaces are retired without aliases. Rollback stops owned
+  sessions, reverts authored changes and regenerates projections; it never
+  deletes unresolved proof or alters borrowed inputs.
+- Product behavior, database/schema migrations, workbook design and canonical
+  goldens were not changed. Dependency manifests, pins and package-manager lock
+  were not changed. The working tree remains uncommitted on the baseline revision
+  named in §18.1, including the preserved original tracker edits and iteration-1
+  history. Optional engines, hosted viewers, durable private exports and plugin
+  frameworks remain outside this iteration.
+
+#### R2-W7 final owner closure — 2026-09-29
+
+- After the cancellation fix, generation PASS `20260929T013952Z-p22818`;
+  exact E row PASS `20260929T014025Z-p26325`; script lint PASS
+  `20260929T014025Z-p26442`; final `make agent-finalize` PASS
+  `20260929T014113Z-p27873`. No retained-run maintenance was attempted without
+  an eligible successful full warm `RESULTS_DIR`.
+- Subsequent `make test-slice OWNER=harness.browser` PASS **47/47**:
+  `20260929T014155Z-p32037`. This includes all semantic review rows, both seeded
+  editor/viewer profiles, ordinary browser support and affected service owners.
+  It supersedes the two failed/interrupted broader attempts without erasing them.
+- `make harness-contract` PASS **2/2** `20260929T014156Z-p32281`;
+  `make test-slice OWNER=harness.command_surface` PASS `20260929T014155Z-p32114`;
+  `make test-slice OWNER=harness.generated_artifacts` PASS **5/5**
+  `20260929T014155Z-p32159`. All roots are under `.cartulary/test-results/`.
+- All C/L/B/E/P/W/S acceptance mappings above now have passing full-owner evidence
+  after the last implementation change. `make check` is in progress as the
+  required broader closure for shared lifecycle/scheduler changes. W7 and A12
+  remain IN_PROGRESS until that result and final resource/retention inspection.
+
+#### R2-W7 full-check startup failure and exact rerun — 2026-09-29
+
+- First `make check` finished **976/977**, with only
+  `harness.browser.integration.ui_review_seeded_default` failing during startup:
+  `.cartulary/test-results/20260929T014432Z-p9140`. Its public terminal diagnostic
+  is `startup_failed`; this did not publish a successful review. The claimed
+  profile and every other unit passed. Private preparation detail was disposed
+  of by the normal failure cleanup; the retained diagnostic does not establish
+  a more specific cause, so none is inferred or waived.
+- An unchanged-source exact rerun through `make service-backed-test-slice
+  OWNER=harness.browser ROWS=harness.browser.integration.ui_review_seeded_default`
+  passed **3/3** in `20260929T015704Z-p22122`, including both actors, artifact
+  imports/reporting, terminal repetition and complete private cleanup. No review
+  registry record remained afterwards. No timeout or assertion was weakened.
+- The full check is repeated because its prior required exit failed. This is
+  validation of the same finalized source; no new implementation change requires
+  regeneration or another finalization. W7 and A12 remain IN_PROGRESS.
+
+#### R2-W7 completion checkpoint — 2026-09-29
+
+- `make check` PASS **977/977**, zero failed/skipped/cancelled units, 358,322 ms:
+  `.cartulary/test-results/20260929T015839Z-p49175`. Every C/L/B/E/P/W row and
+  both seeded editor/viewer integration profiles passed in this full run.
+  The retained-secret scan passed across 4,841 files. This completes broader
+  closure after the recorded finalization, owner suites and harness-contract
+  passes; the earlier failed run remains failed historical evidence.
+- Final inspection confirms zero UI-review registry records, zero sockets and
+  zero host-admission leases. No review controller, preparation process or
+  executor remains. Both W6 consumption roots, the W7 canonical trial, the
+  failed full-check root, the exact rerun and the final full-check runtime roots
+  are absent. Caller-owned W6/W7 request scratch is absent. Manual trial terminal
+  receipts still match the hashes recorded above, report cleanup complete and
+  retain only locators and operation/terminal receipts. The pre-existing empty
+  recovery coordination lock was left untouched; it is not unresolved resource
+  proof. Unrelated long-running processes and borrowed resources were untouched.
+- Final authored change groups are the owner amendment, UI-review coordinator/
+  recovery/store/executor/adapters/presentation, the existing shared secure-IO/
+  preparation/admission/runtime seams, focused regression and workflow fixtures,
+  authored verification/task/topology inputs and their Make-generated outputs,
+  and the existing guide/skill/tracker. Exact files, commands and compatibility
+  decisions are recorded in their owning workstream checkpoints. The obsolete
+  image worker, coarse verification row and forwarding interfaces are removed.
+  No temporary qualification fixture or private image/report was added to the
+  authored tree. Source was unchanged between the exact rerun and final check.
+- `git diff --check` and direct tracker table/link/checkpoint review pass. Prior
+  script/shell/Markdown lint, generated policy/drift/shape and toolchain checks
+  are recorded above; finalization and the full check cover the finalized source.
+  The configured Markdown target does not select this tracker, so its final
+  checkpoint was reviewed directly. No broad check was repeated merely to obtain
+  retained-run maintenance evidence.
+- Skipped scope: native Linux amd64 is explicitly deferred by the user for this
+  iteration; Windows-native/macOS and CI/release publication are not claimed.
+  Retained-run maintenance was skipped at finalization because no eligible
+  successful full warm `RESULTS_DIR` was supplied. No golden update, dependency
+  update, database migration, hosted viewer or durable private export occurred.
+- Remaining limitations are the declared private lifetime/offline behavior,
+  current-only pinned producer/engine support, and the deferred native platform.
+  One earlier seeded startup failure could not be assigned a more specific cause
+  from its structural-only receipt; unchanged-source exact and full reruns pass.
+  It remains recorded as a diagnostic limitation, not a waived test or claimed
+  fix. There is no unresolved recovery residue or required acceptance blocker.
+- **R2-W7 DONE. R2-W1–R2-W7 are all DONE for the authorized WSL2-only iteration.**
+  AC-102–AC-129 and R2-A01–A12 have the exact mapped passing evidence above;
+  native-platform evidence is excluded only by the explicit user scope change.
+  The adopted revision, dependency/resource policy, interfaces, cutover/rollback,
+  compatibility and support limits in the handoff facts are the final handoff.
+  Iteration-1 history and the original uncommitted tracker edits remain preserved.
+
+### 18.11 Open questions and blockers
+
+No unresolved owner question or required acceptance blocker remains. Final
+validation and handoff completed in R2-W7; native qualification remains explicitly
+user-deferred for this iteration.
+Use `BLOCKED: owner contradiction` if subsequent inspection finds conflicting
+adopted owners, and stop only dependent work until the owners are reconciled.
+
+| ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
+| --- | --- | --- | --- | --- |
+| RB-001 | Adopt the control-only readiness profile | Control needs fewer dependencies than data production | R2-W1 amendment specifying pinned Node/contract validation and exact recovery tools, while engine-dependent commands remain fail-closed | DONE — ui-review-api-2 adopted in W1; engine-damage control trials pass in W2. |
+| RB-002 | Close bounded-work and failed-cleanup proof rules | Adopted envelopes, exact proof retention, bounded cleanup and weighted execution | W1/W2/W4 checkpoints and measured WSL2 trials | DONE — declared bounds qualified on the required host; native trial user-deferred. |
+| RB-003 | Establish repeatable seeded and platform evidence | Initial wrapper exercised dev/artifacts; old qualification only named WSL2 | Make-owned seeded routing and fresh WSL2 execution roots; native Linux explicitly deferred by the user for this iteration | DONE — both routed editor/viewer/profile workflows pass in the W7 routing checkpoint. |
+| RB-004 | Recheck generated membership and shared-provider ports before moving them | Shared changes must follow their existing owners | Current generated policy and exact provider source at the changed seam during R2-W1/W2 | DONE — authored providers, runtime and testservices cleanup seams inspected; topology index regenerated through Make. |
+
+No database migration or canonical golden migration is proposed. For internal
+layout changes, stop owned sessions and re-create fresh ones after the cutover;
+borrowed inputs/data stay untouched. If rollback is needed, stop owned resources,
+revert authored changes for the slice, and regenerate downstream projections
+through Make. Do not preserve obsolete internal exports or registry formats for
+ephemeral sessions. Required public version changes are adopted deliberately,
+with structural historical evidence retained under its existing lifetime policy.
+
+### 18.12 Binary completion criteria
+
+Planning is complete only when all target files are inventoried, findings have
+owners and test posture, every slice has dependency/risk/rollback/exit criteria,
+behavior changes are distinguished from structural moves, commands are discovered
+or explicitly unresolved, history is preserved, and only this tracker is changed.
+The framework's domain-module templates are intentionally adapted to a local
+harness; no phase-shaped runtime module is introduced.
+
+Implementation completion requires all of the following:
+
+- R2-W1–R2-W7 are `DONE`, with a recorded checkpoint after each workstream and
+  before its successor; every required acceptance blocker is resolved.
+- Adopted amendments and typed projections agree; relevant existing AC-102–AC-129
+  and R2-A01–A12 have exact current test/run or manual-inspection evidence.
+- The seven commands and three modes work through public Make, including seeded
+  editor/viewer and both profiles, explicit dev, browser-free artifact imports,
+  failures, interrupts, and terminal repetition; existing design review survives.
+- Recovery does not depend on unrelated analysis packages; no unbounded owned
+  operation prevents stop; resource releases and proof preservation obey owners.
+- Private originals and borrowed files are unchanged, publication is immutable,
+  safe detail cleanup is demonstrated, and no raw diagnostic detail enters durable
+  outputs. Any retained recovery residue is explained and prevents a clean-readiness
+  claim until the required recovery is complete.
+- Tests route by semantic ownership rather than implementation phase or class
+  internals. No runtime/generator/test consumes Markdown as executable authority.
+- Obsolete internal implementations, temporary fixtures and redundant exports
+  are removed; no legacy reader, second driver, speculative plugin layer, or
+  automatic conversion remains.
+- The final handoff names the adopted revision, exact supported dependency and
+  platform qualification, public interfaces and compatibility decisions,
+  privacy/lifetime limits, complete acceptance disposition, commands and run
+  roots, cleanup evidence, skipped checks, and optional work still deferred.
+
+R2-W7 **Validation and handoff completion** is the final required slice. Unit
+passes, historical handoffs, or a smaller diff cannot substitute for that exit.

@@ -40,6 +40,19 @@ completes, then wait for the foreground startup process to exit. A subsequent st
 preserves the original terminal outcome; it cannot turn an earlier failure into
 success.
 
+Status/stop use minimal control readiness: damaged or absent browser/image/axe
+packages do not require repair before stopping an exact session. Status is
+observational. If both supervisors are lost, exact stop may recover a proven-dead
+nonterminal session through its persisted resource handles. It never discovers or
+terminates another session. Each resource owner applies its bounded teardown.
+Safe detail is disposed even when another release fails; only unresolved recovery
+proof remains. Age alone does not authorize deleting that proof or a live root.
+
+A later exact stop may finish unresolved resource cleanup while preserving the
+original failed terminal receipt byte-for-byte. A missing/invalid receipt is an
+artifact failure, never successful cleanup evidence. Restart a drained session
+after private layout changes; never reinterpret old proof or delete it for rollback.
+
 Inspect the returned structural receipt using the exact run identity. The
 [receipt schema](../../../../tools/schemas/cartulary.ui_review_receipt.v1.schema.json)
 distinguishes cleanup completion from command outcome. `closed` or successful
