@@ -45,26 +45,33 @@ export function GenericInspectorReferenceSummary({
       {evidenceOnly ? (
         <p>Evidence can be linked through these reference fields.</p>
       ) : null}
-      <dl>
-        {fields.map((field) => (
-          <div key={field.fieldKey}>
-            <dt>{field.label}</dt>
-            <dd style={{ marginInlineStart: 0, overflowWrap: "anywhere" }}>
-              {Object.hasOwn(row.cells, field.fieldKey)
-                ? genericCellLabel(row.cells[field.fieldKey]?.value) || "None"
-                : "Not available in this row."}
-            </dd>
-            {field.patchWritable ? (
-              <Button
-                tone="secondary"
-                disabled={!canEdit}
-                onClick={() => onEdit(field.fieldKey)}
-              >
-                Edit {field.label.toLowerCase()}
-              </Button>
-            ) : null}
-          </div>
-        ))}
+      <dl style={{ minInlineSize: 0 }}>
+        {fields.map((field) => {
+          const cell = row.cells[field.fieldKey];
+          const action = field.readKind === "collection" ? "Manage" : "Edit";
+          return (
+            <div key={field.fieldKey} style={{ minInlineSize: 0 }}>
+              <dt style={{ overflowWrap: "anywhere" }}>{field.label}</dt>
+              <dd style={{ marginInlineStart: 0, overflowWrap: "anywhere" }}>
+                {cell?.value === undefined
+                  ? "Not available in this row."
+                  : genericCellLabel(cell.value)}
+              </dd>
+              {field.patchWritable ? (
+                <dd style={{ marginInlineStart: 0, minInlineSize: 0 }}>
+                  <Button
+                    tone="quiet"
+                    disabled={!canEdit || !cell}
+                    style={{ maxInlineSize: "100%", overflowWrap: "anywhere" }}
+                    onClick={() => onEdit(field.fieldKey)}
+                  >
+                    {action} {field.label}
+                  </Button>
+                </dd>
+              ) : null}
+            </div>
+          );
+        })}
       </dl>
     </>
   );

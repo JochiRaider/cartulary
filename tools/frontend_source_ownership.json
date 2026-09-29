@@ -668,6 +668,7 @@
         "apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.test.tsx",
         "apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.tsx",
         "apps/web/src/workbook/features/evidence/useTimelineRelatedEvidenceAttachment.ts",
+        "apps/web/src/workbook/features/generic/GenericInspectorReferenceSummary.test.tsx",
         "apps/web/src/workbook/features/generic/GenericInspectorReferenceSummary.tsx",
         "apps/web/src/workbook/features/generic/GenericWorkbookInspector.tsx",
         "apps/web/src/workbook/features/generic/GenericWorkbookInspectorPresentation.tsx",

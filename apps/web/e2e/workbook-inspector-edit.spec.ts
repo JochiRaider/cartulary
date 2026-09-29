@@ -1,6 +1,9 @@
+// biome-ignore lint/correctness/noUndeclaredDependencies: the workspace root pins the browser accessibility engine used by the Make-owned harness.
+import AxeBuilder from "@axe-core/playwright";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   cartularyDesignPresentation,
+  dataTestIdSelector,
   entityInspectorTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
@@ -17,6 +20,7 @@ import {
   evidenceViewSchemaId,
   hostsViewSchemaId,
   indicatorsViewSchemaId,
+  lessonViewSchemaId,
   notesViewSchemaId,
   partiesViewSchemaId,
   taskRequestsViewSchemaId,
@@ -74,6 +78,238 @@ async function editField(page: Page, view: string, field: string) {
   await page.locator(`[data-inspector-edit-field="${field}"]`).click();
   return page.getByTestId(genericEditValueTestId(view));
 }
+
+async function expectReferenceDefinitionList(page: Page, view: string, panel: string) {
+  const result = await new AxeBuilder({ page })
+    .include(dataTestIdSelector(workbookInspectorPanelTestId(view, panel)))
+    .withRules(["definition-list"])
+    .analyze();
+  expect(result.violations).toEqual([]);
+  expect(result.incomplete.filter((item) => item.id === "definition-list")).toEqual(
+    [],
+  );
+}
+
+async function expectReachableReferenceAction(page: Page, actionName: string) {
+  const action = page.getByRole("button", { name: actionName, exact: true });
+  await action.scrollIntoViewIfNeeded();
+  await expect(action).toBeVisible();
+  const geometry = await action.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return {
+      height: bounds.height,
+      width: bounds.width,
+      clippedText: element.scrollWidth > element.clientWidth + 1,
+      clippedViewport:
+        bounds.left < 0 ||
+        bounds.right > window.innerWidth ||
+        bounds.top < 0 ||
+        bounds.bottom > window.innerHeight,
+    };
+  });
+  expect(geometry.height).toBeGreaterThanOrEqual(28);
+  expect(geometry.width).toBeGreaterThanOrEqual(28);
+  expect(geometry.clippedText).toBe(false);
+  expect(geometry.clippedViewport).toBe(false);
+  return action;
+}
+
+test("a11y.generic reference summaries keep Party and Evidence shortcuts semantic and draft-safe", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("IRS"),
+    "Inspector reference summaries",
+  );
+  const party = await createViewRow(page, incident, partiesViewSchemaId, {
+    client_txn_id: uniqueTxn("irs-party"),
+    "party.display_name": "Reference summary collector",
+    "party.party_kind": "team",
+  });
+  const evidenceTitle = `Reference summary evidence ${"long accepted title ".repeat(8)}`;
+  const evidence = await createViewRow(page, incident, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("irs-evidence"),
+    "evidence.title": evidenceTitle,
+    "evidence.collector_party_id": party.record_id,
+  });
+  const lesson = await createViewRow(page, incident, lessonViewSchemaId, {
+    client_txn_id: uniqueTxn("irs-lesson"),
+    "lesson.summary": "Reference summary lesson",
+  });
+  await patchRecord(page, lesson.record_id, {
+    view_schema_id: lessonViewSchemaId,
+    base_row_version: lesson.row_version,
+    client_txn_id: uniqueTxn("irs-lesson-evidence"),
+    changes: [
+      {
+        field_key: "lesson.evidence_refs",
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: [{ op: "add_record_ref", linked_record_id: evidence.record_id }],
+        },
+      },
+    ],
+  });
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      [evidence.record_id, lesson.record_id].some((recordId) =>
+        new URL(request.url()).pathname.endsWith(`/records/${recordId}`),
+      )
+    )
+      writes.push(request.url());
+  });
+
+  await page.goto(`/?incident_id=${incident}&view_schema_id=${evidenceViewSchemaId}`);
+  await openGenericInspectorForRecord(page, evidenceViewSchemaId, evidence.record_id);
+  const relationships = page.getByTestId(
+    workbookInspectorPanelTestId(evidenceViewSchemaId, "relationships"),
+  );
+  await expect(relationships.getByRole("term")).toHaveText([
+    "Collector Party",
+    "Source Party",
+  ]);
+  await expect(relationships).toContainText(party.record_id);
+  await expectReferenceDefinitionList(page, evidenceViewSchemaId, "relationships");
+  const edit = relationships.getByRole("button", {
+    name: "Edit Source Party",
+    exact: true,
+  });
+  await edit.focus();
+  await edit.press("Enter");
+  const details = page.getByTestId(
+    workbookInspectorPanelTestId(evidenceViewSchemaId, "details"),
+  );
+  await expect(
+    details.getByRole("group", { name: "Unsaved change: Source Party" }),
+  ).toBeVisible();
+  const input = page.getByTestId(genericEditValueTestId(evidenceViewSchemaId));
+  await expect(input).toBeFocused();
+  expect(writes).toHaveLength(0);
+  await input.fill(party.record_id);
+  await details.getByRole("button", { name: "Close editor" }).click();
+  const resume = details.getByRole("button", {
+    name: "Resume draft for Source Party",
+  });
+  await expect(resume).toBeVisible();
+  await resume.click();
+  await expect(input).toHaveValue(party.record_id);
+  await input.press("Escape");
+  await expect(resume).toBeVisible();
+  await page.getByTestId(workbookInspectorCloseButtonTestId(evidenceViewSchemaId)).click();
+  await openGenericInspectorForRecord(page, evidenceViewSchemaId, evidence.record_id);
+  await expect(resume).toBeVisible();
+  expect(writes).toHaveLength(0);
+
+  await page.goto(`/?incident_id=${incident}&view_schema_id=${lessonViewSchemaId}`);
+  await openGenericInspectorForRecord(page, lessonViewSchemaId, lesson.record_id);
+  const evidencePanel = page.getByTestId(
+    workbookInspectorPanelTestId(lessonViewSchemaId, "evidence"),
+  );
+  await expect(evidencePanel.getByRole("term")).toHaveText(["Evidence"]);
+  await expect(evidencePanel).toContainText(evidenceTitle);
+  await expectReferenceDefinitionList(page, lessonViewSchemaId, "evidence");
+  const manage = evidencePanel.getByRole("button", {
+    name: "Manage Evidence",
+    exact: true,
+  });
+  await manage.focus();
+  await manage.press("Space");
+  await expect(
+    page
+      .getByTestId(workbookInspectorPanelTestId(lessonViewSchemaId, "details"))
+      .getByRole("group", { name: "Unsaved change: Evidence" }),
+  ).toBeVisible();
+  await expect(page.getByTestId(genericEditValueTestId(lessonViewSchemaId))).toBeFocused();
+  expect(writes).toHaveLength(0);
+  await page.getByRole("button", { name: "Close editor" }).click();
+
+  for (const [width, zoom] of [
+    [1024, 1],
+    [320, 1],
+    [1280, 2],
+  ] as const) {
+    await page.setViewportSize({ width, height: 720 });
+    await page.evaluate((nextZoom) => {
+      document.documentElement.style.zoom = String(nextZoom);
+      document.body.style.lineHeight = "1.5";
+      document.body.style.letterSpacing = "0.12em";
+      document.body.style.wordSpacing = "0.16em";
+    }, zoom);
+    await expectReachableReferenceAction(page, "Manage Evidence");
+    await expect(evidencePanel).toContainText(evidenceTitle);
+  }
+  expect(writes).toHaveLength(0);
+});
+
+test("a11y.generic reference summary viewer actions remain disabled", async ({
+  browser,
+  page,
+  sessionTracker,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("IRSV"),
+    "Inspector reference viewer",
+  );
+  const evidence = await createViewRow(page, incident, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("irsv-evidence"),
+    "evidence.title": "Viewer reference evidence",
+  });
+  const password = "InspectorReferenceViewer1!";
+  const viewer = await createIncidentMemberUser(page, incident, {
+    email: uniqueEmail("inspector-reference-viewer"),
+    display_name: "Inspector reference viewer",
+    initial_password: password,
+    role: "viewer",
+    is_deployment_admin: false,
+    mfa_required: false,
+  });
+  const context = await browser.newContext();
+  try {
+    const viewerPage = await context.newPage();
+    await sessionTracker.loginTrackedUser(viewerPage, {
+      createdBy: "a11y.generic-reference-summary",
+      email: viewer.email,
+      password,
+      purpose: "reference summary viewer read-only state",
+      userId: viewer.user_id,
+    });
+    await viewerPage.setViewportSize({ width: 1024, height: 720 });
+    await viewerPage.goto(
+      `/?incident_id=${incident}&view_schema_id=${evidenceViewSchemaId}`,
+    );
+    await openGenericInspectorForRecord(
+      viewerPage,
+      evidenceViewSchemaId,
+      evidence.record_id,
+    );
+    const relationships = viewerPage.getByTestId(
+      workbookInspectorPanelTestId(evidenceViewSchemaId, "relationships"),
+    );
+    await expectReferenceDefinitionList(
+      viewerPage,
+      evidenceViewSchemaId,
+      "relationships",
+    );
+    const edit = relationships.getByRole("button", {
+      name: "Edit Collector Party",
+      exact: true,
+    });
+    await expect(edit).toBeDisabled();
+    await expect(relationships.getByRole("term")).toHaveText([
+      "Collector Party",
+      "Source Party",
+    ]);
+    await expect(
+      viewerPage.getByTestId(genericEditValueTestId(evidenceViewSchemaId)),
+    ).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
 
 test("Inspector edits bind the selected record and retain dirty fields through saved changes and explicit return", async ({
   page,

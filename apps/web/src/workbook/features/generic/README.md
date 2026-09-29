@@ -13,6 +13,8 @@ assembles their bindings into the generic inspector.
 | File | Responsibility |
 | --- | --- |
 | [genericCreateRequestBuilder.ts](genericCreateRequestBuilder.ts) | Pure request helper retained for Party, Indicator observation and Timeline related creation consumers. |
+| [GenericInspectorReferenceSummary.test.tsx](GenericInspectorReferenceSummary.test.tsx) | Covers reference-summary semantics, accepted values, declared membership, and contextual actions. |
+| [GenericInspectorReferenceSummary.tsx](GenericInspectorReferenceSummary.tsx) | Presents contract-declared reference fields and selects the existing ordinary editor. |
 | [GenericWorkbookInspector.tsx](GenericWorkbookInspector.tsx) | Generic contract-surface inspector facade over composition and presentation. |
 | [GenericWorkbookInspectorPresentation.tsx](GenericWorkbookInspectorPresentation.tsx) | Renders generic inspector sections from the feature composition's presentation model. |
 | [useGenericCreateDraft.ts](useGenericCreateDraft.ts) | Borrowed ordinary and Note authoring; no component-owned create draft. |
