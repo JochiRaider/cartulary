@@ -988,6 +988,13 @@ describe("semantic grid policies", () => {
       label: "Details",
       renderCell: () => null,
     };
+    const actionColumn = {
+      authoringPresentation: "explicit_action" as const,
+      contractWritable: false,
+      fieldKey: "collection",
+      label: "Collection",
+      renderCell: () => null,
+    };
     const vendorEditableColumn = {
       editable: true,
       fieldKey: "vendor",
@@ -998,6 +1005,7 @@ describe("semantic grid policies", () => {
     expect(isGridColumnEditable(writableColumn)).toBe(true);
     expect(isGridColumnEditable(readOnlyColumn)).toBe(false);
     expect(isGridColumnEditable(adapterlessColumn)).toBe(false);
+    expect(isGridColumnEditable(actionColumn)).toBe(false);
     expect(isGridColumnEditable(vendorEditableColumn)).toBe(false);
   });
 

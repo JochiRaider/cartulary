@@ -145,6 +145,14 @@ export function useTimelineColumnAssembly({
         return {
           contractWritable:
             timelineContract.fieldMap[binding.fieldKey]?.gridEditable === true,
+          authoringPresentation:
+            binding.kind === "collection" &&
+            timelineContract.fieldMap[binding.fieldKey]?.patchWritable ===
+              true &&
+            timelineContract.fieldMap[binding.fieldKey]?.writeKind ===
+              "action_payload"
+              ? "explicit_action"
+              : undefined,
           isCellContentCommitted: (row) =>
             row.recordId !== null &&
             row.pendingSignature === null &&

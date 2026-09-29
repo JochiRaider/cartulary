@@ -5,6 +5,7 @@ import {
   cleanup,
   fireEvent,
   render,
+  renderHook,
   screen,
   waitFor,
   within,
@@ -39,6 +40,7 @@ import {
 } from "../models/workbookMentionChips";
 import { TimelineCollectionCell } from "./TimelineCollectionCell";
 import { TimelineMentionsPanel } from "./TimelineMentionsPanel";
+import { useTimelineColumnAssembly } from "./useTimelineColumnAssembly";
 
 afterEach(cleanup);
 
@@ -208,6 +210,47 @@ function tagRemovalFixture(
 }
 
 describe("Timeline collection inspection", () => {
+  it("declares explicit collection authoring without scalar editors for all Timeline action fields", () => {
+    const { result } = renderHook(() =>
+      useTimelineColumnAssembly({
+        commitScalarGridEdit: async () => ({ kind: "accepted" }),
+        editorDraftRegistry: createTimelineEditorDraftRegistry(),
+        gridShellWidth: 1440,
+        renderTimelineCollectionInput: () => null,
+        renderTimelineGridEditor: () => null,
+        renderTimelineScalarCell: () => null,
+        rowGutterWidth: 40,
+        timelineBindingLabel: (fieldKey) =>
+          tagContract.fieldMap[fieldKey]?.label ?? fieldKey,
+        timelineContract: tagContract,
+      }),
+    );
+    for (const binding of timelineCollectionBindings) {
+      const field = tagContract.fieldMap[binding.fieldKey];
+      const column = result.current.find(
+        (candidate) => candidate.fieldKey === binding.fieldKey,
+      );
+      expect(field).toMatchObject({
+        gridEditable: false,
+        patchWritable: true,
+        writeKind: "action_payload",
+      });
+      expect(column?.contractWritable).toBe(false);
+      expect(column?.editor).toBeUndefined();
+      expect(column?.authoringPresentation).toBe("explicit_action");
+    }
+    expect(
+      result.current.find(
+        (column) => column.fieldKey === "timeline.activity_synopsis_text",
+      )?.editor,
+    ).toBeDefined();
+    expect(
+      result.current.find(
+        (column) => column.fieldKey === "timeline.evidence_count",
+      )?.authoringPresentation,
+    ).toBeUndefined();
+  });
+
   it("removes one exact saved tag after acknowledgement while preserving the unsent input and next focus", async () => {
     const f = tagRemovalFixture();
     f.base.editorDraftRegistry.setDraft(

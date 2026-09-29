@@ -24,6 +24,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
 import { revokeAllSessions } from "./support/auth/sessions";
 import { installVisualPreferences } from "./support/auth/visualPreferences";
 import {
@@ -33,6 +34,7 @@ import {
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
@@ -241,6 +243,25 @@ test("Timeline viewer inspects saved tags without a removal action", async ({
   await page.goto(`/?incident_id=${incident}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await showTimelineCollectionColumns(page);
+  for (const [field, label] of fields) {
+    const items = relationshipItemsTestId(row.record_id, field, "grid");
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: items,
+    });
+    const cell = page
+      .getByTestId(items)
+      .locator('xpath=ancestor::*[@role="gridcell"][1]');
+    await expect(cell).toHaveAttribute("aria-readonly", "true");
+    await expect(cell).toHaveAttribute(
+      "aria-description",
+      `Read-only ${label[0]?.toUpperCase()}${label.slice(1)}`,
+    );
+    await expect(
+      cell.getByRole("button", { name: `Add ${label} token` }),
+    ).toHaveCount(0);
+  }
   await scrollGridTargetIntoView({
     page,
     surface: timelineViewSchemaId,
@@ -1262,6 +1283,18 @@ test("Timeline collection authoring isolates surfaces and settles native departu
           relationshipItemsTestId(row.record_id, field, "grid"),
         ),
       });
+    const semanticCell = cell.locator('xpath=ancestor::*[@role="gridcell"][1]');
+    await expect(semanticCell).toHaveAttribute("aria-readonly", "false");
+    await expect(semanticCell).not.toHaveAttribute(
+      "aria-description",
+      /Read-only/u,
+    );
+    await expect(
+      semanticCell.locator('[data-grid-state-marker="read-only"]'),
+    ).toHaveCount(0);
+    await expect(semanticCell).not.toHaveClass(
+      /cartulary-grid-cell-is-read-only/u,
+    );
     const grid = page.getByTestId(
       timelineCollectionInputTestId(row.record_id, field, "grid"),
     );
@@ -1416,6 +1449,56 @@ test("Timeline collection authoring isolates surfaces and settles native departu
       await page.unroute(path);
     }
   }
+  const incidentResponse = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}`,
+  );
+  expect(incidentResponse.ok()).toBeTruthy();
+  const incident = (await incidentResponse.json()).data;
+  const closed = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/close`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_incident_version: incident.incident_version,
+        client_txn_id: uniqueTxn("collection-read-only-close"),
+        reason: "Collection authoring presentation verification",
+      },
+    },
+  );
+  expect(closed.ok()).toBeTruthy();
+  let closedPatches = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/records/${row.record_id}`)
+    )
+      closedPatches++;
+  });
+  await page.reload();
+  await expect(
+    page.getByText("Closed, read-only", { exact: true }),
+  ).toBeVisible();
+  await showTimelineCollectionColumns(page);
+  for (const [field, label] of fields) {
+    const items = relationshipItemsTestId(row.record_id, field, "grid");
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: items,
+    });
+    const cell = page
+      .getByTestId(items)
+      .locator('xpath=ancestor::*[@role="gridcell"][1]');
+    await expect(cell).toHaveAttribute("aria-readonly", "true");
+    await expect(cell).toHaveAttribute(
+      "aria-description",
+      `Read-only ${label[0]?.toUpperCase()}${label.slice(1)}`,
+    );
+    await expect(
+      cell.getByRole("button", { name: `Add ${label} token` }),
+    ).toHaveCount(0);
+  }
+  expect(closedPatches).toBe(0);
 });
 
 test("Timeline collection authoring follows first-input record promotion without submission", async ({

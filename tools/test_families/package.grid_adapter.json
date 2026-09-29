@@ -865,6 +865,7 @@
           "grid-adapter keeps standalone block sizing by default and supports shell-owned fill block sizing",
           "grid-adapter keeps the bottom create draft recordless and usable with zero committed rows",
           "grid-adapter owns semantic navigation, range extension, keyboard entry, cancellation, and grid exit",
+          "grid-adapter presents explicit action authoring independently of scalar editing and current read-only authority",
           "grid-adapter preserves typed bucket order, scoped expansion, and draft exclusion",
           "grid-adapter publishes full presented membership and excludes collapsed records without depending on mounted cells",
           "grid-adapter refocuses an already-active readable cell after focus leaves the grid",

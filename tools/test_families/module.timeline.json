@@ -3668,6 +3668,7 @@
         "file": "apps/web/src/workbook/timeline/components/TimelineCollectionCell.test.tsx",
         "titles": [
           "Timeline collection inspection cancels saved-tag focus restoration after newer keyboard or scroll intent",
+          "Timeline collection inspection declares explicit collection authoring without scalar editors for all Timeline action fields",
           "Timeline collection inspection keeps a same-field tag conflict in collection review and never switches the captured record",
           "Timeline collection inspection keeps an admitted removal on its original record after inspector navigation",
           "Timeline collection inspection keeps complete mention details readable when management capability is lost",

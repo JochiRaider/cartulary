@@ -14,6 +14,7 @@ import { type ChangeEvent, createRef, useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assertGridRows,
+  type GridCellStateInput,
   type GridEditorRenderContext,
   type SemanticDataGridProps,
 } from "./core";
@@ -1601,6 +1602,174 @@ describe("grid-adapter", () => {
     fireEvent.click(screen.getByTestId("support-row-action"));
     expect(onSupportAction).toHaveBeenCalledTimes(1);
     expect(onSupportSelectRow).not.toHaveBeenCalled();
+  });
+
+  it("presents explicit action authoring independently of scalar editing and current read-only authority", async () => {
+    const actionColumns: readonly GridColumn<HarnessRow>[] = [
+      {
+        contractWritable: true,
+        editor: {
+          commit: async () => ({ kind: "accepted" }),
+          initialDraftValue: () => "",
+          renderEditor: () => null,
+        },
+        fieldKey: "label",
+        label: "Label",
+        renderCell: ({ row }) => row.label,
+      },
+      {
+        authoringPresentation: "explicit_action",
+        contractWritable: false,
+        fieldKey: "action",
+        label: "Action",
+        renderCell: () => <button type="button">Add</button>,
+      },
+      {
+        fieldKey: "derived",
+        label: "Derived",
+        renderCell: () => "2",
+      },
+      {
+        fieldKey: "undeclared",
+        label: "Undeclared",
+        renderCell: () => "value",
+      },
+    ];
+    const dataRows: readonly GridDataRow<HarnessRow>[] = [
+      {
+        kind: "data",
+        rowIdentity: { kind: "core_record", recordId: "action-record" },
+        data: { label: "Alpha", state: "open" },
+        testId: "action-row",
+      },
+    ];
+    const grid = (
+      mode: "editable" | "read_only",
+      ownerState: GridCellStateInput = {},
+    ) => (
+      <SemanticDataGrid
+        columns={actionColumns}
+        dataRows={dataRows}
+        getCellState={({ anchor }) =>
+          anchor.fieldKey === "action" ? ownerState : {}
+        }
+        interactionMode={
+          mode === "editable"
+            ? { kind: "editable" }
+            : { kind: "read_only", label: "Closed, read-only" }
+        }
+        surface={testSurface}
+      />
+    );
+    const view = render(grid("editable"));
+    const cell = (fieldKey: string) =>
+      screen
+        .getByTestId("action-row")
+        .querySelector<HTMLElement>(`[data-grid-field-key="${fieldKey}"]`)
+        ?.closest<HTMLElement>('[role="gridcell"]');
+    await waitFor(() => expect(cell("action")).toBeTruthy());
+    expect(cell("action")?.getAttribute("aria-readonly")).toBe("false");
+    expect(cell("action")?.dataset.gridPrimaryState).toBe("saved");
+    expect(cell("action")?.getAttribute("aria-description")).toBeNull();
+    expect(
+      cell("action")?.querySelector('[data-grid-state-marker="read-only"]'),
+    ).toBeNull();
+    expect(cell("label")?.getAttribute("aria-readonly")).toBe("false");
+    expect(cell("derived")?.getAttribute("aria-readonly")).toBe("true");
+    expect(cell("undeclared")?.getAttribute("aria-readonly")).toBe("true");
+
+    view.rerender(grid("editable", { active: true, stale: true }));
+    expect(cell("action")?.dataset.gridPrimaryState).toBe("active");
+    expect(cell("action")?.getAttribute("aria-readonly")).toBe("false");
+    expect(cell("action")?.getAttribute("aria-description")).toBe(
+      "Stale Action; refresh required",
+    );
+
+    view.rerender(grid("read_only"));
+    expect(cell("action")?.getAttribute("aria-readonly")).toBe("true");
+    expect(cell("action")?.getAttribute("aria-description")).toBe(
+      "Read-only Action",
+    );
+    expect(
+      cell("action")?.querySelector('[data-grid-state-marker="read-only"]'),
+    ).toBeTruthy();
+
+    view.rerender(grid("editable", { readOnlyOrDerived: true }));
+    expect(cell("action")?.getAttribute("aria-readonly")).toBe("true");
+    view.rerender(grid("editable", { pending: true }));
+    expect(cell("action")?.dataset.gridPrimaryState).toBe("pending");
+    expect(cell("action")?.getAttribute("aria-readonly")).toBe("false");
+    expect(cell("action")?.getAttribute("aria-description")).toBe(
+      "Pending Action",
+    );
+    view.rerender(
+      grid("editable", { invalid: { message: "Rejected" }, pending: true }),
+    );
+    expect(cell("action")?.dataset.gridPrimaryState).toBe("invalid");
+    expect(cell("action")?.getAttribute("aria-readonly")).toBe("false");
+    view.rerender(
+      grid("editable", {
+        conflicted: true,
+        invalid: { message: "Rejected" },
+        pending: true,
+        readOnlyOrDerived: true,
+      }),
+    );
+    expect(cell("action")?.dataset.gridPrimaryState).toBe("conflicted");
+    expect(cell("action")?.getAttribute("aria-readonly")).toBe("true");
+    expect(cell("action")?.getAttribute("aria-description")).toBe(
+      "Conflict on Action",
+    );
+
+    view.unmount();
+    const supportView = render(
+      <SemanticDataGridTestSupport
+        columns={actionColumns}
+        dataRows={dataRows}
+        surface={testSurface}
+      />,
+    );
+    expect(
+      screen
+        .getByTestId("action-row")
+        .querySelector('[data-grid-field-key="action"]')
+        ?.getAttribute("data-grid-primary-state"),
+    ).toBe("saved");
+    supportView.unmount();
+    render(
+      <SemanticDataGrid
+        columns={actionColumns}
+        dataRows={[
+          {
+            kind: "data",
+            rowIdentity: {
+              kind: "extension_resource",
+              extensionProfileId: "test_extension",
+              resourceKind: "row",
+              resourceId: "extension-row",
+            },
+            data: { label: "Extension", state: "open" },
+            testId: "extension-action-row",
+          },
+        ]}
+        surface={{
+          kind: "extension_grid",
+          extensionProfileId: "test_extension",
+          workspaceKey: "incident-1",
+          gridSchemaId: "test.rows.v1",
+        }}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("extension-action-row")).toBeTruthy(),
+    );
+    expect(
+      screen
+        .getByTestId("extension-action-row")
+        .querySelector('[data-grid-field-key="action"]')
+        ?.closest('[role="gridcell"]')
+        ?.getAttribute("aria-readonly"),
+    ).toBe("true");
   });
 
   it("keeps inspector context distinct from opt-in record selection", async () => {

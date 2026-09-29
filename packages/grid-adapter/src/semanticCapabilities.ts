@@ -1,8 +1,10 @@
 import type {
+  GridColumn,
   GridInteractionMode,
   GridSurfaceIdentity,
   SemanticDataGridProps,
 } from "./core";
+import { isGridColumnEditable } from "./core";
 
 export type SemanticGridCapabilities<Row> = {
   readonly allowPasteCreateRows: boolean;
@@ -44,6 +46,18 @@ export function resolveSemanticGridCapabilities<Row>(
     editable,
     interactionMode,
   };
+}
+
+/** Presentation only: scalar mutation continues to use isGridColumnEditable. */
+export function isGridCellReadOnlyForPresentation<Row>(
+  column: GridColumn<Row>,
+  interactionEditable: boolean,
+): boolean {
+  return (
+    !interactionEditable ||
+    (!isGridColumnEditable(column) &&
+      column.authoringPresentation !== "explicit_action")
+  );
 }
 
 function assertAdmittedCapabilities<Row>(

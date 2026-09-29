@@ -16,6 +16,8 @@ export type GridSortEntry = {
 
 export type GridColumn<Row> = {
   readonly contractWritable?: boolean | undefined;
+  /** In-cell action authoring presentation; never enables scalar grid mutation. */
+  readonly authoringPresentation?: "explicit_action" | undefined;
   /** Creation eligibility is independent of existing-record patch eligibility. */
   readonly draftWritable?: boolean | undefined;
   readonly fieldKey: string;

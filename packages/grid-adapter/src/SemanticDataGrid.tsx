@@ -57,7 +57,6 @@ import {
   gridSurfaceIdentitiesEqual,
   gridSurfaceIdentityKey,
   gridUnassignedGroupLabel,
-  isGridColumnEditable,
   type SemanticDataGridProps,
 } from "./core";
 import {
@@ -87,7 +86,10 @@ import {
   type GridRdgPresentationModel,
 } from "./rdgPositionMap";
 import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
-import { resolveSemanticGridCapabilities } from "./semanticCapabilities";
+import {
+  isGridCellReadOnlyForPresentation,
+  resolveSemanticGridCapabilities,
+} from "./semanticCapabilities";
 import { createSemanticCellNavigation } from "./semanticCellNavigation";
 import { captureSemanticClear, isClearNavigationKey } from "./semanticClear";
 import {
@@ -564,7 +566,10 @@ function useGridSemanticState<Row>({
           bulkSelected: rowState.bulkSelected,
           inspectorActive: rowState.inspectorActive,
           pending: false,
-          readOnlyOrDerived: !editable || !isGridColumnEditable(column),
+          readOnlyOrDerived: isGridCellReadOnlyForPresentation(
+            column,
+            editable,
+          ),
           saved: true,
           stale: false,
         },

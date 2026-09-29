@@ -84,7 +84,10 @@ export { gridEditorDepartureChord };
 
 import { GridOperationalStatePlane } from "./GridOperationalStatePlane";
 import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
-import { resolveSemanticGridCapabilities } from "./semanticCapabilities";
+import {
+  isGridCellReadOnlyForPresentation,
+  resolveSemanticGridCapabilities,
+} from "./semanticCapabilities";
 import {
   planSemanticCopy,
   planSemanticFillFromRange,
@@ -584,10 +587,7 @@ function createTestSupportSemanticState<Row>({
         bulkSelected: rowState.bulkSelected,
         inspectorActive: rowState.inspectorActive,
         pending: false,
-        readOnlyOrDerived:
-          !editable ||
-          column.contractWritable !== true ||
-          column.editor === undefined,
+        readOnlyOrDerived: isGridCellReadOnlyForPresentation(column, editable),
         saved: true,
         stale: false,
       },
