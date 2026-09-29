@@ -793,7 +793,7 @@ const emptyRelationshipStyle = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
-  color: "var(--ct-colors-ink-tertiary)",
+  color: "var(--ct-colors-ink-muted)",
   fontSize: "var(--cartulary-grid-font-size)",
   lineHeight: "var(--cartulary-grid-line-height)",
 };

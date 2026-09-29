@@ -16,6 +16,7 @@ import {
   relationshipItemsTestId,
   relationshipOverflowButtonTestId,
   timelineCollectionInputTestId,
+  timelineInspectorSectionTestId,
   workbookColumnsMenuTestId,
   workbookColumnsMenuTriggerTestId,
   workbookInspectorCloseButtonTestId,
@@ -23,6 +24,7 @@ import {
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import type { Locator } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { revokeAllSessions } from "./support/auth/sessions";
@@ -49,12 +51,142 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 const fields = [
   ["timeline.host_refs", "hosts"],
   ["timeline.identity_refs", "identities"],
   ["timeline.tags", "tags"],
 ] as const;
+
+// This collection-only check follows the painted surface-1 grid/inspector stack.
+// Viewer cells add the Grid Adapter's read-only stripe over that surface.
+async function expectCollectionCueContrast(cue: Locator) {
+  const paint = await cue.evaluate((element) => {
+    type Color = { r: number; g: number; b: number; a: number };
+    const parse = (value: string): Color => {
+      const hex = /^#([0-9a-f]{6})$/i.exec(value);
+      if (hex) {
+        const bytes = hex[1];
+        if (!bytes)
+          throw new Error(`Unsupported collection paint color: ${value}`);
+        return {
+          r: Number.parseInt(bytes.slice(0, 2), 16),
+          g: Number.parseInt(bytes.slice(2, 4), 16),
+          b: Number.parseInt(bytes.slice(4, 6), 16),
+          a: 1,
+        };
+      }
+      const match =
+        /^rgba?\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)(?:,\s*(\d+(?:\.\d+)?))?\)$/.exec(
+          value,
+        );
+      if (!match)
+        throw new Error(`Unsupported collection paint color: ${value}`);
+      return {
+        r: Number(match[1]),
+        g: Number(match[2]),
+        b: Number(match[3]),
+        a: match[4] === undefined ? 1 : Number(match[4]),
+      };
+    };
+    const blend = (top: Color, bottom: Color): Color => ({
+      r: top.r * top.a + bottom.r * (1 - top.a),
+      g: top.g * top.a + bottom.g * (1 - top.a),
+      b: top.b * top.a + bottom.b * (1 - top.a),
+      a: 1,
+    });
+    const layers: { color: string; image: string; readOnly: boolean }[] = [];
+    for (let node: Element | null = element; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.opacity !== "1")
+        throw new Error(
+          `Unexpected collection paint opacity: ${style.opacity}`,
+        );
+      layers.push({
+        color: style.backgroundColor,
+        image: style.backgroundImage,
+        readOnly: node.classList.contains(
+          "cartulary-grid-cell-state-read-only",
+        ),
+      });
+      if (parse(style.backgroundColor).a === 1) break;
+    }
+    const base = layers.at(-1);
+    if (!base || parse(base.color).a !== 1)
+      throw new Error("Collection cue has no opaque paint base");
+    const surface1 = parse(
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--ct-colors-surface-1")
+        .trim(),
+    );
+    const background = parse(base.color);
+    if (
+      background.r !== surface1.r ||
+      background.g !== surface1.g ||
+      background.b !== surface1.b
+    )
+      throw new Error(`Unexpected collection paint base: ${base.color}`);
+    let backgrounds = [background];
+    for (const layer of [...layers].reverse()) {
+      const color = parse(layer.color);
+      backgrounds = backgrounds.map((under) => blend(color, under));
+      if (layer.image === "none") continue;
+      const stops = [
+        ...layer.image.matchAll(
+          /color\(srgb ([\d.]+) ([\d.]+) ([\d.]+) \/ ([\d.]+)\)/g,
+        ),
+      ];
+      if (
+        !layer.readOnly ||
+        !layer.image.startsWith("repeating-linear-gradient") ||
+        stops.length !== 2 ||
+        stops[0]?.[0] !== stops[1]?.[0]
+      )
+        throw new Error(`Unexpected collection paint image: ${layer.image}`);
+      const stripe: Color = {
+        r: Number(stops[0]?.[1]) * 255,
+        g: Number(stops[0]?.[2]) * 255,
+        b: Number(stops[0]?.[3]) * 255,
+        a: Number(stops[0]?.[4]),
+      };
+      backgrounds = backgrounds.flatMap((under) => [
+        under,
+        blend(stripe, under),
+      ]);
+    }
+    const foreground = parse(getComputedStyle(element).color);
+    if (foreground.a !== 1)
+      throw new Error("Unexpected translucent collection cue text");
+    const luminance = (color: Color) => {
+      const channel = (value: number) => {
+        const normalized = value / 255;
+        return normalized <= 0.04045
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4;
+      };
+      return (
+        0.2126 * channel(color.r) +
+        0.7152 * channel(color.g) +
+        0.0722 * channel(color.b)
+      );
+    };
+    const ratios = backgrounds.map((under) => {
+      const light = Math.max(luminance(foreground), luminance(under));
+      const dark = Math.min(luminance(foreground), luminance(under));
+      return (light + 0.05) / (dark + 0.05);
+    });
+    return {
+      foreground: getComputedStyle(element).color,
+      fontSize: getComputedStyle(element).fontSize,
+      base: base.color,
+      layers,
+      minimumRatio: Math.min(...ratios),
+    };
+  });
+  expect(paint.minimumRatio, JSON.stringify(paint)).toBeGreaterThanOrEqual(4.5);
+  return paint;
+}
 
 test("Timeline saved tag removal preserves capture and exact collection identity at supported viewports", async ({
   page,
@@ -1616,6 +1748,10 @@ test("Timeline collection drafts survive detachment and retire with authority", 
   workerAdminRequest,
 }) => {
   test.setTimeout(180_000);
+  const contrastObservations: {
+    cue: string;
+    paint: Awaited<ReturnType<typeof expectCollectionCueContrast>>;
+  }[] = [];
   await page.setViewportSize({ width: 1440, height: 900 });
   const incident = await createIncident(
     page,
@@ -1660,6 +1796,35 @@ test("Timeline collection drafts survive detachment and retire with authority", 
   await page.goto("/?incident_id=" + incident);
   await sockets.waitForAcceptedSocket();
   await showTimelineCollectionColumns(page);
+  const emptyGridCue = (field: string) =>
+    page
+      .getByTestId(relationshipItemsTestId(row.record_id, field, "grid"))
+      .getByText("No items", { exact: true });
+  for (const [field] of fields) {
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: relationshipItemsTestId(row.record_id, field, "grid"),
+    });
+    await expect(emptyGridCue(field)).toBeVisible();
+    contrastObservations.push({
+      cue: `editor empty ${field}`,
+      paint: await expectCollectionCueContrast(emptyGridCue(field)),
+    });
+  }
+  await openTimelineInspector(page, row.record_id);
+  const emptyInspectorTags = page
+    .getByTestId(timelineInspectorSectionTestId("relationships"))
+    .getByRole("group", { name: "Tags collection editor" })
+    .getByText("No items", { exact: true });
+  await expect(emptyInspectorTags).toBeVisible();
+  contrastObservations.push({
+    cue: "editor empty inspector tags",
+    paint: await expectCollectionCueContrast(emptyInspectorTags),
+  });
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .click();
   const browsing = page.getByRole("group", { name: "Workbook browsing" });
   const refresh = browsing.getByRole("button", {
     name: "Refresh",
@@ -1732,6 +1897,22 @@ test("Timeline collection drafts survive detachment and retire with authority", 
     await visibility.check();
     await page.keyboard.press("Escape");
     await expect(input(field)).toHaveCount(0);
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: relationshipItemsTestId(row.record_id, field, "grid"),
+    });
+    const retainedCue = page
+      .getByTestId(relationshipItemsTestId(row.record_id, field, "grid"))
+      .locator("xpath=ancestor::fieldset[1]")
+      .getByRole("note", {
+        name: `${label[0]?.toUpperCase()}${label.slice(1)} token draft retained`,
+      });
+    await expect(retainedCue).toHaveText("Draft");
+    contrastObservations.push({
+      cue: `editor retained ${field}`,
+      paint: await expectCollectionCueContrast(retainedCue),
+    });
     await expect(await activate(field, label)).toHaveValue(text(label));
     await refresh.focus();
   }
@@ -1866,6 +2047,40 @@ test("Timeline collection drafts survive detachment and retire with authority", 
     await expect(page.getByLabel("Retained Tags", { exact: true })).toHaveValue(
       "role transition raw Ω",
     );
+    await page.setViewportSize({ width: 1024, height: 720 });
+    for (const field of ["timeline.identity_refs", "timeline.tags"]) {
+      await scrollGridTargetIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: relationshipItemsTestId(row.record_id, field, "grid"),
+      });
+      await expect(emptyGridCue(field)).toBeVisible();
+      contrastObservations.push({
+        cue: `viewer empty ${field}`,
+        paint: await expectCollectionCueContrast(emptyGridCue(field)),
+      });
+      await expect(
+        page
+          .getByTestId(relationshipItemsTestId(row.record_id, field, "grid"))
+          .locator("xpath=ancestor::fieldset[1]")
+          .getByRole("button", { name: /Add .* token/u }),
+      ).toHaveCount(0);
+    }
+    const viewerDraft = page
+      .getByTestId(
+        relationshipItemsTestId(row.record_id, "timeline.tags", "grid"),
+      )
+      .locator("xpath=ancestor::fieldset[1]")
+      .getByRole("note", { name: "Tags token draft retained" });
+    await expect(viewerDraft).toHaveText("Draft");
+    contrastObservations.push({
+      cue: "viewer retained timeline.tags",
+      paint: await expectCollectionCueContrast(viewerDraft),
+    });
+    await test.info().attach("collection-cue-contrast", {
+      body: JSON.stringify(contrastObservations, null, 2),
+      contentType: "application/json",
+    });
     expect(
       (
         await workerAdminRequest.delete(membership, {
