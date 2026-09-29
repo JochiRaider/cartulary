@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:a5fdaa7cc825f867ff3001401e446f611059b49076f82f0c340c75d9cb13e1c1",
+  "input_digest": "sha256:7841411e6c8144fb87ef2b3e04042893307f311c7778b3ed398cc8349a1ea79f",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -1307,7 +1307,7 @@
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:88bd2c3d33b5fc74ca288b83eda1e317af3ffb7885a47f273d54729e4e7ef5c0"
+      "hash": "sha256:e48b744bd2c14113f6abd9ee4939759f5a97eeadb70502aec900965643b40543"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
@@ -1427,7 +1427,7 @@
     {
       "path": "tools/test_families/web.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:f1aed682f29ecd010dd6da24ba68aece89b4677306da1fe3fb2969c0aaee2d5f"
+      "hash": "sha256:1cd251d4562ba96298a1cfb200bac5af2b70b59e3e8afb4cd61f9eb830564149"
     },
     {
       "path": "tools/test_runner_registry.json",
@@ -1436,7 +1436,7 @@
     }
   ],
   "outputs": {
-    "tools/browser_e2e_batch_manifest.json": "sha256:e832f3b395d22659d67d566a818644ea8a0dc6701a1ef2629fcd36e2ab4140b1",
+    "tools/browser_e2e_batch_manifest.json": "sha256:63d4ff32e4a59e27642e02d16bff9efc7a5fdce877c5a6416af8f7894cbca8e0",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
     "tools/task_surface_manifest.json": "sha256:30509bca9f2d38ccd3675693585a5354cbf1dca83c9b4431bdab7a2b2ac10c3c",
     "tools/task_surface.generated.mk": "sha256:122fbeb82c7d4572dbfef89cb5e9c925c166ad181540c98f4e5f4e6179d0f477",

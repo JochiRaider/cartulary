@@ -35,7 +35,10 @@ import {
 import type { WorkbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
 import type { WorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import { WorkbookExplicitPatchRecovery } from "../../inspector/WorkbookExplicitPatchRecovery";
-import { WorkbookInspectorDetails } from "../../inspector/WorkbookInspectorDetails";
+import {
+  WorkbookInspectorDetails,
+  type WorkbookInspectorFieldFocusRequest,
+} from "../../inspector/WorkbookInspectorDetails";
 import { WorkbookInspectorDraftFeedback } from "../../inspector/WorkbookInspectorDraftFeedback";
 import type { WorkbookInspectorDraftStore } from "../../inspector/WorkbookInspectorDraftStore";
 import { WorkbookInspectorEditControl } from "../../inspector/WorkbookInspectorEditControl";
@@ -234,6 +237,7 @@ type GenericDetailsProps = {
   readonly contract: ViewContract;
   readonly editableFields: readonly ViewFieldContract[];
   readonly editFieldKey: string;
+  readonly focusRequest: WorkbookInspectorFieldFocusRequest | null;
   readonly mutationPending: GenericSurfaceMutationController["mutationPending"];
   readonly rows: readonly WorkbookQueryRow[];
   readonly selectedEdit: SelectedEdit;
@@ -253,6 +257,10 @@ function GenericDetails(props: GenericDetailsProps) {
       row={props.selectedEdit.row}
       editableFields={props.editableFields}
       activeField={props.editFieldKey}
+      activeAction={props.edit.identity.action}
+      attachmentId={props.edit.attachment}
+      controlRef={props.edit.controlRef}
+      focusRequest={props.focusRequest}
       onEdit={props.setEditFieldKey}
       onDetach={() => props.setEditFieldKey("")}
       disabledReason={props.disabledReason}

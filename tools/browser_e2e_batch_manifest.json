@@ -2623,6 +2623,9 @@
           "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
           "selected_row_ids": [
             "module.workbook.accessibility.inspector_edit_recovery",
+            "module.workbook.accessibility.inspector_entity_ordinary_edit_reveal_c435d77f80",
+            "module.workbook.accessibility.inspector_evidence_reference_shortcut_reveal_afdc31949c",
+            "module.workbook.accessibility.inspector_timeline_ordinary_edit_reveal_f4bd40fdfb",
             "module.workbook.accessibility.reference_picker"
           ],
           "specs": [
@@ -3761,6 +3764,9 @@
           "workers": "1",
           "selected_row_ids": [
             "module.workbook.accessibility.inspector_edit_recovery",
+            "module.workbook.accessibility.inspector_entity_ordinary_edit_reveal_c435d77f80",
+            "module.workbook.accessibility.inspector_evidence_reference_shortcut_reveal_afdc31949c",
+            "module.workbook.accessibility.inspector_timeline_ordinary_edit_reveal_f4bd40fdfb",
             "module.workbook.accessibility.reference_picker"
           ],
           "specs": [

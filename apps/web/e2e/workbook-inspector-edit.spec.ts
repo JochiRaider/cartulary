@@ -11,6 +11,7 @@ import {
   gridShellTestId,
   rowCellTestId,
   timelineInspectorTestId,
+  timelineScalarEditorTestId,
   workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorPanelTestId,
@@ -19,6 +20,7 @@ import {
 import {
   evidenceViewSchemaId,
   hostsViewSchemaId,
+  type InspectorPanelId,
   indicatorsViewSchemaId,
   lessonViewSchemaId,
   notesViewSchemaId,
@@ -26,7 +28,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
@@ -79,15 +81,19 @@ async function editField(page: Page, view: string, field: string) {
   return page.getByTestId(genericEditValueTestId(view));
 }
 
-async function expectReferenceDefinitionList(page: Page, view: string, panel: string) {
+async function expectReferenceDefinitionList(
+  page: Page,
+  view: string,
+  panel: InspectorPanelId,
+) {
   const result = await new AxeBuilder({ page })
     .include(dataTestIdSelector(workbookInspectorPanelTestId(view, panel)))
     .withRules(["definition-list"])
     .analyze();
   expect(result.violations).toEqual([]);
-  expect(result.incomplete.filter((item) => item.id === "definition-list")).toEqual(
-    [],
-  );
+  expect(
+    result.incomplete.filter((item) => item.id === "definition-list"),
+  ).toEqual([]);
 }
 
 async function expectReachableReferenceAction(page: Page, actionName: string) {
@@ -113,6 +119,427 @@ async function expectReachableReferenceAction(page: Page, actionName: string) {
   expect(geometry.clippedViewport).toBe(false);
   return action;
 }
+
+async function placeInspectorActionNearBodyBottom(action: Locator) {
+  await action.evaluate((element) => {
+    const body = element.closest<HTMLElement>("[data-inspector-scroll-body]");
+    if (!body) throw new Error("Missing inspector scroll body");
+    const scale = body.getBoundingClientRect().height / body.offsetHeight;
+    body.scrollTop +=
+      (element.getBoundingClientRect().bottom -
+        (body.getBoundingClientRect().bottom - 12)) /
+      scale;
+  });
+}
+
+async function outsideInspectorScroll(page: Page) {
+  return page.evaluate((selector) => {
+    const grid = document.querySelector<HTMLElement>(selector);
+    return {
+      documentX: window.scrollX,
+      documentY: window.scrollY,
+      gridTop: grid?.scrollTop ?? null,
+      gridLeft: grid?.scrollLeft ?? null,
+    };
+  }, gridScrollportSelector());
+}
+
+async function inspectorFocusedControlGeometry(control: Locator) {
+  return control.evaluate((element) => {
+    if (!(element instanceof HTMLElement))
+      throw new Error("Expected an HTML inspector control");
+    const body = element.closest<HTMLElement>("[data-inspector-scroll-body]");
+    const field = element.closest<HTMLElement>("[data-inspector-saved-field]");
+    if (!body || !field)
+      throw new Error("Missing inspector field or scroll body");
+    const bodyBox = body.getBoundingClientRect();
+    const scale = bodyBox.height / body.offsetHeight;
+    const visual = window.visualViewport;
+    const bounds = {
+      left: Math.max(
+        visual?.offsetLeft ?? 0,
+        bodyBox.left + body.clientLeft * scale,
+      ),
+      top: Math.max(
+        visual?.offsetTop ?? 0,
+        bodyBox.top + body.clientTop * scale,
+      ),
+      right: Math.min(
+        (visual?.offsetLeft ?? 0) + (visual?.width ?? window.innerWidth),
+        bodyBox.left + (body.clientLeft + body.clientWidth) * scale,
+      ),
+      bottom: Math.min(
+        (visual?.offsetTop ?? 0) + (visual?.height ?? window.innerHeight),
+        bodyBox.top + (body.clientTop + body.clientHeight) * scale,
+      ),
+    };
+    for (
+      let ancestor = body.parentElement;
+      ancestor;
+      ancestor = ancestor.parentElement
+    ) {
+      const style = getComputedStyle(ancestor);
+      const clipsX = ["auto", "scroll", "hidden", "clip"].includes(
+        style.overflowX,
+      );
+      const clipsY = ["auto", "scroll", "hidden", "clip"].includes(
+        style.overflowY,
+      );
+      if (clipsX || clipsY) {
+        const clip = ancestor.getBoundingClientRect();
+        if (clipsX) {
+          bounds.left = Math.max(bounds.left, clip.left);
+          bounds.right = Math.min(bounds.right, clip.right);
+        }
+        if (clipsY) {
+          bounds.top = Math.max(bounds.top, clip.top);
+          bounds.bottom = Math.min(bounds.bottom, clip.bottom);
+        }
+      }
+    }
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const targetScale =
+      element.offsetWidth > 0 ? rect.width / element.offsetWidth : 1;
+    const ring =
+      ((Number.parseFloat(style.outlineWidth) || 0) +
+        (Number.parseFloat(style.outlineOffset) || 0)) *
+      targetScale;
+    const fieldLabel = field.querySelector("dt")?.getBoundingClientRect();
+    const savedValue = field
+      .querySelector("[data-inspector-field-value]")
+      ?.getBoundingClientRect();
+    const contextTop = Math.min(
+      fieldLabel?.top ?? rect.top,
+      savedValue?.top ?? rect.top,
+      rect.top,
+    );
+    const contextBottom = Math.max(
+      fieldLabel?.bottom ?? rect.bottom,
+      savedValue?.bottom ?? rect.bottom,
+      rect.bottom,
+    );
+    return {
+      focused: document.activeElement === element,
+      fits: rect.height + ring * 2 <= bounds.bottom - bounds.top,
+      contained:
+        rect.top - ring >= bounds.top - 1 &&
+        rect.bottom + ring <= bounds.bottom + 1 &&
+        rect.left - ring >= bounds.left - 1 &&
+        rect.right + ring <= bounds.right + 1,
+      contextFits: contextBottom - contextTop <= bounds.bottom - bounds.top,
+      contextContained:
+        contextTop >= bounds.top - 1 && contextBottom <= bounds.bottom + 1,
+    };
+  });
+}
+
+test("a11y.inspector Timeline lower-edge Edit and retained Resume reveal the focused control", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("IERV"),
+    "Inspector editor reveal",
+  );
+  const row = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("ierv-timeline"),
+    "timeline.activity_synopsis_text": "Inspector editor reveal target",
+    "timeline.data_source_text": "Accepted source context",
+  });
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      new URL(request.url()).pathname.endsWith(`/records/${row.record_id}`)
+    )
+      writes.push(request.url());
+  });
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${timelineViewSchemaId}`,
+  );
+  await openTimelineInspector(page, row.record_id);
+  const edit = page
+    .getByTestId(timelineInspectorTestId())
+    .getByRole("button", { name: "Edit Data Source", exact: true });
+  const control = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.data_source_text",
+      recordId: row.record_id,
+      surface: "inspector",
+    }),
+  );
+  await placeInspectorActionNearBodyBottom(edit);
+  const outsideScroll = await outsideInspectorScroll(page);
+  await edit.click();
+  await expect(control).toBeFocused();
+  const pointer = await inspectorFocusedControlGeometry(control);
+  expect.soft(pointer.fits && pointer.contained).toBe(true);
+  expect.soft(!pointer.contextFits || pointer.contextContained).toBe(true);
+  expect(await outsideInspectorScroll(page)).toEqual(outsideScroll);
+  await test.info().attach("inspector-timeline-edit-1024", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    contentType: "image/png",
+  });
+
+  await control.press("Escape");
+  await expect(edit).toBeFocused();
+  await placeInspectorActionNearBodyBottom(edit);
+  await edit.press("Enter");
+  await expect(control).toBeFocused();
+  const keyboard = await inspectorFocusedControlGeometry(control);
+  expect.soft(keyboard.fits && keyboard.contained).toBe(true);
+  expect.soft(!keyboard.contextFits || keyboard.contextContained).toBe(true);
+
+  const raw = "  exact local source\n  ";
+  await control.fill(raw);
+  await page.getByRole("button", { name: "Close editor", exact: true }).click();
+  await openTimelineInspector(page, row.record_id);
+  const resume = page.getByRole("button", {
+    name: "Resume draft for Data Source",
+    exact: true,
+  });
+  await placeInspectorActionNearBodyBottom(resume);
+  await resume.click();
+  await expect(control).toHaveValue(raw);
+  await expect(control).toBeFocused();
+  const resumed = await inspectorFocusedControlGeometry(control);
+  expect.soft(resumed.fits && resumed.contained).toBe(true);
+  expect.soft(!resumed.contextFits || resumed.contextContained).toBe(true);
+  expect(await outsideInspectorScroll(page)).toEqual(outsideScroll);
+  await test.info().attach("inspector-timeline-resume-1024", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    contentType: "image/png",
+  });
+  expect(writes).toHaveLength(0);
+});
+
+test("a11y.inspector Evidence reference shortcut reveals saved field context on repeated activation", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("IERR"),
+    "Inspector reference reveal",
+  );
+  const party = await createViewRow(page, incident, partiesViewSchemaId, {
+    client_txn_id: uniqueTxn("ierr-party"),
+    "party.display_name": "Collector for reveal",
+    "party.party_kind": "team",
+  });
+  const evidence = await createViewRow(page, incident, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("ierr-evidence"),
+    "evidence.title": "Reference reveal target",
+    "evidence.collector_party_id": party.record_id,
+  });
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      new URL(request.url()).pathname.endsWith(`/records/${evidence.record_id}`)
+    )
+      writes.push(request.url());
+  });
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${evidenceViewSchemaId}`,
+  );
+  await openGenericInspectorForRecord(
+    page,
+    evidenceViewSchemaId,
+    evidence.record_id,
+  );
+  const inspector = page.getByTestId(
+    workbookInspectorPanelTestId(evidenceViewSchemaId, "relationships"),
+  );
+  const shortcut = inspector.getByRole("button", {
+    name: "Edit Collector Party",
+    exact: true,
+  });
+  const control = page.getByTestId(
+    genericEditValueTestId(evidenceViewSchemaId),
+  );
+  await shortcut.focus();
+  await shortcut.press("Enter");
+  await expect(control).toBeFocused();
+  const first = await inspectorFocusedControlGeometry(control);
+  expect.soft(first.fits && first.contained).toBe(true);
+  expect.soft(!first.contextFits || first.contextContained).toBe(true);
+  await shortcut.click();
+  await expect(control).toBeFocused();
+  const repeated = await inspectorFocusedControlGeometry(control);
+  expect.soft(repeated.fits && repeated.contained).toBe(true);
+  expect.soft(!repeated.contextFits || repeated.contextContained).toBe(true);
+  expect(writes).toHaveLength(0);
+});
+
+test("a11y.inspector Entity edit keeps focus and context visible across field changes and enlarged layouts", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  const inspector = page.getByTestId(entityInspectorTestId("host"));
+  const input = page.getByTestId(genericEditValueTestId(f.view));
+  const location = inspector.getByRole("button", {
+    name: "Edit Location",
+    exact: true,
+  });
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      new URL(request.url()).pathname.endsWith(`/records/${f.first.record_id}`)
+    )
+      writes++;
+  });
+  const raw = "  unchanged local location  ";
+  await location.click();
+  await expect(input).toBeFocused();
+  await input.fill(raw);
+  await inspector
+    .getByRole("button", { name: "Edit Business Owner", exact: true })
+    .click();
+  await expect(input).toBeFocused();
+  expect((await inspectorFocusedControlGeometry(input)).contained).toBe(true);
+  await input.press("Escape");
+  await expect(
+    inspector.getByRole("button", {
+      name: "Edit Business Owner",
+      exact: true,
+    }),
+  ).toBeFocused();
+  const resume = inspector.getByRole("button", {
+    name: "Resume draft for Location",
+    exact: true,
+  });
+  await resume.click();
+  await expect(input).toHaveValue(raw);
+  await expect(input).toBeFocused();
+  expect((await inspectorFocusedControlGeometry(input)).contained).toBe(true);
+  await input.press("Escape");
+  await expect(resume).toBeFocused();
+
+  for (const layout of [
+    { width: 320, zoom: 1, spacing: false },
+    { width: 1280, zoom: 2, spacing: false },
+    { width: 1024, zoom: 1, spacing: true },
+  ]) {
+    await page.setViewportSize({ width: layout.width, height: 720 });
+    await page.evaluate(({ zoom, spacing }) => {
+      document.documentElement.style.zoom = String(zoom);
+      document.body.style.lineHeight = spacing ? "1.5" : "";
+      document.body.style.letterSpacing = spacing ? "0.12em" : "";
+      document.body.style.wordSpacing = spacing ? "0.16em" : "";
+    }, layout);
+    await resume.click();
+    await expect(input).toHaveValue(raw);
+    await expect(input).toBeFocused();
+    const geometry = await inspectorFocusedControlGeometry(input);
+    expect
+      .soft(geometry.fits && geometry.contained, JSON.stringify(layout))
+      .toBe(true);
+    expect
+      .soft(
+        !geometry.contextFits || geometry.contextContained,
+        JSON.stringify(layout),
+      )
+      .toBe(true);
+    if (layout.zoom === 2) {
+      await page.setViewportSize({ width: 1100, height: 720 });
+      await expect(input).toBeFocused();
+      await expect(async () => {
+        const resized = await inspectorFocusedControlGeometry(input);
+        expect(resized.fits && resized.contained).toBe(true);
+      }).toPass();
+    }
+    const clear = inspector.getByRole("button", {
+      name: "Clear Location",
+      exact: true,
+    });
+    await input.press("Tab");
+    await expect(clear).toBeFocused();
+    expect
+      .soft((await inspectorFocusedControlGeometry(clear)).contained)
+      .toBe(true);
+    const update = inspector.getByTestId(genericEditSubmitTestId(f.view));
+    await clear.press("Tab");
+    await expect(update).toBeFocused();
+    expect
+      .soft((await inspectorFocusedControlGeometry(update)).contained)
+      .toBe(true);
+    const close = inspector.getByRole("button", {
+      name: "Close editor",
+      exact: true,
+    });
+    await update.press("Tab");
+    await expect(close).toBeFocused();
+    expect
+      .soft((await inspectorFocusedControlGeometry(close)).contained)
+      .toBe(true);
+    await close.press("Escape");
+    await expect(resume).toBeFocused();
+  }
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+    document.body.style.lineHeight = "";
+    document.body.style.letterSpacing = "";
+    document.body.style.wordSpacing = "";
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await resume.click();
+  await expect(input).toBeFocused();
+  const sections = inspector.getByRole("button", { name: /^Sections:/ });
+  if (await sections.isVisible()) await sections.click();
+  await inspector.getByRole("button", { name: "History", exact: true }).click();
+  const historyAction = inspector.getByRole("button", {
+    name: "Open history",
+    exact: true,
+  });
+  await expect(historyAction).toBeFocused();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(historyAction).toBeFocused();
+  await openGenericInspectorForRecord(page, f.view, f.second.record_id);
+  await expect(inspector).toContainText("Inspected B");
+  await expect(input).toHaveCount(0);
+  expect(writes).toBe(0);
+  await openGenericInspectorForRecord(page, f.view, f.first.record_id);
+  if (await sections.isVisible()) await sections.click();
+  await inspector.getByRole("button", { name: "Details", exact: true }).click();
+  await patchRecord(page, f.first.record_id, {
+    view_schema_id: f.view,
+    base_row_version: 1,
+    client_txn_id: uniqueTxn("inspector-reveal-review"),
+    changes: [{ field_key: "host.location", value: "New accepted location" }],
+  });
+  const review = inspector.getByRole("button", {
+    name: "Review draft for Location",
+    exact: true,
+  });
+  await review.click();
+  const useSaved = inspector.getByRole("button", {
+    name: "Use saved Location",
+    exact: true,
+  });
+  await expect(useSaved).toBeFocused();
+  expect((await inspectorFocusedControlGeometry(useSaved)).contained).toBe(
+    true,
+  );
+  const keepDraft = inspector.getByRole("button", {
+    name: "Keep draft Location",
+    exact: true,
+  });
+  await useSaved.press("Tab");
+  await expect(keepDraft).toBeFocused();
+  expect((await inspectorFocusedControlGeometry(keepDraft)).contained).toBe(
+    true,
+  );
+  const writesBeforeReviewDecision = writes;
+  await keepDraft.click();
+  await expect(input).toHaveValue(raw);
+  await expect(input).toBeFocused();
+  expect((await inspectorFocusedControlGeometry(input)).contained).toBe(true);
+  expect(writes).toBe(writesBeforeReviewDecision);
+});
 
 test("a11y.generic reference summaries keep Party and Evidence shortcuts semantic and draft-safe", async ({
   page,
@@ -146,7 +573,9 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
         field_key: "lesson.evidence_refs",
         action_payload: {
           kind: "collection_actions_v1",
-          actions: [{ op: "add_record_ref", linked_record_id: evidence.record_id }],
+          actions: [
+            { op: "add_record_ref", linked_record_id: evidence.record_id },
+          ],
         },
       },
     ],
@@ -162,8 +591,14 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
       writes.push(request.url());
   });
 
-  await page.goto(`/?incident_id=${incident}&view_schema_id=${evidenceViewSchemaId}`);
-  await openGenericInspectorForRecord(page, evidenceViewSchemaId, evidence.record_id);
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${evidenceViewSchemaId}`,
+  );
+  await openGenericInspectorForRecord(
+    page,
+    evidenceViewSchemaId,
+    evidence.record_id,
+  );
   const relationships = page.getByTestId(
     workbookInspectorPanelTestId(evidenceViewSchemaId, "relationships"),
   );
@@ -172,7 +607,11 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
     "Source Party",
   ]);
   await expect(relationships).toContainText(party.record_id);
-  await expectReferenceDefinitionList(page, evidenceViewSchemaId, "relationships");
+  await expectReferenceDefinitionList(
+    page,
+    evidenceViewSchemaId,
+    "relationships",
+  );
   const edit = relationships.getByRole("button", {
     name: "Edit Source Party",
     exact: true,
@@ -198,13 +637,25 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
   await expect(input).toHaveValue(party.record_id);
   await input.press("Escape");
   await expect(resume).toBeVisible();
-  await page.getByTestId(workbookInspectorCloseButtonTestId(evidenceViewSchemaId)).click();
-  await openGenericInspectorForRecord(page, evidenceViewSchemaId, evidence.record_id);
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(evidenceViewSchemaId))
+    .click();
+  await openGenericInspectorForRecord(
+    page,
+    evidenceViewSchemaId,
+    evidence.record_id,
+  );
   await expect(resume).toBeVisible();
   expect(writes).toHaveLength(0);
 
-  await page.goto(`/?incident_id=${incident}&view_schema_id=${lessonViewSchemaId}`);
-  await openGenericInspectorForRecord(page, lessonViewSchemaId, lesson.record_id);
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${lessonViewSchemaId}`,
+  );
+  await openGenericInspectorForRecord(
+    page,
+    lessonViewSchemaId,
+    lesson.record_id,
+  );
   const evidencePanel = page.getByTestId(
     workbookInspectorPanelTestId(lessonViewSchemaId, "evidence"),
   );
@@ -222,7 +673,9 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
       .getByTestId(workbookInspectorPanelTestId(lessonViewSchemaId, "details"))
       .getByRole("group", { name: "Unsaved change: Evidence" }),
   ).toBeVisible();
-  await expect(page.getByTestId(genericEditValueTestId(lessonViewSchemaId))).toBeFocused();
+  await expect(
+    page.getByTestId(genericEditValueTestId(lessonViewSchemaId)),
+  ).toBeFocused();
   expect(writes).toHaveLength(0);
   await page.getByRole("button", { name: "Close editor" }).click();
 

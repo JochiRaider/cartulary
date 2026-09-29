@@ -36,6 +36,7 @@ import { useRetainedInspectorRow } from "../../inspector/useRetainedInspectorRow
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import { useWorkbookInspectorEditDraft } from "../../inspector/useWorkbookInspectorEditDraft";
 import { useWorkbookInspectorFieldFeedback } from "../../inspector/useWorkbookInspectorFieldFeedback";
+import type { WorkbookInspectorFieldFocusRequest } from "../../inspector/WorkbookInspectorDetails";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import {
@@ -318,16 +319,19 @@ export function useGenericWorkbookInspectorComposition({
         : [],
   });
   const editFeedback = useWorkbookInspectorFieldFeedback(edit);
-  const [requestedEditFocus, requestEditFocus] = useState(0);
-  useLayoutEffect(() => {
-    if (requestedEditFocus > 0 && isOpen) {
-      edit.controlRef.current?.focus({ preventScroll: true });
-      edit.controlRef.current?.scrollIntoView?.({ block: "nearest" });
-    }
-  }, [requestedEditFocus, isOpen, edit.controlRef]);
-  const chooseReferenceField = (fieldKey: string) => {
+  const focusRequestRevision = useRef(0);
+  const [focusRequest, setFocusRequest] =
+    useState<WorkbookInspectorFieldFocusRequest | null>(null);
+  const chooseReferenceField = (fieldKey: string, trigger: HTMLElement) => {
+    if (!isOpen || !subjectRow || !mutation.inspectorDrafts.canAuthor()) return;
     setEditFieldKey(fieldKey);
-    requestEditFocus((value) => value + 1);
+    setFocusRequest({
+      revision: ++focusRequestRevision.current,
+      viewSchemaId: contract.viewSchemaId,
+      recordId: subjectRow.record_id,
+      fieldKey,
+      trigger,
+    });
   };
   const staleEditFields = edit.staleFields;
   const selectedEditCollectionItems =
@@ -718,6 +722,7 @@ export function useGenericWorkbookInspectorComposition({
         contract,
         editableFields,
         editFieldKey,
+        focusRequest,
         mutationPending:
           mutation.mutationPending ||
           (!!subjectRow &&

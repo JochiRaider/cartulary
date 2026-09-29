@@ -5,6 +5,7 @@ import type {
 } from "@cartulary/view-contracts";
 import {
   type CSSProperties,
+  type FocusEventHandler,
   type ReactNode,
   useId,
   useLayoutEffect,
@@ -26,14 +27,24 @@ export function WorkbookInspectorSavedDetails({
   row,
   fields,
   describedBy,
+  onFieldElement,
+  onFocusCapture,
 }: {
   readonly contract: ViewContract;
   readonly row: WorkbookQueryRow;
   readonly fields?: ReadonlyMap<string, FieldPresentation>;
   readonly describedBy?: string | undefined;
+  readonly onFieldElement?:
+    | ((fieldKey: string, element: HTMLElement | null) => void)
+    | undefined;
+  readonly onFocusCapture?: FocusEventHandler<HTMLElement> | undefined;
 }) {
   return (
-    <dl style={detailsStyle} aria-describedby={describedBy}>
+    <dl
+      style={detailsStyle}
+      aria-describedby={describedBy}
+      onFocusCapture={onFocusCapture}
+    >
       <style>{`
         [data-inspector-field-layout="property"] { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto; }
         [data-inspector-field-layout="property"] > [data-inspector-field-actions] { grid-column: 3; grid-row: 1; }
@@ -79,6 +90,7 @@ export function WorkbookInspectorSavedDetails({
         return (
           <div
             key={field.fieldKey}
+            ref={(element) => onFieldElement?.(field.fieldKey, element)}
             tabIndex={-1}
             data-inspector-saved-field={field.fieldKey}
             data-inspector-value-kind={kind}

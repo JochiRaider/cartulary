@@ -686,6 +686,9 @@ function EntityDetails(props: EntityDetailsProps) {
           row={props.selectedEntity.rawRow}
           editableFields={props.editableFields}
           activeField={props.editFieldKey}
+          activeAction={props.edit.identity.action}
+          attachmentId={props.edit.attachment}
+          controlRef={props.edit.controlRef}
           onEdit={props.setEditFieldKey}
           onDetach={() => props.setEditFieldKey("")}
           disabledReason={props.disabledReason}

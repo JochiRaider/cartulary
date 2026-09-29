@@ -20,6 +20,7 @@ export function WorkbookInspectorDraftFeedback({
         <Button
           type="button"
           tone="quiet"
+          data-inspector-resume-control
           disabled={!edit.canResume}
           onClick={(event) => edit.resume(event.currentTarget)}
         >

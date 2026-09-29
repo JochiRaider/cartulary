@@ -20,7 +20,7 @@ export function GenericInspectorReferenceSummary({
   readonly row: WorkbookQueryRow;
   readonly evidenceOnly?: boolean;
   readonly canEdit: boolean;
-  readonly onEdit: (fieldKey: string) => void;
+  readonly onEdit: (fieldKey: string, trigger: HTMLElement) => void;
 }) {
   const fields = contract.fields.filter((field) => {
     const reference = getReferenceFieldContract(
@@ -63,7 +63,9 @@ export function GenericInspectorReferenceSummary({
                     tone="quiet"
                     disabled={!canEdit || !cell}
                     style={{ maxInlineSize: "100%", overflowWrap: "anywhere" }}
-                    onClick={() => onEdit(field.fieldKey)}
+                    onClick={(event) =>
+                      onEdit(field.fieldKey, event.currentTarget)
+                    }
                   >
                     {action} {field.label}
                   </Button>

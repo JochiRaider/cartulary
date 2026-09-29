@@ -4,7 +4,9 @@ import type {
 } from "@cartulary/view-contracts";
 import {
   type CSSProperties,
+  type FocusEvent,
   type ReactNode,
+  type RefObject,
   useId,
   useLayoutEffect,
   useRef,
@@ -12,6 +14,7 @@ import {
 import { workbookTypography } from "../components/workbookFormStyles";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { WorkbookInspectorActionButton as Button } from "./presentation/WorkbookInspectorActions";
+import { revealWorkbookInspectorField } from "./presentation/workbookInspectorFieldReveal";
 import {
   type WorkbookInspectorDisabledReason,
   workbookInspectorDisabledReasonKey,
@@ -26,12 +29,24 @@ type WorkbookInspectorEditorSlots = {
   readonly retainedDraft: ReactNode;
 };
 
+export type WorkbookInspectorFieldFocusRequest = {
+  readonly revision: number;
+  readonly viewSchemaId: string;
+  readonly recordId: string;
+  readonly fieldKey: string;
+  readonly trigger: HTMLElement;
+};
+
 /** Explicit edit controls, commands and feedback, independent of any draft owner. */
 type WorkbookInspectorEditPresentation = {
   readonly contract: ViewContract;
   readonly row: WorkbookQueryRow;
   readonly editableFields: readonly ViewFieldContract[];
   readonly activeField: string;
+  readonly activeAction: string;
+  readonly attachmentId: string;
+  readonly controlRef: RefObject<HTMLElement | null>;
+  readonly focusRequest?: WorkbookInspectorFieldFocusRequest | null | undefined;
   readonly onEdit: (fieldKey: string) => void;
   readonly onDetach: () => void;
   readonly onSubmit: () => void;
@@ -57,6 +72,10 @@ export function WorkbookInspectorDetails({
   row,
   editableFields,
   activeField,
+  activeAction,
+  attachmentId,
+  controlRef,
+  focusRequest,
   onEdit,
   onDetach,
   onSubmit,
@@ -71,27 +90,185 @@ export function WorkbookInspectorDetails({
     ? workbookInspectorDisabledReasonText(disabledReason)
     : null;
   const editButtons = useRef(new Map<string, HTMLButtonElement>());
+  const fieldElements = useRef(new Map<string, HTMLElement>());
   const attachment = useRef<HTMLFieldSetElement>(null);
   const previousField = useRef("");
-  const closingField = useRef<{ recordId: string; fieldKey: string } | null>(
-    null,
-  );
+  const consumedFocusRequest = useRef<number | null>(null);
+  const focusIdentity = JSON.stringify([
+    contract.viewSchemaId,
+    row.record_id,
+    activeField,
+    activeAction,
+    attachmentId,
+  ]);
+  const latestFocusIdentity = useRef(focusIdentity);
+  latestFocusIdentity.current = focusIdentity;
+  const revealOwner = useRef<{
+    identity: string;
+    body: HTMLElement;
+    target: HTMLElement;
+    top: number;
+    left: number;
+  } | null>(null);
+  const closingField = useRef<{
+    viewSchemaId: string;
+    recordId: string;
+    fieldKey: string;
+    action: string;
+    trigger: Element | null;
+  } | null>(null);
+  const buttonKey = (fieldKey: string, action: string) =>
+    JSON.stringify([fieldKey, action]);
+  const registerEditButton = (
+    fieldKey: string,
+    action: string,
+    element: HTMLButtonElement | null,
+  ) => {
+    const key = buttonKey(fieldKey, action);
+    if (element) editButtons.current.set(key, element);
+    else editButtons.current.delete(key);
+  };
+  const reveal = (
+    field: HTMLElement,
+    target: HTMLElement,
+    retainOwnership: boolean,
+  ) => {
+    const body = field.closest<HTMLElement>("[data-inspector-scroll-body]");
+    if (!body?.contains(target)) return;
+    revealWorkbookInspectorField(body, field, target);
+    revealOwner.current = retainOwnership
+      ? {
+          identity: focusIdentity,
+          body,
+          target,
+          top: body.scrollTop,
+          left: body.scrollLeft,
+        }
+      : null;
+  };
+  const focusEditor = () => {
+    const primary = controlRef.current;
+    const target =
+      primary?.isConnected && primary.matches(":not(:disabled)")
+        ? primary
+        : attachment.current?.querySelector<HTMLElement>(
+            "[data-inspector-review-control]:not(:disabled), [data-inspector-resume-control]:not(:disabled)",
+          );
+    if (target && attachment.current?.contains(target))
+      target.focus({ preventScroll: true });
+  };
   useLayoutEffect(() => {
     const closing = closingField.current;
     closingField.current = null;
-    if (closing && !activeField && closing.recordId === row.record_id)
-      editButtons.current.get(closing.fieldKey)?.focus({ preventScroll: true });
-    if (activeField && activeField !== previousField.current) {
-      attachment.current
-        ?.querySelector<HTMLElement>(
-          "input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [data-inspector-review-control]:not(:disabled)",
-        )
-        ?.focus({ preventScroll: true });
+    if (
+      closing &&
+      !activeField &&
+      !disabledReason &&
+      closing.viewSchemaId === contract.viewSchemaId &&
+      closing.recordId === row.record_id &&
+      (document.activeElement === document.body ||
+        document.activeElement === closing.trigger)
+    ) {
+      const button =
+        editButtons.current.get(buttonKey(closing.fieldKey, closing.action)) ??
+        [...editButtons.current.entries()].find(([key]) =>
+          key.startsWith(`[${JSON.stringify(closing.fieldKey)},`),
+        )?.[1];
+      if (button?.isConnected && button.matches(":not(:disabled)"))
+        button.focus({ preventScroll: true });
     }
+    const fieldChanged = !!activeField && activeField !== previousField.current;
+    const requested =
+      focusRequest && focusRequest.revision !== consumedFocusRequest.current;
+    const validRequest =
+      requested &&
+      focusRequest.viewSchemaId === contract.viewSchemaId &&
+      focusRequest.recordId === row.record_id &&
+      focusRequest.fieldKey === activeField &&
+      document.activeElement === focusRequest.trigger;
+    if (requested) consumedFocusRequest.current = focusRequest.revision;
+    if (!disabledReason && (fieldChanged || validRequest)) focusEditor();
     previousField.current = activeField;
-  }, [activeField, row.record_id]);
+  });
+  useLayoutEffect(() => {
+    if (!activeField || disabledReason) return;
+    const field = fieldElements.current.get(activeField);
+    const body = field?.closest<HTMLElement>("[data-inspector-scroll-body]");
+    if (!field || !body) return;
+    let frame: number | null = null;
+    const refresh = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        const owner = revealOwner.current;
+        if (
+          !owner ||
+          owner.identity !== focusIdentity ||
+          latestFocusIdentity.current !== focusIdentity ||
+          owner.body !== body ||
+          document.activeElement !== owner.target ||
+          !attachment.current?.contains(owner.target)
+        )
+          return;
+        revealWorkbookInspectorField(body, field, owner.target);
+        owner.top = body.scrollTop;
+        owner.left = body.scrollLeft;
+      });
+    };
+    const onScroll = () => {
+      const owner = revealOwner.current;
+      if (
+        owner?.identity === focusIdentity &&
+        (Math.abs(body.scrollTop - owner.top) > 1 ||
+          Math.abs(body.scrollLeft - owner.left) > 1)
+      )
+        revealOwner.current = null;
+    };
+    const resize =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(refresh);
+    resize?.observe(body);
+    resize?.observe(field);
+    if (attachment.current) resize?.observe(attachment.current);
+    if (controlRef.current) resize?.observe(controlRef.current);
+    for (
+      let ancestor = body.parentElement;
+      ancestor;
+      ancestor = ancestor.parentElement
+    ) {
+      const style = getComputedStyle(ancestor);
+      if (
+        [style.overflowX, style.overflowY].some((value) =>
+          ["auto", "scroll", "hidden", "clip"].includes(value),
+        )
+      )
+        resize?.observe(ancestor);
+    }
+    const view = body.ownerDocument.defaultView;
+    body.addEventListener("scroll", onScroll);
+    view?.addEventListener("resize", refresh);
+    view?.visualViewport?.addEventListener("resize", refresh);
+    body.ownerDocument.fonts?.addEventListener("loadingdone", refresh);
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      resize?.disconnect();
+      body.removeEventListener("scroll", onScroll);
+      view?.removeEventListener("resize", refresh);
+      view?.visualViewport?.removeEventListener("resize", refresh);
+      body.ownerDocument.fonts?.removeEventListener("loadingdone", refresh);
+      if (revealOwner.current?.identity === focusIdentity)
+        revealOwner.current = null;
+    };
+  }, [activeField, disabledReason, focusIdentity, controlRef]);
   const detach = () => {
-    closingField.current = { recordId: row.record_id, fieldKey: activeField };
+    closingField.current = {
+      viewSchemaId: contract.viewSchemaId,
+      recordId: row.record_id,
+      fieldKey: activeField,
+      action: activeAction,
+      trigger: document.activeElement,
+    };
     onDetach();
   };
   const fields = new Map(
@@ -115,11 +292,13 @@ export function WorkbookInspectorDetails({
                     aria-label={`${work.command?.kind === "review" ? "Review" : "Resume"} ${retained.length > 1 ? `${work.identity.action} ` : ""}draft for ${field.label}`}
                     tone="quiet"
                     data-inspector-edit-field={field.fieldKey}
-                    ref={(element) => {
-                      if (element)
-                        editButtons.current.set(field.fieldKey, element);
-                      else editButtons.current.delete(field.fieldKey);
-                    }}
+                    ref={(element) =>
+                      registerEditButton(
+                        field.fieldKey,
+                        work.identity.action,
+                        element,
+                      )
+                    }
                     aria-describedby={disabledReason ? reasonId : undefined}
                     disabled={!cell || !!disabledReason || !work.command}
                     onClick={(event) =>
@@ -135,11 +314,9 @@ export function WorkbookInspectorDetails({
                   tone="quiet"
                   aria-label={`${field.readKind === "collection" ? "Manage" : "Edit"} ${field.label}`}
                   data-inspector-edit-field={field.fieldKey}
-                  ref={(element) => {
-                    if (element)
-                      editButtons.current.set(field.fieldKey, element);
-                    else editButtons.current.delete(field.fieldKey);
-                  }}
+                  ref={(element) =>
+                    registerEditButton(field.fieldKey, "value", element)
+                  }
                   disabled={!cell || !!disabledReason}
                   aria-describedby={disabledReason ? reasonId : undefined}
                   title={reasonText ?? undefined}
@@ -205,7 +382,9 @@ export function WorkbookInspectorDetails({
                       }
                     }}
                   >
-                    <legend style={labelStyle}>Unsaved change</legend>
+                    <legend style={labelStyle}>
+                      Unsaved change: {field.label}
+                    </legend>
                     {editor.content}
                     <div style={actionsStyle}>
                       {editor.actions}
@@ -246,6 +425,24 @@ export function WorkbookInspectorDetails({
         row={row}
         fields={fields}
         describedBy={disabledReason ? reasonId : undefined}
+        onFieldElement={(fieldKey, element) => {
+          if (element) fieldElements.current.set(fieldKey, element);
+          else fieldElements.current.delete(fieldKey);
+        }}
+        onFocusCapture={(event: FocusEvent<HTMLElement>) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) return;
+          const field = [...fieldElements.current.values()].find((element) =>
+            element.contains(target),
+          );
+          if (!field) return;
+          const editorFocused =
+            !!activeField &&
+            field === fieldElements.current.get(activeField) &&
+            !!attachment.current?.contains(target) &&
+            !disabledReason;
+          reveal(field, target, editorFocused);
+        }}
       />
     </>
   );

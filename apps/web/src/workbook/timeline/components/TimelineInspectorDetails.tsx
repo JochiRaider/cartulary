@@ -183,6 +183,9 @@ export function TimelineInspectorDetails({
       row={saved}
       editableFields={editableFields}
       activeField={fieldKey}
+      activeAction={edit.identity.action}
+      attachmentId={edit.attachment}
+      controlRef={edit.controlRef}
       onEdit={setFieldKey}
       onDetach={() => setFieldKey("")}
       onSubmit={() => void submit()}

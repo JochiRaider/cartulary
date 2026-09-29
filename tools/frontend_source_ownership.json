@@ -851,6 +851,7 @@
         "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPanelContent.tsx",
         "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "apps/web/src/workbook/inspector/presentation/WorkbookInspectorShell.tsx",
+        "apps/web/src/workbook/inspector/presentation/workbookInspectorFieldReveal.ts",
         "apps/web/src/workbook/inspector/presentation/workbookInspectorPresentationModel.ts",
         "apps/web/src/workbook/inspector/useInspectorCreateRelatedWorkflow.test.tsx",
         "apps/web/src/workbook/inspector/useInspectorCreateRelatedWorkflow.ts",

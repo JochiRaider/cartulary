@@ -27,6 +27,10 @@ import {
 import { inspectorContextualCapabilities } from "../inspectorCapabilityResolver";
 import { WorkbookInspectorContextualActions } from "../WorkbookInspectorContextualActions";
 import { WorkbookInspectorDeclaredPanelList } from "../WorkbookInspectorDeclaredPanelList";
+import {
+  WorkbookInspectorDetails,
+  type WorkbookInspectorFieldFocusRequest,
+} from "../WorkbookInspectorDetails";
 import { WorkbookInspectorSavedDetails } from "../WorkbookInspectorSavedDetails";
 import { workbookHistoryEventPresentation } from "../workbookHistoryPresentationModel";
 import {
@@ -75,6 +79,121 @@ if (relationshipsPanel === undefined) {
 }
 
 describe("Workbook Inspector presentation", () => {
+  it("guards requested edit focus against newer navigation, subject replacement and authority loss", () => {
+    const field = hosts.fieldMap["host.location"];
+    if (!field) throw new Error("Missing Location field");
+    const trigger = document.createElement("button");
+    const destination = document.createElement("button");
+    document.body.append(trigger, destination);
+    const controlRef = { current: null as HTMLElement | null };
+    const row = {
+      record_id: "first",
+      row_version: 1,
+      cells: { "host.location": { value: "Accepted location" } },
+    };
+    const present = (
+      subject = row,
+      focusRequest: WorkbookInspectorFieldFocusRequest | null = null,
+      disabledReason = false,
+    ) => (
+      <div data-inspector-scroll-body>
+        <WorkbookInspectorDetails
+          contract={hosts}
+          row={subject}
+          editableFields={[field]}
+          activeField="host.location"
+          activeAction="value"
+          attachmentId={JSON.stringify([subject.record_id, "host.location"])}
+          controlRef={controlRef}
+          focusRequest={focusRequest}
+          onEdit={vi.fn()}
+          onDetach={vi.fn()}
+          onSubmit={vi.fn()}
+          canSubmit={!disabledReason}
+          disabledReason={
+            disabledReason
+              ? ownerInspectorDisabledReason(
+                  "host",
+                  "authoring_unavailable",
+                  "Current access permits reading only.",
+                )
+              : null
+          }
+          retainedWork={[]}
+          editor={{
+            content: (
+              <input
+                aria-label="Location"
+                ref={(element) => {
+                  controlRef.current = element;
+                }}
+              />
+            ),
+            actions: <button type="button">Update</button>,
+            feedback: null,
+            retainedDraft: null,
+          }}
+        />
+      </div>
+    );
+    const view = render(present());
+    const input = screen.getByRole("textbox", { name: "Location" });
+    expect(document.activeElement).toBe(input);
+    trigger.focus();
+    view.rerender(
+      present(row, {
+        revision: 1,
+        viewSchemaId: hosts.viewSchemaId,
+        recordId: row.record_id,
+        fieldKey: field.fieldKey,
+        trigger,
+      }),
+    );
+    expect(document.activeElement).toBe(input);
+    trigger.focus();
+    destination.focus();
+    view.rerender(
+      present(row, {
+        revision: 2,
+        viewSchemaId: hosts.viewSchemaId,
+        recordId: row.record_id,
+        fieldKey: field.fieldKey,
+        trigger,
+      }),
+    );
+    expect(document.activeElement).toBe(destination);
+    trigger.focus();
+    view.rerender(
+      present(
+        { ...row, record_id: "replacement" },
+        {
+          revision: 3,
+          viewSchemaId: hosts.viewSchemaId,
+          recordId: row.record_id,
+          fieldKey: field.fieldKey,
+          trigger,
+        },
+      ),
+    );
+    expect(document.activeElement).toBe(trigger);
+    view.rerender(
+      present(
+        row,
+        {
+          revision: 4,
+          viewSchemaId: hosts.viewSchemaId,
+          recordId: row.record_id,
+          fieldKey: field.fieldKey,
+          trigger,
+        },
+        true,
+      ),
+    );
+    expect(document.activeElement).toBe(trigger);
+    view.unmount();
+    trigger.remove();
+    destination.remove();
+  });
   it("orders admitted action rows once with explicit outcomes across all configurations", () => {
     let admitted = 0;
     for (const contract of listViewContracts()) {

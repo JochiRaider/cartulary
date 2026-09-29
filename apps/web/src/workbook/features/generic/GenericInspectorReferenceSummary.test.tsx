@@ -47,7 +47,9 @@ describe("Generic inspector reference summary", () => {
       referenceLabels(contract),
     );
     expect(
-      screen.getAllByRole("definition").map((definition) => definition.textContent),
+      screen
+        .getAllByRole("definition")
+        .map((definition) => definition.textContent),
     ).toEqual([
       "Accepted collector",
       "Edit Collector Party",
@@ -61,13 +63,16 @@ describe("Generic inspector reference summary", () => {
     fireEvent.click(collector);
     expect(onEdit).toHaveBeenCalledExactlyOnceWith(
       "evidence.collector_party_id",
+      collector,
     );
   });
 
   it("keeps declared order, collection values, and unavailable projections distinct in normal and Evidence summaries", () => {
     const contract = requireViewContract("cartulary.view.lesson.v1");
     const onEdit = vi.fn();
-    const accepted = "A long <script>literal</script> evidence title ".repeat(4);
+    const accepted = "A long <script>literal</script> evidence title ".repeat(
+      4,
+    );
     const saved = row({
       "lesson.follow_up_task_ids": { value: { items: [] } },
       "lesson.evidence_refs": {
@@ -86,14 +91,17 @@ describe("Generic inspector reference summary", () => {
     expect(screen.getAllByRole("term").map((term) => term.textContent)).toEqual(
       referenceLabels(contract),
     );
-    expect(screen.getByText(accepted)).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("definition")
+        .some((definition) => definition.textContent === accepted),
+    ).toBe(true);
     expect(container.querySelector("script")).toBeNull();
     expect(screen.getByText("None")).toBeTruthy();
     expect(screen.getByText("Not available in this row.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Manage Evidence" })).not.toHaveProperty(
-      "disabled",
-      true,
-    );
+    expect(
+      screen.getByRole("button", { name: "Manage Evidence" }),
+    ).not.toHaveProperty("disabled", true);
     expect(
       screen.getByRole("button", { name: "Manage Follow-up Tasks" }),
     ).not.toHaveProperty("disabled", true);
@@ -115,7 +123,10 @@ describe("Generic inspector reference summary", () => {
       referenceLabels(contract, true),
     );
     fireEvent.click(screen.getByRole("button", { name: "Manage Evidence" }));
-    expect(onEdit).toHaveBeenCalledExactlyOnceWith("lesson.evidence_refs");
+    expect(onEdit).toHaveBeenCalledExactlyOnceWith(
+      "lesson.evidence_refs",
+      screen.getByRole("button", { name: "Manage Evidence" }),
+    );
   });
 
   it("keeps truthful no-field messages and non-authoring viewer actions", () => {
@@ -129,11 +140,12 @@ describe("Generic inspector reference summary", () => {
         onEdit={onEdit}
       />,
     );
-    expect(screen.getByRole("button", { name: "Edit Collector Party" })).toHaveProperty(
-      "disabled",
-      true,
+    expect(
+      screen.getByRole("button", { name: "Edit Collector Party" }),
+    ).toHaveProperty("disabled", true);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Collector Party" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Edit Collector Party" }));
     expect(onEdit).not.toHaveBeenCalled();
 
     rerender(
@@ -157,6 +169,8 @@ describe("Generic inspector reference summary", () => {
         onEdit={onEdit}
       />,
     );
-    expect(screen.getByText(/This record has no reference fields/u)).toBeTruthy();
+    expect(
+      screen.getByText(/This record has no reference fields/u),
+    ).toBeTruthy();
   });
 });
