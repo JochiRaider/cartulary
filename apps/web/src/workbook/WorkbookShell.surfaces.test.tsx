@@ -2,6 +2,7 @@ import {
   coordinationWorkflowTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  draftCellTestId,
   entityInspectButtonTestId,
   entityInspectorTestId,
   entityMergeControlTestId,
@@ -58,6 +59,9 @@ import {
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
+  workbookSurfacesMenuOptionTestId,
+  workbookSurfacesMenuTestId,
+  workbookSurfacesMenuTriggerTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -117,6 +121,7 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
   indicatorsViewSchemaId,
+  notesViewSchemaId,
   optionalStandardizedWorkbookSurfaceIds,
   partiesViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
@@ -1979,6 +1984,69 @@ describe("WorkbookShell surface selection", () => {
       await screen.findByTestId(workbookImportAssistantTestId()),
     ).toBeTruthy();
     expect(screen.getByLabelText("Source workbook")).toBeTruthy();
+  });
+
+  it("focuses the first creation control for every explicitly selected built-in tab without a write", async () => {
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
+    const destinations = [
+      [timelineViewSchemaId, draftCellTestId("timeline.date_entered_text")],
+      [hostsViewSchemaId, genericCreateFieldTestId("host.display_name")],
+      [
+        identitiesViewSchemaId,
+        genericCreateFieldTestId("identity.display_name"),
+      ],
+      [evidenceViewSchemaId, genericCreateFieldTestId("evidence.title")],
+      [notesViewSchemaId, genericCreateFieldTestId("note.title")],
+    ] as const;
+    for (const [viewSchemaId, targetTestId] of destinations) {
+      const tab = await screen.findByTestId(surfaceTabTestId(viewSchemaId));
+      tab.focus();
+      fireEvent.click(tab);
+      await waitFor(() => {
+        expect(document.activeElement?.getAttribute("data-testid")).toBe(
+          targetTestId,
+        );
+      });
+    }
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          String(url).endsWith("/rows") &&
+          (init as RequestInit | undefined)?.method === "POST",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("focuses a compact Surfaces destination and returns to its trigger on dismissal", async () => {
+    vi.stubGlobal("innerWidth", 1024);
+    vi.stubGlobal("innerHeight", 720);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
+    const trigger = await screen.findByTestId(
+      workbookSurfacesMenuTriggerTestId(),
+    );
+    trigger.focus();
+    fireEvent.click(trigger);
+    const timelineOption = screen.getByTestId(
+      workbookSurfacesMenuOptionTestId(timelineViewSchemaId),
+    );
+    fireEvent.keyDown(timelineOption, { key: "Escape" });
+    expect(screen.queryByTestId(workbookSurfacesMenuTestId())).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(
+      screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeTruthy();
+
+    fireEvent.click(trigger);
+    const evidenceOption = screen.getByTestId(
+      workbookSurfacesMenuOptionTestId(evidenceViewSchemaId),
+    );
+    fireEvent.click(evidenceOption);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByTestId(genericCreateFieldTestId("evidence.title")),
+      );
+    });
+    expect(screen.queryByTestId(workbookSurfacesMenuTestId())).toBeNull();
   });
 
   it("selects required built-in and system view surfaces by view_schema_id", async () => {

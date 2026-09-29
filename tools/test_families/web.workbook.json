@@ -1578,6 +1578,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.explicit_built_in_grid_entry_92c0a52a3d",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "WorkbookShell surface selection focuses a compact Surfaces destination and returns to its trigger on dismissal",
+          "WorkbookShell surface selection focuses the first creation control for every explicitly selected built-in tab without a write"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.explicit_task_patch_recovery",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1771,9 +1796,9 @@
       "selector": {
         "file": "apps/web/src/workbook/features/generic/GenericInspectorReferenceSummary.test.tsx",
         "titles": [
-          "Generic inspector reference summary reads accepted direct Party values and opens only the selected ordinary field",
           "Generic inspector reference summary keeps declared order, collection values, and unavailable projections distinct in normal and Evidence summaries",
-          "Generic inspector reference summary keeps truthful no-field messages and non-authoring viewer actions"
+          "Generic inspector reference summary keeps truthful no-field messages and non-authoring viewer actions",
+          "Generic inspector reference summary reads accepted direct Party values and opens only the selected ordinary field"
         ]
       },
       "evidence_class": "unit",

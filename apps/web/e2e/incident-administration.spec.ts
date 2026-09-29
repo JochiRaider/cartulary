@@ -3,7 +3,9 @@ import {
   accountTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  draftCellTestId,
   genericCreateFieldTestId,
+  gridScrollportSelector,
   gridShellTestId,
   incidentAdministrationTestId,
   incidentControlsActionMessageTestId,
@@ -40,14 +42,19 @@ import {
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
+  workbookSurfacesMenuOptionTestId,
+  workbookSurfacesMenuTestId,
+  workbookSurfacesMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
 import {
+  evidenceViewSchemaId,
   hostsViewSchemaId,
   indicatorsViewSchemaId,
+  notesViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
+import type { Page, Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
 import { openIncidentControls } from "./pages/deploymentAdministration";
@@ -60,15 +67,17 @@ import {
   accountResponseGate,
   installAccountEditingFixture,
 } from "./support/auth/accountEditingFixture";
-import { csrfHeaders } from "./support/auth/browserSession";
+import { csrfHeaders, loginLocalSession } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { holdBrowserRequest } from "./support/transport/requestInterception";
 import { createViewRow } from "./support/workbook/query";
 import {
   createSavedView,
@@ -856,6 +865,162 @@ test("Verify System views switcher keyboard entry, roving focus, selection, dism
   await expect(
     page.getByTestId(genericCreateFieldTestId("indicator.indicator_type")),
   ).toBeFocused();
+});
+
+test("Verify explicit built-in tabs and compact Surfaces selections focus creation controls without writes.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("GRID-ENTRY"),
+    "Built-in surface grid entry",
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/rows"))
+      writes.push(request.url());
+  });
+
+  await page.getByTestId(surfaceTabTestId(evidenceViewSchemaId)).click();
+  await expect(
+    page.getByTestId(genericCreateFieldTestId("evidence.title")),
+  ).toBeFocused();
+  await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).press("Enter");
+  await expect(
+    page.getByTestId(draftCellTestId("timeline.date_entered_text")),
+  ).toBeFocused();
+
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const trigger = page.getByTestId(workbookSurfacesMenuTriggerTestId());
+  await trigger.press("Enter");
+  await expect(page.getByTestId(workbookSurfacesMenuTestId())).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId(workbookSurfacesMenuTestId())).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+
+  await trigger.press("Enter");
+  await page
+    .getByTestId(workbookSurfacesMenuOptionTestId(evidenceViewSchemaId))
+    .press("Enter");
+  await expect(page.getByTestId(workbookSurfacesMenuTestId())).toHaveCount(0);
+  await expect(
+    page.getByTestId(genericCreateFieldTestId("evidence.title")),
+  ).toBeFocused();
+  await trigger.click();
+  await page
+    .getByTestId(workbookSurfacesMenuOptionTestId(timelineViewSchemaId))
+    .click();
+  await expect(
+    page.getByTestId(draftCellTestId("timeline.date_entered_text")),
+  ).toBeFocused();
+
+  await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
+  await page
+    .getByTestId(
+      systemViewSwitcherOptionTestId(
+        "scope-indicators",
+        indicatorsViewSchemaId,
+      ),
+    )
+    .click();
+  await expect(
+    page.getByTestId(genericCreateFieldTestId("indicator.indicator_type")),
+  ).toBeFocused();
+  expect(writes).toHaveLength(0);
+});
+
+test("Verify viewer built-in selection focuses committed cells then the empty grid.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("VIEWER-GRID-ENTRY"),
+    "Viewer built-in surface grid entry",
+  );
+  const evidence = await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("viewer-grid-entry-evidence"),
+    "evidence.title": "Viewer focus row",
+  });
+  const viewer = await createIncidentMemberUser(page, incidentId, {
+    display_name: "Grid Entry Viewer",
+    email: uniqueEmail("grid-entry-viewer"),
+    initial_password: "GridEntryViewer1!",
+    role: "viewer",
+    is_deployment_admin: false,
+    mfa_required: false,
+  });
+  await loginLocalSession(page, viewer.email, viewer.initial_password);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+  await page.getByTestId(surfaceTabTestId(evidenceViewSchemaId)).click();
+  await expect(
+    page
+      .getByTestId(rowCellTestId(evidence.record_id, "evidence.title"))
+      .locator('xpath=ancestor::*[@role="gridcell"][1]'),
+  ).toBeFocused();
+  await expect(
+    page.getByTestId(genericCreateFieldTestId("evidence.title")),
+  ).toHaveCount(0);
+  await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
+  await expect(
+    page
+      .getByTestId(gridShellTestId(notesViewSchemaId))
+      .locator(gridScrollportSelector()),
+  ).toBeFocused();
+});
+
+test("Verify delayed built-in entry cannot steal focus after a newer surface selection.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("DELAYED-GRID-ENTRY"),
+    "Delayed built-in surface grid entry",
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const held = await holdBrowserRequest(page, {
+    method: "POST",
+    path: `/api/v1/incidents/${incidentId}/views/${evidenceViewSchemaId}/query`,
+  });
+  try {
+    await page.getByTestId(surfaceTabTestId(evidenceViewSchemaId)).click();
+    await held.waitForHit;
+    const oldQuerySettled = new Promise<void>((resolve) => {
+      const onSettled = (request: Request) => {
+        if (
+          request.method() !== "POST" ||
+          !request.url().includes(`/views/${evidenceViewSchemaId}/query`)
+        )
+          return;
+        page.off("requestfinished", onSettled);
+        page.off("requestfailed", onSettled);
+        resolve();
+      };
+      page.on("requestfinished", onSettled);
+      page.on("requestfailed", onSettled);
+    });
+    await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
+    const notesEntry = page.getByTestId(genericCreateFieldTestId("note.title"));
+    await expect(notesEntry).toBeFocused();
+    held.release();
+    await oldQuerySettled;
+    await expect(notesEntry).toBeFocused();
+    await expect(
+      page.getByTestId(gridShellTestId(notesViewSchemaId)),
+    ).toBeVisible();
+  } finally {
+    await held.dispose();
+  }
 });
 
 test("Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell.", async ({

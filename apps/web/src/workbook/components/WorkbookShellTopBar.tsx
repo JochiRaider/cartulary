@@ -91,6 +91,9 @@ export function WorkbookShellTopBar({
     subjectKey: surface,
     triggerRef: surfacesMenuTriggerRef,
   });
+  const selectExplicitSurface = (viewSchemaId: string) => {
+    onSelectSurface(viewSchemaId, { focusFirstGridTarget: true });
+  };
   const incidentKeyLabel = incidentIdentity?.incident_key ?? "Incident";
   const incidentTitleLabel = incidentIdentity?.title ?? "Loading incident";
 
@@ -144,7 +147,7 @@ export function WorkbookShellTopBar({
                 data-view-schema-id={viewSchemaId}
                 data-workbook-tab-index={String(index)}
                 key={viewSchemaId}
-                onClick={() => onSelectSurface(viewSchemaId)}
+                onClick={() => selectExplicitSurface(viewSchemaId)}
                 style={{
                   ...surfaceTabStyle,
                   ...(selected ? surfaceTabActiveStyle : null),
@@ -232,7 +235,7 @@ export function WorkbookShellTopBar({
                       surfacesMenuNavigation.close({
                         restoreTriggerFocus: false,
                       });
-                      onSelectSurface(viewSchemaId);
+                      selectExplicitSurface(viewSchemaId);
                     }}
                     onKeyDown={(event) => {
                       surfacesMenuNavigation.onItemKeyDown(event, viewSchemaId);
@@ -279,9 +282,7 @@ export function WorkbookShellTopBar({
         ) : null}
         <SystemViewSwitcher
           activeViewSchemaId={surface}
-          onSelect={(viewSchemaId) => {
-            onSelectSurface(viewSchemaId, { focusFirstGridTarget: true });
-          }}
+          onSelect={selectExplicitSurface}
         />
         {activeSystemSurfaceTitle ? (
           <span style={activeSystemViewTitleStyle}>
