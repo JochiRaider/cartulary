@@ -2679,7 +2679,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     await openTimelineInspector(page, timelineRow.record_id);
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
-    ).toHaveAttribute("aria-label", "Timeline evidence attachment");
+    ).toHaveAttribute("aria-label", "Timeline evidence");
     await chooseEvidenceFile(
       page.getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id)),
       {

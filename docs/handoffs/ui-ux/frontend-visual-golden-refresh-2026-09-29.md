@@ -1,0 +1,60 @@
+# Visual golden refresh after Timeline cue correction
+
+## Trigger and scope
+
+Baseline: clean `main` at `b3cc954d7b6a7d4573ec02609d7f6863318208e3`, with the Timeline cue readability correction already committed. The prior ordinary visual run at `.cartulary/test-results/20260929T142019Z-p70882` failed 65 screenshot comparisons across 25 active catalog rows. Its 64 workbook failures and one Network Flow failure were reconciled; no active golden was missing or ambiguous. The Evidence workflow scenario also had a stale assertion for the retired `Timeline evidence attachment` label. Current source exposes `Timeline evidence`, so `apps/web/e2e/workbook.visual.spec.ts` now expects that exact accessible name. No product component changed in this refresh.
+
+Accepted trigger: the committed goldens were stale relative to already landed and validated presentation behavior. The earlier Grid Adapter frozen-cell paint change (`94dd6076d`) paints the draft-row stripe across each cell; inspector destination coherence (`4daa23ed5`) makes the Tags overflow action reveal Tags; prior Evidence owner changes altered access feedback and labels; the Timeline cue correction changes `No items` and retained `Draft` to approved muted ink. The selected Network Flow screenshot shows the current full shell header. Native review found no unexpected clipping, missing controls, or typography/viewport changes. Small one-pixel position shifts in several inspector captures were deterministic across retained runs, but the exact source commit for those pixels was not isolated.
+
+`make browser-e2e-visual-update` refreshed the 65 failed PNGs and generated `tools/frontend_visual_golden_manifest.json` in one successful promotion. No authored fixture registry, catalog routing, viewport, browser zoom, masks, scroll-normalization algorithm, screenshot scope, renderer pin, or font pin changed. The refresh used the same dark graphite, compact/default fixture profiles declared per capture in the retained reconciliation. It did not change tolerances. The post-update reconciliation contains 255 active captures, 255 committed goldens, no orphan, no missing golden, and no ambiguous mapping; the previous orphan became active when the Evidence scenario passed its corrected assertion.
+
+## Review evidence
+
+All 65 promoted images were imported through `cartulary-ui-review` artifact mode as explicit image sources, and each bundle component was checked against its byte count and SHA-256. Previous PNG bytes were read from the exact `b3cc954d7` Git blobs. The pre-refresh canonical import was rejected after promotion because it still referenced the now replaced golden path; the explicit image import therefore supplies image-only evidence, without DOM or Axe observations. A native-resolution old/new comparison was inspected for the changed inspector Relationships cue, the mention-chip matrix, the Tags overflow inspector destination, the Evidence affordance states, and the Network Flow inspector. Before/after/difference sheets were inspected for every changed PNG. The large `record-relationships-mention-chips` delta is explained by its fixture clicking Tags overflow before capture: the current inspector correctly reveals Tags while the unresolved Hosts chip stays in the grid. Most remaining deltas are row-stripe paint and small text-position changes. These sheets are manual review evidence, separate from the product-test results.
+
+Updated images were reviewed in the following run:
+
+- Golden update: `make browser-e2e-visual-update CARTULARY_HARNESS_CACHE_MODE=off` — pass, 12/12 units, `.cartulary/test-results/20260929T163650Z-p60788`.
+- First ordinary validation: `make browser-e2e-visual CARTULARY_HARNESS_CACHE_MODE=off` — pass, 12/12 units, `.cartulary/test-results/20260929T164302Z-p1153`.
+- Second ordinary validation: `make browser-e2e-visual CARTULARY_HARNESS_CACHE_MODE=off` — pass, 12/12 units, `.cartulary/test-results/20260929T165200Z-p53599`.
+- Artifact review: `.cartulary/test-results/20260929T164651Z-p37892` (image-only imports); terminal receipt reported `cleanup: complete` and foreground exit 0. The earlier diagnostic artifact session at `.cartulary/test-results/20260929T164312Z-p17106` also ended with complete cleanup.
+
+## Exact affected rows and golden filenames
+
+All filenames below are under `apps/web/e2e/workbook.visual.spec.ts-snapshots/`. Row IDs come from the authored test catalog and the update reconciliation, not filename inference.
+
+| Active semantic owner row | Changed golden filenames |
+| --- | --- |
+| `module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1` | `collaboration-conflict-resolver-linux.png`, `collaboration-presence-markers-linux.png` |
+| `module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec` | `collaboration-grid-presence-markers-linux.png` |
+| `module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c` | `collaboration-grid-conflict-resolver-compact-linux.png`, `collaboration-grid-conflict-resolver-linux.png`, `collaboration-grid-conflict-resolver-narrow-linux.png` |
+| `module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc` | `collaboration-grid-blocked-conflict-linux.png` |
+| `module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7` | `entity-mention-chip-states-linux.png` |
+| `module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7` | `record-relationships-mention-chips-linux.png` |
+| `module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4` | `evidence-affordance-states-linux.png` |
+| `module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830` | `evidence-grid-blocked-preview-linux.png` |
+| `module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc` | `record-relationships-evidence-access-linux.png` |
+| `module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af` | `evidence-grid-available-evidence-linux.png`, `evidence-grid-requested-evidence-linux.png` |
+| `module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6` | `network-flow-analysis-accepted-inspector-linux.png` |
+| `module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc` | `workbook-query-saved-view-query-controls-linux.png`, `workbook-view-bar-filter-editing-overflow-linux.png`, `workbook-view-bar-long-columns-linux.png`, `workbook-view-bar-maximum-pressure-base-linux.png`, `workbook-view-bar-maximum-pressure-compact-linux.png`, `workbook-view-bar-maximum-pressure-narrow-linux.png`, `workbook-view-bar-ordered-maximum-sort-linux.png`, `workbook-view-bar-saved-view-actions-linux.png`, `workbook-view-bar-saved-view-clean-linux.png`, `workbook-view-bar-saved-view-modified-linux.png`, `workbook-view-bar-text-spacing-linux.png`, `workbook-view-bar-zoom-200-linux.png` |
+| `module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810` | `timeline-grid-grouped-grid-linux.png` |
+| `module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0` | `incident-directory-compact-desktop-workbook-shell-linux.png`, `incident-directory-default-timeline-workbook-shell-linux.png`, `incident-directory-narrow-desktop-workbook-shell-linux.png` |
+| `module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea` | `workbook-inspector-compact-actions-linux.png`, `workbook-inspector-destructive-confirmation-linux.png`, `workbook-inspector-history-linux.png`, `workbook-inspector-narrow-technical-details-linux.png`, `workbook-inspector-public-error-linux.png`, `workbook-inspector-relationships-linux.png`, `workbook-inspector-rollback-preview-linux.png` |
+| `module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc` | `record-relationships-task-requests-linux.png` |
+| `module.workbook.visual.contextual_task_decision_creation` | `contextual-decision-authoring-linux.png`, `contextual-decision-recovery-linux.png`, `contextual-decision-recovery-narrow-linux.png`, `contextual-task-request-authoring-linux.png`, `contextual-task-request-recovery-linux.png`, `contextual-task-request-recovery-narrow-linux.png` |
+| `module.workbook.visual.coordination_create_authoring_recovery` | `coordination-comm-log-authoring-linux.png`, `coordination-handoff-authoring-linux.png`, `coordination-lesson-authoring-linux.png`, `coordination-status-review-authoring-linux.png` |
+| `module.workbook.visual.decision_supersession_review_recovery` | `decision-supersession-accepted-linux.png`, `decision-supersession-review-linux.png` |
+| `module.workbook.visual.indicator_lifecycle_authoring` | `indicator-lifecycle-authoring-linux.png` |
+| `module.workbook.visual.indicator_observations_authoring` | `indicator-observation-authoring-linux.png` |
+| `module.workbook.visual.note_create_authoring_recovery` | `linked-note-authoring-linux.png`, `linked-note-recovery-linux.png`, `linked-note-recovery-narrow-linux.png` |
+| `module.workbook.visual.ordinary_create_authoring_recovery` | `ordinary-recovery-1280-linux.png`, `ordinary-recovery-390-linux.png`, `ordinary-reference-authoring-linux.png` |
+| `module.workbook.visual.timeline_capture_actions` | `timeline-supersession-accepted-linux.png`, `timeline-supersession-authoring-linux.png`, `timeline-supersession-review-linux.png` |
+| `module.workbook.visual.timeline_related_evidence` | `timeline-related-evidence-authoring-linux.png`, `timeline-related-evidence-partial-linux.png`, `timeline-related-evidence-partial-narrow-linux.png` |
+
+Registered fixture IDs affected: `visual.fixture.base_inspector`, `visual.fixture.claimed_network_analysis_workspace_states`, `visual.fixture.compact_desktop_workbook_shell`, `visual.fixture.contextual_coordination_creation`, `visual.fixture.default_timeline_workbook_shell`, `visual.fixture.destructive_actions`, `visual.fixture.evidence_affordance`, `visual.fixture.indicator_lifecycle_authoring`, `visual.fixture.indicator_observations_authoring`, `visual.fixture.inspector_compact_actions`, `visual.fixture.inspector_narrow_technical_details`, `visual.fixture.mention_chip_state_matrix`, `visual.fixture.narrow_desktop_workbook_shell`, `visual.fixture.presence_overflow`, `visual.fixture.same_field_conflict`, `visual.fixture.saved_view_query_controls_and_grouped_result`, `visual.fixture.task_requests_or_decisions`. The remaining captures are valid active nonregistry goldens reconciled by capture intent, scenario, project, and snapshot template.
+
+## Verification and rollback
+
+Other public Make checks passed: `make format` (`.cartulary/test-results/20260929T163618Z-p56175`), `make agent-finalize` (`.cartulary/test-results/20260929T164234Z-p96900`), `make frontend-typecheck` (`.cartulary/test-results/20260929T165501Z-p91567`), `make lint-biome` (`.cartulary/test-results/20260929T165500Z-p91386`), `make json-shape-check` (`.cartulary/test-results/20260929T165547Z-p92421`), `make generated-artifact-policy-check` (`.cartulary/test-results/20260929T165548Z-p92678`), `make harness-contract` (`.cartulary/test-results/20260929T165548Z-p92766`), `make generate-drift CARTULARY_HARNESS_CACHE_MODE=off` (`.cartulary/test-results/20260929T165629Z-p96978`), and `make lint-markdown` (`.cartulary/test-results/20260929T165847Z-p2174`). `make agent-finalize` had no `RESULTS_DIR`; retained-run maintenance was skipped because there was no eligible successful full warm check. No import changed, so the import-boundary check was not rerun. The earlier focused collection behavior and contrast checks remain recorded in the cue handoff. This golden refresh does not claim a screen-reader session or full-page accessibility conformance.
+
+No deployment, publication, data, or schema migration is involved. Rollback is a bounded revert of this Evidence assertion, the 65 refreshed PNGs, generated golden manifest, and this refresh record. Preserve the preceding Timeline collection cue correction and earlier collection-capability, focus, fill-handle, and inspector fixes.
