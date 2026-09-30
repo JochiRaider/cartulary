@@ -4,6 +4,15 @@ The package owns semantic grid interaction and its production RDG binding.
 Workbook query requests, cursors, retained work and server normalization stay with
 Workbook and its source owners.
 
+## Record-selection presentation
+
+The opt-in `GridCoreRecordBulkSelection` requires
+`getRecordSelectionPresentation(row)` with a readable action label and optional
+secondary description. Producers own source context; the adapter reads no feature
+fields and performs no record-detail fetch. Production and test bindings apply
+the same native checkbox naming. Presentation changes do not change selected
+record IDs, checked state, mutation identity or selection mechanics.
+
 ## Bounded workbook windows
 
 `GridHandle.cancelEdit` clears the matching editor without moving focus from an

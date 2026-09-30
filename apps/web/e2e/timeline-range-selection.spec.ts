@@ -9,6 +9,7 @@ import {
   conflictMarkerTestId,
   draftCellTestId,
   gridGroupRowTestId,
+  gridRowTestId,
   gridScrollportSelector,
   rowCellTestId,
   saveStateTestId,
@@ -616,7 +617,8 @@ test("Timeline ranges respect columns groups inspector context and bulk checkbox
   await drag(page, cell(page, first), cell(page, third, source));
   await dimensions(page, 3, 2);
   await page
-    .getByRole("checkbox", { name: `Select record ${first}`, exact: true })
+    .getByTestId(gridRowTestId(timelineViewSchemaId, first))
+    .getByRole("checkbox")
     .check();
   await dimensions(page, 3, 2);
   await page
@@ -683,7 +685,9 @@ test("Timeline ranges respect columns groups inspector context and bulk checkbox
   await drag(page, cell(page, first), cell(page, third));
   await dimensions(page, 4, 1);
   await expect(
-    page.getByRole("checkbox", { name: `Select record ${first}`, exact: true }),
+    page
+      .getByTestId(gridRowTestId(timelineViewSchemaId, first))
+      .getByRole("checkbox"),
   ).toBeChecked();
 });
 
@@ -1256,7 +1260,8 @@ test("Timeline clear preserves reversed rectangles and commits one nullable batc
   });
   await reveal(page, first, source);
   await page
-    .getByRole("checkbox", { name: `Select record ${first}`, exact: true })
+    .getByTestId(gridRowTestId(timelineViewSchemaId, first))
+    .getByRole("checkbox")
     .check();
   await drag(page, cell(page, second, source), cell(page, first));
   await dimensions(page, 2, 2);
@@ -1301,7 +1306,9 @@ test("Timeline clear preserves reversed rectangles and commits one nullable batc
   await expect(cell(page, first)).toBeFocused();
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await expect(
-    page.getByRole("checkbox", { name: `Select record ${first}`, exact: true }),
+    page
+      .getByTestId(gridRowTestId(timelineViewSchemaId, first))
+      .getByRole("checkbox"),
   ).toBeChecked();
   const noOpResponse = page.waitForResponse(
     (response) =>

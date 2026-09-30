@@ -448,6 +448,8 @@ function useGridBulkSelection<Row>(
     if (bulkSelection === undefined || state === null) return undefined;
     return {
       allSelected: state.allSelected,
+      getRecordSelectionPresentation:
+        bulkSelection.getRecordSelectionPresentation,
       partiallySelected: state.partiallySelected,
       selectedRecordIds: bulkSelection.selectedRecordIds,
       selectableRecordCount: state.selectableIds.length,

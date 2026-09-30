@@ -5,6 +5,7 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  gridRowTestId,
   gridScrollportSelector,
   gridShellTestId,
   relationshipItemsTestId,
@@ -43,7 +44,9 @@ const summary = "timeline.activity_synopsis_text";
 const tagInput = (page: Page) =>
   page.getByRole("textbox", { name: "Tag for selected Timeline records" });
 const checkbox = (page: Page, id: string) =>
-  page.getByRole("checkbox", { name: `Select record ${id}`, exact: true });
+  page
+    .getByTestId(gridRowTestId(timelineViewSchemaId, id))
+    .getByRole("checkbox");
 const settle = (page: Page) =>
   page.evaluate(
     () =>
@@ -149,6 +152,186 @@ const renderCounts = (page: Page) =>
     ...(window as unknown as { __btiCounts: Record<string, number> })
       .__btiCounts,
   }));
+
+test("Timeline bulk selection exposes committed readable record names and stable descriptions", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("BSN"),
+    "Timeline selection names",
+  );
+  const utc = "2026-04-10T10:00:00Z";
+  const long = `Long ${"🚀".repeat(130)}`;
+  const cases = [
+    { synopsis: "Initial triage", utc, label: `Initial triage — ${utc}` },
+    {
+      synopsis: "Later activity",
+      utc: "2026-04-10T11:00:00Z",
+      label: "Later activity — 2026-04-10T11:00:00Z",
+    },
+    { synopsis: "Duplicate", utc, label: `Duplicate — ${utc}` },
+    {
+      synopsis: "Duplicate",
+      utc: "2026-04-10T12:00:00Z",
+      label: "Duplicate — 2026-04-10T12:00:00Z",
+    },
+    { synopsis: "Duplicate", utc, label: `Duplicate — ${utc}` },
+    { label: "No synopsis or activity time" },
+    { synopsis: " \n\t ", utc: " \t ", label: "No synopsis or activity time" },
+    { utc, label: `No synopsis — ${utc}` },
+    { synopsis: "Synopsis only", label: "Synopsis only" },
+    {
+      synopsis: "Local activity",
+      local: "2026-04-10 08:00",
+      label: "Local activity — 2026-04-10 08:00 (local time)",
+    },
+    {
+      synopsis: "  First line\n\tsecond line  ",
+      utc,
+      label: `First line second line — ${utc}`,
+    },
+    {
+      synopsis: long,
+      utc,
+      label: `Long ${"🚀".repeat(114)}… — ${utc}`,
+      full: `${long} — ${utc}`,
+    },
+  ];
+  const records = [];
+  for (const entry of cases) {
+    const row = await createViewRow(page, incident, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("selection-name"),
+      "timeline.raw_activity_text": "Synthetic selection naming fixture",
+      ...(entry.synopsis === undefined ? {} : { [summary]: entry.synopsis }),
+      ...(entry.utc === undefined
+        ? {}
+        : { "timeline.activity_utc_text": entry.utc }),
+      ...(entry.local === undefined
+        ? {}
+        : { "timeline.activity_local_text": entry.local }),
+    });
+    records.push({ ...entry, row });
+  }
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const grid = page.getByTestId(gridShellTestId(timelineViewSchemaId));
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (
+      ["PATCH", "POST", "DELETE"].includes(request.method()) &&
+      /\/(records\/[^/]+|bulk-mutations)$/.test(new URL(request.url()).pathname)
+    )
+      writes.push(request.url());
+  });
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await testInfo.attach(`selection-accessibility-tree-${viewport.width}`, {
+      body: await grid.ariaSnapshot(),
+      contentType: "text/plain",
+    });
+    for (const record of records) {
+      const control = checkbox(page, record.row.record_id);
+      await expect(control).toHaveAccessibleName(
+        `Select Timeline record: ${record.label}`,
+      );
+      await expect(control).toHaveAccessibleDescription(
+        `${record.full ? `${record.full}. ` : ""}Record ID: ${record.row.record_id}`,
+      );
+    }
+  }
+  const first = records[0]?.row;
+  const second = records[1]?.row;
+  if (!first || !second) throw new Error("Missing naming fixture");
+  await checkbox(page, first.record_id).focus();
+  await page.keyboard.press("Space");
+  await expect(checkbox(page, first.record_id)).toBeChecked();
+  await expect(grid).toContainText("1 record selected.");
+  expect(writes).toEqual([]);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openTimelineInspector(page, second.record_id);
+  await expect(checkbox(page, first.record_id)).toBeChecked();
+  await checkbox(page, first.record_id).focus();
+  const originalControl = await checkbox(page, first.record_id).elementHandle();
+  const updated = await patchRecord(page, first.record_id, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: first.row_version,
+    client_txn_id: uniqueTxn("selection-name-update"),
+    changes: [{ field_key: summary, value: "Accepted triage update" }],
+  });
+  await expect(checkbox(page, first.record_id)).toHaveAccessibleName(
+    `Select Timeline record: Accepted triage update — ${utc}`,
+  );
+  await expect(checkbox(page, first.record_id)).toBeChecked();
+  await expect(checkbox(page, first.record_id)).toBeFocused();
+  expect(
+    await checkbox(page, first.record_id).evaluate(
+      (node, original) => node === original,
+      originalControl,
+    ),
+  ).toBe(true);
+  await originalControl?.dispose();
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .click();
+  await page
+    .getByRole("button", { name: "Sort, no user sorts", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Add sort Activity Sort Time", exact: true })
+    .click();
+  await page
+    .getByRole("menuitemcheckbox", {
+      name: "Set Activity Sort Time descending",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("menu", { name: "Ordered sort controls" })
+    .press("Escape");
+  await expect
+    .poll(async () => {
+      const ids = await grid
+        .getByRole("row")
+        .evaluateAll((rows) =>
+          rows.map((row) => row.getAttribute("data-grid-record-id")),
+        );
+      return (
+        ids.includes(first.record_id) &&
+        ids.includes(second.record_id) &&
+        ids.indexOf(first.record_id) > ids.indexOf(second.record_id)
+      );
+    })
+    .toBe(true);
+  await page
+    .getByRole("group", { name: "Workbook browsing" })
+    .getByRole("button", { name: "Refresh", exact: true })
+    .click();
+  await expect(checkbox(page, first.record_id)).toBeChecked();
+  await expect(checkbox(page, first.record_id)).toHaveAccessibleName(
+    `Select Timeline record: Accepted triage update — ${utc}`,
+  );
+  expect(writes).toEqual([]);
+  await tagInput(page).fill("selection-names");
+  const response = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/bulk-mutations") &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Assign tag", exact: true }).click();
+  const assigned = await response;
+  expect(assigned.ok()).toBe(true);
+  expect(assigned.request().postDataJSON()).toMatchObject({
+    targets: [
+      { record_id: first.record_id, base_row_version: updated.row_version },
+    ],
+    tag_name: "selection-names",
+  });
+});
 
 test("Timeline bulk tag production characterization", async ({
   page,
@@ -320,6 +503,9 @@ test("Timeline selected records survive autosave and explicit tagging waits for 
     });
     await held.waitForHit;
     await expect(checkbox(page, first.record_id)).toBeChecked();
+    await expect(checkbox(page, first.record_id)).toHaveAccessibleName(
+      "Select Timeline record: First selected — 2026-04-01T00:00:00Z",
+    );
     await expect(checkbox(page, second.record_id)).toBeChecked();
     await expect(tagInput(page)).toHaveValue("  triaged Ω  ");
     await tagInput(page).press("Enter");
@@ -368,6 +554,9 @@ test("Timeline selected records survive autosave and explicit tagging waits for 
       ]),
     ).toEqual([2, 7, "backward"]);
     await expect(checkbox(page, first.record_id)).not.toBeChecked();
+    await expect(checkbox(page, first.record_id)).toHaveAccessibleName(
+      "Select Timeline record: Edited while selected — 2026-04-01T00:00:00Z",
+    );
     await expect(checkbox(page, second.record_id)).toBeChecked();
     const saved = await queryViewRows(page, incident, timelineViewSchemaId);
     for (const id of [first.record_id, second.record_id])
@@ -442,6 +631,9 @@ test("Timeline failed selected edits retain authoring and block tag dispatch wit
     );
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
     await expect(checkbox(page, first.record_id)).toBeChecked();
+    await expect(checkbox(page, first.record_id)).toHaveAccessibleName(
+      "Select Timeline record: First selected — 2026-04-01T00:00:00Z",
+    );
     await expect(checkbox(page, second.record_id)).toBeChecked();
     await expect(tagInput(page)).toHaveValue(raw);
     const form = page.getByRole("form", {

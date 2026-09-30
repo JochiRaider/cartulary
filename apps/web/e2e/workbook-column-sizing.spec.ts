@@ -8,6 +8,7 @@ import {
   dataTestIdSelector,
   gridGroupRowTestId,
   gridRowGutterTestId,
+  gridRowTestId,
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
@@ -1540,22 +1541,21 @@ test("Workbook frozen gutter occludes crossing cell paint and owns its pointer t
   expect(ordinaryStyles.draft?.backgroundImage).not.toBe("none");
   expect(ordinaryHit).toBe(true);
   expect(hit).toBe(true);
-  const selection = page.getByRole("checkbox", {
-    name: `Select record ${recordId}`,
-    exact: true,
-  });
-  await scrollingCell.evaluate((content, selectionName) => {
-    const root = content.closest<HTMLElement>('[role="grid"]');
-    const cell = content.closest<HTMLElement>('[role="gridcell"]');
-    const checkbox = root?.querySelector<HTMLInputElement>(
-      `input[aria-label="${CSS.escape(selectionName)}"]`,
-    );
-    if (!root || !cell || !checkbox)
-      throw new Error("Expected scrolling cell and frozen selection control");
-    const box = checkbox.getBoundingClientRect();
-    root.scrollLeft +=
-      cell.getBoundingClientRect().left - (box.left + box.width / 2);
-  }, `Select record ${recordId}`);
+  const selection = page
+    .getByTestId(gridRowTestId(timelineViewSchemaId, recordId))
+    .getByRole("checkbox");
+  await scrollingCell.evaluate(
+    (content, checkbox) => {
+      const root = content.closest<HTMLElement>('[role="grid"]');
+      const cell = content.closest<HTMLElement>('[role="gridcell"]');
+      if (!root || !cell || !checkbox)
+        throw new Error("Expected scrolling cell and frozen selection control");
+      const box = checkbox.getBoundingClientRect();
+      root.scrollLeft +=
+        cell.getBoundingClientRect().left - (box.left + box.width / 2);
+    },
+    await selection.elementHandle(),
+  );
   const selectionHit = await selection.evaluate((node) => {
     const box = node.getBoundingClientRect();
     return (

@@ -65,10 +65,9 @@ test("Timeline pending restoration yields to wheel native input external focus a
     await expect
       .poll(() => page.evaluate(() => window.timelineContinuityProbe.handles))
       .toBeGreaterThan(0);
-    const bulk = page.getByRole("checkbox", {
-      name: `Select record ${other.record_id}`,
-      exact: true,
-    });
+    const bulk = page
+      .getByTestId(gridRowTestId(timelineViewSchemaId, other.record_id))
+      .getByRole("checkbox");
     await bulk.check();
     await showTimelineCollectionColumns(page, ["Tags"]);
     const input = page.getByTestId(

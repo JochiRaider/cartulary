@@ -3,6 +3,7 @@ import {
   scrollGridCellIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  gridRowTestId,
   gridScrollportSelector,
   rowCellTestId,
   rowHistoryActionTestId,
@@ -152,10 +153,8 @@ async function reviewBatch(
   if (family === "tag") {
     for (const row of [first, second])
       await page
-        .getByRole("checkbox", {
-          name: `Select record ${row.record_id}`,
-          exact: true,
-        })
+        .getByTestId(gridRowTestId(timelineViewSchemaId, row.record_id))
+        .getByRole("checkbox")
         .check();
     await page
       .getByRole("textbox", { name: "Tag for selected Timeline records" })

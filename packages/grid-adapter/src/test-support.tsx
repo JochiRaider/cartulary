@@ -977,6 +977,12 @@ function TestGridDataRow<Row>({
   readonly surface: SemanticDataGridProps<Row>["surface"];
   readonly updateRange: (range: GridCellRange | null) => void;
 }) {
+  const selectionPresentation =
+    bulkSelection !== undefined &&
+    gridRow.rowIdentity.kind === "core_record" &&
+    bulkSelection.isRecordSelectable?.(gridRow) !== false
+      ? bulkSelection.getRecordSelectionPresentation(gridRow)
+      : null;
   return (
     <tr
       {...testSemanticAttributes("row", rowState, "data row")}
@@ -1003,9 +1009,10 @@ function TestGridDataRow<Row>({
       {bulkSelection === undefined ? null : (
         <td role="gridcell">
           {gridRow.rowIdentity.kind !== "core_record" ||
-          bulkSelection.isRecordSelectable?.(gridRow) === false ? null : (
+          selectionPresentation === null ? null : (
             <input
-              aria-label={`Select record ${gridRow.rowIdentity.recordId}`}
+              aria-label={selectionPresentation.label}
+              aria-description={selectionPresentation.description}
               checked={bulkSelection.selectedRecordIds.has(
                 gridRow.rowIdentity.recordId,
               )}

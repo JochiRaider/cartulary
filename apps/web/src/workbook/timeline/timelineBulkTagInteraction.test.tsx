@@ -26,6 +26,7 @@ import {
   rowFromApi,
   type WorkbookRow,
 } from "./models/timelineRowModel";
+import { timelineRecordSelectionPresentation } from "./models/timelineRowsModel";
 
 const contract = requireViewContract(timelineViewSchemaId);
 function row(id: string, version = 3): WorkbookRow {
@@ -144,6 +145,150 @@ function useBulkTagFixture(
 }
 
 describe("Timeline bulk tag interaction", () => {
+  it("normalizes committed readable selection context without changing source or draft values", () => {
+    const saved = row("first");
+    const cases = [
+      {
+        synopsis: " Initial\n triage ",
+        utc: " 2026-04-10T10:00:00Z ",
+        local: "ignored",
+        label: "Initial triage — 2026-04-10T10:00:00Z",
+      },
+      {
+        synopsis: " ",
+        utc: "",
+        local: "",
+        label: "No synopsis or activity time",
+      },
+      {
+        synopsis: "",
+        utc: "2026-04-10T10:00:00Z",
+        local: "",
+        label: "No synopsis — 2026-04-10T10:00:00Z",
+      },
+      {
+        synopsis: "Synopsis only",
+        utc: "\t",
+        local: "",
+        label: "Synopsis only",
+      },
+      {
+        synopsis: "Local",
+        utc: "",
+        local: "2026-04-10 08:00",
+        label: "Local — 2026-04-10 08:00 (local time)",
+      },
+      {
+        synopsis: "🚀".repeat(121),
+        utc: "",
+        local: "",
+        label: `${"🚀".repeat(119)}…`,
+        full: "🚀".repeat(121),
+      },
+      { synopsis: "Ω".repeat(120), utc: "", local: "", label: "Ω".repeat(120) },
+    ];
+    for (const entry of cases) {
+      const record = {
+        ...saved,
+        committedValues: {
+          ...saved.committedValues,
+          activitySynopsisText: entry.synopsis,
+          activityUTCText: entry.utc,
+          activityLocalText: entry.local,
+        },
+        values: {
+          ...saved.values,
+          activitySynopsisText: "Unsubmitted draft",
+          activityUTCText: "Draft time",
+        },
+      };
+      const before = JSON.stringify(record);
+      expect(timelineRecordSelectionPresentation(record)).toEqual({
+        label: `Select Timeline record: ${entry.label}`,
+        description: `${entry.full ? `${entry.full}. ` : ""}Record ID: first`,
+      });
+      expect(JSON.stringify(record)).toBe(before);
+      expect(
+        timelineRecordSelectionPresentation({ ...record, recordId: "second" }),
+      ).toEqual({
+        label: `Select Timeline record: ${entry.label}`,
+        description: `${entry.full ? `${entry.full}. ` : ""}Record ID: second`,
+      });
+    }
+  });
+
+  it("keeps selection labels committed through retained drafts and updates selected identity after acceptance", async () => {
+    const f = fixture();
+    const { result, rerender } = renderHook(
+      ({ rows }) =>
+        useBulkTagFixture(
+          {
+            context: { authorized: true, capabilityAvailable: true },
+            port: f.port,
+            readiness: f.readiness,
+            precedingSaves: async () => {},
+            rows,
+            rowsRef: f.rowsRef,
+          },
+          f.query,
+        ),
+      { initialProps: { rows: f.rowsRef.current } },
+    );
+    await waitFor(() => expect(result.current.queryReady).toBe(true));
+    act(() =>
+      result.current.snapshot.gridSelection.onSelectedRecordIdsChange(
+        new Set(["first"]),
+      ),
+    );
+    const present = () =>
+      result.current.snapshot.gridSelection.getRecordSelectionPresentation({
+        kind: "data",
+        data: f.rowsRef.current.find(
+          (r) => r.recordId === "first",
+        ) as WorkbookRow,
+        rowIdentity: { kind: "core_record", recordId: "first" },
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 3 },
+      });
+    const original = row("first");
+    f.rowsRef.current = [
+      {
+        ...original,
+        values: {
+          ...original.values,
+          activitySynopsisText: "Rejected retained draft",
+        },
+        pendingSignature: "pending",
+      },
+      row("second"),
+    ];
+    rerender({ rows: f.rowsRef.current });
+    expect(present()).toEqual({
+      label: "Select Timeline record: first",
+      description: "Record ID: first",
+    });
+    const accepted = row("first", 4);
+    f.rowsRef.current = [
+      row("second"),
+      {
+        ...accepted,
+        committedValues: {
+          ...accepted.committedValues,
+          activitySynopsisText: "Committed update",
+        },
+        values: {
+          ...accepted.values,
+          activitySynopsisText: "Newer retained draft",
+        },
+      },
+    ];
+    rerender({ rows: f.rowsRef.current });
+    expect(present()).toEqual({
+      label: "Select Timeline record: Committed update",
+      description: "Record ID: first",
+    });
+    expect([...result.current.controls.selectedRecordIds]).toEqual(["first"]);
+    expect(f.send).not.toHaveBeenCalled();
+  });
   it("retains pending members and explicit deselection while pruning departed and unauthorized records", async () => {
     const f = fixture();
     const { result, rerender } = renderHook(

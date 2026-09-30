@@ -1167,7 +1167,8 @@
             "module.timeline.browser.bulk_tag_membership",
             "module.timeline.browser.bulk_tag_prerequisites",
             "module.timeline.browser.bulk_tag_rejection",
-            "module.timeline.browser.bulk_tag_replay"
+            "module.timeline.browser.bulk_tag_replay",
+            "module.timeline.browser.timeline_bulk_selection_exposes_committed_readab_0793a3e62b"
           ],
           "specs": [
             "apps/web/e2e/timeline-bulk-tag.spec.ts"

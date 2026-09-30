@@ -7,6 +7,7 @@ import {
 import {
   conflictMarkerTestId,
   draftCellTestId,
+  gridRowTestId,
   gridShellTestId,
   rowCellTestId,
   saveStateTestId,
@@ -21,6 +22,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1313,14 +1315,24 @@ describe("keyboard and grid anchor coverage", () => {
     );
     await waitForTimelineWorkbookReady(container, 2);
     fireEvent.click(
-      screen.getByRole("checkbox", {
-        name: "Select record 11111111-1111-4111-8111-111111111111",
-      }),
+      within(
+        screen.getByTestId(
+          gridRowTestId(
+            timelineViewSchemaId,
+            "11111111-1111-4111-8111-111111111111",
+          ),
+        ),
+      ).getByRole("checkbox"),
     );
     fireEvent.click(
-      screen.getByRole("checkbox", {
-        name: "Select record 22222222-2222-4222-8222-222222222222",
-      }),
+      within(
+        screen.getByTestId(
+          gridRowTestId(
+            timelineViewSchemaId,
+            "22222222-2222-4222-8222-222222222222",
+          ),
+        ),
+      ).getByRole("checkbox"),
     );
     fireEvent.change(
       screen.getByRole("textbox", {

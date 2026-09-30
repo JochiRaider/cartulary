@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { type ChangeEvent, createRef, useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -55,6 +56,16 @@ const columns: readonly GridColumn<HarnessRow>[] = [
   },
 ];
 
+function recordSelectionPresentation(row: GridDataRow<HarnessRow>) {
+  return {
+    label: `Select test record: ${row.data.label}`,
+    description:
+      row.rowIdentity.kind === "core_record"
+        ? `Record ID: ${row.rowIdentity.recordId}`
+        : undefined,
+  };
+}
+
 const testSurface = { kind: "view_schema", viewSchemaId: "test.view" } as const;
 
 const semanticContractBindings = [
@@ -78,6 +89,90 @@ function gridAnchor(recordId: string, fieldKey: string) {
 }
 
 describe("grid-adapter", () => {
+  it("keeps readable record selection presentation bound to identity through updates and reorder in both bindings", async () => {
+    for (const { Grid } of semanticContractBindings) {
+      const firstRow: GridDataRow<HarnessRow> = {
+        kind: "data",
+        rowIdentity: { kind: "core_record", recordId: "presentation-first" },
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        data: { label: "Alpha", state: "open" },
+        testId: "presentation-first-row",
+      };
+      const secondRow: GridDataRow<HarnessRow> = {
+        ...firstRow,
+        rowIdentity: { kind: "core_record", recordId: "presentation-second" },
+        data: { label: "Alpha", state: "open" },
+        testId: "presentation-second-row",
+      };
+      const onChange = vi.fn();
+      const renderRows = (rows: readonly GridDataRow<HarnessRow>[]) => (
+        <Grid
+          surface={testSurface}
+          columns={columns}
+          dataRows={rows}
+          coreRecordBulkSelection={{
+            getRecordSelectionPresentation: recordSelectionPresentation,
+            onSelectedRecordIdsChange: onChange,
+            selectedRecordIds: new Set(["presentation-first"]),
+          }}
+        />
+      );
+      const view = render(renderRows([firstRow, secondRow]));
+      const row = await screen.findByTestId("presentation-first-row");
+      const first = within(row).getByRole("checkbox") as HTMLInputElement;
+      expect(
+        within(row).getByRole("checkbox", {
+          name: "Select test record: Alpha",
+        }),
+      ).toBe(first);
+      expect(first.getAttribute("aria-description")).toBe(
+        "Record ID: presentation-first",
+      );
+      expect(
+        within(screen.getByTestId("presentation-second-row"))
+          .getByRole("checkbox")
+          .getAttribute("aria-description"),
+      ).toBe("Record ID: presentation-second");
+      expect(first.checked).toBe(true);
+      first.focus();
+      view.rerender(
+        renderRows([
+          secondRow,
+          {
+            ...firstRow,
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+            data: { label: "Updated Alpha", state: "open" },
+          },
+        ]),
+      );
+      await waitFor(() =>
+        expect(
+          within(screen.getByTestId("presentation-first-row")).getByRole(
+            "checkbox",
+            { name: "Select test record: Updated Alpha" },
+          ),
+        ).toBe(first),
+      );
+      expect(document.activeElement).toBe(first);
+      expect(first.checked).toBe(true);
+      expect(
+        screen
+          .getByTestId("presentation-first-row")
+          .getAttribute("data-grid-record-id"),
+      ).toBe("presentation-first");
+      expect(
+        (
+          screen.getByRole("checkbox", {
+            name: "Select all loaded records",
+          }) as HTMLInputElement
+        ).indeterminate,
+      ).toBe(true);
+      expect(onChange).not.toHaveBeenCalled();
+      fireEvent.click(first);
+      expect(onChange).toHaveBeenCalledWith(new Set());
+      view.unmount();
+    }
+  });
   it("restores overlay cell focus without replacing an independently selected range", async () => {
     for (const Grid of [SemanticDataGrid, SemanticDataGridTestSupport]) {
       const handle = createRef<GridHandle>();
@@ -440,6 +535,7 @@ describe("grid-adapter", () => {
           }}
           columns={contractColumns}
           coreRecordBulkSelection={{
+            getRecordSelectionPresentation: recordSelectionPresentation,
             onSelectedRecordIdsChange,
             selectedRecordIds: new Set(),
           }}
@@ -477,9 +573,7 @@ describe("grid-adapter", () => {
       expect(onSortChange).toHaveBeenCalledWith([
         { direction: "asc", fieldKey: "label" },
       ]);
-      fireEvent.click(
-        screen.getByRole("checkbox", { name: "Select record contract-1" }),
-      );
+      fireEvent.click(within(row).getByRole("checkbox"));
       expect(onSelectedRecordIdsChange).toHaveBeenCalledWith(
         new Set(["contract-1"]),
       );
@@ -1445,6 +1539,7 @@ describe("grid-adapter", () => {
       <SemanticDataGrid
         activeRowIdentity={{ kind: "core_record", recordId: "record-stateful" }}
         coreRecordBulkSelection={{
+          getRecordSelectionPresentation: recordSelectionPresentation,
           onSelectedRecordIdsChange: vi.fn(),
           selectedRecordIds: new Set(["record-stateful"]),
         }}
@@ -1524,6 +1619,7 @@ describe("grid-adapter", () => {
         }}
         activeRowIdentity={{ kind: "core_record", recordId: "record-stateful" }}
         coreRecordBulkSelection={{
+          getRecordSelectionPresentation: recordSelectionPresentation,
           onSelectedRecordIdsChange: vi.fn(),
           selectedRecordIds: new Set(["record-stateful"]),
         }}
@@ -1781,6 +1877,7 @@ describe("grid-adapter", () => {
         <SemanticDataGrid
           activeRowIdentity={{ kind: "core_record", recordId: "record-2" }}
           coreRecordBulkSelection={{
+            getRecordSelectionPresentation: recordSelectionPresentation,
             isRecordSelectable: (row) =>
               row.rowIdentity.kind === "core_record" &&
               row.rowIdentity.recordId !== "record-2",
@@ -1794,12 +1891,14 @@ describe("grid-adapter", () => {
               mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
               rowIdentity: { kind: "core_record", recordId: "record-1" },
               data: { label: "Alpha", state: "open" },
+              testId: "selection-record-1",
             },
             {
               kind: "data",
               mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
               rowIdentity: { kind: "core_record", recordId: "record-2" },
               data: { label: "Beta", state: "reviewed" },
+              testId: "selection-record-2",
             },
           ]}
           surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
@@ -1808,11 +1907,11 @@ describe("grid-adapter", () => {
     }
 
     render(<SelectionHarness />);
-    const first = await screen.findByRole("checkbox", {
-      name: "Select record record-1",
-    });
+    const first = within(
+      await screen.findByTestId("selection-record-1"),
+    ).getByRole("checkbox");
     expect(
-      screen.queryByRole("checkbox", { name: "Select record record-2" }),
+      within(screen.getByTestId("selection-record-2")).queryByRole("checkbox"),
     ).toBeNull();
     fireEvent.click(first);
     expect((first as HTMLInputElement).checked).toBe(true);
@@ -1836,6 +1935,7 @@ describe("grid-adapter", () => {
       <SemanticDataGrid
         ref={handle}
         coreRecordBulkSelection={{
+          getRecordSelectionPresentation: recordSelectionPresentation,
           onSelectedRecordIdsChange: vi.fn(),
           selectedRecordIds: new Set(),
         }}
@@ -3650,6 +3750,7 @@ describe("grid-adapter", () => {
               renderCell: () => <button type="button">Inspect</button>,
             }}
             coreRecordBulkSelection={{
+              getRecordSelectionPresentation: recordSelectionPresentation,
               onSelectedRecordIdsChange: vi.fn(),
               selectedRecordIds: new Set(),
             }}

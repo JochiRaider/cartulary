@@ -169,10 +169,9 @@ test("Timeline row actions preserve native authoring and dismiss to the semantic
   await input.press("Escape");
   expect(writes).toEqual([]);
 
-  const bulk = page.getByRole("checkbox", {
-    name: `Select record ${id}`,
-    exact: true,
-  });
+  const bulk = page
+    .getByTestId(gridRowTestId(timelineViewSchemaId, id))
+    .getByRole("checkbox");
   await bulk.check();
   await selectCell(page, id);
   await page.keyboard.press("Shift+ArrowDown");
@@ -745,7 +744,8 @@ test("Timeline pointer transitions preserve one edit and wait for acceptance", a
       `${required(rows[0]).cells[synopsis]?.value} pointer`,
     );
     await page
-      .getByRole("checkbox", { name: `Select record ${id}`, exact: true })
+      .getByTestId(gridRowTestId(timelineViewSchemaId, id))
+      .getByRole("checkbox")
       .click();
     await expect(editor(page, id)).toHaveCount(0);
     expect(requests).toHaveLength(1);
@@ -2166,7 +2166,8 @@ test("Timeline fill and tagging retain conflicts-only receipts and independent l
       .click();
     held = await holdBrowserRequest(page, { method: "POST", path });
     await page
-      .getByRole("checkbox", { name: `Select record ${tagTarget}` })
+      .getByTestId(gridRowTestId(timelineViewSchemaId, tagTarget))
+      .getByRole("checkbox")
       .check();
     await page
       .getByRole("textbox", { name: "Tag for selected Timeline records" })

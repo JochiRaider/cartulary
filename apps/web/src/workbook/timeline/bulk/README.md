@@ -12,7 +12,7 @@ conflicts and recovery independently of controller lifetime.
 
 | File | Responsibility |
 | --- | --- |
-| [useTimelineBulkTagController.ts](useTimelineBulkTagController.ts) | Owns authorized accepted-query selection and pruning; revalidates the complete intended set and submits native delivery identity to retained ownership. |
+| [useTimelineBulkTagController.ts](useTimelineBulkTagController.ts) | Owns authorized accepted-query selection and pruning, supplies committed readable checkbox context, revalidates the complete intended set and submits native delivery identity to retained ownership. |
 | [useTimelineFillController.ts](useTimelineFillController.ts) | Plans keyboard/pointer scalar fill over stable records and fields with existing target restrictions; captures source value and preceding autosaves. |
 
 ## Tests

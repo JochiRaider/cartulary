@@ -11,6 +11,7 @@ import {
   authTestId,
   draftCellTestId,
   gridGroupRowTestId,
+  gridRowTestId,
   gridScrollportSelector,
   relationshipItemsTestId,
   rowCellTestId,
@@ -385,10 +386,9 @@ test("Timeline Find literal case Unicode multiline and empty feedback preserve e
   page,
 }) => {
   const f = await seed(page);
-  const bulk = page.getByRole("checkbox", {
-    name: `Select record ${f.first}`,
-    exact: true,
-  });
+  const bulk = page
+    .getByTestId(gridRowTestId(timelineViewSchemaId, f.first))
+    .getByRole("checkbox");
   await bulk.check();
   await scrollGridTargetIntoView({
     page,
@@ -963,10 +963,9 @@ test("Timeline Find preserves blank authoring and excludes creation pins through
   await find(page, "Pinned creation needle", 0);
   // A visible creation pin is not an accepted query member or bulk target.
   await expect(
-    page.getByRole("checkbox", {
-      name: `Select record ${pinnedId}`,
-      exact: true,
-    }),
+    page
+      .getByTestId(gridRowTestId(timelineViewSchemaId, pinnedId))
+      .getByRole("checkbox"),
   ).toHaveCount(0);
   expect(
     requests.filter((request) => request.endsWith(createPath)),
@@ -977,10 +976,9 @@ test("Timeline Find preserves blank authoring and excludes creation pins through
   await expect(status(page)).toContainText("1 matching cell");
   await navigate(page);
   await expect(
-    page.getByRole("checkbox", {
-      name: `Select record ${pinnedId}`,
-      exact: true,
-    }),
+    page
+      .getByTestId(gridRowTestId(timelineViewSchemaId, pinnedId))
+      .getByRole("checkbox"),
   ).not.toBeChecked();
   expect(
     requests.filter((request) => request.endsWith(createPath)),

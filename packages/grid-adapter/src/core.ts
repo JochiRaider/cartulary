@@ -133,6 +133,10 @@ export type GridCellStateContext<Row> = GridCellRenderContext<Row> & {
 };
 
 export type GridCoreRecordBulkSelection<Row> = {
+  readonly getRecordSelectionPresentation: (row: GridDataRow<Row>) => {
+    readonly label: string;
+    readonly description?: string | undefined;
+  };
   readonly isRecordSelectable?:
     | ((row: GridDataRow<Row>) => boolean)
     | undefined;

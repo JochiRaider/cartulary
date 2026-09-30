@@ -8,6 +8,7 @@ import {
   timelineBulkTagMember,
 } from "../models/timelineBulkTagPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
+import { timelineRecordSelectionPresentation } from "../models/timelineRowsModel";
 import type {
   TimelineBulkTagAdmission,
   TimelineBulkTagCommandPort,
@@ -68,6 +69,8 @@ export function useTimelineBulkTagController(
   }, []);
   const gridSelection = useMemo<GridCoreRecordBulkSelection<WorkbookRow>>(
     () => ({
+      getRecordSelectionPresentation: (row) =>
+        timelineRecordSelectionPresentation(row.data),
       isRecordSelectable: (row) =>
         canAssign && timelineBulkTagMember(row.data, queryMembers),
       onSelectedRecordIdsChange: changeSelectedRecordIds,

@@ -19,6 +19,7 @@ import type {
   GridCellAnchor,
   GridColumn,
   GridColumnSizingIntent,
+  GridCoreRecordBulkSelection,
   GridDataRow,
   GridDraftRow,
   GridEditCommitOutcome,
@@ -46,6 +47,7 @@ export const gridRowGutterColumnKey = "__cartulary_row_gutter__";
 export const gridSelectionColumnKey = "__cartulary_selection__";
 
 export type GridCompiledBulkSelection<Row> = {
+  readonly getRecordSelectionPresentation: GridCoreRecordBulkSelection<Row>["getRecordSelectionPresentation"];
   readonly allSelected: boolean;
   readonly partiallySelected: boolean;
   readonly selectedRecordIds: ReadonlySet<string>;
@@ -220,15 +222,21 @@ export function compileGridColumns<Row>({
           />
         </span>
       ),
-      renderCell: ({ row }) =>
-        row.rowIdentity.kind === "core_record" &&
-        bulkSelection.isRecordSelectable(row) ? (
+      renderCell: ({ row }) => {
+        if (
+          row.rowIdentity.kind !== "core_record" ||
+          !bulkSelection.isRecordSelectable(row)
+        )
+          return null;
+        const presentation = bulkSelection.getRecordSelectionPresentation(row);
+        return (
           <span
             className="cartulary-grid-selection-content"
             data-grid-field-key={gridSelectionColumnKey}
           >
             <input
-              aria-label={`Select record ${row.rowIdentity.recordId}`}
+              aria-label={presentation.label}
+              aria-description={presentation.description}
               checked={bulkSelection.selectedRecordIds.has(
                 row.rowIdentity.recordId,
               )}
@@ -241,7 +249,8 @@ export function compileGridColumns<Row>({
               }}
             />
           </span>
-        ) : null,
+        );
+      },
       renderSummaryCell: () => null,
       resizable: false,
       sortable: false,

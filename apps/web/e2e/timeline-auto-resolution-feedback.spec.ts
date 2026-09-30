@@ -987,10 +987,9 @@ async function characterize(
   const close = page.getByTestId(
     workbookInspectorCloseButtonTestId(timelineViewSchemaId),
   );
-  const bulkCheckbox = page.getByRole("checkbox", {
-    name: `Select record ${row.record_id}`,
-    exact: true,
-  });
+  const bulkCheckbox = page
+    .getByTestId(gridRowTestId(timelineViewSchemaId, row.record_id))
+    .getByRole("checkbox");
   await bulkCheckbox.check();
   const bulkTag = page.getByRole("textbox", {
     name: "Tag for selected Timeline records",
@@ -1580,4 +1579,7 @@ test("Timeline disclosures follow read-only session recovery account replacement
   await expect(
     page.getByText("Authority canonical host", { exact: true }),
   ).toHaveCount(0);
+  expect(await page.getByRole("main").ariaSnapshot()).not.toContain(
+    "Select Timeline record:",
+  );
 });

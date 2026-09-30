@@ -20,6 +20,31 @@ type TimelineGridRows = {
   readonly recordRows: readonly GridDataRow<WorkbookRow>[];
 };
 
+/** Selection context is committed presentation, independent of local authoring. */
+export function timelineRecordSelectionPresentation(row: WorkbookRow): {
+  readonly label: string;
+  readonly description: string;
+} {
+  const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
+  const synopsis = normalize(row.committedValues.activitySynopsisText);
+  const utc = normalize(row.committedValues.activityUTCText);
+  const local = normalize(row.committedValues.activityLocalText);
+  const time = utc || (local ? `${local} (local time)` : "");
+  const characters = Array.from(synopsis);
+  const shortened = characters.length > 120;
+  const conciseSynopsis = shortened
+    ? `${characters.slice(0, 119).join("")}…`
+    : synopsis;
+  const context = (text: string) =>
+    time
+      ? `${text || "No synopsis"} — ${time}`
+      : text || "No synopsis or activity time";
+  return {
+    label: `Select Timeline record: ${context(conciseSynopsis)}`,
+    description: `${shortened ? `${context(synopsis)}. ` : ""}Record ID: ${row.recordId}`,
+  };
+}
+
 export function compareTimelineGroupValues(
   field: string,
   left: GridGroupingScalar,

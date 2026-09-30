@@ -38,7 +38,7 @@ Settlement uses that capture to preserve newer authoring.
 | [timelineLoadMachine.ts](timelineLoadMachine.ts) | Pure incident/surface/query/generation/mutation-epoch/source-obligation transitions with explicit load effects. |
 | [timelineRowModel.ts](timelineRowModel.ts) | Timeline row envelope decoding, normalization, materialization, and sparse-patch application. |
 | [timelineRowsModel.test.ts](timelineRowsModel.test.ts) | Tests for Timeline grid-row materialization. |
-| [timelineRowsModel.ts](timelineRowsModel.ts) | Timeline row collection helpers and row-state utilities. |
+| [timelineRowsModel.ts](timelineRowsModel.ts) | Timeline row collection helpers, stable grid identities, and readable bulk-selection context derived from committed synopsis/time. |
 | [timelineWorkbookRuntime.test.ts](timelineWorkbookRuntime.test.ts) | Deterministic lifecycle transition traces for load, refresh, save, conflict, and recovery state. |
 | [timelineWorkbookSurfaceRuntime.ts](timelineWorkbookSurfaceRuntime.ts) | Required shell-owned Timeline composition contract for incident, query, entity, layout, and access-loss services. |
 | [workbookRecordFreshness.test.ts](workbookRecordFreshness.test.ts) | Tests for comparable and non-comparable row-version freshness decisions. |

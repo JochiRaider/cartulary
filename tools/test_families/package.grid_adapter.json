@@ -862,6 +862,7 @@
           "grid-adapter keeps embedded actions independent and routes labeled pointer and keyboard fill through semantic targets",
           "grid-adapter keeps grouped editable draft cells stable across repeated local edits",
           "grid-adapter keeps inspector context distinct from opt-in record selection",
+          "grid-adapter keeps readable record selection presentation bound to identity through updates and reorder in both bindings",
           "grid-adapter keeps standalone block sizing by default and supports shell-owned fill block sizing",
           "grid-adapter keeps the bottom create draft recordless and usable with zero committed rows",
           "grid-adapter owns semantic navigation, range extension, keyboard entry, cancellation, and grid exit",
