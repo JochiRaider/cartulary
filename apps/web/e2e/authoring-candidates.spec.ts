@@ -15,6 +15,7 @@ import {
 } from "@cartulary/view-contracts";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { readCurrentSession } from "./support/auth/sessions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
   uniqueIncidentKey,
@@ -25,7 +26,12 @@ import {
   ordinaryField,
   switchOrdinarySheet,
 } from "./support/workbook/ordinaryCreate";
-import { createViewRow, queryViewRows } from "./support/workbook/query";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
 import { openTimelineEvidenceFixture } from "./support/workbook/timelineRelatedEvidence";
 
 async function seed(page: Page, incident: string, view: string, field: string) {
@@ -57,6 +63,185 @@ async function chooseFirst(select: Locator, multiple = false) {
 function button(scope: Locator | Page, name: string) {
   return scope.getByRole("button", { name, exact: true });
 }
+
+test("Timeline retained Owner reconciles accepted membership labels only on Apply and remains readable through Recovery", async ({
+  page,
+}) => {
+  const actor = await readCurrentSession(page);
+  let writes = 0;
+  await page.route(
+    `**/views/${taskRequestsViewSchemaId}/rows`,
+    async (route) => {
+      writes++;
+      await route.continue();
+    },
+  );
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const f = await openTimelineEvidenceFixture(page);
+    await button(f.form, "Keep draft and close").click();
+    await page
+      .getByTestId(
+        workbookInspectorFeatureActionTestId(
+          timelineViewSchemaId,
+          "create_related.task_request",
+        ),
+      )
+      .click();
+    const task = page.getByRole("region", {
+      name: "Create task request",
+      exact: true,
+    });
+    const title = task.getByTestId(genericCreateFieldTestId("task.title"));
+    const authored = `Retained Owner title at ${viewport.width}`;
+    await title.fill(authored);
+    const owner = task.getByRole("group", {
+      name: "Owner selected references",
+      exact: true,
+    });
+    await expect(owner.getByRole("list")).toContainText("Current actor");
+    const choose = button(owner, "Choose Owner");
+    await choose.focus();
+    await choose.press("Enter");
+    const picker = task.getByRole("region", {
+      name: "Choose Owner",
+      exact: true,
+    });
+    const select = picker.getByTestId(
+      "contextual-reference-task.owner_user_id",
+    );
+    await expect(select).toBeEnabled();
+    await expect(select).toHaveValue(actor.user_id);
+    await expect(select.locator(`option[value="${actor.user_id}"]`)).toHaveText(
+      actor.display_name,
+    );
+    await expect(picker.getByRole("list")).toContainText(actor.display_name);
+    const remove = picker.getByRole("button", {
+      name: /^Remove selected Owner /,
+    });
+    await expect(remove).toHaveAccessibleName(
+      `Remove selected Owner ${actor.display_name}`,
+    );
+    await expect(owner.getByRole("list").first()).toContainText(
+      "Current actor",
+    );
+    await select.focus();
+    await select.press("Escape");
+    await expect(choose).toBeFocused();
+    await expect(owner.getByRole("list")).toContainText("Current actor");
+    await choose.press("Enter");
+    await expect(select).toBeEnabled();
+    await button(picker, "Apply references").click();
+    await expect(owner.getByRole("list")).toContainText(actor.display_name);
+    await expect(
+      owner.getByRole("button", { name: /^Remove Owner / }),
+    ).toHaveAccessibleName(`Remove Owner ${actor.display_name}`);
+    await expect(title).toHaveValue(authored);
+    await button(task, "Keep draft and close").click();
+    await openRecoveryItem(page, /^Task Requests draft ·/);
+    const recovery = page.getByRole("region", {
+      name: "Retained contextual creation",
+      exact: true,
+    });
+    await button(recovery, "Resume contextual draft").click();
+    await expect(
+      recovery.getByTestId(genericCreateFieldTestId("task.title")),
+    ).toHaveValue(authored);
+    const resumedOwner = recovery.getByRole("group", {
+      name: "Owner selected references",
+      exact: true,
+    });
+    await expect(resumedOwner.getByRole("list")).toContainText(
+      actor.display_name,
+    );
+    await button(resumedOwner, "Choose Owner").click();
+    await expect(
+      recovery.getByTestId("contextual-reference-task.owner_user_id"),
+    ).toHaveValue(actor.user_id);
+    await button(recovery, "Cancel references").click();
+    await button(recovery, "Discard draft").click();
+  }
+  expect(writes).toBe(0);
+});
+
+test("Timeline retained Requester Party updates accepted presentation through refresh and page replacement", async ({
+  page,
+}) => {
+  const f = await openTimelineEvidenceFixture(page);
+  await seed(page, f.incident, partiesViewSchemaId, "party.display_name");
+  await button(f.form, "Keep draft and close").click();
+  await page
+    .getByTestId(
+      workbookInspectorFeatureActionTestId(
+        timelineViewSchemaId,
+        "create_related.task_request",
+      ),
+    )
+    .click();
+  const task = page.getByRole("region", {
+    name: "Create task request",
+    exact: true,
+  });
+  const choose = button(task, "Choose Requester Party");
+  await choose.click();
+  const picker = task.getByRole("region", {
+    name: "Choose Requester Party",
+    exact: true,
+  });
+  const select = picker.getByTestId(
+    "contextual-reference-task.requester_party_id",
+  );
+  await expect(select.getByRole("option")).toHaveCount(101);
+  const id = await chooseFirst(select);
+  const original = await select.locator(`option[value="${id}"]`).innerText();
+  await button(picker, "Apply references").click();
+  const retained = task.getByRole("group", {
+    name: "Requester Party selected references",
+    exact: true,
+  });
+  await expect(retained.getByRole("list")).toContainText(original);
+  const rows = await queryViewRows(page, f.incident, partiesViewSchemaId);
+  const row = rows.find((row) => row.record_id === id);
+  if (!row) throw new Error("Selected fixture Party missing from first page");
+  const renamed = "ACD 000 Accepted renamed Party";
+  await patchRecord(page, id, {
+    base_row_version: row.row_version,
+    client_txn_id: uniqueTxn("rename-party"),
+    view_schema_id: partiesViewSchemaId,
+    changes: [{ field_key: "party.display_name", value: renamed }],
+  });
+  await choose.click();
+  await expect(select.locator(`option[value="${id}"]`)).toHaveText(renamed);
+  const remove = picker.getByRole("button", {
+    name: /^Remove selected Requester Party /,
+  });
+  await expect(remove).toHaveAccessibleName(
+    `Remove selected Requester Party ${renamed}`,
+  );
+  const refresh = button(picker, "Refresh candidates");
+  await refresh.focus();
+  await refresh.press("Enter");
+  await expect(refresh).toHaveAttribute("aria-busy", "false");
+  await expect(refresh).toBeFocused();
+  await expect(remove).toHaveAccessibleName(
+    `Remove selected Requester Party ${renamed}`,
+  );
+  await button(picker, "Next candidates").click();
+  await expect(select.locator(`option[value="${id}"]`)).toHaveCount(0);
+  await expect(remove).toHaveAccessibleName(
+    `Remove selected Requester Party ${renamed}`,
+  );
+  await button(picker, "Previous candidates").click();
+  await expect(select).toHaveValue(id);
+  await button(picker, "Apply references").click();
+  await expect(retained.getByRole("list")).toContainText(renamed);
+  await expect(
+    retained.getByRole("button", { name: /^Remove Requester Party / }),
+  ).toHaveAccessibleName(`Remove Requester Party ${renamed}`);
+});
 
 test("Authoring Party pages retain ordinary contextual and related Evidence selections through failed continuation", async ({
   page,

@@ -10,6 +10,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
@@ -95,6 +96,208 @@ function fixture(
   return { owner, feature, subject, reader };
 }
 describe("contextual Task and Decision authoring", () => {
+  it("reconciles the default Owner only in staging until Apply and retains its readable label on resume", async () => {
+    const { owner, reader } = fixture();
+    owner.update("task.title", "Title remains exactly authored");
+    const original = required(owner.getSnapshot().draft);
+    const onSubmit = vi.fn();
+    let accept!: (
+      value: Awaited<ReturnType<ContextualCreateReader["page"]>>,
+    ) => void;
+    vi.mocked(reader.page).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          accept = resolve;
+        }),
+    );
+    const rendered = render(
+      <ContextualCreateForm
+        owner={owner}
+        attachment={attachment}
+        onSubmit={onSubmit}
+      />,
+    );
+    expect(
+      screen.getByText("Current actor", { exact: false }).textContent,
+    ).toContain("Current actor");
+    fireEvent.click(screen.getByRole("button", { name: "Choose Owner" }));
+    await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(1));
+    expect(owner.getSnapshot().draft).toBe(original);
+    await act(async () =>
+      accept({
+        kind: "accepted",
+        value: {
+          candidates: [
+            {
+              recordId: actor,
+              displayText: "Review editor",
+              viewSchemaId: "incident_members",
+            },
+          ],
+          hasMore: false,
+          nextCursor: null,
+        },
+      }),
+    );
+    const picker = screen.getByRole("region", { name: "Choose Owner" });
+    const selector = within(picker).getByTestId(
+      "contextual-reference-task.owner_user_id",
+    );
+    expect(selector).toHaveProperty("value", actor);
+    expect(within(picker).getByRole("list").textContent).toContain(
+      "Review editor",
+    );
+    expect(
+      within(picker)
+        .getByRole("button", { name: /^Remove selected Owner / })
+        .getAttribute("aria-label"),
+    ).toBe("Remove selected Owner Review editor");
+    expect(owner.getSnapshot().draft).toBe(original);
+    fireEvent.keyDown(selector, { key: "Escape" });
+    expect(owner.getSnapshot().draft).toBe(original);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Choose Owner" }),
+    );
+    vi.mocked(reader.page).mockResolvedValueOnce({
+      kind: "accepted",
+      value: {
+        candidates: [
+          {
+            recordId: actor,
+            displayText: "Review editor",
+            viewSchemaId: "incident_members",
+          },
+        ],
+        hasMore: false,
+        nextCursor: null,
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Choose Owner" }));
+    await screen.findByRole("option", { name: "Review editor" });
+    fireEvent.click(screen.getByRole("button", { name: "Apply references" }));
+    expect(owner.getSnapshot().draft).toMatchObject({
+      values: {
+        "task.owner_user_id": actor,
+        "task.title": "Title remains exactly authored",
+      },
+      labels: { [actor]: "Review editor" },
+      source: original.source,
+    });
+    expect(
+      screen.getByRole("button", { name: "Remove Owner Review editor" }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Keep draft and close" }),
+    );
+    const recovery = Symbol("recovery");
+    act(() => owner.resume(recovery));
+    rendered.rerender(
+      <ContextualCreateForm
+        owner={owner}
+        attachment={recovery}
+        onSubmit={onSubmit}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Remove Owner Review editor" }),
+    ).toBeTruthy();
+    expect(owner.getSnapshot().draft?.values["task.title"]).toBe(
+      "Title remains exactly authored",
+    );
+    expect(owner.getSnapshot().draft?.values["task.owner_user_id"]).toBe(actor);
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(reader.verify).not.toHaveBeenCalled();
+  });
+
+  it("recovers refreshed reference labels without restoring source readiness or replacing authored values", async () => {
+    const { owner, reader } = fixture();
+    owner.update("task.title", "Retained raw title");
+    const original = required(owner.getSnapshot().draft);
+    let accept!: (
+      value: Awaited<ReturnType<ContextualCreateReader["page"]>>,
+    ) => void;
+    vi.mocked(reader.page)
+      .mockResolvedValueOnce({
+        kind: "accepted",
+        value: {
+          candidates: [
+            {
+              recordId: sourceId,
+              displayText: "Original source",
+              viewSchemaId: timelineViewSchemaId,
+            },
+          ],
+          hasMore: false,
+          nextCursor: null,
+        },
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            accept = resolve;
+          }),
+      );
+    render(
+      <ContextualCreateForm
+        owner={owner}
+        attachment={attachment}
+        onSubmit={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Choose Linked Records",
+      }),
+    );
+    await screen.findByRole("option", { name: "Original source" });
+    act(() => owner.observe(sourceId, 2));
+    await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(2));
+    const picker = screen.getByRole("region", {
+      name: "Choose Linked Records",
+    });
+    expect(within(picker).getByRole("list").textContent).not.toContain(
+      "Original source",
+    );
+    expect(owner.getSnapshot().needsReview).toBe(true);
+    await act(async () =>
+      accept({
+        kind: "accepted",
+        value: {
+          candidates: [
+            {
+              recordId: sourceId,
+              displayText: "Refreshed source presentation",
+              viewSchemaId: timelineViewSchemaId,
+            },
+          ],
+          hasMore: false,
+          nextCursor: null,
+        },
+      }),
+    );
+    expect(
+      within(picker)
+        .getByRole("button", { name: /^Remove selected Linked Records / })
+        .getAttribute("aria-label"),
+    ).toBe("Remove selected Linked Records Refreshed source presentation");
+    expect(owner.getSnapshot().draft?.labels[sourceId]).toBeUndefined();
+    fireEvent.click(
+      within(picker).getByRole("button", { name: "Apply references" }),
+    );
+    expect(owner.getSnapshot()).toMatchObject({
+      needsReview: true,
+      draft: {
+        source: original.source,
+        values: {
+          "task.title": "Retained raw title",
+          "task.linked_record_ids": sourceId,
+        },
+        labels: { [sourceId]: "Refreshed source presentation" },
+      },
+    });
+    expect(reader.verify).not.toHaveBeenCalled();
+  });
+
   it("maps all 23 declared entry points across 15 public surfaces and excludes absent features", () => {
     const surfaces = listViewContracts().filter((contract) =>
       contract.inspectorConfig.featureGroups.some((feature) =>

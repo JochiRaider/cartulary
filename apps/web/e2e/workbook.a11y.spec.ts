@@ -187,7 +187,7 @@ import {
 import { installAccountEditingFixture } from "./support/auth/accountEditingFixture";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
-import { revokeAllSessions } from "./support/auth/sessions";
+import { readCurrentSession, revokeAllSessions } from "./support/auth/sessions";
 import { sessionCookieName } from "./support/auth/storageState";
 import {
   enrollTotpViaBootstrap,
@@ -8837,6 +8837,7 @@ test("a11y.contextual-create target fields reference cancellation and retained r
   page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  const actor = await readCurrentSession(page);
   for (const target of ["task_request", "decision"] as const) {
     await page.setViewportSize({ width: 1280, height: 720 });
     const { view } = await openContextualCreationFixture(page, target);
@@ -8846,6 +8847,39 @@ test("a11y.contextual-create target fields reference cancellation and retained r
       ),
     );
     const original = await field.inputValue();
+    if (target === "task_request") {
+      const chooseOwner = page.getByRole("button", {
+        name: "Choose Owner",
+        exact: true,
+      });
+      await chooseOwner.focus();
+      await chooseOwner.press("Enter");
+      const ownerPicker = page.getByRole("region", {
+        name: "Choose Owner",
+        exact: true,
+      });
+      const ownerSelect = ownerPicker.getByTestId(
+        "contextual-reference-task.owner_user_id",
+      );
+      await expect(ownerSelect).toBeEnabled();
+      await expect(ownerSelect).toHaveValue(actor.user_id);
+      await expect(ownerPicker.getByRole("list")).toContainText(
+        actor.display_name,
+      );
+      await expect(
+        ownerPicker.getByRole("button", { name: /^Remove selected Owner / }),
+      ).toHaveAccessibleName(`Remove selected Owner ${actor.display_name}`);
+      const applyOwner = ownerPicker.getByRole("button", {
+        name: "Apply references",
+        exact: true,
+      });
+      await applyOwner.focus();
+      await applyOwner.press("Enter");
+      await expect(chooseOwner).toBeFocused();
+      await expect(
+        page.getByRole("button", { name: /^Remove Owner / }),
+      ).toHaveAccessibleName(`Remove Owner ${actor.display_name}`);
+    }
     const submit = page.getByTestId(genericCreateSubmitTestId(view));
     await field.fill("");
     await submit.focus();
@@ -8941,6 +8975,10 @@ test("a11y.contextual-create target fields reference cancellation and retained r
     await resume.focus();
     await resume.press("Enter");
     await expect(field).toHaveValue(original);
+    if (target === "task_request")
+      await expect(
+        recovery.getByRole("button", { name: /^Remove Owner / }),
+      ).toHaveAccessibleName(`Remove Owner ${actor.display_name}`);
     await page.setViewportSize({ width: 390, height: 480 });
     await expectDecisionControlReachable(page, field);
     await expectDecisionControlReachable(page, submit);

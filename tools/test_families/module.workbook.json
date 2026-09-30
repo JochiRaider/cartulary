@@ -1093,12 +1093,16 @@
         "scenario_ids": [
           "scenario_authoring_candidates_parties",
           "scenario_authoring_candidates_party_keyboard_continuity",
+          "scenario_authoring_candidates_retained_owner",
+          "scenario_authoring_candidates_retained_party_labels",
           "scenario_selected_reference_removal_timeline"
         ],
         "titles": [
           "Authoring Party pages retain ordinary contextual and related Evidence selections through failed continuation",
           "Timeline contextual Party candidate reads keep keyboard focus through pending retry and exhaustion",
-          "Timeline contextual reference removal keeps keyboard focus in the reference field"
+          "Timeline contextual reference removal keeps keyboard focus in the reference field",
+          "Timeline retained Owner reconciles accepted membership labels only on Apply and remains readable through Recovery",
+          "Timeline retained Requester Party updates accepted presentation through refresh and page replacement"
         ]
       },
       "evidence_class": "browser",

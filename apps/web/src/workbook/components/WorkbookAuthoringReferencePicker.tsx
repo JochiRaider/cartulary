@@ -51,7 +51,6 @@ export function WorkbookAuthoringReferencePicker(
   let selected = staged.items;
   if (staged.freshness !== freshness) {
     selected = selected.map((item) => ({ ...item, displayText: "" }));
-    setStaged({ freshness, items: selected });
   }
   const [view, setView] = useState(
     props.initialView ??
@@ -97,6 +96,20 @@ export function WorkbookAuthoringReferencePicker(
   );
   const concealed =
     !authority.canRead || page.concealed || inventory.discovery.concealed;
+  if (
+    !props.captureRowVersion &&
+    !props.disabled &&
+    available &&
+    !concealed &&
+    !page.pending &&
+    !page.failure &&
+    page.page
+  ) {
+    selected = reconcileSelectedLabels(selected, page.page.candidates);
+  }
+  if (staged.freshness !== freshness || staged.items !== selected) {
+    setStaged({ freshness, items: selected });
+  }
   const cancel = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     cancel.current?.focus({ preventScroll: true });
@@ -209,4 +222,25 @@ export function WorkbookAuthoringReferencePicker(
       </Button>
     </section>
   );
+}
+
+/** Current authorized presentation never replaces retained reference metadata. */
+function reconcileSelectedLabels(
+  selected: readonly WorkbookAuthoringSelection[],
+  candidates: readonly WorkbookAuthoringSelection[],
+): readonly WorkbookAuthoringSelection[] {
+  let changed = false;
+  const items = selected.map((item) => {
+    const candidate = candidates.find(
+      (candidate) =>
+        candidate.recordId === item.recordId &&
+        (candidate.viewSchemaId === "incident_members") ===
+          (item.viewSchemaId === "incident_members"),
+    );
+    if (!candidate?.displayText || candidate.displayText === item.displayText)
+      return item;
+    changed = true;
+    return { ...item, displayText: candidate.displayText };
+  });
+  return changed ? items : selected;
 }

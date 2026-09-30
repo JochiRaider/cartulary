@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:1c785eca20b72cfc98a073a29590365ae230750a0755f789206c5479bc3778b4",
+  "input_digest": "sha256:c6efb60e351df8f54b12f6e222e8b61bb60aa92e0250d737f9a397f100786f9c",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -1312,7 +1312,7 @@
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:fac8e7d79141fa23c331f8b338adf8742ca4ff68b247a0b093b62784aa08ae2f"
+      "hash": "sha256:3382ab54655d9152a527b2924d28c26bcf1d756f179af90b03e316e04b2cb3e5"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
@@ -1432,7 +1432,7 @@
     {
       "path": "tools/test_families/web.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3bcaf56e7c8afef85c6e6ac0377121284fedaea0febe3e02012bc3adea46affc"
+      "hash": "sha256:fa1fb6e209bb58a145695ccffedfcee271bfc9541b7ce872459761f328bb1155"
     },
     {
       "path": "tools/test_runner_registry.json",
