@@ -542,6 +542,7 @@
         "apps/web/src/workbook/components/WorkbookSaveAnnouncements.tsx",
         "apps/web/src/workbook/components/WorkbookSearchableCandidateChooser.tsx",
         "apps/web/src/workbook/components/WorkbookShellSlots.tsx",
+        "apps/web/src/workbook/components/WorkbookShellTopBar.test.tsx",
         "apps/web/src/workbook/components/WorkbookShellTopBar.tsx",
         "apps/web/src/workbook/components/WorkbookShellViewBarControls.tsx",
         "apps/web/src/workbook/components/WorkbookSortControl.tsx",

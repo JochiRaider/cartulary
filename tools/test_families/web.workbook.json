@@ -1197,6 +1197,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.desktop_built_in_surface_selector_keyboard_navig_ebad53c0ea",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookShellTopBar.test.tsx",
+        "titles": [
+          "Workbook desktop surface selector activates Enter Space and pointer exactly once and follows actual focus",
+          "Workbook desktop surface selector dismisses compact navigation to its trigger and explicitly selects once",
+          "Workbook desktop surface selector enters Network Analysis without selecting a built-in",
+          "Workbook desktop surface selector enters a System view without selecting a built-in",
+          "Workbook desktop surface selector enters once and navigates canonical surfaces without activation",
+          "Workbook desktop surface selector preserves owned selector focus across responsive replacement without stealing external focus"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.entity_find_text",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1590,7 +1619,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
           "WorkbookShell surface selection focuses a compact Surfaces destination and returns to its trigger on dismissal",
-          "WorkbookShell surface selection focuses the first creation control for every explicitly selected built-in tab without a write"
+          "WorkbookShell surface selection focuses the first creation control for every explicitly selected built-in tab without a write",
+          "WorkbookShell surface selection keeps query identity and raw authoring during desktop selector navigation"
         ]
       },
       "evidence_class": "unit",
@@ -4930,6 +4960,7 @@
           "Timeline deferred continuity reuses acknowledged focus while transient geometry becomes ready",
           "Timeline deferred continuity settles terminal follow-up failure at a visible row fallback without stealing nested control focus",
           "Timeline deferred continuity uses a visible fallback after bounded editor readiness and never reopens the editor",
+          "Timeline deferred continuity uses the selected desktop tab when semantic grid targets are unavailable",
           "Timeline deferred continuity yields a pending row destination to external focus without a pointer or key event"
         ]
       },

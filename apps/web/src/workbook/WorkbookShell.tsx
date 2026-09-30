@@ -927,6 +927,15 @@ function WorkbookShellContent({
                                   />
                                   <div style={shellContentRegionStyle}>
                                     <WorkbookActiveSurfaceFrame
+                                      builtInTablistVisible={
+                                        workbookLayout.shell.chromeMode ===
+                                        "base"
+                                      }
+                                      builtInTablistSurfaceId={
+                                        networkAnalysisActive
+                                          ? null
+                                          : snapshot.surface
+                                      }
                                       activeContent={
                                         <WorkbookReferenceContext.Provider
                                           value={{

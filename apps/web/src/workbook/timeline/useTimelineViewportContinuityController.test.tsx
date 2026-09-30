@@ -154,6 +154,32 @@ function harness() {
 }
 
 describe("Timeline deferred continuity", () => {
+  it("uses the selected desktop tab when semantic grid targets are unavailable", async () => {
+    const h = harness();
+    h.requestFocus.mockResolvedValue("unavailable");
+    const tablist = document.createElement("div");
+    tablist.setAttribute("role", "tablist");
+    tablist.setAttribute("aria-label", "Built-in workbook surfaces");
+    const tab = document.createElement("button");
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", "true");
+    tab.getClientRects = () =>
+      [new DOMRect(0, 0, 50, 25)] as unknown as DOMRectList;
+    tablist.append(tab);
+    document.body.append(tablist);
+    act(() => {
+      const token = h.result.current.beginViewportContinuity({
+        kind: "row-inspect",
+        recordId: "saved",
+      });
+      h.result.current.advanceViewportContinuity(token);
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(document.activeElement).toBe(tab);
+    expect(h.result.current.request).toBeNull();
+  });
   it("cancels an already pending semantic target for wheel native input and composition before it mounts", async () => {
     for (const event of ["wheel", "input", "compositionstart"]) {
       const h = harness();

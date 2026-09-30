@@ -706,7 +706,7 @@ function isRestorationFocus(
 function shellFocusCandidates() {
   const candidates = [
     document.querySelector<HTMLElement>(
-      '[aria-label="Built-in workbook surfaces"] button[aria-current="page"]',
+      '[role="tablist"][aria-label="Built-in workbook surfaces"] [role="tab"][aria-selected="true"]',
     ),
   ];
   for (const id of [

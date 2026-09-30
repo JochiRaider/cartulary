@@ -512,6 +512,7 @@
             "module.workbook.browser.built_in_grid_entry_editor_59f8176b4a",
             "module.workbook.browser.built_in_grid_entry_supersession_5f9a05b19f",
             "module.workbook.browser.built_in_grid_entry_viewer_c3bbf9714f",
+            "module.workbook.browser.desktop_built_in_surface_selector_keyboard_journ_3475c2c6d2",
             "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
             "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
             "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220",
@@ -1761,6 +1762,29 @@
           ],
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "functional-support-network-flow-claimed-incident-administration",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-functional-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.workbook.browser.built_in_selector_entry_from_network_analysis_8f5bebcd07"
+          ],
+          "specs": [
+            "apps/web/e2e/incident-administration.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

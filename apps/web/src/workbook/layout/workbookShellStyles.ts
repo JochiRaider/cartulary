@@ -146,6 +146,13 @@ export const tabStripStyle = {
   overflow: "hidden",
 };
 
+export const builtInSurfaceFocusStyles = `
+.cartulary-shell [role="tablist"][aria-label="Built-in workbook surfaces"] [role="tab"]:focus-visible {
+  outline: var(--ct-component-focus-ring-border);
+  outline-offset: calc(-2 * var(--ct-component-focus-ring-offset));
+}
+`;
+
 export const surfaceTabStyle = {
   borderRadius: 0,
   border: 0,

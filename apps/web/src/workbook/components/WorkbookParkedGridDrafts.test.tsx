@@ -198,8 +198,10 @@ describe("WorkbookParkedGridDrafts focus continuity", () => {
     h.requestFocus.mockResolvedValue("unavailable");
     const navigation = document.createElement("nav");
     navigation.setAttribute("aria-label", "Built-in workbook surfaces");
+    navigation.setAttribute("role", "tablist");
     const selector = document.createElement("button");
-    selector.setAttribute("aria-current", "page");
+    selector.setAttribute("role", "tab");
+    selector.setAttribute("aria-selected", "true");
     selector.getClientRects = () =>
       [new DOMRect(0, 0, 50, 25)] as unknown as DOMRectList;
     navigation.append(selector);

@@ -204,8 +204,8 @@ async function exerciseRecovery(
             ? "Hosts"
             : "Identities";
       await page
-        .getByRole("navigation", { name: "Built-in workbook surfaces" })
-        .getByRole("button", { name, exact: true })
+        .getByRole("tablist", { name: "Built-in workbook surfaces" })
+        .getByRole("tab", { name, exact: true })
         .click();
     }
     await expect(page.getByTestId(gridShellTestId(view))).toBeVisible();

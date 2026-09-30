@@ -1,4 +1,7 @@
-import { workbookActiveSurfaceFocusTargetTestId } from "@cartulary/ui-contracts";
+import {
+  surfaceTabTestId,
+  workbookActiveSurfaceFocusTargetTestId,
+} from "@cartulary/ui-contracts";
 import {
   type ReactNode,
   type RefObject,
@@ -19,6 +22,10 @@ import {
 } from "../../shared/workbookRecoveryNavigation";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import { shellActiveSurfaceStyle } from "../layout/workbookShellStyles";
+import {
+  builtInWorkbookSurfacePanelId,
+  requiredBuiltInWorkbookSurfaceIds,
+} from "../models/workbookSurfaceRegistry";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { WorkbookEditRecoveryPanel } from "./WorkbookEditRecoveryPanel";
@@ -29,6 +36,8 @@ export function WorkbookActiveSurfaceFrame({
   activeContent,
   activeSurfaceRef,
   apiBase,
+  builtInTablistVisible = false,
+  builtInTablistSurfaceId = null,
   focus,
   mutationRuntime,
   sheetRef,
@@ -37,6 +46,8 @@ export function WorkbookActiveSurfaceFrame({
   readonly activeContent: ReactNode;
   readonly activeSurfaceRef: RefObject<HTMLElement | null>;
   readonly apiBase: string | undefined;
+  readonly builtInTablistVisible?: boolean;
+  readonly builtInTablistSurfaceId?: string | null;
   readonly focus: {
     readonly resolverActivation: {
       readonly conflictKey: string;
@@ -184,79 +195,114 @@ export function WorkbookActiveSurfaceFrame({
         blocked
       ? mutationSnapshot.secondary?.message
       : null;
+  const panelSurfaceId =
+    builtInTablistVisible &&
+    builtInTablistSurfaceId !== null &&
+    requiredBuiltInWorkbookSurfaceIds.includes(builtInTablistSurfaceId)
+      ? builtInTablistSurfaceId
+      : null;
   return (
-    <section
-      aria-label="Active workbook surface focus target"
-      data-testid={workbookActiveSurfaceFocusTargetTestId()}
-      ref={activeSurfaceRef}
-      style={{
-        ...shellActiveSurfaceStyle,
-        gridTemplateRows: notice ? "auto minmax(0, 1fr)" : "minmax(0, 1fr)",
-      }}
-      tabIndex={-1}
-    >
-      {notice ? (
-        <section
-          aria-label="Recovery attention"
-          style={{
-            padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
-            overflowWrap: "anywhere",
-          }}
-        >
-          {notice}{" "}
-          <WorkbookInspectorActionButton
-            tone="secondary"
-            onClick={() => activateRecovery()}
+    <>
+      <section
+        aria-label={
+          panelSurfaceId === null
+            ? "Active workbook surface focus target"
+            : undefined
+        }
+        aria-labelledby={
+          panelSurfaceId === null ? undefined : surfaceTabTestId(panelSurfaceId)
+        }
+        id={
+          panelSurfaceId === null
+            ? undefined
+            : builtInWorkbookSurfacePanelId(panelSurfaceId)
+        }
+        role={panelSurfaceId === null ? undefined : "tabpanel"}
+        data-testid={workbookActiveSurfaceFocusTargetTestId()}
+        ref={activeSurfaceRef}
+        style={{
+          ...shellActiveSurfaceStyle,
+          gridTemplateRows: notice ? "auto minmax(0, 1fr)" : "minmax(0, 1fr)",
+        }}
+        tabIndex={-1}
+      >
+        {notice ? (
+          <section
+            aria-label="Recovery attention"
+            style={{
+              padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
+              overflowWrap: "anywhere",
+            }}
           >
-            Review recovery
-          </WorkbookInspectorActionButton>
-        </section>
-      ) : null}
-      {activeContent}
-      <WorkbookRecoveryDetail source="core" item={selected}>
-        {blocked && selected === `fifo:${blocked.unitId}` ? (
-          <WorkbookEditRecoveryPanel
-            key={blocked.unitId}
-            blockedEdit={blocked}
-            onDiscard={() => mutationRuntime.discardBlockedEdit()}
-            onRetry={retryBlocked}
-          />
+            {notice}{" "}
+            <WorkbookInspectorActionButton
+              tone="secondary"
+              onClick={() => activateRecovery()}
+            >
+              Review recovery
+            </WorkbookInspectorActionButton>
+          </section>
         ) : null}
-        {retryUnit && selected === `fifo:${retryUnit.id}` && !blocked ? (
-          <p>Retried edit awaiting settlement.</p>
-        ) : null}
-        {selected === "overflow" && mutationSnapshot.overflowMessage ? (
-          <WorkbookQueueOverflowNotice
-            message={mutationSnapshot.overflowMessage}
-            onClose={() => navigation?.close()}
-          />
-        ) : null}
-      </WorkbookRecoveryDetail>
-      {conflicts.length && selectedEntry ? (
-        <WorkbookRecoveryDetail
-          source={selectedEntry.source}
-          item={selectedEntry.id}
-        >
-          <WorkbookSameFieldConflictResolver
-            key={selectedEntry.key}
-            activation={
-              focus.resolverActivation &&
-              conflicts.some(
-                (entry) => entry.key === focus.resolverActivation?.conflictKey,
-              )
-                ? focus.resolverActivation
-                : null
-            }
-            apiBase={apiBase}
-            onClose={() => navigation?.close()}
-            mutationRuntime={mutationRuntime}
-            onActivateOrigin={onActivateOrigin}
-            snapshot={{ conflicts }}
-            summaryRef={focus.sameFieldSummaryRef}
-          />
+        {activeContent}
+        <WorkbookRecoveryDetail source="core" item={selected}>
+          {blocked && selected === `fifo:${blocked.unitId}` ? (
+            <WorkbookEditRecoveryPanel
+              key={blocked.unitId}
+              blockedEdit={blocked}
+              onDiscard={() => mutationRuntime.discardBlockedEdit()}
+              onRetry={retryBlocked}
+            />
+          ) : null}
+          {retryUnit && selected === `fifo:${retryUnit.id}` && !blocked ? (
+            <p>Retried edit awaiting settlement.</p>
+          ) : null}
+          {selected === "overflow" && mutationSnapshot.overflowMessage ? (
+            <WorkbookQueueOverflowNotice
+              message={mutationSnapshot.overflowMessage}
+              onClose={() => navigation?.close()}
+            />
+          ) : null}
         </WorkbookRecoveryDetail>
-      ) : null}
-    </section>
+        {conflicts.length && selectedEntry ? (
+          <WorkbookRecoveryDetail
+            source={selectedEntry.source}
+            item={selectedEntry.id}
+          >
+            <WorkbookSameFieldConflictResolver
+              key={selectedEntry.key}
+              activation={
+                focus.resolverActivation &&
+                conflicts.some(
+                  (entry) =>
+                    entry.key === focus.resolverActivation?.conflictKey,
+                )
+                  ? focus.resolverActivation
+                  : null
+              }
+              apiBase={apiBase}
+              onClose={() => navigation?.close()}
+              mutationRuntime={mutationRuntime}
+              onActivateOrigin={onActivateOrigin}
+              snapshot={{ conflicts }}
+              summaryRef={focus.sameFieldSummaryRef}
+            />
+          </WorkbookRecoveryDetail>
+        ) : null}
+      </section>
+      {builtInTablistVisible
+        ? requiredBuiltInWorkbookSurfaceIds
+            .filter((id) => id !== panelSurfaceId)
+            .map((id) => (
+              <div
+                hidden
+                key={id}
+                id={builtInWorkbookSurfacePanelId(id)}
+                role="tabpanel"
+                aria-labelledby={surfaceTabTestId(id)}
+              />
+            ))
+        : null}
+    </>
   );
 }
 const subscribeEmpty = () => () => {};

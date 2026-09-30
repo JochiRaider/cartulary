@@ -49,6 +49,11 @@ export {
 
 export type WorkbookSurfaceRegistryEntry = WorkbookSurfaceContract;
 
+/** Workbook-private DOM relationship; surface identity stays with the registry. */
+export function builtInWorkbookSurfacePanelId(viewSchemaId: string): string {
+  return `workbook-surface-panel:${viewSchemaId}`;
+}
+
 export type SystemWorkbookSurfaceGroup = {
   readonly entries: readonly WorkbookSurfaceRegistryEntry[];
   readonly label: string;

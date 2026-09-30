@@ -27,6 +27,7 @@ import {
   landingAdminShellTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
+  networkAnalysisTestId,
   rowCellTestId,
   savedViewFamilySelector,
   savedViewOptionTestId,
@@ -35,7 +36,9 @@ import {
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineInspectorTestId,
   timelineScalarEditorTestId,
+  workbookActiveSurfaceFocusTargetTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookPreferenceTestId,
@@ -69,6 +72,7 @@ import {
 } from "./support/auth/accountEditingFixture";
 import { csrfHeaders, loginLocalSession } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
+import { openClaimedNetworkAnalysis } from "./support/extensions/network_flow_activity/workspace";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";
@@ -78,7 +82,8 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { holdBrowserRequest } from "./support/transport/requestInterception";
-import { createViewRow } from "./support/workbook/query";
+import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 import {
   createSavedView,
   seedSystemSavedView,
@@ -87,6 +92,12 @@ import {
 } from "./support/workbook/savedViews";
 
 type AccountDensityMode = "compact" | "default" | "comfortable" | null;
+
+/** Establish only the preceding region; the selector journey itself uses keyboard input. */
+async function enterDesktopSurfaceSelector(page: Page) {
+  await page.getByRole("button", { name: /^Incident details:/ }).focus();
+  await page.keyboard.press("Tab");
+}
 
 test("operates account application menus with keyboard focus and viewport containment", async ({
   workerAdminPage: page,
@@ -790,6 +801,283 @@ test("updates workbook density from Account Settings while the workbook remains 
   }
 });
 
+test("Verify desktop built-in selector manual keyboard navigation, retained authoring, and responsive focus ownership.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("SELECTOR-KEYS"),
+    "Desktop selector keyboard journey",
+  );
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("selector-authoring"),
+    "timeline.activity_synopsis_text": "Saved selector fixture",
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  const selector = page.getByRole("tablist", {
+    name: "Built-in workbook surfaces",
+  });
+  const tabs = selector.getByRole("tab");
+  expect(
+    await tabs.evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLElement).dataset.viewSchemaId),
+    ),
+  ).toEqual(requiredBuiltInWorkbookSurfaceIds);
+  expect(
+    await tabs.evaluateAll(
+      (nodes) =>
+        nodes.filter((node) => (node as HTMLElement).tabIndex === 0).length,
+    ),
+  ).toBe(1);
+  const writes: string[] = [];
+  let queries = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/query"))
+      queries += 1;
+    if (
+      ["POST", "PATCH", "DELETE"].includes(request.method()) &&
+      /\/(rows|records)(\/|$)/u.test(new URL(request.url()).pathname)
+    )
+      writes.push(request.url());
+  });
+  const route = page.url();
+  await enterDesktopSurfaceSelector(page);
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  for (const id of requiredBuiltInWorkbookSurfaceIds.slice(1)) {
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId(surfaceTabTestId(id))).toBeFocused();
+    const geometry = await page
+      .getByTestId(surfaceTabTestId(id))
+      .evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const strip = element.parentElement?.getBoundingClientRect();
+        if (!strip) throw new Error("Expected desktop selector strip");
+        const style = getComputedStyle(element);
+        const outlineWidth = Number.parseFloat(style.outlineWidth);
+        const outset = outlineWidth + Number.parseFloat(style.outlineOffset);
+        return {
+          width: rect.width,
+          // Check the painted focus ring against both clipping boundaries.
+          left: rect.left - outset,
+          right: rect.right + outset,
+          top: rect.top - outset,
+          bottom: rect.bottom + outset,
+          clipLeft: Math.max(0, strip.left),
+          clipRight: Math.min(window.innerWidth, strip.right),
+          clipTop: Math.max(0, strip.top),
+          clipBottom: Math.min(window.innerHeight, strip.bottom),
+          outlineStyle: style.outlineStyle,
+          outlineWidth,
+        };
+      });
+    expect(geometry.width, JSON.stringify(geometry)).toBeGreaterThan(0);
+    expect(geometry.left, JSON.stringify(geometry)).toBeGreaterThanOrEqual(
+      geometry.clipLeft,
+    );
+    expect(geometry.right, JSON.stringify(geometry)).toBeLessThanOrEqual(
+      geometry.clipRight,
+    );
+    expect(geometry.top, JSON.stringify(geometry)).toBeGreaterThanOrEqual(
+      geometry.clipTop,
+    );
+    expect(geometry.bottom, JSON.stringify(geometry)).toBeLessThanOrEqual(
+      geometry.clipBottom,
+    );
+    expect(geometry.outlineStyle, JSON.stringify(geometry)).not.toBe("none");
+    expect(geometry.outlineWidth, JSON.stringify(geometry)).toBeGreaterThan(0);
+  }
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    page.getByTestId(surfaceTabTestId(notesViewSchemaId)),
+  ).toBeFocused();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("End");
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByTestId(surfaceTabTestId(notesViewSchemaId)),
+  ).toBeFocused();
+  await expect(page).toHaveURL(route);
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("aria-selected", "true");
+  expect(queries).toBe(0);
+  expect(writes).toEqual([]);
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: /^Recovery \(\d+\)$/u }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  for (let index = 0; index < 3; index += 1)
+    await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByTestId(genericCreateFieldTestId("evidence.title")),
+  ).toBeFocused();
+  const panel = page.getByRole("tabpanel", { name: "Evidence", exact: true });
+  await expect(panel).toHaveAttribute(
+    "id",
+    (await page
+      .getByTestId(surfaceTabTestId(evidenceViewSchemaId))
+      .getAttribute("aria-controls")) ?? "",
+  );
+  await expect(panel).toHaveAttribute(
+    "aria-labelledby",
+    (await page
+      .getByTestId(surfaceTabTestId(evidenceViewSchemaId))
+      .getAttribute("id")) ?? "",
+  );
+  await enterDesktopSurfaceSelector(page);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Space");
+  await expect(
+    page.getByTestId(draftCellTestId("timeline.date_entered_text")),
+  ).toBeFocused();
+
+  await openTimelineInspector(page, row.record_id);
+  await page
+    .getByRole("button", { name: "Edit Activity Synopsis", exact: true })
+    .click();
+  const rawEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: row.record_id,
+      surface: "inspector",
+    }),
+  );
+  await rawEditor.fill("  Retained selector authoring Ω  ");
+  const authoringRoute = page.url();
+  const authoringQueries = queries;
+  await enterDesktopSurfaceSelector(page);
+  await page.keyboard.press("ArrowRight");
+  expect(page.url()).toBe(authoringRoute);
+  expect(queries).toBe(authoringQueries);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveAttribute(
+    "data-record-id",
+    row.record_id,
+  );
+  await expect(rawEditor).toHaveValue("  Retained selector authoring Ω  ");
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByTestId(genericCreateFieldTestId("host.display_name")),
+  ).toBeFocused();
+  await enterDesktopSurfaceSelector(page);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByTestId(draftCellTestId("timeline.date_entered_text")),
+  ).toBeFocused();
+  await openTimelineInspector(page, row.record_id);
+  if (!(await rawEditor.count()))
+    await page
+      .getByRole("button", {
+        name: "Resume draft for Activity Synopsis",
+        exact: true,
+      })
+      .click();
+  await expect(rawEditor).toHaveValue("  Retained selector authoring Ω  ");
+
+  await enterDesktopSurfaceSelector(page);
+  await page.keyboard.press("ArrowRight");
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const compact = page.getByTestId(workbookSurfacesMenuTriggerTestId());
+  await expect(compact).toBeFocused();
+  await expect(page.getByRole("tabpanel", { includeHidden: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByTestId(workbookActiveSurfaceFocusTargetTestId()),
+  ).toHaveAccessibleName("Active workbook surface focus target");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByTestId(workbookSurfacesMenuOptionTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  await expect(page.getByTestId(workbookSurfacesMenuTestId())).toHaveCount(0);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "125%";
+  });
+  await expect(compact).toBeFocused();
+  await expect(selector).toHaveCount(0);
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(compact).toBeFocused();
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  const recovery = page.getByRole("button", { name: /^Recovery \(\d+\)$/u });
+  await expect(recovery).toBeFocused();
+  await page.setViewportSize({ width: 1024, height: 720 });
+  await expect(recovery).toBeFocused();
+  expect(writes).toEqual([]);
+  expect(
+    (await queryViewRows(page, incidentId, timelineViewSchemaId)).map(
+      (entry) => entry.record_id,
+    ),
+  ).toEqual([row.record_id]);
+  expect(await queryViewRows(page, incidentId, evidenceViewSchemaId)).toEqual(
+    [],
+  );
+  expect(await queryViewRows(page, incidentId, hostsViewSchemaId)).toEqual([]);
+});
+
+test("Verify built-in selector entry from Network Analysis remains unselected until explicit activation.", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openClaimedNetworkAnalysis(page, "SELECTOR-EXTENSION");
+  const route = page.url();
+  await enterDesktopSurfaceSelector(page);
+  const tabs = page
+    .getByRole("tablist", { name: "Built-in workbook surfaces" })
+    .getByRole("tab");
+  expect(
+    await tabs.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("aria-selected")),
+    ),
+  ).toEqual(["false", "false", "false", "false", "false"]);
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    page.getByTestId(surfaceTabTestId(hostsViewSchemaId)),
+  ).toBeFocused();
+  await expect(
+    page.getByTestId(networkAnalysisTestId("workspace")),
+  ).toBeVisible();
+  await expect(page).toHaveURL(route);
+  await page.keyboard.press("Space");
+  await expect(
+    page.getByTestId(genericCreateFieldTestId("host.display_name")),
+  ).toBeFocused();
+  await expect(
+    page.getByTestId(surfaceTabTestId(hostsViewSchemaId)),
+  ).toHaveAttribute("aria-selected", "true");
+});
+
 test("Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.", async ({
   page,
 }) => {
@@ -812,14 +1100,14 @@ test("Verify System views switcher keyboard entry, roving focus, selection, dism
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(page).toHaveURL(timelineUrlPattern);
 
-  const lastBuiltInTabId =
-    requiredBuiltInWorkbookSurfaceIds[
-      requiredBuiltInWorkbookSurfaceIds.length - 1
-    ];
-  if (!lastBuiltInTabId) {
-    throw new Error("Missing final built-in workbook surface");
-  }
-  await page.getByTestId(surfaceTabTestId(lastBuiltInTabId)).focus();
+  await enterDesktopSurfaceSelector(page);
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(
+    page.getByTestId(surfaceTabTestId(notesViewSchemaId)),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
 
   await expect(
@@ -888,7 +1176,9 @@ test("Verify explicit built-in tabs and compact Surfaces selections focus creati
   await expect(
     page.getByTestId(genericCreateFieldTestId("evidence.title")),
   ).toBeFocused();
-  await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).press("Enter");
+  await enterDesktopSurfaceSelector(page);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
   await expect(
     page.getByTestId(draftCellTestId("timeline.date_entered_text")),
   ).toBeFocused();
@@ -905,9 +1195,13 @@ test("Verify explicit built-in tabs and compact Surfaces selections focus creati
   ).toBeVisible();
 
   await trigger.press("Enter");
-  await page
-    .getByTestId(workbookSurfacesMenuOptionTestId(evidenceViewSchemaId))
-    .press("Enter");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByTestId(workbookSurfacesMenuOptionTestId(evidenceViewSchemaId)),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(page.getByTestId(workbookSurfacesMenuTestId())).toHaveCount(0);
   await expect(
     page.getByTestId(genericCreateFieldTestId("evidence.title")),
@@ -960,7 +1254,10 @@ test("Verify viewer built-in selection focuses committed cells then the empty gr
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
-  await page.getByTestId(surfaceTabTestId(evidenceViewSchemaId)).click();
+  await enterDesktopSurfaceSelector(page);
+  for (let index = 0; index < 3; index += 1)
+    await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Space");
   await expect(
     page
       .getByTestId(rowCellTestId(evidence.record_id, "evidence.title"))
@@ -969,7 +1266,9 @@ test("Verify viewer built-in selection focuses committed cells then the empty gr
   await expect(
     page.getByTestId(genericCreateFieldTestId("evidence.title")),
   ).toHaveCount(0);
-  await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
+  await enterDesktopSurfaceSelector(page);
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
   await expect(
     page
       .getByTestId(gridShellTestId(notesViewSchemaId))
@@ -993,7 +1292,10 @@ test("Verify delayed built-in entry cannot steal focus after a newer surface sel
     path: `/api/v1/incidents/${incidentId}/views/${evidenceViewSchemaId}/query`,
   });
   try {
-    await page.getByTestId(surfaceTabTestId(evidenceViewSchemaId)).click();
+    await enterDesktopSurfaceSelector(page);
+    for (let index = 0; index < 3; index += 1)
+      await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
     await held.waitForHit;
     const oldQuerySettled = new Promise<void>((resolve) => {
       const onSettled = (request: Request) => {
@@ -1009,7 +1311,8 @@ test("Verify delayed built-in entry cannot steal focus after a newer surface sel
       page.on("requestfinished", onSettled);
       page.on("requestfailed", onSettled);
     });
-    await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
     const notesEntry = page.getByTestId(genericCreateFieldTestId("note.title"));
     await expect(notesEntry).toBeFocused();
     held.release();

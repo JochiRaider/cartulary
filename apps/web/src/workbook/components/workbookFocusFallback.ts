@@ -7,7 +7,7 @@ import {
 /** Last visible shell destinations in the workbook focus fallback ladder. */
 export function focusWorkbookShellFallback(): boolean {
   const activeSelector = document.querySelector<HTMLElement>(
-    '[aria-label="Built-in workbook surfaces"] button[aria-current="page"]',
+    '[role="tablist"][aria-label="Built-in workbook surfaces"] [role="tab"][aria-selected="true"]',
   );
   if (
     activeSelector &&

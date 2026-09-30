@@ -1254,6 +1254,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.built_in_selector_entry_from_network_analysis_8f5bebcd07",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-administration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_built_in_selector_extension_entry"
+        ],
+        "titles": [
+          "Verify built-in selector entry from Network Analysis remains unselected until explicit activation."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.canonical_create_independent_recovery",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -1682,6 +1717,41 @@
         ],
         "titles": [
           "Incident revocation conceals coordination drafts and late acceptance while preserving the account session"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.desktop_built_in_surface_selector_keyboard_journ_3475c2c6d2",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-administration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_desktop_built_in_selector_keyboard"
+        ],
+        "titles": [
+          "Verify desktop built-in selector manual keyboard navigation, retained authoring, and responsive focus ownership."
         ]
       },
       "evidence_class": "browser",

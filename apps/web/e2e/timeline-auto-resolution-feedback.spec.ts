@@ -761,9 +761,9 @@ test("Timeline auto-resolution feedback undo late acceptance stays detached afte
     await held.waitForHit;
     const hostsTab = page.getByTestId(surfaceTabTestId(hostsViewSchemaId));
     await hostsTab.click();
-    await expect(hostsTab).toHaveAttribute("aria-current", "page");
+    await expect(hostsTab).toHaveAttribute("aria-selected", "true");
     held.release();
-    await expect(hostsTab).toHaveAttribute("aria-current", "page");
+    await expect(hostsTab).toHaveAttribute("aria-selected", "true");
     await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
     await expect(notice).toHaveCount(0);
     expect(held.hitCount()).toBe(1);

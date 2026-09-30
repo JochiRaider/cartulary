@@ -333,7 +333,7 @@ test("Canonical late response preserves retargeted drafts and exact recovery aft
       ),
     )
     .click();
-  await page.getByRole("button", { name: "Timeline", exact: true }).click();
+  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
   await openObservationEditor(page, other.record_id);
   await editor
     .getByRole("button", { name: "Create canonical Indicator…", exact: true })

@@ -37,7 +37,7 @@ test("Workbook Import Assistant discovers, maps, selects, applies, and navigates
   await page.getByTestId(surfaceTabTestId(hostsViewSchemaId)).click();
   await expect(
     page.getByTestId(surfaceTabTestId(hostsViewSchemaId)),
-  ).toHaveAttribute("aria-current", "page");
+  ).toHaveAttribute("aria-selected", "true");
   await page.getByLabel("Account and application navigation").click();
   await page.getByTestId(incidentControlsTriggerTestId()).click();
   await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
@@ -74,7 +74,7 @@ test("Workbook Import Assistant discovers, maps, selects, applies, and navigates
   await expect(page.getByTestId(incidentControlsPanelTestId())).toHaveCount(0);
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
-  ).toHaveAttribute("aria-current", "page");
+  ).toHaveAttribute("aria-selected", "true");
   await expect
     .poll(async () =>
       (await queryViewRows(page, incidentId, timelineViewSchemaId)).some(
@@ -333,7 +333,7 @@ test("Workbook Import Assistant resumes its known job and recovers only selectio
   await expect(page.getByTestId(incidentControlsPanelTestId())).toHaveCount(0);
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
-  ).toHaveAttribute("aria-current", "page");
+  ).toHaveAttribute("aria-selected", "true");
 });
 
 test("Workbook Import Assistant reviews XLSX partial outcomes and navigates only to committed targets", async ({
@@ -413,7 +413,7 @@ test("Workbook Import Assistant reviews XLSX partial outcomes and navigates only
   await assistant.getByRole("button", { name: "Open Timeline" }).click();
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
-  ).toHaveAttribute("aria-current", "page");
+  ).toHaveAttribute("aria-selected", "true");
 });
 
 test("Workbook Import Assistant is absent when the Import profile is unclaimed", async ({

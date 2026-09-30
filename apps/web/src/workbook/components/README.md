@@ -37,13 +37,14 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [GenericWorkbookSurface.tsx](GenericWorkbookSurface.tsx) | Contract-backed grid presentation borrowing retained ordinary drafts, local recovery and source command ports. |
 | [IncidentControlsDrawer.tsx](IncidentControlsDrawer.tsx) | Shell-level incident controls drawer presentation and focus boundary. |
 | [SystemViewSwitcher.tsx](SystemViewSwitcher.tsx) | System-view switcher UI and grouped surface navigation. |
-| [WorkbookActiveSurfaceFrame.tsx](WorkbookActiveSurfaceFrame.tsx) | Active-surface recovery boundary and mutually exclusive blocked/overflow/conflict presentation, preserving rejected editors' accessibility. |
+| [WorkbookActiveSurfaceFrame.tsx](WorkbookActiveSurfaceFrame.tsx) | Active-surface recovery boundary and desktop built-in tab panels, preserving rejected editors' accessibility and the single active surface mount. |
 | [WorkbookActiveSurfaceFrame.test.tsx](WorkbookActiveSurfaceFrame.test.tsx) | Keeps the original editor accessible and checks grouped conflict selection, drafts, feedback and focus through delayed resolution and projection refresh. |
 | [WorkbookActiveSurfacePresentation.tsx](WorkbookActiveSurfacePresentation.tsx) | Exact built-in or extension renderer selection with lazy extension lifecycle binding. |
 | [WorkbookIncidentControlsPresentation.tsx](WorkbookIncidentControlsPresentation.tsx) | Incident-controls drawer content and lazy Import Assistant renderer selection. |
 | [WorkbookPresenceMarkers.tsx](WorkbookPresenceMarkers.tsx) | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
 | [WorkbookShellSlots.tsx](WorkbookShellSlots.tsx) | Stable shell slot IDs, labels, and layout slot helpers. |
-| [WorkbookShellTopBar.tsx](WorkbookShellTopBar.tsx) | Responsive built-in/system-surface navigation, registered menu focus, incident identity, presence, and account presentation. |
+| [WorkbookShellTopBar.test.tsx](WorkbookShellTopBar.test.tsx) | Tests desktop manual navigation, explicit activation, and responsive selector focus ownership. |
+| [WorkbookShellTopBar.tsx](WorkbookShellTopBar.tsx) | Manual desktop built-in tab navigation, responsive selector focus ownership, registered menu focus, incident identity, presence, and account presentation. |
 | [WorkbookIncidentIdentityDisclosure.tsx](WorkbookIncidentIdentityDisclosure.tsx) | Explicit full incident-key/title disclosure with pointer, keyboard, Escape and focus departure behavior. |
 
 `workbookFormStyles.ts` supplies the shared quiet command treatment. Feature

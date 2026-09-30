@@ -1576,8 +1576,8 @@ test("Timeline paste retains committed creates through lost response navigation 
     await selectCell(page, target);
     await clipboard(page, "Captured update\nCaptured new record");
     await lost;
-    await page.getByRole("button", { name: "Hosts", exact: true }).click();
-    await page.getByRole("button", { name: "Timeline", exact: true }).click();
+    await page.getByRole("tab", { name: "Hosts", exact: true }).click();
+    await page.getByRole("tab", { name: "Timeline", exact: true }).click();
     await expect(
       page.getByTestId(timelineMutationSubstrateReadyTestId()),
     ).toBeVisible();
@@ -2288,8 +2288,8 @@ test("Timeline clear retries exact lost receipts and recovers acknowledged reads
     await selectCell(page, target);
     await page.keyboard.press("Delete");
     await lost;
-    await page.getByRole("button", { name: "Hosts", exact: true }).click();
-    await page.getByRole("button", { name: "Timeline", exact: true }).click();
+    await page.getByRole("tab", { name: "Hosts", exact: true }).click();
+    await page.getByRole("tab", { name: "Timeline", exact: true }).click();
     await expect(
       page.getByTestId(timelineMutationSubstrateReadyTestId()),
     ).toBeVisible();

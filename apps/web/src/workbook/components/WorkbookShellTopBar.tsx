@@ -8,12 +8,19 @@ import {
   workbookSurfacesMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { type ReactNode, type RefObject, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import type { WorkbookCollaborationSnapshot } from "../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookLayoutSnapshot } from "../layout/useWorkbookLayoutFacade";
 import {
   activeSystemViewTitleStyle,
+  builtInSurfaceFocusStyles,
   currentUserChipStyle,
   currentUserSlotStyle,
   shellIncidentIdentityStyle,
@@ -31,7 +38,10 @@ import {
   tabStripStyle,
 } from "../layout/workbookShellStyles";
 import type { WorkbookIncidentIdentity } from "../models/workbookIncidentIdentity";
-import { requiredBuiltInWorkbookSurfaceIds } from "../models/workbookSurfaceRegistry";
+import {
+  builtInWorkbookSurfacePanelId,
+  requiredBuiltInWorkbookSurfaceIds,
+} from "../models/workbookSurfaceRegistry";
 import { displayInitials } from "../utils/workbookPresence";
 import { SystemViewSwitcher } from "./SystemViewSwitcher";
 import { WorkbookIncidentIdentityDisclosure } from "./WorkbookIncidentIdentityDisclosure";
@@ -80,6 +90,17 @@ export function WorkbookShellTopBar({
 }: WorkbookShellTopBarProps) {
   const [surfacesMenuOpen, setSurfacesMenuOpen] = useState(false);
   const surfacesMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  // Presentation focus only: never a second owner of workbook selection.
+  const entrySurface =
+    !networkAnalysisActive &&
+    requiredBuiltInWorkbookSurfaceIds.includes(surface)
+      ? surface
+      : requiredBuiltInWorkbookSurfaceIds[0];
+  const [focusedSurface, setFocusedSurface] = useState<string | null>(null);
+  const surfaceControls = useRef(new Map<string, HTMLButtonElement>());
+  const selectorFocus = useRef<HTMLElement | null>(null);
+  const desktop = layout.chromeMode === "base";
+  const previousDesktop = useRef(desktop);
   const surfacesMenuNavigation = useRegisteredOverlayNavigation({
     fallbackFocusRef: activeSurfaceFocusRef,
     initialItemKey: requiredBuiltInWorkbookSurfaceIds.includes(surface)
@@ -91,7 +112,31 @@ export function WorkbookShellTopBar({
     subjectKey: surface,
     triggerRef: surfacesMenuTriggerRef,
   });
+  useLayoutEffect(() => {
+    if (previousDesktop.current === desktop) return;
+    previousDesktop.current = desktop;
+    const previousControl = selectorFocus.current;
+    selectorFocus.current = null;
+    setFocusedSurface(null);
+    if (desktop) surfacesMenuNavigation.close({ restoreTriggerFocus: false });
+    // Only replace focus removed with this selector, never newer external focus.
+    if (
+      previousControl &&
+      (document.activeElement === previousControl ||
+        (document.activeElement === document.body &&
+          !previousControl.isConnected))
+    ) {
+      const replacement = desktop
+        ? entrySurface === undefined
+          ? null
+          : surfaceControls.current.get(entrySurface)
+        : surfacesMenuTriggerRef.current;
+      replacement?.focus({ preventScroll: true });
+    }
+  });
   const selectExplicitSurface = (viewSchemaId: string) => {
+    // An explicitly selected menu item retires; it no longer owns replacement focus.
+    if (!desktop) selectorFocus.current = null;
     onSelectSurface(viewSchemaId, { focusFirstGridTarget: true });
   };
   const incidentKeyLabel = incidentIdentity?.incident_key ?? "Incident";
@@ -108,7 +153,10 @@ export function WorkbookShellTopBar({
       }}
       viewSchemaId={surface}
     >
-      <style>{workbookCommandStateStyles}</style>
+      <style>
+        {workbookCommandStateStyles}
+        {builtInSurfaceFocusStyles}
+      </style>
       <div
         data-testid={workbookIncidentIdentityTestId()}
         style={shellIncidentIdentityStyle}
@@ -132,21 +180,80 @@ export function WorkbookShellTopBar({
         hidden
       />
       {layout.chromeMode === "base" ? (
-        <nav
+        <div
           data-grid-editor-external-action="true"
           aria-label="Built-in workbook surfaces"
+          role="tablist"
+          aria-orientation="horizontal"
           style={tabStripStyle}
+          onBlur={(event) => {
+            if (
+              event.relatedTarget instanceof Node &&
+              event.currentTarget.contains(event.relatedTarget)
+            )
+              return;
+            setFocusedSurface(null);
+            if (event.relatedTarget !== null) selectorFocus.current = null;
+          }}
         >
           {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId, index) => {
             const contract = requireViewContract(viewSchemaId);
             const selected = !networkAnalysisActive && surface === viewSchemaId;
             return (
               <button
-                aria-current={selected ? "page" : undefined}
+                aria-selected={selected}
+                aria-controls={builtInWorkbookSurfacePanelId(viewSchemaId)}
+                id={surfaceTabTestId(viewSchemaId)}
+                role="tab"
                 data-testid={surfaceTabTestId(viewSchemaId)}
                 data-view-schema-id={viewSchemaId}
                 data-workbook-tab-index={String(index)}
                 key={viewSchemaId}
+                ref={(element) => {
+                  if (element)
+                    surfaceControls.current.set(viewSchemaId, element);
+                  else surfaceControls.current.delete(viewSchemaId);
+                }}
+                tabIndex={
+                  (focusedSurface ?? entrySurface) === viewSchemaId ? 0 : -1
+                }
+                onFocus={(event) => {
+                  selectorFocus.current = event.currentTarget;
+                  setFocusedSurface(viewSchemaId);
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.defaultPrevented ||
+                    event.nativeEvent.isComposing ||
+                    event.altKey ||
+                    event.ctrlKey ||
+                    event.metaKey ||
+                    event.shiftKey
+                  )
+                    return;
+                  const index =
+                    requiredBuiltInWorkbookSurfaceIds.indexOf(viewSchemaId);
+                  const count = requiredBuiltInWorkbookSurfaceIds.length;
+                  // Manual activation; wrapping and Home/End follow local roving precedent.
+                  const next =
+                    event.key === "ArrowRight"
+                      ? (index + 1) % count
+                      : event.key === "ArrowLeft"
+                        ? (index + count - 1) % count
+                        : event.key === "Home"
+                          ? 0
+                          : event.key === "End"
+                            ? count - 1
+                            : null;
+                  if (next === null) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const target = requiredBuiltInWorkbookSurfaceIds[next];
+                  if (target)
+                    surfaceControls.current
+                      .get(target)
+                      ?.focus({ preventScroll: true });
+                }}
                 onClick={() => selectExplicitSurface(viewSchemaId)}
                 style={{
                   ...surfaceTabStyle,
@@ -158,11 +265,24 @@ export function WorkbookShellTopBar({
               </button>
             );
           })}
-        </nav>
+        </div>
       ) : (
         <div
           data-grid-editor-external-action="true"
           style={surfacesMenuFrameStyle}
+          onFocusCapture={(event) => {
+            selectorFocus.current = event.target as HTMLElement;
+          }}
+          onBlurCapture={(event) => {
+            if (
+              event.relatedTarget !== null &&
+              !(
+                event.relatedTarget instanceof Node &&
+                event.currentTarget.contains(event.relatedTarget)
+              )
+            )
+              selectorFocus.current = null;
+          }}
         >
           <button
             aria-controls={

@@ -2301,7 +2301,7 @@ async function verifyEntityPasteRecovery(
       );
     }, `First name\t${key}\nFinal name\t${key}`);
     await lost;
-    await page.getByRole("button", { name: "Timeline", exact: true }).click();
+    await page.getByRole("tab", { name: "Timeline", exact: true }).click();
     await openRecoveryItem(page, /^(Paste|Fill|Tag assignment) ·/);
     const retry = page.getByRole("button", {
       name: "Retry paste",
@@ -2314,7 +2314,7 @@ async function verifyEntityPasteRecovery(
       .getByRole("button", { name: "Close recovery", exact: true })
       .click();
     await page
-      .getByRole("button", {
+      .getByRole("tab", {
         name: entityType === "host" ? "Hosts" : "Identities",
         exact: true,
       })

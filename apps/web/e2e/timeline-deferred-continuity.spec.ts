@@ -163,7 +163,7 @@ test("Timeline pending restoration yields to wheel native input external focus a
           );
         });
       } else if (intent === "focus") {
-        await page.getByRole("button", { name: "Hosts", exact: true }).focus();
+        await page.getByRole("tab", { name: "Hosts", exact: true }).focus();
       } else if (intent === "range") {
         await page
           .getByTestId(rowCellTestId(other.record_id, synopsis))

@@ -937,7 +937,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     await expect(page.getByText(/Timeline mutation substrate/u)).toHaveCount(0);
     await expect(
       page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
-    ).toHaveAttribute("aria-current", "page");
+    ).toHaveAttribute("aria-selected", "true");
     await expect(
       page.getByTestId(systemViewSwitcherTriggerTestId()),
     ).toBeVisible();

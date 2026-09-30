@@ -2127,7 +2127,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
     }
     await expect(
       page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
-    ).toHaveAttribute("aria-current", "page");
+    ).toHaveAttribute("aria-selected", "true");
 
     const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
     await expect(trigger).toBeVisible();

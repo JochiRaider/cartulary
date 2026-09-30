@@ -53,6 +53,7 @@ import {
   timelineEvidenceFileInputTestId,
   timelineInspectorTestId,
   timelinePreviewRowTestId,
+  workbookActiveSurfaceFocusTargetTestId,
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
   workbookImportAssistantTestId,
@@ -79,6 +80,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkbookImportController } from "../imports/WorkbookImportController";
@@ -116,6 +118,7 @@ import {
 } from "./models/workbookSavedViews";
 import {
   assessmentsViewSchemaId,
+  builtInWorkbookSurfacePanelId,
   commLogViewSchemaId,
   evidenceViewSchemaId,
   hostsViewSchemaId,
@@ -2007,12 +2010,76 @@ describe("WorkbookShell surface selection", () => {
           targetTestId,
         );
       });
+      const panel = screen.getByRole("tabpanel", {
+        name: requireViewContract(viewSchemaId).title,
+      });
+      expect(panel).toBe(
+        screen.getByTestId(workbookActiveSurfaceFocusTargetTestId()),
+      );
+      expect(panel.id).toBe(builtInWorkbookSurfacePanelId(viewSchemaId));
+      expect(tab.getAttribute("aria-controls")).toBe(panel.id);
+      expect(panel.getAttribute("aria-labelledby")).toBe(tab.id);
+      expect(screen.getAllByRole("tabpanel", { hidden: true })).toHaveLength(5);
     }
     expect(
       fetchMock.mock.calls.filter(
         ([url, init]) =>
           String(url).endsWith("/rows") &&
           (init as RequestInit | undefined)?.method === "POST",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("keeps query identity and raw authoring during desktop selector navigation", async () => {
+    const input = await ordinaryDraft(hostsViewSchemaId, "host.display_name");
+    await flushWorkbookAsync();
+    const route = window.location.href;
+    const activeGrid = screen.getByTestId(gridShellTestId(hostsViewSchemaId));
+    const savedView = screen.getByTestId(
+      savedViewSelectorTestId(hostsViewSchemaId),
+    ).textContent;
+    const calls = fetchMock.mock.calls.length;
+    const user = userEvent.setup();
+    within(screen.getByTestId(workbookShellSlotTestId("top-bar")))
+      .getByRole("button", { name: /^Incident details:/ })
+      .focus();
+    await user.tab();
+    expect(document.activeElement).toBe(
+      screen.getByTestId(surfaceTabTestId(hostsViewSchemaId)),
+    );
+    await user.keyboard("{End}{ArrowRight}{ArrowLeft}{Home}{Escape}");
+    expect(document.activeElement).toBe(
+      screen.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+    );
+    expect(window.location.href).toBe(route);
+    expect(screen.getByTestId(gridShellTestId(hostsViewSchemaId))).toBe(
+      activeGrid,
+    );
+    expect(
+      screen.getByTestId(savedViewSelectorTestId(hostsViewSchemaId))
+        .textContent,
+    ).toBe(savedView);
+    expect(input.value).toBe("  Unfinished authoring  ");
+    expect(fetchMock.mock.calls).toHaveLength(calls);
+    await user.keyboard("{End}{Enter}");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByTestId(genericCreateFieldTestId("note.title")),
+      ),
+    );
+    await user.click(screen.getByTestId(surfaceTabTestId(hostsViewSchemaId)));
+    expect(
+      (
+        (await screen.findByTestId(
+          genericCreateFieldTestId("host.display_name"),
+        )) as HTMLInputElement
+      ).value,
+    ).toBe("  Unfinished authoring  ");
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          String(url).endsWith("/rows") &&
+          (init as RequestInit)?.method === "POST",
       ),
     ).toHaveLength(0);
   });
@@ -2067,9 +2134,9 @@ describe("WorkbookShell surface selection", () => {
     expect(workbookShell.style.blockSize).toBe("100%");
     expect(["0", "0px"]).toContain(workbookShell.style.minBlockSize);
     expect(workbookShell.style.overflow).toBe("hidden");
-    const shellContentRegion = screen.getByRole("region", {
-      name: "Active workbook surface focus target",
-    }).parentElement;
+    const shellContentRegion = screen.getByTestId(
+      workbookActiveSurfaceFocusTargetTestId(),
+    ).parentElement;
     expect(shellContentRegion).toBeInstanceOf(HTMLElement);
     if (!(shellContentRegion instanceof HTMLElement)) {
       throw new Error("Expected workbook shell content region to exist");
