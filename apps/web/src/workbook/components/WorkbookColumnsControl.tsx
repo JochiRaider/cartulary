@@ -2,7 +2,14 @@ import {
   workbookColumnsMenuTestId,
   workbookColumnsMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   WorkbookColumnSizingControls,
   WorkbookFrozenColumnControls,
@@ -54,17 +61,49 @@ export function WorkbookColumnsControl({
     readonly source: HTMLButtonElement;
     readonly fieldKey: string;
     readonly action: ColumnFocusAction;
+    readonly panel: HTMLDivElement;
   } | null>(null);
+  const [, setActionRevision] = useState(0);
   const [field, setField] = useState<string | null>(null);
-  const returnField = useRef<string | null>(null);
+  const widthContext = useRef<{
+    readonly fieldKey: string;
+    readonly panel: HTMLDivElement;
+    readonly top: number;
+    readonly left: number;
+  } | null>(null);
+  const widthReturn = useRef<{
+    readonly context: NonNullable<typeof widthContext.current>;
+    readonly source: Element;
+  } | null>(null);
+  const focusAndReveal = useCallback(
+    (target: HTMLElement | null | undefined) => {
+      if (isOpen) focusAndRevealColumnsControl(panel.current, target);
+    },
+    [isOpen],
+  );
+  const clearFocusWork = useCallback(() => {
+    pendingActionFocus.current = null;
+    widthReturn.current = null;
+    widthContext.current = null;
+  }, []);
   useLayoutEffect(() => {
-    if (field === null && returnField.current) {
-      widthButtons.current
-        .get(returnField.current)
-        ?.focus({ preventScroll: true });
-      returnField.current = null;
-    }
-  }, [field]);
+    const request = widthReturn.current;
+    widthReturn.current = null;
+    if (
+      !request ||
+      !isOpen ||
+      field !== null ||
+      panel.current !== request.context.panel
+    )
+      return;
+    const active = document.activeElement;
+    if (active !== request.source && active !== document.body) return;
+    const target = widthButtons.current.get(request.context.fieldKey);
+    if (!target?.isConnected || target.disabled) return;
+    panel.current.scrollTop = request.context.top;
+    panel.current.scrollLeft = request.context.left;
+    focusAndReveal(target);
+  }, [field, isOpen, focusAndReveal]);
   const [notice, setNotice] = useState("");
   const cancel = sizing.cancel;
   useEffect(() => () => cancel(), [cancel]);
@@ -74,6 +113,9 @@ export function WorkbookColumnsControl({
         ?.querySelector<HTMLInputElement>('input[type="checkbox"]')
         ?.focus({ preventScroll: true });
     else {
+      pendingActionFocus.current = null;
+      widthReturn.current = null;
+      widthContext.current = null;
       setField(null);
       cancel();
     }
@@ -85,21 +127,29 @@ export function WorkbookColumnsControl({
         event.target instanceof Node &&
         !root.current?.contains(event.target)
       ) {
+        clearFocusWork();
         cancel();
         onClose();
       }
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, [isOpen, onClose, cancel]);
+  }, [isOpen, onClose, cancel, clearFocusWork]);
   const close = () => {
+    clearFocusWork();
     cancel();
     onClose();
     trigger.current?.focus({ preventScroll: true });
   };
   const closeWidth = () => {
+    const source = document.activeElement;
+    const context = widthContext.current;
+    widthReturn.current =
+      context && source && panel.current?.contains(source)
+        ? { context, source }
+        : null;
+    widthContext.current = null;
     cancel();
-    returnField.current = field;
     setField(null);
   };
   const selected = projection.columns.find(
@@ -112,7 +162,13 @@ export function WorkbookColumnsControl({
   useLayoutEffect(() => {
     const request = pendingActionFocus.current;
     pendingActionFocus.current = null;
-    if (!request || !isOpen || field !== null) return;
+    if (
+      !request ||
+      !isOpen ||
+      field !== null ||
+      request.panel !== panel.current
+    )
+      return;
     if (
       !projection.columns.some((column) => column.fieldKey === request.fieldKey)
     )
@@ -132,16 +188,24 @@ export function WorkbookColumnsControl({
             ? (eligible(freezeButtons.current.get(request.fieldKey)) ??
               eligible(widthButtons.current.get(request.fieldKey)))
             : eligible(freezeButtons.current.get(request.fieldKey));
-    if (target && active !== target) target.focus({ preventScroll: true });
-  }, [projection.columns, isOpen, field]);
+    focusAndReveal(target);
+  });
   const commandWithFocus = (
     source: HTMLButtonElement,
     fieldKey: string,
     action: ColumnFocusAction,
     command: WorkbookGridQueryCommand,
   ) => {
-    if (document.activeElement === source)
-      pendingActionFocus.current = { source, fieldKey, action };
+    if (document.activeElement === source && panel.current) {
+      pendingActionFocus.current = {
+        source,
+        fieldKey,
+        action,
+        panel: panel.current,
+      };
+      // Consume even a command that leaves the layout unchanged in this commit.
+      setActionRevision((revision) => revision + 1);
+    }
     onCommand(command);
   };
   const visibleCount = projection.columns
@@ -205,6 +269,7 @@ export function WorkbookColumnsControl({
               event.relatedTarget instanceof Node &&
               !root.current?.contains(event.relatedTarget)
             ) {
+              clearFocusWork();
               cancel();
               onClose();
             }
@@ -231,6 +296,7 @@ export function WorkbookColumnsControl({
               fieldKey={selected.fieldKey}
               label={selected.label}
               onCancel={closeWidth}
+              onFocusReturn={focusAndReveal}
               sizing={sizing}
             />
           ) : (
@@ -309,6 +375,13 @@ export function WorkbookColumnsControl({
                     type="button"
                     aria-label={`Width for ${column.label}`}
                     onClick={() => {
+                      if (panel.current)
+                        widthContext.current = {
+                          fieldKey: column.fieldKey,
+                          panel: panel.current,
+                          top: panel.current.scrollTop,
+                          left: panel.current.scrollLeft,
+                        };
                       setNotice("");
                       setField(column.fieldKey);
                     }}
@@ -399,15 +472,79 @@ export function WorkbookColumnsControl({
   );
 }
 
+// Columns owns this scrollport, never the page or another workbook region.
+function focusAndRevealColumnsControl(
+  panel: HTMLDivElement | null,
+  target: HTMLElement | null | undefined,
+) {
+  if (
+    !panel?.isConnected ||
+    !target?.isConnected ||
+    !panel.contains(target) ||
+    target.matches(":disabled")
+  )
+    return;
+  if (document.activeElement !== target) target.focus({ preventScroll: true });
+  if (
+    document.activeElement !== target ||
+    !panel.isConnected ||
+    !panel.contains(target)
+  )
+    return;
+  const viewport = panel.ownerDocument.defaultView;
+  if (!viewport || panel.offsetWidth === 0 || panel.offsetHeight === 0) return;
+  const outer = panel.getBoundingClientRect();
+  const scaleX = outer.width / panel.offsetWidth;
+  const scaleY = outer.height / panel.offsetHeight;
+  if (scaleX <= 0 || scaleY <= 0) return;
+  const box = target.getBoundingClientRect();
+  const style = viewport.getComputedStyle(target);
+  const ring = Math.max(
+    0,
+    (Number.parseFloat(style.outlineWidth) || 0) +
+      (Number.parseFloat(style.outlineOffset) || 0),
+  );
+  const top = Math.max(0, outer.top + panel.clientTop * scaleY);
+  const bottom = Math.min(
+    viewport.innerHeight,
+    outer.top + (panel.clientTop + panel.clientHeight) * scaleY,
+  );
+  const left = Math.max(0, outer.left + panel.clientLeft * scaleX);
+  const right = Math.min(
+    viewport.innerWidth,
+    outer.left + (panel.clientLeft + panel.clientWidth) * scaleX,
+  );
+  if (bottom <= top || right <= left) return;
+  const delta = (
+    start: number,
+    end: number,
+    minimum: number,
+    maximum: number,
+  ) =>
+    start < minimum || end - start > maximum - minimum
+      ? start - minimum
+      : end > maximum
+        ? end - maximum
+        : 0;
+  panel.scrollTop +=
+    delta(box.top - ring * scaleY, box.bottom + ring * scaleY, top, bottom) /
+    scaleY;
+  panel.scrollLeft +=
+    delta(box.left - ring * scaleX, box.right + ring * scaleX, left, right) /
+    scaleX;
+}
+
 function ColumnWidthPanel({
   fieldKey,
   label,
   onCancel,
+  onFocusReturn,
   sizing,
 }: {
   readonly fieldKey: string;
   readonly label: string;
   readonly onCancel: () => void;
+  readonly onFocusReturn: (target: HTMLElement | null) => void;
   readonly sizing: WorkbookColumnSizingControls;
 }) {
   const descriptor = sizing.read(fieldKey);
@@ -430,9 +567,9 @@ function ColumnWidthPanel({
       return;
     const active = document.activeElement;
     if (active === fitButton.current || active === document.body)
-      restoreButton.current?.focus({ preventScroll: true });
+      onFocusReturn(restoreButton.current);
     fitOwnedFocus.current = false;
-  }, [fitting, descriptor.unavailableReason]);
+  }, [fitting, descriptor.unavailableReason, onFocusReturn]);
   useLayoutEffect(() => {
     if (!draft.current) setText(String(descriptor.width ?? ""));
   }, [descriptor.width]);

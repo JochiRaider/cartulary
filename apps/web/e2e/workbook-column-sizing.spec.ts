@@ -44,6 +44,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 import {
   createSavedViewFromCurrentSurface,
   duplicateSavedViewFromCurrentSurface,
@@ -177,6 +178,255 @@ async function tabTo(page: Page, control: Locator, limit = 500) {
   }
   await expect(control).toBeFocused();
 }
+
+// Observation only: never reveal or focus the destination under assertion.
+async function columnsFocusGeometry(target: Locator) {
+  return target.evaluate((element) => {
+    const node = element as HTMLElement;
+    const panel = node.closest<HTMLElement>('[role="dialog"]');
+    if (!panel) throw new Error("Missing Columns panel");
+    const box = node.getBoundingClientRect();
+    const outer = panel.getBoundingClientRect();
+    const sx = outer.width / panel.offsetWidth;
+    const sy = outer.height / panel.offsetHeight;
+    const style = getComputedStyle(node);
+    const ring = Math.max(
+      0,
+      (Number.parseFloat(style.outlineWidth) || 0) +
+        (Number.parseFloat(style.outlineOffset) || 0),
+    );
+    const bounds = {
+      top: box.top - ring * sy,
+      bottom: box.bottom + ring * sy,
+      left: box.left - ring * sx,
+      right: box.right + ring * sx,
+    };
+    const clip = {
+      top: Math.max(0, outer.top + panel.clientTop * sy),
+      bottom: Math.min(
+        innerHeight,
+        outer.top + (panel.clientTop + panel.clientHeight) * sy,
+      ),
+      left: Math.max(0, outer.left + panel.clientLeft * sx),
+      right: Math.min(
+        innerWidth,
+        outer.left + (panel.clientLeft + panel.clientWidth) * sx,
+      ),
+    };
+    return {
+      focused: document.activeElement === node,
+      contained:
+        bounds.top >= clip.top - 1 &&
+        bounds.bottom <= clip.bottom + 1 &&
+        bounds.left >= clip.left - 1 &&
+        bounds.right <= clip.right + 1,
+      bounds,
+      clip,
+      scrollTop: panel.scrollTop,
+      scrollLeft: panel.scrollLeft,
+    };
+  });
+}
+
+async function expectColumnsFocus(target: Locator) {
+  try {
+    await expect
+      .poll(() => columnsFocusGeometry(target))
+      .toMatchObject({ focused: true, contained: true });
+  } catch (error) {
+    throw new Error(
+      `Columns focus geometry: ${JSON.stringify(await columnsFocusGeometry(target))}`,
+      { cause: error },
+    );
+  }
+}
+
+async function outsideColumnsScroll(page: Page) {
+  return page.evaluate(
+    (selector) => ({
+      page: [scrollX, scrollY],
+      regions: [
+        ...document.querySelectorAll<HTMLElement>(
+          `${selector}, [data-inspector-scroll-body]`,
+        ),
+      ].map((node) => [node.scrollLeft, node.scrollTop]),
+    }),
+    gridScrollportSelector(),
+  );
+}
+
+test("Columns reveals semantic Width returns and relocated actions inside its clipped panel", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const f = await seed(page);
+  const record = f.rows[0]?.record_id;
+  if (!record) throw new Error("Missing Timeline row");
+  await openTimelineInspector(page, record);
+  await page.locator("[data-inspector-scroll-body]").evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  await page.getByTestId(rowCellTestId(record, summary)).click();
+  const editor = page.getByTestId(
+    timelineScalarEditorTestId({
+      recordId: record,
+      fieldKey: summary,
+      surface: "grid",
+    }),
+  );
+  const raw = "  Retained Columns authoring Ω  ";
+  await editor.fill(raw);
+  await editor.evaluate((node) =>
+    (node as HTMLTextAreaElement).setSelectionRange(3, 9),
+  );
+  let recordWrites = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /\/(records|rows)(\/|$)/.test(new URL(request.url()).pathname)
+    )
+      recordWrites += 1;
+  });
+  const label = (field: string) =>
+    requireViewContract(surface).fieldMap[field]?.label;
+  const late = "timeline.has_unresolved_mentions";
+  const early = "timeline.date_entered_text";
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const dismiss of ["Escape", "Cancel"]) {
+      await showColumns(page);
+      await columns(page).evaluate((node) => {
+        node.scrollTop = node.scrollHeight;
+      });
+      const before = await columns(page).evaluate((node) => node.scrollTop);
+      expect(before).toBeGreaterThan(0);
+      const otherScroll = await outsideColumnsScroll(page);
+      const action = columns(page).getByRole("button", {
+        name: `Width for ${label(late)}`,
+        exact: true,
+      });
+      await action.click();
+      if (dismiss === "Cancel") {
+        await tabTo(
+          page,
+          columns(page).getByRole("button", { name: "Cancel", exact: true }),
+        );
+        await page.keyboard.press("Enter");
+      } else await page.keyboard.press("Escape");
+      await expectColumnsFocus(action);
+      expect(
+        await columns(page).evaluate((node) => node.scrollTop),
+      ).toBeGreaterThan(0);
+      expect(await outsideColumnsScroll(page)).toEqual(otherScroll);
+      await expect(editor).toHaveValue(raw);
+      expect(
+        await editor.evaluate((node) => [
+          (node as HTMLTextAreaElement).selectionStart,
+          (node as HTMLTextAreaElement).selectionEnd,
+        ]),
+      ).toEqual([3, 9]);
+      await info.attach(`columns-return-${viewport.width}-${dismiss}`, {
+        body: JSON.stringify(await columnsFocusGeometry(action)),
+        contentType: "application/json",
+      });
+      await page.keyboard.press("Escape");
+      await expect(trigger(page)).toBeFocused();
+    }
+    await showColumns(page);
+    const freeze = columns(page).getByRole("button", {
+      name: `Freeze through ${label(early)}`,
+      exact: true,
+    });
+    await freeze.focus();
+    await page.keyboard.press("Enter");
+    await expect(freeze).toBeDisabled();
+    await expectColumnsFocus(
+      columns(page).getByRole("button", {
+        name: `Width for ${label(early)}`,
+        exact: true,
+      }),
+    );
+    await columns(page).evaluate((node) => {
+      node.scrollTop = node.scrollHeight;
+    });
+    await columns(page)
+      .getByRole("button", { name: "Unfreeze columns", exact: true })
+      .click();
+    await expectColumnsFocus(freeze);
+    // Activation uses the current keyboard destination; locator actions would
+    // conceal a missing reveal between moves by scrolling before the next click.
+    const earlier = columns(page).getByRole("button", {
+      name: `Move ${label(late)} earlier`,
+      exact: true,
+    });
+    const later = columns(page).getByRole("button", {
+      name: `Move ${label(late)} later`,
+      exact: true,
+    });
+    await earlier.focus();
+    for (const [invoker, fallback] of [
+      [earlier, later],
+      [later, earlier],
+    ] as const) {
+      while (await invoker.isEnabled()) {
+        await page.keyboard.press("Enter");
+        await expectColumnsFocus(
+          (await invoker.isEnabled()) ? invoker : fallback,
+        );
+      }
+    }
+    await info.attach(`columns-move-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    await page.keyboard.press("Escape");
+  }
+  expect(recordWrites).toBe(0);
+  expect(
+    (await queryViewRows(page, f.incident, surface)).every(
+      (row) => row.row_version === 1,
+    ),
+  ).toBe(true);
+});
+
+test("Columns reveals Width return on the shared Hosts surface", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("CSL-FOCUS-HOSTS"),
+    "Shared Columns focus",
+  );
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${hostsViewSchemaId}`,
+  );
+  const field = requireViewContract(hostsViewSchemaId).fields.at(-1);
+  if (!field) throw new Error("Expected Hosts field");
+  await showColumns(page, hostsViewSchemaId);
+  await columns(page, hostsViewSchemaId).evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  expect(
+    await columns(page, hostsViewSchemaId).evaluate((node) => node.scrollTop),
+  ).toBeGreaterThan(0);
+  const action = columns(page, hostsViewSchemaId).getByRole("button", {
+    name: `Width for ${field.label}`,
+    exact: true,
+  });
+  await action.click();
+  await page.keyboard.press("Escape");
+  await expectColumnsFocus(action);
+  await info.attach("columns-hosts-return", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await page.keyboard.press("Escape");
+  await expect(trigger(page, hostsViewSchemaId)).toBeFocused();
+});
 async function setFreeze(
   page: Page,
   field: string | null,
@@ -1007,8 +1257,59 @@ test("a11y.column-sizing native controls retain keyboard focus at narrow width z
       `column-sizing-accessibility-image-${viewportWidth}-${zoom}`,
       { body: await page.screenshot(), contentType: "image/png" },
     );
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(fit).toBeFocused();
+    await holdAnimationFrames(page);
+    await page.keyboard.press("Enter");
+    // Keep the current request and focus while its production font capability
+    // becomes unavailable. No grid or Columns geometry is repaired here.
+    await page.evaluate(() =>
+      Object.defineProperty(document.fonts, "status", {
+        configurable: true,
+        value: "loading",
+      }),
+    );
+    try {
+      await releaseAnimationFrames(page);
+      await expect(fit).toBeDisabled();
+      await expectColumnsFocus(restore);
+      await info.attach(`columns-fit-fallback-${viewportWidth}-${zoom}`, {
+        body: JSON.stringify(await columnsFocusGeometry(restore)),
+        contentType: "application/json",
+      });
+    } finally {
+      await page.evaluate(() =>
+        Reflect.deleteProperty(document.fonts, "status"),
+      );
+    }
     await page.keyboard.press("Escape");
     await expect(widthButton).toBeFocused();
+    await expectColumnsFocus(widthButton);
+    const lateLabel =
+      requireViewContract(surface).fieldMap["timeline.has_unresolved_mentions"]
+        ?.label;
+    const lateWidth = columns(page).getByRole("button", {
+      name: `Width for ${lateLabel}`,
+      exact: true,
+    });
+    for (const dismiss of ["Escape", "Cancel"]) {
+      await columns(page).evaluate((node) => {
+        node.scrollTop = node.scrollHeight;
+      });
+      expect(
+        await columns(page).evaluate((node) => node.scrollTop),
+      ).toBeGreaterThan(0);
+      await lateWidth.click();
+      if (dismiss === "Cancel") {
+        await tabTo(
+          page,
+          columns(page).getByRole("button", { name: "Cancel", exact: true }),
+        );
+        await page.keyboard.press("Enter");
+      } else await page.keyboard.press("Escape");
+      await expectColumnsFocus(lateWidth);
+    }
     await page.keyboard.press("Escape");
     await expect(trigger(page)).toBeFocused();
     await spacing.evaluate((element) =>

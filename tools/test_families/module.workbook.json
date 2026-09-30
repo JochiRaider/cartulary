@@ -1455,10 +1455,12 @@
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_column_keyboard_continuity",
+          "scenario_columns_visible_focus_continuity",
           "scenario_workbook_column_sizing_gestures_saved"
         ],
         "titles": [
           "Columns keeps one production keyboard session through Fit movement and freezing",
+          "Columns reveals semantic Width returns and relocated actions inside its clipped panel",
           "Workbook sizing preserves production geometry drafts and saved configuration across every entry point"
         ]
       },
@@ -1492,9 +1494,11 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
+          "scenario_columns_visible_focus_hosts",
           "scenario_workbook_column_sizing_surfaces"
         ],
         "titles": [
+          "Columns reveals Width return on the shared Hosts surface",
           "Workbook sizing binds empty and hidden columns across all surface families and densities"
         ]
       },

@@ -329,6 +329,7 @@ export function WorkbookGridControls({
         triggerRef={filterTriggerRef}
       />
       <WorkbookColumnsControl
+        key={`${surface}:${subjectKey}`}
         sizing={sizing}
         freezing={freezing}
         isOpen={surfaceState.openPanel === "columns"}

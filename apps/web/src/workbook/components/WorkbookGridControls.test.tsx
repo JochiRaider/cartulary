@@ -43,6 +43,7 @@ const timelineSurface = "cartulary.view.timeline.v2";
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe("WorkbookGridControls", () => {
@@ -1051,6 +1052,141 @@ describe("WorkbookGridControls", () => {
     expect(screen.getByText(/Current: 520 px/)).toBeTruthy();
   });
 
+  it("reveals the same Width action and retains list context after Escape and Cancel", () => {
+    for (const scale of [1, 2]) {
+      const mounted = render(<StatefulGridControls />);
+      fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+      const panel = screen.getByRole("dialog", { name: "Column controls" });
+      const geometry = columnsGeometry(panel, scale);
+      const label =
+        requireViewContract(timelineSurface).fieldMap[
+          "timeline.has_unresolved_mentions"
+        ]?.label;
+      for (const dismiss of ["Escape", "Cancel"]) {
+        panel.scrollTop = 1300;
+        fireEvent.click(
+          screen.getByRole("button", { name: `Width for ${label}` }),
+        );
+        // jsdom does not clamp scroll when the list is replaced by the short form.
+        panel.scrollTop = 0;
+        if (dismiss === "Escape")
+          fireEvent.keyDown(
+            screen.getByRole("textbox", { name: "Width in CSS pixels" }),
+            { key: "Escape" },
+          );
+        else fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        const target = screen.getByRole("button", {
+          name: `Width for ${label}`,
+        });
+        expect(document.activeElement).toBe(target);
+        expect(target.getBoundingClientRect().top).toBeGreaterThanOrEqual(100);
+        expect(target.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+          100 + 300 * scale,
+        );
+        expect(panel.scrollTop).toBe(1300);
+      }
+      geometry.mockRestore();
+      mounted.unmount();
+    }
+  });
+
+  it("reveals moved controls that keep focus and the early Unfreeze destination", () => {
+    render(<StatefulGridControls />);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const panel = screen.getByRole("dialog", { name: "Column controls" });
+    const geometry = columnsGeometry(panel);
+    const first = requireViewContract(timelineSurface).fields[0]?.label;
+    const later = screen.getByRole("button", { name: `Move ${first} later` });
+    later.focus();
+    for (let step = 0; step < 8; step += 1) {
+      fireEvent.click(later);
+      expect(document.activeElement).toBe(later);
+      expect(later.getBoundingClientRect().bottom).toBeLessThanOrEqual(400);
+    }
+    const freeze = screen.getByRole("button", {
+      name: `Freeze through ${first}`,
+    });
+    freeze.focus();
+    fireEvent.click(freeze);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: `Width for ${first}` }),
+    );
+    panel.scrollTop = 1300;
+    const unfreeze = screen.getByRole("button", { name: "Unfreeze columns" });
+    unfreeze.focus();
+    fireEvent.click(unfreeze);
+    expect(document.activeElement).toBe(freeze);
+    expect(freeze.getBoundingClientRect().top).toBeGreaterThanOrEqual(100);
+    geometry.mockRestore();
+  });
+
+  it("retires Columns return work on outside focus and same-surface subject replacement", async () => {
+    const { port, requests } = deferredSizingPort();
+    const view = (subjectKey: string) => (
+      <>
+        <button type="button">Outside Columns</button>
+        <StatefulGridControls subjectKey={subjectKey} sizingPort={port} />
+      </>
+    );
+    const mounted = render(view("first"));
+    const label = requireViewContract(timelineSurface).fields[0]?.label;
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const outside = screen.getByRole("button", { name: "Outside Columns" });
+    act(() => {
+      fireEvent.keyDown(
+        screen.getByRole("textbox", { name: "Width in CSS pixels" }),
+        { key: "Escape" },
+      );
+      outside.focus();
+    });
+    expect(document.activeElement).toBe(outside);
+    expect(
+      screen.queryByRole("dialog", { name: "Column controls" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const fit = screen.getByRole("button", { name: "Fit visible content" });
+    fit.focus();
+    fireEvent.click(fit);
+    mounted.rerender(view("second"));
+    outside.focus();
+    expect(requests[0]?.signal.aborted).toBe(true);
+    await act(async () =>
+      requests[0]?.resolve({
+        kind: "measured",
+        widthPx: 500,
+        capped: false,
+        cellCount: 1,
+      }),
+    );
+    expect(document.activeElement).toBe(outside);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    expect(
+      screen.queryByRole("textbox", { name: "Width in CSS pixels" }),
+    ).toBeNull();
+    expect(document.activeElement).toBe(screen.getAllByRole("checkbox")[0]);
+    fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const nextFit = screen.getByRole("button", { name: "Fit visible content" });
+    nextFit.focus();
+    fireEvent.click(nextFit);
+    mounted.rerender(<button type="button">After Columns unmount</button>);
+    const afterUnmount = screen.getByRole("button", {
+      name: "After Columns unmount",
+    });
+    afterUnmount.focus();
+    expect(requests[1]?.signal.aborted).toBe(true);
+    await act(async () =>
+      requests[1]?.resolve({
+        kind: "measured",
+        widthPx: 600,
+        capped: false,
+        cellCount: 1,
+      }),
+    );
+    expect(document.activeElement).toBe(afterUnmount);
+  });
+
   it("keeps pending Fit focus and busy state without admitting a duplicate or reclaiming departed focus", async () => {
     const { port, requests } = deferredSizingPort();
     render(
@@ -1119,6 +1255,8 @@ describe("WorkbookGridControls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const label = requireViewContract(timelineSurface).fields[0]?.label ?? "";
     fireEvent.click(screen.getByRole("button", { name: `Width for ${label}` }));
+    const panel = screen.getByRole("dialog", { name: "Column controls" });
+    const geometry = columnsGeometry(panel, 1, 150);
     const fit = screen.getByRole("button", { name: "Fit visible content" });
     fit.focus();
     fireEvent.click(fit);
@@ -1138,6 +1276,11 @@ describe("WorkbookGridControls", () => {
       screen.getByRole("button", { name: "Restore default" }),
     );
     expect(
+      screen
+        .getByRole("button", { name: "Restore default" })
+        .getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(250);
+    expect(
       document.getElementById(fit.getAttribute("aria-describedby") ?? "")
         ?.textContent,
     ).toBe("Visible geometry is unavailable.");
@@ -1154,6 +1297,7 @@ describe("WorkbookGridControls", () => {
       });
     });
     expect(document.activeElement).toBe(restore);
+    geometry.mockRestore();
   });
 
   it("keeps focus on a semantic column action when movement or freezing disables its invoker", () => {
@@ -1406,13 +1550,50 @@ describe("WorkbookGridControls", () => {
   });
 });
 
+// A clipped scrollport model for jsdom; browser tests supply rendered geometry.
+function columnsGeometry(panel: HTMLElement, scale = 1, height = 300) {
+  for (const [key, value] of Object.entries({
+    clientWidth: 400,
+    offsetWidth: 400,
+    clientHeight: height,
+    offsetHeight: height,
+  }))
+    Object.defineProperty(panel, key, { configurable: true, value });
+  const original = HTMLElement.prototype.getBoundingClientRect;
+  return vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      if (this === panel)
+        return new DOMRect(100, 100, 400 * scale, height * scale);
+      if (panel.contains(this) && this.tagName === "BUTTON") {
+        const rows = [...panel.querySelectorAll('input[type="checkbox"]')].map(
+          (input) => input.parentElement?.parentElement,
+        );
+        const row = rows.indexOf(this.parentElement);
+        const position =
+          row >= 0
+            ? row
+            : [...panel.querySelectorAll("form button")].indexOf(this);
+        return new DOMRect(
+          150,
+          100 + (10 + position * 60 - panel.scrollTop) * scale,
+          70 * scale,
+          28 * scale,
+        );
+      }
+      return original.call(this);
+    });
+}
+
 function StatefulGridControls({
   initialSort = [],
   sizingPort,
   externalResize,
+  subjectKey,
 }: {
   readonly initialSort?: WorkbookQueryState["sort"];
   readonly sizingPort?: GridColumnSizingPort;
+  readonly subjectKey?: string;
   readonly externalResize?: {
     current: ((widthPx: number) => Promise<void>) | null;
   };
@@ -1445,6 +1626,7 @@ function StatefulGridControls({
   );
   return (
     <WorkbookGridControls
+      subjectKey={subjectKey}
       freezing={controls.freezing}
       sizing={controls.sizing}
       contract={contract}
