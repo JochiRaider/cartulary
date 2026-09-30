@@ -104,6 +104,7 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineCaptureActionTestId,
+  timelineCollectionInputTestId,
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
@@ -205,6 +206,8 @@ import {
   collectionActionsPayload,
   collectionItems,
   hostRefsFieldKey,
+  inspectorMentionGeometry,
+  placeInspectorMentionNearBottom,
   requireItemByRawText,
   seedHostMentionStateFixture,
 } from "./support/entities/mentions";
@@ -9818,4 +9821,194 @@ test("a11y.timeline-row-actions focus and menu scrolling remain reachable across
     });
     await expect(menu).toHaveCount(0);
   }
+});
+
+test("a11y.entity-linking mention arrows reveal Inspector focus without activation", async ({
+  page,
+}, info) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("MENTIONFOCUS"),
+    "Mention keyboard focus reveal",
+  );
+  await createViewRow(page, incident, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("mention-focus-target"),
+    "host.display_name": "Focus candidate",
+    "host.hostname": "focus-candidate.example.test",
+  });
+  const row = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("mention-focus-source"),
+    "timeline.activity_synopsis_text": "Mention focus source",
+    [hostRefsFieldKey]: collectionActionsPayload([
+      "focus-host-a?",
+      "focus-host-b?",
+      "focus-host-c?",
+    ]),
+    "timeline.identity_refs": collectionActionsPayload([
+      "focus-identity-a?",
+      "focus-identity-b?",
+    ]),
+  });
+  const hostItems = collectionItems(row, hostRefsFieldKey);
+  const first = page.getByTestId(
+    mentionItemTestId(
+      String(requireItemByRawText(hostItems, "focus-host-a?").item_ref),
+    ),
+  );
+  const second = page.getByTestId(
+    mentionItemTestId(
+      String(requireItemByRawText(hostItems, "focus-host-b?").item_ref),
+    ),
+  );
+  const third = page.getByTestId(
+    mentionItemTestId(
+      String(requireItemByRawText(hostItems, "focus-host-c?").item_ref),
+    ),
+  );
+  await page.goto(`/?incident_id=${incident}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await openTimelineInspector(page, row.record_id);
+  const inspector = page.getByTestId(timelineInspectorTestId());
+  await inspector
+    .getByRole("button", { name: "Relationships", exact: true })
+    .click();
+  await first.click();
+  const details = inspector.getByText("Mention details", { exact: true });
+  await details.click();
+  await expect(
+    inspector.getByText("1 target on this page.", { exact: true }),
+  ).toBeVisible();
+  await inspector.getByRole("combobox").click();
+  await inspector
+    .getByRole("option", { name: "Focus candidate", exact: true })
+    .click();
+  const candidate = inspector.getByText("Selected: Focus candidate", {
+    exact: true,
+  });
+  await expect(candidate).toBeVisible();
+  const draft = page.getByTestId(
+    timelineCollectionInputTestId(row.record_id, hostRefsFieldKey),
+  );
+  const raw = "  retained Inspector host draft Ω  ";
+  await draft.fill(raw);
+  await draft.evaluate((node) =>
+    (node as HTMLInputElement).setSelectionRange(4, 12),
+  );
+  const outsideScroll = () =>
+    page.evaluate((selector) => {
+      const grid = document.querySelector<HTMLElement>(selector);
+      return {
+        x: scrollX,
+        y: scrollY,
+        gridTop: grid?.scrollTop,
+        gridLeft: grid?.scrollLeft,
+      };
+    }, gridScrollportSelector());
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.startsWith("/api/v1/"))
+      requests.push(`${request.method()} ${new URL(request.url()).pathname}`);
+  });
+  for (const layout of [
+    { width: 1440, height: 900, zoom: 1 },
+    { width: 1024, height: 720, zoom: 1 },
+    { width: 1280, height: 720, zoom: 2 },
+  ]) {
+    await page.setViewportSize({ width: layout.width, height: layout.height });
+    await page.evaluate((zoom) => {
+      document.documentElement.style.zoom = String(zoom);
+    }, layout.zoom);
+    await placeInspectorMentionNearBottom(first);
+    const origin = await inspectorMentionGeometry(first);
+    expect(origin.contained, JSON.stringify(origin)).toBe(true);
+    expect((await inspectorMentionGeometry(second)).contained).toBe(false);
+    const outside = await outsideScroll();
+    requests.length = 0;
+    // From this key until the assertions, every helper only observes.
+    await page.keyboard.press("ArrowRight");
+    await expect(second).toBeFocused();
+    const forward = await inspectorMentionGeometry(second);
+    await info.attach(`mention-forward-${layout.width}-${layout.zoom}`, {
+      body: JSON.stringify(forward),
+      contentType: "application/json",
+    });
+    await info.attach(`mention-forward-image-${layout.width}-${layout.zoom}`, {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    expect(forward.fits && forward.contained, JSON.stringify(forward)).toBe(
+      true,
+    );
+    expect(await outsideScroll()).toEqual(outside);
+    await expect(inspector).toHaveAttribute("data-record-id", row.record_id);
+    await expect(candidate).toHaveText("Selected: Focus candidate");
+    await expect(first).toHaveAttribute("aria-pressed", "true");
+    await expect(second).toHaveAttribute("aria-pressed", "false");
+    await expect(draft).toHaveValue(raw);
+    expect(
+      await draft.evaluate((node) => [
+        (node as HTMLInputElement).selectionStart,
+        (node as HTMLInputElement).selectionEnd,
+      ]),
+    ).toEqual([4, 12]);
+    expect(
+      await details.evaluate(
+        (node) => (node.parentElement as HTMLDetailsElement).open,
+      ),
+    ).toBe(true);
+    expect(requests).toEqual([]);
+    // Arrange a separate reverse transition with the earlier item above the clip.
+    await second.evaluate((node) => {
+      const body = node.closest<HTMLElement>("[data-inspector-scroll-body]");
+      if (!body) throw new Error("Missing Inspector body");
+      const scale = body.getBoundingClientRect().height / body.offsetHeight;
+      body.scrollTop +=
+        (node.getBoundingClientRect().top -
+          (body.getBoundingClientRect().top + 24 * scale)) /
+        scale;
+      (node as HTMLElement).focus({ preventScroll: true });
+    });
+    expect((await inspectorMentionGeometry(first)).contained).toBe(false);
+    await page.keyboard.press("ArrowLeft");
+    await expect(first).toBeFocused();
+    const reverse = await inspectorMentionGeometry(first);
+    expect(reverse.contained, JSON.stringify(reverse)).toBe(true);
+    await info.attach(`mention-reverse-${layout.width}-${layout.zoom}`, {
+      body: JSON.stringify(reverse),
+      contentType: "application/json",
+    });
+    const boundaryTop = reverse.scrollTop;
+    await page.keyboard.press("ArrowLeft");
+    expect((await inspectorMentionGeometry(first)).scrollTop).toBe(boundaryTop);
+    await expect(first).toBeFocused();
+    // Adjacent lower items fit together and require no reveal movement.
+    await placeInspectorMentionNearBottom(third);
+    await second.evaluate((node) =>
+      (node as HTMLElement).focus({ preventScroll: true }),
+    );
+    expect((await inspectorMentionGeometry(second)).contained).toBe(true);
+    const visibleTop = (await inspectorMentionGeometry(second)).scrollTop;
+    await page.keyboard.press("ArrowRight");
+    await expect(third).toBeFocused();
+    expect((await inspectorMentionGeometry(third)).scrollTop).toBe(visibleTop);
+    await page.keyboard.press("ArrowRight");
+    await expect(third).toBeFocused();
+    expect((await inspectorMentionGeometry(third)).scrollTop).toBe(visibleTop);
+    expect(await outsideScroll()).toEqual(outside);
+    expect(requests).toEqual([]);
+  }
+  await page.keyboard.press("Enter");
+  await expect(third).toHaveAttribute("aria-pressed", "true");
+  await expect(first).toHaveAttribute("aria-pressed", "false");
+  await expect(draft).toHaveValue(raw);
+  await page.keyboard.press("ArrowLeft");
+  await expect(second).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(second).toHaveAttribute("aria-pressed", "true");
+  await expect(third).toHaveAttribute("aria-pressed", "false");
+  await expect(inspector).toHaveAttribute("data-record-id", row.record_id);
+  await expect(draft).toHaveValue(raw);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
 });

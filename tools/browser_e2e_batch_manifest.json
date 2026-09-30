@@ -2675,6 +2675,7 @@
           "selected_row_ids": [
             "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
             "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
+            "module.entities.accessibility.mention_arrow_navigation_reveals_focused_inspect_524ff6af49",
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.file_recovery",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
@@ -3815,6 +3816,7 @@
           "selected_row_ids": [
             "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
             "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
+            "module.entities.accessibility.mention_arrow_navigation_reveals_focused_inspect_524ff6af49",
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.file_recovery",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",

@@ -724,6 +724,115 @@ describe("Workbook Inspector presentation", () => {
     expect(screen.queryByRole("button", { name: "History" })).toBeNull();
     expect(screen.getByText("Sections: Details")).not.toBeNull();
   });
+  it("admits nearest focus only for available current section targets without opening disclosures", () => {
+    const navigation = {
+      current: null as WorkbookInspectorExplicitNavigation | null,
+    };
+    const view = (recordId = "host-a", admitted = true) => (
+      <WorkbookInspectorShell
+        accessibleLabel="Hosts inspector"
+        config={hosts.inspectorConfig}
+        mode="saved"
+        subject={required(
+          buildWorkbookInspectorSubject({
+            config: hosts.inspectorConfig,
+            kind: "live",
+            label: "Host",
+            recordId,
+            rowVersion: 3,
+            surfaceLabel: "Hosts",
+          }),
+        )}
+        onClose={vi.fn()}
+        explicitNavigationRef={(current) => {
+          navigation.current = current;
+        }}
+        sections={
+          admitted
+            ? [
+                {
+                  panel: required(relationshipsPanel),
+                  focusDestination: workbookInspectorSectionFocusDestination,
+                  content: (
+                    <>
+                      <button type="button">Available mention</button>
+                      <details>
+                        <summary>Disclosure</summary>
+                        <button type="button">Concealed mention</button>
+                      </details>
+                    </>
+                  ),
+                },
+              ]
+            : []
+        }
+      />
+    );
+    const rendered = render(view());
+    const available = screen.getByRole("button", { name: "Available mention" });
+    const concealed = screen.getByText("Concealed mention");
+    const disclosure = concealed.closest("details");
+    const focus = (target: HTMLElement) => {
+      let result: ReturnType<WorkbookInspectorExplicitNavigation> | undefined;
+      act(() => {
+        result = navigation.current?.("relationships", target, "nearest");
+      });
+      return result;
+    };
+    available.focus();
+    expect(focus(concealed)).toBe("pending");
+    expect(disclosure?.open).toBe(false);
+    expect(document.activeElement).toBe(available);
+    for (const [attribute, value] of [
+      ["hidden", ""],
+      ["aria-hidden", "true"],
+      ["inert", ""],
+      ["disabled", ""],
+    ]) {
+      available.setAttribute(attribute ?? "", value ?? "");
+      available.blur();
+      expect(focus(available)).toBe("pending");
+      expect(document.activeElement).not.toBe(available);
+      available.removeAttribute(attribute ?? "");
+    }
+    for (const style of [
+      "display:none",
+      "visibility:hidden",
+      "visibility:collapse",
+    ]) {
+      available.setAttribute("style", style);
+      expect(focus(available)).toBe("pending");
+      available.removeAttribute("style");
+    }
+    const foreign = document.createElement("button");
+    document.body.append(foreign);
+    expect(focus(foreign)).toBe("pending");
+    expect(focus(available)).toBe("applied");
+    act(() => {
+      expect(navigation.current?.("relationships", concealed)).toBe("applied");
+    });
+    expect(disclosure?.open).toBe(true);
+    expect(document.activeElement).toBe(concealed);
+    const captured = navigation.current;
+    rendered.rerender(view("host-b"));
+    act(() => {
+      expect(captured?.("relationships", available, "nearest")).toBe(
+        "unavailable",
+      );
+    });
+    rendered.rerender(view("host-b", false));
+    expect(focus(available)).toBe("unavailable");
+    expect(available.isConnected).toBe(false);
+    foreign.focus();
+    rendered.unmount();
+    expect(navigation.current).toBeNull();
+    act(() => {
+      captured?.("relationships", available, "nearest");
+    });
+    expect(document.activeElement).toBe(foreign);
+    foreign.remove();
+  });
+
   it("keeps an explicit destination current through its body scroll, then resumes passive selection", () => {
     const details = hosts.inspectorConfig.panels.find(
       (panel) => panel.panelId === "details",

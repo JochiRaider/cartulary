@@ -285,6 +285,10 @@ export function TimelineWorkbookInspector({
         }}
         registerMention={elementRegistry.registerMention}
         registerCollectionItem={elementRegistry.registerCollectionItem}
+        onFocusMention={(recordId, itemRef) =>
+          subject?.kind === "live" &&
+          elementRegistry.focusMention(subject, recordId, itemRef, "nearest")
+        }
         onSelectMention={onSelectMention}
         selectedMention={selectedMention}
       />

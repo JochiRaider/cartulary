@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import {
   createTimelineInspectorElementRegistry,
@@ -96,6 +96,66 @@ describe("timeline inspector element registry", () => {
     expect(registry.focusMention(identity, "record-2", "mention-1")).toBe(
       false,
     );
+  });
+
+  it("forwards nearest mention focus synchronously and never retains failed or obsolete requests", () => {
+    const captured = subject("record-1", 3);
+    const registry = createTimelineInspectorElementRegistry(scope(captured));
+    const mention = document.createElement("button");
+    const newer = document.createElement("input");
+    document.body.append(mention, newer);
+    const navigate = vi.fn(
+      (_panel: string, target?: HTMLElement | null, _placement?: string) => {
+        target?.focus({ preventScroll: true });
+        return "applied" as const;
+      },
+    );
+    registry.registerDestinationNavigator(navigate);
+    newer.focus();
+    expect(
+      registry.focusMention(captured, "record-1", "mention-1", "nearest"),
+    ).toBe(false);
+    registry.registerMention("record-1", "mention-1", mention);
+    expect(document.activeElement).toBe(newer);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(
+      registry.focusMention(captured, "record-1", "mention-1", "nearest"),
+    ).toBe(true);
+    expect(navigate).toHaveBeenLastCalledWith(
+      "relationships",
+      mention,
+      "nearest",
+    );
+    expect(registry.focusMention(captured, "record-1", "mention-1")).toBe(true);
+    expect(navigate).toHaveBeenLastCalledWith(
+      "relationships",
+      mention,
+      "start",
+    );
+    for (const nextScope of [
+      scope(subject("record-2", 1)),
+      scope(subject("record-1", 4)),
+      { ...scope(captured), lifecycleKey: "incident-2:timeline" },
+      { ...scope(captured), reviewGeneration: 2 },
+      { ...scope(captured), authorityKey: "viewer:session-2" },
+      scope(null),
+    ]) {
+      registry.updateScope(scope(captured));
+      registry.registerMention("record-1", "mention-1", null);
+      expect(
+        registry.focusMention(captured, "record-1", "mention-1", "nearest"),
+      ).toBe(false);
+      registry.updateScope(nextScope);
+      newer.focus();
+      registry.registerMention("record-1", "mention-1", mention);
+      expect(document.activeElement).toBe(newer);
+    }
+    registry.registerDestinationNavigator(null);
+    expect(
+      registry.focusMention(captured, "record-1", "mention-1", "nearest"),
+    ).toBe(false);
+    registry.registerDestinationNavigator(navigate);
+    expect(document.activeElement).toBe(newer);
   });
 
   it("targets complete collection members and restores only live semantic triggers", () => {

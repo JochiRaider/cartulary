@@ -23,6 +23,7 @@ import type {
   RecordPatchOutcome,
   RecordPatchTransport,
 } from "../../adapters/workbookRecordPatchTransport";
+import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
 import { WorkbookInspectorDraftStore } from "../../inspector/WorkbookInspectorDraftStore";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { WorkbookExplicitPatchOwner } from "../../runtime/WorkbookExplicitPatchOwner";
@@ -896,14 +897,77 @@ describe("Timeline collection inspection", () => {
       },
       [],
     );
+    const baseMention = mentions[0];
+    if (!baseMention) throw new Error("Missing mention fixture");
+    for (const entityType of ["host", "identity"] as const) {
+      for (const dismissed of [false, true]) {
+        if (entityType === "host" && !dismissed) continue;
+        for (const index of [1, 2]) {
+          const id = `${entityType}-${dismissed ? "dismissed" : "active"}-${index}`;
+          const fieldKey =
+            entityType === "host"
+              ? "timeline.host_refs"
+              : "timeline.identity_refs";
+          mentions.push({
+            ...baseMention,
+            entityType,
+            fieldKey,
+            entityMentionId: id,
+            itemRef: `entity_mention:${id}`,
+            anchor: {
+              ...baseMention.anchor,
+              fieldKey,
+              itemRef: `entity_mention:${id}`,
+              entityMentionId: id,
+            },
+            status: dismissed ? "dismissed" : "resolved",
+            isActiveRelationshipValue: !dismissed,
+          });
+        }
+      }
+    }
+    const subject = {
+      kind: "live" as const,
+      recordId: "record-1",
+      rowVersion: 4,
+      viewSchemaId: timelineViewSchemaId,
+      label: "Timeline row",
+      surfaceLabel: "Timeline",
+    };
+    const registry = createTimelineInspectorElementRegistry({
+      reviewGeneration: 1,
+      lifecycleKey: "cell-test",
+      subject,
+    });
+    const collection = fixture();
+    const gridIdentity = {
+      rowKey: "record-1",
+      field: "tags" as const,
+      surface: "grid" as const,
+    };
+    const inspectorIdentity = {
+      ...gridIdentity,
+      surface: "inspector" as const,
+    };
+    collection.editorDraftRegistry.setDraft(gridIdentity, "  grid Ω 東京  ");
+    collection.editorDraftRegistry.setDraft(
+      inspectorIdentity,
+      "  Inspector Ω raw  ",
+    );
+    collection.editorDraftRegistry.activateCollectionInput(
+      "record-1:tags:grid",
+    );
     let props: Omit<ComponentProps<typeof TimelineMentionsPanel>, "actions"> = {
       sourceRecordId: "record-1",
-      registerCollectionItem: vi.fn(),
+      registerCollectionItem: registry.registerCollectionItem,
       entityIndex: {},
-      getRelationshipLabel: () => "Hosts",
+      getRelationshipLabel: (field) =>
+        field === "timeline.host_refs" ? "Hosts" : "Identities",
       inspectorMentions: mentions,
-      registerMention: vi.fn(),
+      registerMention: registry.registerMention,
       onSelectMention: vi.fn(),
+      onFocusMention: (recordId, itemRef) =>
+        registry.focusMention(subject, recordId, itemRef, "nearest"),
       selectedMention: mentions[0] ?? null,
     };
     const review = mentionReview();
@@ -932,10 +996,17 @@ describe("Timeline collection inspection", () => {
         value: { candidates: [], hasMore: false, nextCursor: null },
       })),
     };
-    function Panel({ viewer = false }: { viewer?: boolean }) {
+    function Panel({
+      viewer = false,
+      closed = false,
+    }: {
+      viewer?: boolean;
+      closed?: boolean;
+    }) {
       owner.setAuthority({
         ...review.authority,
         role: viewer ? "viewer" : "editor",
+        mutationsAvailable: !closed,
       });
       const [selectedTargetId, setSelectedTargetId] = useState("");
       const actions = useTimelineMentionActions({
@@ -957,9 +1028,106 @@ describe("Timeline collection inspection", () => {
         waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
         setInspectorMessage: vi.fn(),
       });
-      return <TimelineMentionsPanel {...props} actions={actions} />;
+      const panel = tagContract.inspectorConfig.panels.find(
+        (entry) => entry.panelId === "relationships",
+      );
+      if (!panel) throw new Error("Missing Relationships panel");
+      return (
+        <>
+          <div data-testid="grid-authoring">
+            <TimelineCollectionCell {...collection} />
+          </div>
+          <WorkbookInspectorShell
+            accessibleLabel="Timeline inspector"
+            config={tagContract.inspectorConfig}
+            mode="saved"
+            subject={subject}
+            onClose={vi.fn()}
+            explicitNavigationRef={registry.registerDestinationNavigator}
+            sections={[
+              {
+                panel,
+                focusDestination: (element) => element,
+                content: (
+                  <TimelineMentionsPanel
+                    {...props}
+                    actions={actions}
+                    relationshipEditors={{
+                      "timeline.host_refs": null,
+                      "timeline.identity_refs": null,
+                      "timeline.tags": (
+                        <div data-testid="inspector-authoring">
+                          <TimelineCollectionCell
+                            {...collection}
+                            surface="inspector"
+                          />
+                        </div>
+                      ),
+                    }}
+                  />
+                ),
+              },
+            ]}
+          />
+        </>
+      );
     }
     const { rerender } = render(<Panel />);
+    const gridInput = within(screen.getByTestId("grid-authoring")).getByRole(
+      "textbox",
+    ) as HTMLInputElement;
+    const inspectorInput = within(
+      screen.getByTestId("inspector-authoring"),
+    ).getByRole("textbox") as HTMLInputElement;
+    gridInput.setSelectionRange(2, 6, "backward");
+    inspectorInput.setSelectionRange(3, 8);
+    const assertFocusOnlyGroups = () => {
+      const reads = candidatePort.page.mock.calls.length;
+      for (const entityType of ["host", "identity"] as const) {
+        for (const dismissed of [false, true]) {
+          const group = mentions.filter(
+            (mention) =>
+              mention.entityType === entityType &&
+              (mention.status === "dismissed") === dismissed,
+          );
+          const first = screen.getByTestId(
+            mentionItemTestId(group[0]?.itemRef ?? ""),
+          );
+          const last = screen.getByTestId(
+            mentionItemTestId(group[1]?.itemRef ?? ""),
+          );
+          first.focus();
+          fireEvent.keyDown(first, { key: "ArrowLeft" });
+          expect(document.activeElement).toBe(first);
+          fireEvent.keyDown(first, { key: "ArrowRight" });
+          expect(document.activeElement).toBe(last);
+          fireEvent.keyDown(last, { key: "ArrowRight" });
+          expect(document.activeElement).toBe(last);
+          fireEvent.keyDown(last, { key: "ArrowLeft" });
+          expect(document.activeElement).toBe(first);
+        }
+      }
+      expect(props.onSelectMention).not.toHaveBeenCalled();
+      expect(candidatePort.page).toHaveBeenCalledTimes(reads);
+      expect(send).not.toHaveBeenCalled();
+      expect(collection.queueCollectionSave).not.toHaveBeenCalled();
+      expect(gridInput.value).toBe("  grid Ω 東京  ");
+      expect(inspectorInput.value).toBe("  Inspector Ω raw  ");
+      expect([
+        gridInput.selectionStart,
+        gridInput.selectionEnd,
+        gridInput.selectionDirection,
+      ]).toEqual([2, 6, "backward"]);
+      expect([
+        inspectorInput.selectionStart,
+        inspectorInput.selectionEnd,
+      ]).toEqual([3, 8]);
+      expect(
+        screen
+          .getByTestId(mentionItemTestId(item.itemRef))
+          .getAttribute("aria-pressed"),
+      ).toBe("true");
+    };
     const selected = screen.getByRole("region", {
       name: "Selected Hosts item",
     });
@@ -990,7 +1158,16 @@ describe("Timeline collection inspection", () => {
     expect(screen.getByText("Provenance").nextElementSibling?.textContent).toBe(
       "auto_match",
     );
+    assertFocusOnlyGroups();
+    rerender(<Panel closed />);
+    assertFocusOnlyGroups();
+    expect(
+      (screen.getByRole("button", { name: "Dismiss" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
     rerender(<Panel viewer />);
+    assertFocusOnlyGroups();
+    expect((details.parentElement as HTMLDetailsElement).open).toBe(true);
     expect((screen.getByRole("combobox") as HTMLInputElement).disabled).toBe(
       false,
     );

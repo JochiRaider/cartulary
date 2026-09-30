@@ -17,6 +17,7 @@ owning source mutations or request lifetimes.
 | [WorkbookInspectorFeedback.tsx](WorkbookInspectorFeedback.tsx) | Inspector metadata, technical details, safe errors, feedback, and confirmation presentation. |
 | [workbookInspectorPresentationModel.ts](workbookInspectorPresentationModel.ts) | Inspector action bindings, disabled reasons, technical fields, and History event presentation types. |
 | [WorkbookInspectorShell.tsx](WorkbookInspectorShell.tsx) | Shared inspector shell and declared panel-section layout. |
+| [workbookInspectorFieldReveal.ts](workbookInspectorFieldReveal.ts) | Bounded body scrolling for ordinary field context or a focused control and its ring. |
 
 ## Tests
 
@@ -36,6 +37,12 @@ bounded navigation selection survives closing the inspector for the same subject
 it carries no protected content, permissions, or authoring. Explicit focus wins
 over passive section tracking. History marks its existing unrequested Open control
 as the section entry; choosing the section focuses that control without invoking it.
+
+Explicit navigation defaults to start alignment. Mention-list arrows request
+nearest placement through the same navigation boundary: an available target in
+the current admitted section receives focus before its bounds and computed ring
+are minimally revealed. This synchronous path never opens a closed disclosure or
+retains a failed request. Ordinary field reveal keeps its label/value context.
 
 Retained source rows use the incident, account and access epoch as their read
 scope. A saved-view presentation reset can clear selection without retiring a

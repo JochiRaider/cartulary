@@ -167,6 +167,7 @@ export function createTimelineInspectorElementRegistry(
       identity: TimelineInspectorFocusIdentity,
       sourceRecordId: string,
       itemRef: string,
+      placement: Parameters<WorkbookInspectorExplicitNavigation>[2] = "start",
     ) {
       if (!scopeMatchesIdentity(scope, identity)) return false;
       const registration = mentions.get(itemRef);
@@ -178,8 +179,11 @@ export function createTimelineInspectorElementRegistry(
         return false;
       }
       return (
-        destinationNavigator?.("relationships", registration.element) ===
-        "applied"
+        destinationNavigator?.(
+          "relationships",
+          registration.element,
+          placement,
+        ) === "applied"
       );
     },
     focusPanel(

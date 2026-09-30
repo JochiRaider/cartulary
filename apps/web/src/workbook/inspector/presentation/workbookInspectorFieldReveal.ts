@@ -81,6 +81,24 @@ export function revealWorkbookInspectorField(
     !body.contains(field)
   )
     return;
+  revealTarget(body, target, field);
+}
+
+/** Reveals only the control and its focus ring, without moving focus or authoring. */
+export function revealWorkbookInspectorTarget(
+  body: HTMLElement,
+  target: HTMLElement,
+) {
+  revealTarget(body, target);
+}
+
+function revealTarget(
+  body: HTMLElement,
+  target: HTMLElement,
+  field?: HTMLElement,
+) {
+  if (!body.isConnected || !target.isConnected || !body.contains(target))
+    return;
   const bounds = usableBodyBounds(body);
   if (bounds.right <= bounds.left || bounds.bottom <= bounds.top) return;
   const rect = target.getBoundingClientRect();
@@ -98,10 +116,10 @@ export function revealWorkbookInspectorField(
     bottom: rect.bottom + ring,
   };
   const label = field
-    .querySelector<HTMLElement>(":scope > dt")
+    ?.querySelector<HTMLElement>(":scope > dt")
     ?.getBoundingClientRect();
   const value = field
-    .querySelector<HTMLElement>(":scope > [data-inspector-field-value]")
+    ?.querySelector<HTMLElement>(":scope > [data-inspector-field-value]")
     ?.getBoundingClientRect();
   const contextTop = Math.min(
     targetBounds.top,
@@ -114,7 +132,7 @@ export function revealWorkbookInspectorField(
     value?.bottom ?? targetBounds.bottom,
   );
   const editorLabel = field
-    .querySelector("[data-inspector-editor-field] > legend")
+    ?.querySelector("[data-inspector-editor-field] > legend")
     ?.getBoundingClientRect();
   const identificationTop = Math.min(
     editorLabel?.top ?? label?.top ?? targetBounds.top,

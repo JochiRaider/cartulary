@@ -3547,6 +3547,7 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "titles": [
+          "Workbook Inspector presentation admits nearest focus only for available current section targets without opening disclosures",
           "Workbook Inspector presentation keeps an explicit destination current through its body scroll, then resumes passive selection",
           "Workbook Inspector presentation keeps record context and Close outside the scrolling section body",
           "Workbook Inspector presentation measures navigation and fences owner attention without invoking commands"

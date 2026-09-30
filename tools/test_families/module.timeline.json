@@ -3638,6 +3638,7 @@
           "timeline inspector element registry clears registrations on lifecycle, generation, subject, and version changes",
           "timeline inspector element registry does not fulfill superseded, invalidated, closed, or unavailable focus after late registration",
           "timeline inspector element registry focuses only panels and mentions for the captured canonical subject",
+          "timeline inspector element registry forwards nearest mention focus synchronously and never retains failed or obsolete requests",
           "timeline inspector element registry fulfills first-open Evidence list focus only when the matching element registers",
           "timeline inspector element registry rejects disconnected, hidden, and disabled elements",
           "timeline inspector element registry targets complete collection members and restores only live semantic triggers"

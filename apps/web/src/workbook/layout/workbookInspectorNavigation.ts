@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { revealWorkbookInspectorTarget } from "../inspector/presentation/workbookInspectorFieldReveal";
 
 // One bounded presentation selection survives closing the layout's inspector.
 // It contains no record content, authoring, request or permission state.
@@ -31,6 +32,7 @@ type NavigationSection = {
 export type WorkbookInspectorExplicitNavigation = (
   panelId: InspectorPanelId,
   target?: HTMLElement | null,
+  placement?: "start" | "nearest",
 ) => "applied" | "pending" | "unavailable";
 
 export function workbookInspectorSectionFocusDestination(
@@ -141,6 +143,7 @@ export function useWorkbookInspectorNavigation(
     element: HTMLElement,
     destination: HTMLElement,
     scrollTarget: HTMLElement,
+    placement: "start" | "nearest" = "start",
   ) => {
     if (!destination.isConnected || !scrollTarget.isConnected) return "pending";
     if (
@@ -149,20 +152,43 @@ export function useWorkbookInspectorNavigation(
       ("disabled" in destination && destination.disabled === true)
     )
       return "pending";
-    let ancestor = destination.parentElement;
-    while (ancestor && ancestor !== element) {
-      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
-      ancestor = ancestor.parentElement;
+    const body = bodyRef.current;
+    if (placement === "nearest") {
+      if (
+        !body?.isConnected ||
+        !body.contains(element) ||
+        !availableNavigationTarget(destination)
+      )
+        return "pending";
+    } else {
+      let ancestor = destination.parentElement;
+      while (ancestor && ancestor !== element) {
+        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+        ancestor = ancestor.parentElement;
+      }
     }
     setMenuScope(null);
     remember(section.panel.panelId);
-    scrollToSection(scrollTarget);
+    if (placement === "start") scrollToSection(scrollTarget);
     destination.focus({ preventScroll: true });
+    if (document.activeElement !== destination) return "pending";
+    if (
+      placement === "nearest" &&
+      body &&
+      currentNavigation.current.scope === scope &&
+      destination.isConnected
+    ) {
+      const { scrollTop, scrollLeft } = body;
+      revealWorkbookInspectorTarget(body, destination);
+      if (scrollTop !== body.scrollTop || scrollLeft !== body.scrollLeft)
+        positionedScroll.current = body.scrollTop;
+    }
     return document.activeElement === destination ? "applied" : "pending";
   };
   const navigateExplicit: WorkbookInspectorExplicitNavigation = (
     panelId,
     target,
+    placement = "start",
   ) => {
     if (currentNavigation.current.scope !== scope) return "unavailable";
     const section = currentNavigation.current.sections.find(
@@ -173,7 +199,7 @@ export function useWorkbookInspectorNavigation(
     if (!element || target === null) return "pending";
     const destination = target ?? section.focusDestination(element);
     if (!element.contains(destination)) return "pending";
-    return activate(section, element, destination, destination);
+    return activate(section, element, destination, destination, placement);
   };
   const choose = (
     section: NavigationSection,
@@ -311,4 +337,29 @@ export function useWorkbookInspectorNavigation(
       else elements.current.delete(panelId);
     },
   };
+}
+
+function availableNavigationTarget(destination: HTMLElement) {
+  if (destination.closest("[hidden], [aria-hidden='true'], [inert]"))
+    return false;
+  for (
+    let node: HTMLElement | null = destination;
+    node;
+    node = node.parentElement
+  ) {
+    const style = getComputedStyle(node);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse"
+    )
+      return false;
+    if (
+      node instanceof HTMLDetailsElement &&
+      !node.open &&
+      !node.querySelector(":scope > summary")?.contains(destination)
+    )
+      return false;
+  }
+  return true;
 }

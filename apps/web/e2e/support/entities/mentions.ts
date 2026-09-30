@@ -12,7 +12,12 @@ import {
   hostsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import { expect, type Page, type Response } from "@playwright/test";
+import {
+  expect,
+  type Locator,
+  type Page,
+  type Response,
+} from "@playwright/test";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { readHttpOperationResponse } from "../transport/publicHttpOperationClient";
 import { createViewRow, readWorkbookMutation } from "../workbook/query";
@@ -23,6 +28,99 @@ import {
 
 export const hostRefsFieldKey = "timeline.host_refs";
 export const identityRefsFieldKey = "timeline.identity_refs";
+
+/** Observation only: never repairs focus or scroll after the tested key. */
+export async function inspectorMentionGeometry(mention: Locator) {
+  return mention.evaluate((element) => {
+    const body = element.closest<HTMLElement>("[data-inspector-scroll-body]");
+    if (!(element instanceof HTMLElement) || !body)
+      throw new Error("Missing Inspector mention or scroll body");
+    const clientBounds = (node: HTMLElement) => {
+      const rect = node.getBoundingClientRect();
+      const scale = node.offsetWidth > 0 ? rect.width / node.offsetWidth : 1;
+      return {
+        left: rect.left + node.clientLeft * scale,
+        right: rect.left + (node.clientLeft + node.clientWidth) * scale,
+        top: rect.top + node.clientTop * scale,
+        bottom: rect.top + (node.clientTop + node.clientHeight) * scale,
+      };
+    };
+    const clip = clientBounds(body);
+    const viewport = window.visualViewport;
+    clip.left = Math.max(clip.left, viewport?.offsetLeft ?? 0);
+    clip.top = Math.max(clip.top, viewport?.offsetTop ?? 0);
+    clip.right = Math.min(
+      clip.right,
+      (viewport?.offsetLeft ?? 0) + (viewport?.width ?? innerWidth),
+    );
+    clip.bottom = Math.min(
+      clip.bottom,
+      (viewport?.offsetTop ?? 0) + (viewport?.height ?? innerHeight),
+    );
+    for (
+      let parent = element.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      const style = getComputedStyle(parent);
+      const bounds = clientBounds(parent);
+      if (["auto", "scroll", "hidden", "clip"].includes(style.overflowX)) {
+        clip.left = Math.max(clip.left, bounds.left);
+        clip.right = Math.min(clip.right, bounds.right);
+      }
+      if (["auto", "scroll", "hidden", "clip"].includes(style.overflowY)) {
+        clip.top = Math.max(clip.top, bounds.top);
+        clip.bottom = Math.min(clip.bottom, bounds.bottom);
+      }
+    }
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const scale =
+      element.offsetWidth > 0 ? rect.width / element.offsetWidth : 1;
+    const ring =
+      Math.max(
+        0,
+        (Number.parseFloat(style.outlineWidth) || 0) +
+          (Number.parseFloat(style.outlineOffset) || 0),
+      ) * scale;
+    return {
+      focused: document.activeElement === element,
+      contained:
+        rect.top - ring >= clip.top - 1 &&
+        rect.bottom + ring <= clip.bottom + 1 &&
+        rect.left - ring >= clip.left - 1 &&
+        rect.right + ring <= clip.right + 1,
+      fits:
+        rect.height + ring * 2 <= clip.bottom - clip.top &&
+        rect.width + ring * 2 <= clip.right - clip.left,
+      rect: {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+      },
+      clip,
+      ring,
+      scrollTop: body.scrollTop,
+      scrollLeft: body.scrollLeft,
+    };
+  });
+}
+
+/** Fixture positioning is allowed only before the key under test. */
+export async function placeInspectorMentionNearBottom(mention: Locator) {
+  await mention.evaluate((element) => {
+    const body = element.closest<HTMLElement>("[data-inspector-scroll-body]");
+    if (!(element instanceof HTMLElement) || !body)
+      throw new Error("Missing Inspector mention or scroll body");
+    const scale = body.getBoundingClientRect().height / body.offsetHeight;
+    body.scrollTop +=
+      (element.getBoundingClientRect().bottom -
+        (body.getBoundingClientRect().bottom - 24 * scale)) /
+      scale;
+    element.focus({ preventScroll: true });
+  });
+}
 
 type CollectionItem = Record<string, unknown>;
 

@@ -3,7 +3,7 @@ import {
   relationshipItemsTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, Fragment, type ReactNode, useRef } from "react";
+import { type CSSProperties, Fragment, type ReactNode } from "react";
 import {
   WorkbookRelationshipChip,
   WorkbookRelationshipChipDetails,
@@ -42,6 +42,7 @@ type TimelineMentionsPanelProps = {
     element: HTMLButtonElement | null,
   ) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
+  readonly onFocusMention: (rowRecordId: string, itemRef: string) => boolean;
   readonly selectedMention: InspectorMention | null;
   readonly actions: TimelineMentionActions;
 };
@@ -53,6 +54,7 @@ export function TimelineMentionsPanel({
   registerMention,
   registerCollectionItem,
   onSelectMention,
+  onFocusMention,
   selectedMention,
   actions,
   getRelationshipLabel,
@@ -79,7 +81,6 @@ export function TimelineMentionsPanel({
       />
     </section>
   ) : null;
-  const buttons = useRef(new Map<string, HTMLButtonElement>());
   const renderMention = (
     item: InspectorMention,
     items: readonly InspectorMention[],
@@ -110,8 +111,6 @@ export function TimelineMentionsPanel({
               item.itemRef,
               element,
             );
-            if (element === null) buttons.current.delete(item.itemRef);
-            else buttons.current.set(item.itemRef, element);
           }}
           style={{
             ...mentionListButtonStyle,
@@ -124,10 +123,7 @@ export function TimelineMentionsPanel({
                 (candidate) => candidate.itemRef === item.itemRef,
               );
               const next = items[index + (event.key === "ArrowLeft" ? -1 : 1)];
-              if (next)
-                buttons.current
-                  .get(next.itemRef)
-                  ?.focus({ preventScroll: true });
+              if (next) onFocusMention(next.rowRecordId, next.itemRef);
               event.preventDefault();
             }
             if (event.key !== "Tab" && event.key !== "Escape")
