@@ -191,7 +191,7 @@ const autoResolvedChipStyle = {
 const dismissedChipStyle = {
   border: "var(--ct-border-hairline)",
   background: "transparent",
-  color: "var(--ct-colors-ink-tertiary)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const selectedChipStyle = {

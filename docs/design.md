@@ -1901,7 +1901,7 @@ Design contract. An activation value of `Optional action` means the component in
 | `chip.unresolved` | `{components.chip.backgroundColor}` | `{components.chip.textColor}` | `1px dashed {colors.semantic-caution}` | `{components.focus-ring.border}` | `?` or `Unresolved` | Name pattern from §9.2 | Opens resolution path | `conditional_action_focus` | `none` | 20 |
 | `chip.resolved` | `{components.chip.backgroundColor}` | `{colors.ink}` | `{components.chip.border}` | `{components.focus-ring.border}` | Canonical label | Name pattern from §9.2 | Opens inspection path | `conditional_action_focus` | `none` | 50 |
 | `chip.auto_resolved` | `{components.chip.backgroundColor}` | `{colors.ink}` | `{components.chip.border}` | `{components.focus-ring.border}` | `auto` marker | Name pattern from §9.2 | Opens correction path | `conditional_action_focus` | `none` | 30 |
-| `chip.dismissed` | `transparent` | `{colors.ink-tertiary}` | `{border.hairline}` | `{components.focus-ring.border}` | `dismissed` marker | Name pattern from §9.2 | Opens inspection path only | `conditional_action_focus` | `none` | 40 |
+| `chip.dismissed` | `transparent` | `{colors.ink-muted}` | `{border.hairline}` | `{components.focus-ring.border}` | `dismissed` marker | Name pattern from §9.2 | Opens inspection path only | `conditional_action_focus` | `none` | 40 |
 | `menu_item.focused` | `{colors.surface-3}` | `{colors.ink}` | `none` | `{components.focus-ring.border}` | Highlight plus text | `none` | Activates item | `tabbable` inside menu | `none` | 30 |
 | `menu_item.selected` | `{colors.surface-3}` | `{colors.ink}` | `{border.hairline}` | `{components.focus-ring.border}` | Check or selected text | `aria-selected=true` | Selects item | `tabbable` inside menu | `none` | 30 |
 | `toast.warning` | `{colors.surface-2}` | `{colors.ink}` | `1px solid {colors.semantic-caution}` | `conditional_action_focus_indicator` | Warning label | Live-region rule in §14.2 | Optional action | `conditional_action_focus` | `{motion.duration-fast}` | 30 |
@@ -2413,7 +2413,7 @@ Design contract. Required foreground/background pairings are closed to this matr
 | --- | --- | --- | --- | ---: | --- | --- | --- | --- |
 | `cp.body.canvas` | `{colors.ink}` | `{colors.canvas}` | Text | 4.5:1 | Normal | None | Shell body, grid surround | `D-VFIX-001` |
 | `cp.body.surface1` | `{colors.ink}` | `{colors.surface-1}` | Text | 4.5:1 | Normal | None | Inspector, menus, panels | `D-VFIX-002` |
-| `cp.muted.surface1` | `{colors.ink-muted}` | `{colors.surface-1}` | Text | 4.5:1 | Normal | None | Metadata and secondary labels | `D-VFIX-001` |
+| `cp.muted.surface1` | `{colors.ink-muted}` | `{colors.surface-1}` | Text | 4.5:1 | Normal | None | Metadata, secondary labels, and inspectable dismissed mention labels and markers | `D-VFIX-001`, `D-VFIX-004` |
 | `cp.subtle.surface2` | `{colors.ink-subtle}` | `{colors.surface-2}` | Text | 4.5:1 | Normal | None | Low-emphasis metadata | `D-VFIX-001` |
 | `cp.accent.onaccent` | `{colors.on-accent}` | `{colors.accent}` | Text/control | 4.5:1 | Normal | None | Primary button text | `D-VFIX-009` |
 | `cp.focus.surface` | `{colors.hairline-focus}` | `{colors.surface-1}` | Focus indicator | 3:1 | Non-text | None | Focus ring against panel | `D-VFIX-009` |

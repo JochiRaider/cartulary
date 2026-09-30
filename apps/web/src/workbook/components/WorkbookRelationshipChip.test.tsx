@@ -93,6 +93,21 @@ it("WorkbookRelationshipChip preserves state details selectors and optional sele
                 selectorIdentity: "identity",
               }}
             />
+            {(["host", "identity"] as const).flatMap((entityType) =>
+              [false, true].map((selected) => (
+                <WorkbookRelationshipChip
+                  key={`${entityType}:${selected}`}
+                  presentation={{
+                    ...unresolved,
+                    entityType,
+                    selected,
+                    state: "dismissed",
+                    selectorIdentity: `dismissed-${entityType}-${selected}`,
+                    onSelect: inspect,
+                  }}
+                />
+              )),
+            )}
           </td>
         </tr>
       </tbody>
@@ -126,6 +141,28 @@ it("WorkbookRelationshipChip preserves state details selectors and optional sele
       "dismissed",
     ),
   ).toBeTruthy();
+  for (const entityType of ["host", "identity"] as const) {
+    for (const selected of [false, true]) {
+      const chip = screen.getByTestId(
+        relationshipChipTestId(`dismissed-${entityType}-${selected}`),
+      );
+      expect(chip.getAttribute("aria-label")).toBe(
+        `Dismissed mention: ${unresolved.rawText}`,
+      );
+      expect(chip.getAttribute("aria-pressed")).toBe(String(selected));
+      expect(chip.style.color).toBe("var(--ct-colors-ink-muted)");
+      expect(chip.style.background).toBe("transparent");
+      expect(chip.style.border).toBe("var(--ct-border-hairline)");
+      expect(chip.style.boxShadow).toBe(
+        selected ? "0 0 0 2px var(--ct-colors-accent)" : "",
+      );
+      const marker = within(chip).getByText("dismissed", { exact: true });
+      expect(marker.getAttribute("aria-hidden")).toBe("true");
+      expect(
+        within(chip).getByText(unresolved.rawText.trim()).textContent,
+      ).toBe(unresolved.rawText);
+    }
+  }
   fireEvent.click(autoChip);
   expect(inspect).toHaveBeenCalledTimes(1);
   for (const key of ["Enter", " ", "F2"]) fireEvent.keyDown(autoChip, { key });

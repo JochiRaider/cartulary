@@ -149,6 +149,7 @@ import {
   evidenceViewSchemaId,
   handoffViewSchemaId,
   hostsViewSchemaId,
+  identitiesViewSchemaId,
   indicatorsViewSchemaId,
   lessonViewSchemaId,
   notesViewSchemaId,
@@ -206,6 +207,7 @@ import {
   collectionActionsPayload,
   collectionItems,
   hostRefsFieldKey,
+  identityRefsFieldKey,
   inspectorMentionGeometry,
   placeInspectorMentionNearBottom,
   requireItemByRawText,
@@ -223,7 +225,9 @@ import {
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
 import {
+  currentLifecycle,
   expectLifecycleControlReachable,
+  lifecycleAction,
   openLifecycle,
 } from "./support/incidentLifecycle";
 import {
@@ -1403,14 +1407,19 @@ function contrastRecordPath(title: string) {
 
 type ContrastTarget =
   | string
-  | { readonly id: string; readonly selector: string };
+  | {
+      readonly id: string;
+      readonly selector: string;
+      readonly required?: true;
+      readonly text?: string;
+    };
 async function collectContrastChecks(
   page: Page,
   testIds: readonly ContrastTarget[],
 ) {
   const targets = [...new Set(testIds)].map((target) =>
     typeof target === "string"
-      ? { id: target, selector: dataTestIdSelector(target) }
+      ? { id: target, selector: dataTestIdSelector(target), required: false }
       : target,
   );
   return page.evaluate(
@@ -1473,11 +1482,77 @@ async function collectContrastChecks(
         return { a: 1, b: 255, g: 255, r: 255 };
       }
 
+      // Required text targets support solid paint only. Do not invent a ratio
+      // for alpha/effects or silently drop a missing descendant.
+      function requiredPaint(element: HTMLElement) {
+        const foregroundStyle = window.getComputedStyle(element);
+        const foreground = parseRgba(foregroundStyle.color);
+        if (!foreground || foreground.a !== 1)
+          throw new Error("Unsupported foreground color or alpha");
+        const fill = foregroundStyle.getPropertyValue(
+          "-webkit-text-fill-color",
+        );
+        if (fill && fill !== foregroundStyle.color)
+          throw new Error("Unsupported text fill override");
+        if (foregroundStyle.textShadow !== "none")
+          throw new Error("Unsupported text shadow");
+        let background: Rgba | null = null;
+        const backgroundLayers: { element: string; color: string }[] = [];
+        for (
+          let candidate: HTMLElement | null = element;
+          candidate;
+          candidate = candidate.parentElement
+        ) {
+          const style = window.getComputedStyle(candidate);
+          if (
+            style.display === "none" ||
+            style.visibility !== "visible" ||
+            Number(style.opacity) !== 1
+          )
+            throw new Error("Hidden text or unsupported ancestor opacity");
+          if (
+            style.filter !== "none" ||
+            style.getPropertyValue("backdrop-filter") !== "none" ||
+            style.mixBlendMode !== "normal"
+          )
+            throw new Error("Unsupported ancestor filter or blending");
+          if (background !== null) continue;
+          if (style.backgroundImage !== "none")
+            throw new Error("Unsupported background image");
+          const color = parseRgba(style.backgroundColor);
+          if (!color) throw new Error("Unparseable background color");
+          backgroundLayers.push({
+            element: candidate.getAttribute("data-testid") ?? candidate.tagName,
+            color: style.backgroundColor,
+          });
+          if (color.a === 0) continue;
+          if (color.a !== 1)
+            throw new Error("Unsupported translucent background");
+          background = color;
+        }
+        if (background === null)
+          throw new Error("No opaque painted background found");
+        return { foreground, background, backgroundLayers };
+      }
+
       return targets
-        .map(({ id, selector }) => {
-          const element = document.querySelector(selector);
+        .map((target) => {
+          const { id, selector, required } = target;
+          const matches = document.querySelectorAll(selector);
+          const unsupported = (error: string) => ({
+            target: id,
+            result: "unsupported",
+            ratio: null,
+            threshold,
+            error,
+          });
+          if (required && matches.length !== 1)
+            return unsupported(
+              `Expected exactly one text target; found ${matches.length}`,
+            );
+          const element = matches[0];
           if (!(element instanceof HTMLElement)) {
-            return null;
+            return required ? unsupported("Missing HTML text target") : null;
           }
           const style = window.getComputedStyle(element);
           if (
@@ -1485,12 +1560,26 @@ async function collectContrastChecks(
             style.visibility === "hidden" ||
             element.getClientRects().length === 0
           ) {
-            return null;
+            return required ? unsupported("Text target is not rendered") : null;
           }
-          const foreground = parseRgba(style.color);
-          const background = backgroundFor(element);
+          if (
+            required &&
+            "text" in target &&
+            element.textContent !== target.text
+          )
+            return unsupported(
+              "Text target does not contain the expected source text or marker",
+            );
+          let paint: ReturnType<typeof requiredPaint> | null;
+          try {
+            paint = required ? requiredPaint(element) : null;
+          } catch (error) {
+            return unsupported(String(error));
+          }
+          const foreground = paint?.foreground ?? parseRgba(style.color);
+          const background = paint?.background ?? backgroundFor(element);
           if (!foreground) {
-            return null;
+            return required ? unsupported("Unparseable foreground") : null;
           }
           const ratio = contrastRatio(foreground, background);
           return {
@@ -1500,6 +1589,7 @@ async function collectContrastChecks(
             result: ratio >= threshold ? "pass" : "fail",
             target: id,
             threshold,
+            ...(paint ? { backgroundLayers: paint.backgroundLayers } : {}),
           };
         })
         .filter(Boolean);
@@ -1511,19 +1601,21 @@ async function collectContrastChecks(
 async function expectAndRecordContrast(
   page: Page,
   testIds: readonly ContrastTarget[],
+  context = "",
 ) {
   const title = test.info().title;
   const checks = await collectContrastChecks(page, testIds);
-  expect(checks.length).toBeGreaterThan(0);
-  expect(checks.filter((check) => check?.result !== "pass")).toEqual([]);
 
-  const recordPath = contrastRecordPath(title);
+  const recordPath = contrastRecordPath(
+    context ? `${context}-${title}` : title,
+  );
   if (recordPath) {
     writeFileSync(
       recordPath,
       `${JSON.stringify(
         {
           scenario_title: title,
+          ...(context ? { context } : {}),
           checks,
         },
         null,
@@ -1532,6 +1624,61 @@ async function expectAndRecordContrast(
       "utf8",
     );
   }
+  expect(checks.length).toBeGreaterThan(0);
+  const required = testIds.filter(
+    (target) => typeof target !== "string" && target.required,
+  );
+  expect(
+    checks.filter((check) =>
+      required.some(
+        (target) => typeof target !== "string" && target.id === check?.target,
+      ),
+    ),
+  ).toHaveLength(required.length);
+  expect(
+    checks.filter((check) => check?.result !== "pass"),
+    context,
+  ).toEqual([]);
+}
+
+async function expectDismissedMentionTextContrast(
+  page: Page,
+  itemRef: string,
+  rawText: string,
+  context: string,
+) {
+  const item = page
+    .getByTestId(timelineInspectorTestId())
+    .getByTestId(mentionItemTestId(itemRef));
+  await expect(item).toHaveAccessibleName(`Dismissed mention: ${rawText}`);
+  await item.scrollIntoViewIfNeeded();
+  const chip = item.getByTestId(relationshipChipTestId(itemRef));
+  const selector = `${dataTestIdSelector(timelineInspectorTestId())} ${dataTestIdSelector(mentionItemTestId(itemRef))} ${dataTestIdSelector(relationshipChipTestId(itemRef))}`;
+  await expectAndRecordContrast(
+    page,
+    [
+      {
+        id: `${context}-label`,
+        selector: `${selector} span:not([aria-hidden])`,
+        required: true,
+        text: rawText,
+      },
+      {
+        id: `${context}-marker`,
+        selector: `${selector} span[aria-hidden='true']`,
+        required: true,
+        text: "dismissed",
+      },
+    ],
+    context,
+  );
+  await expect(chip).toHaveCount(1);
+  await expectCollectionControlPainted(
+    chip.getByText("dismissed", { exact: true }),
+  );
+  await expectCollectionControlPainted(
+    chip.getByText(rawText, { exact: true }),
+  );
 }
 
 async function expectCellTextOrValue(locator: Locator, value: string) {
@@ -3679,6 +3826,12 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     );
 
+    await expectDismissedMentionTextContrast(
+      page,
+      String(dismissedMention.item_ref),
+      dismissedRawText,
+      "dismissed-host-selected-1440x900",
+    );
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [
@@ -3686,9 +3839,179 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       relationshipChipTestId(String(resolvedMention.item_ref)),
       relationshipChipTestId(String(manualMention.item_ref)),
       relationshipChipTestId(String(autoItem.item_ref)),
-      mentionItemTestId(String(dismissedMention.item_ref)),
       mentionRestoreUnresolvedButtonTestId(),
     ]);
+
+    const identityRawText = `A11Y-DISMISSED-${"long-source-account-".repeat(6)}Ω@example.test?`;
+    await createViewRow(page, incidentId, identitiesViewSchemaId, {
+      client_txn_id: uniqueTxn("a11y-dismissed-identity-target"),
+      "identity.display_name": "A11Y dismissed identity prior target",
+      "identity.upn": "a11y-dismissed-identity@example.test",
+    });
+    const identityEnvelope = await addRelationshipTokenViaUI(
+      page,
+      dismissedRow.record_id,
+      "identityRefs",
+      identityRawText,
+    );
+    const identityMention = requireItemByRawText(
+      collectionItems(identityEnvelope.data.row, identityRefsFieldKey),
+      identityRawText,
+    );
+    const identityItem = page.getByTestId(
+      mentionItemTestId(String(identityMention.item_ref)),
+    );
+    await identityItem.click();
+    await page
+      .getByTestId(mentionResolveTargetSelectTestId())
+      .fill("A11Y dismissed identity prior target");
+    await page
+      .getByRole("option", {
+        name: "A11Y dismissed identity prior target",
+        exact: true,
+      })
+      .click();
+    await page.getByTestId(mentionResolveExistingButtonTestId()).click();
+    await expect(identityItem).toHaveAccessibleName(
+      `Resolved identity: ${identityRawText}`,
+    );
+    await page.getByTestId(mentionDismissButtonTestId()).click();
+    await expect(identityItem).toHaveAccessibleName(
+      `Dismissed mention: ${identityRawText}`,
+    );
+    await expect(
+      page.getByTestId(
+        relationshipItemsTestId(dismissedRow.record_id, identityRefsFieldKey),
+      ),
+    ).toContainText("No items");
+
+    const dismissedCases = [
+      {
+        entityType: "host",
+        item: dismissedMentionItem,
+        itemRef: String(dismissedMention.item_ref),
+        rawText: dismissedRawText,
+        section: "Selected Hosts item",
+      },
+      {
+        entityType: "identity",
+        item: identityItem,
+        itemRef: String(identityMention.item_ref),
+        rawText: identityRawText,
+        section: "Selected Identities item",
+      },
+    ];
+    const checkDismissedStates = async (context: string, closed = false) => {
+      for (const [index, mention] of dismissedCases.entries()) {
+        await mention.item.click();
+        await expect(mention.item).toHaveAttribute("aria-pressed", "true");
+        await expectDismissedMentionTextContrast(
+          page,
+          mention.itemRef,
+          mention.rawText,
+          `${context}-${mention.entityType}-selected`,
+        );
+        const detail = page.getByRole("region", {
+          name: mention.section,
+          exact: true,
+        });
+        const disclosure = detail.getByText("Mention details", { exact: true });
+        if (
+          !(await disclosure.evaluate(
+            (element) => element.closest("details")?.open,
+          ))
+        )
+          await disclosure.click();
+        const sourceText = detail.getByText(mention.rawText, { exact: true });
+        await sourceText.scrollIntoViewIfNeeded();
+        await expectCollectionControlPainted(sourceText);
+        expect(await sourceText.textContent()).toBe(mention.rawText);
+        if (closed)
+          await expect(
+            page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
+          ).toBeDisabled();
+        await dismissedCases[index === 0 ? 1 : 0]?.item.click();
+        await expect(mention.item).toHaveAttribute("aria-pressed", "false");
+        await expectDismissedMentionTextContrast(
+          page,
+          mention.itemRef,
+          mention.rawText,
+          `${context}-${mention.entityType}-unselected`,
+        );
+      }
+      const geometry = await page
+        .getByTestId(timelineInspectorTestId())
+        .evaluate((element) => ({
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+        }));
+      expect(geometry.scrollWidth).toBeLessThanOrEqual(
+        geometry.clientWidth + 1,
+      );
+    };
+    for (const layout of [
+      { width: 1440, height: 900, zoom: 100, spacing: false },
+      { width: 1024, height: 720, zoom: 100, spacing: false },
+      { width: 1024, height: 720, zoom: 200, spacing: false },
+      { width: 320, height: 720, zoom: 100, spacing: false },
+      { width: 1024, height: 720, zoom: 100, spacing: true },
+    ]) {
+      await page.setViewportSize({
+        width: layout.width,
+        height: layout.height,
+      });
+      await page.evaluate((zoom) => {
+        document.documentElement.style.zoom = `${zoom}%`;
+      }, layout.zoom);
+      const spacing = layout.spacing
+        ? await page.addStyleTag({
+            content: `
+        ${dataTestIdSelector(timelineInspectorTestId())} * {
+          line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important;
+        }
+        ${dataTestIdSelector(timelineInspectorTestId())} p { margin-block-end: 2em !important; }
+      `,
+          })
+        : null;
+      try {
+        await checkDismissedStates(
+          `dismissed-${layout.width}x${layout.height}-zoom${layout.zoom}-spacing${layout.spacing}`,
+        );
+      } finally {
+        await spacing?.evaluate((element) => {
+          element.parentNode?.removeChild(element);
+        });
+        await page.evaluate(() => {
+          document.documentElement.style.zoom = "";
+        });
+      }
+    }
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const lifecycle = await currentLifecycle(page, incidentId);
+    expect(
+      (
+        await lifecycleAction(page, incidentId, "closeIncident", {
+          client_txn_id: uniqueTxn("a11y-dismissed-close"),
+          base_incident_version: lifecycle.incident_version,
+          reason: "Verify retained dismissed text in closed read-only mode",
+        })
+      ).ok,
+    ).toBe(true);
+    await expect(
+      page.getByText("Closed, read-only", { exact: true }),
+    ).toBeVisible();
+    await openTimelineInspector(page, dismissedRow.record_id);
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 1024, height: 720 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await checkDismissedStates(
+        `dismissed-closed-${viewport.width}x${viewport.height}`,
+        true,
+      );
+    }
   });
 });
 
