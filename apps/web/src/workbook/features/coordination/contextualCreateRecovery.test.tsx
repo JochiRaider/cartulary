@@ -7,7 +7,14 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
@@ -19,6 +26,7 @@ import type { WorkbookSourceWriteSettlement } from "../../ports/WorkbookSourceWr
 import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { ContextualCreateContext } from "./ContextualCreateContext";
+import { ContextualCreateForm } from "./ContextualCreateForm";
 import type {
   ContextualCreateOutcome,
   ContextualCreateReader,
@@ -245,6 +253,13 @@ describe("contextual create recovery", () => {
       "stale",
     ] as const) {
       const { owner, reader, transport } = fixture(true);
+      const rendered = render(
+        <ContextualCreateForm
+          owner={owner}
+          attachment={attachment}
+          onSubmit={() => void owner.submit(attachment)}
+        />,
+      );
       vi.mocked(reader.page).mockResolvedValue(
         kind === "incomplete"
           ? {
@@ -275,13 +290,115 @@ describe("contextual create recovery", () => {
               },
             },
       );
-      await owner.submit(attachment);
+      await act(async () => {
+        await owner.submit(attachment);
+      });
       expect(transport.send).not.toHaveBeenCalled();
+      expect(screen.getByText(/^Create in .* Source:/).textContent).toContain(
+        "Original source needs review",
+      );
+      expect(
+        screen.getByText(/^Create in .* Source:/).textContent,
+      ).not.toContain(sourceId);
       expect(owner.getSnapshot().draft?.values["decision.summary"]).toBe(
         "Reviewed summary",
       );
       expect(owner.getSnapshot().message).toContain("retained");
+      rendered.unmount();
     }
+  });
+  it("recovers safe operation source labels through existing refresh reads without changing the captured attempt", async () => {
+    const { owner, reader, transport, receipt, effects } = fixture();
+    let fail = false;
+    let version = 1;
+    vi.mocked(reader.page).mockImplementation(async ({ viewSchemaId }) => {
+      if (fail)
+        return {
+          kind: "rejected",
+          failure: { kind: "retryable", message: "Refresh unavailable" },
+        };
+      const row =
+        viewSchemaId === timelineViewSchemaId
+          ? fullWorkbookViewRow(
+              requireViewContract(timelineViewSchemaId),
+              sourceId,
+              version,
+              {
+                "timeline.activity_synopsis_text": `Current source version ${version}`,
+              },
+            )
+          : receipt.data.row;
+      return {
+        kind: "accepted",
+        value: {
+          candidates: [
+            {
+              recordId: row.record_id,
+              viewSchemaId,
+              displayText: "Untrusted candidate hint",
+              row,
+            },
+          ],
+          hasMore: false,
+          nextCursor: null,
+        },
+      };
+    });
+    effects.refresh.mockRejectedValue(new Error("Retain refresh debt"));
+    transport.send.mockResolvedValue({ kind: "accepted", receipt });
+    await owner.submit(attachment);
+    await waitFor(() =>
+      expect(owner.getSnapshot().entries[0]?.refresh).toBe("required"),
+    );
+    const original = required(owner.getSnapshot().entries[0]);
+    const attempt = original.attempt;
+    expect(original.sourceLabel).toBe("Current source version 1");
+    owner.suspend();
+    owner.setAuthority(authority);
+    expect(owner.getSnapshot().entries[0]?.sourceLabel).toBeNull();
+    fail = true;
+    await owner.retryRefresh(attempt.clientTxnId);
+    expect(owner.getSnapshot().entries[0]?.sourceLabel).toBeNull();
+    fail = false;
+    version = 2;
+    const priorReads = vi.mocked(reader.page).mock.calls.length;
+    await owner.retryRefresh(attempt.clientTxnId);
+    expect(vi.mocked(reader.page).mock.calls.length - priorReads).toBe(2);
+    expect(owner.getSnapshot().entries[0]?.sourceLabel).toBe(
+      "Current source version 2",
+    );
+    owner.observe(sourceId, 3);
+    await owner.retryRefresh(attempt.clientTxnId);
+    expect(owner.getSnapshot().entries[0]?.sourceLabel).toBeNull();
+    version = 3;
+    await owner.retryRefresh(attempt.clientTxnId);
+    expect(owner.getSnapshot().entries[0]?.sourceLabel).toBe(
+      "Current source version 3",
+    );
+    owner.observeSocket({
+      type: "record_changed",
+      incident_id: authority.incidentId,
+      event_id: "source-removed-at-floor",
+      emitted_at: "2026-09-30T20:00:00Z",
+      stream_seq: 1,
+      payload: {
+        record_id: sourceId,
+        row_version: 3,
+        client_txn_id: "another-operation",
+        actor_user_id: actor,
+        change_set_id: "source-removal",
+        changed_field_keys: [],
+        affected_views: [
+          { view_schema_id: timelineViewSchemaId, change_kind: "remove" },
+        ],
+      },
+    });
+    expect(owner.getSnapshot().entries[0]?.sourceLabel).toBeNull();
+    await owner.retryRefresh(attempt.clientTxnId);
+    expect(owner.getSnapshot().entries[0]?.sourceLabel).toBeNull();
+    expect(owner.getSnapshot().entries[0]?.attempt).toBe(attempt);
+    expect(transport.send).toHaveBeenCalledOnce();
+    expect(owner.getSnapshot().entries[0]?.receipt).toEqual(receipt);
   });
   it("recovers a timed-out observation with the same attempt and accepts a late original receipt monotonically", async () => {
     vi.useFakeTimers();

@@ -19,7 +19,10 @@ import {
 } from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import { ContextualReferenceControl } from "./ContextualReferenceControl";
-import { contextualReferenceKind } from "./contextualCreateModel";
+import {
+  contextualCreateSourceLabel,
+  contextualReferenceKind,
+} from "./contextualCreateModel";
 import type { WorkbookContextualTaskDecisionCreateOwner } from "./WorkbookContextualTaskDecisionCreateOwner";
 
 export function ContextualCreateForm({
@@ -65,9 +68,9 @@ export function ContextualCreateForm({
       aria-label={draft.feature.label}
       style={workbookFormFieldsStyle}
     >
-      <p>
+      <p style={{ overflowWrap: "anywhere" }}>
         Create in {draft.target.title}. Source:{" "}
-        {draft.labels[draft.source.recordId] ?? draft.source.recordId} (
+        {contextualCreateSourceLabel(snapshot.sourceLabel)} (
         {draft.presentation.surfaceLabel}).
       </p>
       <p style={workbookFormMessageStyle}>

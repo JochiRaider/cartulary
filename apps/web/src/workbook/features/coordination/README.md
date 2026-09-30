@@ -91,3 +91,12 @@ Parties are records. Source selection separately captures schema and reviewed ro
 version, including a retained off-page source. Parent label maps retain only IDs
 still referenced across their fields. Browsing does not change seeds, origin,
 source review, target fields, attempts or operation ownership.
+
+Contextual Task/Decision original-source presentation is retained separately in
+the existing owner. Target-link removal, scalar edits and attachment changes do
+not prune it. Source or authority invalidation withdraws the readable label;
+Form, Recovery and attached workflow context share the safe review-required
+projection. The existing authoritative source review recovers the current label
+only after its identity, version and lifetime checks. Operation entries retain
+safe presentation outside their immutable captured attempts; refresh can recover
+it from already-read matching source rows without additional traversal.

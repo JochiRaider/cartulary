@@ -10,6 +10,7 @@ import type { SheetRef } from "../../../shared/sheetRef";
 import { readWorkbookAuthoringRecord } from "../../adapters/readWorkbookAuthoringRecord";
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookInspectorLiveRowBinding } from "../../inspector/workbookInspectorSubject";
+import { genericInspectorRowLabel } from "../../models/genericWorkbookModel";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
@@ -38,6 +39,7 @@ import type {
 type Snapshot = Readonly<{
   authority: WorkbookMutationAuthority | null;
   draft: ContextualCreateDraft | null;
+  sourceLabel: string | null;
   attachment: symbol | null;
   errors: Readonly<Record<string, string>>;
   message: string | null;
@@ -64,6 +66,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
   private readonly removedViews = new Map<string, number>();
   private nextDraftId = 0;
   private draft: ContextualCreateDraft | null = null;
+  private sourceLabel: string | null = null;
   private attachment: symbol | null = null;
   private errors: Readonly<Record<string, string>> = {};
   private message: string | null = null;
@@ -77,6 +80,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
   private snapshot: Snapshot = {
     authority: null,
     draft: null,
+    sourceLabel: null,
     attachment: null,
     errors: {},
     message: null,
@@ -129,6 +133,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
     this.snapshot = {
       authority: this.authority,
       draft: this.authority ? this.draft : null,
+      sourceLabel: this.authority && this.draft ? this.sourceLabel : null,
       attachment: this.authority ? this.attachment : null,
       errors: this.authority ? this.errors : {},
       message: this.authority ? this.message : null,
@@ -156,6 +161,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
     this.generation++;
     this.reviewRevision++;
     this.candidateRevision++;
+    this.invalidateSourceLabels();
     // Display labels are authorization observations, not durable reference identity.
     if (this.draft)
       this.draft = freezeContextualCreate({ ...this.draft, labels: {} });
@@ -173,6 +179,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
     this.authority = null;
     this.actorId = null;
     this.draft = null;
+    this.sourceLabel = null;
     this.attachment = null;
     this.errors = {};
     this.message = null;
@@ -242,6 +249,11 @@ export class WorkbookContextualTaskDecisionCreateOwner {
     );
     if (!draft) return false;
     this.draft = draft;
+    this.sourceLabel =
+      subject.subject.label.trim() &&
+      subject.subject.label !== draft.source.recordId
+        ? subject.subject.label
+        : null;
     this.attachment = attachment;
     this.errors = {};
     this.message = null;
@@ -302,11 +314,27 @@ export class WorkbookContextualTaskDecisionCreateOwner {
   discard() {
     if (this.busy) return;
     this.draft = null;
+    this.sourceLabel = null;
     this.attachment = null;
     this.errors = {};
     this.message = null;
     this.reviewRevision++;
     this.publish();
+  }
+  /** Source observations have a lifetime independent of editable target links. */
+  private invalidateSourceLabels(recordId?: string) {
+    if (!recordId || recordId === this.draft?.source.recordId)
+      this.sourceLabel = null;
+    for (const [id, entry] of this.entries)
+      if (
+        (!recordId ||
+          recordId === entry.attempt.review.draft.source.recordId) &&
+        entry.sourceLabel !== null
+      )
+        this.entries.set(
+          id,
+          freezeContextualCreate({ ...entry, sourceLabel: null }),
+        );
   }
   observe(recordId?: string, version?: number) {
     if (!this.authority) return;
@@ -315,6 +343,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       this.versions.set(recordId, version);
     }
     this.candidateRevision++;
+    this.invalidateSourceLabels(recordId);
     if (
       this.draft &&
       (!recordId ||
@@ -334,16 +363,25 @@ export class WorkbookContextualTaskDecisionCreateOwner {
   observeSocket(message: RecordChangedMessage) {
     if (!this.authority || message.incident_id !== this.incidentId) return;
     const payload = message.payload;
+    let newRemoval = false;
     if (payload.row_version >= (this.versions.get(payload.record_id) ?? 0)) {
       for (const view of payload.affected_views) {
         const key = `${view.view_schema_id}:${payload.record_id}`;
-        if (view.change_kind === "remove")
+        if (view.change_kind === "remove") {
+          newRemoval ||=
+            payload.row_version > (this.removedViews.get(key) ?? 0);
           this.removedViews.set(key, payload.row_version);
-        else if (payload.row_version > (this.removedViews.get(key) ?? 0))
+        } else if (payload.row_version > (this.removedViews.get(key) ?? 0))
           this.removedViews.delete(key);
       }
     }
-    this.observe(payload.record_id, payload.row_version);
+    // A first removal can invalidate a row already observed at this version.
+    this.observe(
+      payload.record_id,
+      newRemoval && payload.row_version === this.versions.get(payload.record_id)
+        ? undefined
+        : payload.row_version,
+    );
     const entry = this.entries.get(payload.client_txn_id);
     if (
       !entry ||
@@ -403,6 +441,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       generation = this.generation,
       revision = this.reviewRevision;
     if (!draft || !this.authority || !reader || !authorityReader) return false;
+    let sourceReadStarted = false;
     try {
       const baseline = this.authority;
       const current = await boundedRead(
@@ -421,6 +460,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
         (signal) => reader.verify(draft, signal),
         new AbortController().signal,
       );
+      sourceReadStarted = true;
       const row = await readWorkbookAuthoringRecord(
         reader,
         draft.source.viewSchemaId,
@@ -456,6 +496,16 @@ export class WorkbookContextualTaskDecisionCreateOwner {
         });
       }
       this.versions.set(row.record_id, row.row_version);
+      const contract = getViewContract(draft.source.viewSchemaId);
+      this.sourceLabel = contract
+        ? genericInspectorRowLabel(contract, row)
+        : null;
+      for (const [id, entry] of this.entries)
+        if (entry.attempt.review.draft.id === draft.id)
+          this.entries.set(
+            id,
+            freezeContextualCreate({ ...entry, sourceLabel: this.sourceLabel }),
+          );
       this.reviewedRevision = this.reviewRevision;
       this.errors = contextualCreateErrors(draft);
       this.message = Object.keys(this.errors).length
@@ -464,7 +514,13 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       this.publish();
       return Object.keys(this.errors).length === 0;
     } catch {
-      if (generation === this.generation) {
+      if (
+        generation === this.generation &&
+        this.draft === draft &&
+        revision === this.reviewRevision
+      ) {
+        if (sourceReadStarted)
+          this.invalidateSourceLabels(draft.source.recordId);
         this.message =
           "Context could not be verified. Your values are retained; retry review.";
         this.reviewRevision++;
@@ -580,6 +636,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       this.entries.set(
         attempt.clientTxnId,
         freezeContextualCreate({
+          sourceLabel: this.sourceLabel,
           observations: [],
           attempt,
           phase: "submitting",
@@ -646,6 +703,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       });
       if (this.draft?.id === entry.attempt.review.draft.id) {
         this.draft = null;
+        this.sourceLabel = null;
         this.attachment = null;
         this.errors = {};
       }
@@ -860,7 +918,21 @@ export class WorkbookContextualTaskDecisionCreateOwner {
             for (const candidate of result.value.candidates)
               if (candidate.row) {
                 const row = this.acceptRow(candidate.row, viewSchemaId);
-                if (row) this.effects.observed(viewSchemaId, row);
+                if (row) {
+                  const source = draft.source;
+                  if (
+                    viewSchemaId === source.viewSchemaId &&
+                    row.record_id === source.recordId &&
+                    row.row_version >= source.rowVersion
+                  ) {
+                    const contract = getViewContract(viewSchemaId);
+                    if (contract)
+                      this.replace(id, {
+                        sourceLabel: genericInspectorRowLabel(contract, row),
+                      });
+                  }
+                  this.effects.observed(viewSchemaId, row);
+                }
               }
         await this.effects.refresh(draft, views);
       }, new AbortController().signal);

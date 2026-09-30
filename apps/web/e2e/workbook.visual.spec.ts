@@ -244,7 +244,10 @@ import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
 } from "./support/workbook/collections";
-import { openContextualCreationFixture } from "./support/workbook/contextualCreate";
+import {
+  openContextualCreationFixture,
+  retainTimelineContextualSource,
+} from "./support/workbook/contextualCreate";
 import {
   fillCoordinationMinimum,
   openCoordinationFixture,
@@ -8988,6 +8991,47 @@ test("Capture contextual Task and Decision authoring references and retained rec
     await capture(page, `contextual-${target}-recovery-narrow`);
     await page.setViewportSize({ width: 1280, height: 720 });
     await capture(page, `contextual-${target}-recovery`);
+    const retainedSource = await retainTimelineContextualSource(
+      page,
+      target,
+      (url) => navigateVisualApplication(page, url),
+    );
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 768, height: 640 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const context = retainedSource.recovery.getByText(
+        /^Create in .* Source:/,
+      );
+      await context.scrollIntoViewIfNeeded();
+      await expect(context).toContainText(retainedSource.label);
+      const bounds = await context.boundingBox();
+      expect(bounds).not.toBeNull();
+      if (bounds)
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+      const origin = page
+        .getByRole("region", { name: "Recovery navigation", exact: true })
+        .getByText(`${retainedSource.label} · Draft retained`, { exact: true });
+      await expect(origin).toBeVisible();
+      expect(
+        await origin.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+      await test
+        .info()
+        .attach(
+          `contextual-${target}-timeline-source-${viewport.width}-review`,
+          {
+            body: await page.screenshot({
+              animations: "disabled",
+              caret: "hide",
+            }),
+            contentType: "image/png",
+          },
+        );
+    }
   }
 });
 

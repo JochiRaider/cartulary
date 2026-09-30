@@ -280,7 +280,10 @@ import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
 } from "./support/workbook/collections";
-import { openContextualCreationFixture } from "./support/workbook/contextualCreate";
+import {
+  openContextualCreationFixture,
+  retainTimelineContextualSource,
+} from "./support/workbook/contextualCreate";
 import {
   fillCoordinationMinimum,
   openCoordinationFixture,
@@ -8990,6 +8993,51 @@ test("a11y.contextual-create target fields reference cancellation and retained r
     await recovery.press("Escape");
     await expect(summary).toBeFocused();
     await expect(recovery).not.toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const retainedSource = await retainTimelineContextualSource(page, target);
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 768, height: 640 },
+      { width: 390, height: 480 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const context = retainedSource.recovery.getByText(
+        /^Create in .* Source:/,
+      );
+      await context.scrollIntoViewIfNeeded();
+      await expect(context).toContainText(retainedSource.label);
+      const bounds = await context.boundingBox();
+      expect(bounds).not.toBeNull();
+      if (bounds)
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+      const origin = page
+        .getByRole("region", { name: "Recovery navigation", exact: true })
+        .getByText(`${retainedSource.label} · Draft retained`, { exact: true });
+      await expect(origin).toBeVisible();
+      expect(
+        await origin.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+      const input = retainedSource.recovery.getByTestId(
+        genericCreateFieldTestId(retainedSource.scalar),
+      );
+      await expectDecisionControlReachable(page, input);
+      await expectVisibleFocus(input);
+      await expect(input).toHaveValue(
+        "Exact retained scalar after link removal",
+      );
+      await testInfo.attach(
+        `contextual-${target}-timeline-source-${viewport.width}`,
+        {
+          body: await page.screenshot({
+            animations: "disabled",
+            caret: "hide",
+          }),
+          contentType: "image/png",
+        },
+      );
+    }
   }
 });
 

@@ -6,6 +6,7 @@ import {
 import type { WorkbookRecoveryItem } from "../../../shared/workbookRecoveryNavigation";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import { ContextualCreateForm } from "./ContextualCreateForm";
+import { contextualCreateSourceLabel } from "./contextualCreateModel";
 import type { WorkbookContextualTaskDecisionCreateOwner } from "./WorkbookContextualTaskDecisionCreateOwner";
 export function ContextualCreateRecovery({
   owner,
@@ -22,7 +23,7 @@ export function ContextualCreateRecovery({
         id: String(draft.id),
         label: `${draft.target.title} draft`,
         summary: current.preparing ? "Preparing submission" : "Draft retained",
-        origin: draft.presentation.label,
+        origin: contextualCreateSourceLabel(current.sourceLabel),
         sheetRef: draft.presentation.sheetRef,
         order: draft.id,
         attention: current.preparing ? "progress" : "draft",
@@ -45,7 +46,11 @@ export function ContextualCreateRecovery({
                 ),
               ]
             : [],
-        origin: draft.presentation.label,
+        origin: contextualCreateSourceLabel(
+          current.draft?.id === draft.id
+            ? current.sourceLabel
+            : entry.sourceLabel,
+        ),
         sheetRef: draft.presentation.sheetRef,
         order: draft.id,
         summary: entry.receipt

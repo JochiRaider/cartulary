@@ -42,6 +42,7 @@ export interface ContextualCreateTransport {
   ): Promise<ContextualCreateOutcome>;
 }
 export type ContextualCreateEntry = Readonly<{
+  sourceLabel: string | null;
   observations: readonly RecordChangedMessage[];
   attempt: ContextualCreateAttempt;
   phase: "submitting" | "uncertain" | "rejected" | "accepted";

@@ -233,7 +233,7 @@ export function WorkbookRecoveryPanel({
         </h2>
         {state.message ? <p role="status">{state.message}</p> : null}
         {selected ? (
-          <p>
+          <p style={{ overflowWrap: "anywhere" }}>
             {selected.origin} · {selected.summary}
           </p>
         ) : (

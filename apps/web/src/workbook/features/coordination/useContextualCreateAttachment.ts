@@ -9,7 +9,10 @@ import {
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import type { WorkbookInspectorLiveRowBinding } from "../../inspector/workbookInspectorSubject";
 import { ContextualCreateContext } from "./ContextualCreateContext";
-import { isContextualCreateFeature } from "./contextualCreateModel";
+import {
+  contextualCreateSourceLabel,
+  isContextualCreateFeature,
+} from "./contextualCreateModel";
 
 const noSubscribe = () => () => {};
 const noSnapshot = () => null;
@@ -52,7 +55,7 @@ export function useContextualCreateAttachment(
             recordId: draft.source.recordId,
             rowVersion: draft.source.rowVersion,
             viewSchemaId: draft.source.viewSchemaId,
-            label: draft.presentation.label,
+            label: contextualCreateSourceLabel(snapshot.sourceLabel),
             surfaceLabel: draft.presentation.surfaceLabel,
           },
           draft: { ...draft.values },

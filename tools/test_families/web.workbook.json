@@ -815,13 +815,18 @@
       "selector": {
         "file": "apps/web/src/workbook/features/coordination/contextualCreateAuthoring.test.tsx",
         "titles": [
+          "contextual Task and Decision authoring conceals original source labels during suspension and requires a current read after same-account recovery",
           "contextual Task and Decision authoring hides protected state on suspension and retires it on account replacement",
+          "contextual Task and Decision authoring ignores obsolete successful and failed source reviews after newer authoring or incident retirement",
           "contextual Task and Decision authoring maps all 23 declared entry points across 15 public surfaces and excludes absent features",
           "contextual Task and Decision authoring reconciles the default Owner only in staging until Apply and retains its readable label on resume",
+          "contextual Task and Decision authoring recovers original source presentation only through current source review independently of target labels and minima",
           "contextual Task and Decision authoring recovers refreshed reference labels without restoring source readiness or replacing authored values",
           "contextual Task and Decision authoring requires target minima, omits unset optional fields, and guards initial lifecycle and exact references",
           "contextual Task and Decision authoring retains both targets through stale failed reference pages and role changes without exposing old labels",
           "contextual Task and Decision authoring retains identity and edits across detachment, source versions and explicit replacement",
+          "contextual Task and Decision authoring retains readable original source after removing every decision target link and resuming through Recovery",
+          "contextual Task and Decision authoring retains readable original source after removing every task_request target link and resuming through Recovery",
           "contextual Task and Decision authoring stages reference changes, preserves off-page selections, pages and cancels without editing the draft"
         ]
       },
@@ -885,6 +890,7 @@
           "contextual create recovery invalidates reviewed readiness when source changes while earlier saves are pending",
           "contextual create recovery preserves field rejection and requires deliberate correction and a new attempt",
           "contextual create recovery recovers a timed-out observation with the same attempt and accepts a late original receipt monotonically",
+          "contextual create recovery recovers safe operation source labels through existing refresh reads without changing the captured attempt",
           "contextual create recovery replays the original body and key after loss without accepting edited inputs or regenerating defaults",
           "contextual create recovery reserves activation synchronously, waits for prior saves, and captures immutable reviewed requests for both targets",
           "contextual create recovery retains acceptance through detachment and failed refresh, then recovers with reads only",

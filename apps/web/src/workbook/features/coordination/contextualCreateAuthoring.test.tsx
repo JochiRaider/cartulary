@@ -13,9 +13,14 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WorkbookRecoveryBoundary } from "../../../shared/WorkbookRecoveryBoundary";
+import { WorkbookRecoveryNavigation } from "../../../shared/workbookRecoveryNavigation";
+import { deferred } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { createContextualCreateTransport } from "../../adapters/createContextualCreateTransport";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import { ContextualCreateForm } from "./ContextualCreateForm";
+import { ContextualCreateRecovery } from "./ContextualCreateRecovery";
 import {
   contextualCreateErrors,
   contextualCreateRequest,
@@ -96,6 +101,298 @@ function fixture(
   return { owner, feature, subject, reader };
 }
 describe("contextual Task and Decision authoring", () => {
+  const retainedSourceJourney = async (target: "task_request" | "decision") => {
+    const { owner, reader, subject, feature } = fixture(
+      timelineViewSchemaId,
+      `create_related.${target}`,
+    );
+    const transport = {
+      ...createContextualCreateTransport(undefined),
+      send: vi.fn(),
+    };
+    owner.configure(reader, async () => authority, transport);
+    const scalar = target === "decision" ? "decision.summary" : "task.title";
+    const references =
+      target === "decision"
+        ? ["decision.support_refs", "decision.affected_record_ids"]
+        : ["task.linked_record_ids"];
+    const other = "30000000-0000-4000-8000-000000000003";
+    for (const key of references)
+      owner.update(key, `${sourceId}\n${other}`, {
+        [other]: "Other reference",
+      });
+    const original = required(owner.getSnapshot().draft);
+    const navigation = new WorkbookRecoveryNavigation();
+    const detailHost = document.createElement("div");
+    document.body.append(detailHost);
+    const rendered = render(
+      <WorkbookRecoveryBoundary navigation={navigation} detailHost={detailHost}>
+        <ContextualCreateForm
+          owner={owner}
+          attachment={attachment}
+          onSubmit={() => void owner.submit(attachment)}
+        />
+        <ContextualCreateRecovery owner={owner} />
+      </WorkbookRecoveryBoundary>,
+    );
+    try {
+      for (const key of references) {
+        const label = required(original.target.fieldMap[key]).label;
+        const remove = screen.getByRole("button", {
+          name: `Remove ${label} Original source`,
+        });
+        remove.focus();
+        fireEvent.click(remove);
+        expect(document.activeElement).toBe(
+          screen.getByRole("button", {
+            name: `Remove ${label} Other reference`,
+          }),
+        );
+      }
+      act(() => owner.update(scalar, "  Exact retained authoring  "));
+      const values = {
+        ...original.values,
+        [scalar]: "  Exact retained authoring  ",
+      };
+      for (const key of references) values[key] = other;
+      expect(owner.getSnapshot().draft?.source).toEqual(original.source);
+      expect(owner.getSnapshot().draft?.values).toEqual(values);
+      expect(Object.keys(required(owner.getSnapshot().draft).labels)).toEqual([
+        other,
+      ]);
+      expect(screen.getByText(/^Create in .* Source:/).textContent).toContain(
+        "Source: Original source (Timeline)",
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Keep draft and close" }),
+      );
+      act(() => {
+        expect(
+          owner.begin(
+            {
+              ...subject,
+              subject: {
+                ...subject.subject,
+                recordId: other,
+                label: "Different source",
+              },
+            },
+            feature,
+            { kind: "view_schema", id: timelineViewSchemaId },
+            attachment,
+          ),
+        ).toBe(false);
+        navigation.openList();
+        navigation.activate(required(navigation.getSnapshot().entries[0]).key);
+      });
+      expect(navigation.getSnapshot().entries[0]?.origin).toBe(
+        "Original source",
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Resume contextual draft" }),
+      );
+      expect(screen.getByText(/^Create in .* Source:/).textContent).toContain(
+        "Source: Original source (Timeline)",
+      );
+      expect(owner.getSnapshot().draft?.source).toEqual(original.source);
+      expect(owner.getSnapshot().draft?.values).toEqual(values);
+      expect(transport.send).not.toHaveBeenCalled();
+      expect(reader.verify).not.toHaveBeenCalled();
+      expect(reader.page).not.toHaveBeenCalled();
+    } finally {
+      rendered.unmount();
+      navigation.dispose();
+      detailHost.remove();
+    }
+  };
+  it("retains readable original source after removing every task_request target link and resuming through Recovery", () =>
+    retainedSourceJourney("task_request"));
+  it("retains readable original source after removing every decision target link and resuming through Recovery", () =>
+    retainedSourceJourney("decision"));
+  it("recovers original source presentation only through current source review independently of target labels and minima", async () => {
+    for (const target of ["task_request", "decision"] as const) {
+      const { owner, reader } = fixture(
+        timelineViewSchemaId,
+        `create_related.${target}`,
+      );
+      const field =
+        target === "decision"
+          ? "decision.support_refs"
+          : "task.linked_record_ids";
+      const other = "30000000-0000-4000-8000-000000000003";
+      owner.update(field, other, { [other]: "Other reference" });
+      const rendered = render(
+        <ContextualCreateForm
+          owner={owner}
+          attachment={attachment}
+          onSubmit={vi.fn()}
+        />,
+      );
+      const sourceText = () =>
+        screen.getByText(/^Create in .* Source:/).textContent;
+      act(() => owner.observe(other, 2));
+      expect(sourceText()).toContain("Source: Original source (Timeline)");
+      expect(owner.getSnapshot().needsReview).toBe(true);
+      act(() => owner.observe(sourceId, 2));
+      expect(sourceText()).toContain(
+        "Source: Original source needs review (Timeline)",
+      );
+      act(() =>
+        owner.update(field, `${sourceId}\n${other}`, {
+          [sourceId]: "Candidate presentation",
+        }),
+      );
+      expect(sourceText()).not.toContain("Candidate presentation");
+      expect(owner.getSnapshot().needsReview).toBe(true);
+      const values = required(owner.getSnapshot().draft).values;
+      vi.mocked(reader.page).mockResolvedValueOnce({
+        kind: "rejected",
+        failure: { kind: "retryable", message: "Unavailable" },
+      });
+      await act(async () => {
+        expect(await owner.review()).toBe(false);
+      });
+      expect(sourceText()).toContain("Original source needs review");
+      vi.mocked(reader.page).mockResolvedValueOnce({
+        kind: "accepted",
+        value: {
+          candidates: [
+            {
+              recordId: sourceId,
+              viewSchemaId: timelineViewSchemaId,
+              displayText: "Candidate hint is not the reviewed label",
+              row: fullWorkbookViewRow(
+                requireViewContract(timelineViewSchemaId),
+                sourceId,
+                2,
+                {
+                  "timeline.activity_synopsis_text": "Reviewed current source",
+                },
+              ),
+            },
+          ],
+          hasMore: false,
+          nextCursor: null,
+        },
+      });
+      await act(async () => {
+        expect(await owner.review()).toBe(false);
+      });
+      expect(sourceText()).toContain(
+        "Source: Reviewed current source (Timeline)",
+      );
+      expect(owner.getSnapshot().draft?.source.rowVersion).toBe(2);
+      expect(owner.getSnapshot().draft?.values).toEqual(values);
+      expect(
+        contextualCreateRequest(required(owner.getSnapshot().draft), "txn"),
+      ).toBeNull();
+      expect(Object.keys(owner.getSnapshot().errors).length).toBeGreaterThan(0);
+      rendered.unmount();
+    }
+  });
+  it("conceals original source labels during suspension and requires a current read after same-account recovery", async () => {
+    for (const target of ["task_request", "decision"] as const) {
+      const { owner, reader } = fixture(
+        timelineViewSchemaId,
+        `create_related.${target}`,
+      );
+      const scalar = target === "decision" ? "decision.summary" : "task.title";
+      owner.update(scalar, "Retained raw input");
+      const navigation = new WorkbookRecoveryNavigation();
+      const rendered = render(
+        <WorkbookRecoveryBoundary navigation={navigation} detailHost={null}>
+          <ContextualCreateForm
+            owner={owner}
+            attachment={attachment}
+            onSubmit={vi.fn()}
+          />
+          <ContextualCreateRecovery owner={owner} />
+        </WorkbookRecoveryBoundary>,
+      );
+      expect(navigation.getSnapshot().entries[0]?.origin).toBe(
+        "Original source",
+      );
+      act(() => owner.suspend());
+      expect(rendered.container.textContent).toBe("");
+      expect(navigation.getSnapshot().entries).toEqual([]);
+      act(() => owner.setAuthority(authority));
+      expect(navigation.getSnapshot().entries[0]?.origin).toBe(
+        "Original source needs review",
+      );
+      expect(rendered.container.textContent).not.toContain(
+        "Source: Original source (Timeline)",
+      );
+      expect(owner.getSnapshot().draft?.values[scalar]).toBe(
+        "Retained raw input",
+      );
+      vi.mocked(reader.page).mockResolvedValueOnce({
+        kind: "rejected",
+        failure: { kind: "retryable", message: "Read failed" },
+      });
+      await act(async () => {
+        await owner.review();
+      });
+      expect(navigation.getSnapshot().entries[0]?.origin).toBe(
+        "Original source needs review",
+      );
+      act(() => owner.setAuthority({ ...authority, role: "viewer" }));
+      expect(owner.canSubmit()).toBe(false);
+      expect(navigation.getSnapshot().entries[0]?.origin).toBe(
+        "Original source needs review",
+      );
+      act(() => owner.setAuthority({ ...authority, actorId: sourceId }));
+      expect(navigation.getSnapshot().entries).toEqual([]);
+      expect(owner.getSnapshot().draft).toBeNull();
+      rendered.unmount();
+      navigation.dispose();
+    }
+  });
+  it("ignores obsolete successful and failed source reviews after newer authoring or incident retirement", async () => {
+    for (const result of ["accepted", "failed", "retired"] as const) {
+      const { owner, reader } = fixture();
+      owner.observe(sourceId, 2);
+      const pending =
+        deferred<Awaited<ReturnType<ContextualCreateReader["page"]>>>();
+      vi.mocked(reader.page).mockReturnValueOnce(pending.promise);
+      const reviewing = owner.review();
+      await waitFor(() => expect(reader.page).toHaveBeenCalledOnce());
+      if (result === "retired") owner.retire();
+      else owner.update("task.title", "Newer exact authoring");
+      const before = owner.getSnapshot();
+      pending.resolve(
+        result === "failed"
+          ? {
+              kind: "rejected",
+              failure: { kind: "retryable", message: "Obsolete failure" },
+            }
+          : {
+              kind: "accepted",
+              value: {
+                candidates: [
+                  {
+                    recordId: sourceId,
+                    viewSchemaId: timelineViewSchemaId,
+                    displayText: "Obsolete",
+                    row: fullWorkbookViewRow(
+                      requireViewContract(timelineViewSchemaId),
+                      sourceId,
+                      2,
+                      {
+                        "timeline.activity_synopsis_text":
+                          "Obsolete source label",
+                      },
+                    ),
+                  },
+                ],
+                hasMore: false,
+                nextCursor: null,
+              },
+            },
+      );
+      expect(await reviewing).toBe(false);
+      expect(owner.getSnapshot()).toBe(before);
+    }
+  });
   it("reconciles the default Owner only in staging until Apply and retains its readable label on resume", async () => {
     const { owner, reader } = fixture();
     owner.update("task.title", "Title remains exactly authored");

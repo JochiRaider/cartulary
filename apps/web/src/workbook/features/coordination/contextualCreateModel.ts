@@ -32,6 +32,10 @@ export function isContextualCreateFeature(
     key === "create_related.task_request" || key === "create_related.decision"
   );
 }
+/** Protected source text must come from the owner's current observation. */
+export function contextualCreateSourceLabel(label: string | null): string {
+  return label ?? "Original source needs review";
+}
 function contextualTarget(key: ContextualCreateFeature) {
   return key === "create_related.task_request"
     ? taskRequestsViewSchemaId
