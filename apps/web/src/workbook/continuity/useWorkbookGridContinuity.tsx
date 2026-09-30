@@ -210,7 +210,12 @@ export function WorkbookContinuityAnchorStatus({
   readonly anchor: WorkbookContinuityAnchor | null;
 }) {
   return (
-    <span data-testid={workbookFocusAnchorTestId()} style={visuallyHiddenStyle}>
+    // Continuity diagnostics remain observable to tests, outside accessible status content.
+    <span
+      aria-hidden="true"
+      data-testid={workbookFocusAnchorTestId()}
+      style={visuallyHiddenStyle}
+    >
       {anchor === null
         ? "cleared"
         : `${anchor.viewSchemaId}:${anchor.recordId}:${anchor.fieldKey}`}

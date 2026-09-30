@@ -6594,12 +6594,15 @@
         "titles": [
           "Workbook save status announces each transition once across renders and shell remounts",
           "Workbook save status does not erase pending Timeline work on surface unmount",
+          "Workbook save status excludes continuity diagnostics while retaining semantic test observability",
           "Workbook save status keeps a global FIFO blocker explanation on another surface",
           "Workbook save status keeps acknowledged writes saved while their required refresh remains recoverable",
+          "Workbook save status keeps anchor-only changes silent through status rerenders",
           "Workbook save status keeps both overlapping generic operations pending",
           "Workbook save status keeps local validation feedback independent from primary mutation status",
           "Workbook save status leaves visible save labels outside independent live regions",
           "Workbook save status observes replacement conflicts and exact recovery scope while isolating unrelated grid conflicts",
+          "Workbook save status preserves accessible status details and keyboard recovery across responsive modes",
           "Workbook save status retains status identity without suppressing execution publications or same-label counts",
           "Workbook save status updates refresh recovery targets without changing the primary label"
         ]

@@ -13,7 +13,7 @@ inside private continuity/grid-adapter implementations.
 | File | Responsibility |
 | --- | --- |
 | [gridViewportContinuity.ts](gridViewportContinuity.ts) | Private viewport anchor capture, restoration, and rectangle visibility helpers used by Timeline continuity. |
-| [useWorkbookGridContinuity.tsx](useWorkbookGridContinuity.tsx) | Workbook-private translation between the semantic continuity port and grid-adapter focus, scrolling, clipboard, and viewport behavior. |
+| [useWorkbookGridContinuity.tsx](useWorkbookGridContinuity.tsx) | Workbook-private translation between the semantic continuity port and grid-adapter focus, scrolling, clipboard, and viewport behavior; its nonfocusable diagnostic marker stays outside accessible status content. |
 | [workbookContinuityPort.ts](workbookContinuityPort.ts) | Semantic capture, focus, selection, clear, one-shot restore, and disposal contract over stable schema, record, and field identities. |
 
 ## Tests

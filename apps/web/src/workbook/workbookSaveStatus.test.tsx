@@ -1,5 +1,16 @@
+import {
+  saveStateTestId,
+  workbookFocusAnchorTestId,
+} from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { act, cleanup, render, renderHook } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  isInaccessible,
+  render,
+  renderHook,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
 import { taskAuthority } from "../testing/taskWorkbookTestSupport";
@@ -84,6 +95,234 @@ function admitPatch(
 }
 
 describe("Workbook save status", () => {
+  it("excludes continuity diagnostics while retaining semantic test observability", () => {
+    const status = projectWorkbookStatusForSurface(
+      runtimeFixture().getSnapshot(),
+    );
+    const anchor = {
+      viewSchemaId: statusView,
+      recordId: "20000000-0000-4000-8000-000000000501",
+      fieldKey: "note.body",
+    };
+    const strip = render(
+      <WorkbookStatusStrip
+        status={status}
+        chromeMode="base"
+        workbookFocusAnchor={null}
+      />,
+    );
+    for (const value of [null, anchor, null]) {
+      strip.rerender(
+        <WorkbookStatusStrip
+          status={status}
+          chromeMode="base"
+          workbookFocusAnchor={value}
+        />,
+      );
+      const diagnostic = strip.getByTestId(workbookFocusAnchorTestId());
+      expect(diagnostic.textContent).toBe(
+        value === null
+          ? "cleared"
+          : `${value.viewSchemaId}:${value.recordId}:${value.fieldKey}`,
+      );
+      expect(isInaccessible(diagnostic)).toBe(true);
+      expect(diagnostic.tabIndex).toBe(-1);
+      expect(isInaccessible(strip.getByTestId(saveStateTestId()))).toBe(false);
+    }
+  });
+
+  it("preserves accessible status details and keyboard recovery across responsive modes", async () => {
+    const user = userEvent.setup();
+    const runtime = runtimeFixture();
+    const queue = runtime.pendingQueue().model.snapshot();
+    const surface = { kind: "view_schema" as const, id: statusView };
+    const saved = projectWorkbookStatusForSurface(
+      runtime.getSnapshot(),
+      surface,
+    );
+    const syncing = projectWorkbookStatusForSurface(
+      projectWorkbookMutationStatus({
+        conflicts: [],
+        explicitInFlightCount: 1,
+        queue,
+      }),
+      surface,
+    );
+    const blocked = projectWorkbookStatusForSurface(
+      projectWorkbookMutationStatus({
+        conflicts: [],
+        explicitInFlightCount: 0,
+        queue: {
+          ...queue,
+          halted: {
+            unit_id: "blocked-unit",
+            error_code: "client_txn_conflict",
+            message: "unsafe /api/v1/raw-token",
+            anchor: { kind: "surface" },
+          },
+        },
+      }),
+      surface,
+    );
+    const refresh = projectWorkbookStatusForSurface(
+      projectWorkbookMutationStatus({
+        conflicts: [],
+        explicitInFlightCount: 0,
+        queue,
+        refreshDebts: [statusView],
+      }),
+      surface,
+    );
+    runtime.registerConflict({
+      conflict: {
+        record_id: "record-1",
+        field_key: "note.body",
+        base_row_version: 1,
+        current_row_version: 2,
+        client_value: "Local note",
+        server_value: "Saved note",
+        conflict_token: "note-conflict",
+        conflict_resolution_class: "text_compare_merge",
+      },
+      viewSchemaId: statusView,
+      sheetRef: surface,
+      rowLabel: "Note",
+      surfaceLabel: "Notes",
+    });
+    const conflict = projectWorkbookStatusForSurface(
+      runtime.getSnapshot(),
+      surface,
+    );
+    const collaborator = {
+      connection_id: "connection-1",
+      user_id: "analyst-1",
+      display_name: "Other Analyst",
+      mode: "viewing" as const,
+    };
+    const presence = {
+      users: [collaborator],
+      shown: [collaborator],
+      overflow: 0,
+    };
+    for (const [status, expectedLabel] of [
+      [saved, "Saved"],
+      [syncing, "Syncing"],
+      [blocked, "Conflict"],
+      [refresh, "Saved"],
+      [conflict, "Conflict"],
+    ] as const) {
+      const activate = vi.fn();
+      const strip = render(
+        <WorkbookStatusStrip
+          status={status}
+          chromeMode="base"
+          workbookFocusAnchor={null}
+          onActivateConflict={activate}
+          presence={presence}
+        />,
+      );
+      for (const mode of [
+        "base",
+        "narrow_desktop",
+        "compact_desktop",
+        "below_supported_minimum",
+      ] as const) {
+        strip.rerender(
+          <WorkbookStatusStrip
+            status={status}
+            chromeMode={mode}
+            workbookFocusAnchor={null}
+            onActivateConflict={activate}
+            presence={presence}
+          />,
+        );
+        const label = strip.getByTestId(saveStateTestId());
+        expect(label.textContent).toBe(expectedLabel);
+        expect(isInaccessible(label)).toBe(false);
+        const message = status.secondary?.message;
+        if (message !== undefined) {
+          if (mode === "below_supported_minimum")
+            expect(strip.queryByText(message)).toBeNull();
+          else
+            expect(
+              strip
+                .getAllByText(message)
+                .filter((node) => !isInaccessible(node)),
+            ).toHaveLength(1);
+        }
+        if (mode !== "below_supported_minimum") {
+          expect(
+            strip.getByRole("img", {
+              name: "1 collaborator present on this sheet: Other Analyst viewing",
+            }),
+          ).toBeTruthy();
+        }
+        if (status.action !== null) {
+          const button = strip.getByRole("button", {
+            name:
+              expectedLabel === "Conflict"
+                ? "Open conflict recovery"
+                : "Open save status details",
+            description: new RegExp(
+              `${expectedLabel}${status.unresolvedConflictCount > 0 ? ". 1 unresolved" : ""}`,
+            ),
+          });
+          if (message !== undefined && mode !== "below_supported_minimum") {
+            expect(
+              strip.getByRole("button", {
+                description: new RegExp(
+                  message.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                ),
+              }),
+            ).toBe(button);
+          }
+          button.focus();
+          const previousActivations = activate.mock.calls.length;
+          await user.keyboard("{Enter}");
+          expect(activate).toHaveBeenCalledTimes(previousActivations + 1);
+          expect(activate).toHaveBeenLastCalledWith(button, status.action);
+          expect(document.activeElement).toBe(button);
+          await user.keyboard(" ");
+          expect(activate).toHaveBeenCalledTimes(previousActivations + 2);
+          expect(activate).toHaveBeenLastCalledWith(button, status.action);
+        }
+      }
+      strip.unmount();
+    }
+  });
+
+  it("keeps anchor-only changes silent through status rerenders", () => {
+    const runtime = runtimeFixture();
+    const status = projectWorkbookStatusForSurface(runtime.getSnapshot());
+    const presentation = (recordId: string | null) => (
+      <>
+        <WorkbookSaveAnnouncements runtime={runtime} />
+        <WorkbookStatusStrip
+          status={status}
+          chromeMode="base"
+          workbookFocusAnchor={
+            recordId === null
+              ? null
+              : { viewSchemaId: statusView, recordId, fieldKey: "note.body" }
+          }
+        />
+      </>
+    );
+    const host = render(presentation(null));
+    for (const recordId of ["record-1", "record-2", null]) {
+      host.rerender(presentation(recordId));
+      expect(
+        host.getByRole("status", { name: "Workbook save updates" }).textContent,
+      ).toBe("");
+      expect(
+        host.getByRole("alert", { name: "Workbook save conflicts" })
+          .textContent,
+      ).toBe("");
+      expect(runtime.takeSaveAnnouncement()).toBeNull();
+    }
+    expect(host.container.querySelectorAll("[aria-live]").length).toBe(2);
+  });
+
   it("updates refresh recovery targets without changing the primary label", async () => {
     const runtime = runtimeFixture();
     const first = { kind: "saved_view" as const, id: "first" };

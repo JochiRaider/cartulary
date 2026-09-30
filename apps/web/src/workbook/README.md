@@ -54,7 +54,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 | File | Responsibility |
 | --- | --- |
 | [workbookInspectorOwnershipArchitecture.test.ts](workbookInspectorOwnershipArchitecture.test.ts) | Tests inspector construction and composition remain in their declared feature owners. |
-| [workbookSaveStatus.test.tsx](workbookSaveStatus.test.tsx) | Tests workbook save status across surfaces and overlapping generic operations. |
+| [workbookSaveStatus.test.tsx](workbookSaveStatus.test.tsx) | Tests cross-surface save status, overlapping operations, accessible responsive details and recovery, diagnostic exclusion, and announcement deduplication. |
 | [WorkbookShell.actionSequencing.test.tsx](WorkbookShell.actionSequencing.test.tsx) | Tests Timeline actions use the current row version after earlier workbook mutations. |
 | [WorkbookShell.assessments.test.tsx](WorkbookShell.assessments.test.tsx) | Tests Assessment creation and confidence-band payload behavior on the workbook surface. |
 | [WorkbookShell.autosave.test.tsx](WorkbookShell.autosave.test.tsx) | Timeline mutation autosave and pending-save characterization. |

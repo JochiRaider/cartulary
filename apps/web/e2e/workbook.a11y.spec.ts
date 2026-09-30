@@ -2217,6 +2217,65 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
       page.getByRole("region", { name: "Workbook shell" }),
     ).toHaveCount(1);
 
+    const statusStrip = shell.getByRole("region", {
+      name: workbookShellSlotLabel("status-strip"),
+      exact: true,
+    });
+    const diagnostic = statusStrip.getByTestId(workbookFocusAnchorTestId());
+    await expect(diagnostic).toHaveText("cleared");
+    await expect(statusStrip.getByTestId(saveStateTestId())).toHaveText(
+      "Saved",
+    );
+    const initialStatus = await statusStrip.ariaSnapshot();
+    expect(initialStatus).toContain("Saved");
+    expect.soft(initialStatus).not.toContain("cleared");
+    await observeSaveEvents(page);
+
+    await page.setViewportSize({ width: 1024, height: 720 });
+    const activityCell = await expectVisibleSemanticGridCellFocus(
+      await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        timelineRow.record_id,
+        "timeline.activity_utc_text",
+      ),
+    );
+    const activityAnchor = `${timelineViewSchemaId}:${timelineRow.record_id}:timeline.activity_utc_text`;
+    await expect(diagnostic).toHaveText(activityAnchor);
+    const activeStatus = await statusStrip.ariaSnapshot();
+    expect(activeStatus).toContain("Saved");
+    expect.soft(activeStatus).not.toContain(activityAnchor);
+
+    await activityCell.press("ArrowRight");
+    const localDateCell = semanticGridCell(
+      page.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.activity_local_text"),
+      ),
+    );
+    await expectVisibleFocus(localDateCell);
+    const movedAnchor = `${timelineViewSchemaId}:${timelineRow.record_id}:timeline.activity_local_text`;
+    await expect(diagnostic).toHaveText(movedAnchor);
+    const movedStatus = await statusStrip.ariaSnapshot();
+    expect(movedStatus).toContain("Saved");
+    expect.soft(movedStatus).not.toContain(movedAnchor);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const hostsTab = page.getByTestId(surfaceTabTestId(hostsViewSchemaId));
+    await hostsTab.focus();
+    await hostsTab.press("Enter");
+    await expect(hostsTab).toHaveAttribute("aria-selected", "true");
+    await expect(diagnostic).toHaveText("cleared");
+    const hostsStatus = await statusStrip.ariaSnapshot();
+    expect(hostsStatus).toContain("Saved");
+    expect.soft(hostsStatus).not.toContain("cleared");
+    const timelineTab = page.getByTestId(
+      surfaceTabTestId(timelineViewSchemaId),
+    );
+    await timelineTab.focus();
+    await timelineTab.press("Enter");
+    await expect(timelineTab).toHaveAttribute("aria-selected", "true");
+    expect(await saveEvents(page)).toEqual([]);
+
     const identity = page.getByRole("button", { name: /^Incident details:/ });
     await expect(identity).toHaveAccessibleName(
       /a11y.workbook-shell.row-01 workbook shell/,
@@ -3356,6 +3415,15 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       );
       await pendingSummary.press("Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+      const syncingStatus = await page
+        .getByRole("region", {
+          name: workbookShellSlotLabel("status-strip"),
+          exact: true,
+        })
+        .ariaSnapshot();
+      expect(syncingStatus).toContain("Syncing");
+      expect(syncingStatus).not.toContain(`${timelineViewSchemaId}:`);
+      expect(syncingStatus).not.toContain("cleared");
       const saveStatus = page.getByTestId(saveStateTestId());
       await expect(saveStatus).toBeVisible();
       await expect(saveStatus).not.toHaveAttribute("role");
@@ -3462,7 +3530,15 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(
         0,
       );
-      await page.getByTestId(saveStateActionButtonTestId()).click();
+      const statusAction = page.getByTestId(saveStateActionButtonTestId());
+      const recoveryMessage =
+        "A queued edit could not be replayed safely. Retry it with a new request ID, or discard the blocked edit to continue.";
+      await expect(statusAction).toHaveAccessibleName("Open conflict recovery");
+      await expect(statusAction).toHaveAccessibleDescription(
+        `Conflict ${recoveryMessage}`,
+      );
+      await expectVisibleFocus(statusAction);
+      await statusAction.press("Enter");
       const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
       const retryButton = page.getByTestId(
         workbookEditRecoveryRetryButtonTestId(),
@@ -3506,6 +3582,19 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       ]) {
         await page.setViewportSize(viewport);
         await expectRecoverySurfaceGeometry(page);
+        const accessibleStatus = await page
+          .getByRole("region", {
+            name: workbookShellSlotLabel("status-strip"),
+            exact: true,
+          })
+          .ariaSnapshot();
+        expect(accessibleStatus).toContain("Conflict");
+        expect(accessibleStatus).toContain(recoveryMessage);
+        expect(accessibleStatus).not.toContain(`${timelineViewSchemaId}:`);
+        expect(accessibleStatus).not.toContain("cleared");
+        await expect(statusAction).toHaveAccessibleDescription(
+          new RegExp(recoveryMessage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+        );
       }
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.evaluate(() => {
