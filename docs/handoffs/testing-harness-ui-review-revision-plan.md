@@ -8,6 +8,11 @@ authority_boundary: Human planning and execution tracker; iteration 1 is complet
 
 # UI Review Harness — Revision and Production Readiness Plan
 
+Subsequent preparation and diagnostic remediation is recorded in the
+[remediation handoff](ui-review-preparation-remediation.md). Its coordinated v2
+cutover supersedes the historical v1 examples below for current commands. The
+adopted Testing Harness NLSpec remains the behavioral authority.
+
 **Current iteration:** [Iteration 2 — production readiness](#18-iteration-2--production-readiness-plan),
 planned on 2026-09-28 against `25806426bae985528ee14de9e2595316da93ba8f`.
 Implementation has not started. The current request authorizes updating this

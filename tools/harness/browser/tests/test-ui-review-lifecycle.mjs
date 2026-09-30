@@ -133,6 +133,11 @@ test("browser actions use exact handles, epochs and isolated contexts without mo
       window.addEventListener("scroll", () => { if (scrollY > 50 && !document.querySelector('[data-testid="virtual-row"]')) { const row = document.createElement("button"); row.dataset.testid = "virtual-row"; row.textContent = "Rendered row"; row.style.cssText = "position:fixed;top:20px"; document.body.append(row); } });
     });
     await assert.rejects(browser.resolve({ kind: "test_id", value: "virtual-row" }), /target_unavailable/u);
+    const beforeZoom = browser.epoch;
+    await browser.action(action("zoom", { percent: 125 }));
+    assert.equal(browser.epoch, beforeZoom + 1);
+    assert.equal(await browser.page.evaluate(() => getComputedStyle(document.documentElement).zoom), "1.25");
+    await browser.action(action("zoom", { percent: 100 }));
     await browser.action(action("scroll", { x: 0, y: 100 }));
     await browser.page.getByTestId("virtual-row").waitFor({ state: "visible" });
     const row = await browser.resolve({ kind: "test_id", value: "virtual-row" }); await row.dispose();
@@ -190,9 +195,10 @@ test("every normalized primary failure survives secondary cleanup failure and te
       try {
         session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: code });
         session.browser = { close: async () => { throw new Error("private release failure"); } };
-        await session.stop(new ReviewFailure(code));
+        const context = ["build_failed", "fixture_failed", "diagnostic_invalid", "preparation_failed"].includes(code) ? { phase: "build", subject_id: "preparation_child", condition: "unknown", recovery_id: "inspect_failure" } : { phase: null, subject_id: null, condition: null, recovery_id: null };
+        await session.stop(new ReviewFailure(code, { context }));
         const value = validate("command_result", session.terminalValue("ui-review-stop"));
-        assert.equal(value.exit_code, exit); assert.deepEqual(value.failures[0], { diagnostic_code: code, failure_class: kind, failure_reason: reason });
+        assert.equal(value.exit_code, exit); assert.deepEqual(value.failures[0], { diagnostic_code: code, failure_class: kind, failure_reason: reason, ...context });
         assert.ok(value.failures.some((item) => item.diagnostic_code === "cleanup_failed"));
         const receipt = readFileSync(path.join(session.runRoot, value.receipt.path), "utf8"); assert.ok(!receipt.includes("private release failure"));
         await session.stop(); assert.deepEqual(session.terminalValue("ui-review-stop"), value);
@@ -370,4 +376,19 @@ test("stop interrupts a busy public dev action and leaves the borrowed origin al
     assert.equal(await actionEnded, 2); const response = JSON.parse(actionOutput); validate("command_result", response); assert.equal(response.failures[0].diagnostic_code, "interrupted"); assert.deepEqual(response.private_refs, []);
     assert.equal(await ended, 0); assert.equal((await fetch(origin)).status, 200);
   } finally { if (child.exitCode === null) child.kill("SIGTERM"); if (actionChild?.exitCode === null) actionChild.kill("SIGTERM"); await ended; await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
+});
+
+
+test("a preparation failure already in flight survives an exact stop during cleanup", async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-preparation-stop-"));
+  const session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
+  try {
+    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "race" });
+    const failure = new ReviewFailure("build_failed", { context: { phase: "build", subject_id: "server_harness", condition: "child_failed", recovery_id: "build_server_harness" } });
+    session.preparedOwner = { stop: async () => { throw failure; } };
+    await session.stop();
+    const terminal = session.terminalValue("ui-review-stop");
+    assert.equal(terminal.failures[0].diagnostic_code, "build_failed"); assert.equal(terminal.exit_code, 1);
+    assert.equal(JSON.parse(readFileSync(path.join(session.runRoot, terminal.receipt.path))).cleanup, "complete");
+  } finally { await session.stop(); rmSync(root, { recursive: true, force: true }); }
 });

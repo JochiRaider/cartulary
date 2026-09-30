@@ -52,7 +52,12 @@ if [[ "$confirm_modules_purge" != "$expected_confirm_modules_purge" ]]; then
 fi
 
 mkdir -p "$(dirname "$stamp")"
+# Concurrent Make prerequisites must not mutate one package installation at once.
+exec {installation_lock}>"$(dirname "$stamp")/install.lock"
+flock -x "$installation_lock"
+"${NODE_BIN:?NODE_BIN is required}" "$(dirname "${BASH_SOURCE[0]}")/installed-readiness.mjs" invalidate
 run_install_child
+"${NODE_BIN:?NODE_BIN is required}" "$(dirname "${BASH_SOURCE[0]}")/installed-readiness.mjs" publish
 printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\npnpm_store_dir=%s\n' \
   "${NODE_BIN:?NODE_BIN is required}" \
   "${NODE_VERSION:?NODE_VERSION is required}" \

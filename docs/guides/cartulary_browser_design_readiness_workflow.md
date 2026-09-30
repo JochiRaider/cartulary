@@ -21,6 +21,22 @@ Linux x64 on WSL2, Node 24.15.0, Playwright 1.59.1 / Chromium 1217,
 Sharp 0.35.4 and axe 4.13.0. Optional OCR, Python, video and hosted analysis are
 outside this workflow.
 
+Seeded review validates the installed pins and installation proof, builds the
+sealed frontend and current backend helpers, then starts isolated services. It
+does not require a prior smoke run. Empty reuse caches trigger validation and
+source builds; they do not imply a missing installation. Ordinary review never
+installs packages, downloads tools/browsers, or pulls service images. Use the
+closed recovery guidance printed with the failure's phase, subject, and condition.
+A missing or stale frontend installation proof requires `make frontend-install`.
+
+Command results, receipts and browser action requests use v2. The action contract
+adds `zoom` with `percent` of 100 or 125 for CSS zoom qualification. Capture/analysis
+requests, bundles and locators retain their existing versions. Before upgrading or rolling back, stop each active session
+through its exact locator using the currently running implementation and confirm
+complete cleanup. Upgrade producers and consumers together, run explicit setup
+when requested by readiness, then start fresh sessions. Never translate historical
+receipts or remove unresolved ownership proof to complete a cutover.
+
 Start one foreground session and keep its terminal open:
 
 ```bash
@@ -52,7 +68,7 @@ Create request files outside documentation paths, with directories 0700 and file
 request is:
 
 ```json
-{"schema_id":"cartulary.ui_review_action.v1","expected_epoch":0,"action":"snapshot","parameters":{}}
+{"schema_id":"cartulary.ui_review_action.v2","expected_epoch":0,"action":"snapshot","parameters":{}}
 ```
 
 Submit it using `make ui-browser UI_SESSION=<exact-session.json>

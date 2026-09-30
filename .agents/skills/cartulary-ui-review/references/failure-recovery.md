@@ -2,7 +2,7 @@
 
 Load this after a failure or uncertain outcome. Read the structured result's
 `failures`, `state`, `epoch`, and `exit_code` before interpreting the shell status.
-The [result schema](../../../../tools/schemas/cartulary.ui_review_command_result.v1.schema.json)
+The [result schema](../../../../tools/schemas/cartulary.ui_review_command_result.v2.schema.json)
 defines the fields. Make's generic exit code is not the underlying diagnosis.
 
 ## Choose recovery from the evidence
@@ -54,7 +54,7 @@ artifact failure, never successful cleanup evidence. Restart a drained session
 after private layout changes; never reinterpret old proof or delete it for rollback.
 
 Inspect the returned structural receipt using the exact run identity. The
-[receipt schema](../../../../tools/schemas/cartulary.ui_review_receipt.v1.schema.json)
+[receipt schema](../../../../tools/schemas/cartulary.ui_review_receipt.v2.schema.json)
 distinguishes cleanup completion from command outcome. `closed` or successful
 status inspection alone does not establish successful cleanup. Preserve both the
 primary failure and any cleanup failure in the handoff.

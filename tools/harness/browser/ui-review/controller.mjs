@@ -1,3 +1,4 @@
+import { preparationFailure } from "./failure.mjs";
 import { fork } from "node:child_process";
 import { chmodSync } from "node:fs";
 import net from "node:net";
@@ -81,7 +82,7 @@ async function start(input, profile) {
             const { recoverSession } = await import("./recovery.mjs");
             const response = ["closed", "failed"].includes(identity.locator.state) ? terminal(identity, "ui-review-stop") : await recoverSession(record);
             emitResult(response, input.output); process.exitCode = response.exit_code;
-          } else throw new ReviewFailure("startup_failed");
+          } else throw preparationFailure(new Error("preparation controller unavailable"));
         } catch (error) { reject(error); return; }
       }
       resolve();
@@ -147,9 +148,9 @@ async function serve() {
     // Browser loss and lifetime expiry may originate inside the session.
     const watch = setInterval(() => { if (["closed", "failed"].includes(session.state)) { clearInterval(watch); void end(); } }, 100);
   } catch (error) {
-    if (session.runtime) await end(error instanceof ReviewFailure ? error : new ReviewFailure("startup_failed", { cause: error }));
+    if (session.runtime) await end(preparationFailure(error));
     else {
-      if (process.connected) { process.send({ terminal: result("ui-review", { status: "error", exit_code: error.exitCode ?? 3, failures: [failureRecord(error, "startup_failed")] }) }); process.disconnect(); }
+      if (process.connected) { process.send({ terminal: result("ui-review", { status: "error", exit_code: preparationFailure(error).exitCode, failures: [failureRecord(preparationFailure(error))] }) }); process.disconnect(); }
     }
   }
 }

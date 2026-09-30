@@ -2,11 +2,11 @@ import { reviewPins } from "./policy.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../../contract/index.mjs";
 import { validateBundleSemantics } from "./bundle-semantics.mjs";
 
-export const schemaID = (name) => `cartulary.ui_review_${name}.v1`;
+export const schemaID = (name) => `cartulary.ui_review_${name}.v${["command_result", "receipt", "action"].includes(name) ? 2 : 1}`;
 export const commandID = (name) => `cartulary.harness.command.${name.replaceAll("-", "_")}.v1`;
 export const commands = Object.freeze(["ui-review", "ui-review-status", "ui-browser", "ui-capture", "ui-analyze", "ui-review-report", "ui-review-stop"]);
 export const limits = Object.freeze({ request: 65536, png: 32 * 1024 ** 2, pixels: 16777216, dimension: 8192, files: 64, bundle: 128 * 1024 ** 2, storage: 512 * 1024 ** 2, bundles: 100, component: 8 * 1024 ** 2, report: 32 * 1024 ** 2, snapshot: 1048576, lock: 5000, action: 10000, operation: 30000, lifetime: 8 * 3600000 });
-import { ReviewFailure, failureMappings } from "./failure.mjs";
+import { ReviewFailure, failureMappings, failureFromRecord } from "./failure.mjs";
 export { ReviewFailure, failureRecord, failureMappings } from "./failure.mjs";
 export function validate(name, value, code = "invalid_artifact") {
   try {
@@ -15,6 +15,7 @@ export function validate(name, value, code = "invalid_artifact") {
       if ((value.status === "ok") !== (value.failures.length === 0)) throw new Error("outcome mismatch");
       if ((value.status === "ok") !== (value.exit_code === 0)) throw new Error("exit mismatch");
       for (const failure of value.failures) {
+        failureFromRecord(failure);
         const [kind, reason] = failureMappings[failure.diagnostic_code];
         if (failure.failure_class !== kind || failure.failure_reason !== reason) throw new Error("failure mismatch");
       }

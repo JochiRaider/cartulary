@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { accessSync, constants } from "node:fs";
 import path from "node:path";
 import { createSuiteRuntime, scanRetainedRoot } from "../../runtime/suite-runtime.mjs";
 import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
 import { readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/source-snapshot.mjs";
+import { preparationFailure } from "./failure.mjs";
 import { prepareReview } from "./preparation.mjs";
 import { boundedCleanup, purgeReviewDetail, recordResource, recoveryResources, stopOwnedProcess } from "./ownership.mjs";
 import { ReviewBrowser, browserReady } from "./browser.mjs";
@@ -28,10 +28,6 @@ export class ReviewSession {
   initialize(environment) {
     if (this.mode !== "artifacts") {
       browserReady();
-      try {
-        accessSync("/usr/bin/flock", constants.X_OK);
-        if (this.mode === "seeded") for (const file of ["server-harness", "migrate", "tmp/toolbin/cartulary-test-services"]) accessSync(path.join(repoRoot, file), constants.X_OK);
-      } catch (cause) { throw new ReviewFailure("tool_configuration", { cause }); }
     }
     const { runRoot, runID } = newRunRoot(environment); this.runRoot = runRoot; this.runID = runID;
     this.locatorFile = path.join(runRoot, "ui-review/session.json");
@@ -81,7 +77,8 @@ export class ReviewSession {
       }
       this.abort.signal.throwIfAborted();
       this.browser = new ReviewBrowser({ origin, mode: this.mode, actors, onOwnedResource: async (resource) => { recordResource(this.runtime, resource); if (resource.state !== "released") { const { boot, pid, start } = resource.target; await this.hostLease.bind({ boot, pid, start }); } }, onLost: (error) => { void this.stop(error); } });
-      await this.browser.start();
+      try { await this.browser.start(); }
+      catch (error) { throw preparationFailure(error, { phase: "browser_start", subject_id: "browser", condition: "child_failed", recovery_id: "inspect_failure" }); }
     }
     this.abort.signal.throwIfAborted(); this.state = "ready"; this.publishLocator();
     this.expiry = setTimeout(() => { void this.stop(); }, limits.lifetime);
@@ -187,7 +184,14 @@ export class ReviewSession {
       // Acquisition/action failure already belongs to the primary lifecycle
       // outcome. Only failures of the preparation owner's release are secondary.
       cleanupFailures.push(...(error.cleanupFailures ?? (error.diagnostic === "cleanup_failed" ? [error] : [])));
-      if (!this.failures.length && !this.abort.signal.aborted) { this.failures.push(failureRecord(new ReviewFailure("startup_failed"))); this.exitCode ||= 3; }
+      if (error instanceof ReviewFailure && error.diagnostic !== "interrupted" && error.diagnostic !== "cleanup_failed") {
+        const failure = preparationFailure(error), record = failureRecord(failure);
+        if (!this.failures.some((existing) => JSON.stringify(existing) === JSON.stringify(record))) {
+          if (!this.failures.length || this.failures[0].diagnostic_code === "interrupted") {
+            this.failures.unshift(record); this.exitCode = failure.exitCode;
+          } else this.failures.push(record);
+        }
+      }
     }
     await attempt(async () => { await this.active; });
     await attempt(async () => {
@@ -210,7 +214,8 @@ export class ReviewSession {
     });
     if (cleanupFailures.length) {
       const artifact = cleanupFailures.some((failure) => failure instanceof ReviewFailure && failure.diagnostic === "unsafe_artifact");
-      const failure = new ReviewFailure(artifact ? "unsafe_artifact" : "cleanup_failed");
+      const cleanupContext = cleanupFailures.find((failure) => failure instanceof ReviewFailure && failure.diagnostic === "cleanup_failed" && failure.context.phase !== null)?.context;
+      const failure = new ReviewFailure(artifact ? "unsafe_artifact" : "cleanup_failed", artifact ? {} : { context: cleanupContext });
       this.failures.push(failureRecord(failure)); this.exitCode ||= failure.exitCode;
     }
     Object.assign(this, await finishTerminal({ record: this.record, locator: { schema_id: schemaID("session"), session_id: this.sessionID, run_id: this.runID, mode: this.mode, created_at: this.started }, runRoot: this.runRoot, counts: this.total, failures: this.failures, exitCode: this.exitCode, duration: Math.floor(performance.now() - this.startedTick), cleanupFailed: cleanupFailures.length > 0, forbiddenValues: this.runtime.forbiddenValues() }));

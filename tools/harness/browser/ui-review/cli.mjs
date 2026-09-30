@@ -14,7 +14,7 @@ try {
 } catch (error) {
   // Preflight works even when an installed package is absent; no raw exception
   // message or user-provided value crosses the transient output boundary.
-  const value = { schema_id: "cartulary.ui_review_command_result.v1", command_id: `cartulary.harness.command.${command.replaceAll("-", "_")}.v1`, session_id: null, operation_id: null, state: null, epoch: null, status: "error", exit_code: error instanceof ReviewFailure ? error.exitCode : 2, failures: [failureRecord(error, "tool_configuration")], receipt: null, bundle_id: null, private_refs: [] };
+  const value = { schema_id: "cartulary.ui_review_command_result.v2", command_id: `cartulary.harness.command.${command.replaceAll("-", "_")}.v1`, session_id: null, operation_id: null, state: null, epoch: null, status: "error", exit_code: error instanceof ReviewFailure ? error.exitCode : 2, failures: [failureRecord(error, "tool_configuration")], receipt: null, bundle_id: null, private_refs: [] };
   process.stdout.write(`${JSON.stringify(value)}\n`);
   process.exitCode = error instanceof ReviewFailure ? error.exitCode : 2;
 }

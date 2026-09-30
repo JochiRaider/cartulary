@@ -1,10 +1,13 @@
-import { spawn, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { FixtureBroker, productionFixtureProviders, startManagedSuite } from "../scheduler/fixture-broker/index.mjs";
 import { createSuiteRuntime, scanRetainedRoot } from "../runtime/suite-runtime.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
+import { CommandFailure } from "../runtime/command-failure.mjs";
+import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
+import { reviewChild } from "./review-child.mjs";
 import { seedDesignReview } from "./design-review-seed.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
@@ -22,26 +25,18 @@ function json(file, value) {
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 }
 
-function child(command, args, environment, signal, output = "inherit", onChildProcess = () => () => {}) {
-  return new Promise((resolve, reject) => {
-    signal?.throwIfAborted();
-    const subprocess = spawn(command, args, { cwd: root, env: environment, stdio: output, detached: true });
-    let released = () => {};
-    try { if (subprocess.pid) released = onChildProcess(subprocess.pid); }
-    catch (error) { subprocess.kill("SIGKILL"); reject(error); }
-    const stop = () => {
-      try { process.kill(-subprocess.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") reject(error); }
-    };
-    signal?.addEventListener("abort", stop, { once: true });
-    subprocess.once("error", (error) => { signal?.removeEventListener("abort", stop); reject(error); });
-    subprocess.once("close", async (code, reason) => {
-      signal?.removeEventListener("abort", stop);
-      try { await released(); } catch (error) { reject(error); return; }
-      if (code === 0 && !signal?.aborted) resolve();
-      else reject(new Error(`${path.basename(command)} failed (${reason ?? code})`));
-    });
-  });
+function child(command, args, environment, signal, output = "inherit", onChildProcess, context = { phase: "service_readiness", subject_id: "browser_stack", condition: "child_failed", recovery_id: "inspect_failure" }) {
+  const commandID = command === "make" ? JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"))).targets.find((entry) => entry.name === args.at(-1))?.command_id : undefined;
+  return reviewChild({ root, command, args, environment, signal, output, onChildProcess, commandID, context });
 }
+
+export const preparationBuilds = Object.freeze([
+  ["build-web", "frontend", "build_web"],
+  ["embedded-web-assets", "embedded_assets", "build_server_harness"],
+  ["build-server-harness", "server_harness", "build_server_harness"],
+  ["build-migrate", "migrate", "build_migrate"],
+  ["testservices-build", "test_services", "testservices_build"],
+]);
 
 /** Keep cleanup ordered and attempt every owner even after a failed finalizer. */
 export async function withReviewResources({ acquire, prepare, hold, close, finish }) {
@@ -55,7 +50,7 @@ export async function withReviewResources({ acquire, prepare, hold, close, finis
   } finally {
     for (const cleanup of [close, finish]) {
       try { await cleanup(primary); } catch (error) {
-        primary ??= error;
+        primary ??= new CommandFailure("review cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error", phase: "cleanup", subject_id: "preparation_child", condition: "child_failed", recovery_id: "exact_stop" }, { cause: error });
         (primary.cleanupFailures ??= []).push(error);
       }
     }
@@ -75,8 +70,12 @@ export async function holdReviewSession({ check, signal, intervalMs = 3000 }) {
   }
 }
 
-export async function runPreparedReview({ environment = process.env, signal, onReady, onOwnedResource = () => {}, onChildProcess, hold, verifySamples = false, target = "browser-design-review", runID: selectedRunID, runRoot: selectedRunRoot, runtime: borrowedRuntime, provision = true, retainDetail = true, writeOutput = (value) => process.stdout.write(value) } = {}) {
+export async function runPreparedReview({ environment = process.env, signal, onReady, onOwnedResource = () => {}, onChildProcess, hold, verifySamples = false, target = "browser-design-review", runID: selectedRunID, runRoot: selectedRunRoot, runtime: borrowedRuntime, preparationPolicy = "ensure", onPhase = () => {}, retainDetail = true, writeOutput = (value) => process.stdout.write(value) } = {}) {
+  if (!["ensure", "installed_only"].includes(preparationPolicy)) throw new Error("invalid review preparation policy");
+  let phase = { phase: "prerequisites", subject_id: "preparation_child", condition: "unknown", recovery_id: "inspect_failure" };
+  const stage = (value) => { phase = value; onPhase(value); };
   const profile = reviewProfile(environment.REVIEW_PROFILE);
+  const sourceDigest = buildSourceSnapshot(root).digest;
   const runID = selectedRunID ?? `design-review-${Date.now()}-${randomUUID().slice(0, 8)}`;
   const runRoot = selectedRunRoot ?? path.join(root, ".cartulary/test-results", runID);
   mkdirSync(runRoot, { recursive: true, mode: 0o700 });
@@ -85,7 +84,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
   // inputs before acquiring private runtime resources.
   json(path.join(runRoot, "run-manifest.json"), {
     purpose: "interactive_design_review",
-    source_digest: buildSourceSnapshot(root).digest,
+    source_digest: sourceDigest,
     toolchain_digest: `sha256:${createHash("sha256").update(readFileSync(path.join(root, "tools/toolchain_pins.json"))).digest("hex")}`,
     source_commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(),
     runtime_profile_id: profile,
@@ -96,6 +95,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
     if (/^(?:MAKEFLAGS|MAKEOVERRIDES|MFLAGS|REVIEW_PROFILE|UI_|OTEL_|CARTULARY_(?:MAKE_|TEST_|WEB_E2E_|BROWSER_|HARNESS_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete base[name];
   }
   Object.assign(base, {
+    CARTULARY_PREPARATION_POLICY: preparationPolicy,
     CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot),
     CARTULARY_TEST_RUN_ID: runID,
     CARTULARY_TEST_TARGET: target,
@@ -114,6 +114,13 @@ export async function runPreparedReview({ environment = process.env, signal, onR
     CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED: "false",
     CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED: "false",
   });
+  if (preparationPolicy === "installed_only") {
+    const pins = JSON.parse(readFileSync(path.join(root, "tools/toolchain_pins.json")));
+    const machine = environment.CARTULARY_MACHINE_CACHE_DIR || path.join(environment.XDG_CACHE_HOME || path.join(environment.HOME, ".cache"), "cartulary");
+    Object.assign(base, { CARTULARY_PREPARATION_POLICY: "installed_only", GO: environment.GO || "go", GO_TOOLCHAIN: pins.go_toolchain,
+      GO_CACHE_DIR: environment.GO_CACHE_DIR || path.join(machine, "go/build"), GO_MOD_CACHE_DIR: environment.GO_MOD_CACHE_DIR || path.join(machine, "go/mod"), GO_TMP_DIR: environment.GO_TMP_DIR || path.join(machine, "go/tmp"),
+      GOTOOLCHAIN: "local", GOPROXY: "off", GONOPROXY: "none", GOSUMDB: "off", GOTELEMETRY: "off", COREPACK_ENABLE_NETWORK: "0", npm_config_offline: "true" });
+  }
   let suite;
   let broker;
   let state = "preparing";
@@ -131,15 +138,25 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       purpose: "interactive_design_review", run_id: runID, runtime_profile_id: profile, state, ...sessionDetails,
     });
   };
-  terminal();
-  writeOutput(`Preparing browser review. Diagnostics: ${runRoot}\n`);
-  await withReviewResources({
+  try { terminal(); writeOutput(`Preparing browser review. Diagnostics: ${runRoot}\n`); }
+  catch (error) { if (!borrowedRuntime) runtime.close(); throw error; }
+  try { await withReviewResources({
     async acquire() {
-      const buildEnvironment = { ...base, CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1", ...(provision ? {} : { CARTULARY_READINESS_CHECK_ONLY: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" }) };
-      for (const prerequisite of provision ? ["build-web", "build-server-harness", "build-migrate", "test-service-images", "playwright-install"] : ["build-web"]) {
-        await child("make", ["--no-print-directory", prerequisite], { ...buildEnvironment, CARTULARY_TEST_TARGET: prerequisite }, signal, retainDetail ? "inherit" : "ignore", onChildProcess);
+      if (preparationPolicy === "installed_only") {
+        coreReadiness(root); frontendBuildReadiness(root, { environment: base }); browserReadiness(root); base.GO = goReadiness(base, root);
       }
+      const buildEnvironment = { ...base, CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" };
+      for (const [prerequisite, subject_id, recovery_id] of preparationBuilds) {
+        stage({ phase: "build", subject_id, condition: "child_failed", recovery_id });
+        await child("make", ["--no-print-directory", prerequisite], { ...buildEnvironment, CARTULARY_TEST_TARGET: prerequisite }, signal, retainDetail ? "inherit" : "ignore", onChildProcess, phase);
+      }
+      stage({ phase: "prerequisites", subject_id: "test_service_images", condition: "missing", recovery_id: "test_service_images" });
+      if (preparationPolicy === "ensure") for (const prerequisite of ["test-service-images", "playwright-install"]) {
+        await child("make", ["--no-print-directory", prerequisite], { ...buildEnvironment, CARTULARY_TEST_TARGET: prerequisite }, signal, retainDetail ? "inherit" : "ignore", onChildProcess, phase);
+      }
+      else serviceImageReadiness(base, root);
       signal?.throwIfAborted();
+      stage({ phase: "service_acquisition", subject_id: "browser_stack", condition: "child_failed", recovery_id: "inspect_failure" });
       broker = new FixtureBroker({
         providers: productionFixtureProviders({ root, runtimeEnvironment: base, suiteRuntime: runtime, suiteController, signal, onOwnedResource, onChildProcess }),
         recordSink: (record) => json(path.join(runRoot, "_shared/fixture-leases", `${record.lease_id}.json`), record),
@@ -149,6 +166,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       return { ...base, ...lease.resource.environment };
     },
     async prepare(attached) {
+      stage({ phase: "service_readiness", subject_id: "browser_stack", condition: "invalid_artifact", recovery_id: "inspect_failure" });
       state = "seeding";
       terminal();
       // Use exactly the attach-only guard used by retained browser execution.
@@ -156,7 +174,14 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       Object.assign(attached, JSON.parse(assignment));
       const privateDirectory = runtime.privatePath("review-access");
       mkdirSync(privateDirectory, { recursive: true, mode: 0o700 });
-      const review = await seedDesignReview({ root, environment: attached, privateDirectory, runRoot, profile, signal, verifySamples, registerSecret: (value) => runtime.registerSecret(value) });
+      stage({ phase: "seeding", subject_id: "fixture_seed", condition: "child_failed", recovery_id: "inspect_failure" });
+      let review;
+      try { review = await seedDesignReview({ root, environment: attached, privateDirectory, runRoot, profile, signal, verifySamples, registerSecret: (value) => runtime.registerSecret(value) }); }
+      catch (error) {
+        if (!error.failure_reason && error !== signal?.reason) Object.assign(error, { failure_class: "harness", failure_reason: "fixture_error" });
+        throw error;
+      }
+      if (buildSourceSnapshot(root).digest !== sourceDigest) throw new CommandFailure("source changed during preparation", { failure_class: "artifact", failure_reason: "artifact_error", phase: "build", subject_id: "source_snapshot", condition: "invalid_artifact", recovery_id: "inspect_source" });
       state = "ready";
       terminal({ public_origin: attached.CARTULARY_WEB_E2E_PUBLIC_ORIGIN, scenarios: review.scenarios, samples: review.samples });
       writeOutput(`Browser review ready: ${attached.CARTULARY_WEB_E2E_PUBLIC_ORIGIN}\nPrivate login instructions: ${path.join(privateDirectory, "access.json")}\nSample files: ${review.samples}\nScenario index: ${path.join(runRoot, "review-session.json")}\n`);
@@ -192,7 +217,10 @@ export async function runPreparedReview({ environment = process.env, signal, onR
         throw scanError;
       } finally { if (!borrowedRuntime) runtime.close(); }
     },
-  });
+  }); } catch (error) {
+    for (const [key, value] of Object.entries(phase)) error[key] ??= value;
+    throw error;
+  }
   return runRoot;
 }
 

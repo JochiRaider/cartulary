@@ -121,7 +121,7 @@ var (
 	sharedHarness     *Harness
 	startOwnedHarness = StartOwned
 	verifyAttachedFn  = verifyAttachedHarness
-	startContainerFn  = testcontainers.GenericContainer
+	startContainerFn  = testcontainersx.GenericContainer
 	waitReadyFn       = func(ctx context.Context, harness *Harness) error {
 		return harness.WaitReady(ctx)
 	}

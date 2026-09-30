@@ -28,6 +28,16 @@ case "$*" in
 esac
 EOF
 chmod +x "${fake_pnpm}"
+cat >"${scratch}/node" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" == */installed-readiness.mjs ]]
+if [[ "$2" == invalidate ]]; then exit 0; fi
+[[ "$2" == publish ]]
+[[ -f "${FAKE_INSTALL_MARKER:?}" ]]
+: >"${FAKE_INSTALL_MARKER}.proof"
+EOF
+chmod +x "${scratch}/node"
 
 env -u RUN_STEP_SCRIPT \
   FAKE_INSTALL_MARKER="${install_marker}" \
@@ -47,6 +57,7 @@ env -u RUN_STEP_SCRIPT \
   echo "frontend install did not publish its readiness stamp" >&2
   exit 1
 }
+[[ -f "${install_marker}.proof" ]] || { echo "installation proof was not published after install" >&2; exit 1; }
 grep -Fq "pnpm_store_dir=.pnpm-store" "${stamp}" || {
   echo "frontend install stamp omitted the pinned store" >&2
   exit 1

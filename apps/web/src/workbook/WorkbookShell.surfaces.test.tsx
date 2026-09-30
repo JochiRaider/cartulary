@@ -2252,10 +2252,11 @@ describe("WorkbookShell surface selection", () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
 
-    const builtInTabIds = screen
-      .getAllByRole("button")
-      .map((button) => button.getAttribute("data-testid") ?? "")
-      .filter((testId) => testId.startsWith("surface-tab-"));
+    const builtInTabIds = within(
+      screen.getByRole("tablist", { name: "Built-in workbook surfaces" }),
+    )
+      .getAllByRole("tab")
+      .map((tab) => tab.getAttribute("data-testid") ?? "");
     expect(builtInTabIds).toEqual(
       requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId) =>
         surfaceTabTestId(viewSchemaId),

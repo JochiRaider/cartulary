@@ -74,7 +74,7 @@ const validArtifactPolicies = new Set([
   "tool_run_summary",
 ]);
 const validSummarySchemas = new Set([
-  "cartulary.ui_review_command_result.v1",
+  "cartulary.ui_review_command_result.v2",
   "cartulary.tool_run_summary.v5",
   "cartulary.harness_run_summary.v1",
   "cartulary.otel_conformance_summary.v1",

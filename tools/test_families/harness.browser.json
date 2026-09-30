@@ -288,6 +288,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.installed_only_images",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/testcontainersx",
+        "tests": [
+          "TestInstalledOnlyRejectsImageAcquisitionWithoutCallingDocker"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.boundary_support.mentions_suite_e2e13939bd",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",

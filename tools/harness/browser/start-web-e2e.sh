@@ -472,6 +472,10 @@ write_startup_diagnostics() {
     node_bin="node"
   fi
   if [[ "${status}" == "fail" ]]; then
+    if [[ -n "${CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT:-}" ]]; then
+      "${node_bin}" "${ROOT_DIR}/tools/harness/runtime/command-failure-cli.mjs" \
+        "${failure_class:-infra}" "${failure_reason:-service_start_error}" || true
+    fi
     "${node_bin}" "${SESSION_EVIDENCE_HELPER}" terminal \
       failed "${message:-browser session startup failed during ${step}}" \
       "${failure_class:-infra}" "${failure_reason:-service_start_error}" || true

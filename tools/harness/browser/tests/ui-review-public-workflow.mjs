@@ -24,7 +24,7 @@ function make(args, env) {
 export async function publicWorkflow({ seeded = false, profile = "default", resultsRoot, runID = "workflow" } = {}) {
   assert.ok(["default", "network_flow_claimed"].includes(profile));
   const privateRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-public-workflow-"));
-  const env = cleanEnvironment(), privateRefs = [], manifests = [], sentinel = "review-private-sentinel-392884";
+  const env = { ...cleanEnvironment(), CARTULARY_READINESS_CACHE_DIR: path.join(privateRoot, "readiness-cache"), CARTULARY_BUILD_CACHE_DIR: path.join(privateRoot, "build-cache") }, privateRefs = [], manifests = [], sentinel = "review-private-sentinel-392884";
   let server, running, locator, requestIndex = 0;
   const invoke = async (command, value, extra = []) => {
     let inputs = [];

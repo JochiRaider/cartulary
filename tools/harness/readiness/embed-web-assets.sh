@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+report_build_failure() {
+  local status=$?
+  if [[ -n "${CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT:-}" ]]; then
+    "${NODE_BIN:?}" tools/harness/runtime/command-failure-cli.mjs harness tool_diagnostic_failure || true
+  fi
+  return "$status"
+}
+trap report_build_failure ERR
+
 source_index="${WEB_DIST_INDEX:?WEB_DIST_INDEX is required}"
 asset_dir="${EMBEDDED_WEB_ASSET_DIR:?EMBEDDED_WEB_ASSET_DIR is required}"
 asset_archive="${EMBEDDED_WEB_ASSET_ARCHIVE:?EMBEDDED_WEB_ASSET_ARCHIVE is required}"

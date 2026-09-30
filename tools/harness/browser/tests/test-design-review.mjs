@@ -28,11 +28,12 @@ for (const checking of [true, false]) {
   assert.equal(checks, 1, "interruption must stop without another attachment check");
 }
 
-for (const failure of [null, "acquire", "prepare", "hold", "close"]) {
+for (const failure of [null, "acquire", "prepare", "hold", "close", "finish"]) {
   const events = [];
   const step = (name) => async () => { events.push(name); if (failure === name) throw new Error(name); return "lease"; };
   const promise = withReviewResources({ acquire: step("acquire"), prepare: step("prepare"), hold: step("hold"), close: step("close"), finish: step("finish") });
-  if (failure) await assert.rejects(promise, new RegExp(failure)); else await promise;
+  if (["close", "finish"].includes(failure)) await assert.rejects(promise, (error) => error.failure_reason === "cleanup_error" && error.phase === "cleanup" && error.cause.message === failure);
+  else if (failure) await assert.rejects(promise, new RegExp(failure)); else await promise;
   assert.deepEqual(events.slice(-2), ["close", "finish"]);
   if (failure === "acquire") assert.ok(!events.includes("prepare"));
   if (failure === "prepare") assert.ok(!events.includes("hold"));

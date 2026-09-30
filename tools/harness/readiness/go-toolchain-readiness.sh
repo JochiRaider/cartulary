@@ -2,10 +2,15 @@
 set -euo pipefail
 
 mode="${1:-}"
+resolve_only=0
+if [[ "$mode" == "resolve" ]]; then resolve_only=1; mode=diagnose; fi
+if [[ "${CARTULARY_PREPARATION_POLICY:-}" == "installed_only" && "$mode" == "ensure" ]]; then
+  mode=diagnose
+fi
 case "$mode" in
   diagnose|ensure) ;;
   *)
-    echo "usage: go-toolchain-readiness.sh diagnose|ensure" >&2
+    echo "usage: go-toolchain-readiness.sh diagnose|ensure|resolve" >&2
     exit 2
     ;;
 esac
@@ -139,7 +144,7 @@ if [[ "$local_toolchain" == "$expected_toolchain" ]]; then
   if [[ "$mode" == "ensure" ]]; then
     ensure_machine_state_paths
   fi
-  printf 'ok go: launcher=%s effective=%s source=local\n' "$local_toolchain" "$expected_toolchain"
+  if [[ "$resolve_only" == 1 ]]; then printf '%s\n' "$go_bin"; else printf 'ok go: launcher=%s effective=%s source=local\n' "$local_toolchain" "$expected_toolchain"; fi
   exit 0
 fi
 
@@ -176,7 +181,7 @@ if [[ "$mode" == "diagnose" ]]; then
     exit 2
   fi
 
-  printf 'ok go: launcher=%s effective=%s source=automatic-cache\n' "$local_toolchain" "$expected_toolchain"
+  if [[ "$resolve_only" == 1 ]]; then printf '%s\n' "$cached_go"; else printf 'ok go: launcher=%s effective=%s source=automatic-cache\n' "$local_toolchain" "$expected_toolchain"; fi
   exit 0
 fi
 

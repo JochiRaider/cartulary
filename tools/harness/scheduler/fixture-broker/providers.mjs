@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
+import { createCommandFailureContext, CommandFailure } from "../../runtime/command-failure.mjs";
 
 import {
   normalizeFailureClass,
@@ -52,19 +53,22 @@ function run(command, args, { cwd, environment, timeoutMS }) {
 function acquireProcess(command, args, { cwd, environment, signal, onChildProcess = () => () => {} }) {
   return new Promise((resolve, reject) => {
     signal?.throwIfAborted();
-    const child = spawn(command, args, { cwd, env: { ...process.env, ...environment }, stdio: "ignore", detached: true });
-    let released = () => {};
+    const diagnostic = ["ensure", "installed_only"].includes(environment.CARTULARY_PREPARATION_POLICY) ? createCommandFailureContext({ repoRoot: cwd, environment, unitID: "review:browser_stack", commandID: environment.CARTULARY_PREPARATION_POLICY === "installed_only" ? "cartulary.harness.command.ui_review.v1" : "cartulary.harness.command.browser_design_review.v1" }) : null;
+    const child = spawn(command, args, { cwd, env: { ...process.env, ...environment, ...diagnostic?.environment }, stdio: "ignore", detached: true });
+    let released = () => {}, spawnError;
     try { if (child.pid) released = onChildProcess(child.pid); }
-    catch (error) { child.kill("SIGKILL"); reject(error); }
-    const abort = () => { try { process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") reject(error); } };
+    catch (error) { spawnError = error; child.kill("SIGKILL"); }
+    const abort = () => { try { process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") spawnError ??= error; } };
     signal?.addEventListener("abort", abort, { once: true });
-    child.once("error", (error) => { signal?.removeEventListener("abort", abort); reject(error); });
+    child.once("error", (error) => { spawnError = error; });
     child.once("close", async (status) => {
       signal?.removeEventListener("abort", abort);
-      try { await released(); } catch (error) { reject(error); return; }
-      if (signal?.aborted) reject(signal.reason);
-      else if (status === 0) resolve();
-      else reject(new Error(`${path.basename(command)} acquisition failed`));
+      const failure = diagnostic?.read();
+      let primary = signal?.aborted ? signal.reason : failure ? new CommandFailure("browser acquisition failed", status === 0 ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" } : failure) : spawnError ?? (status === 0 ? null : new Error("unclassified browser acquisition failure"));
+      for (const cleanup of [released, () => diagnostic?.close()]) {
+        try { await cleanup(); } catch (error) { primary ??= new CommandFailure("acquisition cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error" }); (primary.cleanupFailures ??= []).push(error); }
+      }
+      if (primary) reject(primary); else resolve();
     });
   });
 }
@@ -575,18 +579,10 @@ export function productionFixtureProviders({
             "browser service-admission evidence",
           );
         } catch (error) {
-          try {
-            run(lifecycle, ["--session-stop", "--lease-file", leaseFile], {
-              cwd: root,
-              environment,
-            });
-          } catch (cleanupError) {
-            throw new AggregateError(
-              [error, cleanupError],
-              "browser session publication failed and owned cleanup also failed",
-            );
-          }
-          throw error;
+          const failure = new CommandFailure("browser session publication failed", { failure_class: "artifact", failure_reason: "artifact_error" }, { cause: error });
+          try { run(lifecycle, ["--session-stop", "--lease-file", leaseFile], { cwd: root, environment }); }
+          catch (cleanupError) { failure.cleanupFailures = [cleanupError]; }
+          throw failure;
         }
         suiteRuntime.registerEnvironment(stackEnvironment);
         rmSync(envFile, { force: true });

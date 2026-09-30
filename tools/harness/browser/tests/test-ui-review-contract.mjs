@@ -27,6 +27,9 @@ const action = (action, parameters = {}) => ({ schema_id: schemaID("action"), ex
 const parse = (value, type = "action") => parseRequest(Buffer.from(JSON.stringify(value)), type);
 test("review requests reject malformed encodings and unsupported operations before execution", () => {
   assert.equal(parse(action("snapshot")).action, "snapshot");
+  assert.equal(parse(action("zoom", { percent: 125 })).parameters.percent, 125);
+  assert.throws(() => parse(action("zoom", { percent: 124 })), /invalid_request/u);
+  assert.throws(() => parse({ ...action("snapshot"), schema_id: "cartulary.ui_review_action.v1" }), /invalid_request/u);
   const request = Buffer.from(JSON.stringify(action("snapshot")));
   assert.equal(parseRequest(Buffer.concat([request, Buffer.alloc(65536 - request.length, 32)]), "action").action, "snapshot");
   for (const value of [action("eval", { code: "document.cookie" }), { ...action("snapshot"), extra: true }, action("click", { target: { kind: "css", value: "body" } }), action("resize", { width: 3840, height: 3840 }), action("navigate", { path: "//example.com" })]) assert.throws(() => parse(value), /invalid_request/u);

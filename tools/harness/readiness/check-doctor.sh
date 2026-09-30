@@ -71,7 +71,7 @@ else
 fi
 
 if [[ -n "$node_path" ]]; then
-  if ! "$node_path" "$ROOT_DIR/tools/harness/browser/ui-review/toolchain.mjs" --doctor; then
+  if ! "$node_path" "$ROOT_DIR/tools/harness/readiness/installed-readiness.mjs" doctor; then
     fail=2
   fi
   if ! "$node_path" "$ROOT_DIR/tools/harness/readiness/diagnose-inotify.mjs" --advisory; then
@@ -84,7 +84,7 @@ if [[ -n "${PNPM:-}" && -x "$PNPM" ]]; then
   pnpm_path="$PNPM"
 fi
 if [[ -n "$pnpm_path" ]]; then
-  pnpm_version="$(PATH="${NODE_RUNTIME_DIR:-}/bin:$PATH" COREPACK_HOME="${NODE_RUNTIME_DIR:-}/corepack" "$pnpm_path" --version 2>/dev/null || true)"
+  pnpm_version="$(PATH="${NODE_RUNTIME_DIR:-}/bin:$PATH" COREPACK_HOME="${NODE_RUNTIME_DIR:-}/corepack" COREPACK_ENABLE_NETWORK=0 "$pnpm_path" --version 2>/dev/null || true)"
   if [[ "$pnpm_version" == "${PNPM_VERSION:-}" ]]; then
     printf 'ok pnpm: %s %s\n' "$pnpm_path" "$pnpm_version"
   else

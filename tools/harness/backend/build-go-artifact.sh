@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+report_build_failure() {
+  local status=$?
+  if [[ -n "${CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT:-}" ]]; then
+    "${NODE_BIN:?}" tools/harness/runtime/command-failure-cli.mjs harness tool_diagnostic_failure || true
+  fi
+  return "$status"
+}
+trap report_build_failure ERR
+
 go_bin="${GO:?GO is required}"
 output="${BUILD_OUTPUT:?BUILD_OUTPUT is required}"
 package="${BUILD_PACKAGE:?BUILD_PACKAGE is required}"

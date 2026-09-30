@@ -2,14 +2,15 @@ import { freeze } from "./immutable.mjs";
 import { captureObservation } from "./browser-observation.mjs";
 import { chromium } from "playwright";
 import { randomBytes } from "node:crypto";
-import { accessSync, constants } from "node:fs";
+import { browserReadiness } from "../../readiness/installed-readiness.mjs";
+import { preparationFailure } from "./failure.mjs";
 import { ReviewFailure, limits, schemaID, validate } from "./contract.mjs";
 import { reviewTotp } from "../design-review-seed.mjs";
 import { boundedCleanup, ownedProcess, stopOwnedProcess } from "./ownership.mjs";
 
 export function browserReady() {
-  try { accessSync(chromium.executablePath(), constants.X_OK); }
-  catch (cause) { throw new ReviewFailure("tool_configuration", { cause }); }
+  try { browserReadiness(); }
+  catch (cause) { throw preparationFailure(cause); }
 }
 function boundedText(value, maximum = 4096) {
   const bytes = Buffer.from(value);
@@ -126,6 +127,7 @@ export class ReviewBrowser {
         case "focus": await target.focus(); if (!await target.evaluate((node) => document.activeElement === node)) throw new ReviewFailure("target_unavailable"); break;
         case "press": if (target) await target.press(parameters.key, { timeout: limits.action }); else await this.page.keyboard.press(parameters.key); break;
         case "scroll": if (target) await target.evaluate((node, position) => { node.scrollLeft = position.x; node.scrollTop = position.y; }, parameters); else await this.page.evaluate(({ x, y }) => window.scrollTo({ left: x, top: y, behavior: "instant" }), parameters); break;
+        case "zoom": await this.page.evaluate((percent) => { document.documentElement.style.zoom = `${percent}%`; }, parameters.percent); break;
         case "resize": await this.page.setViewportSize({ width: parameters.width, height: parameters.height }); break;
         case "authenticate": await this.authenticate(parameters.actor); break;
         default: throw new ReviewFailure("invalid_request");

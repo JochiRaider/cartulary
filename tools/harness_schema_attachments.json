@@ -156,6 +156,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.frontend_installation.v1",
+      "path": "tools/schemas/cartulary.frontend_installation.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "explicit frontend installer",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.frontend_measurement_aggregate.v3",
       "path": "tools/schemas/cartulary.frontend_measurement_aggregate.v3.schema.json",
       "classification": "public_contract",
@@ -983,8 +990,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.ui_review_action.v1",
-      "path": "tools/schemas/cartulary.ui_review_action.v1.schema.json",
+      "schema_id": "cartulary.ui_review_action.v2",
+      "path": "tools/schemas/cartulary.ui_review_action.v2.schema.json",
       "classification": "owner_input",
       "producer": "UI review harness",
       "validation": "json-shape-check"
@@ -1011,8 +1018,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.ui_review_command_result.v1",
-      "path": "tools/schemas/cartulary.ui_review_command_result.v1.schema.json",
+      "schema_id": "cartulary.ui_review_command_result.v2",
+      "path": "tools/schemas/cartulary.ui_review_command_result.v2.schema.json",
       "classification": "public_contract",
       "producer": "UI review harness",
       "validation": "json-shape-check"
@@ -1025,8 +1032,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.ui_review_receipt.v1",
-      "path": "tools/schemas/cartulary.ui_review_receipt.v1.schema.json",
+      "schema_id": "cartulary.ui_review_receipt.v2",
+      "path": "tools/schemas/cartulary.ui_review_receipt.v2.schema.json",
       "classification": "public_contract",
       "producer": "UI review harness",
       "validation": "json-shape-check"

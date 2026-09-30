@@ -5,8 +5,12 @@ canonical registry order, wrapping at either end; Home/End focus Timeline/Notes.
 Enter and Space use native button activation and the existing explicit selection
 callback exactly once. Pointer selection remains available. Escape does nothing;
 Tab and Shift+Tab leave normally. Arrow movement changes only presentation focus.
-Implementation and focused product evidence are ready for review; private seeded
-rendered review remains blocked as recorded below. No commit or deployment occurred.
+Implementation and focused product evidence were handed off with private seeded
+rendered review blocked. The subsequent
+[harness remediation handoff](../ui-review-preparation-remediation.md) records
+completed rendered inspection on both profiles, cleanup, and advisory follow-ups.
+The historical evidence below is preserved; its blocked statuses describe the
+original handoff, not the subsequent review. No deployment occurred.
 
 ## Boundary and authority
 

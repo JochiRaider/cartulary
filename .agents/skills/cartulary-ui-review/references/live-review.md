@@ -11,7 +11,13 @@ problem. `make bootstrap` owns dependency installation when setup is within the
 user's task. Ordinary review commands never install tools; do not substitute an
 ambient browser or raw Playwright script.
 
-For reproducible review, start `make ui-review`. Select `REVIEW_PROFILE` explicitly
+For reproducible review after explicit setup, start `make ui-review` directly;
+a smoke run is not a prerequisite. Seeded startup validates installed prerequisites
+and builds current-source artifacts without installing tools or pulling images.
+Failures provide closed phase/subject/condition/recovery fields in v2 results and
+receipts. Drain active sessions by exact locator before upgrading or rolling back.
+
+Start `make ui-review`. Select `REVIEW_PROFILE` explicitly
 only when the task requires a different profile; consult the guide for current
 profile meaning. Source edits require stopping and starting a new seeded session
 so the review covers a new sealed build.
@@ -44,11 +50,11 @@ that startup or another caller left it at zero.
 ## Observe, target, act
 
 Read the selected action variant in the
-[action schema](../../../../tools/schemas/cartulary.ui_review_action.v1.schema.json).
+[action schema](../../../../tools/schemas/cartulary.ui_review_action.v2.schema.json).
 A snapshot request for a session whose current epoch is zero is:
 
 ```json
-{"schema_id":"cartulary.ui_review_action.v1","expected_epoch":0,"action":"snapshot","parameters":{}}
+{"schema_id":"cartulary.ui_review_action.v2","expected_epoch":0,"action":"snapshot","parameters":{}}
 ```
 
 Replace `expected_epoch` with the actual current value, then submit:

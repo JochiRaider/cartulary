@@ -2742,7 +2742,7 @@ Its ready output identifies the exact retained session-locator path. It MUST NOT
 print credentials, a private endpoint, storage state, or request content.
 
 The six finite commands use `summary_with_artifacts` with stable machine stdout
-schema `cartulary.ui_review_command_result.v1`. Machine output is one JSON object
+schema `cartulary.ui_review_command_result.v2`. Machine output is one JSON object
 plus LF; stderr is empty after the wrapper starts. Human modes obey Section 7's
 existing budgets. Browser text, images, raw logs, and full accessibility trees
 MUST NOT be streamed into ordinary stdout.
@@ -3547,11 +3547,11 @@ rules; schema files are projections.
 | Schema ID | Role and lifetime |
 | --- | --- |
 | `cartulary.ui_review_session.v1` | Retained mutable locator from Section 6. |
-| `cartulary.ui_review_action.v1` | Private caller request from Section 11.11. |
+| `cartulary.ui_review_action.v2` | Private caller request from Section 11.11. |
 | `cartulary.ui_review_capture_request.v1` | Private caller request from Section 8.4. |
 | `cartulary.ui_review_analysis_request.v1` | Private caller request from Section 8.6. |
-| `cartulary.ui_review_command_result.v1` | Transient finite-command stdout/result; contains local private references. |
-| `cartulary.ui_review_receipt.v1` | Immutable retained structural operation or terminal receipt. |
+| `cartulary.ui_review_command_result.v2` | Transient finite-command stdout/result; contains local private references. |
+| `cartulary.ui_review_receipt.v2` | Immutable retained structural operation or terminal receipt. |
 | `cartulary.ui_review_bundle.v1` | Private immutable observations, analyses, and artifact references. |
 | `cartulary.ui_review_observations.v1` | Private DOM, accessibility, axe, console, and network component. |
 
@@ -3571,9 +3571,36 @@ and one of `image/png`, `application/json`, `text/html`, `text/plain`,
 duplicate paths are invalid. Existing canonical source refs retain their adopted
 schemas and are translated only at the adapter boundary.
 
-`Failure` contains exactly `failure_class`, `failure_reason`, and
-`diagnostic_code`. Class/reason use Section 9's existing pairings. Diagnostic code
-is a closed token from Section 9.2. There is no arbitrary retained message string.
+`Failure` contains exactly `failure_class`, `failure_reason`, `diagnostic_code`,
+`phase`, `subject_id`, `condition`, and `recovery_id`. Class/reason use Section 9's
+existing pairings. Diagnostic code is a closed token from Section 9.2. The four
+context fields are all null outside preparation, or all non-null for preparation
+failures. There is no arbitrary retained message string. Context uses these
+closed vocabularies:
+
+- phase: `prerequisites`, `build`, `service_acquisition`, `service_readiness`,
+  `seeding`, `browser_start`, `cleanup`.
+- subject_id: `node`, `pnpm`, `frontend_dependencies`, `chromium`, `host_lock`,
+  `go`, `docker`, `test_service_images`, `frontend`, `embedded_assets`,
+  `server_harness`, `migrate`, `test_services`, `browser_stack`, `fixture_seed`,
+  `preparation_child`, `source_snapshot`, `browser`.
+- condition: `missing`, `incompatible`, `stale_installation`, `invalid_artifact`,
+  `preflight_failed`, `child_failed`, `timeout`, `resource_conflict`,
+  `invalid_diagnostic`, `cancelled`, `unknown`.
+- recovery_id: `bootstrap_node`, `frontend_toolchain`, `frontend_install`,
+  `playwright_install`, `bootstrap`, `test_service_images`, `doctor`,
+  `build_web`, `build_server_harness`, `build_migrate`, `testservices_build`,
+  `inspect_source`, `inspect_failure`, `exact_stop`.
+
+Recovery IDs map only to existing Make targets or local inspection guidance;
+commands are never assembled from error text or executed automatically. Empty,
+unknown, partial, and mismatched context is invalid. A preparation failure with
+an unclassified cause uses `preparation_failed`, preserving its known phase.
+Result and receipt v1 have no compatibility reader. Drain active sessions with
+the old implementation before a coordinated v2 upgrade or rollback. Existing
+receipts remain immutable; locator, capture/analysis request and bundle versions are unchanged. The action
+request uses v2 to add the fixed CSS zoom action for rendered qualification;
+there is no action-v1 compatibility reader.
 `PrivateRef` is `{kind, absolute_path}` with kind `bundle`, `image`, `observations`,
 or `report`; the path is validated beneath this session's private root.
 
@@ -3587,7 +3614,7 @@ or `report`; the path is validated beneath this session's private root.
 | `epoch` | Current nonnegative epoch; null in artifact mode or without a live browser observation. |
 | `status` | `ok` or `error`; describes command execution only. |
 | `exit_code` | Normalized command exit: 0 on `ok`; otherwise Section 9.2 code, retaining 130/143 for signals. GNU Make may itself return 2. |
-| `failures` | Empty on `ok`; otherwise 1–32 distinct Failures in primary-failure order; repeated identical triples are deduplicated. |
+| `failures` | Empty on `ok`; otherwise 1–32 distinct Failures in primary-failure order; repeated identical records are deduplicated. |
 | `receipt` | Digested run-relative ArtifactRef; null for live status, pre-admission rejection, or failed safe receipt publication. |
 | `bundle_id` | Exact produced/selected bundle ID or null. |
 | `private_refs` | 0–8 PrivateRefs; empty on error or terminal state. |
@@ -3645,10 +3672,10 @@ zeros. It is unique within its session. A bundle contains exactly:
 `tool_profile` contains exactly `pins_sha256`, `lock_sha256`, `node_version`,
 `playwright_version`, `sharp_version`, and `axe_version`.
 Digests identify the qualified toolchain projection and package lock bytes;
-versions are nonempty exact installed-version strings. Seeded review creates its run-owned frontend seal using already-ready tools;
-readiness-cache misses under its internal inspect-only policy fail before an
-installer executes. OS advisory locking uses the supported Linux/WSL2 host
-primitive; missing host support fails readiness. Core package versions
+versions are nonempty exact installed-version strings. Seeded preparation and
+installed-state validation follow Section 11.10; cache presence is not installed
+readiness. OS advisory locking uses the supported Linux/WSL2 host primitive;
+missing host support fails readiness. Core package versions
 remain available in artifacts mode even though no browser executable is required.
 An analysis bundle records its own producing profile and preserves each parent's
 profile through the immutable parent reference.
@@ -4170,7 +4197,7 @@ Verified by: TH-HARNESS-AC-014, TH-HARNESS-AC-032
 ### 9.2 UI review failure mapping
 
 **TH-HARNESS-REQ-311**
-The following diagnostic codes are closed for v1.
+The following diagnostic codes are closed for result/receipt v2.
 Use the existing normalized class/reason and public code. The outer GNU Make exit
 can differ; consumers use the result/receipt or compact classified output.
 
@@ -4193,6 +4220,10 @@ can differ; consumers use the result/receipt or compact classified output.
 | Browser/controller dies after ready | `session_lost` | `infra / service_start_error` | 3 | End session and clean; no transparent browser restart. |
 | Redaction, permissions, secure publication, or retained scan fails | `unsafe_artifact` | `artifact / artifact_error` | 11 | Reject success and attempt remaining cleanup. |
 | Private input boundary violation detected | `input_boundary` | `artifact / artifact_error` | 11 | No restricted document read; report normalized location only. |
+| Build tool reports a diagnostic after setup | `build_failed` | `harness / tool_diagnostic_failure` | 1 | Stop before service acquisition. |
+| Fixture or seeding preparation fails | `fixture_failed` | `harness / fixture_error` | 3 | Preserve cause and clean owned resources. |
+| Private failure envelope is malformed, conflicting or inconsistent with success | `diagnostic_invalid` | `harness / scheduler_accounting_error` | 11 | Fail closed; do not interpret raw output. |
+| Preparation failure has no classified owner cause | `preparation_failed` | `unknown / unknown_failure` | 1 | Retain known phase and subject, without attributing a service. |
 | Cleanup fails without earlier primary failure | `cleanup_failed` | `harness / cleanup_error` | 12 | Retain failed cleanup outcome and exact ownership proof. |
 | Signal/cancellation | `interrupted` | `interrupted / cancelled_or_interrupted` | 130/143/15 | Cancel dependent work; close owned resources. |
 
@@ -4215,7 +4246,7 @@ temporary resources. It does not declare the UI correct. Product test assertions
 retain `product/test_assertion_failure` only in their existing canonical test
 commands; no new review command emits that class or passing product-row evidence.
 
-Verified by: TH-HARNESS-AC-107, TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-122, TH-HARNESS-AC-127
+Verified by: TH-HARNESS-AC-107, TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-122, TH-HARNESS-AC-127, TH-HARNESS-AC-131
 
 ## 10. Scheduler Contract
 
@@ -5564,11 +5595,48 @@ stalled capture. Concurrent sessions have separate contexts, files, and leases.
 | Deadline or bound | Value | Consequence |
 | --- | --- | --- |
 | Session lifetime after ready | 8 hours, monotonic, not extended by requests | Stop and clean; normal closure if cleanup succeeds. |
+| Preparation producer | 300 seconds per producer; cancel process group and reap after a two-second grace | `timeout_failure` with the known preparation phase. |
 | Dev-origin readiness | 30 seconds; probe every 250 ms | `service_readiness_timeout`; do not stop borrowed service. |
 | Browser action | 10 seconds; navigation 30 seconds | `timeout_failure`; no replay; reobserve before another mutation. |
 | Capture, including settling and axe when requested | 30 seconds | No successful bundle; preserve bounded stage diagnostic. |
 | Offline analysis or report | 30 seconds each | Discard unpublished outputs; return `timeout_failure`. |
 | Stop | Existing owned-resource teardown deadlines, each applied once | Preserve earlier cause; cleanup-only failure is `cleanup_error`. |
+
+Seeded startup uses an `installed_only` preparation policy. Explicit design-review
+preparation uses `ensure`; both enter the same preparation owner. The ordered
+algorithm is:
+
+1. Validate installed pinned Node/pnpm, frozen workspace dependency proof and
+   required native capabilities, Chromium, host locking and effective Go. Doctor
+   and review use the same read-only predicates. Successful explicit installation
+   publishes an owner-only installation receipt binding pins, package manifests,
+   workspace configuration, lockfile and installed lock metadata. Missing or stale
+   proof fails as configuration; ordinary review never creates installation proof.
+   Optimization cache absence or invalidity alone does not fail readiness.
+2. Build the current run's sealed frontend, embedded assets, server harness,
+   migration binary and test-services helper through existing Make producers in
+   dependency order. Validate actual artifacts, not executable existence alone.
+   Nested Make and Go inherit installed-only execution: no package installation,
+   automatic toolchain download, browser download or image pull. Missing build
+   dependencies are configuration failures requiring explicit preparation.
+3. Validate Docker and all locally installed service images before service
+   acquisition. Acquire only the ordinary broker's isolated review resources;
+   preserve provider classifications for preflight, launch, readiness, capacity
+   and fixture failures. No second service lifecycle is permitted.
+4. Validate attachment and source identity, seed synthetic data, then start the
+   owned browser. A source snapshot change during preparation fails as artifact
+   error before ready publication. The session lifetime starts only after ready.
+
+Every phase records its closed structural context before starting child work.
+Frontend/build command failures cross Make through the invocation-bound private
+command-failure envelope. Provider failures retain their normalized owner cause.
+Missing classification is not service-start evidence. Initialization, spawn,
+child death and IPC validation participate in the same failure path. A success
+with a failure envelope is an accounting failure. Parent cancellation and timeout
+remain parent-owned. Cleanup never overwrites an earlier non-cleanup cause.
+The adapter projects the safe failure before private detail is disposed; raw
+exceptions, child output and private paths never enter receipts or human output.
+No failed preparation leaves a ready locator or silently retries an action.
 
 Seeded preparation inherits the exact prerequisite and service deadlines already
 owned by Section 11; the new session lifetime starts after preparation completes.
@@ -5578,14 +5646,14 @@ not acquire browser resources.
 
 
 
-Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-127
+Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-127, TH-HARNESS-AC-130, TH-HARNESS-AC-131
 
 
 ### 11.11 UI browser actions
 
 **TH-HARNESS-REQ-417**
 The request is a closed object with exactly
-`schema_id="cartulary.ui_review_action.v1"`, `expected_epoch`, `action`, and
+`schema_id="cartulary.ui_review_action.v2"`, `expected_epoch`, `action`, and
 `parameters`. `expected_epoch` is a nonnegative integer. A mismatch fails with
 `configuration_error` before admission; callers MUST take a new snapshot after
 another actor changes the session. `parameters` is the closed variant selected
@@ -5602,9 +5670,18 @@ arbitrary-endpoint entry points.
 | `press` | `target: Target` or null, `key: Key` | Send one supported key/chord to the target, or current focused element when null. |
 | `select` | `target: Target`, `values: string[]` | Select 1–32 exact option values, each at most 1024 UTF-8 bytes, no duplicates. |
 | `scroll` | `target: Target` or null, `x: integer`, `y: integer` | Set absolute CSS-pixel offsets in the target or document, clamped by the browser to legal offsets; return observed offsets. Range 0–1000000. |
+| `zoom` | `percent: 100 or 125` | Set only the document root CSS zoom; retain focus ownership and normal epoch invalidation. |
 | `resize` | `width: integer`, `height: integer` | Set viewport; each dimension 320–3840 inclusive; maximum area 8294400 CSS pixels. |
 | `focus` | `target: Target` | Focus the uniquely resolved focusable target and return the observed active-element identity. |
 | `authenticate` | `actor: enum` | Seeded mode only; actors `admin`, `editor`, `viewer`, `empty` resolve through the private seed owner. Use ordinary application authentication; no credential output or authorization bypass. |
+
+The v2 action request adds `zoom` with exactly `{percent: 100}` or
+`{percent: 125}`. It sets only the document root's CSS zoom, advances the action
+epoch and invalidates element references as other page mutations do. It does not
+change device scale, browser zoom, page content or focus directly. Observations
+continue to report CSS zoom and viewport/device scales separately. Other values,
+unknown fields and arbitrary script input are rejected before page mutation.
+This supports the workbook's required responsive focus qualification.
 
 `Target` is a tagged union: `{kind:"test_id", value:string}`,
 `{kind:"role", role:string, name:string}`, or
@@ -7150,6 +7227,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-127 | TH-HARNESS-REQ-311 | Each mapped failure alone and paired with cleanup failure; operation failure followed by normal session stop | Correct class/reason/code; secondary cleanup visible; operation and session outcomes remain distinct. | Generic Make failure does not overwrite the normalized cause. |
 | TH-HARNESS-AC-128 | TH-HARNESS-REQ-552 | Visual-update editorial contract and current machine projections | Refresh requires reconciliation v3 everywhere; old v2 cannot qualify; existing ordinary validation and human golden review remain required. | Incompatible reference or acceptance drift blocks adoption/implementation completion. |
 | TH-HARNESS-AC-129 | All UI review requirements listed in Section 17.1 | Full seeded editor/viewer review and artifact reimport; separate dev capture | Navigate, act, capture, analyze, inspect report, and stop through public Make; source and lifecycle claims agree in all three modes. | No catalog accounting, committed goldens, or unrelated worktree files changed; dev data changes only through explicit requested UI actions, never lifecycle reset/cleanup. |
+| TH-HARNESS-AC-130 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311 | Valid tools with empty optimization caches; missing/stale installation proof; wrong pins, damaged packages, missing browser/images; missing/outdated source outputs | Readiness validates installed state; current artifacts build without smoke warm-up; missing prerequisites identify phase/subject/condition/recovery before services. | No installer, download, image pull, ambient fallback or stale-source ready publication. |
+| TH-HARNESS-AC-131 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311, TH-HARNESS-REQ-616 | Each preparation phase fails through real child/IPC boundaries; malformed/conflicting envelope; cancellation, child death, and secondary cleanup failure | Exact normalized primary cause and closed context survive human output, v2 receipt and repeated stop; unknown remains unknown. | Private sentinels never retained; all independent cleanup attempted; immutable terminal repetition. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

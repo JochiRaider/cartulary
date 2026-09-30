@@ -41,8 +41,10 @@ function selectedRowIDs(graph) {
   ))].sort(compareStrings);
 }
 
-function artifactProjection(target, root) {
-  const relative = [
+function artifactProjection(entry, root) {
+  const target = entry.name;
+  const policy = entry.output_policy?.artifact_policy;
+  const relative = policy === "ui_review_receipts" ? ["ui-review/session.json", "ui-review/terminal.json", ...(target === "ui-review" ? [] : ["ui-review/operations/<operation-id>/receipt.json"])] : policy === "none" ? [] : [
     "run-manifest.json",
     "unit-events.ndjson",
     "run-summary.json",
@@ -98,7 +100,7 @@ export function targetGuidance(
   const catalog = loadTestCatalog(root);
   const rowIDs = selectedRowIDs(compiled.graph);
   const rows = rowIDs.map((rowID) => catalog.rowByID.get(rowID));
-  const artifact = includeArtifacts ? artifactProjection(target, root) : {
+  const artifact = includeArtifacts ? artifactProjection(entry, root) : {
     latest: null,
     candidates: [],
     expected: [],
@@ -131,7 +133,7 @@ export function targetGuidance(
     graph_digest: compiled.graph.graph_digest,
     execution_map: executionMap,
     execution_summary: `units=${compiled.graph.units.length} rows=${rows.length}`,
-    service_requirements: serviceRequirements(compiled.graph),
+    service_requirements: target === "ui-review" ? ["seeded: owned PostgreSQL, object store and browser stack", "dev: borrowed origin and private browser", "artifacts: no services or browser"] : serviceRequirements(compiled.graph),
     artifact,
     step_coverage: stepCoverage(rows),
     rows,

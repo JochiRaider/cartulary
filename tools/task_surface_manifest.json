@@ -1328,11 +1328,11 @@
       "type": "step_command",
       "mode": "command",
       "command": [
-        "mkdir",
-        "-p",
-        "$(GO_CACHE_DIR)",
-        "$(GO_MOD_CACHE_DIR)",
-        "$(GO_TMP_DIR)"
+        "env",
+        "GO=$(GO)",
+        "GO_TOOLCHAIN=$(GO_TOOLCHAIN)",
+        "bash",
+        "./tools/harness/readiness/install-go-dependencies.sh"
       ]
     },
     "bootstrap-tool-installations": {
@@ -3191,7 +3191,8 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
-        "./tools/harness/browser/tests/test-ui-review-lifecycle.mjs"
+        "./tools/harness/browser/tests/test-ui-review-lifecycle.mjs",
+        "./tools/harness/browser/tests/test-ui-review-preparation.mjs"
       ],
       "test_target": "self"
     },
@@ -3510,7 +3511,10 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": []
-      }
+      },
+      "backing_scripts": [
+        "tools/harness/readiness/install-go-dependencies.sh"
+      ]
     },
     {
       "name": "bootstrap-node-runtime",
@@ -4780,7 +4784,10 @@
         "tools/harness/browser/design-review-samples.mjs",
         "tools/harness/browser/design-review-seed.mjs",
         "tools/harness/browser/design-review.mjs",
-        "tools/harness/browser/review-preparation.mjs"
+        "tools/harness/browser/review-child.mjs",
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -14199,7 +14206,10 @@
         "tools/harness/browser/design-review-samples.mjs",
         "tools/harness/browser/design-review-seed.mjs",
         "tools/harness/browser/design-review.mjs",
-        "tools/harness/browser/review-preparation.mjs"
+        "tools/harness/browser/review-child.mjs",
+        "tools/harness/browser/review-preparation.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -14271,6 +14281,7 @@
     {
       "name": "ui-review",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/ui-review/analysis.mjs",
         "tools/harness/browser/ui-review/artifact-store.mjs",
@@ -14306,6 +14317,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -14396,7 +14409,7 @@
       },
       "output_policy": {
         "output_class": "interactive_raw",
-        "artifact_policy": "none",
+        "artifact_policy": "ui_review_receipts",
         "success_budget": {
           "stdout_lines": 0,
           "stdout_bytes": 0,
@@ -14410,12 +14423,13 @@
           "excerpt_bytes": 0
         },
         "raw_stream_policy": "interactive",
-        "summary_schema": null
+        "summary_schema": "cartulary.ui_review_command_result.v2"
       }
     },
     {
       "name": "ui-review-status",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/ui-review/analysis.mjs",
         "tools/harness/browser/ui-review/artifact-store.mjs",
@@ -14451,6 +14465,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -14511,12 +14527,13 @@
           "excerpt_bytes": 0
         },
         "raw_stream_policy": "machine_json_stdout",
-        "summary_schema": "cartulary.ui_review_command_result.v1"
+        "summary_schema": "cartulary.ui_review_command_result.v2"
       }
     },
     {
       "name": "ui-browser",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/ui-review/analysis.mjs",
         "tools/harness/browser/ui-review/artifact-store.mjs",
@@ -14552,6 +14569,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -14628,12 +14647,13 @@
           "excerpt_bytes": 0
         },
         "raw_stream_policy": "machine_json_stdout",
-        "summary_schema": "cartulary.ui_review_command_result.v1"
+        "summary_schema": "cartulary.ui_review_command_result.v2"
       }
     },
     {
       "name": "ui-capture",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/ui-review/analysis.mjs",
         "tools/harness/browser/ui-review/artifact-store.mjs",
@@ -14669,6 +14689,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -14745,12 +14767,13 @@
           "excerpt_bytes": 0
         },
         "raw_stream_policy": "machine_json_stdout",
-        "summary_schema": "cartulary.ui_review_command_result.v1"
+        "summary_schema": "cartulary.ui_review_command_result.v2"
       }
     },
     {
       "name": "ui-analyze",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/ui-review/analysis.mjs",
         "tools/harness/browser/ui-review/artifact-store.mjs",
@@ -14786,6 +14809,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -14862,12 +14887,13 @@
           "excerpt_bytes": 0
         },
         "raw_stream_policy": "machine_json_stdout",
-        "summary_schema": "cartulary.ui_review_command_result.v1"
+        "summary_schema": "cartulary.ui_review_command_result.v2"
       }
     },
     {
       "name": "ui-review-report",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/ui-review/analysis.mjs",
         "tools/harness/browser/ui-review/artifact-store.mjs",
@@ -14903,6 +14929,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -14979,12 +15007,13 @@
           "excerpt_bytes": 0
         },
         "raw_stream_policy": "machine_json_stdout",
-        "summary_schema": "cartulary.ui_review_command_result.v1"
+        "summary_schema": "cartulary.ui_review_command_result.v2"
       }
     },
     {
       "name": "ui-review-stop",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/ui-review/analysis.mjs",
         "tools/harness/browser/ui-review/artifact-store.mjs",
@@ -15020,6 +15049,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -15081,12 +15112,13 @@
           "excerpt_bytes": 0
         },
         "raw_stream_policy": "machine_json_stdout",
-        "summary_schema": "cartulary.ui_review_command_result.v1"
+        "summary_schema": "cartulary.ui_review_command_result.v2"
       }
     },
     {
       "name": "harness-ui-review-contract",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/tests/test-ui-review-contract.mjs",
         "tools/harness/browser/tests/ui-review-import-fixture.mjs",
@@ -15126,6 +15158,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -15138,8 +15172,10 @@
     {
       "name": "harness-ui-review-lifecycle",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/tests/test-ui-review-lifecycle.mjs",
+        "tools/harness/browser/tests/test-ui-review-preparation.mjs",
         "tools/harness/browser/tests/ui-review-import-fixture.mjs",
         "tools/harness/browser/tests/ui-review-public-workflow.mjs",
         "tools/harness/browser/tests/ui-review-work-fixture.mjs",
@@ -15177,6 +15213,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -15189,6 +15227,7 @@
     {
       "name": "harness-ui-review-artifacts",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/tests/test-ui-review-bundles.mjs",
         "tools/harness/browser/tests/ui-review-import-fixture.mjs",
@@ -15228,6 +15267,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -15240,6 +15281,7 @@
     {
       "name": "harness-ui-review-presentation",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/tests/test-ui-review-analysis.mjs",
         "tools/harness/browser/tests/ui-review-import-fixture.mjs",
@@ -15279,6 +15321,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -15291,6 +15335,7 @@
     {
       "name": "harness-ui-review-execution",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/tests/test-ui-review-execution.mjs",
         "tools/harness/browser/tests/ui-review-import-fixture.mjs",
@@ -15330,6 +15375,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -15342,6 +15389,7 @@
     {
       "name": "harness-ui-review-workflow",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/tests/test-ui-review-workflow.mjs",
         "tools/harness/browser/tests/ui-review-import-fixture.mjs",
@@ -15381,6 +15429,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -15393,6 +15443,7 @@
     {
       "name": "harness-ui-review-seeded-default",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/tests/test-ui-review-seeded.mjs",
         "tools/harness/browser/tests/ui-review-import-fixture.mjs",
@@ -15432,6 +15483,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"
@@ -15444,6 +15497,7 @@
     {
       "name": "harness-ui-review-seeded-network-flow-claimed",
       "backing_scripts": [
+        "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/browser/tests/test-ui-review-seeded.mjs",
         "tools/harness/browser/tests/ui-review-import-fixture.mjs",
@@ -15483,6 +15537,8 @@
         "tools/harness/browser/ui-review/terminal.mjs",
         "tools/harness/browser/ui-review/toolchain.mjs",
         "tools/harness/browser/ui-review/work-policy.mjs",
+        "tools/harness/readiness/installed-readiness.mjs",
+        "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs"

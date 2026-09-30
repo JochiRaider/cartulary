@@ -2832,9 +2832,9 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
             : null,
           dom: await grid.evaluate((element) => {
             const focus = document.activeElement;
-            const selected = element.querySelector(
-              '[role="row"][aria-level="1"].rdg-row-selected',
-            );
+            const focusedGroupRow = element.contains(focus)
+              ? focus?.closest('[role="row"][aria-level="1"]')
+              : null;
             const sink = element.querySelector(
               ":scope > div:not([role])[tabindex]",
             );
@@ -2842,10 +2842,10 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
               focusHtml: focus?.outerHTML ?? null,
               focusInsideGrid: focus === element || element.contains(focus),
               focusRole: focus?.getAttribute("role") ?? null,
-              selectedRowHtml: selected?.outerHTML ?? null,
+              focusedGroupRowHtml: focusedGroupRow?.outerHTML ?? null,
               sinkHtml: sink?.outerHTML ?? null,
               toggleCount:
-                selected?.querySelectorAll(
+                focusedGroupRow?.querySelectorAll(
                   "button[data-cartulary-grid-group-id]",
                 ).length ?? 0,
             };

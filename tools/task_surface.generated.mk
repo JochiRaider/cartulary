@@ -392,7 +392,7 @@ bootstrap:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,bootstrap)
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory bootstrap-tool-installations; fi
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-bootstrap}" $(RUN_STEP_SCRIPT) "bootstrap" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR) $(GO_TMP_DIR)
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-bootstrap}" $(RUN_STEP_SCRIPT) "bootstrap" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env GO=$(GO) GO_TOOLCHAIN=$(GO_TOOLCHAIN) bash ./tools/harness/readiness/install-go-dependencies.sh
 
 bootstrap-tool-installations: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 bootstrap-tool-installations: frontend-install
@@ -1772,7 +1772,7 @@ harness-ui-review-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 harness-ui-review-lifecycle: export CARTULARY_TEST_TARGET ?= harness-ui-review-lifecycle
 harness-ui-review-lifecycle: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-ui-review-lifecycle: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-lifecycle" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-lifecycle.mjs
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-lifecycle" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-lifecycle.mjs ./tools/harness/browser/tests/test-ui-review-preparation.mjs
 
 harness-ui-review-artifacts: export CARTULARY_TEST_TARGET ?= harness-ui-review-artifacts
 harness-ui-review-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

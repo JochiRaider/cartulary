@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_installation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.frontend_installation.v1"
+    },
+    "node_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pnpm_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inputs_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "installed_lock_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "required": [
+    "schema_id",
+    "node_version",
+    "pnpm_version",
+    "inputs_sha256",
+    "installed_lock_sha256"
+  ]
+}
