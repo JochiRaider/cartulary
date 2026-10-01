@@ -1,0 +1,429 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.timeline_investigation_recipe.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "dataset_id",
+    "content_revision",
+    "view_schema_id",
+    "rows",
+    "entities",
+    "evidence",
+    "relationships",
+    "operations",
+    "continuation"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.timeline_investigation_recipe.v1"
+    },
+    "dataset_id": {
+      "const": "timeline-investigation-rich-v1"
+    },
+    "content_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "fields"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "fields": {
+            "$ref": "#/$defs/source_fields"
+          }
+        }
+      }
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "view_schema_id",
+          "fields"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "view_schema_id": {
+            "enum": [
+              "cartulary.view.hosts.v1",
+              "cartulary.view.identities.v1"
+            ]
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {
+              "host.hostname": {
+                "type": "string",
+                "minLength": 1
+              },
+              "host.display_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "identity.display_name": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "filename",
+          "title",
+          "content"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "filename": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*\\.txt$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "row",
+          "field",
+          "kind",
+          "text"
+        ],
+        "properties": {
+          "row": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "field": {
+            "enum": [
+              "timeline.host_refs",
+              "timeline.identity_refs"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "unresolved",
+              "resolved",
+              "automatic",
+              "dismissed"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          }
+        }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "row",
+              "values"
+            ],
+            "properties": {
+              "kind": {
+                "const": "tags"
+              },
+              "row": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "relationship"
+            ],
+            "properties": {
+              "kind": {
+                "const": "relationship"
+              },
+              "relationship": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "row",
+              "evidence"
+            ],
+            "properties": {
+              "kind": {
+                "const": "evidence"
+              },
+              "row": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "evidence": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "row",
+              "fields"
+            ],
+            "properties": {
+              "kind": {
+                "const": "patch"
+              },
+              "row": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "fields": {
+                "$ref": "#/$defs/source_fields",
+                "minProperties": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "row"
+            ],
+            "properties": {
+              "kind": {
+                "const": "review"
+              },
+              "row": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "row",
+              "replacement",
+              "reason"
+            ],
+            "properties": {
+              "kind": {
+                "const": "supersede"
+              },
+              "row": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "replacement": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ]
+      }
+    },
+    "continuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_utc",
+        "interval_minutes",
+        "local_offset_minutes",
+        "maximum_rows",
+        "source_fields",
+        "synopsis_template",
+        "raw_template"
+      ],
+      "properties": {
+        "start_utc": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interval_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "local_offset_minutes": {
+          "type": "integer",
+          "minimum": -840,
+          "maximum": 840
+        },
+        "maximum_rows": {
+          "const": 54
+        },
+        "source_fields": {
+          "$ref": "#/$defs/source_fields"
+        },
+        "synopsis_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "raw_template": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "timeline.date_entered_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.analyst_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.mitre_stage_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.device_object_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.ip_address_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.activity_utc_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.activity_local_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.raw_activity_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.activity_synopsis_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeline.data_source_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

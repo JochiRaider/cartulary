@@ -1,3 +1,4 @@
+import type { ViewRow } from "@cartulary/protocol-ts/http";
 import {
   timelineCaptureActionTestId,
   timelineRowSupersedeButtonTestId,
@@ -6,7 +7,7 @@ import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
-import { createViewRow } from "./query";
+import { createViewRow, type SuppliedSourceFixture } from "./query";
 import { openTimelineRowActions } from "./rowMutations";
 
 export async function authorTimelineSupersession(
@@ -39,29 +40,31 @@ export async function authorTimelineSupersession(
 export async function openTimelineSupersessionFixture(
   page: Page,
   navigate: (url: string) => Promise<unknown> = (url) => page.goto(url),
+  supplied?: SuppliedSourceFixture & { replacement: ViewRow },
 ) {
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey("TIMELINE-CAPTURE"),
-    "Timeline action review",
-  );
-  const target = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("target"),
-    "timeline.activity_synopsis_text": "Investigated observation",
-    "timeline.device_object_text": "Workstation A",
-    "timeline.activity_utc_text": "2025-02-17T11:00:00Z",
-  });
-  const replacement = await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
+  const incidentId =
+    supplied?.incidentId ??
+    (await createIncident(
+      page,
+      uniqueIncidentKey("TIMELINE-CAPTURE"),
+      "Timeline action review",
+    ));
+  const target =
+    supplied?.source ??
+    (await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("target"),
+      "timeline.activity_synopsis_text": "Investigated observation",
+      "timeline.device_object_text": "Workstation A",
+      "timeline.activity_utc_text": "2025-02-17T11:00:00Z",
+    }));
+  const replacement =
+    supplied?.replacement ??
+    (await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("replacement"),
       "timeline.activity_synopsis_text": "Investigated observation",
       "timeline.device_object_text": "Workstation B",
       "timeline.activity_utc_text": "2025-02-17T11:05:00Z",
-    },
-  );
+    }));
   await navigate(`/?incident_id=${incidentId}`);
   await openTimelineRowActions(page, target.record_id);
   await page

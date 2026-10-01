@@ -244,7 +244,16 @@ export function WorkbookRecoveryPanel({
         {state.message ? <p role="status">{state.message}</p> : null}
         {selected ? (
           <p style={{ overflowWrap: "anywhere" }}>
-            {selected.origin} · {selected.summary}
+            <span
+              data-generated-metadata={
+                selected.originIsTechnicalReference
+                  ? "recovery-origin-reference"
+                  : undefined
+              }
+            >
+              {selected.origin}
+            </span>{" "}
+            · {selected.summary}
           </p>
         ) : (
           <>

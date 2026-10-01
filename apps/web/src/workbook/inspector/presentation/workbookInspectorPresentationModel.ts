@@ -13,6 +13,9 @@ export const workbookInspectorNoRowMessage =
   "Select a saved row to inspect its details.";
 
 export type WorkbookInspectorTechnicalField = {
+  readonly generatedMetadata?:
+    | "history-unit-reference"
+    | "history-record-references";
   readonly label: string;
   readonly value: string;
 };

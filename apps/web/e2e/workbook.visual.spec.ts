@@ -229,6 +229,7 @@ import {
   waitForLoadedVendoredFonts,
 } from "./support/runtime/visualRenderer";
 import { createInspectorReadingFixture } from "./support/timeline/inspectorReadingFixture";
+import { seedVisualTimelineInvestigation } from "./support/timeline/timelineInvestigation";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
 import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
@@ -242,7 +243,27 @@ import {
   injectDesignFixture,
   test,
 } from "./support/visual/fixtures";
+import {
+  applyVisualMetadata,
+  assertMetadataCaptureIdentity,
+  restoreVisualMetadata,
+  verifyVisualMetadata,
+} from "./support/visual/metadataNormalization";
 import { assertVisualPresentation } from "./support/visual/profile";
+import { captureRichTimelineInspector } from "./support/visual/richTimelineInspector";
+import {
+  focusTimelineShellOrigin,
+  verifyTimelineShellOrigin,
+} from "./support/visual/timelineShellAnchor";
+import {
+  createRichTimelineIncident,
+  createRichTimelineSource,
+  createVisualTimelineRow,
+  registerTimelineVisualFixture,
+  verifyTimelineCaptureData,
+  verifyTimelineVisualCores,
+  visualTimelineRecord,
+} from "./support/visual/timelineVisualFixture";
 import { captureWorkbookLayoutStudies } from "./support/visual/workbookLayoutStudies";
 import {
   expectCollectionControlPainted,
@@ -250,6 +271,7 @@ import {
 } from "./support/workbook/collections";
 import {
   openContextualCreationFixture,
+  retainedTimelineSourceLabel,
   retainTimelineContextualSource,
 } from "./support/workbook/contextualCreate";
 import {
@@ -268,6 +290,7 @@ import {
 } from "./support/workbook/indicatorLifecycle";
 import {
   createObservationFixture,
+  observationRawText,
   openObservationEditor,
   selectRepeatedObservation,
 } from "./support/workbook/indicatorObservations";
@@ -676,6 +699,19 @@ function releaseAuthVisualStep(release: (() => void) | null) {
   release?.();
 }
 
+// biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructuring even when a hook has no fixture dependencies.
+test.afterEach(async ({}, info) => {
+  try {
+    await verifyTimelineVisualCores();
+  } catch (error) {
+    if (info.status === info.expectedStatus) throw error;
+    await info.attach("timeline-core-verification-failure", {
+      body: JSON.stringify({ stage: "final_core_readback", status: "failed" }),
+      contentType: "application/json",
+    });
+  }
+});
+
 test.describe("browser.incident-selection auth gateway visual readiness", () => {
   test("Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states.", async ({
     page,
@@ -827,68 +863,21 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
   }) => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
-      page,
-      uniqueIncidentKey("VISUALWORKBOOKSHELL"),
-      "browser.workbook-shell visual default shell",
+    const investigation = registerTimelineVisualFixture(
+      await seedVisualTimelineInvestigation(page, { continuationCount: 36 }),
     );
-
-    const rows: ViewRow[] = [];
-    const fixtureRows = [
-      "Login attempt with valid user",
-      "Password spray from single source",
-      "Failed MFA challenge",
-      "Suspicious automation execution",
-      "Outbound connection to uncommon provider",
-      "New service installed",
-      "Potential credential access",
-      "User accessed sensitive share",
-      "Data archived to temporary directory",
-      "Archive staged for exfiltration",
-      "Alert from endpoint rule triggered",
-      "Host isolated by containment playbook",
-      "Scheduled task removed",
-      "Credential reset completed",
-      "Investigation opened",
-      "Containment review assigned",
-      "Remote shell attempt blocked",
-      "Cloud sign-in risk elevated",
-      "Analyst comment added",
-      "Final verification queued",
-      ...Array.from(
-        { length: 28 },
-        (_, index) => `Follow-up chronology detail ${index + 1}`,
-      ),
-    ];
-    for (const [index, summary] of fixtureRows.entries()) {
-      rows.push(
-        await createViewRow(page, incidentId, timelineViewSchemaId, {
-          client_txn_id: uniqueTxn(`VISUALWORKBOOKSHELL-ROW-${index + 1}`),
-          "timeline.activity_utc_text": new Date(
-            Date.UTC(2026, 3, 18, 14, 12 + index * 2, 34),
-          ).toISOString(),
-          "timeline.activity_synopsis_text": summary,
-          "timeline.raw_activity_text": `Default Timeline workbook shell fixture row ${
-            index + 1
-          }`,
-          "timeline.host_refs": collectionActionsPayload([
-            index % 3 === 0 ? "host-gamma" : "host-alpha",
-          ]),
-          "timeline.identity_refs": collectionActionsPayload([
-            index % 2 === 0
-              ? "identity-alpha@example.test"
-              : "identity-beta@example.test",
-          ]),
-          "timeline.tags": tagActionsPayload([
-            index % 4 === 0 ? "review" : "triage",
-            index % 5 === 0 ? "evidence" : "timeline",
-          ]),
-        }),
-      );
-    }
+    const incidentId = investigation.incidentId;
+    const rows: ViewRow[] = investigation.rows;
     const rowSummariesById = new Map(
-      rows.map((row, index) => [row.record_id, fixtureRows[index] ?? ""]),
+      rows.map((row) => [
+        row.record_id,
+        String(row.cells["timeline.activity_synopsis_text"]?.value ?? ""),
+      ]),
     );
+    await test.info().attach("investigation-receipt", {
+      body: JSON.stringify(investigation.outcomes),
+      contentType: "application/json",
+    });
     const longQuerySavedView = await createSavedView(page, incidentId, {
       display_name:
         "Workbook view-bar visual resilience with a deliberately long selected saved-view name",
@@ -909,7 +898,6 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     });
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
 
     const shell = page.getByTestId(workbookShellReadyTestId());
     await expect(shell).toBeVisible();
@@ -982,7 +970,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     expect(rows.map((row) => row.record_id)).toEqual(
       expect.arrayContaining(renderedRecordIds),
     );
-    const selectedRowId = renderedRecordIds[0];
+    const selectedRowId = investigation.recordId("authentication-anomaly");
     const selectedRow = rows.find((row) => row.record_id === selectedRowId);
     if (selectedRow === undefined) {
       throw new Error(
@@ -992,14 +980,16 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     const selectedGridRow = grid.locator(
       `[data-grid-record-id="${selectedRow.record_id}"]`,
     );
-    await (
-      await mountedGridCell(
-        page,
-        timelineViewSchemaId,
-        selectedRow.record_id,
-        "timeline.date_entered_text",
-      )
-    ).click();
+    await activateCommittedGridCell(
+      (
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          selectedRow.record_id,
+          "timeline.date_entered_text",
+        )
+      ).locator("xpath=ancestor::*[@role='gridcell'][1]"),
+    );
     await expect(selectedGridRow).toHaveAttribute(
       "data-inspector-active",
       "true",
@@ -1166,50 +1156,10 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         page.getByTestId(timelineInspectorSectionTestId(section)),
       ).toBeVisible();
     }
-    const evidenceLinkResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === "PATCH" &&
-        response.url().endsWith(`/api/v1/records/${selectedRow.record_id}`),
-    );
-    await chooseEvidenceFile(
-      page.getByTestId(timelineEvidenceFileInputTestId(selectedRow.record_id)),
-      {
-        name: "default-timeline-workbook-shell.png",
-        mimeType: "image/png",
-        buffer: tinyPNG(),
-      },
-    );
-    expect((await evidenceLinkResponse).ok()).toBe(true);
-    await expect(
-      page.getByRole("group", {
-        name: "Inspector file recovery: default-timeline-workbook-shell.png",
-        exact: true,
-        includeHidden: true,
-      }),
-    ).toContainText("Evidence attached.");
-    await expect(
-      page.getByTestId(timelineInspectorSectionTestId("evidence")),
-    ).toContainText("Attached evidence count: 1");
-    await expect(
-      page.getByRole("button", { name: /^Attachments:/ }),
-    ).toHaveText("Attachments: 0 need attention, 0 in progress, 1 completed");
     await page
       .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
-      .evaluateAll((elements) => {
-        (elements[0] as HTMLElement | undefined)?.click();
-      });
+      .click();
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
-
-    // Prepare the declared selection explicitly; upload acknowledgement does not own it.
-    const captureSummary = await mountedGridCell(
-      page,
-      timelineViewSchemaId,
-      selectedRow.record_id,
-      "timeline.activity_synopsis_text",
-    );
-    await activateCommittedGridCell(
-      captureSummary.locator("xpath=ancestor::*[@role='gridcell'][1]"),
-    );
 
     const timelineScrollportSelector = `${dataTestIdSelector(
       gridShellTestId(timelineViewSchemaId),
@@ -1233,35 +1183,17 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
-    const summaryCell = await mountedGridCell(
-      page,
-      timelineViewSchemaId,
-      selectedRow.record_id,
-      "timeline.activity_synopsis_text",
-    );
-    const summaryGridCell = summaryCell.locator(
-      "xpath=ancestor::*[@role='gridcell'][1]",
-    );
-    await summaryGridCell.focus();
-    await expect(summaryGridCell).toBeFocused();
-    await expect(summaryGridCell).toHaveAttribute("tabindex", "0");
-    await expect
-      .poll(() =>
-        page.evaluate(
-          (selector) => ({
-            gridLeft:
-              document.querySelector<HTMLElement>(selector)?.scrollLeft ?? -1,
-            windowY: window.scrollY,
-          }),
-          timelineScrollportSelector,
-        ),
-      )
-      .toMatchObject({ windowY: 0 });
-
+    await investigation.verify();
     await page.mouse.move(0, 0);
     await assertViewportVisualRegression(
       page,
       "incident-directory-default-timeline-workbook-shell",
+      {
+        prepareAnchor: () =>
+          focusTimelineShellOrigin(page, selectedRow.record_id),
+        verifyFraming: () =>
+          verifyTimelineShellOrigin(page, selectedRow.record_id),
+      },
     );
 
     await selectSavedView(
@@ -1358,6 +1290,13 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         scroll: { top: 0, left: "left" },
       }),
     );
+    await selectSavedView(page, timelineViewSchemaId, "");
+    await captureRichTimelineInspector(
+      page,
+      test.info(),
+      investigation.recordId("evidence-collected"),
+    );
+    await investigation.verify();
   });
 });
 
@@ -1366,24 +1305,17 @@ test.describe("workbook visual evidence", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALTIMELINEDEFAULT"),
       "Timeline mutation visual default",
     );
-    const timelineRow = await createViewRow(
-      page,
+    const timelineRow = visualTimelineRecord(
       incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("VISUALTIMELINEDEFAULT-ROW"),
-        "timeline.activity_utc_text": "2025-02-17T09:12:00Z",
-        "timeline.activity_synopsis_text": "Default visual row",
-      },
+      "authentication-anomaly",
     );
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
 
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     const summaryCell = await mountedGridCell(
@@ -1397,7 +1329,9 @@ test.describe("workbook visual evidence", () => {
         gridRowTestId(timelineViewSchemaId, timelineRow.record_id),
       ),
     ).toHaveAttribute(gridRowVersionAttribute, String(timelineRow.row_version));
-    await expect(summaryCell).toHaveText("Default visual row");
+    await expect(summaryCell).toHaveText(
+      String(timelineRow.cells["timeline.activity_synopsis_text"]?.value),
+    );
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
@@ -1415,15 +1349,15 @@ test.describe("workbook visual evidence", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALTIMELINEEDIT"),
       "Timeline mutation visual edit state",
     );
-    const timelineRow = await createViewRow(
+    const timelineRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualtimelineedit-row",
       {
         client_txn_id: uniqueTxn("VISUALTIMELINEEDIT-ROW"),
         "timeline.activity_utc_text": "2025-01-01T00:00:00Z",
@@ -1432,7 +1366,6 @@ test.describe("workbook visual evidence", () => {
     );
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
 
     const saveState = page.getByTestId(saveStateTestId());
     const summaryInput = await mountedGridCell(
@@ -1453,11 +1386,10 @@ test.describe("workbook visual evidence", () => {
     );
     await expect(summaryEditor).toBeFocused();
     await summaryEditor.fill("Active visual edit");
-    await assertWorkbookGridVisualRegression(
+    await assertTimelineEditorVisualRegression(
       page,
       "timeline-grid-active-edit-cell",
-      timelineViewSchemaId,
-      { scroll: { top: 0, left: "left" } },
+      summaryEditor,
     );
 
     const patchUrl = `**/api/v1/records/${timelineRow.record_id}`;
@@ -1551,29 +1483,34 @@ test.describe("workbook visual evidence", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALTIMELINEGROUPED"),
       "Timeline mutation visual grouped rows",
     );
-    const firstRow = await createViewRow(
+    const firstRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualtimelinegrouped-rowa",
       {
         client_txn_id: uniqueTxn("VISUALTIMELINEGROUPED-ROWA"),
         "timeline.activity_utc_text": "2025-02-17T11:00:00Z",
         "timeline.activity_synopsis_text": "Alpha grouped row",
       },
     );
-    await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("VISUALTIMELINEGROUPED-ROWB"),
-      "timeline.activity_utc_text": "2025-02-17T11:05:00Z",
-      "timeline.activity_synopsis_text": "Beta grouped row",
-    });
+    await createVisualTimelineRow(
+      page,
+      incidentId,
+      "visualtimelinegrouped-rowb",
+      {
+        client_txn_id: uniqueTxn("VISUALTIMELINEGROUPED-ROWB"),
+        "timeline.activity_utc_text": "2025-02-17T11:05:00Z",
+        "timeline.activity_synopsis_text": "Beta grouped row",
+      },
+    );
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
+
     await clickTimelineRowAction(
       page,
       firstRow.record_id,
@@ -1645,7 +1582,7 @@ test.describe("browser.grid-interaction visual readiness", () => {
     });
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await injectFeP3GridAdapterVisualFixture(page);
 
@@ -1677,15 +1614,15 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALMUTATION"),
       "browser.mutation-lifecycle visual readiness",
     );
-    const timelineRow = await createViewRow(
+    const timelineRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualmutation-row",
       {
         client_txn_id: uniqueTxn("VISUALMUTATION-ROW"),
         "timeline.activity_utc_text": "2026-06-03T10:00:00Z",
@@ -1695,7 +1632,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
     );
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
@@ -1718,11 +1655,10 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
     );
     await expect(summaryEditor).toBeFocused();
     await summaryEditor.fill("browser.mutation-lifecycle active visual edit");
-    await assertWorkbookGridVisualRegression(
+    await assertTimelineEditorVisualRegression(
       page,
       "timeline-mutation-active-edit-cell",
-      timelineViewSchemaId,
-      { scroll: { top: 0, left: "left" } },
+      summaryEditor,
     );
 
     const patchController = await installPatchTransportFailureController(page);
@@ -1836,7 +1772,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       "browser.mutation-lifecycle empty Timeline query",
     );
     await navigateVisualApplication(page, `/?incident_id=${emptyIncidentId}`);
-    await maskIncidentIdentity(page, emptyIncidentId);
+
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expect(
@@ -1888,7 +1824,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALENTITYLINKING"),
       "browser.entity-linking visual mention chip states",
@@ -1906,6 +1842,8 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       unresolvedRawText,
       unresolvedRow,
     } = await seedHostMentionStateFixture(page, incidentId, {
+      createTimelineRow: (key, fields) =>
+        createVisualTimelineRow(page, incidentId, `mention-${key}`, fields),
       displayPrefix: "visual.entity-linking",
       hostnamePrefix: "visual-entity-linking",
       occurredAt: {
@@ -1927,7 +1865,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
     });
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
     await showTimelineCollectionColumns(page, ["Hosts", "Identities", "Tags"]);
@@ -1986,7 +1924,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
 
     await test.step("reload visual application", () =>
       reloadVisualApplication(page));
-    await maskIncidentIdentity(page, incidentId);
+
     await showTimelineCollectionColumns(page);
     await openTimelineInspector(page, dismissedRow.record_id);
     await page
@@ -2070,7 +2008,7 @@ test.describe("workbook visual evidence", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALENTITYLINKINGAUX"),
       "Entity linking visual mention chips",
@@ -2080,10 +2018,10 @@ test.describe("workbook visual evidence", () => {
       "host.display_name": "WS-023",
       "host.hostname": "ws-023.visual.example.test",
     });
-    const unresolvedRow = await createViewRow(
+    const unresolvedRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualentitylinkingaux-unresolved",
       {
         client_txn_id: uniqueTxn("VISUALENTITYLINKINGAUX-UNRESOLVED"),
         "timeline.activity_utc_text": "2026-07-15T12:00:00Z",
@@ -2099,10 +2037,10 @@ test.describe("workbook visual evidence", () => {
         ]),
       },
     );
-    const resolvedRow = await createViewRow(
+    const resolvedRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualentitylinkingaux-resolved",
       {
         client_txn_id: uniqueTxn("VISUALENTITYLINKINGAUX-RESOLVED"),
         "timeline.activity_utc_text": "2026-07-15T12:01:00Z",
@@ -2112,7 +2050,7 @@ test.describe("workbook visual evidence", () => {
     );
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
+
     await showTimelineCollectionColumns(page, ["Hosts", "Identities", "Tags"]);
     await openTimelineInspector(page, unresolvedRow.record_id);
     await expect(
@@ -2194,6 +2132,7 @@ test.describe("workbook visual evidence", () => {
       {
         client_txn_id: uniqueTxn("VISUALEVIDENCEACCESS-EVIDENCE"),
         "evidence.title": "Visual evidence package",
+        "evidence.requested_at": "2025-03-01T10:00:00Z",
         "evidence.storage_ref": "slot/visual",
       },
     );
@@ -2204,7 +2143,7 @@ test.describe("workbook visual evidence", () => {
         evidenceViewSchemaId,
       )}`,
     );
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(
       await mountedGridCell(
         page,
@@ -2250,6 +2189,7 @@ test.describe("workbook visual evidence", () => {
       {
         client_txn_id: uniqueTxn("VISUALEVIDENCEAVAILABLE-EVIDENCE"),
         "evidence.title": "Requested visual package",
+        "evidence.requested_at": "2025-03-01T10:00:00Z",
         "evidence.storage_ref": "ticket://visual-request",
       },
     );
@@ -2260,7 +2200,7 @@ test.describe("workbook visual evidence", () => {
         evidenceViewSchemaId,
       )}`,
     );
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(
       await mountedGridCell(
         page,
@@ -2299,7 +2239,10 @@ test.describe("workbook visual evidence", () => {
       view_schema_id: evidenceViewSchemaId,
       base_row_version: evidenceRow.row_version + 1,
       client_txn_id: uniqueTxn("visual-explicit-custody"),
-      changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+      changes: [
+        { field_key: "evidence.lifecycle_state", value: "available" },
+        { field_key: "evidence.received_at", value: "2025-03-01T10:30:00Z" },
+      ],
     });
     await page
       .getByRole("button", { name: "Discard retained file work", exact: true })
@@ -2348,13 +2291,19 @@ test.describe("workbook visual evidence", () => {
       {
         client_txn_id: uniqueTxn("VISUALEVIDENCEBLOCKED-BLOCKED"),
         "evidence.title": "Blocked visual package",
+        "evidence.requested_at": "2025-03-01T10:00:00Z",
         "evidence.storage_ref": "ticket://visual-blocked",
       },
     );
-    const timelineRow = await createViewRow(
+    const timelineIncidentId = await createRichTimelineIncident(
       page,
-      incidentId,
-      timelineViewSchemaId,
+      uniqueIncidentKey("VISUAL-TIMELINE-EVIDENCE"),
+      "Service-account evidence review",
+    );
+    const timelineRow = await createVisualTimelineRow(
+      page,
+      timelineIncidentId,
+      "visualevidenceblocked-timeline",
       {
         client_txn_id: uniqueTxn("VISUALEVIDENCEBLOCKED-TIMELINE"),
         "timeline.activity_synopsis_text": "Visual evidence badge row",
@@ -2367,7 +2316,7 @@ test.describe("workbook visual evidence", () => {
         evidenceViewSchemaId,
       )}`,
     );
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(
       await mountedGridTarget(
         page,
@@ -2384,7 +2333,7 @@ test.describe("workbook visual evidence", () => {
 
     await navigateVisualApplication(
       page,
-      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      `/?incident_id=${timelineIncidentId}&view_schema_id=${encodeURIComponent(
         timelineViewSchemaId,
       )}`,
     );
@@ -2530,10 +2479,15 @@ test.describe("browser.evidence-workflow visual readiness", () => {
         txnPrefix: "VISUALEVIDENCEWORKFLOW-INCONSISTENT",
       },
     );
-    const timelineRow = await createViewRow(
+    const timelineIncidentId = await createRichTimelineIncident(
       page,
-      incidentId,
-      timelineViewSchemaId,
+      uniqueIncidentKey("VISUAL-TIMELINE-EVIDENCE"),
+      "Service-account evidence review",
+    );
+    const timelineRow = await createVisualTimelineRow(
+      page,
+      timelineIncidentId,
+      "visualevidenceworkflow-timeline",
       {
         client_txn_id: uniqueTxn("VISUALEVIDENCEWORKFLOW-TIMELINE"),
         "timeline.activity_utc_text": "2026-05-01T11:00:00Z",
@@ -2548,7 +2502,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
         evidenceViewSchemaId,
       )}`,
     );
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     ).toBeVisible();
@@ -2675,11 +2629,11 @@ test.describe("browser.evidence-workflow visual readiness", () => {
 
     await navigateVisualApplication(
       page,
-      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      `/?incident_id=${timelineIncidentId}&view_schema_id=${encodeURIComponent(
         timelineViewSchemaId,
       )}`,
     );
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeVisible();
@@ -2730,7 +2684,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
     sessionTracker,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALCOLLABORATION"),
       "browser.collaboration visual collaboration states",
@@ -2757,10 +2711,10 @@ test.describe("browser.collaboration workbook visual readiness", () => {
         }),
       })),
     );
-    const presenceRow = await createViewRow(
+    const presenceRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualcollaboration-presence",
       {
         client_txn_id: uniqueTxn("VISUALCOLLABORATION-PRESENCE"),
         "timeline.activity_synopsis_text": "Presence visual row",
@@ -2772,7 +2726,6 @@ test.describe("browser.collaboration workbook visual readiness", () => {
     try {
       await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
       await primarySocket.waitForAcceptedSocket();
-      await maskIncidentIdentity(page, incidentId);
 
       for (const [index, remoteActor] of remoteActors.entries()) {
         const remoteSession = await openIncidentAsTrackedUserReady(
@@ -2868,7 +2821,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       await selectVisualDensity(page, null);
       await test.step("reload visual application", () =>
         reloadVisualApplication(page));
-      await maskIncidentIdentity(page, incidentId);
+
       await scrollGridTargetIntoView({
         page,
         surface: timelineViewSchemaId,
@@ -3047,15 +3000,15 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       "browser.saved-view-query visual layout resilience with a deliberately long selected saved-view name";
     const longTagToken =
       "visual-unbroken-tag-0123456789-abcdefghijklmnopqrstuvwxyz";
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALSAVEDVIEW"),
       "browser.saved-view-query visual saved view query controls",
     );
-    const reviewedRow = await createViewRow(
+    const reviewedRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualsavedview-reviewed",
       {
         client_txn_id: uniqueTxn("VISUALSAVEDVIEW-REVIEWED"),
         "timeline.activity_utc_text": "2026-06-08T12:00:00Z",
@@ -3064,7 +3017,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
         "timeline.tags": tagActionsPayload([longTagToken]),
       },
     );
-    await createViewRow(page, incidentId, timelineViewSchemaId, {
+    await createVisualTimelineRow(page, incidentId, "visualsavedview-rough", {
       client_txn_id: uniqueTxn("VISUALSAVEDVIEW-ROUGH"),
       "timeline.activity_utc_text": "2026-06-08T12:05:00Z",
       "timeline.activity_synopsis_text":
@@ -3072,7 +3025,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     });
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(
       page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
@@ -3363,7 +3316,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     );
     await page.setViewportSize({ width: 1280, height: 720 });
     await navigateVisualApplication(page, `/?incident_id=${emptyIncidentId}`);
-    await maskIncidentIdentity(page, emptyIncidentId);
+
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
@@ -3556,12 +3509,6 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       collectionItems(linkedTarget, hostRefsFieldKey),
       "browser.inspector-history visual host",
     );
-    const history = await fetchRecordHistory(page, target.record_id);
-    const rollbackItem = requireFeP9VisualHistoryEntryAction(history);
-    const rollbackAnchor = visualRollbackPreviewAnchor(
-      rollbackItem,
-      "history_entry",
-    );
     const narrowViewerPassword = "VisualInspectorNarrowViewer1!";
     const narrowViewer = await createIncidentMemberUser(page, incidentId, {
       display_name: "Visual Inspector Viewer",
@@ -3578,7 +3525,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
         timelineViewSchemaId,
       )}`,
     );
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await openTimelineInspector(page, target.record_id);
     for (const section of ["relationships", "evidence", "history"] as const) {
@@ -3670,7 +3617,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     try {
       const narrowPage = narrowSession.page;
       await narrowPage.setViewportSize({ width: 1024, height: 720 });
-      await maskIncidentIdentity(narrowPage, incidentId);
+
       await openTimelineInspector(narrowPage, target.record_id);
       await expect(
         narrowPage.locator("[data-inspector-layout]"),
@@ -3732,6 +3679,32 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     );
     await page.setViewportSize({ width: 1280, height: 720 });
 
+    // The sparse reading/geometry fixture above stays unchanged. Give the
+    // History/rollback captures an explicit source-edit event, rather than
+    // selecting an arbitrary association event with runtime reference values.
+    const current = (
+      await queryViewRows(page, incidentId, timelineViewSchemaId)
+    ).find((row) => row.record_id === target.record_id);
+    if (!current) throw new Error("Missing sparse History fixture row");
+    await patchRecord(page, target.record_id, {
+      client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-SOURCE-EDIT"),
+      view_schema_id: timelineViewSchemaId,
+      base_row_version: current.row_version,
+      changes: [
+        {
+          field_key: "timeline.raw_activity_text",
+          value:
+            "browser.inspector-history reviewed source excerpt\nObserved at 2026-04-18T14:12:34Z; reference 123e4567-e89b-42d3-a456-426614174000.",
+        },
+      ],
+    });
+    const history = await fetchRecordHistory(page, target.record_id);
+    const rollbackItem = requireVisualSourceHistoryEntryAction(history);
+    const rollbackAnchor = visualRollbackPreviewAnchor(
+      rollbackItem,
+      "history_entry",
+    );
+
     await page
       .getByTestId(timelineInspectorSectionTestId("history"))
       .scrollIntoViewIfNeeded();
@@ -3747,11 +3720,13 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
         visualHistoryActionTestId(rollbackItem, "history_entry"),
       ),
     ).toBeVisible();
-    await scrollVisualAnchorToScrollContainerTop(
-      page,
-      page.getByTestId(rowHistoryPanelTestId()),
-    );
-    await assertViewportVisualRegression(page, "workbook-inspector-history");
+    await assertViewportVisualRegression(page, "workbook-inspector-history", {
+      anchor: {
+        locator: page.getByTestId(rowHistoryPanelTestId()),
+        align: "start",
+        scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
+      },
+    });
 
     await openHistoryEventDetails(page, rollbackItem.history_item_ref);
     await page
@@ -3765,12 +3740,25 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       .evaluate((element) => {
         element.classList.add("visual-row-history-rollback-preview");
       });
-    await page
-      .getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor))
-      .scrollIntoViewIfNeeded();
     await assertViewportVisualRegression(
       page,
       "workbook-inspector-rollback-preview",
+      {
+        anchor: {
+          locator: page.getByTestId(
+            rowHistoryRollbackPreviewTestId(rollbackAnchor),
+          ),
+          align: "center",
+          scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
+        },
+        verifyFraming: async () => {
+          await expect(
+            page.getByTestId(
+              rowHistoryRollbackCancelButtonTestId(rollbackAnchor),
+            ),
+          ).toBeFocused();
+        },
+      },
     );
 
     await page
@@ -3830,13 +3818,16 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     await expect(page.getByTestId(rowHistoryMessageTestId())).toContainText(
       "This row changed; refresh it before retrying.",
     );
-    await scrollVisualAnchorToScrollContainerTop(
-      page,
-      page.getByTestId(rowHistoryMessageTestId()),
-    );
     await assertViewportVisualRegression(
       page,
       "workbook-inspector-public-error",
+      {
+        anchor: {
+          locator: page.getByTestId(rowHistoryMessageTestId()),
+          align: "start",
+          scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
+        },
+      },
     );
   });
 });
@@ -3861,11 +3852,18 @@ function visualRollbackPreviewAnchor(
   };
 }
 
-function requireFeP9VisualHistoryEntryAction(history: RecordHistoryData) {
+function requireVisualSourceHistoryEntryAction(history: RecordHistoryData) {
   const item =
     history.items.find(
       (candidate) =>
         candidate.available_rollback_actions.includes("history_entry") &&
+        candidate.diff_summary.units.some((unit) =>
+          unit.changes.some(
+            (change) =>
+              change.field_key === "timeline.raw_activity_text" &&
+              change.before.state === "present",
+          ),
+        ) &&
         typeof candidate.history_entry_ref === "string" &&
         candidate.history_entry_ref.length > 0,
     ) ?? null;
@@ -3885,15 +3883,15 @@ async function prepareFeP7ConflictVisual(
   },
 ) {
   await page.setViewportSize({ width: 1280, height: 720 });
-  const incidentId = await createIncident(
+  const incidentId = await createRichTimelineIncident(
     page,
     uniqueIncidentKey(options.incidentKeyPrefix),
     options.title,
   );
-  const conflictRow = await createViewRow(
+  const conflictRow = await createVisualTimelineRow(
     page,
     incidentId,
-    timelineViewSchemaId,
+    "same-field-conflict",
     {
       client_txn_id: uniqueTxn(`${options.incidentKeyPrefix}-CONFLICT`),
       "timeline.activity_utc_text": "2025-03-07T10:00:00Z",
@@ -3903,7 +3901,7 @@ async function prepareFeP7ConflictVisual(
   const patchController = await installPatchController(page);
 
   await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-  await maskIncidentIdentity(page, incidentId);
+
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await driveRealTimelineSummaryConflict({
     baseRowVersion: conflictRow.row_version,
@@ -3941,7 +3939,7 @@ test.describe("workbook visual evidence", () => {
     sessionTracker,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALCOLLABORATIONPRESENCE"),
       "Collaboration visual presence markers",
@@ -3954,10 +3952,10 @@ test.describe("workbook visual evidence", () => {
       is_deployment_admin: false,
       mfa_required: false,
     });
-    const timelineRow = await createViewRow(
+    const timelineRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualcollaborationpresence-row",
       {
         client_txn_id: uniqueTxn("VISUALCOLLABORATIONPRESENCE-ROW"),
         "timeline.activity_synopsis_text": "Presence visual row",
@@ -3969,7 +3967,7 @@ test.describe("workbook visual evidence", () => {
     try {
       await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
       await primarySocket.waitForAcceptedSocket();
-      await maskIncidentIdentity(page, incidentId);
+
       await expect(
         await mountedGridCell(
           page,
@@ -4054,15 +4052,15 @@ test.describe("workbook visual evidence", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALCOLLABORATIONCONFLICT"),
       "Collaboration visual conflict resolver",
     );
-    const timelineRow = await createViewRow(
+    const timelineRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualcollaborationconflict-row",
       {
         client_txn_id: uniqueTxn("VISUALCOLLABORATIONCONFLICT-ROW"),
         "timeline.activity_synopsis_text": "Conflict visual base",
@@ -4070,7 +4068,7 @@ test.describe("workbook visual evidence", () => {
     );
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
+
     const patchController = await installPatchController(page);
     try {
       const localValue = `Conflict_visual_local_${"L".repeat(96)}`;
@@ -4122,25 +4120,25 @@ test.describe("workbook visual evidence", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALCOLLABORATIONSAVE"),
       "Collaboration visual pending queue",
     );
-    const syncRow = await createViewRow(
+    const syncRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualcollaborationsave-row",
       {
         client_txn_id: uniqueTxn("VISUALCOLLABORATIONSAVE-ROW"),
         "timeline.activity_utc_text": "2025-03-06T10:00:00Z",
         "timeline.activity_synopsis_text": "Pending visual base",
       },
     );
-    const conflictRow = await createViewRow(
+    const conflictRow = await createVisualTimelineRow(
       page,
       incidentId,
-      timelineViewSchemaId,
+      "visualcollaborationsave-conflict-row",
       {
         client_txn_id: uniqueTxn("VISUALCOLLABORATIONSAVE-CONFLICT-ROW"),
         "timeline.activity_utc_text": "2025-03-06T10:05:00Z",
@@ -4148,7 +4146,7 @@ test.describe("workbook visual evidence", () => {
       },
     );
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
-    await maskIncidentIdentity(page, incidentId);
+
     const summaryInput = await mountedGridCell(
       page,
       timelineViewSchemaId,
@@ -4321,7 +4319,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
         taskRequestsViewSchemaId,
       )}`,
     );
-    await maskIncidentIdentity(page, incidentId);
+
     await expect(
       await mountedGridCell(
         page,
@@ -4341,6 +4339,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
     await normalizeWorkbookGridVisualState(page, taskRequestsViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
+    await hideVisualTechnicalColumns(page, taskRequestsViewSchemaId, ["Owner"]);
     await assertWorkbookGridVisualRegression(
       page,
       "record-relationships-task-requests",
@@ -4406,7 +4405,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
           expectation.surface,
         )}`,
       );
-      await maskIncidentIdentity(page, incidentId);
+
       await expect(
         page.getByTestId(gridShellTestId(expectation.surface)),
       ).toBeVisible();
@@ -4616,17 +4615,22 @@ test.describe("browser.design-readiness visual readiness", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    const incidentId = await createIncident(
+    const incidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALDESIGNREADINESS"),
       "browser.design-readiness exposed theme visual fixture",
     );
-    await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("VISUALDESIGNREADINESS-ROW"),
-      "timeline.activity_utc_text": "2026-05-31T11:00:00Z",
-      "timeline.activity_synopsis_text":
-        "browser.design-readiness exposed theme fixture row",
-    });
+    await createVisualTimelineRow(
+      page,
+      incidentId,
+      "visualdesignreadiness-row",
+      {
+        client_txn_id: uniqueTxn("VISUALDESIGNREADINESS-ROW"),
+        "timeline.activity_utc_text": "2026-05-31T11:00:00Z",
+        "timeline.activity_synopsis_text":
+          "browser.design-readiness exposed theme fixture row",
+      },
+    );
 
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -4692,15 +4696,15 @@ test.describe("browser.design-readiness visual readiness", () => {
       await heldInitialQuery.dispose();
     }
 
-    const staleIncidentId = await createIncident(
+    const staleIncidentId = await createRichTimelineIncident(
       page,
       uniqueIncidentKey("VISUALDESIGNSTALE"),
       "browser.design-readiness production stale grid state",
     );
-    const staleRow = await createViewRow(
+    const staleRow = await createVisualTimelineRow(
       page,
       staleIncidentId,
-      timelineViewSchemaId,
+      "visualdesignstale-row",
       {
         client_txn_id: uniqueTxn("VISUALDESIGNSTALE-ROW"),
         "timeline.activity_utc_text": "2026-05-31T12:00:00Z",
@@ -4901,6 +4905,7 @@ async function createUploadedVisualEvidence(
   return createUploadedEvidenceFixture(page, incidentId, {
     collectorPartyText: "browser.evidence-workflow visual fixture",
     ...options,
+    receivedAt: "2026-05-01T10:45:00Z",
     txnSuffixes: {
       attach: "ATTACH",
       blob: "BLOB",
@@ -4971,6 +4976,21 @@ async function armVisualPublicErrorFault(
   expect(response.status).toBe(201);
 }
 
+// These auxiliary fixtures observe workflow review or reference selection.
+// Keep runtime user references in semantic coverage, outside their visual column set.
+async function hideVisualTechnicalColumns(
+  page: Page,
+  view: string,
+  labels: string[],
+) {
+  const trigger = page.getByTestId(workbookColumnsMenuTriggerTestId(view));
+  await trigger.click();
+  const menu = page.getByTestId(workbookColumnsMenuTestId(view));
+  for (const label of labels)
+    await menu.getByRole("checkbox", { name: label, exact: true }).uncheck();
+  await trigger.click();
+}
+
 async function visualCaptureStep<T>(
   capture: string,
   stage: string,
@@ -5024,32 +5044,50 @@ async function assertVisualRegression(
   await visualCaptureStep(name, "prepare declared surface", async () => {
     await options.prepareState?.();
   });
-  await visualCaptureStep(name, "normalize visual presentation", () =>
-    maskVisualDynamicText(page),
+  const data = await verifyTimelineCaptureData(page, name, locator);
+  if (data)
+    await test.info().attach(`${name}-timeline-data`, {
+      body: JSON.stringify(data),
+      contentType: "application/json",
+    });
+  const normalization = await visualCaptureStep(
+    name,
+    "admit scoped metadata normalization",
+    () => applyVisualMetadata(page, name),
   );
-  await visualCaptureStep(name, "settle layout geometry", () =>
-    settleVisualGeometry(page, options.anchor),
-  );
-  await options.verifyFraming?.();
-  await attachVisualRenderDiagnostics(page, name, options.renderSurface);
-  await visualCaptureStep(name, "validate capture evidence", () =>
-    emitVisualCaptureIntent(
-      page,
-      name,
-      "apps/web/e2e/workbook.visual.spec.ts#assertVisualRegression",
-    ),
-  );
-  // Retain every comparison failure while collecting later capture intents for
-  // complete ordinary-run reconciliation before any golden refresh.
-  await expect.soft(locator).toHaveScreenshot(`${name}.png`, {
-    animations: "disabled",
-    caret: "hide",
-    ...(options.maxDiffPixels === undefined
-      ? {}
-      : { maxDiffPixels: options.maxDiffPixels }),
-  });
-  await options.verifyFraming?.();
-  await verifyVisualGeometry(page, options.anchor);
+  try {
+    await test.info().attach(`${name}-metadata-normalization`, {
+      body: JSON.stringify(normalization),
+      contentType: "application/json",
+    });
+    await visualCaptureStep(name, "settle layout geometry", () =>
+      settleVisualGeometry(page, options.anchor),
+    );
+    await options.verifyFraming?.();
+    await attachVisualRenderDiagnostics(page, name, options.renderSurface);
+    await visualCaptureStep(name, "validate capture evidence", () =>
+      emitVisualCaptureIntent(
+        page,
+        name,
+        "apps/web/e2e/workbook.visual.spec.ts#assertVisualRegression",
+      ),
+    );
+    // Retain every comparison failure while collecting later capture intents for
+    // complete ordinary-run reconciliation before any golden refresh.
+    await verifyVisualMetadata(page);
+    await expect.soft(locator).toHaveScreenshot(`${name}.png`, {
+      animations: "disabled",
+      caret: "hide",
+      ...(options.maxDiffPixels === undefined
+        ? {}
+        : { maxDiffPixels: options.maxDiffPixels }),
+    });
+    await verifyVisualMetadata(page);
+    await options.verifyFraming?.();
+    await verifyVisualGeometry(page, options.anchor);
+  } finally {
+    await restoreVisualMetadata(page);
+  }
 }
 
 async function assertViewportVisualRegression(
@@ -5060,6 +5098,8 @@ async function assertViewportVisualRegression(
     anchor?: VisualAnchor;
     ready?: () => Promise<void>;
     mask?: Locator[];
+    prepareAnchor?: () => Promise<void>;
+    verifyFraming?: () => Promise<void>;
   } = {},
 ) {
   const started = Date.now();
@@ -5067,41 +5107,65 @@ async function assertViewportVisualRegression(
     await options.ready?.();
   });
   await visualCaptureStep(name, "normalize visual presentation", () =>
-    prepareVisualRegressionState(page),
+    prepareVisualPresentation(page),
   );
-  await visualCaptureStep(name, "settle layout geometry", () =>
-    settleVisualGeometry(page),
-  );
-  const geometry = await visualCaptureStep(
-    name,
-    "establish and verify visual anchor",
-    () => settleVisualGeometry(page, options.anchor),
-  );
-  await test.info().attach(`${name}-capture-geometry`, {
-    body: JSON.stringify({
-      stage: "anchored",
-      elapsed_ms: Date.now() - started,
-      geometry,
-    }),
-    contentType: "application/json",
-  });
-  await attachVisualRenderDiagnostics(page, name, options.renderSurface);
-  await visualCaptureStep(name, "validate capture evidence", () =>
-    emitVisualCaptureIntent(
-      page,
-      name,
-      "apps/web/e2e/workbook.visual.spec.ts#assertViewportVisualRegression",
-    ),
-  );
-  await visualCaptureStep(name, "compare visual screenshot", async () => {
-    await expect.soft(page).toHaveScreenshot(`${name}.png`, {
-      animations: "disabled",
-      caret: "hide",
-      fullPage: false,
-      ...(options.mask ? { mask: options.mask } : {}),
+  const data = await verifyTimelineCaptureData(page, name);
+  if (data)
+    await test.info().attach(`${name}-timeline-data`, {
+      body: JSON.stringify(data),
+      contentType: "application/json",
     });
-    await verifyVisualGeometry(page, options.anchor);
-  });
+  const normalization = await visualCaptureStep(
+    name,
+    "admit scoped metadata normalization",
+    () => applyVisualMetadata(page, name),
+  );
+  try {
+    await test.info().attach(`${name}-metadata-normalization`, {
+      body: JSON.stringify(normalization),
+      contentType: "application/json",
+    });
+    await visualCaptureStep(name, "settle layout geometry", () =>
+      settleVisualGeometry(page),
+    );
+    await options.prepareAnchor?.();
+    await options.verifyFraming?.();
+    const geometry = await visualCaptureStep(
+      name,
+      "establish and verify visual anchor",
+      () => settleVisualGeometry(page, options.anchor),
+    );
+    await test.info().attach(`${name}-capture-geometry`, {
+      body: JSON.stringify({
+        stage: "anchored",
+        elapsed_ms: Date.now() - started,
+        geometry,
+      }),
+      contentType: "application/json",
+    });
+    await attachVisualRenderDiagnostics(page, name, options.renderSurface);
+    await visualCaptureStep(name, "validate capture evidence", () =>
+      emitVisualCaptureIntent(
+        page,
+        name,
+        "apps/web/e2e/workbook.visual.spec.ts#assertViewportVisualRegression",
+      ),
+    );
+    await visualCaptureStep(name, "compare visual screenshot", async () => {
+      await verifyVisualMetadata(page);
+      await expect.soft(page).toHaveScreenshot(`${name}.png`, {
+        animations: "disabled",
+        caret: "hide",
+        fullPage: false,
+        ...(options.mask ? { mask: options.mask } : {}),
+      });
+      await verifyVisualMetadata(page);
+      await verifyVisualGeometry(page, options.anchor);
+      await options.verifyFraming?.();
+    });
+  } finally {
+    await restoreVisualMetadata(page);
+  }
 }
 
 async function emitVisualCaptureIntent(
@@ -5200,6 +5264,7 @@ async function emitVisualCaptureIntent(
     )
     .digest("hex")
     .slice(0, 20)}`;
+  assertMetadataCaptureIdentity(captureIntent, captureId, expectedGoldenPath);
   await testInfo.attach(`cartulary-visual-capture-intent-${captureId}.json`, {
     body: Buffer.from(
       `${JSON.stringify({
@@ -5907,6 +5972,29 @@ async function injectExposedThemeVisualFixture(page: Page) {
   });
 }
 
+async function assertTimelineEditorVisualRegression(
+  page: Page,
+  name: string,
+  editor: Locator,
+) {
+  const scroll = await readWorkbookGridScroll(page, timelineViewSchemaId);
+  await assertVisualRegression(
+    page,
+    name,
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    {
+      renderSurface: timelineViewSchemaId,
+      verifyFraming: async () => {
+        await expect(editor).toBeFocused();
+        await expect(editor).toBeInViewport({ ratio: 1 });
+        await expect
+          .poll(() => readWorkbookGridScroll(page, timelineViewSchemaId))
+          .toEqual(scroll);
+      },
+    },
+  );
+}
+
 async function assertWorkbookGridVisualRegression(
   page: Page,
   name: string,
@@ -6025,11 +6113,6 @@ async function assertEvidenceAccessVisualRegression(
     }
     throw error;
   }
-}
-
-async function prepareVisualRegressionState(page: Page) {
-  await prepareVisualPresentation(page);
-  await maskVisualDynamicText(page);
 }
 
 async function prepareVisualPresentation(page: Page) {
@@ -7068,75 +7151,6 @@ async function readWorkbookGridScroll(
   );
 }
 
-async function maskVisualDynamicText(page: Page) {
-  await page.evaluate(() => {
-    const timestampReplacement: [RegExp, string] = [
-      /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,
-      "2025-01-01T00:00:00Z",
-    ];
-    const historyTimeReplacement: [RegExp, string] = [
-      /\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC \+00:00\b/g,
-      "2025-01-01 00:00:00 UTC +00:00",
-    ];
-    const replacements: Array<[RegExp, string]> = [
-      [
-        /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
-        "00000000-0000-0000-0000-000000000000",
-      ],
-      timestampReplacement,
-      historyTimeReplacement,
-      [/hitem\.[^\s<>"']+/g, "hitem.VISUAL-FIXTURE"],
-      [/gpres_[0-9a-f]+…[0-9a-f]+/gi, "gpres_VISUAL…RESULT"],
-      [/\bIR-[A-Z0-9-]+\b/g, "IR-VISUAL-FIXTURE"],
-      [/Playwright Worker Admin \d+/g, "Playwright Worker Admin"],
-    ];
-    const formControlReplacements = replacements.filter(
-      (replacement) =>
-        replacement !== timestampReplacement &&
-        replacement !== historyTimeReplacement,
-    );
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-    );
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      let text = node.textContent ?? "";
-      for (const [pattern, replacement] of replacements) {
-        text = text.replace(pattern, replacement);
-      }
-      node.textContent = text;
-    }
-    for (const element of document.querySelectorAll("input, textarea")) {
-      if (
-        !(element instanceof HTMLInputElement) &&
-        !(element instanceof HTMLTextAreaElement)
-      ) {
-        continue;
-      }
-      // Native file values cannot be assigned. Upload fixtures supply stable names.
-      if (element instanceof HTMLInputElement && element.type === "file")
-        continue;
-      let value = element.value;
-      // Controlled inputs repaint their fixture values; do not race React by
-      // replacing timestamp values in form controls during screenshot prep.
-      for (const [pattern, replacement] of formControlReplacements) {
-        value = value.replace(pattern, replacement);
-      }
-      element.value = value;
-    }
-  });
-}
-
-async function maskIncidentIdentity(page: Page, incidentId: string) {
-  await page.evaluate((id) => {
-    for (const node of document.querySelectorAll("p")) {
-      if (node.textContent?.includes(id)) {
-        node.textContent = "Incident visual-fixture";
-      }
-    }
-  }, incidentId);
-}
-
 function tinyPNG() {
   return Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
@@ -7397,7 +7411,7 @@ test("Capture account application menu root and nested Controls across contexts 
   workerAdmin,
 }) => {
   await installAccountEditingFixture(page, { profileOnly: true });
-  const incidentId = await createIncident(
+  const incidentId = await createRichTimelineIncident(
     page,
     uniqueIncidentKey("VISUALMENU"),
     "Account menu navigation",
@@ -8057,8 +8071,16 @@ test("Capture incident import admission observation cancellation and result reco
 test("Capture Membership audit loading inspected stale empty cursor recovery and density.", async ({
   workerAdminPage: page,
 }) => {
-  const fixture = await installMembershipAuditPresentation(page);
-  await maskIncidentIdentity(page, fixture.incidentId);
+  const richIncidentId = await createRichTimelineIncident(
+    page,
+    uniqueIncidentKey("VISUAL-INCIDENT-CONTROLS"),
+    "Service-account investigation",
+  );
+  const fixture = await installMembershipAuditPresentation(
+    page,
+    richIncidentId,
+  );
+
   const loading = auditBrowserBarrier();
   fixture.gateRead(loading.promise);
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -8156,7 +8178,7 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
     await selectVisualDensity(page, density);
     await test.step("reload visual application", () =>
       reloadVisualApplication(page));
-    await maskIncidentIdentity(page, fixture.incidentId);
+
     await openMembershipAudit(page);
     await expect(panel.getByRole("status")).toContainText("Page 1:");
     await expect(panel).toHaveCSS(
@@ -8187,8 +8209,16 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
 test("Capture Membership management drafts pending uncertainty confirmed recovery and density.", async ({
   workerAdminPage: page,
 }) => {
-  const fixture = await installMembershipManagementPresentation(page);
-  await maskIncidentIdentity(page, fixture.incidentId);
+  const richIncidentId = await createRichTimelineIncident(
+    page,
+    uniqueIncidentKey("VISUAL-INCIDENT-CONTROLS"),
+    "Service-account investigation",
+  );
+  const fixture = await installMembershipManagementPresentation(
+    page,
+    richIncidentId,
+  );
+
   const loading = auditBrowserBarrier();
   fixture.gateRead(loading.promise);
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -8316,7 +8346,7 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
     await selectVisualDensity(page, density);
     await test.step("reload visual application", () =>
       reloadVisualApplication(page));
-    await maskIncidentIdentity(page, fixture.incidentId);
+
     await openMembershipManagement(page);
     await expect(panel.getByText(/Page 1:/u)).toBeVisible();
     await expect(panel).toHaveCSS(
@@ -8341,8 +8371,14 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
 test("Capture Metadata editing loading dirty conflict uncertainty confirmation responsive and density.", async ({
   workerAdminPage: page,
 }) => {
-  const fixture = await installMetadataPresentation(page);
-  await maskIncidentIdentity(page, fixture.incidentId);
+  const richIncidentId = await createRichTimelineIncident(
+    page,
+    uniqueIncidentKey("VISUAL-INCIDENT-CONTROLS"),
+    "Service-account investigation",
+  );
+  await openIncidentFromLanding(page, richIncidentId);
+  const fixture = await installMetadataPresentation(page, richIncidentId);
+
   await page.setViewportSize({ width: 1280, height: 720 });
   const gate = auditBrowserBarrier();
   fixture.gateRead(gate.promise);
@@ -8462,7 +8498,7 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
     await selectVisualDensity(page, density);
     await test.step("reload visual application", () =>
       reloadVisualApplication(page));
-    await maskIncidentIdentity(page, fixture.incidentId);
+
     await page.setViewportSize({ width: 768, height: 640 });
     await openMetadata(page);
     await expect(severity).toBeVisible();
@@ -8496,7 +8532,7 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
       ).toHaveText("");
     }
   };
-  const incidentId = await createIncident(
+  const incidentId = await createRichTimelineIncident(
     page,
     uniqueIncidentKey("LC-VISUAL"),
     "Incident lifecycle review",
@@ -8645,7 +8681,7 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
 test("Capture workbook preferences inspection uncertainty confirmation responsive and density.", async ({
   workerAdminPage: page,
 }) => {
-  const incidentId = await createIncident(
+  const incidentId = await createRichTimelineIncident(
     page,
     uniqueIncidentKey("WP-VISUAL"),
     "Workbook startup preferences",
@@ -8765,9 +8801,15 @@ test("Capture Decision supersession review and accepted recovery at desktop and 
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await openDecisionReviewFixture(page, (url) =>
-    navigateVisualApplication(page, url),
+  await openDecisionReviewFixture(
+    page,
+    (url) => navigateVisualApplication(page, url),
+    {
+      target: "2026-04-18T14:44:08Z",
+      replacement: "2026-04-18T15:42:09Z",
+    },
   );
+  await hideVisualTechnicalColumns(page, decisionsViewSchemaId, ["Owner"]);
   const review = page.getByTestId(decisionSupersessionTestId("review"));
   const reviewAnchor: VisualAnchor = {
     locator: review,
@@ -8794,22 +8836,34 @@ test("Capture Decision supersession review and accepted recovery at desktop and 
       { exact: true },
     ),
   ).toBeVisible();
-  await assertViewportVisualRegression(page, "decision-supersession-accepted", {
-    // The actor's generated ID can repaint in this controlled draft input after
-    // DOM text normalization. Mask that identity, not the recovery outcome.
-    mask: [
-      page.getByTestId(genericCreateFieldTestId("decision.owner_user_id")),
-    ],
-  });
+  await assertViewportVisualRegression(page, "decision-supersession-accepted");
 });
 
 test("Capture Timeline supersession authoring review and accepted replacement", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
+  const supplied = await createRichTimelineSource(page, "supersession-target", {
+    client_txn_id: uniqueTxn("supersession-target"),
+    "timeline.activity_synopsis_text": "Investigated observation",
+    "timeline.device_object_text": "Workstation A",
+    "timeline.activity_utc_text": "2025-02-17T11:00:00Z",
+  });
+  const replacementRow = await createVisualTimelineRow(
+    page,
+    supplied.incidentId,
+    "supersession-replacement",
+    {
+      client_txn_id: uniqueTxn("supersession-replacement"),
+      "timeline.activity_synopsis_text": "Investigated observation",
+      "timeline.device_object_text": "Workstation B",
+      "timeline.activity_utc_text": "2025-02-17T11:05:00Z",
+    },
+  );
   const { target, replacement } = await openTimelineSupersessionFixture(
     page,
     (url) => navigateVisualApplication(page, url),
+    { ...supplied, replacement: replacementRow },
   );
   const editor = page.getByTestId(
     timelineCaptureActionTestId("editor", target.record_id),
@@ -8901,7 +8955,12 @@ test("Capture Indicator observation source selection at desktop and narrow width
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  const { incidentId, source } = await createObservationFixture(page);
+  const supplied = await createRichTimelineSource(page, "indicator-source", {
+    client_txn_id: uniqueTxn("indicator-source"),
+    "timeline.raw_activity_text": observationRawText,
+    "timeline.activity_synopsis_text": "Repeated source observation",
+  });
+  const { incidentId, source } = await createObservationFixture(page, supplied);
   await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
   const editor = await openObservationEditor(page, source.record_id);
   await selectRepeatedObservation(page);
@@ -9023,10 +9082,15 @@ test("Capture contextual Task and Decision authoring references and retained rec
     await capture(page, `contextual-${target}-recovery-narrow`);
     await page.setViewportSize({ width: 1280, height: 720 });
     await capture(page, `contextual-${target}-recovery`);
+    const supplied = await createRichTimelineSource(page, `${target}-source`, {
+      client_txn_id: uniqueTxn(`${target}-source`),
+      "timeline.activity_synopsis_text": retainedTimelineSourceLabel,
+    });
     const retainedSource = await retainTimelineContextualSource(
       page,
       target,
       (url) => navigateVisualApplication(page, url),
+      supplied,
     );
     for (const viewport of [
       { width: 1280, height: 720 },
@@ -9082,8 +9146,15 @@ test("Capture Timeline Evidence metadata Party selection and retained partial su
     });
   };
   await page.setViewportSize({ width: 1280, height: 720 });
-  const { form } = await openTimelineEvidenceFixture(page, (url) =>
-    navigateVisualApplication(page, url),
+  const supplied = await createRichTimelineSource(page, "evidence-source", {
+    client_txn_id: uniqueTxn("evidence-source"),
+    "timeline.activity_synopsis_text": "Preserved investigation source",
+    "timeline.raw_activity_text": "Original source text remains unchanged.",
+  });
+  const { form } = await openTimelineEvidenceFixture(
+    page,
+    (url) => navigateVisualApplication(page, url),
+    supplied,
   );
   // This capture frames the beginning of the form; give that frame an explicit
   // visible focus target instead of retaining focus in a later seeded field.
@@ -9136,8 +9207,15 @@ test("Capture linked Note authoring source selection and retained atomic recover
     });
   };
   await page.setViewportSize({ width: 1280, height: 720 });
-  const f = await openNoteFixture(page, timelineViewSchemaId, (url) =>
-    navigateVisualApplication(page, url),
+  const supplied = await createRichTimelineSource(page, "note-source", {
+    client_txn_id: uniqueTxn("note-source"),
+    "timeline.activity_synopsis_text": "Reviewed investigation source",
+  });
+  const f = await openNoteFixture(
+    page,
+    timelineViewSchemaId,
+    (url) => navigateVisualApplication(page, url),
+    supplied,
   );
   await f.form
     .getByRole("textbox", { name: "Title", exact: true })
@@ -9197,6 +9275,7 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
     "handoff.current_state_summary",
     "Retained ordinary handoff",
   );
+  await hideVisualTechnicalColumns(page, handoff, ["Outgoing Owner"]);
   const referenceInput = await ordinaryField(
     page,
     handoff,
@@ -9228,6 +9307,12 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
     evidenceViewSchemaId,
     "evidence.title",
     "Retained ordinary evidence",
+  );
+  await fillOrdinaryField(
+    page,
+    evidenceViewSchemaId,
+    "evidence.requested_at",
+    "2025-03-01T10:00:00Z",
   );
   const { recovery } = await retainOrdinaryUncertainty(page, incident);
   for (const viewport of [
@@ -9307,11 +9392,16 @@ test("Capture contextual coordination target authoring source selection and reta
   };
   for (const variant of ["comm_log", "handoff", "status_review", "lesson"]) {
     await page.setViewportSize({ width: 1280, height: 720 });
+    const supplied = await createRichTimelineSource(page, `${variant}-source`, {
+      client_txn_id: uniqueTxn(`${variant}-source`),
+      "timeline.activity_synopsis_text": "Reviewed coordination source",
+    });
     const f = await openCoordinationFixture(
       page,
       variant,
       timelineViewSchemaId,
       (url) => navigateVisualApplication(page, url),
+      supplied,
     );
     await fillCoordinationMinimum(f);
     await f.form.locator("input, textarea, select, button").first().focus();

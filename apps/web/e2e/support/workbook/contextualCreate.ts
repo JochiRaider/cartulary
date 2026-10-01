@@ -14,7 +14,7 @@ import {
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
-import { createViewRow } from "./query";
+import { createViewRow, type SuppliedSourceFixture } from "./query";
 import { openRecoveryItem } from "./recovery";
 import {
   openGenericInspectorForRecord,
@@ -33,23 +33,26 @@ export async function openContextualCreationFixture(
     viewSchemaId: evidenceViewSchemaId,
     label: "Reviewed Evidence source",
   },
+  supplied?: SuppliedSourceFixture,
 ) {
-  const incident = await createIncident(
-    page,
-    uniqueIncidentKey("CTD-PRESENTATION"),
-    "Contextual creation review",
-  );
-  const source = await createViewRow(
-    page,
-    incident,
-    sourceContext.viewSchemaId,
-    {
+  const incident =
+    supplied?.incidentId ??
+    (await createIncident(
+      page,
+      uniqueIncidentKey("CTD-PRESENTATION"),
+      "Contextual creation review",
+    ));
+  const source =
+    supplied?.source ??
+    (await createViewRow(page, incident, sourceContext.viewSchemaId, {
       client_txn_id: uniqueTxn("source"),
+      ...(sourceContext.viewSchemaId === evidenceViewSchemaId
+        ? { "evidence.requested_at": "2025-03-01T10:00:00Z" }
+        : {}),
       [sourceContext.viewSchemaId === timelineViewSchemaId
         ? "timeline.activity_synopsis_text"
         : "evidence.title"]: sourceContext.label,
-    },
-  );
+    }));
   await navigate(
     `/?incident_id=${incident}&view_schema_id=${sourceContext.viewSchemaId}`,
   );
@@ -98,19 +101,28 @@ export async function openContextualCreationFixture(
   return { incident, source, view };
 }
 
+export const retainedTimelineSourceLabel =
+  "Original Timeline activity: investigate the observed connection, preserve the analyst's contextual draft, and retain this readable source across reference removal and Recovery. " +
+  "LongSourceContext".repeat(12);
+
 /** Exercise retained source context through the existing owner and shell Recovery. */
 export async function retainTimelineContextualSource(
   page: Page,
   target: "task_request" | "decision",
   navigate?: (url: string) => Promise<unknown>,
+  supplied?: SuppliedSourceFixture,
 ) {
-  const label =
-    "Original Timeline activity: investigate the observed connection, preserve the analyst's contextual draft, and retain this readable source across reference removal and Recovery. " +
-    "LongSourceContext".repeat(12);
-  const fixture = await openContextualCreationFixture(page, target, navigate, {
-    viewSchemaId: timelineViewSchemaId,
-    label,
-  });
+  const label = retainedTimelineSourceLabel;
+  const fixture = await openContextualCreationFixture(
+    page,
+    target,
+    navigate,
+    {
+      viewSchemaId: timelineViewSchemaId,
+      label,
+    },
+    supplied,
+  );
   let creations = 0;
   const observe = (request: import("@playwright/test").Request) => {
     if (

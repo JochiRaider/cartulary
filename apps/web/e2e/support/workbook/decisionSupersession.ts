@@ -14,6 +14,7 @@ import { activateCommittedGridCell } from "./rowMutations";
 export async function openDecisionReviewFixture(
   page: Page,
   navigate: (url: string) => Promise<unknown> = (url) => page.goto(url),
+  decidedAt?: { target: string; replacement: string },
 ) {
   const incidentId = await createIncident(
     page,
@@ -26,6 +27,7 @@ export async function openDecisionReviewFixture(
     "decision.decision_type": "containment",
     "decision.status": "executed",
     "decision.rationale": "Initial containment evidence",
+    ...(decidedAt ? { "decision.decided_at": decidedAt.target } : {}),
   });
   const replacement = await createViewRow(
     page,
@@ -37,8 +39,15 @@ export async function openDecisionReviewFixture(
       "decision.decision_type": "containment",
       "decision.status": "approved",
       "decision.rationale": "Reviewed containment evidence",
+      ...(decidedAt ? { "decision.decided_at": decidedAt.replacement } : {}),
     },
   );
+  if (decidedAt) {
+    expect(target.cells["decision.decided_at"]?.value).toBe(decidedAt.target);
+    expect(replacement.cells["decision.decided_at"]?.value).toBe(
+      decidedAt.replacement,
+    );
+  }
   await navigate(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(decisionsViewSchemaId)}`,
   );

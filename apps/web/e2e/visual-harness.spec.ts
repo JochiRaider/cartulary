@@ -3,10 +3,14 @@ import type {
   GetCurrentAccountPreferencesResponse,
   PutCurrentAccountPreferencesRequest,
 } from "@cartulary/protocol-ts/http";
+import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
+  gridScrollportSelector,
   incidentControlsScrollportTestId,
+  rowCellTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
 import { installVisualPreferences } from "./support/auth/visualPreferences";
@@ -21,10 +25,299 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { publishIndependentFrontendBuild } from "./support/runtime/frontendBuild";
+import { waitForLoadedVendoredFonts } from "./support/runtime/visualRenderer";
+import { seedVisualTimelineInvestigation } from "./support/timeline/timelineInvestigation";
 import {
   settleVisualGeometry,
   verifyVisualGeometry,
 } from "./support/visual/capture";
+import {
+  normalizeMetadataDocument,
+  restoreMetadataDocument,
+} from "./support/visual/metadataNormalization";
+import {
+  focusTimelineShellOrigin,
+  observeTimelineShellOrigin,
+  verifyTimelineShellOrigin,
+} from "./support/visual/timelineShellAnchor";
+import {
+  registerTimelineVisualFixture,
+  verifyTimelineCaptureData,
+  verifyTimelineVisualCores,
+} from "./support/visual/timelineVisualFixture";
+import {
+  fetchRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
+import {
+  activateCommittedGridCell,
+  openTimelineInspector,
+} from "./support/workbook/rowMutations";
+
+test("rich Timeline recipe preserves owner states and source text during capture preparation", async ({
+  workerAdminPage: page,
+  workerAdmin,
+}, testInfo) => {
+  let exampleRequests = 0;
+  await page.route(/^https?:\/\/[^/]*\.example\.test(?:[/:]|$)/, (route) => {
+    exampleRequests++;
+    return route.abort();
+  });
+  await installVisualPreferences(page, workerAdmin.user_id);
+  const investigation = registerTimelineVisualFixture(
+    await seedVisualTimelineInvestigation(page, {
+      continuationCount: 36,
+    }),
+  );
+  await openIncidentFromLanding(page, investigation.incidentId);
+  await page.evaluate(waitForLoadedVendoredFonts);
+  const receipt = await verifyTimelineCaptureData(
+    page,
+    "incident-directory-default-timeline-workbook-shell",
+  );
+  expect(receipt).toMatchObject({
+    kind: "rich",
+    core_rows: 12,
+    seeded_rows: 48,
+  });
+  await expect(
+    verifyTimelineCaptureData(page, "undeclared-timeline-capture"),
+  ).rejects.toThrow("Undeclared Timeline capture");
+  const first = investigation.recordId("authentication-anomaly");
+  const before = await investigation.verify();
+  const sourceBefore = await investigation.readRows();
+  await activateCommittedGridCell(
+    page
+      .getByTestId(rowCellTestId(first, "timeline.date_entered_text"))
+      .locator("xpath=ancestor::*[@role='gridcell'][1]"),
+  );
+  await focusTimelineShellOrigin(page, first);
+  await verifyTimelineShellOrigin(page, first);
+  const scrollport = page.locator(gridScrollportSelector());
+  await scrollport.evaluate((node) => {
+    node.scrollLeft = 24;
+  });
+  expect((await observeTimelineShellOrigin(page, first)).ready).toBe(false);
+  await focusTimelineShellOrigin(page, first);
+  await verifyTimelineShellOrigin(page, first);
+  expect((await observeTimelineShellOrigin(page, "undeclared-row")).ready).toBe(
+    false,
+  );
+  for (const state of ["loading", "refreshing", "stale_error", "unavailable"]) {
+    await page.evaluate((state) => {
+      const marker = document.createElement("div");
+      marker.id = "readiness-regression";
+      marker.setAttribute("data-grid-data-state", state);
+      document.body.append(marker);
+    }, state);
+    expect((await observeTimelineShellOrigin(page, first)).ready).toBe(false);
+    await page
+      .locator("#readiness-regression")
+      .evaluate((node) => node.remove());
+  }
+  const cell = page
+    .getByTestId(rowCellTestId(first, "timeline.date_entered_text"))
+    .locator("xpath=ancestor::*[@role='gridcell'][1]");
+  await cell.evaluate((node) => (node as HTMLElement).blur());
+  expect((await observeTimelineShellOrigin(page, first)).ready).toBe(false);
+  await focusTimelineShellOrigin(page, first);
+  await cell.evaluate((node) => {
+    node.animate(
+      [{ transform: "translateX(0px)" }, { transform: "translateX(8px)" }],
+      { duration: 500, iterations: Infinity },
+    );
+  });
+  try {
+    expect((await observeTimelineShellOrigin(page, first)).ready).toBe(false);
+  } finally {
+    await cell.evaluate((node) => {
+      for (const animation of node.getAnimations()) animation.cancel();
+    });
+  }
+  const fonts = page.locator('link[href="/assets/fonts/fonts.css"]');
+  await fonts.evaluate((node) => {
+    (node as HTMLLinkElement).disabled = true;
+  });
+  try {
+    expect((await observeTimelineShellOrigin(page, first)).ready).toBe(false);
+  } finally {
+    await fonts.evaluate((node) => {
+      (node as HTMLLinkElement).disabled = false;
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Array.from(document.fonts).some((face) => face.family === "Inter"),
+        ),
+      )
+      .toBe(true);
+    await page.evaluate(waitForLoadedVendoredFonts);
+  }
+  await focusTimelineShellOrigin(page, first);
+  await verifyTimelineShellOrigin(page, first);
+  const authored = "2026-04-18T14:12:34Z 123e4567-e89b-42d3-a456-426614174000";
+  await page.evaluate((authored) => {
+    const fixture = document.createElement("section");
+    fixture.id = "metadata-regression";
+    const source = document.createElement("span");
+    source.setAttribute("data-source-value", "true");
+    source.textContent = authored;
+    const metadata = document.createElement("time");
+    metadata.setAttribute("data-generated-metadata", "regression-time");
+    metadata.textContent = "2026-09-30T20:00:00Z";
+    fixture.append(source, metadata);
+    document.body.append(fixture);
+  }, authored);
+  const rule = {
+    id: "regression-time",
+    target: '[data-generated-metadata="regression-time"]',
+    expected_count: 1,
+    replacement: "2025-01-01T00:00:00Z",
+  };
+  try {
+    await page.evaluate(normalizeMetadataDocument, [rule]);
+    await expect(
+      page.locator("#metadata-regression [data-source-value]"),
+    ).toHaveText(authored);
+    await expect(page.locator(rule.target)).toHaveText(rule.replacement);
+    for (const key of ["authentication-anomaly", "unexpected-token-use"]) {
+      const recordId = investigation.recordId(key);
+      await scrollGridCellIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        recordId,
+        cellKey: "timeline.activity_utc_text",
+      });
+      const row = sourceBefore.find((entry) => entry.record_id === recordId);
+      await expect(
+        page.getByTestId(rowCellTestId(recordId, "timeline.activity_utc_text")),
+      ).toHaveText(String(row?.cells["timeline.activity_utc_text"]?.value));
+    }
+    await scrollGridCellIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      recordId: first,
+      cellKey: "timeline.raw_activity_text",
+    });
+    await expect(
+      page.getByTestId(rowCellTestId(first, "timeline.raw_activity_text")),
+    ).toContainText("123e4567-e89b-42d3-a456-426614174000");
+    await expect(
+      page.getByTestId(rowCellTestId(first, "timeline.raw_activity_text")),
+    ).toContainText("2026-04-18T14:12:34Z");
+    const scriptRecord = investigation.recordId("script-execution");
+    await scrollGridCellIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      recordId: scriptRecord,
+      cellKey: "timeline.raw_activity_text",
+    });
+    const raw = page.getByTestId(
+      rowCellTestId(scriptRecord, "timeline.raw_activity_text"),
+    );
+    await expect(raw).toContainText("<script>example only</script>");
+    await expect(raw.locator("script")).toHaveCount(0);
+  } finally {
+    await page.evaluate(restoreMetadataDocument);
+  }
+  await expect(page.locator(rule.target)).toHaveText("2026-09-30T20:00:00Z");
+  for (const rules of [
+    [{ ...rule, expected_count: 2 }],
+    [{ ...rule, target: '[data-generated-metadata="absent"]' }],
+    [rule, { ...rule, id: "overlap" }],
+  ]) {
+    await expect(
+      page.evaluate(normalizeMetadataDocument, rules),
+    ).rejects.toThrow();
+    await expect(page.locator(rule.target)).toHaveText("2026-09-30T20:00:00Z");
+  }
+  await page
+    .locator(rule.target)
+    .evaluate((node) => node.setAttribute("data-source-value", "true"));
+  await expect(
+    page.evaluate(normalizeMetadataDocument, [rule]),
+  ).rejects.toThrow("source overlap");
+  await page.locator("#metadata-regression").evaluate((node) => node.remove());
+  await openTimelineInspector(page, first);
+  const analyst = page.locator(
+    '[data-inspector-saved-field="timeline.analyst_text"] [data-inspector-field-value] > div[id]',
+  );
+  await analyst.evaluate((node) =>
+    node.setAttribute("data-generated-metadata", "regression-time"),
+  );
+  try {
+    await expect(
+      page.evaluate(normalizeMetadataDocument, [rule]),
+    ).rejects.toThrow("source overlap");
+  } finally {
+    await analyst.evaluate((node) =>
+      node.removeAttribute("data-generated-metadata"),
+    );
+  }
+  const systemRules = ["timeline-recorded-at", "timeline-edited-at"].map(
+    (surface) => ({
+      id: surface,
+      target: `[data-generated-metadata="${surface}"]`,
+      replacement: "2025-01-01T00:00:00.000000Z",
+      expected_count: 1,
+    }),
+  );
+  const systemBefore = await Promise.all(
+    systemRules.map(({ target }) => page.locator(target).textContent()),
+  );
+  try {
+    await page.evaluate(normalizeMetadataDocument, systemRules);
+    for (const { target, replacement } of systemRules)
+      await expect(page.locator(target)).toHaveText(replacement);
+    expect(await investigation.readRows()).toEqual(sourceBefore);
+  } finally {
+    await page.evaluate(restoreMetadataDocument);
+  }
+  expect(
+    await Promise.all(
+      systemRules.map(({ target }) => page.locator(target).textContent()),
+    ),
+  ).toEqual(systemBefore);
+  await page.getByRole("button", { name: "Open history", exact: true }).click();
+  const history = await fetchRecordHistory(page, first);
+  for (const item of history.items)
+    await openHistoryEventDetails(page, item.history_item_ref);
+  const timestamps = page.locator('[data-generated-metadata="history-time"]');
+  expect(history.items).toHaveLength(3);
+  await expect(timestamps).toHaveCount(3);
+  const originalTimes = await timestamps.allTextContents();
+  try {
+    await page.evaluate(normalizeMetadataDocument, [
+      {
+        id: "actual-history-time",
+        target: '[data-generated-metadata="history-time"]',
+        expected_count: 3,
+        replacement: "2025-01-01 00:00:00 UTC +00:00",
+      },
+    ]);
+    await expect(timestamps).toHaveText([
+      "2025-01-01 00:00:00 UTC +00:00",
+      "2025-01-01 00:00:00 UTC +00:00",
+      "2025-01-01 00:00:00 UTC +00:00",
+    ]);
+    await expect(
+      page
+        .locator("[data-history-value]")
+        .filter({ hasText: "123e4567-e89b-42d3-a456-426614174000" }),
+    ).toContainText("2026-04-18T14:12:34Z");
+  } finally {
+    await page.evaluate(restoreMetadataDocument);
+  }
+  expect(await timestamps.allTextContents()).toEqual(originalTimes);
+  expect(await investigation.verify()).toEqual(before);
+  expect(await investigation.readRows()).toEqual(sourceBefore);
+  expect(exampleRequests).toBe(0);
+  await testInfo.attach("investigation-receipt", {
+    body: JSON.stringify(before),
+    contentType: "application/json",
+  });
+  await verifyTimelineVisualCores();
+});
 
 test("visual harness retains loaded assets across an independent frontend publication", async ({
   workerAdminPage: page,

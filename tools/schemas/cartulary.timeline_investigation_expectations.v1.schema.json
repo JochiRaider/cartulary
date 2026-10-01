@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.timeline_investigation_expectations.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "dataset_id",
+    "content_revision",
+    "fields",
+    "rows"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.timeline_investigation_expectations.v1"
+    },
+    "dataset_id": {
+      "const": "timeline-investigation-rich-v1"
+    },
+    "content_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "collections",
+        "derived"
+      ],
+      "properties": {
+        "source": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "collections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "derived": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "rows": {
+      "type": "object",
+      "minProperties": 12,
+      "maxProperties": 12,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture_state",
+          "evidence_count",
+          "has_unresolved_mentions",
+          "replacement"
+        ],
+        "properties": {
+          "capture_state": {
+            "enum": [
+              "rough",
+              "enriched",
+              "reviewed",
+              "superseded"
+            ]
+          },
+          "evidence_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "has_unresolved_mentions": {
+            "type": "boolean"
+          },
+          "replacement": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

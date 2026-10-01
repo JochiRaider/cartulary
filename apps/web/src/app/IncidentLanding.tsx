@@ -253,7 +253,12 @@ export function IncidentLanding({
                       style={tableRowStyle}
                     >
                       <td style={primaryCellStyle}>
-                        <p style={monoMutedStyle}>{incident.incident_key}</p>
+                        <p
+                          data-generated-metadata="directory-incident-key"
+                          style={monoMutedStyle}
+                        >
+                          {incident.incident_key}
+                        </p>
                         <p style={strongTextStyle}>{incident.title}</p>
                         <p style={metadataTextStyle}>
                           v{incident.incident_version}
@@ -276,7 +281,11 @@ export function IncidentLanding({
                           value={incident.primary_external_case_ref}
                         />
                       </td>
-                      <td style={tableCellStyle} title={incident.updated_at}>
+                      <td
+                        data-generated-metadata="directory-updated-at"
+                        style={tableCellStyle}
+                        title={incident.updated_at}
+                      >
                         {formatNullableDateTime(incident.updated_at)}
                       </td>
                       <td style={tableActionCellStyle}>

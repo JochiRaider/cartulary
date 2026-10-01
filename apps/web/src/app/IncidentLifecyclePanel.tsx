@@ -180,9 +180,16 @@ export function IncidentLifecyclePanel({
         style={text}
         data-testid={incidentAdministrationTestId("lifecycle-current")}
       >
-        {resource
-          ? `${resource.incident_key} — ${resource.title}\nCurrent accepted state: ${resource.status === "closed" ? "Closed, read-only" : "Active"} · Version ${resource.incident_version}`
-          : "Loading incident identity…"}
+        {resource ? (
+          <>
+            <span data-generated-metadata="lifecycle-current-key">
+              {resource.incident_key}
+            </span>
+            {` — ${resource.title}\nCurrent accepted state: ${resource.status === "closed" ? "Closed, read-only" : "Active"} · Version ${resource.incident_version}`}
+          </>
+        ) : (
+          "Loading incident identity…"
+        )}
       </p>
       <p
         role="status"
@@ -288,9 +295,14 @@ export function IncidentLifecyclePanel({
               : "Review Reopen incident"}
           </h4>
           <p style={text}>
-            {reviewResource.incident_key} — {reviewResource.title}
+            <span data-generated-metadata="lifecycle-review-key">
+              {reviewResource.incident_key}
+            </span>{" "}
+            — {reviewResource.title}
             {"\n"}
-            {reviewResource.incident_id}
+            <span data-generated-metadata="lifecycle-incident-id">
+              {reviewResource.incident_id}
+            </span>
             {"\n"}Reviewed {reviewResource.status}, version{" "}
             {reviewResource.incident_version}.
           </p>

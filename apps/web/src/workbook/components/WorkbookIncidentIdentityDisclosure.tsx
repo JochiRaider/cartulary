@@ -71,7 +71,12 @@ export function WorkbookIncidentIdentityDisclosure({
             paddingInline: 0,
           }}
         >
-          <strong style={shellTopBarValueStyle}>{incidentKey}</strong>
+          <strong
+            data-generated-metadata="incident-key"
+            style={shellTopBarValueStyle}
+          >
+            {incidentKey}
+          </strong>
           <span style={shellIncidentTitleStyle}>{title}</span>
           <ChevronDown
             aria-hidden="true"
@@ -90,7 +95,7 @@ export function WorkbookIncidentIdentityDisclosure({
             overflowWrap: "anywhere",
           }}
         >
-          <strong>{incidentKey}</strong>
+          <strong data-generated-metadata="incident-key">{incidentKey}</strong>
           <span>{title}</span>
         </section>
       ) : null}

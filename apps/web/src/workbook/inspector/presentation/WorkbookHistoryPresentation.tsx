@@ -44,9 +44,14 @@ export function WorkbookHistoryEvent({
       ) : null}
       <strong>{event.summary}</strong>
       <p style={metadataStyle}>
-        {event.operation} · Changed by {event.actorLabel}
+        {event.operation} · Changed by{" "}
+        <span data-generated-metadata="history-actor">{event.actorLabel}</span>
       </p>
-      <time dateTime={event.committedAt} style={metadataStyle}>
+      <time
+        data-generated-metadata="history-time"
+        dateTime={event.committedAt}
+        style={metadataStyle}
+      >
         {formatHistoryTimestamp(event.committedAt)}
       </time>
       <details
@@ -84,7 +89,12 @@ export function WorkbookHistoryEvent({
         <div style={detailStyle}>
           <p style={metadataStyle}>
             Exact committed timestamp:{" "}
-            <time dateTime={event.committedAt}>{event.committedAt}</time>
+            <time
+              data-generated-metadata="history-exact-time"
+              dateTime={event.committedAt}
+            >
+              {event.committedAt}
+            </time>
           </p>
           {event.units.map((unit) => (
             <section key={unit.key} style={unitStyle} aria-label={unit.title}>
@@ -102,9 +112,14 @@ export function WorkbookHistoryEvent({
             fields={[
               ...event.technicalFields,
               ...event.units.flatMap((unit) => [
-                { label: `${unit.title}: unit reference`, value: unit.key },
+                {
+                  label: `${unit.title}: unit reference`,
+                  value: unit.key,
+                  generatedMetadata: "history-unit-reference" as const,
+                },
                 {
                   label: `${unit.title}: record references`,
+                  generatedMetadata: "history-record-references" as const,
                   value: unit.recordIds.join(", "),
                 },
                 ...unit.changes.map((change) => ({

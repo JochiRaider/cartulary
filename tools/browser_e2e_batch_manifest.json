@@ -1464,6 +1464,7 @@
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "harness.browser.boundary_support.frontend_artifact_lifetime",
+            "harness.browser.boundary_support.timeline_investigation_capture",
             "harness.browser.boundary_support.visual_anchor_geometry",
             "harness.browser.boundary_support.visual_asset_failure",
             "harness.browser.boundary_support.visual_preference_lifetime"

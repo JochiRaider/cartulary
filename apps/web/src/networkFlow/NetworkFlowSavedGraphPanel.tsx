@@ -401,8 +401,11 @@ export function NetworkFlowSavedGraphPanel({
                   data-projection-result-id={result.projection_result_id}
                 >
                   <p style={summaryStyle}>
-                    Result {shortIdentity(result.projection_result_id)} ·{" "}
-                    {vertices.length} vertices · {edges.length} edges
+                    Result{" "}
+                    <span data-generated-metadata="graph-result-id">
+                      {shortIdentity(result.projection_result_id)}
+                    </span>{" "}
+                    · {vertices.length} vertices · {edges.length} edges
                   </p>
                   {vertices.length > vertexPageSize ||
                   edges.length > edgePageSize ? (

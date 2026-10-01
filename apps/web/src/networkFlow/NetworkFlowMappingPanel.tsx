@@ -145,7 +145,11 @@ export function NetworkFlowMappingPanel({
           ) : null}
           {job ? (
             <p>
-              Job {job.resource.job_id}: {humanize(job.resource.status)} ·{" "}
+              Job{" "}
+              <span data-generated-metadata="network-flow-job-id">
+                {job.resource.job_id}
+              </span>
+              : {humanize(job.resource.status)} ·{" "}
               {job.observing
                 ? "observing"
                 : job.current

@@ -280,21 +280,36 @@ export function TimelineSupersessionEditor({
     >
       <strong>Supersede Timeline row</strong>
       <p>
-        Target: {target.label} ({target.recordId}), version {target.rowVersion}
+        Target: {target.label} (
+        <span data-generated-metadata="supersession-record-reference">
+          {target.recordId}
+        </span>
+        ), version {target.rowVersion}
       </p>
       <p>{timelineSupersessionConsequence}</p>
       {review ? (
         <>
           <section aria-label="Review Timeline supersession">
             <p>
-              Supersede {review.target.label} ({review.target.recordId}),
-              version {review.target.rowVersion}.
+              Supersede {review.target.label} (
+              <span data-generated-metadata="supersession-record-reference">
+                {review.target.recordId}
+              </span>
+              ), version {review.target.rowVersion}.
             </p>
             <p style={{ whiteSpace: "pre-wrap" }}>Reason: {review.reason}</p>
             <p>
-              {review.replacement
-                ? `Replacement: ${review.replacement.label} (${review.replacement.recordId})`
-                : "No replacement will be linked."}
+              {review.replacement ? (
+                <>
+                  Replacement: {review.replacement.label} (
+                  <span data-generated-metadata="supersession-record-reference">
+                    {review.replacement.recordId}
+                  </span>
+                  )
+                </>
+              ) : (
+                "No replacement will be linked."
+              )}
             </p>
             <p>
               The change and reason will be attributed to your account in

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_visual_timeline_profiles.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.frontend_visual_timeline_profiles.v1"
+    },
+    "dataset_id": {
+      "const": "timeline-investigation-rich-v1"
+    },
+    "captures": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "capture_id": {
+            "type": "string",
+            "pattern": "^visual\\.capture\\.[a-f0-9]{20}$"
+          },
+          "golden_path": {
+            "type": "string",
+            "pattern": "^apps/web/e2e/workbook\\.visual\\.spec\\.ts-snapshots/[a-z0-9-]+-linux\\.png$"
+          },
+          "kind": {
+            "enum": [
+              "rich",
+              "empty",
+              "sparse"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "capture_id",
+          "golden_path",
+          "kind",
+          "reason"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_id",
+    "dataset_id",
+    "captures"
+  ]
+}

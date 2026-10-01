@@ -538,6 +538,67 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.timeline_investigation_capture",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/visual-harness.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_investigation_capture"
+        ],
+        "titles": [
+          "rich Timeline recipe preserves owner states and source text during capture preparation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.boundary_support.timeline_investigation_recipe",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/timeline/timelineInvestigation.test.ts",
+        "titles": [
+          "Timeline visual scenario admission composes complete mutable specimens without changing the shared core",
+          "Timeline visual scenario admission rejects missing source specimens and owner-managed seed fields",
+          "Timeline visual scenario admission requires exact capture profiles with explicit empty and sparse exceptions",
+          "representative Timeline recipe covers all 24 fields and shares the authored core across both continuation sizes",
+          "representative Timeline recipe does not retry or substitute success after an owner operation fails",
+          "representative Timeline recipe rejects unsupported data before acquiring an incident"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.boundary_support.timingsupport_dom_suite_6614d14ea5",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",

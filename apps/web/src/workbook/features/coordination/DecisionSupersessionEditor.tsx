@@ -191,7 +191,11 @@ export function DecisionSupersessionEditor({
     >
       <h4 style={workbookFormHeadingStyle}>Supersede Decision</h4>
       <p>
-        Target: {target.label} ({target.recordId}) — {target.status}
+        Target: {target.label} (
+        <span data-generated-metadata="supersession-record-reference">
+          {target.recordId}
+        </span>
+        ) — {target.status}
       </p>
       {targetProblem ? <p role="status">{targetProblem}</p> : null}
       <label>
@@ -308,13 +312,20 @@ export function DecisionSupersessionEditor({
         >
           <strong>Review supersession</strong>
           <p>
-            Target: {reviewed.target.label} ({reviewed.target.recordId}),{" "}
-            {reviewed.target.status}, version {reviewed.target.baseRowVersion}.
+            Target: {reviewed.target.label} (
+            <span data-generated-metadata="supersession-record-reference">
+              {reviewed.target.recordId}
+            </span>
+            ), {reviewed.target.status}, version{" "}
+            {reviewed.target.baseRowVersion}.
           </p>
           <p>
             Replacement: {reviewed.replacement.label} (
-            {reviewed.replacement.recordId}), {reviewed.replacement.status},
-            loaded version {reviewed.replacement.baseRowVersion}.
+            <span data-generated-metadata="supersession-record-reference">
+              {reviewed.replacement.recordId}
+            </span>
+            ), {reviewed.replacement.status}, loaded version{" "}
+            {reviewed.replacement.baseRowVersion}.
           </p>
           <p>
             {decisionConsequence(reviewed.target.status)} The replacement is

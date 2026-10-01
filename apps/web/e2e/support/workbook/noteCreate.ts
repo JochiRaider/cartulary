@@ -17,7 +17,7 @@ import {
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
-import { createViewRow } from "./query";
+import { createViewRow, type SuppliedSourceFixture } from "./query";
 import { openRecoveryItem, recoveryEntry } from "./recovery";
 import {
   openGenericInspectorForRecord,
@@ -34,18 +34,23 @@ export async function openNoteFixture(
   page: Page,
   view: string = timelineViewSchemaId,
   navigate: (url: string) => Promise<unknown> = (url) => page.goto(url),
+  supplied?: SuppliedSourceFixture,
 ) {
-  const incident = await createIncident(
-    page,
-    uniqueIncidentKey("LINKED-NOTE"),
-    "Source-linked Note authoring",
-  );
+  const incident =
+    supplied?.incidentId ??
+    (await createIncident(
+      page,
+      uniqueIncidentKey("LINKED-NOTE"),
+      "Source-linked Note authoring",
+    ));
   const field = noteSourceFields[view as keyof typeof noteSourceFields];
   if (!field) throw new Error("Unsupported Note source fixture");
-  const source = await createViewRow(page, incident, view, {
-    client_txn_id: uniqueTxn("note-source"),
-    [field]: "Reviewed investigation source",
-  });
+  const source =
+    supplied?.source ??
+    (await createViewRow(page, incident, view, {
+      client_txn_id: uniqueTxn("note-source"),
+      [field]: "Reviewed investigation source",
+    }));
   await navigate(
     `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(view)}`,
   );

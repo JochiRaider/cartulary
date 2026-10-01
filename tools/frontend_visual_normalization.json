@@ -1,0 +1,4984 @@
+{
+  "schema_id": "cartulary.frontend_visual_normalization.v1",
+  "captures": {
+    "workbook-view-bar-maximum-pressure-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "network-flow-analysis-saved-graph-result": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "graph-result-id",
+        "target": "[data-generated-metadata=\"graph-result-id\"]",
+        "replacement": "gpres_VISUAL\u2026RESULT",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "auth-mobile": [],
+    "membership-audit-cursor-recovery": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "lifecycle-review": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-incident-id",
+        "target": "[data-generated-metadata=\"lifecycle-incident-id\"]",
+        "expected_count": 1,
+        "replacement": "00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "id": "lifecycle-review-key",
+        "target": "[data-generated-metadata=\"lifecycle-review-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "metadata-review-zoom": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-management-removal-narrow": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "contextual-task_request-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "incident-import-admission-pending": [],
+    "account-settings-appearance-zoom": [],
+    "record-relationships-task-requests": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "metadata-saving": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "lifecycle-reason": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "workbook-inspector-destructive-confirmation": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-actor",
+        "target": "[data-generated-metadata=\"history-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 4
+      },
+      {
+        "id": "history-exact-time",
+        "target": "[data-generated-metadata=\"history-exact-time\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 4
+      },
+      {
+        "id": "history-record-references",
+        "target": "[data-generated-metadata=\"history-record-references\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 22
+      },
+      {
+        "id": "history-time",
+        "target": "[data-generated-metadata=\"history-time\"]",
+        "replacement": "2025-01-01 00:00:00 UTC +00:00",
+        "expected_count": 4
+      },
+      {
+        "id": "history-unit-reference",
+        "target": "[data-generated-metadata=\"history-unit-reference\"]",
+        "replacement": "unit.VISUAL-FIXTURE",
+        "expected_count": 22
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-actor-id",
+        "target": "[data-generated-metadata=\"technical-actor-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-change-set-id",
+        "target": "[data-generated-metadata=\"technical-change-set-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-history-entry",
+        "target": "[data-generated-metadata=\"technical-history-entry\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-history-reference",
+        "target": "[data-generated-metadata=\"technical-history-reference\"]",
+        "replacement": "hitem.VISUAL-FIXTURE",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 3
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "timeline-related-evidence-authoring-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "contextual-task_request-references-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "evidence-grid-blocked-preview": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-conflict-resolver": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "conflict-record-reference",
+        "target": "[data-generated-metadata=\"conflict-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "recovery-origin-reference",
+        "target": "[data-generated-metadata=\"recovery-origin-reference\"]",
+        "replacement": "Timeline: 00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      }
+    ],
+    "contextual-task_request-recovery": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "design-exposed-theme-states": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-grid-conflict-resolver": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "conflict-record-reference",
+        "target": "[data-generated-metadata=\"conflict-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "recovery-origin-reference",
+        "target": "[data-generated-metadata=\"recovery-origin-reference\"]",
+        "replacement": "Timeline: 00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      }
+    ],
+    "auth-loading": [],
+    "workbook-preferences-unset": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "linked-note-recovery-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-conflict-strip": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-create-expanded-details": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "workbook-inspector-details": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "timeline-mutation-transaction-recovery-panel": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "metadata-closed": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-access-retry": [],
+    "account-menu-directory-root": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 2
+      },
+      {
+        "id": "directory-incident-key",
+        "target": "[data-generated-metadata=\"directory-incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "directory-updated-at",
+        "target": "[data-generated-metadata=\"directory-updated-at\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "timeline-grid-timeline-default": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "account-menu-deployment-root": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 2
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-recovery-short": [],
+    "timeline-grid-saved-strip": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-audit-empty": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-query-empty-zoom-200": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "ordinary-recovery-390": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "decision-supersession-review-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-record-reference",
+        "target": "[data-generated-metadata=\"supersession-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 3
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "workbook-inspector-public-error": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-actor",
+        "target": "[data-generated-metadata=\"history-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 4
+      },
+      {
+        "id": "history-exact-time",
+        "target": "[data-generated-metadata=\"history-exact-time\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 4
+      },
+      {
+        "id": "history-record-references",
+        "target": "[data-generated-metadata=\"history-record-references\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 22
+      },
+      {
+        "id": "history-time",
+        "target": "[data-generated-metadata=\"history-time\"]",
+        "replacement": "2025-01-01 00:00:00 UTC +00:00",
+        "expected_count": 4
+      },
+      {
+        "id": "history-unit-reference",
+        "target": "[data-generated-metadata=\"history-unit-reference\"]",
+        "replacement": "unit.VISUAL-FIXTURE",
+        "expected_count": 22
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-actor-id",
+        "target": "[data-generated-metadata=\"technical-actor-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-change-set-id",
+        "target": "[data-generated-metadata=\"technical-change-set-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-history-entry",
+        "target": "[data-generated-metadata=\"technical-history-entry\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-history-reference",
+        "target": "[data-generated-metadata=\"technical-history-reference\"]",
+        "replacement": "hitem.VISUAL-FIXTURE",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "ordinary-closed-retained-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "coordination-recovery-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-audit-compact": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "membership-audit-incident-id",
+        "target": "[data-generated-metadata=\"membership-audit-incident-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-recovery-zoom": [],
+    "workbook-view-bar-long-columns": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-preferences-comfortable": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-queued-indeterminate": [],
+    "workbook-inspector-history": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-actor",
+        "target": "[data-generated-metadata=\"history-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 4
+      },
+      {
+        "id": "history-exact-time",
+        "target": "[data-generated-metadata=\"history-exact-time\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 4
+      },
+      {
+        "id": "history-record-references",
+        "target": "[data-generated-metadata=\"history-record-references\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 22
+      },
+      {
+        "id": "history-time",
+        "target": "[data-generated-metadata=\"history-time\"]",
+        "replacement": "2025-01-01 00:00:00 UTC +00:00",
+        "expected_count": 4
+      },
+      {
+        "id": "history-unit-reference",
+        "target": "[data-generated-metadata=\"history-unit-reference\"]",
+        "replacement": "unit.VISUAL-FIXTURE",
+        "expected_count": 22
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-actor-id",
+        "target": "[data-generated-metadata=\"technical-actor-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-change-set-id",
+        "target": "[data-generated-metadata=\"technical-change-set-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-history-entry",
+        "target": "[data-generated-metadata=\"technical-history-entry\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-history-reference",
+        "target": "[data-generated-metadata=\"technical-history-reference\"]",
+        "replacement": "hitem.VISUAL-FIXTURE",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "workbook-query-empty-closed-read-only": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "indicator-lifecycle-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "indicator-lifecycle-authoring-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "collaboration-grid-syncing-strip": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-view-bar-maximum-pressure-base": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-inspector-compact-actions": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "membership-audit-stale": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "membership-audit-incident-id",
+        "target": "[data-generated-metadata=\"membership-audit-incident-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      }
+    ],
+    "membership-management-pending": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-grid-grouped-grid": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-action-checking": [],
+    "network-flow-analysis-delete-dialog": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "graph-result-id",
+        "target": "[data-generated-metadata=\"graph-result-id\"]",
+        "replacement": "gpres_VISUAL\u2026RESULT",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "auth-mfa-setup-required": [],
+    "timeline-grid-syncing-strip": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-grid-blocked-conflict": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "conflict-record-reference",
+        "target": "[data-generated-metadata=\"conflict-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "recovery-origin-reference",
+        "target": "[data-generated-metadata=\"recovery-origin-reference\"]",
+        "replacement": "Timeline: 00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      }
+    ],
+    "linked-note-source-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "workbook-query-empty-density-comfortable": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-view-bar-maximum-pressure-compact": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "reference-pack-queued": [],
+    "workbook-inspector-rollback-preview": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-actor",
+        "target": "[data-generated-metadata=\"history-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 4
+      },
+      {
+        "id": "history-exact-time",
+        "target": "[data-generated-metadata=\"history-exact-time\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 4
+      },
+      {
+        "id": "history-record-references",
+        "target": "[data-generated-metadata=\"history-record-references\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 22
+      },
+      {
+        "id": "history-time",
+        "target": "[data-generated-metadata=\"history-time\"]",
+        "replacement": "2025-01-01 00:00:00 UTC +00:00",
+        "expected_count": 4
+      },
+      {
+        "id": "history-unit-reference",
+        "target": "[data-generated-metadata=\"history-unit-reference\"]",
+        "replacement": "unit.VISUAL-FIXTURE",
+        "expected_count": 22
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-actor-id",
+        "target": "[data-generated-metadata=\"technical-actor-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-change-set-id",
+        "target": "[data-generated-metadata=\"technical-change-set-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-history-entry",
+        "target": "[data-generated-metadata=\"technical-history-entry\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      },
+      {
+        "id": "technical-history-reference",
+        "target": "[data-generated-metadata=\"technical-history-reference\"]",
+        "replacement": "hitem.VISUAL-FIXTURE",
+        "expected_count": 5
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 3
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "account-settings-profile-pending": [],
+    "lifecycle-confirmed-refresh-failure": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-closed-at",
+        "target": "[data-generated-metadata=\"incident-closed-at\"]",
+        "expected_count": 1,
+        "replacement": "2025-01-01T00:00:00Z"
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "timeline-supersession-accepted": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-change-set",
+        "target": "[data-generated-metadata=\"supersession-change-set\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-record-reference",
+        "target": "[data-generated-metadata=\"supersession-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "auth-reduced-motion": [],
+    "incident-create-required-errors": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "evidence-affordance-states": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "evidence-edited-at",
+        "target": "[data-generated-metadata=\"evidence-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 8
+      },
+      {
+        "id": "evidence-inspector-edited-at",
+        "target": "[data-generated-metadata=\"evidence-inspector-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "metadata-loading": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "network-flow-analysis-accepted-inspector": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "contextual-task_request-recovery-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-related-evidence-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "design-delayed-initial-loading": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "metadata-dirty": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "reference-pack-succeeded": [],
+    "account-settings-appearance-pending": [],
+    "coordination-comm_log-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "workbook-view-bar-saved-view-modified": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "indicator-observation-authoring-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "timeline-grid-conflict-strip": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "contextual-decision-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "timeline-mutation-active-edit-cell": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "evidence-grid-requested-evidence": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-directory-narrow-desktop-workbook-shell": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "decision-supersession-accepted": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-change-set",
+        "target": "[data-generated-metadata=\"supersession-change-set\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-record-reference",
+        "target": "[data-generated-metadata=\"supersession-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 4
+      }
+    ],
+    "evidence-grid-timeline-evidence-badge": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "account-settings-appearance-conflict": [],
+    "network-flow-analysis-narrow-query-controls": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-view-bar-saved-view-clean": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-query-empty-successful-query": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-grid-saved-strip": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "administrative-audit-inspected-narrow": [],
+    "incident-import-observation-unavailable": [],
+    "incident-create-pending": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "membership-audit-inspected-spacing": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-related-evidence-party-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-canceled": [],
+    "timeline-related-evidence-partial": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-directory-compact-desktop-workbook-shell": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "contextual-decision-recovery": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "metadata-confirmed-refresh-failure": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-supersession-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-actor",
+        "target": "[data-generated-metadata=\"history-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-exact-time",
+        "target": "[data-generated-metadata=\"history-exact-time\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 1
+      },
+      {
+        "id": "history-record-references",
+        "target": "[data-generated-metadata=\"history-record-references\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 19
+      },
+      {
+        "id": "history-time",
+        "target": "[data-generated-metadata=\"history-time\"]",
+        "replacement": "2025-01-01 00:00:00 UTC +00:00",
+        "expected_count": 1
+      },
+      {
+        "id": "history-unit-reference",
+        "target": "[data-generated-metadata=\"history-unit-reference\"]",
+        "replacement": "unit.VISUAL-FIXTURE",
+        "expected_count": 19
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-record-reference",
+        "target": "[data-generated-metadata=\"supersession-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-actor-id",
+        "target": "[data-generated-metadata=\"technical-actor-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-change-set-id",
+        "target": "[data-generated-metadata=\"technical-change-set-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-history-entry",
+        "target": "[data-generated-metadata=\"technical-history-entry\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-history-reference",
+        "target": "[data-generated-metadata=\"technical-history-reference\"]",
+        "replacement": "hitem.VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "coordination-lesson-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "membership-audit-loading": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "reference-pack-selection": [],
+    "membership-management-confirmed-refresh-failure": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-view-bar-zoom-200": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "contextual-task_request-authoring-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "contextual-decision-references-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "metadata-review-spacing": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-query-empty-density-compact": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-related-evidence-partial-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-grid-recovered-saved-strip": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-grid-presence-markers": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "account-settings-appearance-text-spacing": [],
+    "collaboration-grid-conflict-resolver-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "conflict-record-reference",
+        "target": "[data-generated-metadata=\"conflict-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "recovery-origin-reference",
+        "target": "[data-generated-metadata=\"recovery-origin-reference\"]",
+        "replacement": "Timeline: 00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      }
+    ],
+    "administrative-audit-stale": [],
+    "incident-directory-default-timeline-workbook-shell": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "coordination-source-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-running-determinate": [],
+    "membership-audit-inspected-zoom": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "auth-service-unavailable": [],
+    "lifecycle-comfortable": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-closed-at",
+        "target": "[data-generated-metadata=\"incident-closed-at\"]",
+        "expected_count": 1,
+        "replacement": "2025-01-01T00:00:00Z"
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-incident-id",
+        "target": "[data-generated-metadata=\"lifecycle-incident-id\"]",
+        "expected_count": 1,
+        "replacement": "00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "id": "lifecycle-review-key",
+        "target": "[data-generated-metadata=\"lifecycle-review-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "incident-create-confirmed-handoff-failure": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "membership-management-loading": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "auth-submitting": [],
+    "timeline-grid-active-edit-cell": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-preferences-uncertain": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "lifecycle-pending": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-closed-at",
+        "target": "[data-generated-metadata=\"incident-closed-at\"]",
+        "expected_count": 1,
+        "replacement": "2025-01-01T00:00:00Z"
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-incident-id",
+        "target": "[data-generated-metadata=\"lifecycle-incident-id\"]",
+        "expected_count": 1,
+        "replacement": "00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "id": "lifecycle-review-key",
+        "target": "[data-generated-metadata=\"lifecycle-review-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "workbook-preferences-uncertain-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "administrative-audit-inspected-zoom": [],
+    "workbook-view-bar-text-spacing": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-query-empty-text-spacing": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "account-settings-appearance-recovery": [],
+    "account-settings-profile-dirty": [],
+    "workbook-query-empty-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "lifecycle-closed": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-closed-at",
+        "target": "[data-generated-metadata=\"incident-closed-at\"]",
+        "expected_count": 1,
+        "replacement": "2025-01-01T00:00:00Z"
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "network-flow-analysis-mapping-dialog": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "network-flow-job-id",
+        "target": "[data-generated-metadata=\"network-flow-job-id\"]",
+        "expected_count": 1,
+        "replacement": "00000000-0000-0000-0000-000000000000"
+      }
+    ],
+    "workbook-preferences-confirmed-stale": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-create-recovery-short": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "administrative-audit-inspected": [],
+    "workbook-preferences-compact": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-audit-inspected-narrow": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-empty": [],
+    "auth-focused": [],
+    "incident-import-handoff-unavailable": [],
+    "membership-management-role": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "reference-pack-catalog": [],
+    "linked-note-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "reference-pack-cancel-requested": [],
+    "workbook-view-bar-filter-editing-overflow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-audit-comfortable": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-audit-inspected": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "membership-audit-incident-id",
+        "target": "[data-generated-metadata=\"membership-audit-incident-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      }
+    ],
+    "timeline-mutation-empty-timeline-query": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "linked-note-recovery": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-create-recovery-zoom": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "reference-pack-canceled": [],
+    "timeline-mutation-pending-replay-status": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-required": [],
+    "design-immediate-initial-loading": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "ordinary-reference-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "account-menu-controls-short": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 2
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "auth-200-zoom": [],
+    "reference-pack-submitted": [],
+    "account-menu-long-label-zoom": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "administrative-audit-inspected-spacing": [],
+    "timeline-mutation-transaction-recovery-panel-compact": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "contextual-decision-authoring-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "membership-management-uncertain": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "record-relationships-evidence-access": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "coordination-handoff-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-recovery-text-spacing": [],
+    "account-menu-controls-compact": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 2
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-query-saved-view-query-controls": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-management-comfortable": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "evidence-timeline-evidence-count": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "lifecycle-review-spacing": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-incident-id",
+        "target": "[data-generated-metadata=\"lifecycle-incident-id\"]",
+        "expected_count": 1,
+        "replacement": "00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "id": "lifecycle-review-key",
+        "target": "[data-generated-metadata=\"lifecycle-review-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "metadata-review-narrow": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "coordination-recovery": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-failed": [],
+    "reference-pack-observation-recovery": [],
+    "incident-create-initial": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "reference-pack-recovery-short": [],
+    "entity-mention-chip-states": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "network-flow-analysis-filtered-empty-grid": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-management-compact": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-inspector-attached-edit": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "auth-invalid-credentials": [],
+    "design-grid-background-refresh": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-recovered-saved-strip": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-mutation-transaction-recovery-panel-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "auth-invalid-mfa": [],
+    "reference-pack-running": [],
+    "design-grid-unavailable-initial-load": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "design-grid-stale-refresh": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "coordination-status_review-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "administrative-audit-page-two": [],
+    "reference-pack-failed": [],
+    "lifecycle-uncertain": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-closed-at",
+        "target": "[data-generated-metadata=\"incident-closed-at\"]",
+        "expected_count": 1,
+        "replacement": "2025-01-01T00:00:00Z"
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "design-grid-closed-read-only-rows": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "record-relationships-mention-chips": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "incident-create-recovery-text-spacing": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "session-actor",
+        "target": "[data-generated-metadata=\"session-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      }
+    ],
+    "account-settings-appearance-dirty": [],
+    "reference-pack-recovery-spacing": [],
+    "account-settings-profile-conflict": [],
+    "workbook-query-filtered-empty": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-view-bar-ordered-maximum-sort": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "network-flow-analysis-rejected-diagnostics": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "collaboration-presence-markers": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "metadata-uncertain": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "auth-mfa-required": [],
+    "administrative-audit-empty": [],
+    "administrative-audit-unavailable": [],
+    "indicator-observation-authoring": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "workbook-inspector-relationships": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "metadata-compact": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-inspector-retained-draft": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "network-flow-analysis-compact-saved-graphs": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "graph-result-id",
+        "target": "[data-generated-metadata=\"graph-result-id\"]",
+        "replacement": "gpres_VISUAL\u2026RESULT",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "workbook-query-empty-compact": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-supersession-review": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-actor",
+        "target": "[data-generated-metadata=\"history-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-exact-time",
+        "target": "[data-generated-metadata=\"history-exact-time\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 1
+      },
+      {
+        "id": "history-record-references",
+        "target": "[data-generated-metadata=\"history-record-references\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 19
+      },
+      {
+        "id": "history-time",
+        "target": "[data-generated-metadata=\"history-time\"]",
+        "replacement": "2025-01-01 00:00:00 UTC +00:00",
+        "expected_count": 1
+      },
+      {
+        "id": "history-unit-reference",
+        "target": "[data-generated-metadata=\"history-unit-reference\"]",
+        "replacement": "unit.VISUAL-FIXTURE",
+        "expected_count": 19
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-record-reference",
+        "target": "[data-generated-metadata=\"supersession-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 3
+      },
+      {
+        "id": "technical-actor-id",
+        "target": "[data-generated-metadata=\"technical-actor-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-change-set-id",
+        "target": "[data-generated-metadata=\"technical-change-set-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-history-entry",
+        "target": "[data-generated-metadata=\"technical-history-entry\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-history-reference",
+        "target": "[data-generated-metadata=\"technical-history-reference\"]",
+        "replacement": "hitem.VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "lifecycle-review-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-incident-id",
+        "target": "[data-generated-metadata=\"lifecycle-incident-id\"]",
+        "expected_count": 1,
+        "replacement": "00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "id": "lifecycle-review-key",
+        "target": "[data-generated-metadata=\"lifecycle-review-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "account-menu-long-label-text-spacing": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "timeline-supersession-review-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-actor",
+        "target": "[data-generated-metadata=\"history-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "history-exact-time",
+        "target": "[data-generated-metadata=\"history-exact-time\"]",
+        "replacement": "2025-01-01T00:00:00Z",
+        "expected_count": 1
+      },
+      {
+        "id": "history-record-references",
+        "target": "[data-generated-metadata=\"history-record-references\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 19
+      },
+      {
+        "id": "history-time",
+        "target": "[data-generated-metadata=\"history-time\"]",
+        "replacement": "2025-01-01 00:00:00 UTC +00:00",
+        "expected_count": 1
+      },
+      {
+        "id": "history-unit-reference",
+        "target": "[data-generated-metadata=\"history-unit-reference\"]",
+        "replacement": "unit.VISUAL-FIXTURE",
+        "expected_count": 19
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-record-reference",
+        "target": "[data-generated-metadata=\"supersession-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 3
+      },
+      {
+        "id": "technical-actor-id",
+        "target": "[data-generated-metadata=\"technical-actor-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-change-set-id",
+        "target": "[data-generated-metadata=\"technical-change-set-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-history-entry",
+        "target": "[data-generated-metadata=\"technical-history-entry\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-history-reference",
+        "target": "[data-generated-metadata=\"technical-history-reference\"]",
+        "replacement": "hitem.VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "reference-pack-recovery-zoom": [],
+    "incident-import-cancel-requested": [],
+    "lifecycle-compact": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-closed-at",
+        "target": "[data-generated-metadata=\"incident-closed-at\"]",
+        "expected_count": 1,
+        "replacement": "2025-01-01T00:00:00Z"
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-incident-id",
+        "target": "[data-generated-metadata=\"lifecycle-incident-id\"]",
+        "expected_count": 1,
+        "replacement": "00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "id": "lifecycle-review-key",
+        "target": "[data-generated-metadata=\"lifecycle-review-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "contextual-decision-recovery-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "account-settings-appearance-short": [],
+    "evidence-grid-available-evidence": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "decision-supersession-review": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "supersession-record-reference",
+        "target": "[data-generated-metadata=\"supersession-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 3
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      }
+    ],
+    "account-settings-profile-recovery": [],
+    "administrative-audit-loading": [],
+    "workbook-view-bar-saved-view-actions": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "metadata-comfortable": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "ordinary-recovery-1280": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "account-menu-workbook-root": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 2
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-succeeded": [],
+    "timeline-grid-adapter-fixtures": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "linked-note-authoring-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "incident-import-action-unconfirmed": [],
+    "workbook-inspector-narrow-technical-details": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "technical-record-id",
+        "target": "[data-generated-metadata=\"technical-record-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 2
+      },
+      {
+        "id": "timeline-edited-at",
+        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      },
+      {
+        "id": "timeline-recorded-at",
+        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
+        "replacement": "2025-01-01T00:00:00.000000Z",
+        "expected_count": 1
+      }
+    ],
+    "metadata-conflict": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "account-settings-profile-long-name": [],
+    "membership-management-removal-spacing": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "auth-initial": [],
+    "lifecycle-review-zoom": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-summary-key",
+        "target": "[data-generated-metadata=\"incident-summary-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-current-key",
+        "target": "[data-generated-metadata=\"lifecycle-current-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      },
+      {
+        "id": "lifecycle-incident-id",
+        "target": "[data-generated-metadata=\"lifecycle-incident-id\"]",
+        "expected_count": 1,
+        "replacement": "00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "id": "lifecycle-review-key",
+        "target": "[data-generated-metadata=\"lifecycle-review-key\"]",
+        "expected_count": 1,
+        "replacement": "IR-VISUAL-FIXTURE"
+      }
+    ],
+    "collaboration-grid-conflict-resolver-compact": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "conflict-record-reference",
+        "target": "[data-generated-metadata=\"conflict-record-reference\"]",
+        "replacement": "00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      },
+      {
+        "id": "recovery-origin-reference",
+        "target": "[data-generated-metadata=\"recovery-origin-reference\"]",
+        "replacement": "Timeline: 00000000-0000-0000-0000-000000000000",
+        "expected_count": 1
+      }
+    ],
+    "account-menu-controls-narrow": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 2
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "network-flow-analysis-graph-contributors": [
+      {
+        "id": "account-actor",
+        "target": "[data-generated-metadata=\"account-actor\"]",
+        "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ],
+    "membership-management-removal-zoom": [
+      {
+        "id": "incident-key",
+        "target": "[data-generated-metadata=\"incident-key\"]",
+        "replacement": "IR-VISUAL-FIXTURE",
+        "expected_count": 1
+      }
+    ]
+  },
+  "bindings": {
+    "workbook-view-bar-maximum-pressure-narrow": {
+      "capture_id": "visual.capture.000d8edec05917c8680f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-narrow-linux.png"
+    },
+    "network-flow-analysis-saved-graph-result": {
+      "capture_id": "visual.capture.0014ce4127fbfd96db7a",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png"
+    },
+    "auth-mobile": {
+      "capture_id": "visual.capture.00320cb9a9b33f98be2b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mobile-linux.png"
+    },
+    "membership-audit-cursor-recovery": {
+      "capture_id": "visual.capture.004d9c4b1ba9285c9a45",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-cursor-recovery-linux.png"
+    },
+    "lifecycle-review": {
+      "capture_id": "visual.capture.009315438240bf6d5a7d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-linux.png"
+    },
+    "metadata-review-zoom": {
+      "capture_id": "visual.capture.00ea8c6347526eb87775",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-zoom-linux.png"
+    },
+    "membership-management-removal-narrow": {
+      "capture_id": "visual.capture.00f7c068d36017c70d3c",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-narrow-linux.png"
+    },
+    "contextual-task_request-authoring": {
+      "capture_id": "visual.capture.010db75b102f203f2286",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-linux.png"
+    },
+    "incident-import-admission-pending": {
+      "capture_id": "visual.capture.0119daf82e92403b2c07",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-admission-pending-linux.png"
+    },
+    "account-settings-appearance-zoom": {
+      "capture_id": "visual.capture.01970efeeeb45effc70e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-zoom-linux.png"
+    },
+    "record-relationships-task-requests": {
+      "capture_id": "visual.capture.01b96e83320b93460e07",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-task-requests-linux.png"
+    },
+    "metadata-saving": {
+      "capture_id": "visual.capture.048441e5821b032d0f67",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-saving-linux.png"
+    },
+    "lifecycle-reason": {
+      "capture_id": "visual.capture.048bb8a82f5679c1acf3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-reason-linux.png"
+    },
+    "workbook-inspector-destructive-confirmation": {
+      "capture_id": "visual.capture.06903c2d94c98d2d2eaf",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png"
+    },
+    "timeline-related-evidence-authoring-narrow": {
+      "capture_id": "visual.capture.07abf9bcf805add36738",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-narrow-linux.png"
+    },
+    "contextual-task_request-references-narrow": {
+      "capture_id": "visual.capture.08039628dabdd01901dd",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-references-narrow-linux.png"
+    },
+    "evidence-grid-blocked-preview": {
+      "capture_id": "visual.capture.08fb74af7c121f4c746b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-blocked-preview-linux.png"
+    },
+    "collaboration-conflict-resolver": {
+      "capture_id": "visual.capture.0a1171abb1b3e2e4a62c",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png"
+    },
+    "contextual-task_request-recovery": {
+      "capture_id": "visual.capture.0a3f3690592b622a6288",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-recovery-linux.png"
+    },
+    "design-exposed-theme-states": {
+      "capture_id": "visual.capture.0bd4cd929dada8156cf2",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png"
+    },
+    "collaboration-grid-conflict-resolver": {
+      "capture_id": "visual.capture.0ce471473d73f40fe38e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png"
+    },
+    "auth-loading": {
+      "capture_id": "visual.capture.0d4f8c5fc01a05341769",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-loading-linux.png"
+    },
+    "workbook-preferences-unset": {
+      "capture_id": "visual.capture.0e33fae0c136cd1a3309",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-unset-linux.png"
+    },
+    "linked-note-recovery-narrow": {
+      "capture_id": "visual.capture.0f6082dcb8e7ec9c062f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-narrow-linux.png"
+    },
+    "collaboration-conflict-strip": {
+      "capture_id": "visual.capture.0ff4b295954ffbe6a6ba",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png"
+    },
+    "incident-create-expanded-details": {
+      "capture_id": "visual.capture.10c44722b7aa59411f31",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-expanded-details-linux.png"
+    },
+    "workbook-inspector-details": {
+      "capture_id": "visual.capture.1124de6a22d3e44e0f5f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-details-linux.png"
+    },
+    "timeline-mutation-transaction-recovery-panel": {
+      "capture_id": "visual.capture.124cf27d3d0177dea828",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png"
+    },
+    "metadata-closed": {
+      "capture_id": "visual.capture.136f66613d4eb5ebb348",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-closed-linux.png"
+    },
+    "incident-import-access-retry": {
+      "capture_id": "visual.capture.13ab41bc694a8e57754e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-access-retry-linux.png"
+    },
+    "account-menu-directory-root": {
+      "capture_id": "visual.capture.15139237bba7908f4c58",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-directory-root-linux.png"
+    },
+    "timeline-grid-timeline-default": {
+      "capture_id": "visual.capture.16689335246c227e88d8",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-timeline-default-linux.png"
+    },
+    "account-menu-deployment-root": {
+      "capture_id": "visual.capture.17e0b9ae241d550045ee",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-deployment-root-linux.png"
+    },
+    "incident-import-recovery-short": {
+      "capture_id": "visual.capture.180945c771465905ee0d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-short-linux.png"
+    },
+    "timeline-grid-saved-strip": {
+      "capture_id": "visual.capture.1827204bc9adeea930de",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-saved-strip-linux.png"
+    },
+    "membership-audit-empty": {
+      "capture_id": "visual.capture.188569fc954860444a99",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-empty-linux.png"
+    },
+    "workbook-query-empty-zoom-200": {
+      "capture_id": "visual.capture.1906a5e6fafb74a2acc9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-zoom-200-linux.png"
+    },
+    "ordinary-recovery-390": {
+      "capture_id": "visual.capture.19f35bdbc6ff546cd0ea",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-recovery-390-linux.png"
+    },
+    "decision-supersession-review-narrow": {
+      "capture_id": "visual.capture.1a8b2c9007adbde61581",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-narrow-linux.png"
+    },
+    "workbook-inspector-public-error": {
+      "capture_id": "visual.capture.1aebc4c7b4cfc2965a5f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png"
+    },
+    "ordinary-closed-retained-narrow": {
+      "capture_id": "visual.capture.1aef889a4b404d1f3aa2",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-closed-retained-narrow-linux.png"
+    },
+    "coordination-recovery-narrow": {
+      "capture_id": "visual.capture.1b5164dd291daeff516f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png"
+    },
+    "membership-audit-compact": {
+      "capture_id": "visual.capture.1ba7079890196b4a0003",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-compact-linux.png"
+    },
+    "incident-import-recovery-zoom": {
+      "capture_id": "visual.capture.1ec8609ea95a0a276ee1",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-zoom-linux.png"
+    },
+    "workbook-view-bar-long-columns": {
+      "capture_id": "visual.capture.1f0c5e239a5b50226642",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-long-columns-linux.png"
+    },
+    "workbook-preferences-comfortable": {
+      "capture_id": "visual.capture.1fbdc3fd547f52dc8eab",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-comfortable-linux.png"
+    },
+    "incident-import-queued-indeterminate": {
+      "capture_id": "visual.capture.1fd9540a1cfe30aafd91",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-queued-indeterminate-linux.png"
+    },
+    "workbook-inspector-history": {
+      "capture_id": "visual.capture.21a59ffec6a398738353",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png"
+    },
+    "workbook-query-empty-closed-read-only": {
+      "capture_id": "visual.capture.23f73af839fc55869642",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-closed-read-only-linux.png"
+    },
+    "indicator-lifecycle-authoring": {
+      "capture_id": "visual.capture.24cdae4ee2f0566b9bad",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-linux.png"
+    },
+    "indicator-lifecycle-authoring-narrow": {
+      "capture_id": "visual.capture.24d4875734ba06b1914f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-narrow-linux.png"
+    },
+    "collaboration-grid-syncing-strip": {
+      "capture_id": "visual.capture.250c90f59017d4fdaaa6",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png"
+    },
+    "workbook-view-bar-maximum-pressure-base": {
+      "capture_id": "visual.capture.255f84878da966bb6a2f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-base-linux.png"
+    },
+    "workbook-inspector-compact-actions": {
+      "capture_id": "visual.capture.26d4c9bb1434fa99f29b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-compact-actions-linux.png"
+    },
+    "membership-audit-stale": {
+      "capture_id": "visual.capture.2751e548dfa24d7fb9a3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-stale-linux.png"
+    },
+    "membership-management-pending": {
+      "capture_id": "visual.capture.278029016c6b60a9745a",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-pending-linux.png"
+    },
+    "timeline-grid-grouped-grid": {
+      "capture_id": "visual.capture.28368d3fafa98a438776",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-grouped-grid-linux.png"
+    },
+    "incident-import-action-checking": {
+      "capture_id": "visual.capture.29067b81d73887164c0e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-action-checking-linux.png"
+    },
+    "network-flow-analysis-delete-dialog": {
+      "capture_id": "visual.capture.292eae4fdd4ea231edd5",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-delete-dialog-linux.png"
+    },
+    "auth-mfa-setup-required": {
+      "capture_id": "visual.capture.2ca5b88903edfa15ab5d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-setup-required-linux.png"
+    },
+    "timeline-grid-syncing-strip": {
+      "capture_id": "visual.capture.2ca96dbc64da2900d56d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-syncing-strip-linux.png"
+    },
+    "collaboration-grid-blocked-conflict": {
+      "capture_id": "visual.capture.2ccc3a1200064e755088",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png"
+    },
+    "linked-note-source-narrow": {
+      "capture_id": "visual.capture.2e7d95ce6b3840cc81a7",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-source-narrow-linux.png"
+    },
+    "workbook-query-empty-density-comfortable": {
+      "capture_id": "visual.capture.30d95ea87bb7ba5570a4",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-density-comfortable-linux.png"
+    },
+    "workbook-view-bar-maximum-pressure-compact": {
+      "capture_id": "visual.capture.31051420009eef38c992",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-compact-linux.png"
+    },
+    "reference-pack-queued": {
+      "capture_id": "visual.capture.329a4b4de6565762ee79",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-queued-linux.png"
+    },
+    "workbook-inspector-rollback-preview": {
+      "capture_id": "visual.capture.3451d6d508d3782f0df3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png"
+    },
+    "account-settings-profile-pending": {
+      "capture_id": "visual.capture.34e59e63018b3721623b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-pending-linux.png"
+    },
+    "lifecycle-confirmed-refresh-failure": {
+      "capture_id": "visual.capture.35f4b8ca4813aa639b4d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-confirmed-refresh-failure-linux.png"
+    },
+    "timeline-supersession-accepted": {
+      "capture_id": "visual.capture.37b80519177fc24904ff",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-accepted-linux.png"
+    },
+    "auth-reduced-motion": {
+      "capture_id": "visual.capture.37e49539eff3fc22e841",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-reduced-motion-linux.png"
+    },
+    "incident-create-required-errors": {
+      "capture_id": "visual.capture.38385abd2fd326e6b0ca",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-required-errors-linux.png"
+    },
+    "evidence-affordance-states": {
+      "capture_id": "visual.capture.39bce0844ede522ac2e8",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png"
+    },
+    "metadata-loading": {
+      "capture_id": "visual.capture.3b6710f5709fc093a054",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-loading-linux.png"
+    },
+    "network-flow-analysis-accepted-inspector": {
+      "capture_id": "visual.capture.3c29ea9e2d992ca33e21",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png"
+    },
+    "contextual-task_request-recovery-narrow": {
+      "capture_id": "visual.capture.3c66cdc666f7ed8903f6",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-recovery-narrow-linux.png"
+    },
+    "timeline-related-evidence-authoring": {
+      "capture_id": "visual.capture.3d782a7e7d58929c9e62",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-linux.png"
+    },
+    "design-delayed-initial-loading": {
+      "capture_id": "visual.capture.3f34e7b4236421b3e863",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png"
+    },
+    "metadata-dirty": {
+      "capture_id": "visual.capture.4030c6a79227345943e0",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-dirty-linux.png"
+    },
+    "reference-pack-succeeded": {
+      "capture_id": "visual.capture.4035ba5536c267d88c99",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-succeeded-linux.png"
+    },
+    "account-settings-appearance-pending": {
+      "capture_id": "visual.capture.40e018c415b08874ac7d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-pending-linux.png"
+    },
+    "coordination-comm_log-authoring": {
+      "capture_id": "visual.capture.415d4003c382c81562c4",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png"
+    },
+    "workbook-view-bar-saved-view-modified": {
+      "capture_id": "visual.capture.41ad8eafac6d081ac683",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-modified-linux.png"
+    },
+    "indicator-observation-authoring-narrow": {
+      "capture_id": "visual.capture.42d65cdf1d6d6cc7a834",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-narrow-linux.png"
+    },
+    "timeline-grid-conflict-strip": {
+      "capture_id": "visual.capture.4374d10e8614d9732e75",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-conflict-strip-linux.png"
+    },
+    "contextual-decision-authoring": {
+      "capture_id": "visual.capture.44e851b61fcacf540838",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-authoring-linux.png"
+    },
+    "timeline-mutation-active-edit-cell": {
+      "capture_id": "visual.capture.45b0f9bac4c7f6bc0412",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png"
+    },
+    "evidence-grid-requested-evidence": {
+      "capture_id": "visual.capture.45f7ce6d292620442137",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-requested-evidence-linux.png"
+    },
+    "incident-directory-narrow-desktop-workbook-shell": {
+      "capture_id": "visual.capture.474f3c17ecf77ef9d8b2",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png"
+    },
+    "decision-supersession-accepted": {
+      "capture_id": "visual.capture.47ccc5e6f032f3f4a9d3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-accepted-linux.png"
+    },
+    "evidence-grid-timeline-evidence-badge": {
+      "capture_id": "visual.capture.47ccc6b491fd5e186555",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-timeline-evidence-badge-linux.png"
+    },
+    "account-settings-appearance-conflict": {
+      "capture_id": "visual.capture.4888367b1bdbc0f835e1",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-conflict-linux.png"
+    },
+    "network-flow-analysis-narrow-query-controls": {
+      "capture_id": "visual.capture.4e8d00b0f1c95a3f8c6a",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png"
+    },
+    "workbook-view-bar-saved-view-clean": {
+      "capture_id": "visual.capture.4f5e321cc67de64bdcfa",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-clean-linux.png"
+    },
+    "workbook-query-empty-successful-query": {
+      "capture_id": "visual.capture.4f6f9418cf30dff3e93d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png"
+    },
+    "collaboration-grid-saved-strip": {
+      "capture_id": "visual.capture.52be1edb28c487c70c59",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-saved-strip-linux.png"
+    },
+    "administrative-audit-inspected-narrow": {
+      "capture_id": "visual.capture.5348b96ff9a03bf0c942",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-narrow-linux.png"
+    },
+    "incident-import-observation-unavailable": {
+      "capture_id": "visual.capture.547fe3643cd6bf2d1efd",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-observation-unavailable-linux.png"
+    },
+    "incident-create-pending": {
+      "capture_id": "visual.capture.555eb9a04b92ff7930c3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-pending-linux.png"
+    },
+    "membership-audit-inspected-spacing": {
+      "capture_id": "visual.capture.5574ccaedbb0e2586598",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-spacing-linux.png"
+    },
+    "timeline-related-evidence-party-narrow": {
+      "capture_id": "visual.capture.55a22539e04b7331aa15",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-party-narrow-linux.png"
+    },
+    "incident-import-canceled": {
+      "capture_id": "visual.capture.57b2cde9b1146309d22c",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-canceled-linux.png"
+    },
+    "timeline-related-evidence-partial": {
+      "capture_id": "visual.capture.58335086ceda35c551d2",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-linux.png"
+    },
+    "incident-directory-compact-desktop-workbook-shell": {
+      "capture_id": "visual.capture.5895c38a72f7e019fbed",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png"
+    },
+    "contextual-decision-recovery": {
+      "capture_id": "visual.capture.597c2cd3c6d4b9ed069b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-recovery-linux.png"
+    },
+    "metadata-confirmed-refresh-failure": {
+      "capture_id": "visual.capture.59b95b912d49f30a9759",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-confirmed-refresh-failure-linux.png"
+    },
+    "timeline-supersession-authoring": {
+      "capture_id": "visual.capture.5fb1a56e0f004366997f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-authoring-linux.png"
+    },
+    "coordination-lesson-authoring": {
+      "capture_id": "visual.capture.60689ee6ad50bc7ad6ba",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-lesson-authoring-linux.png"
+    },
+    "membership-audit-loading": {
+      "capture_id": "visual.capture.60f7acbd4fc5682e8346",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-loading-linux.png"
+    },
+    "reference-pack-selection": {
+      "capture_id": "visual.capture.615dce7640c6fa6e27f3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-selection-linux.png"
+    },
+    "membership-management-confirmed-refresh-failure": {
+      "capture_id": "visual.capture.65f37803d46189a11a85",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-confirmed-refresh-failure-linux.png"
+    },
+    "workbook-view-bar-zoom-200": {
+      "capture_id": "visual.capture.67b5c747c2e07b27ca14",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-zoom-200-linux.png"
+    },
+    "contextual-task_request-authoring-narrow": {
+      "capture_id": "visual.capture.67c158eea44215a72519",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-narrow-linux.png"
+    },
+    "contextual-decision-references-narrow": {
+      "capture_id": "visual.capture.684e63e6fb29722ef1e9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-references-narrow-linux.png"
+    },
+    "metadata-review-spacing": {
+      "capture_id": "visual.capture.68e190a75befd7f69f33",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-spacing-linux.png"
+    },
+    "workbook-query-empty-density-compact": {
+      "capture_id": "visual.capture.69f7321c2878fabf6c61",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-density-compact-linux.png"
+    },
+    "timeline-related-evidence-partial-narrow": {
+      "capture_id": "visual.capture.6bf80687111d542513ec",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-narrow-linux.png"
+    },
+    "collaboration-grid-recovered-saved-strip": {
+      "capture_id": "visual.capture.6fe09ed39eff011f0fdf",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-recovered-saved-strip-linux.png"
+    },
+    "collaboration-grid-presence-markers": {
+      "capture_id": "visual.capture.706ab0c0f6658d6f4faf",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-presence-markers-linux.png"
+    },
+    "account-settings-appearance-text-spacing": {
+      "capture_id": "visual.capture.70a0cc093435dddfa7b3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-text-spacing-linux.png"
+    },
+    "collaboration-grid-conflict-resolver-narrow": {
+      "capture_id": "visual.capture.712b87e4dbe40f10414b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-narrow-linux.png"
+    },
+    "administrative-audit-stale": {
+      "capture_id": "visual.capture.72a8a9282945100c7b29",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-stale-linux.png"
+    },
+    "incident-directory-default-timeline-workbook-shell": {
+      "capture_id": "visual.capture.7314c63e882d78cd3cf8",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png"
+    },
+    "coordination-source-narrow": {
+      "capture_id": "visual.capture.7361b79164bda73b917e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-source-narrow-linux.png"
+    },
+    "incident-import-running-determinate": {
+      "capture_id": "visual.capture.757739eb08f67f662e7e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-running-determinate-linux.png"
+    },
+    "membership-audit-inspected-zoom": {
+      "capture_id": "visual.capture.773aa40b61a17f34df0f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-zoom-linux.png"
+    },
+    "auth-service-unavailable": {
+      "capture_id": "visual.capture.777f0e61fd53c88931d1",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-service-unavailable-linux.png"
+    },
+    "lifecycle-comfortable": {
+      "capture_id": "visual.capture.78f22d6a0e40b2fd79f4",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-comfortable-linux.png"
+    },
+    "incident-create-confirmed-handoff-failure": {
+      "capture_id": "visual.capture.79e70bdf00ce420831dc",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-confirmed-handoff-failure-linux.png"
+    },
+    "membership-management-loading": {
+      "capture_id": "visual.capture.7a5985aa2e474a629d10",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-loading-linux.png"
+    },
+    "auth-submitting": {
+      "capture_id": "visual.capture.7db8ef5191af8f3d926b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-submitting-linux.png"
+    },
+    "timeline-grid-active-edit-cell": {
+      "capture_id": "visual.capture.7e1ef25fc40811162aba",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-active-edit-cell-linux.png"
+    },
+    "workbook-preferences-uncertain": {
+      "capture_id": "visual.capture.80a3b23b316daf1b67d2",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-linux.png"
+    },
+    "lifecycle-pending": {
+      "capture_id": "visual.capture.814c4b925d8d773ee912",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-pending-linux.png"
+    },
+    "workbook-preferences-uncertain-narrow": {
+      "capture_id": "visual.capture.81c8c654c29ea74cd73e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-narrow-linux.png"
+    },
+    "administrative-audit-inspected-zoom": {
+      "capture_id": "visual.capture.826c821a617fe298b9a5",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-zoom-linux.png"
+    },
+    "workbook-view-bar-text-spacing": {
+      "capture_id": "visual.capture.82fbeaf5595c1c0b0e18",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-text-spacing-linux.png"
+    },
+    "workbook-query-empty-text-spacing": {
+      "capture_id": "visual.capture.83841467fb122ec391d1",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-text-spacing-linux.png"
+    },
+    "account-settings-appearance-recovery": {
+      "capture_id": "visual.capture.84598fe12cf668b30ca6",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-recovery-linux.png"
+    },
+    "account-settings-profile-dirty": {
+      "capture_id": "visual.capture.85d207d24c7cf4be6873",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-dirty-linux.png"
+    },
+    "workbook-query-empty-narrow": {
+      "capture_id": "visual.capture.8600c4d30dc3b5cefd5b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-narrow-linux.png"
+    },
+    "lifecycle-closed": {
+      "capture_id": "visual.capture.864872af69315a1b0719",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-closed-linux.png"
+    },
+    "network-flow-analysis-mapping-dialog": {
+      "capture_id": "visual.capture.88c91acf15734aa774a9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png"
+    },
+    "workbook-preferences-confirmed-stale": {
+      "capture_id": "visual.capture.8a036912cdcb3f180f97",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-confirmed-stale-linux.png"
+    },
+    "incident-create-recovery-short": {
+      "capture_id": "visual.capture.8c4a9ca3c4fc73840423",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-short-linux.png"
+    },
+    "administrative-audit-inspected": {
+      "capture_id": "visual.capture.8ce15444b98aab68fa04",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-linux.png"
+    },
+    "workbook-preferences-compact": {
+      "capture_id": "visual.capture.8dc97521e5c4f473e3be",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-compact-linux.png"
+    },
+    "membership-audit-inspected-narrow": {
+      "capture_id": "visual.capture.914ce670aa5017b301a7",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-narrow-linux.png"
+    },
+    "incident-import-empty": {
+      "capture_id": "visual.capture.930e0b9344ee839e83b3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-empty-linux.png"
+    },
+    "auth-focused": {
+      "capture_id": "visual.capture.94fe8521c27b8000ce42",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-focused-linux.png"
+    },
+    "incident-import-handoff-unavailable": {
+      "capture_id": "visual.capture.963bbfe959e4bb8bf2be",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-handoff-unavailable-linux.png"
+    },
+    "membership-management-role": {
+      "capture_id": "visual.capture.97d5ba9d8a7cde127c5c",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-role-linux.png"
+    },
+    "reference-pack-catalog": {
+      "capture_id": "visual.capture.99cf31a0eceac0687928",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-catalog-linux.png"
+    },
+    "linked-note-authoring": {
+      "capture_id": "visual.capture.9bb90770e53a11be45c3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-linux.png"
+    },
+    "reference-pack-cancel-requested": {
+      "capture_id": "visual.capture.9c6ef32a71c007b3e05b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-cancel-requested-linux.png"
+    },
+    "workbook-view-bar-filter-editing-overflow": {
+      "capture_id": "visual.capture.9dece7e0dfcaa9014a74",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-filter-editing-overflow-linux.png"
+    },
+    "membership-audit-comfortable": {
+      "capture_id": "visual.capture.9f8764a09ee93ac496e6",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-comfortable-linux.png"
+    },
+    "membership-audit-inspected": {
+      "capture_id": "visual.capture.a11484007de0a9246fea",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-linux.png"
+    },
+    "timeline-mutation-empty-timeline-query": {
+      "capture_id": "visual.capture.a19f6bdc0eb0997fcda9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png"
+    },
+    "linked-note-recovery": {
+      "capture_id": "visual.capture.a1a830e781756be72b5f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-linux.png"
+    },
+    "incident-create-recovery-zoom": {
+      "capture_id": "visual.capture.a2f89c5bd4c5c2483f0f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-zoom-linux.png"
+    },
+    "reference-pack-canceled": {
+      "capture_id": "visual.capture.a33e2f32f2e77fd349ea",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-canceled-linux.png"
+    },
+    "timeline-mutation-pending-replay-status": {
+      "capture_id": "visual.capture.a5356d72e06448c07560",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png"
+    },
+    "incident-import-required": {
+      "capture_id": "visual.capture.a559faec0452641f25b9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-required-linux.png"
+    },
+    "design-immediate-initial-loading": {
+      "capture_id": "visual.capture.a8043c7522df282f104c",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-immediate-initial-loading-linux.png"
+    },
+    "ordinary-reference-authoring": {
+      "capture_id": "visual.capture.a90717d56123e5a1f4ed",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-reference-authoring-linux.png"
+    },
+    "account-menu-controls-short": {
+      "capture_id": "visual.capture.a9c5fd6a6e5dac6b88e3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-short-linux.png"
+    },
+    "auth-200-zoom": {
+      "capture_id": "visual.capture.aa2643cc27864bd5f245",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-200-zoom-linux.png"
+    },
+    "reference-pack-submitted": {
+      "capture_id": "visual.capture.ac2982250ef26c4e4be7",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-submitted-linux.png"
+    },
+    "account-menu-long-label-zoom": {
+      "capture_id": "visual.capture.acb89fcc3686f8cda4af",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-zoom-linux.png"
+    },
+    "administrative-audit-inspected-spacing": {
+      "capture_id": "visual.capture.aea13556035d4fcca1b3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-spacing-linux.png"
+    },
+    "timeline-mutation-transaction-recovery-panel-compact": {
+      "capture_id": "visual.capture.af13dd93abd19940247c",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-compact-linux.png"
+    },
+    "contextual-decision-authoring-narrow": {
+      "capture_id": "visual.capture.b0c05164823b82329162",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-authoring-narrow-linux.png"
+    },
+    "membership-management-uncertain": {
+      "capture_id": "visual.capture.b11f46b442198c4d0995",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-uncertain-linux.png"
+    },
+    "record-relationships-evidence-access": {
+      "capture_id": "visual.capture.b18314ed6d6b90ca6c33",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png"
+    },
+    "coordination-handoff-authoring": {
+      "capture_id": "visual.capture.b2de4c89fcab66bd6049",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-handoff-authoring-linux.png"
+    },
+    "incident-import-recovery-text-spacing": {
+      "capture_id": "visual.capture.b436c140dac7fb4fb4ab",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-text-spacing-linux.png"
+    },
+    "account-menu-controls-compact": {
+      "capture_id": "visual.capture.b550822d7c0b51ba5540",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-compact-linux.png"
+    },
+    "workbook-query-saved-view-query-controls": {
+      "capture_id": "visual.capture.b6524c89920690198ffb",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png"
+    },
+    "membership-management-comfortable": {
+      "capture_id": "visual.capture.b6fae0a185503be4b49e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-comfortable-linux.png"
+    },
+    "evidence-timeline-evidence-count": {
+      "capture_id": "visual.capture.b780497df76862578d0c",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png"
+    },
+    "lifecycle-review-spacing": {
+      "capture_id": "visual.capture.b7b216bd63de6abdf531",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-spacing-linux.png"
+    },
+    "metadata-review-narrow": {
+      "capture_id": "visual.capture.b870f1c3884a0a5b59d1",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-narrow-linux.png"
+    },
+    "coordination-recovery": {
+      "capture_id": "visual.capture.b8cb242e972f24566480",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png"
+    },
+    "incident-import-failed": {
+      "capture_id": "visual.capture.b8e4ec66750eb5f44a38",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-failed-linux.png"
+    },
+    "reference-pack-observation-recovery": {
+      "capture_id": "visual.capture.ba7301a130f4c8bdd6e4",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-observation-recovery-linux.png"
+    },
+    "incident-create-initial": {
+      "capture_id": "visual.capture.bbef5adba7dcd870c318",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-initial-linux.png"
+    },
+    "reference-pack-recovery-short": {
+      "capture_id": "visual.capture.bd546c23ad91649359f9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-recovery-short-linux.png"
+    },
+    "entity-mention-chip-states": {
+      "capture_id": "visual.capture.bda571d19ea0163393fc",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png"
+    },
+    "network-flow-analysis-filtered-empty-grid": {
+      "capture_id": "visual.capture.be0b9920d344d384ea3d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-filtered-empty-grid-linux.png"
+    },
+    "membership-management-compact": {
+      "capture_id": "visual.capture.be1865e801a7fdab4caa",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-compact-linux.png"
+    },
+    "workbook-inspector-attached-edit": {
+      "capture_id": "visual.capture.bec04aee967bd2e5d893",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-attached-edit-linux.png"
+    },
+    "auth-invalid-credentials": {
+      "capture_id": "visual.capture.c16e1e26c94e26afc2b4",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-invalid-credentials-linux.png"
+    },
+    "design-grid-background-refresh": {
+      "capture_id": "visual.capture.c179d064c15077e70ac8",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-background-refresh-linux.png"
+    },
+    "collaboration-recovered-saved-strip": {
+      "capture_id": "visual.capture.c29b25bca1990b2e2c03",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png"
+    },
+    "timeline-mutation-transaction-recovery-panel-narrow": {
+      "capture_id": "visual.capture.c49072efd841f8cb0cea",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-narrow-linux.png"
+    },
+    "auth-invalid-mfa": {
+      "capture_id": "visual.capture.c4b1bcfc35dfe5217881",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-invalid-mfa-linux.png"
+    },
+    "reference-pack-running": {
+      "capture_id": "visual.capture.c7c32985cf9de2008ed3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-running-linux.png"
+    },
+    "design-grid-unavailable-initial-load": {
+      "capture_id": "visual.capture.c8259c0780b175f21e6b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-unavailable-initial-load-linux.png"
+    },
+    "design-grid-stale-refresh": {
+      "capture_id": "visual.capture.c82adffc16722fbe66a5",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-stale-refresh-linux.png"
+    },
+    "coordination-status_review-authoring": {
+      "capture_id": "visual.capture.ca30bc4813c00e464e4a",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-status-review-authoring-linux.png"
+    },
+    "administrative-audit-page-two": {
+      "capture_id": "visual.capture.cbad2d56dfefaa711a07",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-page-two-linux.png"
+    },
+    "reference-pack-failed": {
+      "capture_id": "visual.capture.ccc519587253cf3beadb",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-failed-linux.png"
+    },
+    "lifecycle-uncertain": {
+      "capture_id": "visual.capture.ccd98280a4e93586c904",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-uncertain-linux.png"
+    },
+    "design-grid-closed-read-only-rows": {
+      "capture_id": "visual.capture.cebd310a63d721320aad",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-closed-read-only-rows-linux.png"
+    },
+    "record-relationships-mention-chips": {
+      "capture_id": "visual.capture.cf8fe458f89df653e074",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-mention-chips-linux.png"
+    },
+    "incident-create-recovery-text-spacing": {
+      "capture_id": "visual.capture.d62db66130daec6e0428",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-text-spacing-linux.png"
+    },
+    "account-settings-appearance-dirty": {
+      "capture_id": "visual.capture.d6d1fb392aa57c68d869",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-dirty-linux.png"
+    },
+    "reference-pack-recovery-spacing": {
+      "capture_id": "visual.capture.d6d3f009ff9af7833336",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-recovery-spacing-linux.png"
+    },
+    "account-settings-profile-conflict": {
+      "capture_id": "visual.capture.d6d9711c29aeceb60b82",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-conflict-linux.png"
+    },
+    "workbook-query-filtered-empty": {
+      "capture_id": "visual.capture.d7d60d718df7c7a56852",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-filtered-empty-linux.png"
+    },
+    "workbook-view-bar-ordered-maximum-sort": {
+      "capture_id": "visual.capture.d994111394c03b53cee4",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-ordered-maximum-sort-linux.png"
+    },
+    "network-flow-analysis-rejected-diagnostics": {
+      "capture_id": "visual.capture.da3392816b3c13320b9d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png"
+    },
+    "collaboration-presence-markers": {
+      "capture_id": "visual.capture.dc2e1b1d5d65f20c8d92",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png"
+    },
+    "metadata-uncertain": {
+      "capture_id": "visual.capture.dc789d498fccc0471bc9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-uncertain-linux.png"
+    },
+    "auth-mfa-required": {
+      "capture_id": "visual.capture.de453ea424dce312ec91",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-required-linux.png"
+    },
+    "administrative-audit-empty": {
+      "capture_id": "visual.capture.ded375bfa54c4f384b4e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-empty-linux.png"
+    },
+    "administrative-audit-unavailable": {
+      "capture_id": "visual.capture.e06bc6dff803d369747e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-unavailable-linux.png"
+    },
+    "indicator-observation-authoring": {
+      "capture_id": "visual.capture.e084a3414b80dbabab3d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-linux.png"
+    },
+    "workbook-inspector-relationships": {
+      "capture_id": "visual.capture.e0929813825f6088fd2b",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png"
+    },
+    "metadata-compact": {
+      "capture_id": "visual.capture.e2466c4700ff818cf4aa",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-compact-linux.png"
+    },
+    "workbook-inspector-retained-draft": {
+      "capture_id": "visual.capture.e31aaf9c5514ea71e39f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-retained-draft-linux.png"
+    },
+    "network-flow-analysis-compact-saved-graphs": {
+      "capture_id": "visual.capture.e3a460227fc4ac628d59",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-compact-saved-graphs-linux.png"
+    },
+    "workbook-query-empty-compact": {
+      "capture_id": "visual.capture.e5c167baf7ec64225366",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-compact-linux.png"
+    },
+    "timeline-supersession-review": {
+      "capture_id": "visual.capture.e66b3638a68983c4947a",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-review-linux.png"
+    },
+    "lifecycle-review-narrow": {
+      "capture_id": "visual.capture.e6a743acbe50272f803f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-narrow-linux.png"
+    },
+    "account-menu-long-label-text-spacing": {
+      "capture_id": "visual.capture.e6d45ff45f81e05b1b8d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-text-spacing-linux.png"
+    },
+    "timeline-supersession-review-narrow": {
+      "capture_id": "visual.capture.e75993e88b8b3f8b2591",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-review-narrow-linux.png"
+    },
+    "reference-pack-recovery-zoom": {
+      "capture_id": "visual.capture.e7f65e6c5e7501c53f9e",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-recovery-zoom-linux.png"
+    },
+    "incident-import-cancel-requested": {
+      "capture_id": "visual.capture.e9ab86b18cbd863e8812",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-cancel-requested-linux.png"
+    },
+    "lifecycle-compact": {
+      "capture_id": "visual.capture.e9fd1ad9befc46b25dc6",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-compact-linux.png"
+    },
+    "contextual-decision-recovery-narrow": {
+      "capture_id": "visual.capture.ea7796e054f33716ba12",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-recovery-narrow-linux.png"
+    },
+    "account-settings-appearance-short": {
+      "capture_id": "visual.capture.ecf69038254234445462",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-short-linux.png"
+    },
+    "evidence-grid-available-evidence": {
+      "capture_id": "visual.capture.ed2766061fb0b5e26465",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-available-evidence-linux.png"
+    },
+    "decision-supersession-review": {
+      "capture_id": "visual.capture.ee4d0843cfc3a8f32681",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-linux.png"
+    },
+    "account-settings-profile-recovery": {
+      "capture_id": "visual.capture.eea91cda326a0f28955d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-recovery-linux.png"
+    },
+    "administrative-audit-loading": {
+      "capture_id": "visual.capture.eec377109485f5df9948",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-loading-linux.png"
+    },
+    "workbook-view-bar-saved-view-actions": {
+      "capture_id": "visual.capture.f08b4d814d30429d51f3",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-actions-linux.png"
+    },
+    "metadata-comfortable": {
+      "capture_id": "visual.capture.f2768bd50460059330f7",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-comfortable-linux.png"
+    },
+    "ordinary-recovery-1280": {
+      "capture_id": "visual.capture.f2810371a0de5f28e842",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-recovery-1280-linux.png"
+    },
+    "account-menu-workbook-root": {
+      "capture_id": "visual.capture.f30e99b1ce0e75d45851",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-workbook-root-linux.png"
+    },
+    "incident-import-succeeded": {
+      "capture_id": "visual.capture.f374c9b878d6750370bf",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-succeeded-linux.png"
+    },
+    "timeline-grid-adapter-fixtures": {
+      "capture_id": "visual.capture.f3d228644aed76093615",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"
+    },
+    "linked-note-authoring-narrow": {
+      "capture_id": "visual.capture.f49e759c383c4e0f1f5a",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-narrow-linux.png"
+    },
+    "incident-import-action-unconfirmed": {
+      "capture_id": "visual.capture.f5c1e22425bdf59699b1",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-action-unconfirmed-linux.png"
+    },
+    "workbook-inspector-narrow-technical-details": {
+      "capture_id": "visual.capture.f5ca1ba5368f9538cbb9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-narrow-technical-details-linux.png"
+    },
+    "metadata-conflict": {
+      "capture_id": "visual.capture.f77270fae8efcf6d0e28",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-conflict-linux.png"
+    },
+    "account-settings-profile-long-name": {
+      "capture_id": "visual.capture.f7ca6bc333a8dece946f",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-long-name-linux.png"
+    },
+    "membership-management-removal-spacing": {
+      "capture_id": "visual.capture.f94b83236deaeebca37d",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-spacing-linux.png"
+    },
+    "auth-initial": {
+      "capture_id": "visual.capture.f9d688041051343ee0c9",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-initial-linux.png"
+    },
+    "lifecycle-review-zoom": {
+      "capture_id": "visual.capture.fc885a71e33d7313e603",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-zoom-linux.png"
+    },
+    "collaboration-grid-conflict-resolver-compact": {
+      "capture_id": "visual.capture.fce1904bc3c8d3d577c0",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-compact-linux.png"
+    },
+    "account-menu-controls-narrow": {
+      "capture_id": "visual.capture.fcea5276d0d0cc990c04",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-narrow-linux.png"
+    },
+    "network-flow-analysis-graph-contributors": {
+      "capture_id": "visual.capture.fe36571af4277f846e89",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png"
+    },
+    "membership-management-removal-zoom": {
+      "capture_id": "visual.capture.ffee60c42f4759ff4b91",
+      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-zoom-linux.png"
+    }
+  }
+}

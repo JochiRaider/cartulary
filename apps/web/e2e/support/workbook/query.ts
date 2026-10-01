@@ -19,6 +19,8 @@ import {
 } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
 
+export type SuppliedSourceFixture = { incidentId: string; source: ViewRow };
+
 type WorkbookMutationOperationID = "createViewRow" | "patchRecord";
 
 type ViewRowPollOptions = {

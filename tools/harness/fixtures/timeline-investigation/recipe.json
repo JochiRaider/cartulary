@@ -1,0 +1,416 @@
+{
+  "schema_id": "cartulary.timeline_investigation_recipe.v1",
+  "dataset_id": "timeline-investigation-rich-v1",
+  "content_revision": 1,
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "rows": [
+    {
+      "key": "authentication-anomaly",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Mira Chen",
+        "timeline.mitre_stage_text": "Initial Access / Valid Accounts",
+        "timeline.device_object_text": "svc-archive on auth-gateway.example.test",
+        "timeline.ip_address_text": "192.0.2.24",
+        "timeline.activity_utc_text": "2026-04-18T14:12:34Z",
+        "timeline.activity_local_text": "2026-04-18 10:12:34",
+        "timeline.raw_activity_text": "event=sign_in account=svc-archive\nresult=success source=192.0.2.24\nobserved=2026-04-18T14:12:34Z correlation=123e4567-e89b-42d3-a456-426614174000",
+        "timeline.activity_synopsis_text": "Service account authenticated outside its scheduled collection window.",
+        "timeline.data_source_text": "Identity provider audit"
+      }
+    },
+    {
+      "key": "unexpected-token-use",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Jordan Ellis",
+        "timeline.mitre_stage_text": "Credential Access / Token use",
+        "timeline.device_object_text": "svc-archive token on archive-node.example.test",
+        "timeline.ip_address_text": "192.0.2.24",
+        "timeline.activity_utc_text": "2026-04-18T14:15:07Z",
+        "timeline.activity_local_text": "2026-04-18 10:15:07",
+        "timeline.raw_activity_text": "operation=token_exchange\nsubject=svc-archive audience=archive.example.test\nworkstation=review-unidentified",
+        "timeline.activity_synopsis_text": "The same account requested an archive token from an unfamiliar workstation.",
+        "timeline.data_source_text": "Gateway access log"
+      }
+    },
+    {
+      "key": "script-execution",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Mira Chen",
+        "timeline.mitre_stage_text": "Execution / Command and Scripting Interpreter",
+        "timeline.device_object_text": "archive-node.example.test \u2014 collection process",
+        "timeline.ip_address_text": "198.51.100.18",
+        "timeline.activity_utc_text": "2026-04-18T14:18:22Z",
+        "timeline.activity_local_text": "2026-04-18 10:18:22",
+        "timeline.raw_activity_text": "parent=archive-agent process=collector.ps1\npath=C:\\Temp\\collector.ps1\nsource_literal=<script>example only</script>\nsource_formula==HYPERLINK(\"https://archive.example.test\",\"inert\")",
+        "timeline.activity_synopsis_text": "A collection script launched from a temporary directory; the parent process and command line were retained for review.",
+        "timeline.data_source_text": "Endpoint process telemetry"
+      }
+    },
+    {
+      "key": "scheduled-task-created",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Jordan Ellis",
+        "timeline.mitre_stage_text": "Persistence / Scheduled Task",
+        "timeline.device_object_text": "archive-node.example.test \u2014 ArchiveSync task",
+        "timeline.ip_address_text": "198.51.100.18",
+        "timeline.activity_utc_text": "2026-04-18T14:22:19Z",
+        "timeline.activity_local_text": "2026-04-18 10:22:19",
+        "timeline.raw_activity_text": "event=task_registered task=ArchiveSync\nprincipal=svc-archive trigger=hourly\naction=collector.ps1",
+        "timeline.activity_synopsis_text": "An unexpected ArchiveSync task was registered.",
+        "timeline.data_source_text": "Task scheduler operational log"
+      }
+    },
+    {
+      "key": "outbound-connection",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Mira Chen",
+        "timeline.mitre_stage_text": "Command and Control / Application Layer Protocol",
+        "timeline.device_object_text": "archive-node.example.test \u2192 relay.example.test",
+        "timeline.ip_address_text": "203.0.113.42",
+        "timeline.activity_utc_text": "2026-04-18T14:27:43Z",
+        "timeline.activity_local_text": "2026-04-18 10:27:43",
+        "timeline.raw_activity_text": "src=198.51.100.18 dst=203.0.113.42\ndst_name=relay.example.test port=443\nbytes_out=18432 disposition=observed",
+        "timeline.activity_synopsis_text": "The archive node contacted a previously unobserved relay endpoint.",
+        "timeline.data_source_text": "Network flow sensor"
+      }
+    },
+    {
+      "key": "staging-activity",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Jordan Ellis",
+        "timeline.mitre_stage_text": "Collection / Archive Collected Data",
+        "timeline.device_object_text": "archive-node.example.test \u2014 temporary archive",
+        "timeline.ip_address_text": "198.51.100.18",
+        "timeline.activity_utc_text": "2026-04-18T14:31:51Z",
+        "timeline.activity_local_text": "2026-04-18 10:31:51",
+        "timeline.raw_activity_text": "event=file_created path=C:\\Temp\\review-bundle.zip\nowner=svc-archive size_bytes=40960",
+        "timeline.activity_synopsis_text": "Temporary archive created.",
+        "timeline.data_source_text": "Filesystem audit"
+      }
+    },
+    {
+      "key": "source-correlation",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Mira Chen",
+        "timeline.mitre_stage_text": "Analysis / Cross-source correlation",
+        "timeline.device_object_text": "Authentication gateway and archive node",
+        "timeline.ip_address_text": "192.0.2.24",
+        "timeline.activity_utc_text": "2026-04-18T14:38:16Z",
+        "timeline.activity_local_text": "2026-04-18 10:38:16",
+        "timeline.raw_activity_text": "sources=identity_audit,endpoint,network\ncorrelation=123e4567-e89b-42d3-a456-426614174000\nassessment=correlated; transfer outcome unconfirmed",
+        "timeline.activity_synopsis_text": "Authentication, process and network observations share a service-account context. Timing supports one investigation thread; successful exfiltration is not established by the available telemetry.",
+        "timeline.data_source_text": "Analyst correlation worksheet"
+      }
+    },
+    {
+      "key": "containment-requested",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Jordan Ellis",
+        "timeline.mitre_stage_text": "Response / Containment requested",
+        "timeline.device_object_text": "archive-node.example.test \u2014 response coordination",
+        "timeline.ip_address_text": "198.51.100.18",
+        "timeline.activity_utc_text": "2026-04-18T14:44:08Z",
+        "timeline.activity_local_text": "2026-04-18 10:44:08",
+        "timeline.raw_activity_text": "request=isolate_host,revoke_token\nowner=Response coordination team\nstatus=approved_for_execution",
+        "timeline.activity_synopsis_text": "Isolation and service-account token revocation were requested after preserving the available process context.",
+        "timeline.data_source_text": "Incident response coordination"
+      }
+    },
+    {
+      "key": "host-isolated",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Mira Chen",
+        "timeline.mitre_stage_text": "Response / Host isolation",
+        "timeline.device_object_text": "archive-node.example.test",
+        "timeline.ip_address_text": "198.51.100.18",
+        "timeline.activity_utc_text": "2026-04-18T14:48:55Z",
+        "timeline.activity_local_text": "2026-04-18 10:48:55",
+        "timeline.raw_activity_text": "action=host_isolation result=success\nretained_channel=management\nverified_by=Mira Chen",
+        "timeline.activity_synopsis_text": "Host isolation confirmed; management-channel access remains available for evidence collection.",
+        "timeline.data_source_text": "Endpoint response audit"
+      }
+    },
+    {
+      "key": "evidence-collected",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Jordan Ellis",
+        "timeline.mitre_stage_text": "Response / Evidence preservation",
+        "timeline.device_object_text": "archive-node.example.test and auth-gateway.example.test",
+        "timeline.ip_address_text": "198.51.100.18",
+        "timeline.activity_utc_text": "2026-04-18T15:06:12Z",
+        "timeline.activity_local_text": "2026-04-18 11:06:12",
+        "timeline.raw_activity_text": "collection=authentication_excerpt,process_excerpt\nfiles=authentication-audit.txt,process-audit.txt\nhandling=synthetic local files; original source retained",
+        "timeline.activity_synopsis_text": "Authentication and process excerpts were collected, uploaded and associated with this event. The original source excerpts remain available alongside the analyst interpretation.",
+        "timeline.data_source_text": "Evidence acquisition log"
+      }
+    },
+    {
+      "key": "analyst-review",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Mira Chen",
+        "timeline.mitre_stage_text": "Analysis / Initial assessment",
+        "timeline.device_object_text": "svc-archive investigation",
+        "timeline.ip_address_text": "203.0.113.42",
+        "timeline.activity_utc_text": "2026-04-18T15:24:37Z",
+        "timeline.activity_local_text": "2026-04-18 11:24:37",
+        "timeline.raw_activity_text": "assessment=possible_completed_transfer\nreview=explicit analyst action\nlimitation=no server-side receipt",
+        "timeline.activity_synopsis_text": "Initial assessment described the outbound session as a completed transfer; later source review corrected that conclusion.",
+        "timeline.data_source_text": "Analyst review"
+      }
+    },
+    {
+      "key": "corrected-assessment",
+      "fields": {
+        "timeline.date_entered_text": "2026-04-18",
+        "timeline.analyst_text": "Jordan Ellis",
+        "timeline.mitre_stage_text": "Analysis / Corrected assessment",
+        "timeline.device_object_text": "svc-archive investigation \u2014 corrected conclusion",
+        "timeline.ip_address_text": "203.0.113.42",
+        "timeline.activity_utc_text": "2026-04-18T15:42:09Z",
+        "timeline.activity_local_text": "2026-04-18 11:42:09",
+        "timeline.raw_activity_text": "assessment=connection_confirmed_transfer_unverified\nreplacement_for=initial assessment\nreview=source comparison complete",
+        "timeline.activity_synopsis_text": "Corrected assessment: an outbound connection and staged archive are confirmed, but completed transfer is unverified. The initial assessment is superseded and remains inspectable with its attribution.",
+        "timeline.data_source_text": "Peer review record"
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "archive-node",
+      "view_schema_id": "cartulary.view.hosts.v1",
+      "fields": {
+        "host.hostname": "archive-node.example.test",
+        "host.display_name": "Archive node"
+      },
+      "aliases": [
+        "archive-collection-node"
+      ]
+    },
+    {
+      "key": "auth-gateway",
+      "view_schema_id": "cartulary.view.hosts.v1",
+      "fields": {
+        "host.hostname": "auth-gateway.example.test",
+        "host.display_name": "Authentication gateway"
+      }
+    },
+    {
+      "key": "service-account",
+      "view_schema_id": "cartulary.view.identities.v1",
+      "fields": {
+        "identity.display_name": "Archive service account"
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "key": "authentication-audit",
+      "filename": "authentication-audit.txt",
+      "title": "Authentication acquisition excerpt",
+      "content": "Synthetic authentication evidence.\naccount=svc-archive source=192.0.2.24\nobserved=2026-04-18T14:12:34Z\n"
+    },
+    {
+      "key": "process-audit",
+      "filename": "process-audit.txt",
+      "title": "Process acquisition excerpt",
+      "content": "Synthetic process evidence.\nparent=archive-agent process=collector.ps1\nobserved=2026-04-18T14:18:22Z\n"
+    }
+  ],
+  "relationships": [
+    {
+      "row": "unexpected-token-use",
+      "field": "timeline.identity_refs",
+      "kind": "unresolved",
+      "text": "unidentified token operator"
+    },
+    {
+      "row": "script-execution",
+      "field": "timeline.host_refs",
+      "kind": "resolved",
+      "text": "Archive node from endpoint telemetry",
+      "target": "archive-node"
+    },
+    {
+      "row": "outbound-connection",
+      "field": "timeline.host_refs",
+      "kind": "automatic",
+      "text": "archive-collection-node",
+      "target": "archive-node"
+    },
+    {
+      "row": "source-correlation",
+      "field": "timeline.host_refs",
+      "kind": "resolved",
+      "text": "Authentication gateway",
+      "target": "auth-gateway"
+    },
+    {
+      "row": "evidence-collected",
+      "field": "timeline.host_refs",
+      "kind": "resolved",
+      "text": "Archive node",
+      "target": "archive-node"
+    },
+    {
+      "row": "evidence-collected",
+      "field": "timeline.host_refs",
+      "kind": "resolved",
+      "text": "Authentication gateway",
+      "target": "auth-gateway"
+    },
+    {
+      "row": "evidence-collected",
+      "field": "timeline.host_refs",
+      "kind": "unresolved",
+      "text": "unidentified collection workstation"
+    },
+    {
+      "row": "evidence-collected",
+      "field": "timeline.host_refs",
+      "kind": "dismissed",
+      "text": "retired inventory alias"
+    },
+    {
+      "row": "evidence-collected",
+      "field": "timeline.identity_refs",
+      "kind": "resolved",
+      "text": "Archive service account",
+      "target": "service-account"
+    },
+    {
+      "row": "evidence-collected",
+      "field": "timeline.identity_refs",
+      "kind": "unresolved",
+      "text": "operator attribution pending"
+    }
+  ],
+  "operations": [
+    {
+      "kind": "tags",
+      "row": "authentication-anomaly",
+      "values": [
+        "triage"
+      ]
+    },
+    {
+      "kind": "tags",
+      "row": "evidence-collected",
+      "values": [
+        "evidence",
+        "source-preserved",
+        "review"
+      ]
+    },
+    {
+      "kind": "relationship",
+      "relationship": 0
+    },
+    {
+      "kind": "relationship",
+      "relationship": 1
+    },
+    {
+      "kind": "relationship",
+      "relationship": 2
+    },
+    {
+      "kind": "relationship",
+      "relationship": 3
+    },
+    {
+      "kind": "relationship",
+      "relationship": 4
+    },
+    {
+      "kind": "relationship",
+      "relationship": 5
+    },
+    {
+      "kind": "relationship",
+      "relationship": 6
+    },
+    {
+      "kind": "relationship",
+      "relationship": 7
+    },
+    {
+      "kind": "relationship",
+      "relationship": 8
+    },
+    {
+      "kind": "relationship",
+      "relationship": 9
+    },
+    {
+      "kind": "evidence",
+      "row": "evidence-collected",
+      "evidence": "authentication-audit"
+    },
+    {
+      "kind": "evidence",
+      "row": "evidence-collected",
+      "evidence": "process-audit"
+    },
+    {
+      "kind": "evidence",
+      "row": "source-correlation",
+      "evidence": "authentication-audit"
+    },
+    {
+      "kind": "patch",
+      "row": "source-correlation",
+      "fields": {
+        "timeline.raw_activity_text": "sources=identity_audit,endpoint,network\ncorrelation=123e4567-e89b-42d3-a456-426614174000\nassessment=correlated; transfer outcome unconfirmed\npeer_check=confirmed correlation; retain uncertainty"
+      }
+    },
+    {
+      "kind": "review",
+      "row": "source-correlation"
+    },
+    {
+      "kind": "review",
+      "row": "analyst-review"
+    },
+    {
+      "kind": "review",
+      "row": "corrected-assessment"
+    },
+    {
+      "kind": "supersede",
+      "row": "analyst-review",
+      "replacement": "corrected-assessment",
+      "reason": "Source review confirms the connection but not completed transfer."
+    }
+  ],
+  "continuation": {
+    "start_utc": "2026-04-18T16:00:00Z",
+    "interval_minutes": 5,
+    "local_offset_minutes": -240,
+    "maximum_rows": 54,
+    "source_fields": {
+      "timeline.date_entered_text": "2026-04-18",
+      "timeline.analyst_text": "Mira Chen",
+      "timeline.mitre_stage_text": "Response / Host isolation",
+      "timeline.device_object_text": "archive-node.example.test",
+      "timeline.ip_address_text": "198.51.100.18",
+      "timeline.activity_utc_text": "2026-04-18T14:48:55Z",
+      "timeline.activity_local_text": "2026-04-18 10:48:55",
+      "timeline.raw_activity_text": "action=host_isolation result=success\nretained_channel=management\nverified_by=Mira Chen",
+      "timeline.activity_synopsis_text": "Host isolation confirmed; management-channel access remains available for evidence collection.",
+      "timeline.data_source_text": "Endpoint response audit"
+    },
+    "synopsis_template": "Containment verification {index}: isolation remains effective; collection channel checked.",
+    "raw_template": "action=containment_verification\nsequence={index}\nresult=isolated_management_available"
+  }
+}

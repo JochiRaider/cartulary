@@ -2,6 +2,7 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { seedTimelineInvestigation, timelineRecipe, validateTimelineRecipe } from "../fixtures/timeline-investigation/index.mjs";
 import { writeReviewSamples } from "./design-review-samples.mjs";
 
 export function reviewTotp(secret, now = Date.now()) {
@@ -19,6 +20,7 @@ export function reviewTotp(secret, now = Date.now()) {
 }
 
 export async function seedDesignReview({ root, environment, privateDirectory, runRoot, profile, signal, verifySamples, registerSecret }) {
+  validateTimelineRecipe();
   const apiOrigin = environment.CARTULARY_WEB_E2E_API_ORIGIN;
   const publicOrigin = environment.CARTULARY_WEB_E2E_PUBLIC_ORIGIN;
   const specification = JSON.parse(readFileSync(path.join(root, "contracts/openapi/cartulary.openapi.yaml"), "utf8"));
@@ -70,7 +72,26 @@ export async function seedDesignReview({ root, environment, privateDirectory, ru
     if (!found) throw new Error(`No current view for ${recordType}`);
     return found.view_schema_id;
   };
-  const populated = (await call("createIncident", { client_txn_id: txn(), incident_key: "BROWSER-REVIEW", title: "Browser review investigation" })).incident_id;
+  const investigation = await seedTimelineInvestigation({
+    incident: { key: "BROWSER-REVIEW", title: "Service-account investigation" }, continuationCount: 54,
+    port: {
+      createIncident: async ({ key, title }) => (await call("createIncident", { client_txn_id: txn(), incident_key: key, title })).incident_id,
+      call,
+      uploadEvidence: async (incidentId, evidence) => {
+        const row = (await call("createViewRow", { client_txn_id: txn(), "evidence.title": evidence.title, "evidence.collector_party_text": "Jordan Ellis", "evidence.requested_at": "2026-04-18T15:06:12Z" }, { incident_id: incidentId, view_schema_id: view("evidence") })).row;
+        const bytes = Buffer.from(evidence.content);
+        const blob = await call("createObjectBlobSlot", { client_txn_id: txn(), incident_id: incidentId, byte_size: bytes.length, filename_hint: evidence.filename, content_type_hint: "text/plain" });
+        const upload = blob.upload_target;
+        if (upload.method !== "PUT" || !/^\/api\/v1\/object-uploads\/[^/?#]+$/u.test(upload.href)) throw new Error("Unexpected review upload target");
+        registerSecret(upload.href);
+        const response = await fetch(new URL(upload.href, apiOrigin), { method: "PUT", signal, body: bytes, headers: { ...upload.headers, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; "), "X-CSRF-Token": cookies.get("cartulary_csrf") } });
+        if (!response.ok) throw new Error(`Investigation upload failed: HTTP ${response.status}`);
+        const attached = await call("attachBlobToEvidenceRecord", { client_txn_id: txn(), base_row_version: row.row_version, object_blob_id: blob.object_blob_id }, { record_id: row.record_id });
+        return (await call("patchRecord", { client_txn_id: txn(), view_schema_id: view("evidence"), base_row_version: attached.row.row_version, changes: [{ field_key: "evidence.lifecycle_state", value: "available" }] }, { record_id: row.record_id })).row;
+      },
+    },
+  });
+  const populated = investigation.incidentId;
   const empty = (await call("createIncident", { client_txn_id: txn(), incident_key: "BROWSER-EMPTY", title: "Empty review investigation" })).incident_id;
   const accounts = [{ email: bootstrap.email, password: bootstrap.initial_password, role: "deployment admin and incident admin", totp_setup_key: secret }];
   for (const [name, role, incidents] of [["empty", "viewer", []], ["viewer", "viewer", [populated]], ["editor", "editor", [populated, empty]]]) {
@@ -83,9 +104,7 @@ export async function seedDesignReview({ root, environment, privateDirectory, ru
   }
   writeFileSync(path.join(privateDirectory, "access.json"), `${JSON.stringify({ origin: publicOrigin, instructions: "Use separate browser profiles for concurrent roles. Add the admin's generated setup key to a TOTP authenticator. Credentials expire with this disposable environment.", accounts }, null, 2)}\n`, { mode: 0o600 });
   const row = async (recordType, fields) => (await call("createViewRow", { client_txn_id: txn(), ...fields }, { incident_id: populated, view_schema_id: view(recordType) })).row;
-  const first = await row("timeline_event", { "timeline.activity_synopsis_text": "Review initial triage and supporting evidence", "timeline.activity_utc_text": "2026-04-10T10:00:00Z" });
-  const revised = await call("patchRecord", { client_txn_id: txn(), view_schema_id: view("timeline_event"), base_row_version: first.row_version, changes: [{ field_key: "timeline.activity_synopsis_text", value: "Review initial triage — revised after evidence collection" }] }, { record_id: first.record_id });
-  for (let index = 1; index <= 65; index++) await row("timeline_event", { "timeline.activity_synopsis_text": `Review activity ${String(index).padStart(2, "0")}: ${index % 3 === 0 ? "follow-up investigation" : "observed activity"}`, "timeline.activity_utc_text": new Date(Date.UTC(2026, 3, 10, 10, index)).toISOString() });
+  const first = { record_id: investigation.mapping.get("authentication-anomaly") };
   await row("host", { "host.hostname": "review-workstation.example.test" });
   await row("party", { "party.display_name": "Response coordination team", "party.party_kind": "team" });
   await row("task_request", { "task.title": "Collect endpoint evidence", "task.task_kind": "follow_up" });
@@ -96,16 +115,8 @@ export async function seedDesignReview({ root, environment, privateDirectory, ru
     ["status_review", { "status_review.current_state_summary": "Containment under review", "status_review.timestamp_utc": "2026-04-10T12:00:00Z" }],
     ["lesson", { "lesson.summary": "Keep investigation context beside the grid", "lesson.timestamp_utc": "2026-04-10T12:00:00Z" }],
   ]) await row(type, { ...fields, "coordination.source_record_id": first.record_id });
-  const evidence = await row("evidence", { "evidence.title": "Synthetic acquisition notes", "evidence.collector_party_text": "Response coordination team", "evidence.requested_at": "2026-04-10T10:00:00Z" });
-  const bytes = readFileSync(path.join(samples, "evidence.txt"));
-  const blob = await call("createObjectBlobSlot", { client_txn_id: txn(), incident_id: populated, byte_size: bytes.length, filename_hint: "evidence.txt", content_type_hint: "text/plain" });
-  const upload = blob.upload_target;
-  if (upload.method !== "PUT" || !/^\/api\/v1\/object-uploads\/[^/?#]+$/u.test(upload.href)) throw new Error("Unexpected review upload target");
-  const uploaded = await fetch(new URL(upload.href, apiOrigin), { method: "PUT", signal, body: bytes, headers: { ...upload.headers, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; "), "X-CSRF-Token": cookies.get("cartulary_csrf") } });
-  if (!uploaded.ok) throw new Error(`Review evidence upload failed: ${uploaded.status}`);
-  const attached = await call("attachBlobToEvidenceRecord", { client_txn_id: txn(), base_row_version: evidence.row_version, object_blob_id: blob.object_blob_id }, { record_id: evidence.record_id });
-  await call("patchRecord", { client_txn_id: txn(), view_schema_id: view("evidence"), base_row_version: attached.row.row_version, changes: [{ field_key: "evidence.lifecycle_state", value: "available" }] }, { record_id: evidence.record_id });
-  await call("patchRecord", { client_txn_id: txn(), view_schema_id: view("timeline_event"), base_row_version: revised.row.row_version, changes: [{ field_key: "timeline.attached_evidence_ids", action_payload: { kind: "collection_actions_v1", actions: [{ op: "add_record_ref", linked_record_id: evidence.record_id }] } }] }, { record_id: first.record_id });
+  const evidence = { record_id: investigation.mapping.get("authentication-audit") };
+  const bytes = Buffer.from(timelineRecipe.evidence.find((item) => item.key === "authentication-audit").content);
   await call("createIncidentSavedView", { display_name: "Shared review Timeline", scope: "shared", view_schema_id: view("timeline_event"), query_json: {}, layout_json: {} }, { incident_id: populated });
 
   // A real attached browser exercises the production surface while preparing
@@ -198,7 +209,9 @@ export async function seedDesignReview({ root, environment, privateDirectory, ru
     }
     throw error;
   } finally { signal?.removeEventListener("abort", cancelBrowser); await browser.close(); }
-  return { samples, scenarios: [
+  const verifiedInvestigation = await investigation.verify();
+  writeFileSync(path.join(runRoot, "investigation-receipt.json"), `${JSON.stringify(verifiedInvestigation)}\n`, { mode: 0o600 });
+  return { samples, investigation: verifiedInvestigation, privateSemanticMapping: investigation.mapping, scenarios: [
     { name: "Populated workbook, Evidence, history, coordination and saved view", url: `${publicOrigin}/?incident_id=${populated}` },
     { name: "Empty workbook", url: `${publicOrigin}/?incident_id=${empty}` },
     { name: "Incident directory: zero/one/many with the supplied roles", url: publicOrigin },

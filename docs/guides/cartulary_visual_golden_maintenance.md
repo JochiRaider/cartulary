@@ -66,9 +66,14 @@ account request.
 Keep account-menu long-label writes in the local profile fixture as well; later
 captures must not inherit a presentation scenario's saved display name.
 
-Prepare viewport, zoom, spacing and scenario state; wait for responsive layout
-and vendored fonts; normalize dynamic text; settle layout; then establish focus
-and the explicit scroll anchor. Center drawer controls in the visible drawer
+Prepare viewport, zoom, spacing and scenario state; verify seeded semantic data;
+wait for the declared data state, responsive layout and vendored fonts; apply
+only the exact capture declarations in `tools/frontend_visual_normalization.json`;
+then establish focus and the explicit scroll anchor. Authored source text,
+including timestamps and identifier-like literals, stays unchanged. Each metadata
+rule has an exact target, replacement and visible cardinality, with an applied
+receipt. Restore temporary presentation in `finally` before further interaction
+or accessibility observations. Center drawer controls in the visible drawer
 scrollport and align panel starts, clamping to legal scroll offsets. Observe the
 anchor and intended focus across three animation frames. Product focus-continuity
 assertions remain observation-only. Preserve intentional workbook-grid framing.
@@ -141,8 +146,8 @@ Before capture:
 - wait for application readiness and `document.fonts.ready`;
 - verify that the active vendored Inter and JetBrains Mono faces loaded;
 - normalize browser zoom and declared scroll anchors;
-- mask only declared dynamic values such as generated record IDs, actor
-  connection data, clocks, or cursors;
+- normalize only declared generated metadata; fail missing, multiple, overlapping
+  or source-intersecting targets before comparison;
 - assert that the intended fixture and surface state are present;
 - use a selector crop only when the fixture registry declares selector scope.
 

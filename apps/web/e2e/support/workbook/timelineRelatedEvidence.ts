@@ -13,24 +13,29 @@ import {
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
-import { createViewRow } from "./query";
+import { createViewRow, type SuppliedSourceFixture } from "./query";
 import { openRecoveryItem, recoveryEntry } from "./recovery";
 import { openTimelineInspector } from "./rowMutations";
 
 export async function openTimelineEvidenceFixture(
   page: Page,
   navigate: (url: string) => Promise<unknown> = (url) => page.goto(url),
+  supplied?: SuppliedSourceFixture,
 ) {
-  const incident = await createIncident(
-    page,
-    uniqueIncidentKey("TRE-PRESENTATION"),
-    "Timeline Evidence review",
-  );
-  const source = await createViewRow(page, incident, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("source"),
-    "timeline.activity_synopsis_text": "Preserved investigation source",
-    "timeline.raw_activity_text": "Original source text remains unchanged.",
-  });
+  const incident =
+    supplied?.incidentId ??
+    (await createIncident(
+      page,
+      uniqueIncidentKey("TRE-PRESENTATION"),
+      "Timeline Evidence review",
+    ));
+  const source =
+    supplied?.source ??
+    (await createViewRow(page, incident, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("source"),
+      "timeline.activity_synopsis_text": "Preserved investigation source",
+      "timeline.raw_activity_text": "Original source text remains unchanged.",
+    }));
   const party = await createViewRow(page, incident, partiesViewSchemaId, {
     client_txn_id: uniqueTxn("party"),
     "party.display_name": "Response collection team",

@@ -30,12 +30,17 @@ export async function openMembershipManagement(page: Page) {
   return page.getByRole("region", { name: membershipRegion, exact: true });
 }
 /** Real workbook service fixture; deterministic responses are limited to this seam. */
-export async function installMembershipManagementPresentation(page: Page) {
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey("MM"),
-    "Incident access review",
-  );
+export async function installMembershipManagementPresentation(
+  page: Page,
+  existingIncidentId?: string,
+) {
+  const incidentId =
+    existingIncidentId ??
+    (await createIncident(
+      page,
+      uniqueIncidentKey("MM"),
+      "Incident access review",
+    ));
   let access: "admin" | "viewer" | "hidden" | "session" | "unavailable" =
     "admin";
   await page.route("**/api/v1/auth/session", async (route) => {

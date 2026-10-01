@@ -140,6 +140,7 @@ export function LandingAdminShell({
             <dt style={landingToolbarLabelStyle}>Session</dt>
             <dd
               data-testid={incidentLandingTestId("current-user")}
+              data-generated-metadata="session-actor"
               style={landingAdminMetaValueStyle}
             >
               {currentUserLabel}
@@ -207,6 +208,7 @@ export function IncidentDirectoryShell({
             <dt style={landingToolbarLabelStyle}>Session</dt>
             <dd
               data-testid={incidentLandingTestId("current-user")}
+              data-generated-metadata="session-actor"
               style={landingAdminMetaValueStyle}
             >
               {currentUserLabel}

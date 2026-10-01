@@ -2462,7 +2462,7 @@ Design contract. Every visual fixture MUST use this execution contract.
 | Density | `{density.default-mode}` unless fixture row declares another density from §3.9. |
 | Font fallback | Registry font stack; custom font files MUST NOT be distributed to users as evidence artifacts. |
 | Seed data | Stable fixture dataset ID declared in the row. |
-| Dynamic masks | Closed grammar: `mask(selector=<stable selector>, region=<text\|bbox\|attribute>, replacement=<fixed string>)`. |
+| Dynamic masks | Capture-specific declaration of a stable generated-metadata text target, fixed replacement and exact expected visible cardinality; reject missing, multiple, overlapping or source-intersecting targets. No attribute or source-text rewriting. |
 | Scroll anchor | `top_left`, `row:<record_id>`, `cell:<record_id>:<field_key>`, `right_edge`, or `status_strip`. Missing anchor is fixture failure. |
 | Crop rule | `full_viewport`, `selector:<stable selector>`, or `region:<x,y,width,height>`. |
 | Diff tolerance | `0` pixel mismatch unless the fixture row declares a non-zero tolerance with rationale. |
@@ -2471,24 +2471,94 @@ Design contract. Every visual fixture MUST use this execution contract.
 
 ### 15.2 Visual fixture registry
 
+Design contract. The representative Timeline dataset is
+`timeline-investigation-rich-v1`, initially content revision `1`. It contains
+twelve authored events in one synthetic service-account investigation, with
+stable semantic row keys and meaningful values in every Core 01 §7.4.1
+default-visible field. Their existing order and `cartulary.view.timeline.v2`
+remain unchanged. Complete semantic coverage accounts for all 24 Timeline
+fields: ten source text fields, four action-managed collections, and ten
+derived/system-managed fields. Technical `record_id` and `row_version` are
+separate. Coverage does not require hidden fields in a golden image.
+
+Design contract. Core events use distinct fixed UTC timestamps, explicitly
+authored local-time strings, fictional analysts and objects, documentation-range
+addresses, reserved example domains, varied source/stage text and synopsis
+lengths, and multiline inert RAW excerpts. Zero, one, and multiple associations
+are distributed across the narrative. The visual and interactive consumers
+share verified core source values and semantic relationships; deterministic
+continuations produce 48 rows for the three primary visual shells and 66 rows
+for interactive review. Other rich visual scenarios use the twelve-event core. Sparse,
+missing, empty, error, and workflow edge specimens remain separate.
+
+Design contract. Every capture containing a populated Timeline grid, including
+its background behind menus, inspectors, authoring and recovery panels, MUST
+seed the complete twelve-event investigation. The three primary shell captures
+retain 48 rows. Focused scenarios may add separately keyed, fully populated
+mutable specimens; they MUST NOT mutate the common core to manufacture their
+workflow states. Query filters and grouping retain their scenario purpose and
+may display a subset. Core and scenario rows are selected by semantic identity.
+Existing empty/loading/unavailable grid states and the explicitly sparse
+inspector reading specimen remain separate. Each capture MUST have an executable
+rich, intentional-empty/state, or intentional-sparse declaration joined to its
+exact capture identity; undeclared Timeline capture data is a preparation failure.
+All ten default-visible fields remain populated in rich source records even
+when viewport width leaves later columns outside the frame. This requirement
+changes fixture content, not production column widths, defaults, or focus rules.
+
+Design contract. Authored source content MUST survive capture preparation
+unchanged, including Date Entered, activity dates, RAW Activity, Synopsis,
+fictional Analyst names, collection labels, and synthetic evidence filenames.
+ISO- or UUID-shaped source text is not generated metadata. Only explicitly
+declared generated metadata surfaces may be normalized under the Testing
+Harness contract. Normalization MUST NOT alter persisted values, targeting
+identifiers, or subsequent behavior/accessibility observations.
+
+Design contract. Retain the three shell captures and their distinct declared
+query/control states. The current/capture/review layout studies at 1440×900,
+1280×720, 1024×720, and 768×640 remain twelve supporting attachments, not
+defaults or committed goldens. Rich Details, Relationships, and Evidence
+observations use the `evidence-collected` record at 1440×900 and 768×640; they
+augment the unchanged sparse inspector specimen. This revision adds no golden
+or design fixture identity. A later golden addition requires a named visual
+risk that existing captures cannot demonstrate.
+
+Design contract. The canonical shell selects `authentication-anomaly` by its
+semantic mapping and focuses the selected committed row's first visible Date
+Entered cell with non-scrolling focus at the top-left origin. Its focused cell
+MUST be mounted, visible and actually focused, its selected record MUST match
+the declaration, applicable window/shell/grid offsets MUST be zero, and the
+inspector and editors MUST be closed with no unsaved mutation. Toolbar, grid,
+gutter, inspector opener, and status landmarks MUST remain visible. Correct
+geometry, focus and offsets MUST hold over three consecutive animation frames.
+Synopsis-focus interaction coverage remains independent. Active-edit captures
+retain the scroll position established by focusing the declared editor and MUST
+verify that editor is fully in the viewport and actually focused. A top-left
+reset that hides the editor does not demonstrate the active-edit state.
+Sparse inspector History and public-error captures establish their section-start
+anchors after metadata normalization. The rollback confirmation is centered in
+the inspector scrollport with Cancel focused; its source specimen remains sparse.
+These anchors MUST remain correct across the same three-frame observation and
+capture boundary, rather than inheriting offsets from earlier interactions.
+
 Design contract. The visual fixture registry is closed to the rows below for this revision.
 
 | Fixture ID | Required state | Viewport | Zoom | Density | Theme | Scroll normalization | Dynamic masks | Crop rule | Pass condition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `D-VFIX-001` | Default Timeline workbook shell with the inspector closed, view-bar query controls after saved-view actions, compact view bar, compact Timeline grid, row gutter, header affordances, selected row, focused Summary cell, explicit inspector opener, status strip, Core 01 default Timeline fields, and no admin-card dominance above the active grid. | `1440x900 CSS px` | `{layout.zoomDefault}` | `compact` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All required default shell regions are visible in the first viewport, the inspector is closed, admin/control content is absent unless explicitly opened, and token pairs pass §14.3. |
-| `D-VFIX-002` | Inspector open adjacent at base viewport. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_001:timeline.activity_synopsis_text` | Actor names, timestamps, IDs. | `full_viewport` | Grid remains visible; inspector sections follow active config order including Workflow when declared. |
-| `D-VFIX-003` | Same-field conflict cell and resolver. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_conflict:timeline.activity_synopsis_text` | Actor names, timestamps, IDs. | `selector:[data-design-fixture='conflict']` | Conflict marker, local draft, saved value, and actions visible. |
-| `D-VFIX-004` | Unresolved, resolved, auto-resolved, and dismissed chips. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_mentions` | Actor names, IDs. | `selector:[data-design-fixture='chips']` | Four chip states have distinct non-color cues. |
-| `D-VFIX-005` | Presence at header, row, and cell with overflow. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_presence` | Actor names. | `full_viewport` | Presence ordering and `+N` labels follow §10.3. |
-| `D-VFIX-006` | Evidence states: available, blocked preview, pending upload, failed upload, quarantined. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_evidence_matrix` | Filenames, hashes, timestamps. | `selector:[data-design-fixture='evidence']` | Evidence badges and actions follow §11. |
-| `D-VFIX-007` | Save-state strip for `Syncing`, `Saved`, and `Conflict`. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `status_strip` | Timestamps. | `selector:[data-design-fixture='status-strip']` | One primary save label visible and accessible. |
-| `D-VFIX-008` | Destructive actions in History, Relationships, and Workflow inspector states. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_history:timeline.activity_synopsis_text` | Actor names, IDs. | `selector:[data-design-fixture='destructive-actions']` | Destructive actions have label text, destructive styling, and declared Workflow coverage when applicable. |
+| `D-VFIX-001` | Default Timeline workbook shell with the inspector closed, view-bar query controls after saved-view actions, compact view bar, compact Timeline grid, row gutter, header affordances, selected declared row, focused Date Entered cell, explicit inspector opener, status strip, Core 01 default Timeline fields, and no admin-card dominance above the active grid. | `1440x900 CSS px` | `{layout.zoomDefault}` | `compact` | `dark_graphite` | `top_left` | Declared account-attribution metadata, generated timestamps and technical IDs. | `full_viewport` | All required default shell regions are visible in the first viewport, the inspector is closed, admin/control content is absent unless explicitly opened, and token pairs pass §14.3. |
+| `D-VFIX-002` | Inspector open adjacent at base viewport. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_001:timeline.activity_synopsis_text` | Declared account-attribution metadata, generated timestamps and technical IDs. | `full_viewport` | Grid remains visible; inspector sections follow active config order including Workflow when declared. |
+| `D-VFIX-003` | Same-field conflict cell and resolver. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_conflict:timeline.activity_synopsis_text` | Declared account-attribution metadata, generated timestamps and technical IDs. | `selector:[data-design-fixture='conflict']` | Conflict marker, local draft, saved value, and actions visible. |
+| `D-VFIX-004` | Unresolved, resolved, auto-resolved, and dismissed chips. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_mentions` | Declared account-attribution metadata and technical IDs. | `selector:[data-design-fixture='chips']` | Four chip states have distinct non-color cues. |
+| `D-VFIX-005` | Presence at header, row, and cell with overflow. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_presence` | Declared account-attribution metadata. | `full_viewport` | Presence ordering and `+N` labels follow §10.3. |
+| `D-VFIX-006` | Evidence states: available, blocked preview, pending upload, failed upload, quarantined. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_evidence_matrix` | Declared generated metadata only; preserve evidence filenames and source values. | `selector:[data-design-fixture='evidence']` | Evidence badges and actions follow §11. |
+| `D-VFIX-007` | Save-state strip for `Syncing`, `Saved`, and `Conflict`. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `status_strip` | Declared generated timestamps. | `selector:[data-design-fixture='status-strip']` | One primary save label visible and accessible. |
+| `D-VFIX-008` | Destructive actions in History, Relationships, and Workflow inspector states. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_history:timeline.activity_synopsis_text` | Declared account-attribution metadata and technical IDs. | `selector:[data-design-fixture='destructive-actions']` | Destructive actions have label text, destructive styling, and declared Workflow coverage when applicable. |
 | `D-VFIX-009` | Component state matrix sample. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | None. | `selector:[data-design-fixture='components']` | Required component states render and pass §14.3. |
-| `D-VFIX-010` | Narrow desktop shell. | `1024x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Built-in tabs collapse to `Surfaces`; required controls remain reachable. |
-| `D-VFIX-011` | Compact desktop shell. | `768x640 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Chips move to `Filters`; presence moves to status strip. |
-| `D-VFIX-012` | Successful, filtered, responsive, density, and read-only empty query states. | `1280x720 CSS px` plus declared responsive captures | `{layout.zoomDefault}` plus `200%` | `{density.compact-mode}`, `{density.default-mode}`, and `{density.comfortable-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='empty-state']` | Production Workbook and shared Network Analysis grids distinguish filtered empty from successful empty, preserve the owned draft only when authorized, and keep their state regions within the grid work area. |
-| `D-VFIX-013` | Immediate and delayed initial-loading states for one held production generation. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='delayed-loading']` | Immediate owner-label copy precedes the exact delayed sentence at `2,000ms`; neither phase offers Retry or presents records. |
-| `D-VFIX-014` | Stale refresh with retained authorized rows and unavailable initial load without rows. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='error-presentation']` | One production Playwright scenario captures both §10.8 grid loci, their distinct row-retention postures, owner-authorized Retry, focus preservation, and live priority; permission loss is separately proven as a transient clear-before-navigation behavior. |
+| `D-VFIX-010` | Narrow desktop shell. | `1024x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared account-attribution metadata, generated timestamps and technical IDs. | `full_viewport` | Built-in tabs collapse to `Surfaces`; required controls remain reachable. |
+| `D-VFIX-011` | Compact desktop shell. | `768x640 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared account-attribution metadata, generated timestamps and technical IDs. | `full_viewport` | Chips move to `Filters`; presence moves to status strip. |
+| `D-VFIX-012` | Successful, filtered, responsive, density, and read-only empty query states. | `1280x720 CSS px` plus declared responsive captures | `{layout.zoomDefault}` plus `200%` | `{density.compact-mode}`, `{density.default-mode}`, and `{density.comfortable-mode}` | `dark_graphite` | `top_left` | Declared technical IDs. | `selector:[data-design-fixture='empty-state']` | Production Workbook and shared Network Analysis grids distinguish filtered empty from successful empty, preserve the owned draft only when authorized, and keep their state regions within the grid work area. |
+| `D-VFIX-013` | Immediate and delayed initial-loading states for one held production generation. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared technical IDs. | `selector:[data-design-fixture='delayed-loading']` | Immediate owner-label copy precedes the exact delayed sentence at `2,000ms`; neither phase offers Retry or presents records. |
+| `D-VFIX-014` | Stale refresh with retained authorized rows and unavailable initial load without rows. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared technical IDs. | `selector:[data-design-fixture='error-presentation']` | One production Playwright scenario captures both §10.8 grid loci, their distinct row-retention postures, owner-authorized Retry, focus preservation, and live priority; permission loss is separately proven as a transient clear-before-navigation behavior. |
 
 Design contract. The authored machine projection of this registry MUST use
 schema version `cartulary.frontend_visual_fixture_registry.v6`. A current
@@ -2501,7 +2571,12 @@ fixtures that do not claim one of these design rows MUST omit the field.
 
 Design contract. Coding agents and implementers MUST use stable selectors based on design fixture IDs, `view_schema_id`, `record_id`, `field_key`, and semantic icon IDs. They MUST NOT assert against incidental DOM hierarchy, visible row number, SQL table name, projection table name, or package-specific icon name.
 
-Design contract. Generated screenshots, fixtures, or implementation examples MUST NOT include live incident content, raw evidence bytes, credentials, object-store keys, or unmasked actor names.
+The Dynamic masks column refers only to declared generated metadata or
+explicit non-source visual regions. It never authorizes pattern matching or
+replacement within authored source values. Executable capture-specific targets,
+replacements and cardinalities live in the harness normalization policy.
+
+Design contract. Generated screenshots, fixtures, or implementation examples MUST NOT include live incident content, raw evidence bytes, credentials, object-store keys, or live actor names. Fictional source-field Analyst values remain authored content; generated account-attribution metadata follows the declared normalization policy.
 
 ## 16. Boundaries, non-goals, future profiles, and external dependencies
 
@@ -2668,7 +2743,7 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-061` | §15.1 | Visual fixture metadata | Dynamic fixture data is seeded or masked. | Actor names, timestamps, IDs, cursor positions, or local browser defaults are unmasked. |
 | `D-AC-062` | §15.1 | Evidence-class audit | Fixture evidence is classified as design evidence, not claim-bearing benchmark evidence. | Fixture evidence is represented as Core 05 claim evidence without Core 05 compliance. |
 | `D-AC-063` | §15.2 | Visual fixture registry | Every fixture row has exact viewport dimensions, not band-only declarations. | Fixture viewport is open-ended. |
-| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the fixed first viewport for the default Timeline workbook shell with the inspector closed, view-bar query controls in §8.3 order, compact view bar, compact grid, row gutter, header affordances, selected row, focused Summary cell, explicit inspector opener, status strip, Core 01 default Timeline fields, and no admin/control card stack above the grid. | The fixture opens the inspector by default, captures a dashboard/admin-card layout, uses non-Core default Timeline columns, or lacks a required default shell region. |
+| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the fixed first viewport for the default Timeline workbook shell with the inspector closed, view-bar query controls in §8.3 order, compact view bar, compact grid, row gutter, header affordances, selected declared row, focused Date Entered cell, explicit inspector opener, status strip, Core 01 default Timeline fields, and no admin/control card stack above the grid. | The fixture opens the inspector by default, captures a dashboard/admin-card layout, uses non-Core default Timeline columns, or lacks a required default shell region. |
 
 ### 18.8 Boundary criteria
 

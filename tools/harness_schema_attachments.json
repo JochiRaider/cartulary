@@ -212,6 +212,20 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.frontend_visual_normalization.v1",
+      "path": "tools/schemas/cartulary.frontend_visual_normalization.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "visual metadata capture support",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_visual_normalization_receipt.v1",
+      "path": "tools/schemas/cartulary.frontend_visual_normalization_receipt.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "visual metadata capture support",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.frontend_visual_reconciliation.v3",
       "path": "tools/schemas/cartulary.frontend_visual_reconciliation.v3.schema.json",
       "classification": "public_contract",
@@ -230,6 +244,13 @@
       "path": "tools/schemas/cartulary.frontend_visual_renderer_profile.v2.schema.json",
       "classification": "owner_input",
       "producer": "browser visual renderer owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_visual_timeline_profiles.v1",
+      "path": "tools/schemas/cartulary.frontend_visual_timeline_profiles.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Timeline visual fixture owner",
       "validation": "json-shape-check"
     },
     {
@@ -972,6 +993,20 @@
       "path": "tools/schemas/cartulary.test_target_summary.v4.schema.json",
       "classification": "public_contract",
       "producer": "target summary",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.timeline_investigation_expectations.v1",
+      "path": "tools/schemas/cartulary.timeline_investigation_expectations.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "representative Timeline fixture owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.timeline_investigation_recipe.v1",
+      "path": "tools/schemas/cartulary.timeline_investigation_recipe.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "representative Timeline fixture owner",
       "validation": "json-shape-check"
     },
     {

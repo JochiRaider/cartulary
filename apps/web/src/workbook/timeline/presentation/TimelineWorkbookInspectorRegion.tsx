@@ -51,9 +51,17 @@ export function TimelineWorkbookInspectorRegion({
                 {model.captureResult.review.action === "supersede" ? (
                   <p>
                     Replacement:{" "}
-                    {model.captureResult.review.replacement
-                      ? `${model.captureResult.review.replacement.label} · ${model.captureResult.review.replacement.context} · ${model.captureResult.review.replacement.recordId}`
-                      : "No replacement"}
+                    {model.captureResult.review.replacement ? (
+                      <>
+                        {model.captureResult.review.replacement.label} ·{" "}
+                        {model.captureResult.review.replacement.context} ·{" "}
+                        <span data-generated-metadata="supersession-record-reference">
+                          {model.captureResult.review.replacement.recordId}
+                        </span>
+                      </>
+                    ) : (
+                      "No replacement"
+                    )}
                   </p>
                 ) : null}
                 {model.captureResult.reconciliation !== "complete" ? (

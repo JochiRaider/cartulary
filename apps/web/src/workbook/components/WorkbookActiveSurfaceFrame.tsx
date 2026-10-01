@@ -89,6 +89,8 @@ export function WorkbookActiveSurfaceFrame({
           label: "Same-field conflict",
           summary: "Review saved and unsaved values",
           origin: `${entry.origin.surfaceLabel}: ${entry.origin.rowLabel}`,
+          originIsTechnicalReference:
+            entry.origin.rowLabel === entry.conflict.record_id,
           ...(entry.compoundOperationId
             ? { conflictOperationId: entry.compoundOperationId }
             : {}),

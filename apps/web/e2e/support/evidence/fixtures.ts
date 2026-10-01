@@ -21,6 +21,7 @@ export type EvidenceUploadOptions = {
   contentType: string;
   filename: string;
   requestedAt: string;
+  receivedAt?: string;
   title: string;
   txnPrefix: string;
 };
@@ -74,6 +75,9 @@ export async function createUploadedEvidenceFixture(
     client_txn_id: uniqueTxn(`${options.txnPrefix}-${txnSuffixes.row}`),
     "evidence.collector_party_text": options.collectorPartyText,
     "evidence.requested_at": options.requestedAt,
+    ...(options.receivedAt === undefined
+      ? {}
+      : { "evidence.received_at": options.receivedAt }),
     "evidence.title": options.title,
   });
   const blob = await createAndUploadObjectBlob(page, {
@@ -107,10 +111,20 @@ export async function createUploadedEvidenceFixture(
     client_txn_id: uniqueTxn(`${options.txnPrefix}-available`),
     changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
   });
-  return waitForEvidenceFixtureState(page, incidentId, row.record_id, {
-    lifecycleState: "available",
-    uploadState: "available",
-  });
+  const available = await waitForEvidenceFixtureState(
+    page,
+    incidentId,
+    row.record_id,
+    {
+      lifecycleState: "available",
+      uploadState: "available",
+    },
+  );
+  if (options.receivedAt !== undefined)
+    expect(available.cells["evidence.received_at"]?.value).toBe(
+      options.receivedAt,
+    );
+  return available;
 }
 
 async function waitForEvidenceFixtureState(

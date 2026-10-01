@@ -17,7 +17,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "../runtime/fixtureIdentity";
-import { createViewRow } from "./query";
+import { createViewRow, type SuppliedSourceFixture } from "./query";
 import { openRecoveryItem, recoveryEntry } from "./recovery";
 import {
   openGenericInspectorForRecord,
@@ -37,12 +37,15 @@ export async function openCoordinationFixture(
   variant = "lesson",
   view: string = timelineViewSchemaId,
   navigate: (url: string) => Promise<unknown> = (url) => page.goto(url),
+  supplied?: SuppliedSourceFixture,
 ) {
-  const incident = await createIncident(
-    page,
-    uniqueIncidentKey("CCA"),
-    "Contextual coordination authoring",
-  );
+  const incident =
+    supplied?.incidentId ??
+    (await createIncident(
+      page,
+      uniqueIncidentKey("CCA"),
+      "Contextual coordination authoring",
+    ));
   const member = await createIncidentMemberUser(page, incident, {
     display_name: "Coordination owner",
     email: uniqueEmail("coordination-owner"),
@@ -61,10 +64,12 @@ export async function openCoordinationFixture(
   }
   if (view === timelineViewSchemaId)
     values["timeline.activity_synopsis_text"] = "Reviewed coordination source";
-  const source = await createViewRow(page, incident, view, {
-    client_txn_id: uniqueTxn("coordination-source"),
-    ...values,
-  });
+  const source =
+    supplied?.source ??
+    (await createViewRow(page, incident, view, {
+      client_txn_id: uniqueTxn("coordination-source"),
+      ...values,
+    }));
   await navigate(
     `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(view)}`,
   );

@@ -574,11 +574,19 @@ export function ContractWorkbookSurface({
                   />
                 }
               >
-                {genericCellLabelForField(
-                  surface,
-                  column.fieldKey,
-                  displayedValue(row),
-                )}
+                <span
+                  data-generated-metadata={
+                    column.fieldKey === "evidence.edited_at"
+                      ? "evidence-edited-at"
+                      : undefined
+                  }
+                >
+                  {genericCellLabelForField(
+                    surface,
+                    column.fieldKey,
+                    displayedValue(row),
+                  )}
+                </span>
               </WorkbookPresenceCellLayout>
             </WorkbookContinuityCell>
           );

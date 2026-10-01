@@ -12,6 +12,7 @@ export type WorkbookRecoveryItem = {
   readonly label: string;
   readonly summary: string;
   readonly origin: string;
+  readonly originIsTechnicalReference?: boolean;
   readonly sheetRef: SheetRef | null;
   readonly attention: RecoveryAttention;
   readonly order: number;

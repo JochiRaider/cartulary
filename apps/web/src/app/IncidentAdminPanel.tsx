@@ -225,6 +225,7 @@ function renderIncidentSummary({
           <div>
             <dt style={labelStyle}>Incident key</dt>
             <dd
+              data-generated-metadata="incident-summary-key"
               data-testid={incidentAdministrationTestId("summary-key")}
               style={valueStyle}
             >
@@ -272,6 +273,9 @@ function renderIncidentSummary({
           <div>
             <dt style={labelStyle}>Closed at</dt>
             <dd
+              data-generated-metadata={
+                incident?.closed_at ? "incident-closed-at" : undefined
+              }
               data-testid={incidentAdministrationTestId("summary-closed-at")}
               style={valueStyle}
             >

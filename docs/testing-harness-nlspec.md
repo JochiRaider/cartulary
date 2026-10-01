@@ -3265,6 +3265,89 @@ and target projections are retained in the canonical artifact set. A required
 performance root without that complete same-run closure is artifact-incomplete.
 Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
 
+### 8.0A Representative Timeline recipe and source-preserving capture
+
+**TH-HARNESS-REQ-818**
+The representative Timeline consumers MUST use the harness-owned
+`cartulary.timeline_investigation_recipe.v1` recipe, dataset
+`timeline-investigation-rich-v1`. Its content revision is independent of its
+schema version. The closed recipe contains ordered semantic row keys, the
+existing Timeline view-schema identifier, source values keyed by owner field
+keys, semantic entity/evidence keys, typed relationships, explicit ordered
+owner operations, and deterministic continuation inputs. Derived expectations
+MUST be separate assertion data, never writable seed values. Credentials,
+capabilities, runtime IDs, database names, selectors and viewport settings are
+not recipe inputs. Unknown keys/versions, duplicate keys, dangling references,
+unsupported fields/actions and invalid operation dependencies MUST fail before
+incident mutation. Tests and generators MUST NOT read, stat or hash Markdown.
+
+The browser and review adapters retain their own authentication, transport and
+resource lifecycle. Each MUST validate before creating an isolated incident,
+apply the recipe through existing owner routes/helpers, resolve semantic keys
+to returned IDs and current versions, and re-query the resulting views. The
+private result contains the mapping and verified outcomes; retained receipts
+contain only structural dataset/revision/outcome information. Common core
+source values and relationships MUST agree between consumers; total rows are
+48 for the three primary visual shells, 12 for other populated Timeline
+capture scenarios, and 66 for interactive review. Additional mutable visual
+specimens are explicitly keyed, fully populated source records alongside the
+unchanged core; their workflows remain owned by the existing production routes. Failed operations,
+read-back mismatches and cancellation MUST fail preparation, preserve the primary
+cause and clean owned resources through the existing lifecycle. Silent field
+discard, projection writes, successful-state substitution, and blind mutation
+retry are unsupported.
+
+Timeline lifecycle, conversion, mention, Evidence and authorization rules remain
+owned by Core 01–04. Fully populated creation MUST be checked as rough before
+later operations; material mutation, tag-only mutation, authorized review and
+supersession, and finalized available associated evidence MUST be observed
+through those owners. Dismissed mentions remain inspector/history specimens,
+not active grid collections. Source omission, null, empty and clear semantics
+MUST survive adapters unchanged. Base conversion is disabled; named semantic
+variants cover the existing pair-state vocabulary and explicit clears.
+Verified by: TH-HARNESS-AC-134
+
+Every Timeline grid capture MUST declare its exact capture identity and data
+profile in the versioned harness-owned Timeline capture inventory. Rich profiles
+require verified common-core source values and outcomes; explicit empty/state
+and sparse profiles require their existing purpose and specimen. Missing profiles
+MUST fail preparation. Source verification precedes intentional transport faults;
+capture-time checks inspect the retained UI without issuing fault-interfering
+requests. Final owner read-back verifies that scenario operations did not mutate
+the core. Scenario helpers may accept supplied incident/source records while
+retaining their independent functional-test defaults. Private mappings remain
+transient; retained data receipts contain only capture/profile/dataset identities,
+revision and counts. Capture profiles MUST join exactly to existing capture and
+golden identities without changing registry v6.
+
+**TH-HARNESS-REQ-819**
+Visual capture normalization MUST use closed machine declarations joined to
+exact capture identities. Every rule declares a stable target, generated
+metadata surface, fixed replacement and expected cardinality. Missing required
+targets, unexpected multiplicity, overlapping targets, and overlap with source
+cells, editors or source-bearing inspector content MUST fail before comparison.
+Authored timestamps, UUID-shaped strings, fictional Analyst values, RAW text,
+synopses, collection labels and synthetic filenames MUST remain unchanged.
+Normalization MUST NOT rewrite persistence or targeting identifiers. Temporary
+presentation changes MUST be restored on success or failure before subsequent
+functional or accessibility observations. Applied-rule evidence MUST identify
+rules and cardinalities without secrets, capabilities or original private text.
+Registry v6 and current capture/reconciliation interfaces remain compatible;
+normalization declarations and receipts are separate versioned artifacts.
+
+Preparation order is preferences/layout/query, verified semantic data,
+ready/non-refreshing state and loaded fonts, declared metadata normalization,
+selection/focus/scroll, then three consecutive correct stable animation frames
+and capture. The canonical shell resolves `authentication-anomaly` through the
+private key mapping, focuses Date Entered using non-scrolling focus and verifies
+zero applicable window/shell/grid offsets, visible required landmarks, closed
+inspector/editor and no unsaved mutation. Observations MUST NOT repair a failed
+anchor. Missing fonts, data mismatch, wrong row, loading/error state, unstable
+geometry or incorrect framing are preparation failures. Sleep, force-click,
+tolerance increase, viewport widening or post-focus scroll repair MUST NOT turn
+them into accepted captures. Renderer pins remain unchanged for this revision.
+Verified by: TH-HARNESS-AC-135
+
 ### 8.1 Artifact Families
 
 | Artifact family                                      | Producer                                        | Path under run root                                             | Schema policy                                                 | Ordering and nullability                                                              | Retention and cleanup                                        |
@@ -7308,6 +7391,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-131 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311, TH-HARNESS-REQ-616 | Each preparation phase fails through real child/IPC boundaries; malformed/conflicting envelope; cancellation, child death, and secondary cleanup failure | Exact normalized primary cause and closed context survive human output, v2 receipt and repeated stop; unknown remains unknown. | Private sentinels never retained; all independent cleanup attempted; immutable terminal repetition. |
 | TH-HARNESS-AC-132 | TH-HARNESS-REQ-022, TH-HARNESS-REQ-552 | Package/layout mismatch, invalid renderer identity, font corruption, partial acquisition and failed exact removal | Readiness fails closed; observed identity matches approved profile; cleanup retries exactly the owned resource. | No copied expectation constitutes unverified provenance; cleanup-only failure cannot pass. |
 | TH-HARNESS-AC-133 | TH-HARNESS-REQ-417, TH-HARNESS-REQ-552 | CLI same-page/authentication, hostile configuration, read-only state, malformed output, cancellation and daemon recovery | Snapshot is private text; epoch, API references, page/context and browser ownership are preserved. | No second browser, arbitrary CLI command, public private text, or success after incomplete cleanup. |
+| TH-HARNESS-AC-134 | TH-HARNESS-REQ-818 | Rich core, continuations, malformed recipes, owner transitions, both review profiles, and failed preparation | Both consumers validate before mutation and verify source/semantic parity, all 24 fields, actual owner outcomes and cleanup. | No direct derived writes, silent omissions, stale-version substitution, secret receipts or Markdown dependency. |
+| TH-HARNESS-AC-135 | TH-HARNESS-REQ-819 | Authored ISO/UUID text, scoped history metadata, wrong cardinality, source overlap, wrong focus/offsets, missing fonts and unstable geometry | Source/API values are unchanged; metadata is restored; declared framing holds across three frames before comparison. | Broad normalization, invisible focus, repaired observation or contaminated accessibility evidence fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

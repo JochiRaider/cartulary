@@ -62,7 +62,9 @@ import { validateTestCatalog } from "../test-catalog/test-catalog.mjs";
 import { validateTestCatalogImportBoundary } from "../test-catalog/import-boundary.mjs";
 import { validateExecutableInputPolicy } from "../test-catalog/restricted-input-boundary.mjs";
 import { loadHistoricalPerformanceSchemaRegistry } from "../diagnostics/historical-performance-evidence.mjs";
+import { validateTimelineRecipe } from "../fixtures/timeline-investigation/index.mjs";
 import { validateFrontendVisualGoldenManifest } from "../browser/frontend-visual-golden-manifest.mjs";
+
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -3579,6 +3581,25 @@ function validateAll(root) {
     frontendVisualFixtureRegistrySchemaID,
     visualFixtureRegistry,
   );
+  validateTimelineRecipe(readShapeFile(repoFile(root, "tools/harness/fixtures/timeline-investigation/recipe.json")), readShapeFile(repoFile(root, "tools/harness/fixtures/timeline-investigation/expectations.json")));
+  const normalization = readShapeFile(repoFile(root, "tools/frontend_visual_normalization.json"));
+  validateSchemaSync("cartulary.frontend_visual_normalization.v1", normalization);
+  if (JSON.stringify(Object.keys(normalization.captures).sort()) !== JSON.stringify(Object.keys(normalization.bindings).sort())) throw new Error("normalization capture bindings mismatch");
+  const goldenPaths = new Set(readShapeFile(repoFile(root, "tools/frontend_visual_golden_manifest.json")).goldens.map((golden) => golden.path));
+  const boundIds = new Set();
+  for (const [capture, binding] of Object.entries(normalization.bindings)) {
+    if (!goldenPaths.has(binding.golden_path) || boundIds.has(binding.capture_id)) throw new Error(`invalid normalization binding ${capture}`);
+    boundIds.add(binding.capture_id);
+    const rules = normalization.captures[capture];
+    if (new Set(rules.map((rule) => rule.id)).size !== rules.length || new Set(rules.map((rule) => rule.target)).size !== rules.length) throw new Error(`duplicate normalization rule ${capture}`);
+  }
+  const timelineProfiles = readShapeFile(repoFile(root, "tools/frontend_visual_timeline_profiles.json"));
+  validateSchemaSync("cartulary.frontend_visual_timeline_profiles.v1", timelineProfiles);
+  for (const [capture, profile] of Object.entries(timelineProfiles.captures)) {
+    const binding = normalization.bindings[capture];
+    if (!binding || binding.capture_id !== profile.capture_id || binding.golden_path !== profile.golden_path)
+      throw new Error(`invalid Timeline capture binding ${capture}`);
+  }
   const visualRendererProfile = readShapeFile(
     repoFile(root, "tools/frontend_visual_renderer_profile.json"),
   );

@@ -23,6 +23,17 @@ export function WorkbookInspectorCompactMetadata({
   return <div style={compactMetadataStyle}>{children}</div>;
 }
 
+// These are owner-produced technical values, never historical source values.
+const technicalMetadataSurface: Readonly<Record<string, string>> = {
+  "Record ID": "technical-record-id",
+  "Actor ID": "technical-actor-id",
+  "Source actor ID": "technical-source-actor-id",
+  "History reference": "technical-history-reference",
+  "History item": "technical-history-reference",
+  "History entry": "technical-history-entry",
+  "Change set ID": "technical-change-set-id",
+};
+
 export function WorkbookInspectorTechnicalDetails({
   fields,
 }: {
@@ -36,7 +47,14 @@ export function WorkbookInspectorTechnicalDetails({
         {fields.map((field) => (
           <div key={field.label}>
             <dt style={technicalTermStyle}>{field.label}</dt>
-            <dd style={technicalValueStyle}>{field.value}</dd>
+            <dd
+              data-generated-metadata={
+                field.generatedMetadata ?? technicalMetadataSurface[field.label]
+              }
+              style={technicalValueStyle}
+            >
+              {field.value}
+            </dd>
           </div>
         ))}
       </dl>

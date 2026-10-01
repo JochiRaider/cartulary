@@ -38,9 +38,9 @@
         "description": "Accepted state shows the semantic cell inspector; graph state shows the contributor drawer for a semantic edge identity."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated table, row, vertex, edge, cursor, and digest identifiers",
-        "timestamps"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated table, row, vertex, edge, cursor, and digest identifiers; authored source values preserved",
+        "Generated metadata only: timestamps; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -129,9 +129,9 @@
         "description": "The semantic grid inspector is closed so query containment is observable."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated table, row, cursor, and digest identifiers",
-        "timestamps"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated table, row, cursor, and digest identifiers; authored source values preserved",
+        "Generated metadata only: timestamps; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -180,9 +180,9 @@
         "description": "The saved-graph contributor drawer is closed."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated table, graph, vertex, edge, cursor, and digest identifiers",
-        "timestamps"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated table, graph, vertex, edge, cursor, and digest identifiers; authored source values preserved",
+        "Generated metadata only: timestamps; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -235,12 +235,12 @@
       },
       "inspector_state": {
         "kind": "open_adjacent",
-        "description": "The base-mode inspector is adjacent to a still-visible Timeline grid."
+      "description": "The base-mode inspector is adjacent to a still-visible Timeline grid. After metadata normalization, History and public-error targets align to the inspector scrollport start; the rollback confirmation is centered with Cancel focused."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -337,9 +337,9 @@
         "description": "The narrow inspector overlays an inert grid while preserving internal scrolling and long technical-value wrapping."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -388,9 +388,9 @@
         "description": "The compact inspector fully overlays an inert grid and keeps all contextual actions reachable by internal scrolling."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -419,7 +419,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png"
       ],
-      "seed_id": "visual.seed.default_timeline_workbook_shell",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-shell-root-and-grid"
@@ -429,20 +429,20 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "Selected Timeline row with the Summary cell focused before the fixed first-viewport screenshot capture; row or cell selection does not open the inspector."
+        "description": "The declared authentication-anomaly committed row has its first visible Date Entered cell focused without scrolling at the top-left origin."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "Focused Timeline Summary cell is in compact display/edit affordance state; no unsaved mutation is staged."
+        "description": "Committed display state; no editor or unsaved mutation is active."
       },
       "inspector_state": {
         "kind": "fixture_specific",
         "description": "Default shell capture has the inspector collapsed with an explicit opener visible; inspector/history supporting artifacts explicitly open the inspector for relationships, history, rollback preview, destructive confirmation, and public error states."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -471,7 +471,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png"
       ],
-      "seed_id": "visual.seed.compact_desktop_workbook_shell",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-shell-root-and-grid"
@@ -492,9 +492,9 @@
         "description": "The compact shell capture keeps the full-screen inspector closed."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -545,7 +545,7 @@
         "description": "History destructive confirmation is visible in the adjacent inspector."
       },
       "dynamic_masks": [
-        "generated record identifiers"
+        "Generated metadata only: generated record identifiers; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -719,9 +719,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -772,15 +772,17 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
       "replacement_fixture_id": "",
       "catalog_row_ids": [
-        "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67"
+        "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf",
+        "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
+        "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
       ],
       "capture_profiles": {
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png": {
@@ -849,9 +851,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -966,9 +968,9 @@
         "description": "The production Evidence inspector is open at its Evidence section for typed upload-failure feedback; Timeline uses its existing evidence-count inspector."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1066,9 +1068,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1097,7 +1099,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png"
       ],
-      "seed_id": "visual.seed.mention_chip_state_matrix",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
@@ -1119,9 +1121,9 @@
         "description": "Timeline inspector shows the dismissed mention state and restore control for the dismissed row."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1150,7 +1152,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png"
       ],
-      "seed_id": "visual.seed.narrow_desktop_workbook_shell",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-shell-root-and-grid"
@@ -1171,9 +1173,9 @@
         "description": "The narrow right-overlay inspector is closed for the shell capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1222,9 +1224,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1253,7 +1255,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png"
       ],
-      "seed_id": "visual.seed.presence_overflow",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "cell_anchor",
         "anchor": "timeline.activity_synopsis_text",
@@ -1277,9 +1279,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1308,7 +1310,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png"
       ],
-      "seed_id": "visual.seed.same_field_conflict",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "fixture_specific",
         "description": "The focused conflict-resolver scenarios declare their workbook-grid position before capture; full conflict views normalize to the right edge while status-strip crops retain their scenario-owned anchor."
@@ -1330,9 +1332,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1363,7 +1365,7 @@
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png"
       ],
-      "seed_id": "visual.seed.save_state_strip",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
@@ -1385,15 +1387,16 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
       "replacement_fixture_id": "",
       "catalog_row_ids": [
-        "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1"
+        "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
+        "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc"
       ],
       "capture_profiles": {
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png": {
@@ -1431,7 +1434,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png"
       ],
-      "seed_id": "visual.seed.saved_view_query_controls_and_grouped_result",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
@@ -1452,9 +1455,9 @@
         "description": "No row inspector is open; the workbook shell and query controls are the captured surface."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1503,9 +1506,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1554,9 +1557,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1606,9 +1609,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1645,7 +1648,7 @@
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-narrow-linux.png"
       ],
-      "seed_id": "visual.seed.indicator_observations_authoring",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "indicator-observation-editor"
@@ -1666,9 +1669,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
@@ -1710,7 +1713,7 @@
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png"
       ],
-      "seed_id": "visual.seed.contextual_coordination_creation",
+      "seed_id": "timeline-investigation-rich-v1",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "coordination-editor"
@@ -1731,9 +1734,9 @@
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
       "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
+        "Generated metadata only: incident identifiers; authored source values preserved",
+        "Generated metadata only: generated record identifiers; authored source values preserved",
+        "Generated metadata only: clock-derived labels when visible; authored source values preserved"
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",

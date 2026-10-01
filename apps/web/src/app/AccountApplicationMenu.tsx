@@ -227,7 +227,12 @@ export function AccountApplicationMenu({
         }}
       >
         <UserRound aria-hidden="true" size={16} />
-        <span style={accountMenuTriggerTextStyle}>{currentUserLabel}</span>
+        <span
+          data-generated-metadata="account-actor"
+          style={accountMenuTriggerTextStyle}
+        >
+          {currentUserLabel}
+        </span>
         <ChevronDown aria-hidden="true" size={15} />
       </button>
       {isOpen ? (
@@ -237,7 +242,9 @@ export function AccountApplicationMenu({
           style={{ ...accountMenuStyle, ...panelBounds }}
         >
           <div id={statusId} style={accountMenuStatusItemStyle}>
-            <div>{currentUserLabel}</div>
+            <div data-generated-metadata="account-actor">
+              {currentUserLabel}
+            </div>
             {currentContext === "workbook" ? (
               <div data-testid={currentIncidentRoleTestId()}>
                 Current incident role: {currentIncidentRole || "viewer"}

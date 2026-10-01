@@ -427,7 +427,16 @@ export function IncidentMembershipAuditPanel({
                           ].map(([name, value]) => (
                             <div key={name} style={auditTextStyle}>
                               <dt>{name}</dt>
-                              <dd style={auditValueStyle}>{value}</dd>
+                              <dd
+                                data-generated-metadata={
+                                  name === "Incident ID"
+                                    ? "membership-audit-incident-id"
+                                    : undefined
+                                }
+                                style={auditValueStyle}
+                              >
+                                {value}
+                              </dd>
                             </div>
                           ))}
                         </dl>

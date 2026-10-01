@@ -1,4 +1,8 @@
-import type { CollectionActionsV1, ViewRow } from "@cartulary/protocol-ts/http";
+import type {
+  CollectionActionsV1,
+  CreateViewRowRequest,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
 import {
   gridRowTestId,
   gridRowVersionAttribute,
@@ -343,6 +347,10 @@ export async function seedHostMentionStateFixture(
   page: Page,
   incidentId: string,
   options: {
+    createTimelineRow?: (
+      key: string,
+      payload: CreateViewRowRequest,
+    ) => Promise<ViewRow>;
     displayPrefix: string;
     hostnamePrefix: string;
     occurredAt: {
@@ -401,13 +409,17 @@ export async function seedHostMentionStateFixture(
     occurredAt: string,
     summary: string,
     refs?: unknown,
-  ) =>
-    await createViewRow(page, incidentId, timelineViewSchemaId, {
+  ) => {
+    const payload = {
       client_txn_id: uniqueTxn(`${options.txnPrefix}-${suffix}-row`),
       "timeline.activity_utc_text": occurredAt,
       "timeline.activity_synopsis_text": summary,
       ...(refs === undefined ? {} : { [hostRefsFieldKey]: refs }),
-    });
+    };
+    return options.createTimelineRow
+      ? options.createTimelineRow(suffix, payload)
+      : createViewRow(page, incidentId, timelineViewSchemaId, payload);
+  };
   const unresolvedRow = await createTimelineMention(
     "unresolved",
     options.occurredAt.unresolved,

@@ -14,22 +14,33 @@ import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
 import { fetchFullRecordHistory } from "./history";
-import { createViewRow, queryViewRows } from "./query";
+import {
+  createViewRow,
+  queryViewRows,
+  type SuppliedSourceFixture,
+} from "./query";
 import { openTimelineInspector } from "./rowMutations";
 
 export const observationPrefix = "alpha.example\r\n雪😀 e\u0301 ";
 export const observationRawText = `${observationPrefix}alpha.example\rend\n`;
-export async function createObservationFixture(page: Page) {
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey("OBSERVATIONS"),
-    "Source-bound Indicator observations",
-  );
-  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("source"),
-    "timeline.raw_activity_text": observationRawText,
-    "timeline.activity_synopsis_text": "Repeated source observation",
-  });
+export async function createObservationFixture(
+  page: Page,
+  supplied?: SuppliedSourceFixture,
+) {
+  const incidentId =
+    supplied?.incidentId ??
+    (await createIncident(
+      page,
+      uniqueIncidentKey("OBSERVATIONS"),
+      "Source-bound Indicator observations",
+    ));
+  const source =
+    supplied?.source ??
+    (await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("source"),
+      "timeline.raw_activity_text": observationRawText,
+      "timeline.activity_synopsis_text": "Repeated source observation",
+    }));
   const oldTarget = await createViewRow(
     page,
     incidentId,

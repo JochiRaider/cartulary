@@ -27,12 +27,17 @@ export async function openMembershipAudit(page: Page) {
   return page.getByRole("region", { name: membershipAuditRegion, exact: true });
 }
 /** Public service fixture for the workbook; deterministic audit/session responses only. */
-export async function installMembershipAuditPresentation(page: Page) {
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey("MA"),
-    "Membership audit review",
-  );
+export async function installMembershipAuditPresentation(
+  page: Page,
+  existingIncidentId?: string,
+) {
+  const incidentId =
+    existingIncidentId ??
+    (await createIncident(
+      page,
+      uniqueIncidentKey("MA"),
+      "Membership audit review",
+    ));
   let access: "admin" | "viewer" | "hidden" | "session" | "unavailable" =
     "admin";
   let accessReads = 0;

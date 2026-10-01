@@ -17,6 +17,13 @@ import { genericCellLabelForField } from "../models/genericWorkbookModel";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { WorkbookInspectorActionButton as Button } from "./presentation/WorkbookInspectorActions";
 
+// These are system-produced metadata, unlike source-derived sort timestamps.
+const systemTimestampMetadata: Readonly<Record<string, string>> = {
+  "timeline.recorded_at": "timeline-recorded-at",
+  "timeline.edited_at": "timeline-edited-at",
+  "evidence.edited_at": "evidence-inspector-edited-at",
+};
+
 type FieldPresentation = {
   readonly controls: ReactNode;
   readonly attachment: ReactNode;
@@ -93,6 +100,7 @@ export function WorkbookInspectorSavedDetails({
             ref={(element) => onFieldElement?.(field.fieldKey, element)}
             tabIndex={-1}
             data-inspector-saved-field={field.fieldKey}
+            data-inspector-field-write-kind={field.writeKind}
             data-inspector-value-kind={kind}
             data-inspector-field-layout={property ? "property" : "narrative"}
             style={{
@@ -114,6 +122,11 @@ export function WorkbookInspectorSavedDetails({
                 key={JSON.stringify([row.record_id, field.fieldKey])}
                 value={saved}
                 label={field.label}
+                generatedMetadata={
+                  field.writeKind === "read_only"
+                    ? systemTimestampMetadata[field.fieldKey]
+                    : undefined
+                }
               />
             </dd>
             <dd
@@ -155,9 +168,11 @@ function inspectorSavedValueKind(
 function SavedValue({
   value,
   label,
+  generatedMetadata,
 }: {
   readonly value: string;
   readonly label: string;
+  readonly generatedMetadata?: string | undefined;
 }) {
   const id = useId();
   const text = useRef<HTMLDivElement>(null);
@@ -188,6 +203,7 @@ function SavedValue({
       <div
         id={id}
         ref={text}
+        data-generated-metadata={generatedMetadata}
         onCopy={(event) => {
           const selection = event.currentTarget.ownerDocument.getSelection();
           if (!selection || selection.isCollapsed || selection.rangeCount !== 1)

@@ -489,7 +489,16 @@ export function WorkbookSameFieldConflictResolver({
       >
         <p style={eyebrowStyle}>Conflict requires review</p>
         <h2 style={titleStyle}>
-          {conflict.origin.surfaceLabel}: {conflict.origin.rowLabel}
+          {conflict.origin.surfaceLabel}:{" "}
+          <span
+            data-generated-metadata={
+              conflict.origin.rowLabel === conflict.conflict.record_id
+                ? "conflict-record-reference"
+                : undefined
+            }
+          >
+            {conflict.origin.rowLabel}
+          </span>
         </h2>
         <p style={bodyStyle}>
           The saved value changed before your edit reached the server. Nothing

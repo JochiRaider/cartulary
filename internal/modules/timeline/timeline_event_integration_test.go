@@ -1908,6 +1908,43 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 		unavailableCells["timeline.activity_time_pair_state"].(map[string]any)["value"] != "conversion_unavailable" {
 		t.Fatalf("expected unparseable local time to be preserved without generated UTC, got %#v", unavailableCells)
 	}
+
+	// Representative fixtures deliberately disable conversion. These separate
+	// specimens keep every enabled-profile outcome and nullable source intent visible.
+	for _, specimen := range []struct {
+		name, state string
+		fields      map[string]any
+	}{
+		{"empty", "empty", map[string]any{}},
+		{"explicit-null", "empty", map[string]any{"timeline.activity_utc_text": nil, "timeline.activity_local_text": nil}},
+		{"explicit-empty", "empty", map[string]any{"timeline.activity_utc_text": "", "timeline.activity_local_text": ""}},
+		{"preserved-pair", "paired_user_preserved", map[string]any{"timeline.activity_utc_text": "2026-06-28T17:34:56Z", "timeline.activity_local_text": "2026-06-28T12:34:56-05:00"}},
+	} {
+		t.Run(specimen.name, func(t *testing.T) {
+			specimen.fields["client_txn_id"] = "txn-time-specimen-" + specimen.name
+			created := createTimelineRow(t, server, incidentID, adminLogin, specimen.fields)["row"].(map[string]any)
+			cells := created["cells"].(map[string]any)
+			if cells["timeline.activity_time_pair_state"].(map[string]any)["value"] != specimen.state {
+				t.Fatalf("unexpected time-pair state: %#v", cells)
+			}
+			for _, field := range []string{"timeline.activity_utc_text", "timeline.activity_local_text"} {
+				if cells[field].(map[string]any)["value"] != specimen.fields[field] {
+					t.Fatalf("source changed on create: %s", field)
+				}
+			}
+			patched := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/records/"+created["record_id"].(string), map[string]any{
+				"client_txn_id":  "txn-time-specimen-patch-" + specimen.name,
+				"view_schema_id": timeline.TimelineViewSchemaID, "base_row_version": created["row_version"],
+				"changes": []map[string]any{{"field_key": "timeline.activity_synopsis_text", "value": "Separate semantic specimen"}},
+			}, withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie), withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value))
+			current := httptestx.RequireSuccessEnvelope(t, patched, http.StatusOK)["data"].(map[string]any)["row"].(map[string]any)
+			for _, field := range []string{"timeline.activity_utc_text", "timeline.activity_local_text"} {
+				if current["cells"].(map[string]any)[field].(map[string]any)["value"] != specimen.fields[field] {
+					t.Fatalf("patch omission changed source: %s", field)
+				}
+			}
+		})
+	}
 }
 
 func timelinePresence() platformws.PresenceInput {

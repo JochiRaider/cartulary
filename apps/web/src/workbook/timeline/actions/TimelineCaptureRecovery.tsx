@@ -65,8 +65,10 @@ export function TimelineCaptureRecovery({
                 : {entry.review.target.label}
               </strong>
               <p>
-                {entry.review.target.recordId} · reviewed version{" "}
-                {entry.review.target.rowVersion}
+                <span data-generated-metadata="supersession-record-reference">
+                  {entry.review.target.recordId}
+                </span>{" "}
+                · reviewed version {entry.review.target.rowVersion}
               </p>
               {entry.review.reason ? (
                 <p style={{ whiteSpace: "pre-wrap" }}>{entry.review.reason}</p>
@@ -74,9 +76,17 @@ export function TimelineCaptureRecovery({
               {entry.review.action === "supersede" ? (
                 <p>
                   Replacement:{" "}
-                  {entry.review.replacement
-                    ? `${entry.review.replacement.label} · ${entry.review.replacement.context} · ${entry.review.replacement.recordId}`
-                    : "No replacement"}
+                  {entry.review.replacement ? (
+                    <>
+                      {entry.review.replacement.label} ·{" "}
+                      {entry.review.replacement.context} ·{" "}
+                      <span data-generated-metadata="supersession-record-reference">
+                        {entry.review.replacement.recordId}
+                      </span>
+                    </>
+                  ) : (
+                    "No replacement"
+                  )}
                 </p>
               ) : null}
               <p
@@ -93,9 +103,11 @@ export function TimelineCaptureRecovery({
               {entry.receipt ? (
                 <p>
                   Saved version {entry.receipt.data.row_version} · change{" "}
-                  {entry.receipt.data.change_set_id}. Your current selection and
-                  filters are preserved; the completed row may leave the current
-                  results.
+                  <span data-generated-metadata="supersession-change-set">
+                    {entry.receipt.data.change_set_id}
+                  </span>
+                  . Your current selection and filters are preserved; the
+                  completed row may leave the current results.
                 </p>
               ) : null}
               {entry.phase === "uncertain" ? (

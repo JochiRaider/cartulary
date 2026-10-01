@@ -92,8 +92,16 @@ function DecisionRecoveryEntry({
     >
       <strong>Decision supersession</strong>
       <p>
-        Target: {review.target.label} ({review.target.recordId})<br />
-        Replacement: {review.replacement.label} ({review.replacement.recordId})
+        Target: {review.target.label} (
+        <span data-generated-metadata="supersession-record-reference">
+          {review.target.recordId}
+        </span>
+        )<br />
+        Replacement: {review.replacement.label} (
+        <span data-generated-metadata="supersession-record-reference">
+          {review.replacement.recordId}
+        </span>
+        )
       </p>
       <p style={{ whiteSpace: "pre-wrap" }}>Reason: {review.reason}</p>
       <p role="status">
@@ -129,19 +137,28 @@ function DecisionRecoveryEntry({
       {entry.receipt ? (
         <>
           <p>
-            Accepted change set: {entry.receipt.change_set_id}. Target status:{" "}
-            {entry.receipt.target_status}.
+            Accepted change set:{" "}
+            <span data-generated-metadata="supersession-change-set">
+              {entry.receipt.change_set_id}
+            </span>
+            . Target status: {entry.receipt.target_status}.
           </p>
           <details>
             <summary>Decision receipt</summary>
             <p>
               View: {entry.receipt.view_schema_id}
               <br />
-              Target: {entry.receipt.target_record_id}, version{" "}
-              {entry.receipt.target_row_version}
+              Target:{" "}
+              <span data-generated-metadata="supersession-record-reference">
+                {entry.receipt.target_record_id}
+              </span>
+              , version {entry.receipt.target_row_version}
               <br />
-              Replacement: {entry.receipt.superseding_record_id}, version{" "}
-              {entry.receipt.superseding_row_version}
+              Replacement:{" "}
+              <span data-generated-metadata="supersession-record-reference">
+                {entry.receipt.superseding_record_id}
+              </span>
+              , version {entry.receipt.superseding_row_version}
             </p>
             <p style={{ whiteSpace: "pre-wrap" }}>
               Recorded reason: {entry.receipt.reason}
