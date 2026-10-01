@@ -838,6 +838,16 @@ an arbitrary fixed maximum while spare space remains. The title yields before
 the incident key. An explicit keyboard- and pointer-operable disclosure exposes
 both complete labels. Account/application controls remain anchored upper-right.
 
+Design contract. The shared incident-identity disclosure MUST supply the workbook's
+single native level-one heading on built-in surfaces, System views and claimed
+extension workspaces. The heading contains the existing disclosure trigger and
+exposes the complete incident key and title; its disclosed region remains outside
+the heading. Heading semantics MUST preserve the compact typography, geometry,
+keyboard operation, expanded state and dismissal/focus-return behavior. Before
+identity is available, the heading MUST truthfully distinguish loading from a
+failed identity read. An authorized accepted identity remains the heading during
+permitted refreshes. Navigation and other Top-bar controls are outside the heading.
+
 Design contract. The main view-bar row retains `{layout.viewBarHeight}`. Its
 saved-view group MUST receive at least `{layout.viewBarSavedViewBaseMinInlineSize}`
 in base, `{layout.viewBarSavedViewNarrowMinInlineSize}` in narrow desktop and
@@ -1118,6 +1128,15 @@ Core restatement. Workbook behavior is keyed by stable identifiers such as `view
 Design contract. The UI MAY display human labels as text. Omission behavior: human labels MUST NOT replace stable identifiers for interaction state, mutation affordances, focus anchoring, visual fixture selectors, or accessibility relationships when those identifiers exist.
 
 Design contract. Presentation-only rows such as group headers, empty states, loading rows, and measurement rows MUST NOT emit mutation events and MUST NOT be presented as authoritative records.
+
+Design contract. An ordinary row-gutter header MUST contain visible meaningful
+content. Omitted, null, boolean, empty-string and whitespace-only labels default
+to `Row`; explicit labels such as `Source row` retain their meaning. Its accessible
+name MUST agree with its rendered content; an ARIA-only label does not satisfy
+the visible-content requirement. Grouped rendering retains the grouping label,
+or its existing field-key fallback, in place of the ordinary gutter header.
+This presentation does not alter structural column accounting, width, freezing,
+selection, draft controls, presence identity or saved-layout membership.
 
 ### 8.2 Cell and row state precedence
 
@@ -2354,6 +2373,7 @@ Design contract. `dark_graphite` MUST satisfy WCAG 2.2 AA for all required state
 | Focused editor containment | §12.5 applies at supported and below-minimum widths, including CSS zoom; each fitting focused editor or correction control is fully revealed. |
 | State communication | Conflict, pending, invalid, read-only, selected, disabled, evidence blocked, auto-resolved, dismissed, and unresolved states have non-color cues. |
 | Accessible names | Icon-only controls use §3.11 accessible names. Rows include human-readable surface context and are not named only by `record_id`. |
+| Heading hierarchy | The incident identity is the single level-one heading under §7.1. Workspace, Inspector and peer section headings are subordinate level-two headings; their nested sections follow the semantic hierarchy. Disclosure content does not become part of its invoking heading. |
 | Reduced motion | §6.3 governs reduced-motion behavior. |
 | Live regions | §14.2 governs announcements. |
 

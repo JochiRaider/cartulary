@@ -45,7 +45,8 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [WorkbookShellSlots.tsx](WorkbookShellSlots.tsx) | Stable shell slot IDs, labels, and layout slot helpers. |
 | [WorkbookShellTopBar.test.tsx](WorkbookShellTopBar.test.tsx) | Tests desktop manual navigation, explicit activation, and responsive selector focus ownership. |
 | [WorkbookShellTopBar.tsx](WorkbookShellTopBar.tsx) | Manual desktop built-in tab navigation, responsive selector focus ownership, registered menu focus, incident identity, presence, and account presentation. |
-| [WorkbookIncidentIdentityDisclosure.tsx](WorkbookIncidentIdentityDisclosure.tsx) | Explicit full incident-key/title disclosure with pointer, keyboard, Escape and focus departure behavior. |
+| [WorkbookIncidentIdentityDisclosure.tsx](WorkbookIncidentIdentityDisclosure.tsx) | Shared native incident h1 around the full-identity disclosure button; the disclosed region is outside the heading. Retains pointer, keyboard, Escape and focus departure behavior. |
+| [WorkbookIncidentIdentityDisclosure.test.tsx](WorkbookIncidentIdentityDisclosure.test.tsx) | Heading identity updates, uniqueness, disclosure keyboard operation, Escape focus return and outside dismissal. |
 
 `workbookFormStyles.ts` supplies the shared quiet command treatment. Feature
 owners still supply admission, pending and recovery state. Saved-view Startup

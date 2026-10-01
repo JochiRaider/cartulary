@@ -19,6 +19,17 @@ import { NetworkFlowRequestError } from "./networkFlowErrors";
 describe("NetworkFlowSemanticGrid accessibility", () => {
   afterEach(cleanup);
 
+  it("preserves the visible Source row header and accessible name for populated and empty results", () => {
+    const { rerender } = renderGrid([flowRow("nfr_1", 1)]);
+    expect(
+      screen.getByRole("columnheader", { name: "Source row" }).textContent,
+    ).toBe("Source row");
+    rerender(grid([]));
+    expect(
+      screen.getByRole("columnheader", { name: "Source row" }).textContent,
+    ).toBe("Source row");
+  });
+
   it("clears a vanished page selection without moving focus from pagination", async () => {
     const onSelectionChange = vi.fn();
     const view = (rows: readonly NetworkFlowRow[]) => (

@@ -95,7 +95,7 @@
           "scenario_68d87f2255be"
         ],
         "titles": [
-          "a11y.network-analysis.row-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence."
+          "a11y.network-analysis.row-01 Verify claimed Network Analysis incident heading, content-backed headers, tabs, queries, grids, inspector, graph, mapping, focus return, and ARIA evidence."
         ]
       },
       "evidence_class": "accessibility",

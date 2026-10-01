@@ -182,8 +182,14 @@ had one incomplete result. Raw advisory findings require these separate follow-u
 
 | ID | Owner | Finding and completion criterion |
 | --- | --- | --- |
-| UI-REVIEW-A11Y-01 | `package.grid_adapter`, with `module.workbook` integration evidence | Axe reports minor `empty-table-header` for the gutter header in built-in grids. Review the intended row-gutter semantics and assistive-technology output, then either correct the header or record an owner-supported disposition. Add a routed semantic/accessibility regression if behavior changes. |
-| UI-REVIEW-A11Y-02 | `web.workbook`, with `module.workbook` accessibility evidence | Axe reports moderate `page-has-heading-one` on workbook and Network Analysis pages. Decide the page-heading hierarchy with the shell owner, implement any required correction, and verify the heading outline and routed accessibility checks in both profiles. |
+| UI-REVIEW-A11Y-01 | `package.grid_adapter`, with `module.workbook` integration evidence | Closed by the bounded correction: ordinary absent/empty gutter content renders Row; explicit Source row and grouping labels retain their meaning. Fresh targeted-rule execution and production/test-binding parity pass. Full refreshed visual catalog passes two ordinary validations. |
+| UI-REVIEW-A11Y-02 | `web.workbook`, with `module.workbook` accessibility evidence | Closed by the bounded correction: the shared identity disclosure owns one native incident h1, with its region outside the heading and truthful unavailable states. Fresh default/claimed targeted-rule, identity-update, disclosure/navigation and two ordinary visual validations pass. |
+
+The [bounded structural correction handoff](ui-ux/workbook-structural-accessibility-correction-handoff.md)
+records the fresh evidence, owner decisions, full-catalog golden refresh authorized
+by the user, incomplete contrast results and separate constrained Network Analysis
+scrollability advisory. The historical observations and receipts below remain
+unchanged; current implementation evidence does not retroactively change them.
 
 These findings are advisory, not proven selector regressions. The routed
 accessibility check passed. Rendered observations cover the selected scenarios,
@@ -226,4 +232,7 @@ no successful full warm result was supplied to those earlier finalizer invocatio
 No commit, deployment or release publication was performed. Historical root-cause
 uncertainty remains; no speculative diagnosis replaces it. Product owners should
 triage UI-REVIEW-A11Y-01 and UI-REVIEW-A11Y-02 separately from this completed harness
-remediation.
+remediation. Those two product findings were subsequently corrected and closed
+with the fresh evidence in the bounded correction handoff linked above. That
+closure does not dispose of the separately recorded Network Analysis constrained
+scrollability advisory or certify screen-reader/WCAG conformance.

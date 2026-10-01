@@ -200,6 +200,15 @@ export type GridRowGutter = {
   readonly width?: number | undefined;
 };
 
+/** Ordinary empty labels retain a visible, content-backed structural header. */
+export function gridRowGutterLabel(label: ReactNode): ReactNode {
+  return label == null ||
+    typeof label === "boolean" ||
+    (typeof label === "string" && label.trim() === "")
+    ? "Row"
+    : label;
+}
+
 export type GridActionsColumn<Row> = {
   readonly headerTestId?: string | undefined;
   readonly label: string;

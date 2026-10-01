@@ -356,10 +356,10 @@ const incidentSelectionAccessibilityScenarioTitles = [
   "a11y.incident-selection.row-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
 ] as const;
 const workbookShellAccessibilityScenarioTitles = [
-  "a11y.workbook-shell.row-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named.",
+  "a11y.workbook-shell.row-01 Verify incident heading, content-backed headers, shell regions, tabs, switchers, menus, inspector controls, and status strip retain names and keyboard access.",
 ] as const;
 const gridInteractionAccessibilityScenarioTitles = [
-  "a11y.grid-interaction.row-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
+  "a11y.grid-interaction.row-01 Verify content-backed headers, incident heading, grid cells, editors, group rows, active cell, edit mode, and read-only state retain keyboard accessibility.",
 ] as const;
 const mutationLifecycleAccessibilityScenarioTitles = [
   "a11y.mutation-lifecycle.row-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
@@ -2023,6 +2023,43 @@ function evidenceAccessStateContainer(page: Page, recordId: string): Locator {
   return page.getByTestId(evidenceAccessStateTestId(recordId));
 }
 
+async function expectIncidentHeadingAndHeaders(
+  page: Page,
+  gutterLabel?: string,
+) {
+  const heading = page.getByRole("heading", { level: 1 });
+  await expect(heading).toHaveCount(1);
+  const identity = page.getByRole("button", { name: /^Incident details:/ });
+  await expect(heading.getByRole("button")).toHaveCount(1);
+  await expect(heading).toHaveAccessibleName(
+    (await identity.getAttribute("aria-label")) ?? "",
+  );
+  if (gutterLabel !== undefined) {
+    const header = page.getByRole("columnheader", {
+      name: gutterLabel,
+      exact: true,
+    });
+    await expect(header).toBeVisible();
+    await expect(header).toHaveText(gutterLabel);
+  }
+  const result = await new AxeBuilder({ page })
+    .withRules(["empty-table-header", "page-has-heading-one"])
+    .analyze();
+  await test.info().attach("incident-heading-and-table-headers", {
+    body: JSON.stringify(result),
+    contentType: "application/json",
+  });
+  expect(result.violations).toEqual([]);
+  expect(result.incomplete).toEqual([]);
+  expect(result.passes.map((rule) => rule.id)).toContain(
+    "page-has-heading-one",
+  );
+  if (gutterLabel !== undefined)
+    expect(result.passes.map((rule) => rule.id)).toContain(
+      "empty-table-header",
+    );
+}
+
 async function expectEvidenceControlsPainted(page: Page, recordId: string) {
   await mountedGridTarget(
     page,
@@ -2279,6 +2316,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
     await expect(timelineTab).toHaveAttribute("aria-selected", "true");
     expect(await saveEvents(page)).toEqual([]);
 
+    await expectIncidentHeadingAndHeaders(page, "Row");
     const identity = page.getByRole("button", { name: /^Incident details:/ });
     await expect(identity).toHaveAccessibleName(
       /a11y.workbook-shell.row-01 workbook shell/,
@@ -2302,6 +2340,39 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
     await expect(identityDetails).toBeVisible();
     await page.getByTestId(systemViewSwitcherTriggerTestId()).focus();
     await expect(identityDetails).toHaveCount(0);
+
+    for (const viewport of [
+      { width: 1024, height: 720 },
+      { width: 768, height: 640 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expectIncidentHeadingAndHeaders(page, "Row");
+      await expectVisibleFocus(identity);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollHeight <= window.innerHeight + 1,
+        ),
+      ).toBe(true);
+    }
+    await page.setViewportSize({ width: 2048, height: 1440 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    const headingSpacing = await page.addStyleTag({
+      content:
+        "h1, h1 * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }",
+    });
+    await expectIncidentHeadingAndHeaders(page, "Row");
+    await expectVisibleFocus(identity);
+    await identity.press("Enter");
+    await expect(identityDetails).toBeVisible();
+    await identity.press("Escape");
+    await expect(identity).toBeFocused();
+    await headingSpacing.evaluate((node) => node.parentNode?.removeChild(node));
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "100%";
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
 
     for (const slot of workbookShellSlots.filter(
       (slot) => slot !== "inspector",
@@ -2425,10 +2496,11 @@ if (
   (process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID ?? "default") ===
   "network_flow_claimed"
 ) {
-  test("a11y.network-analysis.row-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence.", async ({
+  test("a11y.network-analysis.row-01 Verify claimed Network Analysis incident heading, content-backed headers, tabs, queries, grids, inspector, graph, mapping, focus return, and ARIA evidence.", async ({
     page,
   }) => {
     await openClaimedNetworkAnalysis(page, "NETWORKFLOWA11Y");
+    await expectIncidentHeadingAndHeaders(page);
     await page
       .getByTestId(networkAnalysisTestId("import-input"))
       .setInputFiles(networkFlowMinimalCSV);
@@ -2543,6 +2615,7 @@ if (
         '[role="gridcell"] [data-grid-field-key]:not([data-grid-field-key^="__"])',
       )
       .first();
+    await expectIncidentHeadingAndHeaders(page, "Source row");
     const focusedGridCell = semanticGridCell(semanticCell);
     await semanticCell.click();
     await expect(
@@ -2858,6 +2931,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
       ).toHaveText("Alpha accessibility row");
 
       const grid = page.locator(gridScrollportSelector());
+      await expectIncidentHeadingAndHeaders(page, "Row");
       const fillLabel = "Drag to fill this value";
       const cdp = await page.context().newCDPSession(page);
       await cdp.send("Accessibility.enable");
@@ -3223,6 +3297,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
         const viewerGrid = viewerPage.locator(gridScrollportSelector());
         await expect(viewerGrid).toHaveAttribute("role", "treegrid");
         await expect(viewerGrid).toHaveAttribute("aria-readonly", "true");
+        await expectIncidentHeadingAndHeaders(viewerPage, "Capture State");
         const viewerInitialAxe = await new AxeBuilder({ page: viewerPage })
           .withRules(["aria-required-children", "aria-hidden-focus"])
           .analyze();

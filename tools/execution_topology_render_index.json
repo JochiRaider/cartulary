@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:488a214ee16da2912d00ff466dc34e6ba0c4b536a92ff6107dea237dae8e9d05",
+  "input_digest": "sha256:288d3022fc580946fcfc8505c866d2ce6e991b22eedd36dbc515a3176d8ab3a3",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -1242,7 +1242,7 @@
     {
       "path": "tools/test_families/module.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:541f021160de11e4f259c16a1650e902c1ba450caa2b1478d3b3f8694845eefc"
+      "hash": "sha256:94ff3ee8c5e03a92b4e74c762dbdc727810775ff68375ddd7e55cd4cc30abb2d"
     },
     {
       "path": "tools/test_families/module.parties.json",
@@ -1312,12 +1312,12 @@
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3382ab54655d9152a527b2924d28c26bcf1d756f179af90b03e316e04b2cb3e5"
+      "hash": "sha256:37602f0c2eb4e052d2802f9774d8e7a5d295698018c02357aadbab83cec23adb"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
       "role": "test_family_manifest",
-      "hash": "sha256:f6950cd56b216a5e95faba78c4a367461a7a48214f90286abdf8ed8511450ba7"
+      "hash": "sha256:a21dd17a0ce656a9bd11bc11ed79c332594df5a3e12d99f47f5877b6c4b180ad"
     },
     {
       "path": "tools/test_families/package.protocol_ts.json",
@@ -1427,12 +1427,12 @@
     {
       "path": "tools/test_families/web.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:c5cd072b603a4185d52728f83e83bffae762a2116239ef3fdc9959813ce7fcb4"
+      "hash": "sha256:ca362ef4ee5ddca15ca6d01e39024b08b40a47de2299735995c2f394cc815915"
     },
     {
       "path": "tools/test_families/web.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6d00ab947ddb9e9b55be27d6dbe2cec2b2c1b0a06270732f8593165f1058c9f6"
+      "hash": "sha256:b6c3b51f9bb0906439c41277495f166b0ea8bcfefc750b665539a9d0f9f3bf98"
     },
     {
       "path": "tools/test_runner_registry.json",

@@ -140,7 +140,8 @@ export function WorkbookShellTopBar({
     onSelectSurface(viewSchemaId, { focusFirstGridTarget: true });
   };
   const incidentKeyLabel = incidentIdentity?.incident_key ?? "Incident";
-  const incidentTitleLabel = incidentIdentity?.title ?? "Loading incident";
+  const incidentTitleLabel =
+    incidentIdentity?.title ?? incidentIdentityError ?? "Loading incident";
 
   return (
     <WorkbookShellSlotRegion

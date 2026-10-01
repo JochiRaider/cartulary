@@ -933,6 +933,7 @@
         "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
         "titles": [
           "NetworkFlowSemanticGrid accessibility maps typed protected-state loss to permission denial without retaining rows or inventing Retry",
+          "NetworkFlowSemanticGrid accessibility preserves the visible Source row header and accessible name for populated and empty results",
           "NetworkFlowSemanticGrid accessibility retains authorized rows for a retryable stale refresh failure"
         ]
       },

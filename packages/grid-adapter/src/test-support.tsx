@@ -67,6 +67,7 @@ import {
   type GridSemanticStateInput,
   type GridSortEntry,
   type GridViewportProps,
+  gridRowGutterLabel,
   gridRowIdentitiesEqual,
   gridRowIdentityKey,
   gridSurfaceIdentitiesEqual,
@@ -671,6 +672,7 @@ function TestGridHeader<Row>({
   bulkSelection,
   bulkSelectionState,
   columns,
+  grouping,
   onSelectAll,
   onSortChange,
   rowGutter,
@@ -680,6 +682,7 @@ function TestGridHeader<Row>({
   readonly bulkSelection: GridCoreRecordBulkSelection<Row> | undefined;
   readonly bulkSelectionState: SemanticBulkSelectionState<Row> | null;
   readonly columns: readonly GridColumn<Row>[];
+  readonly grouping: SemanticDataGridProps<Row>["grouping"];
   readonly onSelectAll: () => void;
   readonly onSortChange: ((sort: readonly GridSortEntry[]) => void) | undefined;
   readonly rowGutter: GridRowGutter | undefined;
@@ -706,11 +709,15 @@ function TestGridHeader<Row>({
             />
           </th>
         )}
-        {rowGutter === undefined ? null : (
-          <th role="columnheader" scope="col">
-            <span data-testid={rowGutter.headerTestId}>
-              {rowGutter.label ?? ""}
-            </span>
+        {rowGutter === undefined && !grouping ? null : (
+          <th
+            role="columnheader"
+            scope="col"
+            data-testid={grouping ? undefined : rowGutter?.headerTestId}
+          >
+            {grouping
+              ? (grouping.label ?? grouping.fieldKey)
+              : gridRowGutterLabel(rowGutter?.label)}
           </th>
         )}
         {columns.map((column) => (
@@ -789,6 +796,7 @@ function TestGridBody<Row>({
   draftRow,
   editable,
   focusSemanticAnchor,
+  grouped,
   interactionMode,
   onCopyCell,
   onFillCells,
@@ -824,6 +832,7 @@ function TestGridBody<Row>({
   readonly draftRow: GridDraftRow<Row> | undefined;
   readonly editable: boolean;
   readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly grouped: boolean;
   readonly interactionMode: GridInteractionMode;
   readonly onCopyCell: SemanticDataGridProps<Row>["onCopyCell"];
   readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
@@ -865,6 +874,7 @@ function TestGridBody<Row>({
             editable={editable}
             focusSemanticAnchor={focusSemanticAnchor}
             gridRow={row.gridRow}
+            grouped={grouped}
             interactionMode={interactionMode}
             key={row.key}
             onCopyCell={onCopyCell}
@@ -891,6 +901,7 @@ function TestGridBody<Row>({
           columns={columns}
           draftFocusTargets={draftFocusTargets}
           draftRow={draftRow}
+          grouped={grouped}
           rowGutter={rowGutter}
           surface={surface}
         />
@@ -931,6 +942,7 @@ function TestGridDataRow<Row>({
   editable,
   focusSemanticAnchor,
   gridRow,
+  grouped,
   interactionMode,
   onCopyCell,
   onFillCells,
@@ -961,6 +973,7 @@ function TestGridDataRow<Row>({
   readonly editable: boolean;
   readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
   readonly gridRow: GridDataRow<Row>;
+  readonly grouped: boolean;
   readonly interactionMode: GridInteractionMode;
   readonly onCopyCell: SemanticDataGridProps<Row>["onCopyCell"];
   readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
@@ -1027,7 +1040,11 @@ function TestGridDataRow<Row>({
           )}
         </td>
       )}
-      {rowGutter === undefined ? null : (
+      {rowGutter === undefined ? (
+        grouped ? (
+          <td role="gridcell" />
+        ) : null
+      ) : (
         <th
           data-grid-field-key="__cartulary_row_gutter__"
           data-testid={gridRow.gutterTestId}
@@ -1269,6 +1286,7 @@ function TestGridDraftRow<Row>({
   columns,
   draftFocusTargets,
   draftRow,
+  grouped,
   rowGutter,
   surface,
 }: {
@@ -1279,6 +1297,7 @@ function TestGridDraftRow<Row>({
     Map<string, GridEditorFocusTarget>
   >;
   readonly draftRow: GridDraftRow<Row>;
+  readonly grouped: boolean;
   readonly rowGutter: GridRowGutter | undefined;
   readonly surface: SemanticDataGridProps<Row>["surface"];
 }) {
@@ -1290,7 +1309,11 @@ function TestGridDraftRow<Row>({
       role="row"
     >
       {bulkSelection === undefined ? null : <td role="gridcell" />}
-      {rowGutter === undefined ? null : (
+      {rowGutter === undefined ? (
+        grouped ? (
+          <td role="gridcell" />
+        ) : null
+      ) : (
         <th data-grid-field-key="__cartulary_row_gutter__" scope="row">
           {draftRow.gutterContent ?? draftRow.gutterLabel ?? ""}
         </th>
@@ -1667,7 +1690,7 @@ function useSemanticDataGridTestSupport<Row>(
   const totalColumnCount =
     columns.length +
     (effectiveBulkSelection === undefined ? 0 : 1) +
-    (rowGutter === undefined ? 0 : 1) +
+    (rowGutter === undefined && !grouping ? 0 : 1) +
     (actionsColumn === undefined ? 0 : 1);
 
   return (
@@ -1761,6 +1784,7 @@ function useSemanticDataGridTestSupport<Row>(
                 bulkSelection={effectiveBulkSelection}
                 bulkSelectionState={bulkSelectionState}
                 columns={columns}
+                grouping={grouping}
                 onSelectAll={() => {
                   selectionAnchorRecordId.current = null;
                   if (
@@ -1789,6 +1813,7 @@ function useSemanticDataGridTestSupport<Row>(
                 draftRow={effectiveDraftRow}
                 editable={editable}
                 focusSemanticAnchor={focusSemanticAnchor}
+                grouped={grouping !== null && grouping !== undefined}
                 interactionMode={effectiveInteractionMode}
                 onCopyCell={onCopyCell}
                 onFillCells={onFillCells}

@@ -89,6 +89,101 @@ function gridAnchor(recordId: string, fieldKey: string) {
 }
 
 describe("grid-adapter", () => {
+  it("keeps gutter header content and names aligned through empty explicit and grouped labels in both bindings", async () => {
+    for (const { Grid } of semanticContractBindings) {
+      const props: SemanticDataGridProps<HarnessRow> = {
+        columns,
+        dataRows: [
+          {
+            kind: "data",
+            data: { label: "Alpha", state: "open" },
+            rowIdentity: { kind: "core_record", recordId: "header-row" },
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+            gutterContent: (
+              <span role="img" aria-label="Analyst focused on this row">
+                A
+              </span>
+            ),
+          },
+        ],
+        surface: testSurface,
+      };
+      const view = render(
+        <Grid
+          {...props}
+          rowGutter={{ headerTestId: "gutter-header", width: 48 }}
+        />,
+      );
+      for (const label of [
+        undefined,
+        null,
+        false,
+        true,
+        "",
+        " \t ",
+        "Source row",
+        <span key="explicit">Source row</span>,
+      ]) {
+        view.rerender(
+          <Grid
+            {...props}
+            rowGutter={{ label, headerTestId: "gutter-header", width: 48 }}
+          />,
+        );
+        const name =
+          label === "Source row" ||
+          (typeof label === "object" && label !== null)
+            ? "Source row"
+            : "Row";
+        const header = screen.getByRole("columnheader", { name });
+        expect(header.textContent).toBe(name);
+        expect(screen.getByTestId("gutter-header")).toBe(header);
+        expect(screen.getAllByRole("columnheader")).toHaveLength(3);
+        expect(
+          screen.getByLabelText("Analyst focused on this row"),
+        ).toBeTruthy();
+      }
+      for (const rowGutter of [undefined, { label: "Source row", width: 48 }]) {
+        for (const label of [undefined, "Grouped state"]) {
+          view.rerender(
+            <Grid
+              {...props}
+              rowGutter={rowGutter}
+              grouping={{
+                fieldKey: "state",
+                label,
+                getValue: (row) => row.state,
+                formatLabel: (value) => String(value),
+              }}
+            />,
+          );
+          const header = screen.getByRole("columnheader", {
+            name: label ?? "state",
+          });
+          expect(header.textContent).toBe(label ?? "state");
+          expect(
+            screen.queryByRole("columnheader", { name: "Row" }),
+          ).toBeNull();
+          expect(
+            screen.queryByRole("columnheader", {
+              name: "Source row",
+            }),
+          ).toBeNull();
+          expect(screen.getAllByRole("columnheader")).toHaveLength(3);
+        }
+      }
+      view.rerender(
+        <Grid {...props} dataRows={[]} rowGutter={{ label: "" }} />,
+      );
+      expect(
+        screen.getByRole("columnheader", { name: "Row" }).textContent,
+      ).toBe("Row");
+      view.rerender(<Grid {...props} />);
+      expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+      view.unmount();
+    }
+  });
+
   it("keeps readable record selection presentation bound to identity through updates and reorder in both bindings", async () => {
     for (const { Grid } of semanticContractBindings) {
       const firstRow: GridDataRow<HarnessRow> = {

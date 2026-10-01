@@ -4,6 +4,12 @@ The package owns semantic grid interaction and its production RDG binding.
 Workbook query requests, cursors, retained work and server normalization stay with
 Workbook and its source owners.
 
+Ordinary structural gutter headers share the internal `gridRowGutterLabel`
+normalizer in production and test bindings: omitted, null, boolean and blank
+string labels render `Row`; explicit React content remains intact. Content stays
+in the compiled column name so grouping can replace it with the grouping label
+or field-key fallback. The header's accessible name comes from that content.
+
 ## Record-selection presentation
 
 The opt-in `GridCoreRecordBulkSelection` requires

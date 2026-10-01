@@ -2567,6 +2567,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.incident_heading_retains_full_identity_and_discl_7c5cefeb7e",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookIncidentIdentityDisclosure.test.tsx",
+        "titles": [
+          "Workbook incident heading keeps one full identity heading and a separate keyboard disclosure through identity changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.indicator_canonical_authoring",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -8154,6 +8178,7 @@
           "WorkbookShell surface selection keeps closed incidents readable while disabling grid mutation entry points",
           "WorkbookShell surface selection keeps entity merge review, confirmation, and dependent Timeline preview bound to stable record ids",
           "WorkbookShell surface selection keeps late surface fixture requests bound to the originating test scenario",
+          "WorkbookShell surface selection keeps one incident heading across built-in and System view navigation",
           "WorkbookShell surface selection keeps rejected generic party-link feedback local",
           "WorkbookShell surface selection loads a direct Status Review URL with the active surface query result",
           "WorkbookShell surface selection mounts the matching entity inspector subject after deferred query hydration",
@@ -8165,7 +8190,9 @@
           "WorkbookShell surface selection rechecks generic surface denial without exiting an authorized incident",
           "WorkbookShell surface selection rejects generic query envelopes from a different view_schema_id",
           "WorkbookShell surface selection renders saved views only in the active surface selector and preserves selected saved-view identity",
+          "WorkbookShell surface selection replaces the loading incident heading with truthful identity failure",
           "WorkbookShell surface selection retains accepted generic rows and marks them stale when refresh fails",
+          "WorkbookShell surface selection retains the accepted incident heading during a permitted identity refresh and failure",
           "WorkbookShell surface selection selects required built-in and system view surfaces by view_schema_id",
           "WorkbookShell surface selection separates acknowledged party-link save state from workbook and reference refresh",
           "WorkbookShell surface selection submits physical alias add/remove actions and restores inspector focus after authoritative refresh",

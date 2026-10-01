@@ -1294,6 +1294,112 @@ describe("WorkbookShell surface selection", () => {
     );
   }
 
+  it("keeps one incident heading across built-in and System view navigation", async () => {
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "IR-1 Incident 1",
+    });
+    for (const surface of requiredBuiltInWorkbookSurfaceIds) {
+      fireEvent.click(await screen.findByTestId(surfaceTabTestId(surface)));
+      await screen.findByTestId(gridShellTestId(surface));
+      expect(screen.getAllByRole("heading", { level: 1 })).toEqual([heading]);
+    }
+    fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
+    fireEvent.click(
+      screen.getByTestId(
+        systemViewSwitcherOptionTestId(
+          "scope-indicators",
+          indicatorsViewSchemaId,
+        ),
+      ),
+    );
+    await screen.findByTestId(gridShellTestId(indicatorsViewSchemaId));
+    expect(screen.getAllByRole("heading", { level: 1 })).toEqual([heading]);
+  });
+
+  it("retains the accepted incident heading during a permitted identity refresh and failure", async () => {
+    const original = fetchMock.getMockImplementation() as (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => Promise<Response>;
+    const refresh = deferred<Response>();
+    const incidentId = "10000000-0000-4000-8000-000000000001";
+    fetchMock.mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        String(input).endsWith(`/api/v1/incidents/${incidentId}`)
+          ? refresh.promise
+          : original(input, init),
+    );
+    const { rerender } = render(
+      <WorkbookShell
+        incidentId={incidentId}
+        initialIncidentIdentity={{
+          incident_id: incidentId,
+          incident_key: "IR-ACCEPTED",
+          title: "Accepted incident title",
+          incident_version: 2,
+          status: "active",
+          current_phase: null,
+          description: null,
+          primary_external_case_ref: null,
+          severity: null,
+          tlp: null,
+        }}
+      />,
+    );
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "IR-ACCEPTED Accepted incident title",
+    });
+    rerender(<WorkbookShell incidentId={incidentId} />);
+    expect(screen.getAllByRole("heading", { level: 1 })).toEqual([heading]);
+    await act(async () =>
+      refresh.resolve(errorEnvelope("refresh_unavailable", 503)),
+    );
+    await flushWorkbookAsync();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "IR-ACCEPTED Accepted incident title",
+      }),
+    ).toBe(heading);
+    expect(screen.queryByText("Loading incident")).toBeNull();
+  });
+
+  it("replaces the loading incident heading with truthful identity failure", async () => {
+    const original = fetchMock.getMockImplementation() as (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => Promise<Response>;
+    const identity = deferred<Response>();
+    fetchMock.mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        String(input).endsWith(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001",
+        )
+          ? identity.promise
+          : original?.(input, init),
+    );
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Incident Loading incident",
+    });
+    await act(async () =>
+      identity.resolve(errorEnvelope("identity_unavailable", 503)),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { level: 1, name: /Loading incident/ }),
+      ).toBeNull(),
+    );
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+      "identity_unavailable",
+    );
+  });
+
   function ordinaryWrites() {
     return fetchMock.mock.calls.filter(
       ([url, init]) =>

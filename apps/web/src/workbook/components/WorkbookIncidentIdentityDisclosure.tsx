@@ -55,29 +55,31 @@ export function WorkbookIncidentIdentityDisclosure({
         }
       }}
     >
-      <button
-        ref={trigger}
-        type="button"
-        aria-label={`Incident details: ${incidentKey}, ${title}`}
-        aria-expanded={open}
-        aria-controls={open ? id : undefined}
-        onClick={() => setOpen(!open)}
-        style={{
-          ...workbookQuietCommandStyle,
-          width: "100%",
-          minWidth: 0,
-          justifyContent: "flex-start",
-          paddingInline: 0,
-        }}
-      >
-        <strong style={shellTopBarValueStyle}>{incidentKey}</strong>
-        <span style={shellIncidentTitleStyle}>{title}</span>
-        <ChevronDown
-          aria-hidden="true"
-          size={16}
-          style={{ flex: "0 0 auto" }}
-        />
-      </button>
+      <h1 style={{ margin: 0, minWidth: 0, font: "inherit" }}>
+        <button
+          ref={trigger}
+          type="button"
+          aria-label={`Incident details: ${incidentKey}, ${title}`}
+          aria-expanded={open}
+          aria-controls={open ? id : undefined}
+          onClick={() => setOpen(!open)}
+          style={{
+            ...workbookQuietCommandStyle,
+            width: "100%",
+            minWidth: 0,
+            justifyContent: "flex-start",
+            paddingInline: 0,
+          }}
+        >
+          <strong style={shellTopBarValueStyle}>{incidentKey}</strong>
+          <span style={shellIncidentTitleStyle}>{title}</span>
+          <ChevronDown
+            aria-hidden="true"
+            size={16}
+            style={{ flex: "0 0 auto" }}
+          />
+        </button>
+      </h1>
       {open ? (
         <section
           id={id}

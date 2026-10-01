@@ -30,6 +30,7 @@ import type {
   GridSemanticStateInput,
   GridSurfaceIdentity,
 } from "./core";
+import { gridRowGutterLabel } from "./core";
 import {
   gridEditorDepartureChord,
   nativeEditorOwnsKey,
@@ -272,13 +273,13 @@ export function compileGridColumns<Row>({
           data-grid-field-key={gridRowGutterColumnKey}
           ref={(node) =>
             markSemanticHeaderCell(node, {
-              accessibleLabel: "Row gutter",
+              accessibleLabel: undefined,
               fieldKey: gridRowGutterColumnKey,
               testId: rowGutter.headerTestId,
             })
           }
         >
-          {rowGutter.label}
+          {gridRowGutterLabel(rowGutter.label)}
         </span>
       ),
       renderCell: ({ row }) => (
@@ -1164,7 +1165,7 @@ function setOptionalAriaBoolean(
 function markSemanticHeaderCell(
   node: HTMLElement | null,
   options: {
-    readonly accessibleLabel: string;
+    readonly accessibleLabel: string | undefined;
     readonly fieldKey: string;
     readonly testId: string | undefined;
     readonly title?: string | undefined;
@@ -1174,7 +1175,9 @@ function markSemanticHeaderCell(
   if (header === undefined || header === null) return;
   header.dataset.gridFieldKey = options.fieldKey;
   if (options.testId !== undefined) header.dataset.testid = options.testId;
-  header.setAttribute("aria-label", options.accessibleLabel);
+  if (options.accessibleLabel === undefined)
+    header.removeAttribute("aria-label");
+  else header.setAttribute("aria-label", options.accessibleLabel);
   if (options.title !== undefined) header.title = options.title;
 }
 

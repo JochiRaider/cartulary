@@ -23,7 +23,7 @@
           "scenario_9cb8459f8063"
         ],
         "titles": [
-          "a11y.grid-interaction.row-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
+          "a11y.grid-interaction.row-01 Verify content-backed headers, incident heading, grid cells, editors, group rows, active cell, edit mode, and read-only state retain keyboard accessibility."
         ]
       },
       "evidence_class": "accessibility",
@@ -861,6 +861,7 @@
           "grid-adapter keeps editable cells mounted across repeated parent renders with an actions column",
           "grid-adapter keeps embedded actions independent and routes labeled pointer and keyboard fill through semantic targets",
           "grid-adapter keeps grouped editable draft cells stable across repeated local edits",
+          "grid-adapter keeps gutter header content and names aligned through empty explicit and grouped labels in both bindings",
           "grid-adapter keeps inspector context distinct from opt-in record selection",
           "grid-adapter keeps readable record selection presentation bound to identity through updates and reorder in both bindings",
           "grid-adapter keeps standalone block sizing by default and supports shell-owned fill block sizing",

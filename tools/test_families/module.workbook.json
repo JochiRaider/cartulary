@@ -989,7 +989,7 @@
           "scenario_e7bdba6c9e86"
         ],
         "titles": [
-          "a11y.workbook-shell.row-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named."
+          "a11y.workbook-shell.row-01 Verify incident heading, content-backed headers, shell regions, tabs, switchers, menus, inspector controls, and status strip retain names and keyboard access."
         ]
       },
       "evidence_class": "accessibility",
