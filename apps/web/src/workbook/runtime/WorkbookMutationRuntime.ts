@@ -1541,12 +1541,6 @@ export class WorkbookMutationRuntime {
     this.emit();
   }
 
-  pauseForTerminalLifecycle(): void {
-    if (this.retired) return;
-    this.pendingRuntime.model.pauseForTerminalLifecycle();
-    this.emit();
-  }
-
   invalidate(reason: WorkbookMutationInvalidationReason): void {
     if (this.retired) return;
     if (

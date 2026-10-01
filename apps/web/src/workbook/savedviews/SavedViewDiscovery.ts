@@ -108,11 +108,6 @@ export class SavedViewDiscovery {
     this.retryDestination
       ? this.load(this.retryDestination, "retry")
       : this.first();
-  revalidate = () =>
-    this.load(
-      { cursor: this.state.cursor, previous: this.state.previous },
-      null,
-    );
   invalidate = (removedId?: string) => {
     this.cancel();
     this.publish({

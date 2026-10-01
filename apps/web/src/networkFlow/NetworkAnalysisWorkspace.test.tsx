@@ -1085,7 +1085,11 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(
       await screen.findByRole("heading", { name: "Investigation graph" }),
     ).toBeTruthy();
-    expect(await screen.findByText(/Result gpres_/u)).toBeTruthy();
+    expect(
+      (
+        await screen.findByTestId(networkAnalysisTestId("saved-graph-result"))
+      ).getAttribute("data-projection-result-id"),
+    ).toBe(projectionResultId);
     expect(
       screen.getAllByTestId(/^network-flow-saved-graph-vertex-/u),
     ).toHaveLength(2);

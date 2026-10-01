@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 
-export type MetadataRule = {
+type MetadataRule = {
   id: string;
   target: string;
   replacement: string;

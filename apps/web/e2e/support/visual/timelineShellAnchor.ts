@@ -1,4 +1,5 @@
 import {
+  dataTestIdSelector,
   gridRowGutterTestId,
   gridScrollportSelector,
   gridShellTestId,
@@ -39,23 +40,23 @@ export async function focusTimelineShellOrigin(page: Page, recordId: string) {
 }
 
 export async function observeTimelineShellOrigin(page: Page, recordId: string) {
-  const ids = {
-    target: rowCellTestId(recordId, "timeline.date_entered_text"),
-    inspector: timelineInspectorTestId(),
-    save: saveStateTestId(),
+  const selectors = {
+    target: dataTestIdSelector(
+      rowCellTestId(recordId, "timeline.date_entered_text"),
+    ),
+    inspector: dataTestIdSelector(timelineInspectorTestId()),
+    save: dataTestIdSelector(saveStateTestId()),
     landmarks: [
       ...(["top-bar", "view-bar", "primary-grid", "status-strip"] as const).map(
         workbookShellSlotTestId,
       ),
       gridRowGutterTestId(timelineViewSchemaId, recordId),
-    ],
+    ].map(dataTestIdSelector),
   };
   return page.evaluate(
-    async ({ ids, recordId }) => {
-      const find = (id: string) =>
-        document.querySelector<HTMLElement>(
-          `[data-testid=${JSON.stringify(id)}]`,
-        );
+    async ({ selectors, recordId }) => {
+      const find = (selector: string) =>
+        document.querySelector<HTMLElement>(selector);
       const rect = (node: Element | null) => {
         if (!node) return null;
         const r = node.getBoundingClientRect();
@@ -87,7 +88,7 @@ export async function observeTimelineShellOrigin(page: Page, recordId: string) {
         await new Promise<void>((resolve) =>
           requestAnimationFrame(() => resolve()),
         );
-        const element = find(ids.target);
+        const element = find(selectors.target);
         const cell = element?.closest<HTMLElement>('[role="gridcell"]') ?? null;
         const row = element?.closest<HTMLElement>("[data-grid-record-id]");
         const offsets = [[window.scrollX, window.scrollY]];
@@ -106,17 +107,19 @@ export async function observeTimelineShellOrigin(page: Page, recordId: string) {
         );
         frames.push({
           cell: rect(cell),
-          landmarks: ids.landmarks.map((id) => rect(find(id))),
+          landmarks: selectors.landmarks.map((selector) =>
+            rect(find(selector)),
+          ),
           offsets,
           fonts,
           selected: row?.getAttribute("data-inspector-active") === "true",
           focused: document.activeElement === cell,
-          save: find(ids.save)?.textContent ?? null,
+          save: find(selectors.save)?.textContent ?? null,
           valid:
             !!cell &&
             visible(cell) &&
-            ids.landmarks.every((id) => {
-              const r = find(id)?.getBoundingClientRect();
+            selectors.landmarks.every((selector) => {
+              const r = find(selector)?.getBoundingClientRect();
               return (
                 !!r &&
                 r.width > 0 &&
@@ -133,8 +136,8 @@ export async function observeTimelineShellOrigin(page: Page, recordId: string) {
             row?.dataset.gridRecordId === recordId &&
             row.getAttribute("data-inspector-active") === "true" &&
             offsets.every(([x, y]) => x === 0 && y === 0) &&
-            !find(ids.inspector) &&
-            find(ids.save)?.textContent === "Saved" &&
+            !find(selectors.inspector) &&
+            find(selectors.save)?.textContent === "Saved" &&
             !document.querySelector(
               '[data-grid-editing="true"], [data-grid-data-state="loading"], [data-grid-data-state="refreshing"], [data-grid-data-state="stale_error"], [data-grid-data-state="unavailable"]',
             ),
@@ -148,7 +151,7 @@ export async function observeTimelineShellOrigin(page: Page, recordId: string) {
         frames,
       };
     },
-    { ids, recordId },
+    { selectors, recordId },
   );
 }
 

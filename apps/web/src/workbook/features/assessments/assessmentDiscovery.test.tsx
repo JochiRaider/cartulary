@@ -45,6 +45,14 @@ const page = (ids: string[], nextCursor: string | null = null) => ({
   },
 });
 
+function expectCandidatePageStatus(message: string) {
+  expect(
+    screen
+      .getAllByRole("status")
+      .filter((node) => node.textContent?.includes(message)),
+  ).toHaveLength(1);
+}
+
 describe("Assessment discovery", () => {
   it("keeps the direct shared support Refresh control focused during a held read", async () => {
     let finish!: (
@@ -257,11 +265,7 @@ describe("Assessment discovery", () => {
         update={update}
       />,
     );
-    await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain(
-        "end of this query",
-      ),
-    );
+    await waitFor(() => expectCandidatePageStatus("end of this query"));
     expect(
       (
         screen.getByTestId(
@@ -304,11 +308,7 @@ describe("Assessment discovery", () => {
         update={update}
       />,
     );
-    await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain(
-        "more available",
-      ),
-    );
+    await waitFor(() => expectCandidatePageStatus("more available"));
     fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
     await waitFor(() => expect(subjects).toHaveBeenCalledTimes(2));
     expect(subjects.mock.calls[1]?.[1].cursor).toBe("next");
@@ -319,11 +319,7 @@ describe("Assessment discovery", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Apply candidate query" }),
     );
-    await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain(
-        "No candidates match",
-      ),
-    );
+    await waitFor(() => expectCandidatePageStatus("No candidates match"));
     expect(subjects.mock.calls[2]?.[1].queryState.sort).toEqual([
       { fieldKey: "host.display_name", direction: "desc" },
     ]);
@@ -337,11 +333,7 @@ describe("Assessment discovery", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Apply candidate query" }),
     );
-    await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain(
-        "No candidates match",
-      ),
-    );
+    await waitFor(() => expectCandidatePageStatus("No candidates match"));
     await waitFor(() => expect(subjects).toHaveBeenCalledTimes(4));
     await waitFor(() =>
       expect(
@@ -388,11 +380,7 @@ describe("Assessment discovery", () => {
     );
     const trigger = screen.getByRole("button", { name: "Choose support" });
     fireEvent.click(trigger);
-    await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain(
-        "end of this query",
-      ),
-    );
+    await waitFor(() => expectCandidatePageStatus("end of this query"));
     const select = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
     ) as HTMLSelectElement;
@@ -405,11 +393,7 @@ describe("Assessment discovery", () => {
     expect(update).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(trigger);
     fireEvent.click(trigger);
-    await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain(
-        "end of this query",
-      ),
-    );
+    await waitFor(() => expectCandidatePageStatus("end of this query"));
     fireEvent.click(
       screen.getByRole("button", { name: "Apply support selection" }),
     );

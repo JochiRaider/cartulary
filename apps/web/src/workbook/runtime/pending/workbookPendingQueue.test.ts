@@ -291,6 +291,229 @@ function expectCorePrimaryLabel(label: string) {
 }
 
 describe("pending queue unit model", () => {
+  it("keeps closure and authentication independent across repeated transitions", () => {
+    for (const pauseBeforeClosure of [false, true]) {
+      const queue = createQueue();
+      const unit = expectAccepted(
+        queue.admit(
+          patchUnit({ clientTxnId: "retained", recordId: "a", order: 1 }),
+        ),
+      );
+      if (pauseBeforeClosure) queue.pauseForAuthRecovery();
+      queue.pauseForIncidentClosure();
+      queue.pauseForIncidentClosure();
+      queue.resumeAfterIncidentReopen();
+      queue.resumeAfterIncidentReopen();
+      if (!pauseBeforeClosure) queue.pauseForAuthRecovery();
+      expect(queue.snapshot().authPaused).toBe(true);
+      expect(queue.dispatchNext()).toBeNull();
+      queue.resumeAfterAuthRecovery();
+      expect(queue.snapshot().authPaused).toBe(false);
+      expect(queue.snapshot().halted?.unit_id).toBe(unit.id);
+      expect(queue.dispatchNext()).toBeNull();
+
+      // A new closure cancels the previous reopen, even after its last unit is discarded.
+      queue.pauseForIncidentClosure();
+      expect(queue.discardHaltedUnit(unit.id).recovered).toBe(true);
+      const stillClosed = expectAccepted(
+        queue.admit(
+          patchUnit({ clientTxnId: "still-closed", recordId: "b", order: 2 }),
+        ),
+      );
+      queue.resumeAfterAuthRecovery();
+      expect(queue.dispatchNext()).toBeNull();
+      expect(queue.snapshot().halted?.unit_id).toBe(stillClosed.id);
+      expect(queue.discardHaltedUnit(stillClosed.id).recovered).toBe(true);
+      queue.resumeAfterIncidentReopen();
+      queue.pauseForAuthRecovery();
+      const fresh = expectAccepted(
+        queue.admit(
+          patchUnit({ clientTxnId: "fresh", recordId: "c", order: 3 }),
+        ),
+      );
+      expect(queue.dispatchNext()).toBeNull();
+      queue.resumeAfterAuthRecovery();
+      expect(queue.dispatchNext()?.unit.id).toBe(fresh.id);
+    }
+  });
+
+  it("retains closure blocking through late success and failure settlement", () => {
+    const results = [
+      { ok: true, row: { record_id: "a", row_version: 2 } },
+      {
+        ok: false,
+        status: 0,
+        error: {
+          code: "transport_failure",
+          message: "Uncertain",
+          retryable: true,
+        },
+      },
+      {
+        ok: false,
+        status: 422,
+        error: { code: "validation_failed", message: "Rejected" },
+      },
+      {
+        ok: false,
+        status: 401,
+        error: { code: "session_revoked", message: "Reauthenticate" },
+      },
+    ] as const;
+    for (const result of results) {
+      for (const reopenBeforeSettlement of [false, true]) {
+        for (const hasSuccessor of [false, true]) {
+          const queue = createQueue();
+          const first = expectAccepted(
+            queue.admit(
+              patchUnit({ clientTxnId: "first", recordId: "a", order: 1 }),
+            ),
+          );
+          queue.dispatchNext();
+          const successor = hasSuccessor
+            ? expectAccepted(
+                queue.admit(
+                  patchUnit({ clientTxnId: "later", recordId: "b", order: 2 }),
+                ),
+              )
+            : null;
+          queue.pauseForIncidentClosure();
+          if (reopenBeforeSettlement) queue.resumeAfterIncidentReopen();
+          const settlement = queue.settleDispatched(result);
+          expect(settlement.outcome).not.toBe("no_dispatched_unit");
+          const remaining = [
+            ...(result.ok ? [] : [first]),
+            ...(successor ? [successor] : []),
+          ];
+          expect(queue.snapshot().units.map((unit) => unit.id)).toEqual(
+            remaining.map((unit) => unit.id),
+          );
+          expect(queue.snapshot().inFlightCount).toBe(0);
+          if (queue.snapshot().authPaused) queue.resumeAfterAuthRecovery();
+          for (const unit of remaining) {
+            expect(queue.dispatchNext()).toBeNull();
+            expect(queue.snapshot().halted?.unit_id).toBe(unit.id);
+            expect(queue.discardHaltedUnit(unit.id).recovered).toBe(true);
+          }
+          if (!reopenBeforeSettlement) queue.resumeAfterIncidentReopen();
+          expect(queue.snapshot().halted).toBeNull();
+          expect(queue.snapshot().primarySaveStateInput).toBe("Saved");
+          const fresh = expectAccepted(
+            queue.admit(
+              patchUnit({ clientTxnId: "fresh", recordId: "c", order: 3 }),
+            ),
+          );
+          expect(queue.dispatchNext()?.unit.id).toBe(fresh.id);
+        }
+      }
+    }
+  });
+
+  it("transfers late closure conflicts without stranding removed replay units", () => {
+    for (const reopenBeforeSettlement of [false, true]) {
+      for (const hasSuccessor of [false, true]) {
+        const queue = createQueue();
+        const first = expectAccepted(
+          queue.admit(
+            patchUnit({ clientTxnId: "first", recordId: "a", order: 1 }),
+          ),
+        );
+        queue.dispatchNext();
+        const successor = hasSuccessor
+          ? expectAccepted(
+              queue.admit(
+                patchUnit({ clientTxnId: "later", recordId: "b", order: 2 }),
+              ),
+            )
+          : null;
+        queue.pauseForIncidentClosure();
+        if (reopenBeforeSettlement) queue.resumeAfterIncidentReopen();
+        const settlement = queue.settleDispatched({
+          ok: false,
+          status: 409,
+          error: sameFieldConflictError({
+            conflictToken: "conflict",
+            recordId: "a",
+            fieldKey: "timeline.activity_synopsis_text",
+          }),
+        });
+        expect(settlement.outcome).toBe("same_field_conflict");
+        expect(queue.snapshot().units.map((unit) => unit.id)).toEqual(
+          successor ? [successor.id] : [],
+        );
+        expect(queue.snapshot().halted?.unit_id ?? null).toBe(
+          successor?.id ?? null,
+        );
+        expect(queue.snapshot().primarySaveStateInput).toBe("Conflict");
+        expect(queue.dispatchNext()).toBeNull();
+        queue.clearSameFieldConflict("a:timeline.activity_synopsis_text");
+        expect(queue.snapshot().sameFieldConflicts).toEqual([]);
+        expect(queue.snapshot().halted?.unit_id).not.toBe(first.id);
+        if (successor) {
+          expect(queue.dispatchNext()).toBeNull();
+          expect(queue.discardHaltedUnit(successor.id).recovered).toBe(true);
+        }
+        if (!reopenBeforeSettlement) queue.resumeAfterIncidentReopen();
+        expect(queue.snapshot().primarySaveStateInput).toBe("Saved");
+        const fresh = expectAccepted(
+          queue.admit(
+            patchUnit({ clientTxnId: "fresh", recordId: "c", order: 3 }),
+          ),
+        );
+        expect(queue.dispatchNext()?.unit.id).toBe(fresh.id);
+      }
+    }
+  });
+
+  it("retires pending replay irreversibly across late outcomes", () => {
+    for (const dispatched of [false, true]) {
+      const queue = createQueue();
+      const first = expectAccepted(
+        queue.admit(
+          patchUnit({ clientTxnId: "first", recordId: "a", order: 1 }),
+        ),
+      );
+      if (dispatched) queue.dispatchNext();
+      queue.admit(patchUnit({ clientTxnId: "later", recordId: "b", order: 2 }));
+      expect(queue.retire()).toMatchObject({
+        units: [],
+        authPaused: true,
+        halted: null,
+        overflow: null,
+        sameFieldConflicts: [],
+      });
+      queue.pauseForIncidentClosure();
+      queue.resumeAfterIncidentReopen();
+      queue.pauseForAuthRecovery();
+      queue.resumeAfterAuthRecovery();
+      expect(
+        queue.settleDispatched({
+          ok: true,
+          row: { record_id: "a", row_version: 2 },
+        }).outcome,
+      ).toBe("no_dispatched_unit");
+      expect(
+        queue.settleDispatched({
+          ok: false,
+          status: 0,
+          error: {
+            code: "transport_failure",
+            message: "Late failure",
+            retryable: true,
+          },
+        }).outcome,
+      ).toBe("no_dispatched_unit");
+      expect(
+        queue.admit(
+          patchUnit({ clientTxnId: "fresh", recordId: "c", order: 3 }),
+        ),
+      ).toMatchObject({ accepted: false, refusedReason: "runtime_retired" });
+      expect(queue.markDispatched(first.id)).toBeNull();
+      expect(queue.dispatchNext()).toBeNull();
+      expect(queue.retire().units).toEqual([]);
+    }
+  });
+
   it("keeps pending queues isolated by incident and client instance scope", () => {
     const queue = createQueue();
     const otherClientQueue = createWorkbookPendingQueueModel({

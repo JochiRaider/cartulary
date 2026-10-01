@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-export type TimelineDataProfile = {
+type TimelineDataProfile = {
   capture_id: string;
   kind: "rich" | "empty" | "sparse";
   reason: string;

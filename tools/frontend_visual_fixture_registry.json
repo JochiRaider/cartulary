@@ -419,7 +419,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-shell-root-and-grid"
@@ -471,7 +471,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-shell-root-and-grid"
@@ -1099,7 +1099,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
@@ -1152,7 +1152,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-shell-root-and-grid"
@@ -1255,7 +1255,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "cell_anchor",
         "anchor": "timeline.activity_synopsis_text",
@@ -1310,7 +1310,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "fixture_specific",
         "description": "The focused conflict-resolver scenarios declare their workbook-grid position before capture; full conflict views normalize to the right edge while status-strip crops retain their scenario-owned anchor."
@@ -1365,7 +1365,7 @@
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
@@ -1434,7 +1434,7 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
@@ -1648,7 +1648,7 @@
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-narrow-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "indicator-observation-editor"
@@ -1713,7 +1713,7 @@
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png"
       ],
-      "seed_id": "timeline-investigation-rich-v1",
+      "seed_id": "visual.seed.timeline_investigation_rich",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "coordination-editor"

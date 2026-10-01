@@ -511,6 +511,8 @@ describe("Workbook runtime responsibilities", () => {
     runtime.invalidate({ kind: "incident_changed", nextIncidentId: "next" });
     runtime.invalidate({ kind: "runtime_disposed" });
     runtime.invalidate({ kind: "session_unavailable" });
+    runtime.observeIncidentReopened();
+    runtime.applyAuthorizationRecoveryState("resumed");
     expect(retire).toHaveBeenCalledOnce();
     expect(history).toHaveBeenCalledOnce();
     expect(timeline.retire).toHaveBeenCalledOnce();

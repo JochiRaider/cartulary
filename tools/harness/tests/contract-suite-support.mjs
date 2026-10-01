@@ -1501,7 +1501,7 @@ function cacheableRowUnit(context, row) {
   );
 }
 
-function assertContractFixtureDependencies(context, profile, row, unit) {
+function assertTypeScriptDependencyClosureContract(context, profile, row, unit) {
   const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-contract-dependencies."));
   const selectedWorkspace = row.selector.file.split("/").slice(0, 2).join("/");
   const importer = "packages/cache-fixture/src/codec.ts";
@@ -1537,6 +1537,33 @@ function assertContractFixtureDependencies(context, profile, row, unit) {
     const initial = resolve();
     assert.equal(initial.strategy, "typescript_workspaces");
     assert.ok(initial.entries.some((entry) => entry.path === fixture));
+    assert.ok(initial.entries.some((entry) => entry.path === row.selector.file));
+    assert.ok(initial.entries.some((entry) => entry.path === `${selectedWorkspace}/package.json`));
+    assert.ok(initial.entries.some((entry) => entry.path === importer), "transitive workspace must contribute executable source");
+    assert.deepEqual([...initial.metadata.workspaces].sort(compareASCII), [selectedWorkspace, "packages/cache-fixture"].sort(compareASCII));
+    const untracked = `${selectedWorkspace}/src/untracked-cache-input.fixture`;
+    write(untracked, "untracked input\n");
+    const added = resolve();
+    assert.equal(added.strategy, "typescript_workspaces");
+    assert.notEqual(added.digest, initial.digest, "untracked workspace content must invalidate the selected row");
+    rmSync(path.join(fixtureRoot, untracked));
+    assert.equal(resolve().digest, initial.digest, "deleting the untracked input restores the closure");
+    const originalImporter = readFileSync(path.join(fixtureRoot, importer), "utf8");
+    write(importer, `${originalImporter}// changed transitive workspace source\n`);
+    const transitiveChanged = resolve();
+    assert.equal(transitiveChanged.strategy, "typescript_workspaces");
+    assert.notEqual(transitiveChanged.digest, initial.digest, "a transitive workspace change must invalidate the selected row");
+    write(importer, originalImporter);
+    assert.equal(resolve().digest, initial.digest);
+    const unprovedModule = "tools/harness/fixtures/semantic-fixture/index.mjs";
+    write(unprovedModule, "export default {};\n");
+    importFixture("../../../" + unprovedModule);
+    const fallback = resolve();
+    assert.equal(fallback.strategy, "broad_fallback", "existing non-workspace imports still require fail-closed fallback");
+    assert.ok(fallback.entries.some((entry) => entry.path === unprovedModule));
+    rmSync(path.join(fixtureRoot, unprovedModule));
+    write(importer, originalImporter);
+    assert.equal(resolve().digest, initial.digest);
     assert.equal(resolve(snapshot().filter((entry) => entry.path !== fixture)).strategy, "broad_fallback", "imports absent from the snapshot must fail closed");
     const captured = snapshot();
     write(fixture, '{"version":2}\n');
@@ -1673,49 +1700,7 @@ async function assertDependencyClosureContract(context) {
 
   const vitestRow = context.catalog.rows.find((row) => row.runner === "vitest");
   const vitestUnit = cacheableRowUnit(context, vitestRow);
-  assertContractFixtureDependencies(context, profile, vitestRow, vitestUnit);
-  const tsClosure = resolveCacheDependencyClosure({ root, entries: source.entries, profile, unit: vitestUnit });
-  assert.equal(tsClosure.strategy, "typescript_workspaces");
-  assert.ok(tsClosure.entries.some((entry) => entry.path === vitestRow.selector.file));
-  assert.ok(tsClosure.entries.some((entry) => entry.path === "apps/web/package.json"));
-  const tsAdded = {
-    path: "apps/web/src/untracked-cache-input.fixture",
-    kind: "file",
-    mode: "0600",
-    byte_digest: `sha256:${"6".repeat(64)}`,
-  };
-  const tsAddedClosure = resolveCacheDependencyClosure({
-    root,
-    entries: [...source.entries, tsAdded].sort((left, right) => compareASCII(left.path, right.path)),
-    profile,
-    unit: vitestUnit,
-  });
-  assert.equal(tsAddedClosure.strategy, "typescript_workspaces");
-  assert.notEqual(tsAddedClosure.digest, tsClosure.digest);
-  assert.ok(
-    tsClosure.metadata.workspaces.length > 1,
-    "the web workspace closure must include transitive repository workspaces",
-  );
-  const transitiveRoot = tsClosure.metadata.workspaces.find((workspace) => workspace !== "apps/web");
-  const transitiveEntry = tsClosure.entries.find((entry) =>
-    entry.path.startsWith(`${transitiveRoot}/`) &&
-    entry.path !== `${transitiveRoot}/package.json`,
-  );
-  assert.ok(transitiveEntry, "transitive workspace must contribute executable source");
-  const transitiveChanged = source.entries.map((entry) =>
-    entry.path === transitiveEntry.path ? changedDigest(entry, "7") : entry,
-  );
-  assert.notEqual(
-    resolveCacheDependencyClosure({
-      root,
-      entries: transitiveChanged,
-      profile,
-      unit: vitestUnit,
-    }).digest,
-    tsClosure.digest,
-    "a transitive workspace change must invalidate the selected row",
-  );
-
+  assertTypeScriptDependencyClosureContract(context, profile, vitestRow, vitestUnit);
   const fixtureRoot = mkdtempSync(path.join(root, "tmp/unit-aware-cache-contract."));
   try {
     const runRoot = path.join(fixtureRoot, "run");

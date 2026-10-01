@@ -1111,10 +1111,11 @@ class WorkbookPendingQueueState {
   private dispatchGuard: (unit: PendingReplayUnitState) => boolean = () => true;
   private halted: PendingReplayHalt | null = null;
   private authPaused = false;
-  private terminalReplayPaused = false;
-  private incidentReopened = false;
-  private incidentClosurePaused = false;
-  private retired = false;
+  private lifecycle:
+    | "open"
+    | "closed"
+    | "reopened_with_retained_work"
+    | "retired" = "open";
   private overflow: PendingReplayOverflow | null = null;
   private sameFieldConflicts: readonly PendingReplaySameFieldConflict[] = [];
   private statusObservation: {
@@ -1232,7 +1233,7 @@ class WorkbookPendingQueueState {
   private isReplayBlocked(): boolean {
     return (
       this.authPaused ||
-      this.terminalReplayPaused ||
+      this.lifecycle !== "open" ||
       this.halted !== null ||
       this.sameFieldConflicts.length > 0 ||
       this.units.some((unit) => unit.status === "in_flight")
@@ -1243,14 +1244,15 @@ class WorkbookPendingQueueState {
     this.overflow = null;
     const unit = normalizeUnit(input);
     if (
-      this.retired ||
+      this.lifecycle === "retired" ||
       unit.incidentId !== this.scope.incidentId ||
       unit.clientInstanceId !== this.scope.clientInstanceId
     ) {
       return {
         accepted: false,
         status: "refused",
-        refusedReason: this.retired ? "runtime_retired" : "scope_mismatch",
+        refusedReason:
+          this.lifecycle === "retired" ? "runtime_retired" : "scope_mismatch",
         refusedUnit: cloneUnit(unit),
         preserveVisibleEditAsUnsaved: false,
         primarySaveStateInput: this.snapshot().primarySaveStateInput,
@@ -1516,7 +1518,6 @@ class WorkbookPendingQueueState {
     }
 
     unit.status = "queued";
-    this.describeIncidentClosureWork();
     if (isAuthFailure(result.status, result.error.code)) {
       this.authPaused = true;
       this.halted = null;
@@ -1536,6 +1537,7 @@ class WorkbookPendingQueueState {
       if (conflict !== null) {
         this.units = this.units.filter((candidate) => candidate !== unit);
         this.sameFieldConflicts = [...this.sameFieldConflicts, conflict];
+        this.describeIncidentClosureWork();
         return {
           outcome: "same_field_conflict",
           unit: cloneUnit(unit),
@@ -1546,6 +1548,7 @@ class WorkbookPendingQueueState {
     }
 
     if (shouldRetryPendingFailure(result.status, result.error)) {
+      this.describeIncidentClosureWork();
       return {
         outcome: "retryable_failure",
         unit: cloneUnit(unit),
@@ -1717,15 +1720,24 @@ class WorkbookPendingQueueState {
 
   /** Describes retained work through the existing discard recovery, independently of auth. */
   private describeIncidentClosureWork(): void {
-    if (!this.incidentClosurePaused || this.retired) return;
-    if (this.units.length === 0 && this.incidentReopened) {
-      this.terminalReplayPaused = false;
-      this.incidentClosurePaused = false;
-    } else if (this.halted === null) {
+    if (
+      this.lifecycle !== "closed" &&
+      this.lifecycle !== "reopened_with_retained_work"
+    )
+      return;
+    if (
+      this.units.length === 0 &&
+      this.lifecycle === "reopened_with_retained_work"
+    )
+      this.lifecycle = "open";
+    if (this.halted === null || this.halted.error_code === "incident_closed") {
       const unit = this.units.find(
         (candidate) => candidate.status === "queued",
       );
-      if (unit)
+      // A late failure can return the in-flight head or transfer it to conflicts.
+      // Reconcile closure recovery only after that settlement changes the queue.
+      if (!unit) this.halted = null;
+      else if (this.halted?.unit_id !== unit.id)
         this.halted = {
           unit_id: unit.id,
           error_code: "incident_closed",
@@ -1741,31 +1753,22 @@ class WorkbookPendingQueueState {
   }
 
   pauseForIncidentClosure(): PendingQueueSnapshot {
-    this.terminalReplayPaused = true;
-    this.incidentClosurePaused = true;
-    this.incidentReopened = false;
+    if (this.lifecycle === "retired") return this.snapshot();
+    this.lifecycle = "closed";
     this.describeIncidentClosureWork();
     return this.snapshot();
   }
 
   /** Current state may permit new work, but never replays terminally retained work. */
   resumeAfterIncidentReopen(): PendingQueueSnapshot {
-    if (!this.incidentClosurePaused || this.retired) return this.snapshot();
-    this.incidentReopened = true;
+    if (this.lifecycle !== "closed") return this.snapshot();
+    this.lifecycle = "reopened_with_retained_work";
     this.describeIncidentClosureWork();
     return this.snapshot();
   }
 
-  pauseForTerminalLifecycle(): PendingQueueSnapshot {
-    this.terminalReplayPaused = true;
-    this.incidentReopened = false;
-    this.authPaused = true;
-    return this.snapshot();
-  }
-
   retire(): PendingQueueSnapshot {
-    this.retired = true;
-    this.terminalReplayPaused = true;
+    this.lifecycle = "retired";
     this.authPaused = true;
     this.units = [];
     this.halted = null;
@@ -1833,8 +1836,6 @@ export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
     resumeAfterAuthRecovery: () =>
       publish(() => state.resumeAfterAuthRecovery()),
     pauseForAuthRecovery: () => publish(() => state.pauseForAuthRecovery()),
-    pauseForTerminalLifecycle: () =>
-      publish(() => state.pauseForTerminalLifecycle()),
     resumeAfterIncidentReopen: () =>
       publish(() => state.resumeAfterIncidentReopen()),
     pauseForIncidentClosure: () =>
