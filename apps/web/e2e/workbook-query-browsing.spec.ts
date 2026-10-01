@@ -7,10 +7,12 @@ import {
   applyFilterChip,
   changeGrouping,
   scrollGridCellIntoView,
+  scrollGridTargetIntoView,
   sortByHeader,
 } from "@cartulary/test-utils/grid";
 import {
   authTestId,
+  draftCellTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
@@ -25,6 +27,7 @@ import {
   savedViewModifiedTestId,
   workbookFilterOperatorTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
   workbookQueryEntryTestId,
   workbookSortMenuTriggerTestId,
@@ -67,6 +70,7 @@ import { TestClock } from "./support/runtime/testClock";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import { holdBrowserRequest } from "./support/transport/requestInterception";
 import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
@@ -1835,4 +1839,247 @@ test("Workbook expiry clears continuation and account replacement starts a reada
   } finally {
     await clock.reset();
   }
+});
+
+async function dateFilterCorrection(page: Page, view: string) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("DATE-QUERY"),
+    "Date filter correction",
+  );
+  const fixture = fixtureFields[view];
+  if (!fixture) throw new Error("Missing date query fixture");
+  const dateField = requireViewContract(view).fields.find(
+    (field) => field.readKind === "date" && field.filterOps.includes("eq"),
+  )?.fieldKey;
+  if (!dateField) throw new Error("Missing declared date filter");
+  const rows = [];
+  for (const day of ["18", "19"]) {
+    rows.push(
+      await createViewRow(page, incident, view, {
+        client_txn_id: uniqueTxn(`date-query-${day}`),
+        ...fixture.minimum,
+        [fixture.field]: `Date correction ${day}`,
+        ...(view === timelineViewSchemaId
+          ? { "timeline.date_entered_text": `2026-04-${day}` }
+          : { "comm_log.timestamp_utc": `2026-04-${day}T12:00:00Z` }),
+      }),
+    );
+  }
+  const first = rows[0];
+  const second = rows[1];
+  if (!first || !second) throw new Error("Missing seeded date rows");
+  const endpoint = `/incidents/${incident}/views/${view}/query`;
+  // Observe admission when requests begin, including attempts that fail or abort.
+  const requests: QueryWorkbookViewRequest[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith(endpoint))
+      requests.push(request.postDataJSON() as QueryWorkbookViewRequest);
+  });
+  let failNext = false;
+  await page.route(`**${endpoint}`, async (route) => {
+    if (failNext) {
+      failNext = false;
+      await route.abort("failed");
+      return;
+    }
+    await route.fulfill({ response: await route.fetch() });
+  });
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(view)}`,
+  );
+  const browsing = page.getByRole("group", { name: "Workbook browsing" });
+  await expect(browsing).toContainText(
+    "2 records loaded; end of current results.",
+  );
+  const firstRow = page.getByTestId(gridRowTestId(view, first.record_id));
+  const secondRow = page.getByTestId(gridRowTestId(view, second.record_id));
+  await expect(firstRow).toBeVisible();
+  await expect(secondRow).toBeVisible();
+  let heldDraft: Awaited<ReturnType<typeof holdBrowserRequest>> | undefined;
+  try {
+    if (view === timelineViewSchemaId) {
+      heldDraft = await holdBrowserRequest(page, {
+        method: "POST",
+        path: `/api/v1/incidents/${incident}/views/${view}/rows`,
+      });
+      await openTimelineInspector(page, first.record_id);
+      await scrollGridTargetIntoView({
+        page,
+        surface: view,
+        targetTestId: draftCellTestId("timeline.analyst_text"),
+      });
+      await page
+        .getByRole("textbox", { name: "Analyst draft row", exact: true })
+        .fill("Independent raw draft");
+      await heldDraft.waitForHit;
+      await page
+        .getByRole("checkbox", {
+          name: "Select all loaded records",
+          exact: true,
+        })
+        .check();
+    } else await openGenericInspectorForRecord(page, view, first.record_id);
+    const anchor = page.getByTestId(workbookFocusAnchorTestId());
+    const previousAnchor = await anchor.textContent();
+    const trigger = page.getByTestId(workbookFilterPopoverTriggerTestId(view));
+    await trigger.click();
+    await page.getByTestId(gridFilterFieldTestId(view)).selectOption(dateField);
+    const value = page.getByRole("textbox", {
+      name: "Date value",
+      exact: true,
+    });
+    const apply = page.getByTestId(gridFilterApplyTestId(view));
+    const count = requests.length;
+    await value.fill(" 2026-04-31 ");
+    await page.setViewportSize({ width: 768, height: 640 });
+    const bounds = await page
+      .getByRole("dialog", { name: "Add filter" })
+      .boundingBox();
+    if (!bounds) throw new Error("Missing filter editor bounds");
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(768);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(apply).toBeDisabled();
+    await expect(value).toHaveAttribute("aria-invalid", "true");
+    const feedback = await value.getAttribute("aria-describedby");
+    expect(feedback).toBeTruthy();
+    await expect(page.locator(`[id="${feedback}"]`)).toContainText(
+      "YYYY-MM-DD",
+    );
+    await value.press("Enter");
+    await value.press("Tab");
+    await expect(
+      page.getByRole("dialog", { name: "Add filter" }),
+    ).toBeVisible();
+    await expect(value).toHaveValue(" 2026-04-31 ");
+    await expect(anchor).toHaveText(previousAnchor ?? "");
+    await expect(firstRow).toBeVisible();
+    await expect(secondRow).toBeVisible();
+    await expect(
+      page.getByTestId(workbookInspectorCloseButtonTestId(view)),
+    ).toBeVisible();
+    if (view === timelineViewSchemaId) {
+      await expect(
+        page.getByRole("textbox", { name: "Analyst draft row", exact: true }),
+      ).toHaveValue("Independent raw draft");
+      await expect(
+        page.getByText("2 records selected.", { exact: true }),
+      ).toBeVisible();
+    }
+    expect(requests).toHaveLength(count);
+    await value.fill("2026-04-18");
+    await expect(apply).toBeEnabled();
+    await expect(value).not.toHaveAttribute("aria-invalid");
+    await value.press("Tab");
+    await page.keyboard.press("Tab");
+    await expect(apply).toBeFocused();
+    const acceptedResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(endpoint) && response.status() === 200,
+    );
+    await page.keyboard.press("Enter");
+    await acceptedResponse;
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(browsing).toContainText(
+      "1 records loaded; end of current results.",
+    );
+    await expect(firstRow).toBeVisible();
+    await expect(secondRow).toHaveCount(0);
+    const chip = page.getByTestId(
+      workbookQueryEntryTestId(view, "filter", dateField),
+    );
+    await expect(chip).toContainText("2026-04-18");
+    await chip.click();
+    await page
+      .getByTestId(workbookFilterOperatorTestId(view))
+      .selectOption("range");
+    const lower = page.getByRole("textbox", {
+      name: "Lower-bound value",
+      exact: true,
+    });
+    const upper = page.getByRole("textbox", {
+      name: "Upper-bound value",
+      exact: true,
+    });
+    await lower.fill("2026-04-19");
+    await upper.fill("2026-04-18");
+    const rangeCount = requests.length;
+    await expect(apply).toBeDisabled();
+    await expect(lower).toHaveAttribute("aria-invalid", "true");
+    await expect(upper).toHaveAttribute(
+      "aria-describedby",
+      (await lower.getAttribute("aria-describedby")) ?? "",
+    );
+    await lower.press("Enter");
+    await expect(chip).toContainText("2026-04-18");
+    await expect(firstRow).toBeVisible();
+    expect(requests).toHaveLength(rangeCount);
+    await lower.fill("2026-04-18");
+    await page
+      .getByRole("combobox", { name: "Lower-bound comparison", exact: true })
+      .selectOption("gt");
+    await expect(apply).toBeDisabled();
+    await expect(
+      page.getByRole("combobox", {
+        name: "Upper-bound comparison",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-invalid", "true");
+    await page
+      .getByRole("combobox", { name: "Lower-bound comparison", exact: true })
+      .selectOption("gte");
+    // A genuine failed read still enters existing recovery; its replacement is editable in place.
+    failNext = true;
+    await apply.click();
+    await expect(
+      browsing.getByRole("button", { name: "Retry", exact: true }),
+    ).toBeVisible();
+    await expect(chip).toContainText("equals 2026-04-18");
+    await trigger.click();
+    await page
+      .getByRole("button", { name: /Edit unapplied.*2026-04-18/ })
+      .click();
+    const failedCount = requests.length;
+    await lower.fill("2026-04-31");
+    await expect(apply).toBeDisabled();
+    await lower.press("Enter");
+    await expect(lower).toHaveValue("2026-04-31");
+    await expect(chip).toContainText("equals 2026-04-18");
+    await expect(firstRow).toBeVisible();
+    expect(requests).toHaveLength(failedCount);
+    await lower.fill("2026-04-17");
+    const correctionResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(endpoint) && response.status() === 200,
+    );
+    await apply.click();
+    await correctionResponse;
+    await expect(
+      browsing.getByRole("button", { name: "Retry", exact: true }),
+    ).toHaveCount(0);
+    await expect(chip).toContainText("2026-04-17");
+    await expect(firstRow).toBeVisible();
+    await chip.click();
+    await lower.fill("bad date");
+    await lower.press("Escape");
+    await expect(chip).toBeFocused();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  } finally {
+    await heldDraft?.dispose();
+  }
+}
+
+test("Timeline date filter drafts remain locally correctable before query admission", async ({
+  page,
+}) => {
+  await dateFilterCorrection(page, timelineViewSchemaId);
+});
+
+test("Communications Log date filter drafts remain locally correctable before query admission", async ({
+  page,
+}) => {
+  await dateFilterCorrection(page, commLogViewSchemaId);
 });

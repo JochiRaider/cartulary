@@ -36,6 +36,7 @@ import {
   defaultFilterDraft,
   type FilterDraft,
   removeFilterField,
+  validateFilterDraft,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { useWorkbookQueryRestart } from "../../query/WorkbookQueryBrowsingContext";
@@ -136,10 +137,17 @@ export function useTimelineWorkbookPresentation({
     browser?.canonicalIntent(requestedQueryState) ?? requestedQueryState;
   const handleApplyFilter = useCallback(
     (draft: FilterDraft) => {
+      const validation = validateFilterDraft(timelineContract, draft);
+      if (validation.kind === "invalid") return validation;
       setQueryState((current) =>
-        applyFilterDraft(browser?.canonicalIntent(current) ?? current, draft),
+        applyFilterDraft(
+          timelineContract,
+          browser?.canonicalIntent(current) ?? current,
+          draft,
+        ),
       );
-      setFilterDraft(clearFilterDraftValue);
+      setFilterDraft(clearFilterDraftValue(draft));
+      return validation;
     },
     [browser, setFilterDraft, setQueryState],
   );

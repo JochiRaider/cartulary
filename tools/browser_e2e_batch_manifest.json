@@ -2211,6 +2211,7 @@
           "runtime_profile_id": "default",
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
+            "module.workbook.browser_stateful.date_filter_drafts_remain_locally_correctable_be_15ce5a6e7c",
             "module.workbook.browser_stateful.group_requested_replacement",
             "module.workbook.browser_stateful.query_continuation_assessments",
             "module.workbook.browser_stateful.query_continuation_authority",
@@ -3378,6 +3379,7 @@
           "runtime_profile_id": "default",
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
+            "module.workbook.browser_stateful.date_filter_drafts_remain_locally_correctable_be_15ce5a6e7c",
             "module.workbook.browser_stateful.group_requested_replacement",
             "module.workbook.browser_stateful.query_continuation_assessments",
             "module.workbook.browser_stateful.query_continuation_authority",

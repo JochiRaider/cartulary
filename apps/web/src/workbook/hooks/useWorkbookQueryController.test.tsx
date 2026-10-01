@@ -1,7 +1,18 @@
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderWithWorkbookQueryBrowsing as render } from "../../testing/workbookQueryTestSupport";
+import type { FilterDraft } from "../models/workbookQuery";
 import { useWorkbookQueryController } from "./useWorkbookQueryController";
+
+const impossibleDateDraft: FilterDraft = {
+  booleanValue: "",
+  fieldKey: "timeline.date_entered_sort_day",
+  op: "eq",
+  operandKind: "value",
+  value: " 2026-04-31 ",
+  valueType: "string",
+  values: "",
+};
 
 afterEach(cleanup);
 
@@ -54,11 +65,34 @@ function FilterQueryHarness() {
   return (
     <section>
       <button
+        type="button"
+        onClick={() =>
+          controller.snapshot.activeQueryControls.onFilterDraftChange(
+            impossibleDateDraft,
+          )
+        }
+      >
+        Draft impossible date
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          controller.snapshot.activeQueryControls.onApplyFilter(
+            impossibleDateDraft,
+          )
+        }
+      >
+        Apply impossible date
+      </button>
+      <output aria-label="raw-filter-draft">
+        {JSON.stringify(controller.snapshot.activeQueryControls.filterDraft)}
+      </output>
+      <button
         onClick={() => {
           controller.snapshot.activeQueryControls.onApplyFilter({
-            fieldKey: "timeline.activity_synopsis_text",
-            op: "full_text",
-            query: "seed",
+            fieldKey: "timeline.tags",
+            op: "contains_any",
+            values: "seed",
           });
           controller.commands.setTimelineQueryState((current) => ({
             ...current,
@@ -98,6 +132,24 @@ function FilterQueryHarness() {
 }
 
 describe("useWorkbookQueryController", () => {
+  it("refuses direct invalid date admission and preserves raw input and requested intent", () => {
+    render(<FilterQueryHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Seed query" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Draft impossible date" }),
+    );
+    const requested = screen.getByLabelText("requested-query").textContent;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply impossible date" }),
+    );
+    expect(screen.getByLabelText("requested-query").textContent).toBe(
+      requested,
+    );
+    expect(
+      JSON.parse(screen.getByLabelText("raw-filter-draft").textContent ?? "{}"),
+    ).toEqual(impossibleDateDraft);
+  });
+
   it("applies consecutive filter edits to the latest requested query", () => {
     render(<FilterQueryHarness />);
     fireEvent.click(screen.getByRole("button", { name: "Seed query" }));
@@ -109,14 +161,14 @@ describe("useWorkbookQueryController", () => {
     ).toEqual({
       filters: [
         {
-          arg: { query: "seed" },
-          fieldKey: "timeline.activity_synopsis_text",
-          op: "full_text",
-        },
-        {
           arg: { gte: "2026-09-01" },
           fieldKey: "timeline.date_entered_sort_day",
           op: "range",
+        },
+        {
+          arg: { values: ["seed"] },
+          fieldKey: "timeline.tags",
+          op: "contains_any",
         },
       ],
       groupBy: "timeline.capture_state",

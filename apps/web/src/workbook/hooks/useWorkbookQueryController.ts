@@ -11,9 +11,11 @@ import {
   clearFilterDraftValue,
   defaultFilterDraft,
   type FilterDraft,
+  type FilterDraftValidation,
   removeFilterField,
   replaceWorkbookSort,
   updateGroupBy,
+  validateFilterDraft,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
@@ -32,7 +34,7 @@ import {
 type WorkbookActiveQueryControls = {
   readonly contract: ViewContract;
   readonly filterDraft: FilterDraft;
-  readonly onApplyFilter: (draft: FilterDraft) => void;
+  readonly onApplyFilter: (draft: FilterDraft) => FilterDraftValidation;
   readonly onClearFilters: () => void;
   readonly onFilterDraftChange: Dispatch<SetStateAction<FilterDraft>>;
   readonly onGroupByChange: (groupBy: string | null) => void;
@@ -146,13 +148,17 @@ export function useWorkbookQueryController({
       contract: activeContract,
       filterDraft: activeEntry.filterDraft,
       onApplyFilter: (draft) => {
+        const validation = validateFilterDraft(activeContract, draft);
+        if (validation.kind === "invalid") return validation;
         setActiveQueryState((current) =>
           applyFilterDraft(
+            activeContract,
             activeBrowser?.canonicalIntent(current) ?? current,
             draft,
           ),
         );
-        setActiveFilterDraft(clearFilterDraftValue);
+        setActiveFilterDraft(clearFilterDraftValue(draft));
+        return validation;
       },
       onClearFilters: () => {
         setActiveQueryState((current) => {

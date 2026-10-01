@@ -2086,11 +2086,13 @@
         "titles": [
           "WorkbookGridControls cancels pending Fit on panel departure without undoing completed width",
           "WorkbookGridControls does not restore a retired Group subject's focus after Escape",
+          "WorkbookGridControls excludes invalid date candidates from staging and keeps feedback instance local",
           "WorkbookGridControls exposes add, direction, priority, boundary, removal, and limit recovery actions",
           "WorkbookGridControls gives the active-query region one Tab stop with roving navigation",
           "WorkbookGridControls keeps column commands available when every data column is hidden",
           "WorkbookGridControls keeps focus in Sort when Add replaces its control and a boundary move disables",
           "WorkbookGridControls keeps focus on a semantic column action when movement or freezing disables its invoker",
+          "WorkbookGridControls keeps impossible date correction in the editor with associated feedback",
           "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
           "WorkbookGridControls keeps newer invalid text and caret while an older Fit completes",
           "WorkbookGridControls keeps pending Fit focus and busy state without admitting a duplicate or reclaiming departed focus",
@@ -2099,9 +2101,11 @@
           "WorkbookGridControls keeps the fitted width in the open input when Apply follows Fit",
           "WorkbookGridControls keeps the roving Sort item aligned with pointer focus and removes toward a neighbor",
           "WorkbookGridControls leaves native filter control keys alone and contains the complete range Tab order after pointer focus",
+          "WorkbookGridControls names range operands associates contradictions and completes correction before reopening",
           "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
           "WorkbookGridControls parses filter controls exactly and restores focus on Escape",
           "WorkbookGridControls replaces an older draft on Fit and follows passive width only while untouched",
+          "WorkbookGridControls retains a locally valid editor when the admission callback refuses it",
           "WorkbookGridControls retires Columns return work on outside focus and same-surface subject replacement",
           "WorkbookGridControls returns filter dismissal focus and reconciles controls removed by draft changes",
           "WorkbookGridControls returns from the final sort to Add and from a removed invoking chip to Sort",
@@ -2142,6 +2146,7 @@
           "workbookGridQueryControls projects one closure-free working set across saved-view, query, layout, and focus state",
           "workbookGridQueryControls projects requested additions, edits and removals against accepted filters",
           "workbookGridQueryControls rejects a ninth or duplicate sort and recovers admission after removal",
+          "workbookGridQueryControls rejects impossible date equality and reversed date ranges",
           "workbookGridQueryControls resets the pure presentation seam when its semantic subject changes",
           "workbookGridQueryControls scopes transient drafts to a subject and closes stale panels"
         ]
@@ -6293,7 +6298,8 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx",
         "titles": [
           "useWorkbookQueryController applies consecutive filter edits to the latest requested query",
-          "useWorkbookQueryController keeps query state isolated by exact view_schema_id"
+          "useWorkbookQueryController keeps query state isolated by exact view_schema_id",
+          "useWorkbookQueryController refuses direct invalid date admission and preserves raw input and requested intent"
         ]
       },
       "evidence_class": "unit",
@@ -6919,8 +6925,13 @@
           "workbookQuery initializes filter drafts from the contract and resolves input modes",
           "workbookQuery keeps a full semantic layout permutation while compiling visible columns",
           "workbookQuery keeps grouping separate from authored sorting and cleared overrides",
+          "workbookQuery keeps non-date and timestamp operands unchanged and rejects wrong-schema dates",
+          "workbookQuery preserves date equality sets null encoding and exact raw input",
+          "workbookQuery refuses impossible date drafts without replacing query state",
           "workbookQuery rejects structural layout keys and out-of-range widths",
-          "workbookQuery supports ordered additive sort cycles and enforces the owner limit"
+          "workbookQuery supports ordered additive sort cycles and enforces the owner limit",
+          "workbookQuery validates calendar dates for every declared date filter",
+          "workbookQuery validates one-sided date ranges and inclusive boundaries"
         ]
       },
       "evidence_class": "unit",

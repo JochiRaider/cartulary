@@ -21,7 +21,9 @@ import {
 import {
   clearFilterDraftValue,
   type FilterDraft,
+  type FilterDraftValidation,
   filterDraftFromFilter,
+  validateFilterDraft,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
 import { WorkbookActiveQueryChips } from "./WorkbookActiveQueryChips";
@@ -36,7 +38,7 @@ export type WorkbookGridControlsProps = {
   readonly defaultFilterPopoverOpen?: boolean | undefined;
   readonly filterDraft: FilterDraft;
   readonly layoutState: WorkbookResolvedLayoutState;
-  readonly onApplyFilter: (draft: FilterDraft) => void;
+  readonly onApplyFilter: (draft: FilterDraft) => FilterDraftValidation;
   readonly onClearFilters?: (() => void) | undefined;
   readonly onFilterDraftChange: (draft: FilterDraft) => void;
   readonly onGroupByChange: (groupBy: string | null) => void;
@@ -261,8 +263,12 @@ export function WorkbookGridControls({
         requestedChanges={requestedFilterChanges}
         isOpen={surfaceState.openPanel === "filters"}
         onApply={(draft) => {
+          const validation = validateFilterDraft(contract, draft);
+          if (validation.kind === "invalid") return validation;
           onFilterDraftChange(draft);
-          onApplyFilter(draft);
+          return onApplyFilter(draft);
+        }}
+        onComplete={(draft) => {
           dispatch({
             type: "complete_filter",
             filterDraft: clearFilterDraftValue(draft),

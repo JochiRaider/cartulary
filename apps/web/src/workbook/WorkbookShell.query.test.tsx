@@ -73,7 +73,7 @@ describe("workbook query controls", () => {
       nonSortableCollectionHeader,
       "timeline.capture_state",
     );
-    const filtered = applyFilterDraft(grouped, {
+    const filtered = applyFilterDraft(contract, grouped, {
       booleanValue: "",
       fieldKey: "timeline.capture_state",
       op: "eq",
@@ -131,7 +131,7 @@ describe("workbook query controls", () => {
     const invalidGroup = updateGroupBy(contract, grouped, "Capture State");
     expect(invalidGroup).toBe(grouped);
 
-    const filtered = applyFilterDraft(grouped, {
+    const filtered = applyFilterDraft(contract, grouped, {
       booleanValue: "",
       fieldKey: "timeline.capture_state",
       op: "eq",
@@ -222,7 +222,7 @@ describe("workbook query controls", () => {
       withSort,
       "timeline.capture_state",
     );
-    const withStateFilter = applyFilterDraft(withGroup, {
+    const withStateFilter = applyFilterDraft(contract, withGroup, {
       booleanValue: "",
       fieldKey: "timeline.capture_state",
       op: "eq",
@@ -231,7 +231,7 @@ describe("workbook query controls", () => {
       valueType: "string",
       values: "",
     });
-    const withTagFilter = applyFilterDraft(withStateFilter, {
+    const withTagFilter = applyFilterDraft(contract, withStateFilter, {
       fieldKey: "timeline.tags",
       op: "contains_any",
       values: "zeta, alpha, alpha",
@@ -896,7 +896,7 @@ describe("workbook query controls", () => {
   it("Notes full_text controls submit the exact-token operator", () => {
     const contract = requireViewContract("cartulary.view.notes.v1");
 
-    const filtered = applyFilterDraft(emptyWorkbookQueryState(), {
+    const filtered = applyFilterDraft(contract, emptyWorkbookQueryState(), {
       fieldKey: "note.full_text",
       op: "full_text",
       query: "shell alpha shell",

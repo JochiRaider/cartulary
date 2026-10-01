@@ -10,11 +10,14 @@ import {
   projectWorkbookGridQueryControls,
   projectWorkbookRequestedFilterChanges,
   reduceWorkbookGridControlsTransientState,
-  validateFilterDraft,
   workbookGridSurfaceTransientState,
   workbookOrderedSortLimit,
 } from "./workbookGridQueryControls";
-import { defaultFilterDraft, type WorkbookSortEntry } from "./workbookQuery";
+import {
+  defaultFilterDraft,
+  validateFilterDraft,
+  type WorkbookSortEntry,
+} from "./workbookQuery";
 import {
   projectWorkbookQueryEntries,
   projectWorkbookViewBarWorkingSet,
@@ -432,6 +435,31 @@ describe("workbookGridQueryControls", () => {
     });
   });
 
+  it("rejects impossible date equality and reversed date ranges", () => {
+    const contract = requireViewContract(surface);
+    expect(
+      validateFilterDraft(contract, {
+        booleanValue: "",
+        fieldKey: "timeline.date_entered_sort_day",
+        op: "eq",
+        operandKind: "value",
+        value: "2026-04-31",
+        valueType: "string",
+        values: "",
+      }).kind,
+    ).toBe("invalid");
+    expect(
+      validateFilterDraft(contract, {
+        fieldKey: "timeline.date_entered_sort_day",
+        op: "range",
+        lowerKind: "gte",
+        lowerValue: "2026-04-19",
+        upperKind: "lte",
+        upperValue: "2026-04-18",
+      }).kind,
+    ).toBe("invalid");
+  });
+
   it("parses controlled values exactly and rejects malformed filter drafts", () => {
     const contract = requireViewContract(surface);
     expect(parseWorkbookBooleanDraftValue("true")).toBe("true");
@@ -458,6 +486,10 @@ describe("workbookGridQueryControls", () => {
         valueType: "string",
         values: "",
       }),
-    ).toEqual({ kind: "invalid", message: "Select a supported filter field." });
+    ).toEqual({
+      kind: "invalid",
+      message: "Select a supported filter field.",
+      controls: ["field"],
+    });
   });
 });

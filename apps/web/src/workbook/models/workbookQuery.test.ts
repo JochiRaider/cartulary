@@ -1,5 +1,8 @@
 import type { GridColumn } from "@cartulary/grid-adapter";
-import { requireViewContract } from "@cartulary/view-contracts";
+import {
+  listViewContracts,
+  requireViewContract,
+} from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import {
   applyWorkbookLayoutToColumns,
@@ -17,11 +20,14 @@ import {
   cycleWorkbookSortField,
   defaultFilterDraft,
   emptyWorkbookQueryState,
+  type FilterDraft,
   filterChipLabel,
+  filterDraftForField,
   filterDraftFromFilter,
   filterInputMode,
   toggleSortField,
   updateGroupBy,
+  validateFilterDraft,
   workbookGroupValue,
 } from "./workbookQuery";
 import {
@@ -30,6 +36,223 @@ import {
 } from "./workbookSurfaceQueryRuntime";
 
 describe("workbookQuery", () => {
+  it("validates calendar dates for every declared date filter", () => {
+    const consumers = listViewContracts().flatMap((contract) =>
+      contract.fields
+        .filter(
+          (field) =>
+            field.readKind === "date" && field.filterOps.includes("eq"),
+        )
+        .map((field) => ({ contract, field })),
+    );
+    expect(consumers.length).toBeGreaterThan(0);
+    for (const { contract, field } of consumers) {
+      const draft = filterDraftForField(contract, field.fieldKey, "eq");
+      if (draft.op !== "eq") throw new Error("Date equality unavailable");
+      for (const value of [
+        "0000-02-29",
+        "0001-01-01",
+        "0099-12-31",
+        "2000-02-29",
+        "2024-02-29",
+        "2026-04-18",
+        "9999-12-31",
+        " 2026-04-18 \n",
+      ]) {
+        expect(
+          validateFilterDraft(contract, { ...draft, value }).kind,
+          `${field.fieldKey}: ${value}`,
+        ).toBe("valid");
+      }
+      for (const value of [
+        "",
+        "1900-02-29",
+        "2026-02-29",
+        "2026-04-31",
+        "2026-00-01",
+        "2026-13-01",
+        "2026-04-00",
+        "2026-4-18",
+        "26-04-18",
+        "2026/04/18",
+        "2026-04-18T00:00:00Z",
+        "2026-04-18 extra",
+        "10000-01-01",
+      ]) {
+        expect(
+          validateFilterDraft(contract, { ...draft, value }).kind,
+          `${field.fieldKey}: ${value}`,
+        ).toBe("invalid");
+      }
+    }
+  });
+
+  it("preserves date equality sets null encoding and exact raw input", () => {
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    const draft = filterDraftForField(
+      contract,
+      "timeline.date_entered_sort_day",
+      "eq",
+    );
+    if (draft.op !== "eq") throw new Error("Expected equality");
+    const values = " 2026-04-19, 2026-04-18\n2026-04-19, , ";
+    const set = { ...draft, operandKind: "values" as const, values };
+    expect(
+      applyFilterDraft(contract, emptyWorkbookQueryState(), set).filters[0]
+        ?.arg,
+    ).toEqual({ values: ["2026-04-18", "2026-04-19"] });
+    expect(set.values).toBe(values);
+    for (const values of [
+      ", \n ,",
+      "2026-04-31,2026-04-18",
+      "2026-04-18,2026-04-31,2026-04-19",
+      "2026-04-18,null",
+      "2026-04-18,2026-04-19T00:00:00Z",
+    ]) {
+      const invalid = { ...set, values };
+      const state = emptyWorkbookQueryState();
+      expect(applyFilterDraft(contract, state, invalid)).toBe(state);
+      expect(invalid.values).toBe(values);
+    }
+    expect(
+      applyFilterDraft(contract, emptyWorkbookQueryState(), {
+        ...draft,
+        operandKind: "null",
+        value: "2026-04-31",
+      }).filters[0]?.arg,
+    ).toEqual({ value: null });
+    expect(
+      validateFilterDraft(contract, {
+        ...draft,
+        valueType: "number",
+        value: "20260418",
+      }).kind,
+    ).toBe("invalid");
+    expect(
+      validateFilterDraft(contract, {
+        ...draft,
+        valueType: "boolean",
+        booleanValue: "true",
+      }).kind,
+    ).toBe("invalid");
+  });
+
+  it("validates one-sided date ranges and inclusive boundaries", () => {
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    const draft = filterDraftForField(
+      contract,
+      "timeline.date_entered_sort_day",
+      "range",
+    );
+    if (draft.op !== "range") throw new Error("Expected range");
+    for (const [lowerValue, upperValue, kind] of [
+      ["", "", "invalid"],
+      [" ", "\n", "invalid"],
+      ["2026-04-18", "", "valid"],
+      ["", "2026-04-18", "valid"],
+      [" 2026-04-18 ", "2026-04-19", "valid"],
+      ["2026-04-19", "2026-04-18", "invalid"],
+      ["2026-04-31", "", "invalid"],
+      ["", "2026-02-29", "invalid"],
+      ["2026-4-18", "2026-04-19", "invalid"],
+    ])
+      expect(
+        validateFilterDraft(contract, {
+          ...draft,
+          lowerValue: lowerValue ?? "",
+          upperValue: upperValue ?? "",
+        }).kind,
+      ).toBe(kind);
+    for (const lowerKind of ["gte", "gt"] as const) {
+      for (const upperKind of ["lte", "lt"] as const) {
+        expect(
+          validateFilterDraft(contract, {
+            ...draft,
+            lowerKind,
+            upperKind,
+            lowerValue: "2026-04-18",
+            upperValue: "2026-04-18",
+          }).kind,
+        ).toBe(
+          lowerKind === "gte" && upperKind === "lte" ? "valid" : "invalid",
+        );
+        expect(
+          validateFilterDraft(contract, {
+            ...draft,
+            lowerKind,
+            upperKind,
+            lowerValue: "2026-04-18",
+            upperValue: "2026-04-19",
+          }).kind,
+        ).toBe("valid");
+      }
+    }
+    expect(
+      applyFilterDraft(contract, emptyWorkbookQueryState(), {
+        ...draft,
+        lowerKind: "gt",
+        lowerValue: " 2026-04-18 ",
+        upperValue: "",
+      }).filters[0]?.arg,
+    ).toEqual({ gt: "2026-04-18" });
+  });
+
+  it("keeps non-date and timestamp operands unchanged and rejects wrong-schema dates", () => {
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    const text: FilterDraft = {
+      fieldKey: "timeline.tags",
+      op: "contains_any",
+      values: "  query words  ",
+    };
+    expect(
+      applyFilterDraft(contract, emptyWorkbookQueryState(), text).filters[0]
+        ?.arg,
+    ).toEqual({ values: ["query words"] });
+    const timestampContract = requireViewContract(
+      "cartulary.view.task_requests.v1",
+    );
+    const timestamp = filterDraftForField(
+      timestampContract,
+      "task.due_at",
+      "range",
+    );
+    if (timestamp.op !== "range") throw new Error("Expected timestamp range");
+    expect(
+      validateFilterDraft(timestampContract, {
+        ...timestamp,
+        lowerValue: "unchanged timestamp input",
+        upperValue: "2026-04-18T00:00:00+04:00",
+      }).kind,
+    ).toBe("valid");
+    const state = emptyWorkbookQueryState();
+    expect(
+      applyFilterDraft(requireViewContract("cartulary.view.hosts.v1"), state, {
+        ...timestamp,
+        fieldKey: "timeline.date_entered_sort_day",
+        lowerValue: "2026-04-18",
+      }),
+    ).toBe(state);
+  });
+
+  it("refuses impossible date drafts without replacing query state", () => {
+    const state = emptyWorkbookQueryState();
+    expect(
+      applyFilterDraft(
+        requireViewContract("cartulary.view.timeline.v2"),
+        state,
+        {
+          booleanValue: "",
+          fieldKey: "timeline.date_entered_sort_day",
+          op: "eq",
+          operandKind: "value",
+          value: " 2026-04-31 ",
+          valueType: "string",
+          values: "",
+        },
+      ),
+    ).toBe(state);
+  });
+
   it("builds every declared filter operator without losing argument shape", () => {
     const filters = [
       buildFilterFromDraft({
@@ -87,11 +310,15 @@ describe("workbookQuery", () => {
   });
 
   it("builds tag and boolean filters from the client-local draft state", () => {
-    const state = applyFilterDraft(emptyWorkbookQueryState(), {
-      fieldKey: "timeline.tags",
-      op: "contains_any",
-      values: "phish, c2",
-    });
+    const state = applyFilterDraft(
+      requireViewContract("cartulary.view.timeline.v2"),
+      emptyWorkbookQueryState(),
+      {
+        fieldKey: "timeline.tags",
+        op: "contains_any",
+        values: "phish, c2",
+      },
+    );
 
     expect(state.filters).toEqual([
       {
@@ -104,15 +331,19 @@ describe("workbookQuery", () => {
     ]);
 
     expect(
-      applyFilterDraft(emptyWorkbookQueryState(), {
-        booleanValue: "true",
-        fieldKey: "timeline.has_evidence",
-        op: "eq",
-        operandKind: "value",
-        value: "",
-        valueType: "boolean",
-        values: "",
-      }).filters,
+      applyFilterDraft(
+        requireViewContract("cartulary.view.timeline.v2"),
+        emptyWorkbookQueryState(),
+        {
+          booleanValue: "true",
+          fieldKey: "timeline.has_evidence",
+          op: "eq",
+          operandKind: "value",
+          value: "",
+          valueType: "boolean",
+          values: "",
+        },
+      ).filters,
     ).toEqual([
       {
         fieldKey: "timeline.has_evidence",

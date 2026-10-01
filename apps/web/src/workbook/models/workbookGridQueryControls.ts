@@ -1,12 +1,11 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
-import {
-  buildFilterFromDraft,
-  type FilterDraft,
-  type WorkbookFilter,
-  type WorkbookQueryState,
-  type WorkbookSortEntry,
+import type {
+  FilterDraft,
+  WorkbookFilter,
+  WorkbookQueryState,
+  WorkbookSortEntry,
 } from "./workbookQuery";
 import { savedViewJSONEqual } from "./workbookSavedViews";
 import {
@@ -308,26 +307,6 @@ export function parseDeclaredGroupField(
   if (value === "") return { kind: "none" };
   const fieldKey = parseDeclaredFieldKey(value, declaredFieldKeys);
   return fieldKey === null ? null : { kind: "field", fieldKey };
-}
-
-export function validateFilterDraft(
-  contract: ViewContract,
-  draft: FilterDraft,
-):
-  | { readonly kind: "valid" }
-  | { readonly kind: "invalid"; readonly message: string } {
-  if (parseDeclaredFieldKey(draft.fieldKey, contract.filterFields) === null) {
-    return { kind: "invalid", message: "Select a supported filter field." };
-  }
-  if (!contract.fieldMap[draft.fieldKey]?.filterOps.includes(draft.op)) {
-    return {
-      kind: "invalid",
-      message: "Select a supported operator for this field.",
-    };
-  }
-  return buildFilterFromDraft(draft) === null
-    ? { kind: "invalid", message: "Enter a value before applying this filter." }
-    : { kind: "valid" };
 }
 
 export function createWorkbookGridControlsTransientState(

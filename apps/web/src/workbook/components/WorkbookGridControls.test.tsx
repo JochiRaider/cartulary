@@ -32,14 +32,19 @@ import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLa
 import { defaultWorkbookLayoutState } from "../layout/workbookColumnLayout";
 import { workbookOrderedSortLimit } from "../models/workbookGridQueryControls";
 import {
+  clearFilterDraftValue,
   defaultFilterDraft,
   emptyWorkbookQueryState,
   type FilterDraft,
+  validateFilterDraft,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
+import { WorkbookCandidateQueryControl } from "./WorkbookCandidateQueryControl";
 import { WorkbookGridControls } from "./WorkbookGridControls";
 
 const timelineSurface = "cartulary.view.timeline.v2";
+const admitFilter = (draft: FilterDraft) =>
+  validateFilterDraft(requireViewContract(timelineSurface), draft);
 
 afterEach(() => {
   cleanup();
@@ -47,6 +52,235 @@ afterEach(() => {
 });
 
 describe("WorkbookGridControls", () => {
+  it("keeps impossible date correction in the editor with associated feedback", () => {
+    const contract = requireViewContract(timelineSurface);
+    const onApplyFilter = vi.fn(admitFilter);
+    render(
+      <WorkbookGridControls
+        contract={contract}
+        surface={timelineSurface}
+        filterDraft={defaultFilterDraft(contract)}
+        layoutState={defaultWorkbookLayoutState(contract)}
+        queryState={emptyWorkbookQueryState()}
+        onApplyFilter={onApplyFilter}
+        onFilterDraftChange={vi.fn()}
+        onColumnHiddenChange={vi.fn()}
+        onColumnMove={vi.fn()}
+        onGroupByChange={vi.fn()}
+        onRemoveFilter={vi.fn()}
+        onResetColumns={vi.fn()}
+        onSortChange={vi.fn()}
+        sizing={sizing}
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
+      />,
+    );
+    const trigger = screen.getByTestId(
+      workbookFilterPopoverTriggerTestId(timelineSurface),
+    );
+    fireEvent.click(trigger);
+    fireEvent.change(
+      screen.getByTestId(gridFilterFieldTestId(timelineSurface)),
+      { target: { value: "timeline.date_entered_sort_day" } },
+    );
+    const value = screen.getByTestId(gridFilterValueTestId(timelineSurface));
+    fireEvent.change(value, { target: { value: " 2026-04-31 " } });
+    const apply = screen.getByTestId(gridFilterApplyTestId(timelineSurface));
+    expect((apply as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(apply);
+    expect(onApplyFilter).not.toHaveBeenCalled();
+    expect((value as HTMLInputElement).value).toBe(" 2026-04-31 ");
+    expect(value.getAttribute("aria-invalid")).toBe("true");
+    expect(
+      document.getElementById(value.getAttribute("aria-describedby") ?? "")
+        ?.textContent,
+    ).toContain("YYYY-MM-DD");
+    expect(screen.getByRole("dialog", { name: "Add filter" })).toBeTruthy();
+    fireEvent.change(value, { target: { value: "2026-04-18" } });
+    expect((apply as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.keyDown(value, { key: "Escape" });
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("names range operands associates contradictions and completes correction before reopening", () => {
+    render(<StatefulGridControls />);
+    const trigger = screen.getByTestId(
+      workbookFilterPopoverTriggerTestId(timelineSurface),
+    );
+    fireEvent.click(trigger);
+    fireEvent.change(
+      screen.getByTestId(gridFilterFieldTestId(timelineSurface)),
+      { target: { value: "timeline.date_entered_sort_day" } },
+    );
+    fireEvent.change(
+      screen.getByTestId(workbookFilterOperatorTestId(timelineSurface)),
+      { target: { value: "range" } },
+    );
+    const lower = screen.getByRole("textbox", {
+      name: "Lower-bound value",
+    }) as HTMLInputElement;
+    const upper = screen.getByRole("textbox", {
+      name: "Upper-bound value",
+    }) as HTMLInputElement;
+    const lowerKind = screen.getByRole("combobox", {
+      name: "Lower-bound comparison",
+    });
+    const upperKind = screen.getByRole("combobox", {
+      name: "Upper-bound comparison",
+    });
+    const apply = screen.getByTestId(
+      gridFilterApplyTestId(timelineSurface),
+    ) as HTMLButtonElement;
+    fireEvent.change(lower, { target: { value: "2026-04-19" } });
+    fireEvent.change(upper, { target: { value: "2026-04-18" } });
+    const feedbackId = lower.getAttribute("aria-describedby");
+    expect(upper.getAttribute("aria-describedby")).toBe(feedbackId);
+    expect(document.getElementById(feedbackId ?? "")?.textContent).toContain(
+      "on or before",
+    );
+    expect(apply.disabled).toBe(true);
+    lower.focus();
+    const tab = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    lower.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+    fireEvent.change(lower, { target: { value: "2026-04-18" } });
+    fireEvent.change(lowerKind, { target: { value: "gt" } });
+    for (const control of [lower, upper, lowerKind, upperKind]) {
+      expect(control.getAttribute("aria-invalid")).toBe("true");
+      expect(control.getAttribute("aria-describedby")).toBe(feedbackId);
+    }
+    expect(document.getElementById(feedbackId ?? "")?.textContent).toContain(
+      "inclusive",
+    );
+    fireEvent.change(lowerKind, { target: { value: "gte" } });
+    expect(lower.hasAttribute("aria-invalid")).toBe(false);
+    expect(apply.disabled).toBe(false);
+    fireEvent.click(apply);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(trigger);
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Lower-bound value",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("");
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Upper-bound value",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("retains a locally valid editor when the admission callback refuses it", () => {
+    const contract = requireViewContract(timelineSurface);
+    const onApplyFilter = vi.fn(() => ({
+      kind: "invalid" as const,
+      message: "Subject changed",
+      controls: ["field" as const],
+    }));
+    render(
+      <WorkbookGridControls
+        contract={contract}
+        surface={timelineSurface}
+        filterDraft={defaultFilterDraft(contract)}
+        layoutState={defaultWorkbookLayoutState(contract)}
+        queryState={emptyWorkbookQueryState()}
+        onApplyFilter={onApplyFilter}
+        onFilterDraftChange={vi.fn()}
+        onColumnHiddenChange={vi.fn()}
+        onColumnMove={vi.fn()}
+        onGroupByChange={vi.fn()}
+        onRemoveFilter={vi.fn()}
+        onResetColumns={vi.fn()}
+        onSortChange={vi.fn()}
+        sizing={sizing}
+        freezing={{ status: null, onBoundaryChange: vi.fn() }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId(workbookFilterPopoverTriggerTestId(timelineSurface)),
+    );
+    fireEvent.change(
+      screen.getByTestId(gridFilterFieldTestId(timelineSurface)),
+      { target: { value: "timeline.date_entered_sort_day" } },
+    );
+    const value = screen.getByRole("textbox", {
+      name: "Date value",
+    }) as HTMLInputElement;
+    fireEvent.change(value, { target: { value: " 2026-04-18 " } });
+    fireEvent.click(screen.getByTestId(gridFilterApplyTestId(timelineSurface)));
+    expect(onApplyFilter).toHaveBeenCalledOnce();
+    expect(screen.getByRole("dialog", { name: "Add filter" })).toBeTruthy();
+    expect(value.value).toBe(" 2026-04-18 ");
+  });
+
+  it("excludes invalid date candidates from staging and keeps feedback instance local", () => {
+    const onApply = vi.fn();
+    render(
+      <>
+        <WorkbookCandidateQueryControl
+          view={timelineSurface}
+          label="First"
+          query={emptyWorkbookQueryState()}
+          onApply={onApply}
+        />
+        <WorkbookCandidateQueryControl
+          view={timelineSurface}
+          label="Second"
+          query={emptyWorkbookQueryState()}
+          onApply={vi.fn()}
+        />
+      </>,
+    );
+    for (const summary of screen.getAllByText(/ordering and filters/))
+      fireEvent.click(summary);
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "First filter field" }),
+      { target: { value: "timeline.date_entered_sort_day" } },
+    );
+    const first = screen.getByRole("textbox", {
+      name: "First filter value",
+    }) as HTMLInputElement;
+    const second = screen.getByRole("textbox", { name: "Second filter value" });
+    fireEvent.change(first, { target: { value: " 2026-04-31 " } });
+    expect(first.getAttribute("aria-describedby")).not.toBe(
+      second.getAttribute("aria-describedby"),
+    );
+    const add = screen.getAllByRole("button", {
+      name: "Add filter",
+      hidden: true,
+    })[0] as HTMLButtonElement;
+    const applyCandidate = screen.getAllByRole("button", {
+      name: "Apply candidate query",
+      hidden: true,
+    })[0];
+    if (!applyCandidate) throw new Error("Missing candidate query action");
+    expect(add.disabled).toBe(true);
+    fireEvent.click(add);
+    fireEvent.click(applyCandidate);
+    expect(onApply).toHaveBeenLastCalledWith(emptyWorkbookQueryState());
+    expect(first.value).toBe(" 2026-04-31 ");
+    fireEvent.change(first, { target: { value: "2026-04-18" } });
+    fireEvent.click(add);
+    fireEvent.click(applyCandidate);
+    expect(onApply.mock.calls.at(-1)?.[0].filters).toEqual([
+      {
+        fieldKey: "timeline.date_entered_sort_day",
+        op: "eq",
+        arg: { value: "2026-04-18" },
+      },
+    ]);
+  });
+
   it("separates accepted chips from requested filter editing and removal", () => {
     const contract = requireViewContract(timelineSurface);
     const accepted = {
@@ -69,7 +303,7 @@ describe("WorkbookGridControls", () => {
         arg: { gte: "2026-01-01" },
       },
     ];
-    const onApplyFilter = vi.fn();
+    const onApplyFilter = vi.fn(admitFilter);
     const onClearFilters = vi.fn();
     const onRemoveFilter = vi.fn();
     const props = {
@@ -106,6 +340,12 @@ describe("WorkbookGridControls", () => {
     ).toBeTruthy();
     const lower = screen.getByTestId(gridFilterValueTestId(timelineSurface));
     expect((lower as HTMLInputElement).value).toBe("2026-01-01");
+    fireEvent.change(lower, { target: { value: " 2026-04-31 " } });
+    fireEvent.click(screen.getByTestId(gridFilterApplyTestId(timelineSurface)));
+    expect((lower as HTMLInputElement).value).toBe(" 2026-04-31 ");
+    expect(
+      screen.getByRole("dialog", { name: "Edit unapplied filter" }),
+    ).toBeTruthy();
     fireEvent.change(lower, { target: { value: "2026-02-01" } });
     fireEvent.keyDown(lower, { key: "Escape" });
     expect(onApplyFilter).not.toHaveBeenCalled();
@@ -282,7 +522,7 @@ describe("WorkbookGridControls", () => {
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
         layoutState={defaultWorkbookLayoutState(contract)}
-        onApplyFilter={vi.fn()}
+        onApplyFilter={vi.fn(admitFilter)}
         onColumnHiddenChange={vi.fn()}
         onColumnMove={vi.fn()}
         onFilterDraftChange={vi.fn()}
@@ -349,7 +589,7 @@ describe("WorkbookGridControls", () => {
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
         layoutState={defaultWorkbookLayoutState(contract)}
-        onApplyFilter={vi.fn()}
+        onApplyFilter={vi.fn(admitFilter)}
         onColumnHiddenChange={vi.fn()}
         onColumnMove={vi.fn()}
         onFilterDraftChange={vi.fn()}
@@ -864,7 +1104,7 @@ describe("WorkbookGridControls", () => {
 
   it("keeps invalid drafts visible, excludes them from apply, and resets panels by surface", () => {
     const contract = requireViewContract(timelineSurface);
-    const onApplyFilter = vi.fn();
+    const onApplyFilter = vi.fn(admitFilter);
     const invalidDraft: FilterDraft = {
       booleanValue: "",
       fieldKey: "Capture State",
@@ -921,7 +1161,7 @@ describe("WorkbookGridControls", () => {
 
   it("parses filter controls exactly and restores focus on Escape", () => {
     const contract = requireViewContract(timelineSurface);
-    const onApplyFilter = vi.fn();
+    const onApplyFilter = vi.fn(admitFilter);
     const onFilterDraftChange = vi.fn();
     render(
       <WorkbookGridControls
@@ -1499,7 +1739,7 @@ describe("WorkbookGridControls", () => {
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
         layoutState={{ ...layout, hiddenFieldKeys: layout.columnOrder }}
-        onApplyFilter={vi.fn()}
+        onApplyFilter={vi.fn(admitFilter)}
         onColumnHiddenChange={onColumnHiddenChange}
         onColumnMove={onColumnMove}
         onFilterDraftChange={vi.fn()}
@@ -1632,7 +1872,12 @@ function StatefulGridControls({
       contract={contract}
       filterDraft={filterDraft}
       layoutState={layoutState}
-      onApplyFilter={() => undefined}
+      onApplyFilter={(draft) => {
+        const validation = validateFilterDraft(contract, draft);
+        if (validation.kind === "valid")
+          setFilterDraft(clearFilterDraftValue(draft));
+        return validation;
+      }}
       onClearFilters={() => {
         setQueryState((current) => ({ ...current, filters: [] }));
       }}
@@ -1708,7 +1953,7 @@ function ControlledSortGridControls({
       filterDraft={defaultFilterDraft(contract)}
       freezing={{ status: null, onBoundaryChange: vi.fn() }}
       layoutState={defaultWorkbookLayoutState(contract)}
-      onApplyFilter={vi.fn()}
+      onApplyFilter={vi.fn(admitFilter)}
       onColumnHiddenChange={vi.fn()}
       onColumnMove={vi.fn()}
       onFilterDraftChange={vi.fn()}
@@ -1743,7 +1988,7 @@ function ControlledGroupGridControls({
       filterDraft={defaultFilterDraft(contract)}
       freezing={{ status: null, onBoundaryChange: vi.fn() }}
       layoutState={defaultWorkbookLayoutState(contract)}
-      onApplyFilter={vi.fn()}
+      onApplyFilter={vi.fn(admitFilter)}
       onColumnHiddenChange={vi.fn()}
       onColumnMove={vi.fn()}
       onFilterDraftChange={vi.fn()}

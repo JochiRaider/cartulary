@@ -10,20 +10,22 @@ import {
 } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { SlidersHorizontal } from "lucide-react";
-import type { RefObject } from "react";
+import { type AriaAttributes, type RefObject, useId } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import {
   parseDeclaredFieldKey,
   parseWorkbookBooleanDraftValue,
-  validateFilterDraft,
   type WorkbookGridQueryCommand,
   type WorkbookGridQueryControlProjection,
   type WorkbookRequestedFilterChange,
 } from "../models/workbookGridQueryControls";
 import {
   type FilterDraft,
+  type FilterDraftControl,
+  type FilterDraftValidation,
   filterDraftForField,
   isWorkbookFilterOperator,
+  validateFilterDraft,
   type WorkbookFilter,
 } from "../models/workbookQuery";
 import {
@@ -54,6 +56,7 @@ export function WorkbookFiltersControl({
   onChangeDraft,
   onClose,
   onCommand,
+  onComplete,
   onEditFilter,
   onEditRequestedFilter,
   onEditQueryEntry,
@@ -72,10 +75,11 @@ export function WorkbookFiltersControl({
   readonly requestedFilterCount: number;
   readonly requestedChanges: readonly WorkbookRequestedFilterChange[];
   readonly isOpen: boolean;
-  readonly onApply: (draft: FilterDraft) => void;
+  readonly onApply: (draft: FilterDraft) => FilterDraftValidation;
   readonly onChangeDraft: (draft: FilterDraft) => void;
   readonly onClose: () => void;
   readonly onCommand: (command: WorkbookGridQueryCommand) => void;
+  readonly onComplete: (draft: FilterDraft) => void;
   readonly onEditFilter: (fieldKey: string) => void;
   readonly onEditRequestedFilter: (fieldKey: string) => void;
   readonly onEditQueryEntry: (
@@ -88,6 +92,7 @@ export function WorkbookFiltersControl({
   readonly surface: string;
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
+  const feedbackId = useId();
   const itemKeys = [
     "field",
     "operator",
@@ -131,6 +136,10 @@ export function WorkbookFiltersControl({
     triggerRef,
   });
   const validation = validateFilterDraft(contract, draft);
+  const feedbackFor: FilterFeedbackFor = (control) =>
+    validation.kind === "invalid" && validation.controls.includes(control)
+      ? { "aria-invalid": true, "aria-describedby": feedbackId }
+      : {};
   const hiddenCount = projection.hiddenChips.length;
   const field = contract.fieldMap[draft.fieldKey];
   const declaredOperators =
@@ -191,6 +200,7 @@ export function WorkbookFiltersControl({
             Field
             <select
               ref={navigation.registerItem("field")}
+              {...feedbackFor("field")}
               data-testid={gridFilterFieldTestId(surface)}
               disabled={editingFieldKey !== null}
               style={selectStyle}
@@ -215,6 +225,7 @@ export function WorkbookFiltersControl({
             Operator
             <select
               ref={navigation.registerItem("operator")}
+              {...feedbackFor("operator")}
               data-testid={workbookFilterOperatorTestId(surface)}
               style={selectStyle}
               value={draft.op}
@@ -234,16 +245,21 @@ export function WorkbookFiltersControl({
             </select>
           </label>
           <FilterOperandControl
+            isDate={field?.readKind === "date"}
+            feedbackFor={feedbackFor}
             draft={draft}
             navigation={navigation}
             onChangeDraft={onChangeDraft}
             surface={surface}
           />
-          {validation.kind === "invalid" ? (
-            <p role="status" style={filterValidationStyle}>
-              {validation.message}
-            </p>
-          ) : null}
+          <p
+            id={feedbackId}
+            role="status"
+            aria-atomic="true"
+            style={filterValidationStyle}
+          >
+            {validation.kind === "invalid" ? validation.message : ""}
+          </p>
           <FilterQueryActions
             filterCount={filterCount}
             requestedFilterCount={requestedFilterCount}
@@ -289,9 +305,12 @@ export function WorkbookFiltersControl({
               style={primaryButtonStyle}
               type="button"
               onClick={() => {
-                if (validation.kind === "valid") {
+                if (
+                  validation.kind === "valid" &&
+                  onApply(draft).kind === "valid"
+                ) {
                   navigation.close({ restoreTriggerFocus: true });
-                  onApply(draft);
+                  onComplete(draft);
                 }
               }}
             >
@@ -304,13 +323,21 @@ export function WorkbookFiltersControl({
   );
 }
 
+type FilterFeedbackFor = (
+  control: FilterDraftControl,
+) => Pick<AriaAttributes, "aria-invalid" | "aria-describedby">;
+
 function FilterOperandControl({
   draft,
+  isDate,
+  feedbackFor,
   navigation,
   onChangeDraft,
   surface,
 }: {
   readonly draft: FilterDraft;
+  readonly isDate: boolean;
+  readonly feedbackFor: FilterFeedbackFor;
   readonly navigation: ReturnType<typeof useRegisteredOverlayNavigation>;
   readonly onChangeDraft: (draft: FilterDraft) => void;
   readonly surface: string;
@@ -346,10 +373,13 @@ function FilterOperandControl({
           "values" ? (
           <TextOperand
             draft={draft}
-            label="Values"
+            feedbackFor={feedbackFor}
+            label={isDate ? "Date values" : "Values"}
             navigation={navigation}
             onValue={(values) => onChangeDraft({ ...draft, values })}
-            placeholder="Comma-separated values"
+            placeholder={
+              isDate ? "YYYY-MM-DD, YYYY-MM-DD" : "Comma-separated values"
+            }
             surface={surface}
             value={draft.values}
           />
@@ -358,6 +388,7 @@ function FilterOperandControl({
             Value
             <select
               ref={navigation.registerItem("value")}
+              {...feedbackFor("value")}
               data-testid={gridFilterValueTestId(surface)}
               style={selectStyle}
               value={draft.booleanValue}
@@ -378,10 +409,11 @@ function FilterOperandControl({
         ) : (
           <TextOperand
             draft={draft}
-            label="Value"
+            feedbackFor={feedbackFor}
+            label={isDate ? "Date value" : "Value"}
             navigation={navigation}
             onValue={(value) => onChangeDraft({ ...draft, value })}
-            placeholder="Value"
+            placeholder={isDate ? "YYYY-MM-DD" : "Value"}
             surface={surface}
             value={draft.value}
           />
@@ -392,11 +424,12 @@ function FilterOperandControl({
   if (draft.op === "range") {
     return (
       <div style={rangeStyle}>
-        <label style={stackedLabelStyle}>
+        <div style={stackedLabelStyle}>
           Lower bound
           <span style={boundStyle}>
             <select
               ref={navigation.registerItem("lower_kind")}
+              {...feedbackFor("lower_kind")}
               aria-label="Lower-bound comparison"
               value={draft.lowerKind}
               onChange={(event) => {
@@ -411,6 +444,9 @@ function FilterOperandControl({
             </select>
             <input
               ref={navigation.registerItem("lower_value")}
+              {...feedbackFor("lower_value")}
+              aria-label="Lower-bound value"
+              placeholder={isDate ? "YYYY-MM-DD" : undefined}
               data-testid={gridFilterValueTestId(surface)}
               style={inputStyle}
               value={draft.lowerValue}
@@ -422,12 +458,13 @@ function FilterOperandControl({
               }
             />
           </span>
-        </label>
-        <label style={stackedLabelStyle}>
+        </div>
+        <div style={stackedLabelStyle}>
           Upper bound
           <span style={boundStyle}>
             <select
               ref={navigation.registerItem("upper_kind")}
+              {...feedbackFor("upper_kind")}
               aria-label="Upper-bound comparison"
               value={draft.upperKind}
               onChange={(event) => {
@@ -442,7 +479,9 @@ function FilterOperandControl({
             </select>
             <input
               ref={navigation.registerItem("upper_value")}
+              {...feedbackFor("upper_value")}
               aria-label="Upper-bound value"
+              placeholder={isDate ? "YYYY-MM-DD" : undefined}
               style={inputStyle}
               value={draft.upperValue}
               onChange={(event) =>
@@ -453,7 +492,7 @@ function FilterOperandControl({
               }
             />
           </span>
-        </label>
+        </div>
       </div>
     );
   }
@@ -461,6 +500,7 @@ function FilterOperandControl({
     return (
       <TextOperand
         draft={draft}
+        feedbackFor={feedbackFor}
         label="Values"
         navigation={navigation}
         onValue={(values) => onChangeDraft({ ...draft, values })}
@@ -474,6 +514,7 @@ function FilterOperandControl({
     return (
       <TextOperand
         draft={draft}
+        feedbackFor={feedbackFor}
         label="Query"
         navigation={navigation}
         onValue={(query) => onChangeDraft({ ...draft, query })}
@@ -487,6 +528,7 @@ function FilterOperandControl({
     return (
       <TextOperand
         draft={draft}
+        feedbackFor={feedbackFor}
         label="Value"
         navigation={navigation}
         onValue={(value) => onChangeDraft({ ...draft, value })}
@@ -501,6 +543,7 @@ function FilterOperandControl({
 
 function TextOperand({
   label,
+  feedbackFor,
   navigation,
   onValue,
   placeholder,
@@ -508,6 +551,7 @@ function TextOperand({
   value,
 }: {
   readonly draft: FilterDraft;
+  readonly feedbackFor: FilterFeedbackFor;
   readonly label: string;
   readonly navigation: ReturnType<typeof useRegisteredOverlayNavigation>;
   readonly onValue: (value: string) => void;
@@ -520,6 +564,7 @@ function TextOperand({
       {label}
       <input
         ref={navigation.registerItem("value")}
+        {...feedbackFor("value")}
         data-testid={gridFilterValueTestId(surface)}
         placeholder={placeholder}
         style={inputStyle}
@@ -710,6 +755,8 @@ function operatorLabel(op: FilterDraft["op"]): string {
 
 const filterPopoverStyle = {
   ...menuStyle,
+  insetInlineStart: "auto",
+  insetInlineEnd: 0,
   inlineSize: "min(var(--ct-layout-viewBarOverlayMaxInlineSize), 92vw)",
   gap: "var(--ct-spacing-sm)",
 };

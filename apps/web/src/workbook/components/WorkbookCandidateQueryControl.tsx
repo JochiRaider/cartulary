@@ -1,12 +1,13 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useState } from "react";
-import { validateFilterDraft } from "../models/workbookGridQueryControls";
+import { type AriaAttributes, useId, useState } from "react";
 import {
   applyFilterDraft,
   defaultFilterDraft,
   emptyWorkbookQueryState,
   type FilterDraft,
+  type FilterDraftControl,
   filterDraftForField,
+  validateFilterDraft,
   type WorkbookFilterOperator,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
@@ -32,6 +33,13 @@ export function WorkbookCandidateQueryControl({
   const [draft, setDraft] = useState(() => defaultFilterDraft(contract));
   const [staged, setStaged] = useState(query);
   const validation = validateFilterDraft(contract, draft);
+  const feedbackId = useId();
+  const feedbackFor = (
+    control: FilterDraftControl,
+  ): Pick<AriaAttributes, "aria-invalid" | "aria-describedby"> =>
+    validation.kind === "invalid" && validation.controls.includes(control)
+      ? { "aria-invalid": true, "aria-describedby": feedbackId }
+      : {};
   return (
     <details>
       <summary>{label} ordering and filters</summary>
@@ -84,6 +92,7 @@ export function WorkbookCandidateQueryControl({
               Filter field
               <select
                 aria-label={`${label} filter field`}
+                {...feedbackFor("field")}
                 style={inputStyle}
                 value={draft.fieldKey}
                 onChange={(event) =>
@@ -103,6 +112,7 @@ export function WorkbookCandidateQueryControl({
               Match
               <select
                 aria-label={`${label} filter operator`}
+                {...feedbackFor("operator")}
                 style={inputStyle}
                 value={draft.op}
                 onChange={(event) =>
@@ -122,18 +132,28 @@ export function WorkbookCandidateQueryControl({
                 ))}
               </select>
             </label>
-            <Operand label={label} draft={draft} onChange={setDraft} />
+            <Operand
+              label={label}
+              draft={draft}
+              onChange={setDraft}
+              feedbackFor={feedbackFor}
+              isDate={contract.fieldMap[draft.fieldKey]?.readKind === "date"}
+            />
             <button
               type="button"
               style={secondaryButtonStyle}
               disabled={validation.kind === "invalid"}
-              onClick={() => setStaged(applyFilterDraft(staged, draft))}
+              onClick={() =>
+                setStaged((current) =>
+                  applyFilterDraft(contract, current, draft),
+                )
+              }
             >
               Add filter
             </button>
-            {validation.kind === "invalid" ? (
-              <span>{validation.message}</span>
-            ) : null}
+            <span id={feedbackId} role="status" aria-atomic="true">
+              {validation.kind === "invalid" ? validation.message : ""}
+            </span>
             {staged.filters.map((filter) => (
               <div key={filter.fieldKey} style={{ overflowWrap: "anywhere" }}>
                 {contract.fieldMap[filter.fieldKey]?.label}:{" "}
@@ -201,19 +221,28 @@ function Operand({
   label,
   draft,
   onChange,
+  feedbackFor,
+  isDate,
 }: {
   readonly label: string;
   readonly draft: FilterDraft;
   readonly onChange: (draft: FilterDraft) => void;
+  readonly feedbackFor: (
+    control: FilterDraftControl,
+  ) => Pick<AriaAttributes, "aria-invalid" | "aria-describedby">;
+  readonly isDate: boolean;
 }) {
   const text = (
     name: string,
     value: string,
     change: (value: string) => void,
+    control: FilterDraftControl = "value",
   ) => (
     <label style={stackedLabelStyle}>
       {name}
       <input
+        {...feedbackFor(control)}
+        placeholder={isDate ? "YYYY-MM-DD" : undefined}
         aria-label={`${label} filter ${name.toLowerCase()}`}
         style={inputStyle}
         value={value}
@@ -228,6 +257,7 @@ function Operand({
           Lower bound
           <select
             aria-label={`${label} lower bound`}
+            {...feedbackFor("lower_kind")}
             style={inputStyle}
             value={draft.lowerKind}
             onChange={(event) =>
@@ -241,13 +271,17 @@ function Operand({
             <option value="gt">After</option>
           </select>
         </label>
-        {text("From", draft.lowerValue, (lowerValue) =>
-          onChange({ ...draft, lowerValue }),
+        {text(
+          "From",
+          draft.lowerValue,
+          (lowerValue) => onChange({ ...draft, lowerValue }),
+          "lower_value",
         )}
         <label style={stackedLabelStyle}>
           Upper bound
           <select
             aria-label={`${label} upper bound`}
+            {...feedbackFor("upper_kind")}
             style={inputStyle}
             value={draft.upperKind}
             onChange={(event) =>
@@ -261,8 +295,11 @@ function Operand({
             <option value="lt">Before</option>
           </select>
         </label>
-        {text("To", draft.upperValue, (upperValue) =>
-          onChange({ ...draft, upperValue }),
+        {text(
+          "To",
+          draft.upperValue,
+          (upperValue) => onChange({ ...draft, upperValue }),
+          "upper_value",
         )}
       </>
     );
@@ -296,6 +333,7 @@ function Operand({
             Value
             <select
               aria-label={`${label} filter value`}
+              {...feedbackFor("value")}
               style={inputStyle}
               value={draft.booleanValue}
               onChange={(event) => {

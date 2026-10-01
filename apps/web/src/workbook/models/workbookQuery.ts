@@ -138,6 +138,120 @@ export type FilterInputMode =
   | "text"
   | "timestamp";
 
+export type FilterDraftControl =
+  | "field"
+  | "operator"
+  | "value"
+  | "lower_kind"
+  | "lower_value"
+  | "upper_kind"
+  | "upper_value";
+
+export type FilterDraftValidation =
+  | { readonly kind: "valid"; readonly filter: WorkbookFilter }
+  | {
+      readonly kind: "invalid";
+      readonly message: string;
+      readonly controls: readonly FilterDraftControl[];
+    };
+
+/** One contract-aware decision for editor feedback and draft admission. Raw input is untouched. */
+export function validateFilterDraft(
+  contract: ViewContract,
+  draft: FilterDraft,
+): FilterDraftValidation {
+  const invalid = (
+    message: string,
+    controls: readonly FilterDraftControl[],
+  ): FilterDraftValidation => ({ kind: "invalid", message, controls });
+  if (!contract.filterFields.includes(draft.fieldKey)) {
+    return invalid("Select a supported filter field.", ["field"]);
+  }
+  const field = contract.fieldMap[draft.fieldKey];
+  if (!field?.filterOps.includes(draft.op)) {
+    return invalid("Select a supported operator for this field.", ["operator"]);
+  }
+  const filter = buildFilterFromDraft(draft);
+  if (field.readKind === "date" && draft.op === "range") {
+    const lower = draft.lowerValue.trim();
+    const upper = draft.upperValue.trim();
+    if (lower === "" && upper === "") {
+      return invalid("Enter at least one date bound in YYYY-MM-DD.", [
+        "lower_value",
+        "upper_value",
+      ]);
+    }
+    const badLower = lower !== "" && !validCalendarDate(lower);
+    const badUpper = upper !== "" && !validCalendarDate(upper);
+    if (badLower || badUpper) {
+      return invalid(
+        badLower && badUpper
+          ? "Enter real lower- and upper-bound dates in YYYY-MM-DD."
+          : badLower
+            ? "Enter a real lower-bound date in YYYY-MM-DD."
+            : "Enter a real upper-bound date in YYYY-MM-DD.",
+        [
+          ...(badLower ? ["lower_value" as const] : []),
+          ...(badUpper ? ["upper_value" as const] : []),
+        ],
+      );
+    }
+    if (lower !== "" && upper !== "") {
+      if (lower > upper) {
+        return invalid(
+          "The lower-bound date must be on or before the upper-bound date.",
+          ["lower_value", "upper_value"],
+        );
+      }
+      if (
+        lower === upper &&
+        (draft.lowerKind === "gt" || draft.upperKind === "lt")
+      ) {
+        return invalid(
+          "Equal dates require inclusive lower and upper bounds.",
+          ["lower_value", "upper_value", "lower_kind", "upper_kind"],
+        );
+      }
+    }
+  }
+  if (filter === null) {
+    return invalid(
+      field.readKind === "date"
+        ? "Enter a real date in YYYY-MM-DD before applying this filter."
+        : "Enter a value before applying this filter.",
+      draft.op === "range" ? ["lower_value", "upper_value"] : ["value"],
+    );
+  }
+  if (field.readKind === "date" && draft.op === "eq") {
+    if (draft.operandKind === "values") {
+      const values = filter.arg.values;
+      if (!Array.isArray(values) || !values.every(validCalendarDate)) {
+        return invalid("Every date value must be a real date in YYYY-MM-DD.", [
+          "value",
+        ]);
+      }
+    } else if (
+      filter.arg.value !== null &&
+      !validCalendarDate(filter.arg.value)
+    ) {
+      return invalid("Enter a real date in YYYY-MM-DD.", ["value"]);
+    }
+  }
+  return { kind: "valid", filter };
+}
+
+function validCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  if (parts === null) return false;
+  const year = Number(parts[1]),
+    month = Number(parts[2]),
+    day = Number(parts[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return month >= 1 && month <= 12 && day >= 1 && day <= (days[month - 1] ?? 0);
+}
+
 export function emptyWorkbookQueryState(): WorkbookQueryState {
   return {
     filters: [],
@@ -375,13 +489,15 @@ export function updateGroupBy(
 }
 
 export function applyFilterDraft(
+  contract: ViewContract,
   state: WorkbookQueryState,
   draft: FilterDraft,
 ): WorkbookQueryState {
-  const nextFilter = buildFilterFromDraft(draft);
-  if (nextFilter === null) {
+  const validation = validateFilterDraft(contract, draft);
+  if (validation.kind === "invalid") {
     return state;
   }
+  const nextFilter = validation.filter;
   return {
     ...state,
     filters: [
