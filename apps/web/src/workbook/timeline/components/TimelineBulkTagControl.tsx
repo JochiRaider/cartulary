@@ -10,22 +10,27 @@ import type { useTimelineBulkTagController } from "../bulk/useTimelineBulkTagCon
 
 type Binding = ReturnType<typeof useTimelineBulkTagController>["controls"];
 
-/** One mounted draft owner; tag typing never enters Timeline root composition. */
+/** Leaf observation of retained authoring; typing never enters root composition. */
 export function TimelineBulkTagControl({
   binding,
 }: {
   readonly binding: Binding;
 }) {
-  const [draft, setDraft] = useState({ raw: "", revision: 0 });
+  const draft = useSyncExternalStore(
+    binding.authoring.subscribe,
+    binding.authoring.getSnapshot,
+  );
   const [focused, setFocused] = useState(false);
   const [feedback, setFeedback] = useState<{
     message: string;
     revision: number;
+    generation: number;
     selection: ReadonlySet<string>;
   } | null>(null);
   const [submitted, setSubmitted] = useState<{
     id: string;
     revision: number;
+    generation: number;
     selection: ReadonlySet<string>;
   } | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -39,10 +44,15 @@ export function TimelineBulkTagControl({
     binding.operations.getSnapshot,
   );
   const matches = (
-    value: { revision: number; selection: ReadonlySet<string> } | null,
+    value: {
+      revision: number;
+      generation: number;
+      selection: ReadonlySet<string>;
+    } | null,
   ) =>
     value !== null &&
-    value.revision === draft.revision &&
+    value.revision === draft?.revision &&
+    value.generation === draft?.generation &&
     value.selection === binding.selectedRecordIds;
   const entry = matches(submitted)
     ? operations.entries.find((entry) => entry.id === submitted?.id)
@@ -62,6 +72,7 @@ export function TimelineBulkTagControl({
             : null;
   const message = localError ?? blocked ?? operationMessage;
   const selectedCount = binding.selectedRecordIds.size;
+  if (draft === null) return null;
   if (!selectedCount && !draft.raw && !focused && !localError && !entry)
     return null;
   const pending =
@@ -82,11 +93,16 @@ export function TimelineBulkTagControl({
       }}
       onSubmit={(event) => {
         event.preventDefault();
-        const result = binding.assignTag(draft.raw, event.nativeEvent);
+        const result = binding.assignTag(
+          draft.raw,
+          event.nativeEvent,
+          draft.generation,
+        );
         if (result.kind === "rejected")
           setFeedback({
             message: result.message,
             revision: draft.revision,
+            generation: draft.generation,
             selection: binding.selectedRecordIds,
           });
         else {
@@ -94,6 +110,7 @@ export function TimelineBulkTagControl({
           setSubmitted({
             id: result.operationId,
             revision: draft.revision,
+            generation: draft.generation,
             selection: binding.selectedRecordIds,
           });
         }
@@ -111,11 +128,11 @@ export function TimelineBulkTagControl({
           placeholder="Tag selected"
           type="text"
           value={draft.raw}
-          readOnly={!binding.canAssign}
+          readOnly={!binding.canAssign || !draft.canEdit}
           style={inputStyle}
           onChange={(event) => {
-            setDraft({ raw: event.target.value, revision: draft.revision + 1 });
-            setFeedback(null);
+            if (binding.authoring.update(event.target.value, draft.generation))
+              setFeedback(null);
           }}
         />
       </label>
@@ -123,6 +140,7 @@ export function TimelineBulkTagControl({
         type="submit"
         disabled={
           !binding.canAssign ||
+          !draft.canEdit ||
           selectedCount === 0 ||
           !draft.raw.trim() ||
           blocked !== null
@@ -135,7 +153,7 @@ export function TimelineBulkTagControl({
         type="button"
         style={buttonStyle}
         onClick={() => {
-          setDraft({ raw: "", revision: draft.revision + 1 });
+          if (!binding.authoring.clear(draft.generation)) return;
           setFeedback(null);
           setSubmitted(null);
           input.current?.focus({ preventScroll: true });

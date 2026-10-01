@@ -34,6 +34,7 @@ type TimelineInteractionCompositionInput = {
   readonly foundation: {
     readonly editorDraftRegistry: TimelineEditorDraftRegistry;
     readonly bulkTagPort: BulkInput["port"];
+    readonly bulkTagAuthoring: BulkInput["authoring"];
     readonly bulkTagReadiness: BulkInput["readiness"];
     readonly clipboardPastePort: ClipboardInput["clipboardPaste"];
     readonly pendingSavesRefs: ClipboardInput["pendingSavesRefs"];
@@ -121,6 +122,7 @@ export function useTimelineInteractionComposition({
       capabilityAvailable: timelineBulkTagCapabilityAvailable,
     },
     port: foundation.bulkTagPort,
+    authoring: foundation.bulkTagAuthoring,
     readiness: foundation.bulkTagReadiness,
     precedingSaves: () => foundation.pendingSavesRefs.saveQueueRef.current,
     rows: foundation.rows,

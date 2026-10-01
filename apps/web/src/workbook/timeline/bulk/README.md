@@ -12,6 +12,7 @@ conflicts and recovery independently of controller lifetime.
 
 | File | Responsibility |
 | --- | --- |
+| [TimelineBulkTagAuthoring.ts](TimelineBulkTagAuthoring.ts) | Retains exact raw command text/revision across presentation detachment; conceals suspended authority and fences obsolete bindings. |
 | [useTimelineBulkTagController.ts](useTimelineBulkTagController.ts) | Owns authorized accepted-query selection and pruning, supplies committed readable checkbox context, revalidates the complete intended set and submits native delivery identity to retained ownership. |
 | [useTimelineFillController.ts](useTimelineFillController.ts) | Plans keyboard/pointer scalar fill over stable records and fields with existing target restrictions; captures source value and preceding autosaves. |
 
@@ -28,5 +29,6 @@ covers exact membership, capabilities, drafts and retained dispatch.
 
 `createTimelineBulkTagReadiness.ts` reads existing draft revisions and pending
 queue/conflict ownership. It permits captured pending saves and explains failed
-or unsubmitted selected edits without flushing or mirroring them. The mounted
-`TimelineBulkTagControl` component owns raw authoring and revision-scoped feedback.
+or unsubmitted selected edits without flushing or mirroring them. `WorkbookTimelineMutationOwner` retains the raw tag value through its independently
+observable `TimelineBulkTagAuthoring` slot. The leaf observes it directly and keeps
+focus, native caret and revision-scoped feedback local.

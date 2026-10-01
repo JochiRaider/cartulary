@@ -466,6 +466,28 @@ existing batch coordinator, with only owner-permitted undispatched version
 advancement. Failed or unsubmitted blocking edits preserve selection and raw tag
 authoring with a local explanation. Becoming ready MUST NOT submit an unsubmitted
 tag draft. Later selection changes MUST NOT rewrite an admitted operation.
+
+Exact raw bulk-tag text and its authoring revision MUST remain memory-local
+within the same account, incident and client-instance runtime independently of
+presentation attachment. Selection remains governed by accepted-query membership
+and pruning; returning MUST NOT restore mutation targets. Reattachment, readiness
+and authorization recovery MUST NOT submit unsubmitted authoring or automatically
+focus its input. A nonempty retained draft MUST remain visible with zero selection,
+with assignment unavailable and a local explanation requiring explicit selection.
+`Clear tag draft` MUST explicitly clear raw authoring and its revision-scoped
+feedback without canceling admitted operations, discarding cell drafts or clearing
+otherwise valid selection. Admission and acknowledgement MUST NOT automatically
+clear tag authoring. Late outcomes MUST NOT overwrite newer revisions, recreate
+cleared authoring, restore selection or steal focus.
+
+REQ-03-299/100 governs bulk-tag authoring's authority lifetime. Same-account
+suspension MUST conceal protected authoring and expose it again only under
+restored authority. Readable closure or write-role loss preserves text but
+prohibits assignment. Account replacement, incident retirement and runtime
+disposal MUST clear it; obsolete callbacks MUST NOT repopulate retired state.
+Retaining text alone MUST NOT create a request, pending mutation, save failure or
+Recovery item. No reload, crash, cross-tab, cross-incident or durable persistence
+guarantee is added. Captured operations retain their independent batch ownership.
 Profiles: base
 Verified by: AC-481
 

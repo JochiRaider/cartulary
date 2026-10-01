@@ -62,3 +62,8 @@ exact dispatched replay remains immutable. Accepted successors patch owned field
 including explicit clears, rather than diffing a whole old row. Discard settles
 only captured revisions. Orphaned successors halt for local recovery instead of
 becoming creates. The former row-wide discard reconstruction was removed.
+
+`WorkbookTimelineMutationOwner` also owns the independent bulk-tag raw authoring
+slot. Its authority lifecycle conceals suspended text, retains readable role/closure
+work and clears retirement. Authoring publications reach only the bulk-tag leaf;
+selection, queue accounting and captured batches remain separate.

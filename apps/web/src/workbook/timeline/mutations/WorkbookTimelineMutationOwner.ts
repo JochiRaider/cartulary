@@ -7,6 +7,7 @@ import { buildStableMutationSignature } from "../../runtime/pending/workbookPend
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { buildAttachedEvidenceCreateRequest } from "../adapters/timelineEvidenceRequestBuilders";
+import { TimelineBulkTagAuthoring } from "../bulk/TimelineBulkTagAuthoring";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { TimelineCaptureLifecycle } from "../models/TimelineCaptureLifecycle";
 import { projectAcceptedTimelineRow } from "../models/timelineAcceptedProjection";
@@ -57,6 +58,7 @@ export class WorkbookTimelineMutationOwner {
   private readonly fileListeners = new Set<() => void>();
   readonly fileDrafts: TimelineFileDraftPort;
   readonly capture: TimelineCaptureLifecycle;
+  readonly bulkTagAuthoring: TimelineBulkTagAuthoring;
   private readonly driver;
   private readonly unregister: () => void;
   private retired = false;
@@ -65,6 +67,9 @@ export class WorkbookTimelineMutationOwner {
     private readonly runtime: WorkbookMutationRuntime,
     ids: SecureTransactionIdPort,
   ) {
+    this.bulkTagAuthoring = new TimelineBulkTagAuthoring(
+      runtime.scope.incidentId,
+    );
     const pending = timelinePendingSavesRefsFor(
       runtime,
       runtime.pendingQueue(),
@@ -432,8 +437,21 @@ export class WorkbookTimelineMutationOwner {
   readonly retryBlockedEdit = (id: string) => this.driver.retryBlockedEdit(id);
   readonly discardBlockedEdit = (id: string) =>
     this.driver.discardBlockedEdit(id);
+  setAuthority(
+    authority: Parameters<TimelineBulkTagAuthoring["setAuthority"]>[0],
+  ) {
+    this.bulkTagAuthoring.setAuthority(authority);
+  }
+  suspend() {
+    this.bulkTagAuthoring.suspend();
+  }
+  closeIncident() {
+    this.bulkTagAuthoring.closeIncident();
+  }
   retire() {
+    if (this.retired) return;
     this.retired = true;
+    this.bulkTagAuthoring.retire();
     this.attachment = null;
     this.recovery = null;
     this.readSource = null;

@@ -360,10 +360,12 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_timeline_bulk_tag_characterization"
+          "scenario_timeline_bulk_tag_characterization",
+          "scenario_timeline_bulk_tag_navigation_retention"
         ],
         "titles": [
-          "Timeline bulk tag production characterization"
+          "Timeline bulk tag production characterization",
+          "Timeline retains exact bulk-tag authoring across shell navigation and requires fresh explicit selection"
         ]
       },
       "evidence_class": "browser",
@@ -576,9 +578,11 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
+          "scenario_timeline_bulk_tag_detached_acceptance",
           "scenario_timeline_bulk_tag_replay"
         ],
         "titles": [
+          "Timeline retains draft B when draft A is accepted after shell detachment",
           "Timeline tag assignment replays the captured attempt and recovers accepted reads without resending"
         ]
       },
@@ -3988,10 +3992,12 @@
         "file": "apps/web/src/workbook/timeline/timelineBulkTagInteraction.test.tsx",
         "titles": [
           "Timeline bulk tag interaction captures the complete set once per delivery and waits for prerequisites without retargeting",
+          "Timeline bulk tag interaction conceals same-account tag authoring and permanently retires it at security boundaries without status work",
           "Timeline bulk tag interaction keeps selection labels committed through retained drafts and updates selected identity after acceptance",
           "Timeline bulk tag interaction normalizes committed readable selection context without changing source or draft values",
-          "Timeline bulk tag interaction owns raw text locally and retains its native input through zero selection and late outcomes",
+          "Timeline bulk tag interaction retains newer or cleared authoring through detached late acceptance and rejection without focus restoration",
           "Timeline bulk tag interaction retains pending members and explicit deselection while pruning departed and unauthorized records",
+          "Timeline bulk tag interaction retains raw text across detachment and its native input through zero selection and late outcomes",
           "Timeline bulk tag interaction surfaces real admission refusal and rejects incomplete or blocked intended targets"
         ]
       },

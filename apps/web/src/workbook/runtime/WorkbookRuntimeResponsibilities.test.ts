@@ -498,6 +498,13 @@ describe("Workbook runtime responsibilities", () => {
         retire,
       },
     );
+    const timeline = {
+      setAuthority: vi.fn(),
+      suspend: vi.fn(),
+      closeIncident: vi.fn(),
+      retire: vi.fn(),
+    };
+    runtime.retainTimelineMutationOwner(() => timeline);
     const history = vi.spyOn(runtime.history, "retire");
     const notes = vi.spyOn(runtime.noteCreate, "retire");
     const patches = vi.spyOn(runtime.explicitPatches, "retire");
@@ -506,6 +513,7 @@ describe("Workbook runtime responsibilities", () => {
     runtime.invalidate({ kind: "session_unavailable" });
     expect(retire).toHaveBeenCalledOnce();
     expect(history).toHaveBeenCalledOnce();
+    expect(timeline.retire).toHaveBeenCalledOnce();
     expect(notes).toHaveBeenCalledOnce();
     expect(patches).toHaveBeenCalledOnce();
     expect(runtime.retired).toBe(true);

@@ -8204,6 +8204,7 @@
           "WorkbookShell surface selection renders saved views only in the active surface selector and preserves selected saved-view identity",
           "WorkbookShell surface selection replaces the loading incident heading with truthful identity failure",
           "WorkbookShell surface selection retains accepted generic rows and marks them stale when refresh fails",
+          "WorkbookShell surface selection retains exact bulk-tag authoring across shell surface navigation without restoring targets",
           "WorkbookShell surface selection retains the accepted incident heading during a permitted identity refresh and failure",
           "WorkbookShell surface selection selects required built-in and system view surfaces by view_schema_id",
           "WorkbookShell surface selection separates acknowledged party-link save state from workbook and reference refresh",

@@ -2222,6 +2222,45 @@ describe("WorkbookShell surface selection", () => {
     expect(screen.queryByTestId(workbookSurfacesMenuTestId())).toBeNull();
   });
 
+  it("retains exact bulk-tag authoring across shell surface navigation without restoring targets", async () => {
+    scenario.timelineRows = [
+      timelineRow(
+        "21000000-0000-4000-8000-000000000001",
+        1,
+        "Retained authoring record",
+        0,
+      ),
+    ];
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
+    const select = await screen.findByRole("checkbox", {
+      name: "Select Timeline record: Retained authoring record",
+    });
+    fireEvent.click(select);
+    const raw = "  review-after-host-check Ω 東京 é 🚀  ";
+    fireEvent.change(
+      screen.getByRole("textbox", {
+        name: "Tag for selected Timeline records",
+      }),
+      { target: { value: raw } },
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Hosts" }));
+    await screen.findByTestId(gridShellTestId(hostsViewSchemaId));
+    fireEvent.click(screen.getByRole("tab", { name: "Timeline" }));
+    const input = (await screen.findByRole("textbox", {
+      name: "Tag for selected Timeline records",
+    })) as HTMLInputElement;
+    expect(input.value).toBe(raw);
+    expect(document.activeElement).not.toBe(input);
+    expect(screen.getByText("0 selected")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Assign tag" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(screen.getByRole("button", { name: "Recovery (0)" })).toBeTruthy();
+    expect(screen.getByText("Select records to assign this tag.")).toBeTruthy();
+  });
+
   it("selects required built-in and system view surfaces by view_schema_id", async () => {
     scenario.genericRowsByView[indicatorsViewSchemaId] = [
       indicatorRow(

@@ -1,5 +1,12 @@
 import type { GridCoreRecordBulkSelection } from "@cartulary/grid-adapter";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { useWorkbookQueryPresentation } from "../../query/WorkbookQueryBrowsingContext";
 import {
@@ -13,6 +20,7 @@ import type {
   TimelineBulkTagAdmission,
   TimelineBulkTagCommandPort,
 } from "../ports/TimelineBulkTagCommandPort";
+import type { TimelineBulkTagAuthoring } from "./TimelineBulkTagAuthoring";
 
 export type TimelineBulkTagReadiness = {
   readonly subscribe: (listener: () => void) => () => void;
@@ -22,6 +30,7 @@ export type TimelineBulkTagReadiness = {
 type TimelineBulkTagControllerInput = {
   readonly context: TimelineBulkTagContext;
   readonly port: TimelineBulkTagCommandPort;
+  readonly authoring: Pick<TimelineBulkTagAuthoring, "bind">;
   readonly readiness: TimelineBulkTagReadiness;
   readonly precedingSaves: () => Promise<void>;
   readonly rows: readonly WorkbookRow[];
@@ -32,6 +41,8 @@ type TimelineBulkTagControllerInput = {
 export function useTimelineBulkTagController(
   input: TimelineBulkTagControllerInput,
 ) {
+  const authoring = useMemo(() => input.authoring.bind(), [input.authoring]);
+  useLayoutEffect(() => authoring.attach(), [authoring]);
   const browsing = useWorkbookQueryPresentation();
   const acceptedRows = browsing.find(timelineViewSchemaId)?.getSnapshot()
     .accepted?.rows;
@@ -80,14 +91,27 @@ export function useTimelineBulkTagController(
   );
   const getBlockingReason = useCallback(() => {
     const { input } = current.current;
-    if (!input.context.authorized || !input.context.capabilityAvailable)
+    if (
+      !input.context.authorized ||
+      !input.context.capabilityAvailable ||
+      !authoring.getSnapshot()?.canEdit
+    )
       return "Tag assignment is no longer available.";
     if (selected.current.size === 0)
       return "Select records to assign this tag.";
     return input.readiness.blockingReason(selected.current);
-  }, []);
+  }, [authoring]);
   const assignTag = useCallback(
-    (tagName: string, delivery: object): TimelineBulkTagAdmission => {
+    (
+      tagName: string,
+      delivery: object,
+      generation = authoring.getSnapshot()?.generation,
+    ): TimelineBulkTagAdmission => {
+      if (!authoring.isCurrent(generation) || !authoring.getSnapshot()?.canEdit)
+        return {
+          kind: "rejected",
+          message: "Tag authoring is no longer available. Nothing was sent.",
+        };
       const { input, browsing } = current.current;
       const members = new Set(
         (
@@ -122,11 +146,12 @@ export function useTimelineBulkTagController(
         { delivery, ready: input.precedingSaves() },
       );
     },
-    [getBlockingReason],
+    [authoring, getBlockingReason],
   );
   return {
     snapshot: { gridSelection },
     controls: {
+      authoring,
       assignTag,
       canAssign,
       selectedRecordIds,

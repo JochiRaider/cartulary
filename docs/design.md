@@ -1266,7 +1266,11 @@ clearing newer authoring or moving focus. Query controls, Find, Clear, Inspector
 and Add row remain reachable at supported effective viewport sizes. Flexible
 input and feedback shrink or wrap within
 the existing work-area feedback region, preserving grid-row geometry and grid
-scroll ownership. These lifetimes add no reload or cross-tab persistence.
+scroll ownership. Core 03 REQ-03-297 retains exact raw tag authoring across sheet detachment within
+the same account/incident/client-instance runtime. Returning with retained text
+MUST explain that records must be selected, and MUST NOT automatically focus or
+submit the input. `Clear tag draft` clears authoring alone and returns focus to
+the mounted input. These lifetimes add no reload or cross-tab persistence.
 
 Core restatement. Saved views are incident-bound workbook configurations over exactly one `view_schema_id`; a `system` saved view is not the same object as a contract-backed system view. Owner: `03_workbook_interaction_collaboration_and_workflows.md` §2.3, REQ-03-012 through REQ-03-026.
 

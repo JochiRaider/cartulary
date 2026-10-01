@@ -61,7 +61,10 @@ import {
   type WorkbookConflictStore,
 } from "./WorkbookConflictStore";
 import type { WorkbookExplicitPatchOwner } from "./WorkbookExplicitPatchOwner";
-import { WorkbookFeatureLifecycle } from "./WorkbookFeatureLifecycle";
+import {
+  WorkbookFeatureLifecycle,
+  type WorkbookLifecycleContribution,
+} from "./WorkbookFeatureLifecycle";
 import {
   createWorkbookManagedPatchDriver,
   type WorkbookManagedPatchDriver,
@@ -168,7 +171,10 @@ const emptyRefreshDebts: readonly string[] = Object.freeze([]);
  * scheduling, transaction ledger, and save-state projection.
  */
 export class WorkbookMutationRuntime {
-  private timelineMutationOwner: { retire(): void } | null = null;
+  private timelineMutationOwner: Pick<
+    WorkbookLifecycleContribution,
+    "setAuthority" | "suspend" | "closeIncident" | "retire"
+  > | null = null;
   private currentAuthorizationEpoch = 0;
   private acceptedAuthority: WorkbookMutationAuthority | null = null;
   private accountActor: string | null = null;
@@ -200,12 +206,17 @@ export class WorkbookMutationRuntime {
     return this.currentAuthorizationEpoch;
   }
 
-  retainTimelineMutationOwner<T extends { retire(): void }>(
-    create: (ids: SecureTransactionIdPort) => T,
-  ): T {
+  retainTimelineMutationOwner<
+    T extends Pick<
+      WorkbookLifecycleContribution,
+      "setAuthority" | "suspend" | "closeIncident" | "retire"
+    >,
+  >(create: (ids: SecureTransactionIdPort) => T): T {
     if (!this.timelineMutationOwner) {
       if (this.retired) throw new Error("Workbook runtime is retired");
       this.timelineMutationOwner = create(this.transactionIds);
+      this.timelineMutationOwner.setAuthority(this.acceptedAuthority);
+      if (this.authoritySuspended) this.timelineMutationOwner.suspend();
     }
     return this.timelineMutationOwner as T;
   }
@@ -473,10 +484,11 @@ export class WorkbookMutationRuntime {
       mutations: {
         // The shared queue already accounts for Timeline row mutations.
         unsettledMutationCount: 0,
-        // Timeline pending dispatch is governed by the shared queue's authority.
-        setAuthority: () => {},
-        suspend: () => {},
-        closeIncident: () => {},
+        // Pending dispatch stays with the queue; source authoring has its own view.
+        setAuthority: (authority) =>
+          this.timelineMutationOwner?.setAuthority(authority),
+        suspend: () => this.timelineMutationOwner?.suspend(),
+        closeIncident: () => this.timelineMutationOwner?.closeIncident(),
         retire: () => this.timelineMutationOwner?.retire(),
       },
     });

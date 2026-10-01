@@ -333,6 +333,152 @@ test("Timeline bulk selection exposes committed readable record names and stable
   });
 });
 
+test("Timeline retains exact bulk-tag authoring across shell navigation and requires fresh explicit selection", async ({
+  page,
+}) => {
+  const { incident, first, second } = await seed(page);
+  const writes: string[] = [];
+  const path = `/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/bulk-mutations`;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === path)
+      writes.push(request.postData() ?? "");
+  });
+  const raw = "  review-after-host-check Ω 東京 é 🚀  ";
+  await checkbox(page, first.record_id).check();
+  await checkbox(page, second.record_id).check();
+  await tagInput(page).fill(raw);
+  const navigate = async () => {
+    await page.getByRole("tab", { name: "Hosts", exact: true }).click();
+    await expect(
+      page.getByRole("tabpanel", { name: "Hosts", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+    await expect(checkbox(page, first.record_id)).toBeVisible();
+  };
+  await navigate();
+  await expect(tagInput(page)).toHaveValue(raw);
+  await expect(tagInput(page)).not.toBeFocused();
+  await expect(page.getByText("0 selected", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Select records to assign this tag.", { exact: true }),
+  ).toBeVisible();
+  await expect(checkbox(page, first.record_id)).not.toBeChecked();
+  await expect(checkbox(page, second.record_id)).not.toBeChecked();
+  await expect(
+    page.getByRole("button", { name: "Assign tag", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Recovery (0)", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  await tagInput(page).press("Enter");
+  await settle(page);
+  expect(writes).toEqual([]);
+  await checkbox(page, first.record_id).check();
+  const accepted = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === path &&
+      response.request().method() === "POST",
+  );
+  await tagInput(page).press("Enter");
+  expect((await accepted).status()).toBe(200);
+  expect(writes).toHaveLength(1);
+  const requestBody = writes[0];
+  if (!requestBody) throw new Error("Missing explicit assignment request");
+  expect(JSON.parse(requestBody)).toMatchObject({
+    tag_name: raw.trim(),
+    targets: [
+      { record_id: first.record_id, base_row_version: first.row_version },
+    ],
+  });
+  expect(JSON.parse(requestBody).targets).toHaveLength(1);
+  await expect(tagInput(page)).toHaveValue(raw);
+  await page
+    .getByRole("button", { name: "Clear tag draft", exact: true })
+    .click();
+  await expect(tagInput(page)).toHaveValue("");
+  await expect(tagInput(page)).toBeFocused();
+  await expect(checkbox(page, first.record_id)).toBeChecked();
+  await navigate();
+  await expect(tagInput(page)).toHaveCount(0);
+  await checkbox(page, second.record_id).check();
+  await expect(tagInput(page)).toHaveValue("");
+  await expect(
+    page.getByRole("button", { name: "Assign tag", exact: true }),
+  ).toBeDisabled();
+  expect(writes).toHaveLength(1);
+});
+
+test("Timeline retains draft B when draft A is accepted after shell detachment", async ({
+  page,
+}) => {
+  const { incident, first, second } = await seed(page);
+  const path = `/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/bulk-mutations`;
+  const attempts: string[] = [];
+  let hit!: () => void;
+  const dispatched = new Promise<void>((resolve) => {
+    hit = resolve;
+  });
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(`**${path}`, async (route) => {
+    attempts.push(route.request().postData() ?? "");
+    const response = await route.fetch();
+    hit();
+    await held;
+    await route.fulfill({ response });
+  });
+  try {
+    await checkbox(page, first.record_id).check();
+    await checkbox(page, second.record_id).check();
+    await tagInput(page).fill("  draft A Ω  ");
+    await tagInput(page).press("Enter");
+    await dispatched;
+    await tagInput(page).fill("  draft B 東京 é 🚀  ");
+    await page.getByRole("tab", { name: "Hosts", exact: true }).click();
+    await expect(
+      page.getByRole("tabpanel", { name: "Hosts", exact: true }),
+    ).toBeVisible();
+    const accepted = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === path &&
+        response.request().method() === "POST",
+    );
+    release();
+    expect((await accepted).status()).toBe(200);
+    await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+    await expect(checkbox(page, first.record_id)).toBeVisible();
+    await expect(tagInput(page)).toHaveValue("  draft B 東京 é 🚀  ");
+    await expect(tagInput(page)).not.toBeFocused();
+    await expect(page.getByText("0 selected", { exact: true })).toBeVisible();
+    await expect(checkbox(page, first.record_id)).not.toBeChecked();
+    await expect(checkbox(page, second.record_id)).not.toBeChecked();
+    expect(attempts).toHaveLength(1);
+    const requestBody = attempts[0];
+    if (!requestBody) throw new Error("Missing captured assignment request");
+    expect(JSON.parse(requestBody)).toMatchObject({
+      tag_name: "draft A Ω",
+      targets: [
+        { record_id: first.record_id, base_row_version: first.row_version },
+        { record_id: second.record_id, base_row_version: second.row_version },
+      ].sort((left, right) => left.record_id.localeCompare(right.record_id)),
+    });
+    for (const record of [first, second])
+      expect(
+        JSON.stringify(
+          (await queryViewRows(page, incident, timelineViewSchemaId)).find(
+            (row) => row.record_id === record.record_id,
+          )?.cells["timeline.tags"],
+        ),
+      ).toContain("draft A Ω");
+  } finally {
+    release();
+    await page.unroute(`**${path}`);
+  }
+});
+
 test("Timeline bulk tag production characterization", async ({
   page,
 }, testInfo) => {
@@ -687,6 +833,23 @@ test("Timeline failed selected edits retain authoring and block tag dispatch wit
         contentType: "image/png",
       });
     }
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "1";
+    });
+    await page.getByRole("tab", { name: "Hosts", exact: true }).click();
+    await expect(
+      page.getByRole("tabpanel", { name: "Hosts", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+    await expect(tagInput(page)).toHaveValue(raw);
+    await expect(checkbox(page, first.record_id)).not.toBeChecked();
+    await checkbox(page, first.record_id).check();
+    await expect(form).toContainText("needs recovery");
+    await expect(
+      form.getByRole("button", { name: "Assign tag", exact: true }),
+    ).toBeDisabled();
+    await tagInput(page).press("Enter");
+    await settle(page);
     expect(batches).toBe(0);
   } finally {
     await patches.dispose();

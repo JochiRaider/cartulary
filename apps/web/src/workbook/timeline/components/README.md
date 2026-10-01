@@ -14,7 +14,7 @@ semantic models and commands. Surface layout regions live in
 | File | Responsibility |
 | --- | --- |
 | [TimelineAttachmentFeedback.tsx](TimelineAttachmentFeedback.tsx) | Leaf subscriptions, bounded attachment disclosure, shared source-specific detail/action binding, local focus fallback and outcome announcements; operations remain in the file owner. |
-| [TimelineBulkTagControl.tsx](TimelineBulkTagControl.tsx) | Owns mounted raw tag authoring and local feedback; observes captured batch outcomes without changing selection or grid focus. |
+| [TimelineBulkTagControl.tsx](TimelineBulkTagControl.tsx) | Observes retained raw tag authoring and owns local feedback; observes captured batch outcomes without changing selection or grid focus. |
 | [TimelineCollectionCell.tsx](TimelineCollectionCell.tsx) | Focused relationship/tag summary, overflow, and collection-draft cell presentation over discriminated models. |
 | [TimelineDraftRowActions.tsx](TimelineDraftRowActions.tsx) | Timeline draft-row create and evidence-attachment actions. |
 | [TimelineEvidencePanel.tsx](TimelineEvidencePanel.tsx) | Timeline inspector evidence panel and evidence actions UI. |

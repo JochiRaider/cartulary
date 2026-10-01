@@ -232,6 +232,7 @@ export function useTimelineWorkbookComposition({
     foundation: {
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
       bulkTagPort: foundation.ports.bulkTag,
+      bulkTagAuthoring: foundation.ports.bulkTagAuthoring,
       bulkTagReadiness: foundation.ports.bulkTagReadiness,
       clipboardPastePort: foundation.ports.clipboardPaste,
       pendingSavesRefs: foundation.refs.pendingSaves,

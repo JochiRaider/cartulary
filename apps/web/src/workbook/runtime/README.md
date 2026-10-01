@@ -58,6 +58,9 @@ arbitration remains with the Indicator feature; the runtime exposes its facade
 and handles generic dispatch and lifetime coordination.
 The explicit PATCH contribution adapts incident closure to its authority API;
 Timeline supplies its specialized authority projection at its construction edge.
+Its retained mutation owner receives lifecycle transitions through a structural
+contribution; its bulk-tag authoring observation does not contribute mutations or
+subscribe aggregate save status to typing.
 Accepted read authority belongs to the runtime and is independent of individual
 feature initialization or local operation denial. Terminal retirement is one
 idempotent transition, including source subscriptions, deferred waits, retry,
