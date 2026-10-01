@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import type { PlaywrightTestConfig } from "@playwright/test";
 
+import { attestedVisualRendererProfile } from "./e2e/support/runtime/visualRenderer";
+
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 export const publicOrigin = process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN ?? "";
@@ -32,18 +34,19 @@ function visualRendererUse(): NonNullable<PlaywrightTestConfig["use"]> {
   const attested = process.env.CARTULARY_VISUAL_RENDERER_ATTESTED ?? "";
   const supplied = endpoint !== "" || profileId !== "" || attested !== "";
   if (!supplied) return {};
+  const profile = attestedVisualRendererProfile();
   if (
     attested !== "1" ||
     !/^ws:\/\/127\.0\.0\.1:[0-9]+\/[A-Za-z0-9_-]+$/u.test(endpoint) ||
-    profileId !== "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64"
+    profileId !== profile.profile_id
   ) {
     throw new Error("Playwright visual renderer attestation is invalid");
   }
   return {
     connectOptions: { wsEndpoint: endpoint, exposeNetwork: "<loopback>" },
-    colorScheme: "light",
-    deviceScaleFactor: 1,
-    locale: "en-US",
+    colorScheme: profile.color_scheme,
+    deviceScaleFactor: profile.device_scale_factor,
+    locale: profile.locale,
   };
 }
 

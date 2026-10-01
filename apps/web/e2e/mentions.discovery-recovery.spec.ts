@@ -45,7 +45,7 @@ test("Timeline invalid continuation restarts without a cursor and keeps stale se
     uniqueIncidentKey("MENTION-INVALID-CURSOR"),
     "Mention invalid cursor recovery",
   );
-  const target = await createViewRow(page, incidentId, hostsViewSchemaId, {
+  await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("invalid-cursor-target"),
     "host.display_name": "Restart target host",
     "host.hostname": "restart-target.example.test",
@@ -67,52 +67,58 @@ test("Timeline invalid continuation restarts without a cursor and keeps stale se
   const heldRestart = new Promise<void>((resolve) => {
     releaseRestart = resolve;
   });
-  await page.route(`**/views/${hostsViewSchemaId}/query`, async (route) => {
-    const cursor =
-      (route.request().postDataJSON() as { cursor_token?: string })
-        .cursor_token ?? null;
-    cursors.push(cursor);
-    if (cursor !== null) {
+  await page.route(
+    `**/incidents/${incidentId}/entity-candidates?*`,
+    async (route) => {
+      const cursor = new URL(route.request().url()).searchParams.get(
+        "cursor_token",
+      );
+      cursors.push(cursor);
+      if (cursor !== null) {
+        const response = await route.fetch();
+        expect(response.status()).toBe(400);
+        await route.fulfill({ response });
+        return;
+      }
+      if (failRestart) {
+        failRestart = false;
+        await heldRestart;
+        await route.abort("failed");
+        return;
+      }
       const response = await route.fetch();
-      expect(response.status()).toBe(400);
-      await route.fulfill({ response });
-      return;
-    }
-    if (failRestart) {
-      failRestart = false;
-      await heldRestart;
-      await route.abort("failed");
-      return;
-    }
-    const response = await route.fetch();
-    const body = (await response.json()) as Record<string, unknown>;
-    await route.fulfill({
-      response,
-      json: restartAttempted
-        ? body
-        : {
-            ...body,
-            meta: {
-              ...(body.meta as Record<string, unknown>),
-              paging: {
-                limit: 100,
-                has_more: true,
-                next_cursor: "invalid-continuation",
+      const body = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({
+        response,
+        json: restartAttempted
+          ? body
+          : {
+              ...body,
+              meta: {
+                ...(body.meta as Record<string, unknown>),
+                paging: {
+                  limit: 100,
+                  has_more: true,
+                  next_cursor: "invalid-continuation",
+                },
               },
             },
-          },
-    });
-  });
+      });
+    },
+  );
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await openTimelineInspector(page, source.record_id);
   await page.getByTestId(mentionItemTestId(String(mention.item_ref))).click();
   const select = page.getByTestId(mentionResolveTargetSelectTestId());
-  await select.selectOption(target.record_id);
+  await select.focus();
+  await page
+    .getByRole("option", { name: "Restart target host", exact: true })
+    .click();
   const beforeContinuation = cursors.length;
-  await page.getByRole("button", { name: "Load more targets" }).click();
+  await page.getByRole("button", { name: "Next targets" }).click();
   await expect(
-    page.getByText(/This target page could not be used/u),
+    page.getByText(/This continuation is unavailable/u),
   ).toBeVisible();
   expect(cursors.slice(beforeContinuation)).toEqual(["invalid-continuation"]);
   restartAttempted = true;
@@ -133,26 +139,25 @@ test("Timeline invalid continuation restarts without a cursor and keeps stale se
   } finally {
     releaseRestart?.();
   }
-  await expect(
-    page.getByText(/Previously loaded targets await revalidation/u),
-  ).toBeVisible();
   await expect(restart).toBeFocused();
-  await expect(select).toHaveValue(target.record_id);
+  await expect(select).toHaveValue("");
   await expect(
-    select.locator(`option[value="${target.record_id}"]`),
-  ).toHaveAttribute("disabled", "");
+    page.getByText("Restart target host awaits revalidation.", {
+      exact: false,
+    }),
+  ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Resolve to existing", exact: true }),
+    page.getByRole("button", { name: "Resolve", exact: true }),
   ).toBeDisabled();
   const retry = page.getByRole("button", { name: "Retry target read" });
   await retry.focus();
   await page.keyboard.press("Enter");
   await expect(
-    select.locator(`option[value="${target.record_id}"]`),
-  ).not.toHaveAttribute("disabled", "");
+    page.getByText("Selected: Restart target host", { exact: true }),
+  ).toBeVisible();
   await expect(select).toBeFocused();
   await expect(
-    page.getByRole("button", { name: "Resolve to existing", exact: true }),
+    page.getByRole("button", { name: "Resolve", exact: true }),
   ).toBeEnabled();
   expect(cursors.slice(beforeContinuation)).toEqual([
     "invalid-continuation",
@@ -213,58 +218,64 @@ async function runRetryFocus(page: Page, entityType: "host" | "identity") {
   const held = new Promise<void>((resolve) => {
     releaseHeld = resolve;
   });
-  await page.route(`**/views/${targetView}/query`, async (route) => {
-    const cursor =
-      (route.request().postDataJSON() as { cursor_token?: string })
-        .cursor_token ?? null;
-    requests.push(cursor);
-    if (cursor === null) {
-      const response = await route.fetch();
-      const body = (await response.json()) as Record<string, unknown>;
-      firstPage = body;
-      await route.fulfill({
-        response,
-        json: {
-          ...body,
-          meta: {
-            ...(body.meta as Record<string, unknown>),
-            paging: {
-              limit: 100,
-              has_more: true,
-              next_cursor: "held-continuation",
+  await page.route(
+    `**/incidents/${incidentId}/entity-candidates?*`,
+    async (route) => {
+      const cursor = new URL(route.request().url()).searchParams.get(
+        "cursor_token",
+      );
+      requests.push(cursor);
+      if (cursor === null) {
+        const response = await route.fetch();
+        const body = (await response.json()) as Record<string, unknown>;
+        firstPage = body;
+        await route.fulfill({
+          response,
+          json: {
+            ...body,
+            meta: {
+              ...(body.meta as Record<string, unknown>),
+              paging: {
+                limit: 100,
+                has_more: true,
+                next_cursor: "held-continuation",
+              },
             },
           },
-        },
-      });
-    } else if (requests.filter((item) => item === cursor).length === 1) {
-      await firstContinuation;
-      await route.abort("failed");
-    } else {
-      await held;
-      const body = firstPage;
-      if (!body) throw new Error("First target page was not captured");
-      await route.fulfill({
-        json: {
-          ...body,
-          data: { ...(body.data as Record<string, unknown>), rows: [] },
-          meta: {
-            ...(body.meta as Record<string, unknown>),
-            paging: { limit: 100, has_more: false, next_cursor: null },
+        });
+      } else if (requests.filter((item) => item === cursor).length === 1) {
+        await firstContinuation;
+        await route.abort("failed");
+      } else {
+        await held;
+        const body = firstPage;
+        if (!body) throw new Error("First target page was not captured");
+        await route.fulfill({
+          json: {
+            ...body,
+            data: { ...(body.data as Record<string, unknown>), candidates: [] },
+            meta: {
+              ...(body.meta as Record<string, unknown>),
+              paging: { limit: 100, has_more: false, next_cursor: null },
+            },
           },
-        },
-      });
-    }
-  });
+        });
+      }
+    },
+  );
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await openTimelineInspector(page, source.record_id);
   await page.getByTestId(mentionItemTestId(String(mention.item_ref))).click();
   const select = page.getByTestId(mentionResolveTargetSelectTestId());
-  await expect(
-    select.locator(`option[value="${target.record_id}"]`),
-  ).toHaveCount(1);
-  await select.selectOption(target.record_id);
-  const loadMore = page.getByRole("button", { name: "Load more targets" });
+  await select.focus();
+  await page
+    .getByRole("option", {
+      name: `Discovery target ${entityType}`,
+      exact: true,
+    })
+    .click();
+  const loadMore = page.getByRole("button", { name: "Next targets" });
   try {
     await loadMore.click();
     await expect
@@ -293,10 +304,13 @@ async function runRetryFocus(page: Page, entityType: "host" | "identity") {
     releaseHeld?.();
   }
   await expect(select).toBeFocused();
-  await expect(select).toHaveValue(target.record_id);
+  await expect(select).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "Load more targets" }),
-  ).toHaveCount(0);
+    page.getByText(`Selected: Discovery target ${entityType}`, { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next targets" })).toHaveCount(
+    0,
+  );
   expect(mentionMutations).toEqual([]);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
   const inspector = page.getByTestId(timelineInspectorTestId());
@@ -335,9 +349,11 @@ async function runRetryFocus(page: Page, entityType: "host" | "identity") {
       /\/entity-mentions\/[^/]+\/resolve$/u.test(response.url()) &&
       response.request().method() === "POST",
   );
-  await page
-    .getByRole("button", { name: "Resolve to existing", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Resolve", exact: true }).click();
   expect((await resolved).ok()).toBe(true);
+  expect(
+    JSON.parse((await resolved).request().postData() ?? "{}")
+      .resolved_record_id,
+  ).toBe(target.record_id);
   expect(mentionMutations).toHaveLength(1);
 }

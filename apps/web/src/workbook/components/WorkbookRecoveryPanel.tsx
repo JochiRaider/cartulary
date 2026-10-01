@@ -186,7 +186,17 @@ export function WorkbookRecoveryPanel({
             event.target instanceof HTMLElement &&
             event.target.matches(":disabled")
           ) {
-            heading.current?.focus({ preventScroll: true });
+            const retired = event.target;
+            // Let the detail owner select its own successor during this commit.
+            // The shell repairs only focus still stranded on the document.
+            queueMicrotask(() => {
+              if (
+                navigation.getSnapshot().open &&
+                focus.current === retired &&
+                document.activeElement === document.body
+              )
+                heading.current?.focus({ preventScroll: true });
+            });
             return;
           }
           if (

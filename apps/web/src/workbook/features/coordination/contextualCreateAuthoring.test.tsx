@@ -437,9 +437,9 @@ describe("contextual Task and Decision authoring", () => {
       }),
     );
     const picker = screen.getByRole("region", { name: "Choose Owner" });
-    const selector = within(picker).getByTestId(
-      "contextual-reference-task.owner_user_id",
-    );
+    const selector = within(picker).getByRole("combobox", {
+      name: "Owner",
+    });
     expect(selector).toHaveProperty("value", actor);
     expect(within(picker).getByRole("list").textContent).toContain(
       "Review editor",

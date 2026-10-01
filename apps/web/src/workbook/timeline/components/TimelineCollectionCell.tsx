@@ -477,6 +477,7 @@ export function TimelineCollectionCell(props: TimelineCollectionCellProps) {
                     key={item.itemRef}
                     role="note"
                     aria-label={`Tag: ${item.displayText}`}
+                    tabIndex={canRemoveTags ? undefined : -1}
                     ref={(element) => {
                       if (!canRemoveTags && row.recordId !== null)
                         props.registerCollectionItem(

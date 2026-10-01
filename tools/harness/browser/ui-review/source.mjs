@@ -7,8 +7,8 @@ import { limits, ReviewFailure } from "./contract.mjs";
 import { repoRoot } from "./policy.mjs";
 
 export function one(values) { if (values.length !== 1) throw new ReviewFailure("invalid_artifact"); return values[0]; }
-export function readJSON(file, schema, expectedDigest) {
-  const bytes = readInput(file, { extension: ".json", maximum: limits.component, privateFile: false });
+export function readJSON(file, schema, expectedDigest, maximum = limits.component) {
+  const bytes = readInput(file, { extension: ".json", maximum, privateFile: false });
   if (expectedDigest && digest(bytes) !== expectedDigest.replace(/^sha256:/u, "")) throw new ReviewFailure("invalid_artifact");
   try {
     const value = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(bytes));

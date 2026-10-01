@@ -75,7 +75,7 @@
   },
   "vite_public_assets": {
     "public_root": "apps/web/public",
-    "html_entry_files": ["apps/web/index.html", "apps/web/measurement.html"],
+    "html_entry_files": ["apps/web/index.html", "apps/web/measurement.html", "apps/web/presence.html"],
     "url_prefixes": ["/assets/"],
     "always_used_files": ["apps/web/public/assets/fonts/fonts.css"]
   },

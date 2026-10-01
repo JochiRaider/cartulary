@@ -313,6 +313,11 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "frontend-lockfile-update",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
         "target": "frontend-toolchain",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
@@ -781,6 +786,10 @@
         {
           "target": "frontend-install",
           "description": "install workspace dependencies"
+        },
+        {
+          "target": "frontend-lockfile-update",
+          "description": "regenerate the lockfile with pinned pnpm (explicit dependency maintenance)"
         },
         {
           "target": "playwright-install",
@@ -3289,6 +3298,26 @@
         "./tools/harness/browser/tests/test-ui-review-seeded.mjs"
       ],
       "test_target": "self"
+    },
+    "frontend-lockfile-update": {
+      "prerequisites": [
+        "$(FRONTEND_TOOLCHAIN_STAMP)"
+      ],
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "frontend-lockfile-update",
+      "env": {
+        "PNPM": "$(PNPM)",
+        "NODE_BIN": "$(NODE_BIN)",
+        "FRONTEND_INSTALL_STAMP": "$(FRONTEND_INSTALL_STAMP)",
+        "PATH": "$(NODE_RUNTIME_DIR)/bin:$(PATH)",
+        "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack"
+      },
+      "command": [
+        "bash",
+        "./tools/harness/readiness/frontend-lockfile-update.sh"
+      ],
+      "test_target": "self"
     }
   },
   "targets": [
@@ -3692,6 +3721,66 @@
             "browser cache"
           ],
           "cleanup": "repo-local clean preserves installs; distclean removes dependency roots and store according to Section 13"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
+    },
+    {
+      "name": "frontend-lockfile-update",
+      "backing_scripts": [
+        "tools/harness/readiness/frontend-lockfile-update.sh"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.frontend_lockfile_update.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "bootstrap_toolchain",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "authored_source_write",
+          "owner_section": "Section 5",
+          "paths": [
+            "pnpm-lock.yaml"
+          ]
         }
       ],
       "input_contract": {

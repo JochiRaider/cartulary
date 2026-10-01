@@ -32,6 +32,7 @@ export async function validateFiles(bundle, files) {
   for (const [name, ref] of unique) {
     const bytes = bytesOf(files.get(name));
     if (!bytes || bytes.length !== ref.bytes || digest(bytes) !== ref.sha256) throw new ReviewFailure("invalid_artifact");
+    if (ref.media_type === "application/zip" && bytes.length > limits.trace) throw new ReviewFailure("observation_limit");
     if (ref.media_type === "image/png") {
       const { decodePNG } = await import("./png.mjs");
       const image = await decodePNG(bytes);

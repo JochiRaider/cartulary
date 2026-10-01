@@ -67,6 +67,8 @@ copy_minimal_repo() {
 
   mkdir -p "${dest}/tools"
   cp "${ROOT_DIR}/Makefile" "${dest}/Makefile"
+  mkdir -p "${dest}/apps/web"
+  cp "${ROOT_DIR}/apps/web/package.json" "${dest}/apps/web/package.json"
   cp "${ROOT_DIR}/package.json" "${dest}/package.json"
   if [[ -d "${ROOT_DIR}/node_modules" ]]; then
     ln -s "${ROOT_DIR}/node_modules" "${dest}/node_modules"

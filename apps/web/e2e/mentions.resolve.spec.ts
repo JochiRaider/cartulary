@@ -339,8 +339,8 @@ test("collection chips disclose exact members without edits across keyboard and 
   const close = page.getByTestId(
     workbookInspectorCloseButtonTestId(timelineViewSchemaId),
   );
-  const hiddenTag = page.getByRole("note", {
-    name: `Tag: ${String(collectionItems(row, "timeline.tags")[1]?.display_text)}`,
+  const hiddenTag = page.getByRole("button", {
+    name: `Remove tag: ${String(collectionItems(row, "timeline.tags")[1]?.display_text)}`,
     exact: true,
   });
   for (const key of ["Enter", "Space"]) {
@@ -578,7 +578,12 @@ test("collection chips disclose exact members without edits across keyboard and 
     await page.reload();
     await showTimelineCollectionColumns(page, ["Tags", "Hosts", "Identities"]);
     await tagOverflow.click();
-    await expect(hiddenTag).toBeFocused();
+    await expect(
+      page.getByRole("note", {
+        name: `Tag: ${String(collectionItems(row, "timeline.tags")[1]?.display_text)}`,
+        exact: true,
+      }),
+    ).toBeFocused();
     await expect(
       page.getByTestId(
         timelineCollectionInputTestId(row.record_id, "timeline.tags"),

@@ -125,8 +125,10 @@ function UnmountingOverlayHarness({
 }
 
 function FormOverlayHarness({
+  ariaDisabledKey,
   disableLast = false,
 }: {
+  readonly ariaDisabledKey?: "second" | "last";
   readonly disableLast?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -160,9 +162,14 @@ function FormOverlayHarness({
             <option value="a">A</option>
             <option value="b">B</option>
           </select>
-          <input ref={navigation.registerItem("second")} aria-label="Second" />
+          <input
+            ref={navigation.registerItem("second")}
+            aria-label="Second"
+            aria-disabled={ariaDisabledKey === "second"}
+          />
           <button
             ref={navigation.registerItem("last")}
+            aria-disabled={ariaDisabledKey === "last"}
             disabled={disableLast}
             type="button"
           >
@@ -208,6 +215,58 @@ function UnmountingOverlay({
 }
 
 describe("registered overlay navigation", () => {
+  it("preserves aria-disabled focus and ordinary navigation through asynchronous settlement", () => {
+    const { rerender } = render(<FormOverlayHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open form" }));
+    const second = screen.getByRole("textbox", { name: "Second" });
+    const last = screen.getByRole("button", { name: "Last" });
+    act(() => second.focus());
+    rerender(<FormOverlayHarness ariaDisabledKey="second" />);
+    expect(document.activeElement).toBe(second);
+    for (const shiftKey of [false, true]) {
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Tab",
+        shiftKey,
+      });
+      second.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    rerender(<FormOverlayHarness />);
+    expect(document.activeElement).toBe(second);
+    act(() => last.focus());
+    rerender(<FormOverlayHarness ariaDisabledKey="last" />);
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(last, { key: "Tab" });
+    const first = screen.getByRole("combobox", { name: "First" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(second);
+    rerender(<FormOverlayHarness />);
+    expect(document.activeElement).toBe(second);
+    rerender(<FormOverlayHarness ariaDisabledKey="second" />);
+    fireEvent.blur(second, { relatedTarget: null });
+    expect(screen.queryByRole("dialog", { name: "Form" })).toBeNull();
+  });
+
+  it("retains a form through native disabled blur without swallowing deliberate focus departure", () => {
+    const { rerender } = render(<FormOverlayHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open form" }));
+    const last = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Last",
+    });
+    act(() => last.focus());
+    // jsdom does not emit the native blur caused by disabling a focused button.
+    last.disabled = true;
+    fireEvent.blur(last, { relatedTarget: null });
+    expect(screen.getByRole("dialog", { name: "Form" })).toBeTruthy();
+    rerender(<FormOverlayHarness disableLast />);
+    const second = screen.getByRole("textbox", { name: "Second" });
+    expect(document.activeElement).toBe(second);
+    fireEvent.blur(second, { relatedTarget: null });
+    expect(screen.queryByRole("dialog", { name: "Form" })).toBeNull();
+  });
   it("keeps form control keys native, wraps only boundary Tab, and reconciles disabled focus", () => {
     const { rerender } = render(<FormOverlayHarness />);
     const trigger = screen.getByRole("button", { name: "Open form" });

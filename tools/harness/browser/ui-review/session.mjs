@@ -1,3 +1,4 @@
+import { stopDiagnosticProcesses } from "./diagnostic-processes.mjs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { createSuiteRuntime, scanRetainedRoot } from "../../runtime/suite-runtime.mjs";
@@ -110,7 +111,7 @@ export class ReviewSession {
       }
     } catch (error) { return this.fail(command, error); }
     const operationID = ++this.operationID;
-    this.state = "busy"; this.publishLocator();
+    this.state = "busy"; this.activeDiagnostic = command === "ui-browser" && request.action === "diagnostic_snapshot"; this.publishLocator();
     const active = this.operation(command, request, bundleID, operationID);
     this.active = active;
     // Normal Playwright action timeouts leave the page available for a fresh
@@ -126,7 +127,14 @@ export class ReviewSession {
       this.abort.signal.throwIfAborted();
       if (command === "ui-browser") {
         if (request.action === "fill") this.runtime.registerSecret(request.parameters.text);
-        const observed = await this.browser.action(request);
+        let observed;
+        if (request.action === "diagnostic_snapshot") {
+          this.browser.validateAction(request);
+          const { diagnosticSnapshot } = await import("./diagnostic.mjs");
+          observed = await diagnosticSnapshot({ owner: this.browser, runtime: this.runtime, operationID, signal: this.abort.signal,
+            capacities: this.capacities, parentLease: this.hostLease?.token ?? this.parentLease,
+            onResource: (resource) => recordResource(this.runtime, resource) });
+        } else observed = await this.browser.action(request);
         this.abort.signal.throwIfAborted();
         const private_refs = await this.store.observations(operationID, observed);
         counts.observed_elements = observed.elements.length;
@@ -179,6 +187,7 @@ export class ReviewSession {
     this.abort.abort(this.stopCause ?? new ReviewFailure("interrupted"));
     const preparedStop = this.preparedOwner?.stop(); preparedStop?.catch(() => {});
     await attempt(async () => { try { await this.preparing; } catch (error) { if (!this.abort.signal.aborted) throw error; } }, 250000);
+    if (this.activeDiagnostic) await attempt(() => this.active, 15000);
     await attempt(() => this.browser?.close());
     try { await boundedCleanup(() => preparedStop ?? this.preparation, 250000); } catch (error) {
       // Acquisition/action failure already belongs to the primary lifecycle
@@ -195,6 +204,9 @@ export class ReviewSession {
     }
     await attempt(async () => { await this.active; });
     await attempt(async () => {
+      for (const resource of recoveryResources(this.runtime).filter((entry) => entry.kind === "diagnostic_scope")) {
+        await attempt(async () => { await stopDiagnosticProcesses(resource.target); recordResource(this.runtime, { ...resource, state: "released" }); });
+      }
       for (const resource of recoveryResources(this.runtime).filter((entry) => entry.kind.endsWith("_process"))) {
         await attempt(async () => { await stopOwnedProcess(resource.target); recordResource(this.runtime, { ...resource, state: "released" }); });
       }

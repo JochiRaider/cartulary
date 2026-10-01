@@ -58,6 +58,7 @@ export default defineConfig(({ mode }) => ({
           ? {
               app: path.resolve(__dirname, "index.html"),
               measurement: path.resolve(__dirname, "measurement.html"),
+              presence: path.resolve(__dirname, "presence.html"),
             }
           : path.resolve(__dirname, "index.html"),
     },

@@ -527,6 +527,7 @@
         "apps/web/src/workbook/components/WorkbookGridEditorControl.tsx",
         "apps/web/src/workbook/components/WorkbookGroupControl.tsx",
         "apps/web/src/workbook/components/WorkbookIncidentControlsPresentation.tsx",
+        "apps/web/src/workbook/components/WorkbookIncidentIdentityDisclosure.test.tsx",
         "apps/web/src/workbook/components/WorkbookIncidentIdentityDisclosure.tsx",
         "apps/web/src/workbook/components/WorkbookParkedGridDrafts.test.tsx",
         "apps/web/src/workbook/components/WorkbookParkedGridDrafts.tsx",

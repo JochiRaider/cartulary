@@ -129,7 +129,13 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
-    .selectOption(manualTarget.record_id);
+    .fill("end-to-end.entity-linking Manual Target");
+  await page
+    .getByRole("option", {
+      name: "end-to-end.entity-linking Manual Target",
+      exact: true,
+    })
+    .click();
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const manualResolveResponse = await manualResolveResponsePromise;
   const manualResolveEnvelope = await readMentionAction(
@@ -293,7 +299,13 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
-    .selectOption(correctionTarget.record_id);
+    .fill("end-to-end.entity-linking Corrected Target");
+  await page
+    .getByRole("option", {
+      name: "end-to-end.entity-linking Corrected Target",
+      exact: true,
+    })
+    .click();
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const failedCorrectionResponse = await failedCorrectionResponsePromise;
   expect(failedCorrectionResponse.ok()).toBeFalsy();
@@ -306,7 +318,13 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
-    .selectOption(correctionTarget.record_id);
+    .fill("end-to-end.entity-linking Corrected Target");
+  await page
+    .getByRole("option", {
+      name: "end-to-end.entity-linking Corrected Target",
+      exact: true,
+    })
+    .click();
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const correctionResponse = await correctionResponsePromise;
   const correctionEnvelope = await readMentionAction(

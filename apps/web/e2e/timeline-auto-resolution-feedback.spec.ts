@@ -420,7 +420,7 @@ test("Timeline Review read failure retries at the original source mention", asyn
   }
 });
 
-async function prepareUndoContinuity(page: Page) {
+async function prepareUndoContinuity(page: Page, fillerCount = 24) {
   const incident = await createIncident(
     page,
     uniqueIncidentKey("ARF-UNDO-CONTINUITY"),
@@ -436,7 +436,12 @@ async function prepareUndoContinuity(page: Page) {
     client_txn_id: uniqueTxn("arf-undo-source"),
     "timeline.activity_synopsis_text": "Undo continuity source",
   });
-  await createTimelineFillers(page, incident, "undo continuity filler", 24);
+  await createTimelineFillers(
+    page,
+    incident,
+    "undo continuity filler",
+    fillerCount,
+  );
   const editing = await createViewRow(page, incident, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("arf-undo-editing"),
     "timeline.activity_synopsis_text": "Continue after Undo",
@@ -605,7 +610,8 @@ test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newe
   page,
 }) => {
   test.setTimeout(180_000);
-  const { notice } = await prepareUndoContinuity(page);
+  // Keep the newer position reachable when removing the notice expands the grid.
+  const { notice } = await prepareUndoContinuity(page, 48);
   const held = await holdBrowserRequest(page, {
     method: "POST",
     path: "/api/v1/entity-mentions/*/resolve",
@@ -619,10 +625,42 @@ test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newe
     await expect(undo).toHaveAttribute("aria-busy", "true");
     const grid = page.locator(gridScrollportSelector());
     await grid.hover();
-    await page.mouse.wheel(0, 36);
+    const initialScroll = await grid.evaluate((element) => element.scrollTop);
+    // Wheel dispatch finishes before the browser's animated scroll. Observe its
+    // end before releasing Undo, and move away from the bottom clamp so the
+    // notice's removal cannot make the user's position unreachable.
+    const scrollEnd = await grid.evaluateHandle((element) => {
+      let cleanup = () => {};
+      const done = new Promise<void>((resolve, reject) => {
+        const finish = () => {
+          cleanup();
+          resolve();
+        };
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error("Native wheel scroll did not finish"));
+        }, 5_000);
+        cleanup = () => {
+          clearTimeout(timer);
+          element.removeEventListener("scrollend", finish);
+        };
+        element.addEventListener("scrollend", finish, { once: true });
+      });
+      return { done, cleanup };
+    });
+    try {
+      await page.mouse.wheel(0, -120);
+      await scrollEnd.evaluate(async ({ done }) => done);
+    } finally {
+      await scrollEnd.evaluate(({ cleanup }) => cleanup());
+      await scrollEnd.dispose();
+    }
     await expect
       .poll(() => grid.evaluate((element) => element.scrollTop))
       .toBeGreaterThan(0);
+    expect(await grid.evaluate((element) => element.scrollTop)).toBeLessThan(
+      initialScroll,
+    );
     await notice.locator("strong").first().click();
     await page.mouse.click(1, 1);
     await expect
@@ -682,7 +720,7 @@ test("Timeline auto-resolution feedback undo late acceptance preserves native sc
   page,
 }) => {
   test.setTimeout(180_000);
-  const { notice, editing } = await prepareUndoContinuity(page);
+  const { notice, editing } = await prepareUndoContinuity(page, 48);
   const held = await holdBrowserRequest(page, {
     method: "POST",
     path: "/api/v1/entity-mentions/*/resolve",

@@ -7,6 +7,7 @@ import {
   statSync,
 } from "node:fs";
 import path from "node:path";
+import { loadVisualRendererProfile, validateRendererAttestation, verifyRendererFonts } from "./visual-renderer-profile.mjs";
 
 import {
   goldenManifestPath,
@@ -509,18 +510,15 @@ export function buildFrontendVisualReconciliation({
       `${counts.unresolved_registered_fixtures} registered fixture(s) do not resolve`,
     );
   }
-  const rendererProfile = readJSON(path.join(root, rendererProfilePath));
+  const rendererProfile = loadVisualRendererProfile(root);
   if (rendererAttestationPaths.length === 0) {
     errors.push("visual target retained no renderer attestation");
   }
   for (const attestationPath of rendererAttestationPaths) {
     try {
       const attestation = readJSON(attestationPath);
-      if (JSON.stringify(attestation) !== JSON.stringify(rendererProfile)) {
-        errors.push(`${repoRelative(root, attestationPath)}: renderer attestation mismatch`);
-      } else {
-        artifactRefs.push(repoRelative(root, attestationPath));
-      }
+      validateRendererAttestation(attestation, rendererProfile, verifyRendererFonts(root, rendererProfile).files);
+      artifactRefs.push(repoRelative(root, attestationPath));
     } catch (error) {
       errors.push(
         `${repoRelative(root, attestationPath)}: ${error instanceof Error ? error.message : String(error)}`,

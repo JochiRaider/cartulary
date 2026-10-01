@@ -197,6 +197,8 @@ function checkMakefile(root, mismatches, expected) {
 function checkPackageJson(root, mismatches, expected) {
   const file = "package.json";
   const packageJson = JSON.parse(readRepoFile(root, file));
+  const web = JSON.parse(readRepoFile(root, "apps/web/package.json"));
+  checkEqual(mismatches, "apps/web/package.json", "devDependencies.@playwright/test", expected.uiReview.playwright, web.devDependencies?.["@playwright/test"]);
   for (const [name, version] of Object.entries(expected.uiReview)) {
     checkEqual(mismatches, file, `devDependencies.${name}`, version, packageJson.devDependencies?.[name]);
   }

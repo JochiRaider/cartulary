@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -317,11 +318,25 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 		t.Fatal("membership-first capability rejection echoed the submitted value")
 	}
 
+	// Keep the real worker inside its source read until the authorization
+	// transitions finish. Cancellation must not race a tiny export's completion.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	sourceReadBarrier, err := harness.DB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = sourceReadBarrier.Rollback() }()
+	if _, err := sourceReadBarrier.ExecContext(ctx, `LOCK TABLE timeline_events IN ACCESS EXCLUSIVE MODE`); err != nil {
+		t.Fatalf("hold export source read: %v", err)
+	}
+
 	exportJob := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, submitterLogin, map[string]any{
 		"incident_id":   incidentID,
 		"client_txn_id": "txn-export-auth-blocked",
 	}), http.StatusAccepted)["data"].(map[string]any)
 	jobID := exportJob["job_id"].(string)
+	waitJobWithStatus(t, harness.Server, submitterLogin, jobID, "running")
 
 	submitterRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(submitterCookies))
 	httptestx.RequireSuccessEnvelope(t, submitterRead, http.StatusOK)
@@ -348,6 +363,9 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 		"client_txn_id": "txn-export-auth-member-admin-cancel",
 	}, httptestx.WithCookies(memberAdminCookies, memberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, memberAdminCancel, http.StatusOK)
+	if err := sourceReadBarrier.Rollback(); err != nil {
+		t.Fatalf("release export source read: %v", err)
+	}
 
 	terminal := waitJobWithStatus(t, harness.Server, memberAdminLogin, jobID, "canceled")
 	if terminal["status"] != "canceled" {

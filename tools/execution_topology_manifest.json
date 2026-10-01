@@ -133,6 +133,25 @@
       }
     },
     {
+      "id": "ui_review_browser_pair",
+      "resource_claims": {
+        "browser_stack": 2,
+        "cpu": 2,
+        "io": 2,
+        "memory_mb": 3072,
+        "process": 4
+      }
+    },
+    {
+      "id": "ui_review_diagnostic",
+      "resource_claims": {
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 512,
+        "process": 2
+      }
+    },
+    {
       "id": "ui_review_parallel",
       "resource_claims": {
         "cpu": 2,
@@ -816,7 +835,8 @@
         "path": "apps/web/dist-measurement",
         "entries": [
           "index.html",
-          "measurement.html"
+          "measurement.html",
+          "presence.html"
         ]
       }
     }

@@ -8,35 +8,8 @@ node_bin="${NODE_BIN:?NODE_BIN is required}"
 pnpm="${PNPM:?PNPM is required}"
 node_version="${NODE_VERSION:?NODE_VERSION is required}"
 pnpm_version="${PNPM_VERSION:?PNPM_VERSION is required}"
-visual_renderer_image="mcr.microsoft.com/playwright@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645"
-visual_renderer_platform="linux/amd64"
-
-detect_playwright_host_platform_override() {
-  local arch
-  local os_id
-  local os_version
-  local suffix
-
-  if [[ -n "${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:-}" ]]; then
-    printf '%s\n' "$PLAYWRIGHT_HOST_PLATFORM_OVERRIDE"
-    return 0
-  fi
-
-  [[ "$(uname -s)" == "Linux" && -r /etc/os-release ]] || return 0
-  arch="$(uname -m)"
-  case "$arch" in
-    x86_64) suffix="x64" ;;
-    aarch64 | arm64) suffix="arm64" ;;
-    *) return 0 ;;
-  esac
-  os_id="$(awk -F= '$1 == "ID" { gsub(/"/, "", $2); print $2 }' /etc/os-release)"
-  os_version="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2 }' /etc/os-release)"
-  if [[ "$os_id" == "ubuntu" && "$os_version" == 26.* ]]; then
-    printf 'ubuntu24.04-%s\n' "$suffix"
-  fi
-}
-
-playwright_host_platform_override="$(detect_playwright_host_platform_override)"
+renderer_identity="$("$node_bin" --input-type=module -e 'import {loadVisualRendererProfile} from "./tools/harness/browser/visual-renderer-profile.mjs"; const p=loadVisualRendererProfile(process.cwd()); console.log(p.container_image, p.platform);')"
+read -r visual_renderer_image visual_renderer_platform <<<"$renderer_identity"
 
 ubuntu_playwright_tool_packages=(
   xvfb
@@ -113,11 +86,7 @@ install_ubuntu_apt_fallback() {
 }
 
 find_chromium_binary() {
-  local browser_root="${PLAYWRIGHT_BROWSERS_PATH:-${HOME}/.cache/ms-playwright}"
-  find "$browser_root" \
-    \( -path '*/chrome-headless-shell-linux64/chrome-headless-shell' -o \
-    -path '*/chrome-linux/chrome' \) \
-    -type f -print 2>/dev/null | LC_ALL=C sort -V | tail -n 1
+  "$node_bin" --input-type=module -e 'import { chromium } from "playwright"; console.log(chromium.executablePath());'
 }
 
 missing_shared_libraries() {
@@ -129,11 +98,7 @@ missing_shared_libraries() {
 }
 
 run_playwright_cli() {
-  local env_args=()
-  if [[ -n "$playwright_host_platform_override" ]]; then
-    env_args+=("PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=$playwright_host_platform_override")
-  fi
-  env "${env_args[@]}" "$pnpm" --dir apps/web exec playwright "$@"
+  env -u PLAYWRIGHT_HOST_PLATFORM_OVERRIDE "$pnpm" --dir apps/web exec playwright "$@"
 }
 
 verify_chromium_native_deps() {
@@ -157,10 +122,6 @@ verify_chromium_native_deps() {
 }
 
 run_playwright_install() {
-  if [[ -n "$playwright_host_platform_override" ]]; then
-    echo "Using PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=$playwright_host_platform_override for Playwright install." >&2
-  fi
-
   if can_install_apt_packages; then
     if run_playwright_cli install --with-deps chromium; then
       verify_chromium_native_deps
@@ -212,13 +173,12 @@ mkdir -p "$(dirname "$stamp")"
     NODE_VERSION="$node_version" \
     PNPM_VERSION="$pnpm_version" \
     "$0"
-printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\nplaywright_install_args=%s\nnative_dependency_strategy=%s\nplaywright_host_platform_override=%s\nvisual_renderer_image=%s\nvisual_renderer_platform=%s\n' \
+printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\nplaywright_install_args=%s\nnative_dependency_strategy=%s\nvisual_renderer_image=%s\nvisual_renderer_platform=%s\n' \
   "$node_bin" \
   "$node_version" \
   "$pnpm" \
   "$pnpm_version" \
   "install --with-deps chromium" \
   "playwright_with_deps,ubuntu_apt_fallback,ldd_verify" \
-  "${playwright_host_platform_override:-}" \
   "$visual_renderer_image" \
   "$visual_renderer_platform" >"$stamp"

@@ -50,11 +50,11 @@ that startup or another caller left it at zero.
 ## Observe, target, act
 
 Read the selected action variant in the
-[action schema](../../../../tools/schemas/cartulary.ui_review_action.v2.schema.json).
+[action schema](../../../../tools/schemas/cartulary.ui_review_action.v3.schema.json).
 A snapshot request for a session whose current epoch is zero is:
 
 ```json
-{"schema_id":"cartulary.ui_review_action.v2","expected_epoch":0,"action":"snapshot","parameters":{}}
+{"schema_id":"cartulary.ui_review_action.v3","expected_epoch":0,"action":"snapshot","parameters":{}}
 ```
 
 Replace `expected_epoch` with the actual current value, then submit:
@@ -68,9 +68,21 @@ test ID or role/name pair; use session element references when necessary. Consul
 the [target definition](../../../../tools/schemas/cartulary.ui_review_bundle.v1.schema.json#/$defs/target)
 for its closed variants. Zero or multiple matches require refining the target;
 there is no first-match, force-click, or arbitrary JavaScript escape hatch.
-Snapshots replace references, and admitted actions invalidate them even when an
-action fails. Use returned epochs and newly observed references, not arithmetic
+Ordinary snapshots replace references, and admitted mutations invalidate them
+even when an action fails. The diagnostic snapshot preserves epoch and references. Use returned epochs and newly observed references, not arithmetic
 guesses. Recovery after uncertain effects requires a fresh snapshot.
+
+For private CLI diagnostic text of the same page, use the current epoch with:
+
+```json
+{"schema_id":"cartulary.ui_review_action.v3","expected_epoch":0,"action":"diagnostic_snapshot","parameters":{}}
+```
+
+Submit through the same `make ui-browser` command. The returned observations
+contain CLI accessibility text. CLI labels are not actionable element references;
+use an ordinary snapshot before choosing a target from that text. The adapter
+attaches lazily and detaches after the operation. A failure is not an API fallback.
+Diagnostics cannot run in artifact mode and do not produce canonical visual evidence.
 
 For seeded role review, use the `authenticate` action's actor variant. It is
 unavailable in dev mode. Do not extract credentials or manufacture authentication

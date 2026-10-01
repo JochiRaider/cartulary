@@ -1,4 +1,5 @@
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { freeze } from "./immutable.mjs";
 import { reviewPins } from "./policy.mjs";
 import { validateSchemaSync, parseStrictJSON } from "../../contract/index.mjs";
@@ -43,6 +44,29 @@ export function selectCaptureResult(report, capture, runRoot) {
   }
   return one(matches);
 }
+// Version-specific Playwright named-string screenshot output adapter. Cartulary
+// identity is established by selectCaptureResult, never by this display name.
+export function screenshotAttachmentBase(intent) {
+  if (!/^[A-Za-z0-9_-]{1,200}$/u.test(intent)) throw new ReviewFailure("invalid_artifact");
+  let name = `${intent}.png`;
+  if (name.length > 60) {
+    const middle = `-${createHash("sha1").update(name).digest("hex").slice(0, 5)}-`;
+    const start = Math.floor((60 - middle.length) / 2);
+    name = name.slice(0, start) + middle + name.slice(-(60 - middle.length - start));
+  }
+  return name.slice(0, -4).replace(/_+/gu, "-");
+}
+export function captureAttachmentBase(result, capture, runRoot) {
+  const selected = screenshotAttachmentBase(capture.capture_intent);
+  for (const attachment of result.attachments) {
+    if (!attachment.name.startsWith("cartulary-visual-capture-intent-")) continue;
+    if (attachment.contentType !== "application/json") throw new ReviewFailure("invalid_artifact");
+    const payload = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(attachmentBytes(runRoot, attachment, ".json", limits.component)));
+    validateSchemaSync("cartulary.frontend_visual_capture_intent.v2", payload);
+    if (payload.capture_id !== capture.capture_id && screenshotAttachmentBase(payload.capture_intent) === selected) throw new ReviewFailure("invalid_artifact");
+  }
+  return selected;
+}
 export async function importCanonical(request) {
   try {
     const root = inputPath(request.run_root);
@@ -63,7 +87,7 @@ export async function importCanonical(request) {
     };
     const { row, title } = catalogRow(capture, readSource);
     if (title !== capture.test_title || row.selector.file !== capture.assertion_file || row.selector.project_id !== capture.project_id) throw new ReviewFailure("invalid_artifact");
-    const renderer = readSource(path.join(repoRoot, "tools/frontend_visual_renderer_profile.json"), "cartulary.frontend_visual_renderer_profile.v1").value;
+    const renderer = readSource(path.join(repoRoot, "tools/frontend_visual_renderer_profile.json"), "cartulary.frontend_visual_renderer_profile.v2").value;
     for (const [key, value] of Object.entries(renderer)) if (key !== "schema_id" && reconciliation.value.renderer[key] !== value) throw new ReviewFailure("invalid_artifact");
     if (capture.renderer_profile_id !== renderer.profile_id) throw new ReviewFailure("invalid_artifact");
     if (reconciliation.value.renderer.attestation_count < 1) throw new ReviewFailure("invalid_artifact");
@@ -87,8 +111,9 @@ export async function importCanonical(request) {
     if (stack.browser_session_id !== group.browser_session_id || stack.runtime_profile_id !== group.runtime_profile_id) throw new ReviewFailure("invalid_artifact");
     const receipt = readJSON(containedFile(root, stack.frontend.build_artifact_ref), "cartulary.frontend_build_artifact.v1", stack.frontend.build_receipt_sha256).value;
     if (receipt.run_id !== manifest.run_id || receipt.source_digest !== manifest.source_digest || receipt.toolchain_digest !== manifest.toolchain_digest || receipt.content_digest !== stack.frontend.build_artifact_sha256) throw new ReviewFailure("invalid_artifact");
-    const report = readJSON(containedFile(root, group.artifacts.playwright_report)).value;
+    const report = readJSON(containedFile(root, group.artifacts.playwright_report), undefined, undefined, limits.producerReport).value;
     const result = selectCaptureResult(report, capture, root);
+    const attachmentBase = captureAttachmentBase(result, capture, root);
     const files = new Map(), refs = components();
     const put = (kind, bytes, media = "image/png") => { const name = `${kind}.${media === "application/zip" ? "zip" : "png"}`; files.set(name, bytes); refs[kind] = artifact(name, bytes, media); };
     const golden = one(reconciliation.value.goldens.filter((entry) => entry.golden_path === capture.expected_golden_path && entry.consumer_capture_ids.includes(capture.capture_id)));
@@ -97,7 +122,7 @@ export async function importCanonical(request) {
       if (digest(expected) !== golden.sha256) throw new ReviewFailure("invalid_artifact"); put("expected", expected);
     }
     for (const kind of ["actual", "diff", "expected"]) {
-      const matches = result.attachments.filter((entry) => entry.name === `${capture.capture_intent}-${kind}.png`);
+      const matches = result.attachments.filter((entry) => entry.name === `${attachmentBase}-${kind}.png`);
       if (matches.length > 1) throw new ReviewFailure("invalid_artifact");
       if (matches.length) {
         const attachment = matches[0]; if (attachment.contentType !== "image/png") throw new ReviewFailure("invalid_artifact");
@@ -115,7 +140,7 @@ export async function importCanonical(request) {
     if (traces.length > 1) throw new ReviewFailure("invalid_artifact");
     if (traces.length) {
       if (traces[0].contentType !== "application/zip") throw new ReviewFailure("invalid_artifact");
-      const bytes = attachmentBytes(root, traces[0], ".zip", limits.component);
+      const bytes = attachmentBytes(root, traces[0], ".zip", limits.trace);
       if (bytes.length < 4 || bytes.readUInt32LE() !== 0x04034b50) throw new ReviewFailure("invalid_artifact");
       put("trace", bytes, "application/zip");
     }

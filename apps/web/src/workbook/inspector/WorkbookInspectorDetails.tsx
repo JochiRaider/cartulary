@@ -14,7 +14,10 @@ import {
 import { workbookTypography } from "../components/workbookFormStyles";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { WorkbookInspectorActionButton as Button } from "./presentation/WorkbookInspectorActions";
-import { revealWorkbookInspectorField } from "./presentation/workbookInspectorFieldReveal";
+import {
+  revealWorkbookInspectorField,
+  revealWorkbookInspectorTarget,
+} from "./presentation/workbookInspectorFieldReveal";
 import {
   type WorkbookInspectorDisabledReason,
   workbookInspectorDisabledReasonKey,
@@ -135,7 +138,11 @@ export function WorkbookInspectorDetails({
   ) => {
     const body = field.closest<HTMLElement>("[data-inspector-scroll-body]");
     if (!body?.contains(target)) return;
-    revealWorkbookInspectorField(body, field, target);
+    // An entry button must not move under the pointer between focus and click.
+    // Reveal saved-value context once its editor actually owns focus.
+    if (retainOwnership && target === controlRef.current)
+      revealWorkbookInspectorField(body, field, target);
+    else revealWorkbookInspectorTarget(body, target);
     revealOwner.current = retainOwnership
       ? {
           identity: focusIdentity,
@@ -210,7 +217,9 @@ export function WorkbookInspectorDetails({
           !attachment.current?.contains(owner.target)
         )
           return;
-        revealWorkbookInspectorField(body, field, owner.target);
+        if (owner.target === controlRef.current)
+          revealWorkbookInspectorField(body, field, owner.target);
+        else revealWorkbookInspectorTarget(body, owner.target);
         owner.top = body.scrollTop;
         owner.left = body.scrollLeft;
       });

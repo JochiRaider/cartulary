@@ -7,7 +7,7 @@ import test from "node:test";
 import { crc32, decodePNG, encodePNG, pngHeader } from "../ui-review/png.mjs";
 import { artifact, bundleBase, validateBundleBudget } from "../ui-review/bundles.mjs";
 import { scopeRectangle } from "../ui-review/capture.mjs";
-import { importCanonical, selectCaptureResult, canonicalComparison } from "../ui-review/canonical-import.mjs";
+import { importCanonical, selectCaptureResult, canonicalComparison, screenshotAttachmentBase, captureAttachmentBase } from "../ui-review/canonical-import.mjs";
 import { capture as execute } from "./ui-review-work-fixture.mjs";
 import { importFixture } from "./ui-review-import-fixture.mjs";
 import { ArtifactStore } from "../ui-review/artifact-store.mjs";
@@ -138,23 +138,39 @@ test("report assets and browser observations share reservations and publication 
 });
 test("capture joins select only the exact pinned report result and reject duplicate associations", () => {
   const profile = { browser_zoom_percent: 100, color_scheme: "light", density_id: null, device_scale_factor: 1, reduced_motion: true, theme_id: "dark_graphite", project_id: "visual", snapshot_path_template: "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}", snapshot_suffix: "linux", viewport_css_px: "1440x900", expected_density_id: null, expected_theme_id: "dark_graphite", surface_kind: "application_shell" };
-  const capture = { capture_id: `visual.capture.${"a".repeat(20)}`, capture_intent: "selected", expected_golden_path: "apps/web/e2e/workbook.visual.spec.ts-snapshots/selected-linux.png", project_id: "visual", renderer_profile_id: "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64", screenshot_assertion_location: "capture:1", assertion_file: "apps/web/e2e/workbook.visual.spec.ts", test_title: "Exact selected test", capture_profile: profile };
+  const capture = { capture_id: `visual.capture.${"a".repeat(20)}`, capture_intent: "selected", expected_golden_path: "apps/web/e2e/workbook.visual.spec.ts-snapshots/selected-linux.png", project_id: "visual", renderer_profile_id: JSON.parse(readFileSync(path.join(repoRoot, "tools/frontend_visual_renderer_profile.json"), "utf8")).profile_id, screenshot_assertion_location: "capture:1", assertion_file: "apps/web/e2e/workbook.visual.spec.ts", test_title: "Exact selected test", capture_profile: profile };
   const { assertion_file, ...fields } = capture;
   const payload = { schema_id: "cartulary.frontend_visual_capture_intent.v2", ...fields, test_file: assertion_file };
   const attachment = { name: `cartulary-visual-capture-intent-${capture.capture_id}.json`, contentType: "application/json", body: Buffer.from(JSON.stringify(payload)).toString("base64") };
   const result = { attachments: [attachment] }, report = { config: { version: reviewPins().playwright, rootDir: path.join(repoRoot, "apps/web/e2e") }, suites: [{ specs: [{ title: capture.test_title, file: "workbook.visual.spec.ts", tests: [{ projectName: "visual", results: [result] }] }] }] };
   assert.equal(selectCaptureResult(report, capture, "/private/run"), result);
+  assert.equal(captureAttachmentBase(result, capture, "/private/run"), "selected");
+  const collision = { ...payload, capture_id: `visual.capture.${"b".repeat(20)}`, capture_intent: "selected" };
+  result.attachments.push({ ...attachment, name: `cartulary-visual-capture-intent-${collision.capture_id}.json`, body: Buffer.from(JSON.stringify(collision)).toString("base64") });
+  assert.throws(() => captureAttachmentBase(result, capture, "/private/run"), /invalid_artifact/u); result.attachments.pop();
   result.attachments.push(attachment); assert.throws(() => selectCaptureResult(report, capture, "/private/run")); result.attachments.pop();
   report.config.version = "0.0.0"; assert.throws(() => selectCaptureResult(report, capture, "/private/run")); report.config.version = reviewPins().playwright;
   report.suites[0].specs[0].title = "Different test"; assert.throws(() => selectCaptureResult(report, capture, "/private/run"));
+});
+test("the pinned named-screenshot adapter normalizes and truncates upstream display names", () => {
+  assert.equal(screenshotAttachmentBase("coordination-status_review-authoring"), "coordination-status-review-authoring");
+  assert.equal(screenshotAttachmentBase("a".repeat(80)), "aaaaaaaaaaaaaaaaaaaaaaaaaa-02623-aaaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(screenshotAttachmentBase("a__b"), "a-b");
+  assert.throws(() => screenshotAttachmentBase("../foreign"), /invalid_artifact/u);
 });
 
 test("canonical imports accept failed expected-only evidence, freeze metadata, and reject mixed or tampered identities", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-import-"));
   try {
     const fixture = importFixture(root);
+    // Real visual reports aggregate many captures and exceed the private JSON
+    // component cap. They remain bounded producer inputs, never bundle copies.
+    fixture.report.padding = " ".repeat(limits.component + 1); fixture.publish();
     const first = await importCanonical(fixture.request);
     assert.ok(Object.isFrozen(first.metadata) && Object.isFrozen(first.metadata.source.import_ref.metadata));
+    fixture.report.padding = " ".repeat(limits.producerReport); fixture.publish();
+    await assert.rejects(importCanonical(fixture.request), /unsafe_artifact/u);
+    delete fixture.report.padding; fixture.publish();
     assert.equal(first.metadata.components.actual, null); assert.ok(first.metadata.limitations.includes("no_actual"));
     assert.equal(first.metadata.source.import_ref.metadata.reconciliation.status, "fail");
     const original = first.files.get("expected.png");

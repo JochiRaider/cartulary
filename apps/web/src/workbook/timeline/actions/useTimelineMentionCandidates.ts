@@ -141,11 +141,7 @@ export function useTimelineMentionCandidates(
         const unusable =
           read.cursor !== null &&
           (failure.kind === "invalid_contract" ||
-            [
-              "invalid_cursor_token",
-              "cursor_query_mismatch",
-              "cursor_snapshot_unavailable",
-            ].includes(failure.publicReason ?? ""));
+            failure.publicCode === "invalid_pagination_request");
         publish({
           ...stateRef.current,
           ...(lost ? empty(key) : {}),

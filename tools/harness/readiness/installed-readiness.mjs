@@ -8,6 +8,8 @@ import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile } from "../runtime/secure-local-files.mjs";
 
+import { resolvePlaywrightPackages } from "./playwright-packages.mjs";
+
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const json = (file) => JSON.parse(readFileSync(file, "utf8"));
@@ -70,6 +72,7 @@ export function coreReadiness(root = repoRoot, { runner = spawnSync, environment
   });
   validateFrontendInstallation(root);
   return probe("frontend_dependencies", "frontend_install", () => {
+    resolvePlaywrightPackages(root);
     const manifest = json(path.join(root, "package.json"));
     const versions = {};
     for (const [name, expected] of Object.entries(pins.ui_review)) {

@@ -341,6 +341,8 @@ test("groups paste conflicts and preserves selection continuity", async ({
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
 
+  await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(2);
+
   const visibleTimelineRecordIds = (
     await gridSavedRows(page, timelineViewSchemaId).evaluateAll((rows) =>
       rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),

@@ -95,6 +95,57 @@ function edit(fieldKey = field) {
 }
 afterEach(cleanup);
 
+it("Timeline Details keeps a visible Edit button stationary through pointer focus", () => {
+  const f = fixture();
+  const view = render(<div data-inspector-scroll-body>{f.surface()}</div>);
+  const body = view.container.firstElementChild as HTMLElement;
+  const button = body.querySelector<HTMLButtonElement>(
+    `[data-inspector-edit-field="${field}"]`,
+  );
+  const label = button
+    ?.closest("[data-inspector-saved-field]")
+    ?.querySelector("dt");
+  if (!button || !label) throw new Error("Missing saved field action");
+  for (const [name, value] of Object.entries({
+    clientWidth: 400,
+    offsetWidth: 400,
+    clientHeight: 200,
+    scrollHeight: 1000,
+    scrollWidth: 400,
+  })) {
+    Object.defineProperty(body, name, { configurable: true, value });
+  }
+  body.scrollTop = 100;
+  Object.defineProperty(body, "getBoundingClientRect", {
+    value: () => new DOMRect(0, 100, 400, 200),
+  });
+  Object.defineProperty(button, "getBoundingClientRect", {
+    value: () => new DOMRect(100, 160, 80, 32),
+  });
+  Object.defineProperty(label, "getBoundingClientRect", {
+    value: () => new DOMRect(0, 40, 100, 20),
+  });
+  const scroll = vi.fn();
+  Object.defineProperty(body, "scrollTo", { value: scroll });
+  fireEvent.pointerDown(button);
+  act(() => button.focus());
+  // Saved-value context above the viewport must not displace the pressed action.
+  expect(scroll).not.toHaveBeenCalled();
+  expect(body.scrollTop).toBe(100);
+  fireEvent.pointerUp(button);
+  fireEvent.click(button);
+  expect(
+    screen.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: field,
+        recordId,
+        surface: "inspector",
+      }),
+    ),
+  ).toBeTruthy();
+  expect(f.send).not.toHaveBeenCalled();
+});
+
 it("Timeline Details keeps a rejected recovery beside its field with one new announcement", async () => {
   const f = fixture();
   f.send.mockResolvedValueOnce({ kind: "uncertain" });

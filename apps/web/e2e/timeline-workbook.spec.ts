@@ -273,6 +273,13 @@ test("Timeline Create preserves pending fast capture and yields fresh draft focu
     await page.mouse.down();
     await page.mouse.up();
     expect(f.creates).toHaveLength(1);
+    // Native hover may scroll the frozen row action into view and virtualize
+    // the synopsis column. Re-reveal it to assert that pending text survives.
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: draftCellTestId(synopsis),
+    });
     await expect(draft).toHaveValue("Incomplete fact Ω with newer text");
     heldCapture.release();
     await expect
@@ -880,7 +887,9 @@ test("Timeline supersession Review stays reachable and late preparation respects
     reason: "Verified replacement corrects the observation.",
     replacement_record_id: replacement.record_id,
   });
-  await page.unroute(`**${queryPath}`, holdValidation);
+  // The post-mutation refresh may still be inside fetch/fulfill. Drain this
+  // test's page handlers before the fixture closes the browser context.
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("uses public history and visible state to prove replay avoids duplicate mutation effects", async ({

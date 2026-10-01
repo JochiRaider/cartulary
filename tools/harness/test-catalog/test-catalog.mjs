@@ -71,6 +71,8 @@ const expectedProfiles = Object.freeze({
     "postgres_catalog_isolated",
     "standard",
     "ui_review_browser",
+    "ui_review_browser_pair",
+    "ui_review_diagnostic",
     "ui_review_parallel",
     "ui_review_raster",
     "ui_review_report",

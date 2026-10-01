@@ -1034,9 +1034,9 @@ describe("Timeline collection inspection", () => {
       if (!panel) throw new Error("Missing Relationships panel");
       return (
         <>
-          <div data-testid="grid-authoring">
+          <fieldset aria-label="Grid authoring">
             <TimelineCollectionCell {...collection} />
-          </div>
+          </fieldset>
           <WorkbookInspectorShell
             accessibleLabel="Timeline inspector"
             config={tagContract.inspectorConfig}
@@ -1056,12 +1056,12 @@ describe("Timeline collection inspection", () => {
                       "timeline.host_refs": null,
                       "timeline.identity_refs": null,
                       "timeline.tags": (
-                        <div data-testid="inspector-authoring">
+                        <fieldset aria-label="Inspector authoring">
                           <TimelineCollectionCell
                             {...collection}
                             surface="inspector"
                           />
-                        </div>
+                        </fieldset>
                       ),
                     }}
                   />
@@ -1073,11 +1073,11 @@ describe("Timeline collection inspection", () => {
       );
     }
     const { rerender } = render(<Panel />);
-    const gridInput = within(screen.getByTestId("grid-authoring")).getByRole(
-      "textbox",
-    ) as HTMLInputElement;
+    const gridInput = within(
+      screen.getByRole("group", { name: "Grid authoring" }),
+    ).getByRole("textbox") as HTMLInputElement;
     const inspectorInput = within(
-      screen.getByTestId("inspector-authoring"),
+      screen.getByRole("group", { name: "Inspector authoring" }),
     ).getByRole("textbox") as HTMLInputElement;
     gridInput.setSelectionRange(2, 6, "backward");
     inspectorInput.setSelectionRange(3, 8);

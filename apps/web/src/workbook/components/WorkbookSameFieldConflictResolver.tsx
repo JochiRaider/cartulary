@@ -234,13 +234,12 @@ export function WorkbookSameFieldConflictResolver({
   const resolverRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     return () => {
-      // The selected entry may be removed by this admitted resolution. Its
-      // continuation may still return focus while the source grid remains.
+      // Settlement may remove this resolver while its parent obligation remains.
+      // Preserve only the same activation's admitted return to the source grid.
       for (const attempt of attempts.current.values()) {
         const intent = attempt.intent;
         const removedBySettlement =
-          navigation?.getSnapshot().open &&
-          navigation.getSnapshot().selected === null &&
+          attachmentStillCurrent(navigation, intent, true) &&
           mutationRuntime
             .getSnapshot()
             .conflicts.every(
@@ -392,7 +391,7 @@ export function WorkbookSameFieldConflictResolver({
           )
             return;
           intent.focusing = true;
-          const result = await currentGrid.requestFocus(
+          let result = await currentGrid.requestFocus(
             {
               kind: "cell",
               anchor: {
@@ -403,6 +402,16 @@ export function WorkbookSameFieldConflictResolver({
             },
             { signal: intent.controller.signal },
           );
+          if (
+            result === "unavailable" &&
+            eligible(true) &&
+            browsing.grid(intent.view)?.getScrollElement() ===
+              intent.scrollElement
+          )
+            result = await currentGrid.requestFocus(
+              { kind: "root" },
+              { signal: intent.controller.signal },
+            );
           intent.focusing = false;
           if (!eligible(true) || result !== "focused") return;
           if (

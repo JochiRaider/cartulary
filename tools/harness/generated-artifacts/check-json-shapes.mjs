@@ -3583,7 +3583,7 @@ function validateAll(root) {
     repoFile(root, "tools/frontend_visual_renderer_profile.json"),
   );
   validateSchemaSync(
-    "cartulary.frontend_visual_renderer_profile.v1",
+    "cartulary.frontend_visual_renderer_profile.v2",
     visualRendererProfile,
   );
   const visualGoldenManifest = readShapeFile(

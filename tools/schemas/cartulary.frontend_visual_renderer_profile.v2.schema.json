@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_visual_renderer_profile.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "profile_id",
+    "container_image",
+    "platform",
+    "playwright_version",
+    "chromium_revision",
+    "chromium_version",
+    "font_manifest_sha256",
+    "locale",
+    "device_scale_factor",
+    "color_scheme"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.frontend_visual_renderer_profile.v2"
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^visual\\.renderer\\.[a-z0-9_]+$"
+    },
+    "container_image": {
+      "type": "string",
+      "pattern": "^mcr\\.microsoft\\.com/playwright@sha256:[a-f0-9]{64}$"
+    },
+    "platform": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+/[a-z0-9_]+$"
+    },
+    "playwright_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "chromium_revision": {
+      "type": "string",
+      "pattern": "^\\d+$"
+    },
+    "chromium_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+\\.\\d+$"
+    },
+    "font_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "locale": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"
+    },
+    "device_scale_factor": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 4
+    },
+    "color_scheme": {
+      "enum": [
+        "light",
+        "dark",
+        "no-preference"
+      ]
+    }
+  }
+}

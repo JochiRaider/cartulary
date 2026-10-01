@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
-import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
+import { acquireHostAdmission, inheritedHostLease, processIdentityAlive } from "../../runtime/host-admission.mjs";
+import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { ReviewBrowser } from "../ui-review/browser.mjs";
@@ -19,6 +20,19 @@ import { boundedCleanup, ownedProcess, recordResource, stopOwnedProcess } from "
 import { cleanupStaleSuiteRuntimeRoots, createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+test("failed runner acquisition publication reaps the child and preserves the primary error", async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-publication-"));
+  const scratchRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-scratch-"));
+  const runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "capture-publication", scratchRoot });
+  const options = { cwd: repoRoot, repoRoot, runRoot: root, detached: true, env: { ...process.env,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID } };
+  let proof;
+  try {
+    await assert.rejects(runPrivateCapturedProcess(process.execPath, ["-e", "setInterval(()=>{},1000)"], { ...options, onSpawn(child) { proof = ownedProcess(child.pid); throw new Error("injected publication failure"); } }), (error) => error.cause?.message === "injected publication failure");
+    assert.ok(proof); assert.equal(processIdentityAlive(proof), false);
+    await assert.rejects(runPrivateCapturedProcess(path.join(root, "missing-executable"), [], { ...options, onSpawn() { assert.fail("failed spawn must not publish an owned process"); } }), (error) => error.cause?.code === "ENOENT");
+  } finally { if (proof) await stopOwnedProcess(proof); runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); }
+});
 test("hung cleanup is bounded and stale cleanup preserves unresolved proof", async () => {
   const tick = performance.now();
   await assert.rejects(boundedCleanup(() => new Promise(() => {}), 40), /cleanup_failed/u);
@@ -323,7 +337,7 @@ for (const death of ["parent", "both"]) test(`${death} supervisor death permits 
   const locator = path.join(root, death, "ui-review/session.json"); let record;
   // The loader fails closed if either control path imports an engine, simulating
   // broken installations without changing packages used by concurrent tasks.
-  const control = (command) => spawnSync(process.execPath, ["--input-type=module", "--eval", `import {registerHooks} from 'node:module'; registerHooks({resolve(specifier,context,next){if(/sharp|playwright|axe-core/.test(specifier))throw Error('engine unavailable');return next(specifier,context);}});process.argv=[process.execPath,'cli',${JSON.stringify(command)}];await import(${JSON.stringify(new URL("../ui-review/cli.mjs", import.meta.url).href)});`], { cwd: repoRoot, env: { ...cleanEnvironment(), UI_SESSION: locator, CARTULARY_MAKE_INPUT_SOURCES: "UI_SESSION=cli", CARTULARY_OUTPUT_MODE: "machine" }, encoding: "utf8", timeout: 30000 });
+  const control = (command) => spawnSync(process.execPath, ["--input-type=module", "--eval", `import {registerHooks} from 'node:module'; registerHooks({resolve(specifier,context,next){if(['sharp','playwright','playwright-core','@axe-core/playwright','axe-core'].some(name=>specifier===name||specifier.startsWith(name+'/')||specifier.includes('/node_modules/'+name+'/')))throw Error('engine unavailable');return next(specifier,context);}});process.argv=[process.execPath,'cli',${JSON.stringify(command)}];await import(${JSON.stringify(new URL("../ui-review/cli.mjs", import.meta.url).href)});`], { cwd: repoRoot, env: { ...cleanEnvironment(), UI_SESSION: locator, CARTULARY_MAKE_INPUT_SOURCES: "UI_SESSION=cli", CARTULARY_OUTPUT_MODE: "machine" }, encoding: "utf8", timeout: 30000 });
   try {
     for (let index = 0; index < 150 && !output.includes("UI review ready"); index++) { if (child.exitCode !== null) break; await pause(100); }
     assert.ok(output.includes("UI review ready"));

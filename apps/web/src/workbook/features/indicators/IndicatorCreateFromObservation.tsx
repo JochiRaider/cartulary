@@ -93,10 +93,8 @@ function CanonicalWorkflow({
   const related = observationSnapshot.entries.filter((item) =>
     entry?.resolutionAttemptIds.includes(item.attempt.id),
   );
-  const linkUnknown = related.some(
-    (item) =>
-      item.phase === "uncertain" || (item.transportPending && !item.receipt),
-  );
+  const linkPending = related.some((item) => item.transportPending);
+  const linkUnknown = related.some((item) => item.phase === "uncertain");
   const latest = observationSnapshot.entries.reduce(
     (latest, operation) =>
       operation.receipt?.observation.observation_id === latest.observation_id &&
@@ -124,13 +122,15 @@ function CanonicalWorkflow({
       {entry?.receipt ? (
         <>
           <p role="status" style={observationText}>
-            {linkUnknown
-              ? "Link outcome unknown. Recover the observation operation separately."
-              : linked
-                ? "Observation linked to this Indicator."
-                : elsewhere
-                  ? "Linked elsewhere. This Indicator remains available."
-                  : "Not linked to this Indicator."}
+            {linkPending
+              ? "Linking observation…"
+              : linkUnknown
+                ? "Link outcome unknown. Recover the observation operation separately."
+                : linked
+                  ? "Observation linked to this Indicator."
+                  : elsewhere
+                    ? "Linked elsewhere. This Indicator remains available."
+                    : "Not linked to this Indicator."}
           </p>
           {latest.resolution_status === "dismissed" ? (
             <p>Restore the observation explicitly before resolving it.</p>
@@ -140,6 +140,7 @@ function CanonicalWorkflow({
                 disabled ||
                 !observations.canSubmit() ||
                 observations.busy({ action: "dismiss", observation: latest }) ||
+                linkPending ||
                 linkUnknown ||
                 latest.row_version !== observation.row_version
               }
@@ -160,7 +161,7 @@ function CanonicalWorkflow({
                 : "Resolve observation to this Indicator"}
             </WorkbookInspectorActionButton>
           ) : null}
-          {!linked && !linkUnknown ? (
+          {!linked && !linkPending && !linkUnknown ? (
             <p style={observationText}>
               The canonical operation is complete. Review or retry observation
               resolution; canonical creation will not run again.

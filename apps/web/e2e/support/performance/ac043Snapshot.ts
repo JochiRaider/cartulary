@@ -259,6 +259,7 @@ export async function startAc043SnapshotTraffic(
   try {
     for (const [index, account] of accounts.entries()) {
       const context = await browser.newContext();
+      contexts.push(context);
       const backgroundPage = await context.newPage();
       await loginTrackedUserViaPage(backgroundPage, account);
       const session = await readCurrentSession(backgroundPage);
@@ -269,7 +270,6 @@ export async function startAc043SnapshotTraffic(
         userId: session.user_id,
       });
       await establishPresenceClient(backgroundPage, incidentId, index);
-      contexts.push(backgroundPage.context());
       const assignedRow = rows[index];
       if (assignedRow === undefined) {
         throw new Error(`AC-043 background row ${index + 1} is missing`);
@@ -569,15 +569,9 @@ async function establishPresenceClient(
   incidentId: string,
   sessionIndex: number,
 ) {
-  const routeURL = `${webBase}/__cartulary_ac043_presence__`;
-  await page.route(routeURL, async (route) => {
-    await route.fulfill({
-      body: "<!doctype html><html><body>AC-043 presence client</body></html>",
-      contentType: "text/html",
-      status: 200,
-    });
-  });
-  await page.goto(routeURL);
+  // A real loopback response preserves Chromium's network-address-space proof.
+  // This measurement-only page does not mount the workbook or extra sockets.
+  await page.goto(`${webBase}/presence.html`);
   const socketURL = new URL(`/ws/v1/incidents/${incidentId}`, apiBase);
   socketURL.protocol = socketURL.protocol === "https:" ? "wss:" : "ws:";
   await page.evaluate(

@@ -143,6 +143,7 @@ export function SavedViewActionPanel({
     fallbackFocusRef,
     initialItemKey: "name",
     isOpen: control.panelOpen,
+    reconcileItems: true,
     itemKeys: startupOpen
       ? savedViewActionControlKeys
       : savedViewActionControlKeys.filter(

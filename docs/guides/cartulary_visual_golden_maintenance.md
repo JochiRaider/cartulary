@@ -38,6 +38,18 @@ Playwright renderer. The harness verifies the container image digest, platform,
 Playwright and Chromium versions, font manifest, locale, device scale factor,
 and color scheme before exposing the authenticated loopback endpoint to a visual
 worker. The endpoint is private harness state, not a supported user override.
+Renderer profile v2 supplies approved identity values to installation, loading,
+configuration and assertions. Package resolution is independent of pnpm's store
+layout. The lease verifies resolved package chains and the packaged browser
+descriptor; captures verify served font bytes and font loading against the
+manifest. A browser upgrade does not itself change the vendored font digest.
+
+Before changing renderer pins, retain a fresh ordinary visual baseline. Separate
+existing failures from upgrade deltas; classify each functional, infrastructure
+or pixel difference under its owner. Review every changed image before accepting
+the transactional update. Require two fresh ordinary visual passes against the
+same final manifest. Private `diagnostic_snapshot` output cannot satisfy this gate.
+
 The two targets must otherwise use the same application server, viewport,
 fixture lifecycle, and per-row accounting. An update may change snapshot bytes;
 it may not bypass functional assertions or start an unowned application server.

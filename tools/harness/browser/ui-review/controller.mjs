@@ -58,7 +58,7 @@ export async function execute(command, input, profile) {
 async function start(input, profile) {
   const environment = { ...process.env };
   for (const name of Object.keys(environment)) {
-    if (/^(?:UI_|REVIEW_PROFILE$|MAKEFLAGS$|MAKEOVERRIDES$|MFLAGS$|NODE_OPTIONS$|NODE_PATH$|NODE_V8_COVERAGE$|DEBUG$|PWDEBUG$|OTEL_|CARTULARY_(?:MAKE_|HARNESS_|BROWSER_|WEB_E2E_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete environment[name];
+    if (/^(?:UI_|REVIEW_PROFILE$|MAKEFLAGS$|MAKEOVERRIDES$|MFLAGS$|NODE_OPTIONS$|NODE_PATH$|NODE_V8_COVERAGE$|DEBUG$|PWDEBUG$|PWTEST_|PLAYWRIGHT_(?!BROWSERS_PATH$)|OTEL_|CARTULARY_(?:MAKE_|HARNESS_|BROWSER_|WEB_E2E_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete environment[name];
   }
   const worker = fork(fileURLToPath(import.meta.url), ["--controller"], { detached: true, stdio: ["ignore", "ignore", "ignore", "ipc"], execArgv: [], env: environment });
   let record, completed = false;

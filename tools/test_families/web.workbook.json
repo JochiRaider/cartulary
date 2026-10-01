@@ -3694,6 +3694,7 @@
         "titles": [
           "Timeline Details copies saved text exactly without including disclosure controls",
           "Timeline Details keeps a rejected recovery beside its field with one new announcement",
+          "Timeline Details keeps a visible Edit button stationary through pointer focus",
           "Timeline Details keeps newer authoring after acknowledgement and retries refresh without writes",
           "Timeline Details reads saved values and retains authoring until explicit submission",
           "Timeline Details sends explicit null empty and unchanged source text as distinct intents"

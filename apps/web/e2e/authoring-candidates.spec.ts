@@ -110,9 +110,7 @@ test("Timeline retained Owner reconciles accepted membership labels only on Appl
       name: "Choose Owner",
       exact: true,
     });
-    const select = picker.getByTestId(
-      "contextual-reference-task.owner_user_id",
-    );
+    const select = picker.getByRole("combobox", { name: "Owner", exact: true });
     await expect(select).toBeEnabled();
     await expect(select).toHaveValue(actor.user_id);
     await expect(select.locator(`option[value="${actor.user_id}"]`)).toHaveText(
@@ -159,7 +157,7 @@ test("Timeline retained Owner reconciles accepted membership labels only on Appl
     );
     await button(resumedOwner, "Choose Owner").click();
     await expect(
-      recovery.getByTestId("contextual-reference-task.owner_user_id"),
+      recovery.getByRole("combobox", { name: "Owner", exact: true }),
     ).toHaveValue(actor.user_id);
     await button(recovery, "Cancel references").click();
     await button(recovery, "Discard draft").click();
@@ -191,9 +189,10 @@ test("Timeline retained Requester Party updates accepted presentation through re
     name: "Choose Requester Party",
     exact: true,
   });
-  const select = picker.getByTestId(
-    "contextual-reference-task.requester_party_id",
-  );
+  const select = picker.getByRole("combobox", {
+    name: "Requester Party",
+    exact: true,
+  });
   await expect(select.getByRole("option")).toHaveCount(101);
   const id = await chooseFirst(select);
   const original = await select.locator(`option[value="${id}"]`).innerText();

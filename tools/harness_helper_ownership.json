@@ -97,7 +97,9 @@
       "boundary_group": "readiness",
       "paths": [
         "tools/harness/readiness/frontend-install.sh",
-        "tools/harness/readiness/frontend-toolchain.sh"
+        "tools/harness/readiness/frontend-toolchain.sh",
+        "tools/harness/readiness/frontend-lockfile-update.sh",
+        "tools/harness/readiness/playwright-packages.mjs"
       ],
       "allowed_consumers": []
     },

@@ -446,6 +446,9 @@ async function recovery(
   }
   const createdId = createReceipts[0]?.data.row.record_id;
   if (!createdId) throw new Error("Authoritative creation receipt required.");
+  // Record replay evidence only after the original source write has committed.
+  if (mode === "link_lost" || mode === "refresh")
+    await expect.poll(() => linkReceipts.length).toBe(1);
   const createdHistory = await fetchFullRecordHistory(page, createdId);
   const sourceHistory = await fetchFullRecordHistory(page, source.record_id);
   await sheet(page, partiesViewSchemaId);

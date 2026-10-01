@@ -1,4 +1,10 @@
-import { type MutableRefObject, useCallback, useEffect, useRef } from "react";
+import {
+  type MutableRefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import type { RecordHistoryRollbackAction } from "../history/workbookHistoryItem";
 import type { WorkbookRecordSubject } from "../ports/WorkbookRecordSubject";
 import {
@@ -15,6 +21,7 @@ type HistoryFocusRequest = {
   readonly kind: HistoryFocusKind;
   readonly stage: "preview" | "submitted";
   readonly subjectIdentity: string;
+  readonly trigger: HTMLButtonElement;
 };
 
 export function useWorkbookRecordHistoryFocus({
@@ -39,6 +46,15 @@ export function useWorkbookRecordHistoryFocus({
   const currentSubjectIdentity = historySubjectIdentity(state.subject);
   const feedback = workbookRecordHistoryFeedback(state);
   const loadError = workbookRecordHistoryLoadError(state);
+  useLayoutEffect(() => {
+    const request = focusRequestRef.current;
+    if (
+      request?.stage === "preview" &&
+      document.activeElement === document.body &&
+      (!request.trigger.isConnected || request.trigger.disabled)
+    )
+      panelRef.current?.focus({ preventScroll: true });
+  });
 
   const queueActionFocus = useCallback((actionIdentity: string) => {
     const generation = interactionGeneration.current;
@@ -64,6 +80,21 @@ export function useWorkbookRecordHistoryFocus({
 
   useEffect(() => {
     const interact = (event: Event) => {
+      if (event.type === "focusout") {
+        const request = focusRequestRef.current;
+        const next = (event as FocusEvent).relatedTarget;
+        if (
+          request !== null &&
+          event.target === request.trigger &&
+          (next === null || next === document.body) &&
+          (request.trigger.disabled || !request.trigger.isConnected)
+        ) {
+          // Native disabling can blur during a commit without a React blur.
+          // Keep preview validation inside its owning History boundary.
+          panelRef.current?.focus({ preventScroll: true });
+        }
+        return;
+      }
       const inside =
         event.target instanceof Node &&
         panelRef.current?.contains(event.target);
@@ -80,11 +111,13 @@ export function useWorkbookRecordHistoryFocus({
     document.addEventListener("pointerdown", interact, true);
     document.addEventListener("keydown", interact, true);
     document.addEventListener("focusin", interact, true);
+    document.addEventListener("focusout", interact, true);
     return () => {
       interactionGeneration.current += 1;
       document.removeEventListener("pointerdown", interact, true);
       document.removeEventListener("keydown", interact, true);
       document.removeEventListener("focusin", interact, true);
+      document.removeEventListener("focusout", interact, true);
     };
   }, []);
 
@@ -126,6 +159,7 @@ export function useWorkbookRecordHistoryFocus({
         kind,
         stage: "preview",
         subjectIdentity: currentSubjectIdentity,
+        trigger: element,
       };
     },
     [currentSubjectIdentity],

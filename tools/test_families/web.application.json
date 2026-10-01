@@ -2478,8 +2478,10 @@
           "focuses on open, wraps, skips disabled items, and restores on Escape",
           "keeps a programmatically focused overlay root inside the focus boundary",
           "keeps form control keys native, wraps only boundary Tab, and reconciles disabled focus",
+          "preserves aria-disabled focus and ordinary navigation through asynchronous settlement",
           "reconciles a removed focused item without using its detached element",
           "restores through the fallback when closing unmounts the navigation owner",
+          "retains a form through native disabled blur without swallowing deliberate focus departure",
           "returns to the trigger when the last registered item disappears",
           "validates a semantic replacement and never reclaims an outside destination"
         ]

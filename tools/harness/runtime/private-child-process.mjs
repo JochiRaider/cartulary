@@ -15,6 +15,7 @@ import path from "node:path";
 
 import { CommandFailure } from "./command-failure.mjs";
 import { borrowSuiteRuntime } from "./suite-runtime.mjs";
+import { ownedProcess, stopOwnedProcess } from "./owned-process.mjs";
 
 const componentPattern = /^[A-Za-z0-9_.-]+$/u;
 
@@ -124,7 +125,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
       stdio: ["ignore", stdoutFD, stderrFD],
     });
     // Even a failed asynchronous spawn must reach close before releasing resources.
-    const outcome = await new Promise((resolve, reject) => {
+    const completion = new Promise((resolve, reject) => {
       let spawnError;
       child.once("error", (error) => { spawnError = error; });
       child.once("close", (status, signal) => {
@@ -132,6 +133,21 @@ export async function runPrivateCapturedProcess(command, args, options) {
         else resolve({ status, signal });
       });
     });
+    // Register close/error before handing acquisition to a caller. A failed
+    // publication callback must drain the resource it has just acquired.
+    completion.catch(() => {});
+    if (child.pid && options.onSpawn) {
+      const proof = ownedProcess(child.pid);
+      try { options.onSpawn(child); }
+      catch (error) {
+        let drained = true;
+        try { await stopOwnedProcess(proof); }
+        catch (cleanupError) { drained = false; (error.cleanupFailures ??= []).push(cleanupError); }
+        if (drained) await completion.catch(() => {});
+        throw error;
+      }
+    }
+    const outcome = await completion;
     close(stdoutFD);
     close(stderrFD);
     const stdout = boundedTail(stdoutPath, tailBytes);

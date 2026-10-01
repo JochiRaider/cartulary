@@ -115,7 +115,9 @@ describe("authoring candidate presentation", () => {
       />,
     );
     await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(1));
-    const selector = screen.getByTestId("candidates");
+    const selector = screen.getByRole("combobox", {
+      name: "Owner",
+    });
     const cancel = screen.getByRole("button", { name: "Cancel references" });
     cancel.focus();
     expect(onApply).not.toHaveBeenCalled();
@@ -129,7 +131,7 @@ describe("authoring candidate presentation", () => {
         },
       }),
     );
-    expect(screen.getByTestId("candidates")).toBe(selector);
+    expect(screen.getByRole("combobox", { name: "Owner" })).toBe(selector);
     expect(document.activeElement).toBe(cancel);
     expect(selector).toHaveProperty("value", member.recordId);
     expect(
@@ -176,7 +178,9 @@ describe("authoring candidate presentation", () => {
         .getByRole("button", { name: /^Remove selected Parties / })
         .getAttribute("aria-label"),
     ).toBe("Remove selected Parties Party 1-0");
-    const selector = screen.getByTestId("candidates");
+    const selector = screen.getByRole("listbox", {
+      name: "Parties",
+    });
     rendered.rerender(
       <WorkbookAuthoringReferencePicker
         {...props}
@@ -200,7 +204,7 @@ describe("authoring candidate presentation", () => {
         },
       }),
     );
-    expect(screen.getByTestId("candidates")).toBe(selector);
+    expect(screen.getByRole("listbox", { name: "Parties" })).toBe(selector);
     expect(
       screen
         .getByRole("button", { name: /^Remove selected Parties / })
@@ -276,8 +280,9 @@ describe("authoring candidate presentation", () => {
     await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(4));
     await waitFor(() =>
       expect(
-        screen.getByTestId("candidates").querySelector('option[value="one"]')
-          ?.textContent,
+        screen
+          .getByRole("listbox", { name: "Parties" })
+          .querySelector('option[value="one"]')?.textContent,
       ).toBe(""),
     );
     expect(remove.getAttribute("aria-label")).toBe(
@@ -1126,7 +1131,9 @@ describe("authoring candidate presentation", () => {
         .getAttribute("aria-label"),
     ).toBe("Remove selected Parties Reviewed source");
     expect(onApply).not.toHaveBeenCalled();
-    fireEvent.keyDown(screen.getByTestId("candidates"), { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Parties" }), {
+      key: "Escape",
+    });
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onApply).not.toHaveBeenCalled();
     click("Next candidates");

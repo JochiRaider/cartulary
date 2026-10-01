@@ -1,3 +1,4 @@
+import "./test-renderer-identity.mjs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -135,4 +136,11 @@ test("public Make review rejections contain no private input or retained output"
     assert.ok(!child.stdout.includes("private-marker") && !child.stdout.includes("private-path-marker"));
     assert.equal(response.receipt, null);
   }
+});
+
+test("diagnostic action is closed and superseded requests have no reader", () => {
+  const action = { schema_id: schemaID("action"), expected_epoch: 0, action: "diagnostic_snapshot", parameters: {} };
+  assert.deepEqual(parse(action, "action"), action);
+  for (const schema_id of ["cartulary.ui_review_action.v1", "cartulary.ui_review_action.v2"]) assert.throws(() => parse({ ...action, schema_id }, "action"));
+  for (const parameters of [{ endpoint: "ws://127.0.0.1:1" }, { code: "1+1" }, { args: [] }, { path: "/tmp/out" }]) assert.throws(() => parse({ ...action, parameters }, "action"));
 });

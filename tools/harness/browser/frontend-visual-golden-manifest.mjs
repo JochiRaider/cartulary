@@ -14,6 +14,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { loadVisualRendererProfile } from "./visual-renderer-profile.mjs";
+
 export const goldenManifestSchemaID =
   "cartulary.frontend_visual_golden_manifest.v1";
 export const goldenManifestPath = "tools/frontend_visual_golden_manifest.json";
@@ -50,15 +52,7 @@ export function buildFrontendVisualGoldenManifest({
   root = defaultRoot,
   snapshotRoot = path.join(root, visualSnapshotRoot),
 } = {}) {
-  const renderer = JSON.parse(
-    readFileSync(path.join(root, rendererProfilePath), "utf8"),
-  );
-  if (
-    renderer.schema_id !== "cartulary.frontend_visual_renderer_profile.v1" ||
-    typeof renderer.profile_id !== "string"
-  ) {
-    throw new Error("frontend visual renderer profile is invalid");
-  }
+  const renderer = loadVisualRendererProfile(root);
   return {
     schema_id: goldenManifestSchemaID,
     renderer_profile_id: renderer.profile_id,

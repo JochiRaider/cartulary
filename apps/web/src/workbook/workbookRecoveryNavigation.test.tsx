@@ -29,6 +29,8 @@ afterEach(cleanup);
 it("restores the resolved cell only for the current recovery activation", async () => {
   for (const continuation of [
     "current",
+    "parent-retained",
+    "hidden-source",
     "closed",
     "retargeted",
     "newer-focus",
@@ -81,7 +83,9 @@ it("restores the resolved cell only for the current recovery activation", async 
       releaseGridFocus = resolve;
     });
     const requestFocus = vi.fn<GridHandle["requestFocus"]>(
-      async (_target, options) => {
+      async (target, options) => {
+        if (continuation === "hidden-source" && target.kind === "cell")
+          return "unavailable";
         if (continuation === "delayed-newer-input") {
           await gridFocusGate;
           if (options?.signal?.aborted) return "unavailable";
@@ -93,10 +97,12 @@ it("restores the resolved cell only for the current recovery activation", async 
         viewport.scrollLeft = 300;
         // Selecting a cell republishes the handle while retaining the viewport.
         if (gridRef.current) gridRef.current = { ...gridRef.current };
-        cell.focus();
+        if (target.kind === "root") viewport.focus();
+        else cell.focus();
         return "focused";
       },
     );
+    let resolverAttached = true;
     function Content() {
       const registry = useWorkbookBrowsingRegistry();
       const root = useRef<HTMLDivElement>(null);
@@ -117,29 +123,32 @@ it("restores the resolved cell only for the current recovery activation", async 
       }, [registry]);
       return (
         <>
-          <div ref={root}>
+          <div ref={root} tabIndex={-1}>
             <button type="button">Original cell</button>
           </div>
           <button type="button">Newer work</button>
           <WorkbookRecoveryDetail source="core" item="original">
-            <WorkbookSameFieldConflictResolver
-              onClose={navigation.close}
-              mutationRuntime={runtime}
-              onActivateOrigin={() => {}}
-              snapshot={{ conflicts: [conflict] }}
-              summaryRef={summary}
-            />
+            {resolverAttached ? (
+              <WorkbookSameFieldConflictResolver
+                onClose={navigation.close}
+                mutationRuntime={runtime}
+                onActivateOrigin={() => {}}
+                snapshot={{ conflicts: [conflict] }}
+                summaryRef={summary}
+              />
+            ) : null}
           </WorkbookRecoveryDetail>
         </>
       );
     }
-    const rendered = render(
+    const presentation = () => (
       <WorkbookQueryBrowsingProvider>
         <WorkbookRecoveryFixture navigation={navigation}>
           <Content />
         </WorkbookRecoveryFixture>
-      </WorkbookQueryBrowsingProvider>,
+      </WorkbookQueryBrowsingProvider>
     );
+    const rendered = render(presentation());
     const viewport = screen.getByRole("button", {
       name: "Original cell",
     }).parentElement;
@@ -181,6 +190,10 @@ it("restores the resolved cell only for the current recovery activation", async 
             .entries.filter((entry) => entry.id === "other"),
         ),
       );
+    } else if (continuation === "parent-retained") {
+      // The resolved conflict retires while its parent creation still has work.
+      resolverAttached = false;
+      rendered.rerender(presentation());
     }
     const previousFocus = document.activeElement;
     if (continuation === "delayed-newer-input") {
@@ -198,7 +211,11 @@ it("restores the resolved cell only for the current recovery activation", async 
         complete({ kind: "resolved" });
       });
     }
-    if (continuation === "current") {
+    if (
+      continuation === "current" ||
+      continuation === "parent-retained" ||
+      continuation === "hidden-source"
+    ) {
       expect(requestFocus).toHaveBeenCalledWith(
         {
           kind: "cell",
@@ -210,9 +227,16 @@ it("restores the resolved cell only for the current recovery activation", async 
         },
         { signal: expect.any(AbortSignal) },
       );
+      if (continuation === "hidden-source")
+        expect(requestFocus).toHaveBeenLastCalledWith(
+          { kind: "root" },
+          { signal: expect.any(AbortSignal) },
+        );
       expect(navigation.getSnapshot().open).toBe(false);
       expect(document.activeElement).toBe(
-        screen.getByRole("button", { name: "Original cell" }),
+        continuation === "hidden-source"
+          ? viewport
+          : screen.getByRole("button", { name: "Original cell" }),
       );
     } else if (continuation !== "delayed-newer-input") {
       expect(requestFocus).not.toHaveBeenCalled();

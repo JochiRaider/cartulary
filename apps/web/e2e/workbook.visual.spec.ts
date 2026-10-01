@@ -224,6 +224,10 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  attestedVisualRendererProfile,
+  waitForLoadedVendoredFonts,
+} from "./support/runtime/visualRenderer";
 import { createInspectorReadingFixture } from "./support/timeline/inspectorReadingFixture";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
@@ -5151,13 +5155,13 @@ async function emitVisualCaptureIntent(
     theme_id: expectedTheme,
   };
   assertVisualPresentation(presentation, browserProfile);
+  const rendererProfile = attestedVisualRendererProfile();
   const rendererProfileId =
     process.env.CARTULARY_VISUAL_RENDERER_PROFILE_ID ?? "";
   if (
     process.env.CARTULARY_VISUAL_RENDERER_ATTESTED !== "1" ||
-    rendererProfileId !==
-      "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64" ||
-    page.context().browser()?.version() !== "147.0.7727.15"
+    rendererProfileId !== rendererProfile.profile_id ||
+    page.context().browser()?.version() !== rendererProfile.chromium_version
   ) {
     throw new Error("visual capture requires the attested pinned renderer");
   }
@@ -6097,28 +6101,39 @@ async function stabilizeConflictResolverVisual(page: Page) {
   await parkVisualPointer(page);
 }
 
+const verifiedFontPages = new WeakMap<Page, string>();
 async function waitForVendoredFonts(page: Page) {
-  await page.evaluate(async () => {
-    await Promise.all([
-      document.fonts.load('400 12px "Inter"'),
-      document.fonts.load('400 12px "JetBrains Mono"'),
-    ]);
-    await document.fonts.ready;
-    const faces = Array.from(document.fonts);
-    for (const family of ["Inter", "JetBrains Mono"]) {
-      const familyFaces = faces.filter((face) => face.family === family);
-      if (familyFaces.length === 0) {
-        throw new Error(`missing vendored font-face for ${family}`);
-      }
-      const failedFace = familyFaces.find((face) => face.status === "error");
-      if (failedFace) {
-        throw new Error(`vendored font ${family} failed to load`);
-      }
-      if (!document.fonts.check(`400 12px "${family}"`)) {
-        throw new Error(`vendored font ${family} is not ready`);
-      }
+  const profile = attestedVisualRendererProfile();
+  if (verifiedFontPages.get(page) !== profile.profile_id) {
+    const manifestResponse = await page.request.get(
+      new URL("/assets/fonts/FONT_MANIFEST.json", page.url()).href,
+    );
+    const manifestBytes = await manifestResponse.body();
+    if (
+      !manifestResponse.ok() ||
+      createHash("sha256").update(manifestBytes).digest("hex") !==
+        profile.font_manifest_sha256
+    )
+      throw new Error("served font manifest mismatch");
+    const manifest = JSON.parse(manifestBytes.toString("utf8")) as {
+      families: { files: { path: string; bytes: number; sha256: string }[] }[];
+    };
+    const files = manifest.families.flatMap((family) => family.files);
+    for (const file of files) {
+      const response = await page.request.get(
+        new URL(`/assets/fonts/${file.path}`, page.url()).href,
+      );
+      const bytes = await response.body();
+      if (
+        !response.ok() ||
+        bytes.length !== file.bytes ||
+        createHash("sha256").update(bytes).digest("hex") !== file.sha256
+      )
+        throw new Error("served font integrity mismatch");
     }
-  });
+    verifiedFontPages.set(page, profile.profile_id);
+  }
+  await page.evaluate(waitForLoadedVendoredFonts);
 }
 
 async function attachFontManifestDigest() {
@@ -7912,6 +7927,17 @@ test("Capture incident import admission observation cancellation and result reco
       }),
     ).toBeEnabled();
   };
+  const focusObservationRecovery = async () => {
+    const control = page.getByRole("button", {
+      name: /^(Refresh job status|Retry observation)$/,
+    });
+    await expect(control).toBeEnabled();
+    // Observation can replace a previously disabled control. Declare keyboard
+    // focus so captures do not depend on whether that DOM node was retained.
+    await control.focus();
+    await expectImportControlReachable(page, control);
+    return control;
+  };
   await assertViewportVisualRegression(
     page,
     "incident-import-queued-indeterminate",
@@ -7921,6 +7947,7 @@ test("Capture incident import admission observation cancellation and result reco
   );
   await refresh();
   await expect(detail.getByRole("heading")).toHaveText("Processing");
+  await focusObservationRecovery();
   await assertViewportVisualRegression(
     page,
     "incident-import-running-determinate",
@@ -7928,10 +7955,12 @@ test("Capture incident import admission observation cancellation and result reco
   fixture.failReads(true);
   await refresh();
   await expect(detail).toContainText("Observation unavailable");
+  const retryObservation = await focusObservationRecovery();
   await assertViewportVisualRegression(
     page,
     "incident-import-observation-unavailable",
   );
+  await expect(retryObservation).toBeFocused();
   fixture.failReads(false);
   await refresh();
   await page
@@ -7949,7 +7978,10 @@ test("Capture incident import admission observation cancellation and result reco
   );
   await refresh();
   await expect(detail.getByRole("heading")).toHaveText("Import canceled");
+  const canceledRefresh = await focusObservationRecovery();
   await assertViewportVisualRegression(page, "incident-import-canceled");
+  await expect(canceledRefresh).toBeFocused();
+  await expect(canceledRefresh).toBeEnabled();
   for (const status of ["failed", "succeeded"] as const) {
     // A new application lifetime isolates terminal outcomes without regressing a job.
     await openImportPresentation(page);

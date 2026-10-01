@@ -10,6 +10,7 @@
   bootstrap-node-runtime \
   frontend-toolchain \
   frontend-install \
+  frontend-lockfile-update \
   playwright-install \
   db-up \
   db-migrate \
@@ -207,6 +208,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make bootstrap-node-runtime         install the pinned repo-local Node runtime' \
 	'  make frontend-toolchain             verify the pinned Node/pnpm toolchain' \
 	'  make frontend-install               install workspace dependencies' \
+	'  make frontend-lockfile-update       regenerate the lockfile with pinned pnpm (explicit dependency maintenance)' \
 	'  make playwright-install             install browser dependencies' \
 	'  make db-up                          start local Postgres and SeaweedFS S3, then initialize the default object-store bucket' \
 	'  make db-migrate                     apply local database migrations without resetting the database or object storage' \
@@ -1803,4 +1805,12 @@ harness-ui-review-seeded-network-flow-claimed: export CARTULARY_TEST_TARGET ?= h
 harness-ui-review-seeded-network-flow-claimed: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-ui-review-seeded-network-flow-claimed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-seeded-network-flow-claimed" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env CARTULARY_UI_REVIEW_TEST_PROFILE=network_flow_claimed $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-seeded.mjs
+
+frontend-lockfile-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+frontend-lockfile-update: export CARTULARY_TEST_TARGET ?= frontend-lockfile-update
+frontend-lockfile-update:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-lockfile-update)
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_TOOLCHAIN_STAMP); fi
+	$(Q)$(RUN_STEP_SCRIPT) "frontend-lockfile-update" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) PNPM="$(PNPM)" NODE_BIN="$(NODE_BIN)" FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" PATH="$(NODE_RUNTIME_DIR)/bin:$(PATH)" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" bash ./tools/harness/readiness/frontend-lockfile-update.sh
 

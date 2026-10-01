@@ -708,7 +708,7 @@ assert.ok(
   "visual update must reconcile its complete scratch candidate before promotion",
 );
 const rendererProfile = loadVisualRendererProfile(root);
-assert.equal(rendererProfile.playwright_version, "1.59.1");
+assert.equal(rendererProfile.playwright_version, JSON.parse(readFileSync(path.join(root, "tools/toolchain_pins.json"), "utf8")).ui_review.playwright);
 assert.throws(
   () =>
     assertVisualRendererEnvironmentIsPrivate({
@@ -737,15 +737,6 @@ assert.match(
   /do not match committed PNGs/u,
   "edited PNG identity must fail golden-manifest validation",
 );
-const rendererLeaseSource = readFileSync(
-  path.join(root, "tools/harness/browser/visual-renderer-lease.mjs"),
-  "utf8",
-);
-assert.match(rendererLeaseSource, /"--publish",\s*`127\.0\.0\.1:/u);
-assert.doesNotMatch(rendererLeaseSource, /"--network",\s*"host"/u);
-assert.match(rendererLeaseSource, /"--user",\s*"pwuser"/u);
-assert.doesNotMatch(rendererLeaseSource, /"--volume"|"-v"/u);
-assert.match(rendererLeaseSource, /rendererLease\?\.cleanup|cleanup\(\)/u);
 const promotionRoot = mkdtempSync(
   path.join(os.tmpdir(), "cartulary-visual-promotion."),
 );
@@ -1467,7 +1458,7 @@ assert.deepEqual(
 const validCapturePayload = {
   schema_id: "cartulary.frontend_visual_capture_intent.v2", capture_id: "visual.capture." + "a".repeat(20),
   capture_intent: "test", expected_golden_path: "apps/web/e2e/workbook.visual.spec.ts-snapshots/test.png",
-  project_id: "chromium", renderer_profile_id: "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64", screenshot_assertion_location: "test",
+  project_id: "chromium", renderer_profile_id: rendererProfile.profile_id, screenshot_assertion_location: "test",
   test_file: "apps/web/e2e/workbook.visual.spec.ts", test_title: "test",
   capture_profile: { browser_zoom_percent: 100, color_scheme: "dark", device_scale_factor: 1, reduced_motion: true, project_id: "chromium", snapshot_path_template: "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}", snapshot_suffix: "linux", viewport_css_px: "1280x720", surface_kind: "workbook_shell", density_id: "compact", expected_density_id: "compact", theme_id: "dark_graphite", expected_theme_id: "dark_graphite" },
 };

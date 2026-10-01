@@ -172,10 +172,22 @@ export function useRegisteredOverlayNavigation<Key extends string>({
         focusedItem !== null &&
         (document.activeElement === focusedItem ||
           (document.activeElement === document.body &&
-            (!focusedItem.isConnected ||
-              focusedItem.disabled === true ||
-              focusedItem.getAttribute("aria-disabled") === "true")));
-      if (reconcileItems && activeKey !== null && !keys.includes(activeKey)) {
+            (!focusedItem.isConnected || focusedItem.disabled === true)));
+      // aria-disabled prevents activation but does not retire a focusable
+      // control. Pending work must not move focus away from that exact item.
+      const retainsFocus =
+        activeKey !== null &&
+        itemKeys.includes(activeKey) &&
+        itemRefs.current.get(activeKey) === focusedItem &&
+        focusedItem?.isConnected === true &&
+        focusedItem.disabled !== true &&
+        document.activeElement === focusedItem;
+      if (
+        reconcileItems &&
+        activeKey !== null &&
+        !keys.includes(activeKey) &&
+        !retainsFocus
+      ) {
         const index = Math.max(0, previousKeys.indexOf(activeKey));
         const preferredKey = reconcileItemKey?.(activeKey, previousKeys, keys);
         const nextKey =
@@ -231,11 +243,21 @@ export function useRegisteredOverlayNavigation<Key extends string>({
       event.metaKey
     )
       return;
+    const keys = eligibleKeys();
+    const focusedItem = itemRefs.current.get(itemKey);
+    // Keep the current control's position while it is aria-disabled, so Tab
+    // leaves it in the ordinary direction rather than wrapping prematurely.
+    const navigationKeys =
+      focusedItem?.isConnected === true &&
+      focusedItem.disabled !== true &&
+      document.activeElement === focusedItem
+        ? itemKeys.filter((key) => key === itemKey || keys.includes(key))
+        : keys;
     const decision = registeredOverlayKeyDecision(
       event.key,
       event.shiftKey,
       itemKey,
-      eligibleKeys(),
+      navigationKeys,
       trapTab,
       keyboardMode,
     );
@@ -262,6 +284,18 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     },
     onOverlayBlur: (event) => {
       const nextFocus = event.relatedTarget;
+      const focusedItem = focusedItemRef.current;
+      // Native disabling/removal can blur to the document during a commit.
+      // Preserve ownership until layout reconciliation selects the successor.
+      if (
+        reconcileItems &&
+        nextFocus === null &&
+        focusedItem !== null &&
+        event.target === focusedItem &&
+        (!focusedItem.isConnected || focusedItem.disabled === true)
+      ) {
+        return;
+      }
       if (
         (nextFocus !== null && nextFocus === triggerRef?.current) ||
         (nextFocus instanceof Node &&

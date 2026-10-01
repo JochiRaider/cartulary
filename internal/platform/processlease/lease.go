@@ -176,9 +176,15 @@ func (l *Lease) monitor(ctx context.Context) {
 			if state != StateHeld && state != StateUncertain {
 				return
 			}
-			proofCtx, cancelProof := context.WithTimeout(ctx, l.lossDetection)
+			// Stopping the monitor must drain an in-flight query, not cancel
+			// its PostgreSQL connection immediately before advisory unlock.
+			// The proof retains its own deadline, so shutdown remains bounded.
+			proofCtx, cancelProof := context.WithTimeout(context.WithoutCancel(ctx), l.lossDetection)
 			proof := l.prove(proofCtx)
 			cancelProof()
+			if ctx.Err() != nil {
+				return
+			}
 			switch proof {
 			case ProofContinuous:
 				if state == StateUncertain {

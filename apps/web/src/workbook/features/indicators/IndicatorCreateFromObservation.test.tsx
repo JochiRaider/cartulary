@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
+import { deferred } from "../../../testing/fetchMockTestSupport";
 import { canonicalCreateFixture } from "../../../testing/indicatorCreateTestSupport";
 import {
   observationOwnerFixture,
@@ -63,9 +64,10 @@ async function propose() {
 it("Canonical workflow requires validated acceptance and explicit resolution with independent replay", async () => {
   const c = canonicalCreateFixture(),
     o = observationOwnerFixture();
+  const heldLink = deferred<{ kind: "uncertain" }>();
   c.transport.send.mockResolvedValueOnce({ kind: "uncertain" });
   o.transport.send
-    .mockResolvedValueOnce({ kind: "uncertain" })
+    .mockImplementationOnce(() => heldLink.promise)
     .mockResolvedValueOnce({
       kind: "acknowledged",
       receipt: {
@@ -105,6 +107,10 @@ it("Canonical workflow requires validated acceptance and explicit resolution wit
   expect(screen.getByText("Not linked to this Indicator.")).toBeTruthy();
   expect(o.transport.send).not.toHaveBeenCalled();
   fireEvent.click(resolve);
+  await screen.findByText("Linking observation…");
+  expect((resolve as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByText(/Link outcome unknown/)).toBeNull();
+  await act(async () => heldLink.resolve({ kind: "uncertain" }));
   await screen.findByText(
     "Link outcome unknown. Recover the observation operation separately.",
   );

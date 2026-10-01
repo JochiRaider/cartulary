@@ -2805,6 +2805,9 @@ test("Timeline picker follows its invoking draft promotion and accepts a zero-by
   page,
 }, info) => {
   const f = await fileTargetFixture(page);
+  // Keep the invoking editor beside the row action. Horizontal virtualization
+  // may otherwise unmount it when the native picker button scrolls into view.
+  await showTimelineCollectionColumns(page, ["Activity Synopsis"]);
   const draft = page.getByTestId(
     draftCellTestId("timeline.activity_synopsis_text"),
   );

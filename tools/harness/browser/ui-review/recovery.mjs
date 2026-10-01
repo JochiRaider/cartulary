@@ -1,3 +1,4 @@
+import { stopDiagnosticProcesses } from "./diagnostic-processes.mjs";
 import path from "node:path";
 import { closeSync, constants, existsSync, openSync, readdirSync } from "node:fs";
 import { spawn } from "node:child_process";
@@ -46,6 +47,7 @@ async function recover(record) {
   const attempt = async (fn) => { try { await fn(); } catch { cleaned = false; failures.push(failureRecord(new ReviewFailure("cleanup_failed"))); } };
   if (existsSync(record.runtime.root)) {
     const runtime = borrowSuiteRuntime({ repoRoot, runRoot: identity.runRoot, environment: { CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: record.runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: record.runtime.lease_id, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: record.runtime.run_id } });
+    for (const resource of recoveryResources(runtime).filter((entry) => entry.kind === "diagnostic_scope")) await attempt(async () => { await stopDiagnosticProcesses(resource.target); recordResource(runtime, { ...resource, state: "released" }); });
     const processes = recoveryResources(runtime).filter((entry) => entry.kind.endsWith("_process"));
     for (const resource of processes) await attempt(async () => { await stopOwnedProcess(resource.target); recordResource(runtime, { ...resource, state: "released" }); });
     await attempt(() => recoverReviewPreparation({ runtime, resources: recoveryResources(runtime), onReleased: (resource) => recordResource(runtime, { ...resource, state: "released" }) }));

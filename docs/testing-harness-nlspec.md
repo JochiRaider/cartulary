@@ -109,12 +109,13 @@ product assertions and publication are distinct. This amendment adds no product
 or test HTTP route, authentication bypass, product requirement, visual comparator,
 or golden promotion path. Presentation remains design/product owned. Executable
 inputs never include Markdown or documentation. The adopted amendment identifier
-is `ui-review-api-2`; the harness document and conformance profile remain v3.
-This amendment retains the seven command identities and eight V1 review
-envelopes. It corrects lifecycle/artifact failure handling and adopts minimal
-control readiness, exact recovery proof, and weighted parallel work admission.
+is `ui-review-diagnostics-3`; the harness document and conformance profile remain v3.
+This amendment retains the seven review command identities and the v2 result
+and receipt envelopes, adopts action-request v3 and renderer-profile v2, and adds
+private same-page CLI diagnostics. Minimal control readiness, exact recovery
+proof, and weighted parallel work admission remain required.
 
-Verified by: TH-HARNESS-AC-102, TH-HARNESS-AC-125, TH-HARNESS-AC-126, TH-HARNESS-AC-128, TH-HARNESS-AC-129
+Verified by: TH-HARNESS-AC-102, TH-HARNESS-AC-125, TH-HARNESS-AC-126, TH-HARNESS-AC-128, TH-HARNESS-AC-129, TH-HARNESS-AC-132, TH-HARNESS-AC-133
 
 ## 2. Purpose, Non-Goals, and Conformance Boundary
 
@@ -1035,7 +1036,7 @@ The current runtime profiles are:
 The current resource profiles are `standard`, `io_heavy`, `managed_process`,
 `backend_capacity_isolated`, `performance_fixture_builder`,
 `browser_functional`, `browser_isolated`, `browser_measurement_quiet`, and
-`postgres_catalog_isolated`, `ui_review_raster`, and `ui_review_report`. Every resource profile MUST
+`postgres_catalog_isolated`, `ui_review_raster`, `ui_review_report`, and `ui_review_diagnostic`. Every resource profile MUST
 bound executable work with positive `cpu`, `io`, `memory_mb`, and `process`
 claims; a zero-claim executable profile is forbidden. Their exact claims MUST
 be present in the authored topology; omission has no implicit fallback. The fixture capability set is closed by
@@ -1197,6 +1198,10 @@ An owned artifact remains available until all its consumers terminate;
 suite cleanup removes it on success, failure, or cancellation after consumer
 cleanup. Existing private-runtime containment, ownership, permission, and
 symlink-rejection rules apply. Production and measurement artifacts are distinct.
+The measurement artifact includes a minimal presence-client HTML entry, served by
+its owned loopback frontend. Background presence clients MUST use that real HTTP
+document without mounting the workbook. Synthetic navigation responses or disabled
+browser network protections MUST NOT substitute for its origin/address-space proof.
 
 Each completed build retains one closed
 `cartulary.frontend_build_artifact.v1` receipt at
@@ -1770,6 +1775,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `bootstrap-node-runtime` | `cartulary.harness.command.bootstrap_node_runtime.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  |
 | `frontend-toolchain` | `cartulary.harness.command.frontend_toolchain.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
 | `frontend-install` | `cartulary.harness.command.frontend_install.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  |
+| `frontend-lockfile-update` | `cartulary.harness.command.frontend_lockfile_update.v1` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` | Explicit pinned-pnpm lockfile preparation; never a normal installation prerequisite. |
 | `playwright-install` | `cartulary.harness.command.playwright_install.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  |
 | `db-up` | `cartulary.harness.command.db_up.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start` | `public_active` |  |
 | `db-migrate` | `cartulary.harness.command.db_migrate.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Proves local Postgres readiness under Section 11, starting an owned instance when absent, and applies current-line migrations without resetting the database or object storage. |
@@ -2150,7 +2156,7 @@ Browser E2E helpers that select a workbook surface through a menu, popover, sele
 Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-021
 
 **TH-HARNESS-REQ-111**
-Make-owned frontend dependency installation MUST use the pinned repo-local Node and pnpm toolchain, MUST bind pnpm's content-addressable store to the repo-local `.pnpm-store` path through project configuration, MUST run without requiring a TTY or interactive confirmation, and MUST use a frozen lockfile. `frontend-install` is an install/readiness target, not a dependency-update target; if `pnpm-lock.yaml` is out of sync with workspace manifests, the target MUST fail with `failure_class=config`, `failure_reason=configuration_error`, and public exit code `2` rather than mutating the lockfile. A package-manager repair that purges and recreates repo-local `node_modules` is allowed only as part of this non-interactive install contract and only for repo-local workspace dependency roots.
+Make-owned frontend dependency installation MUST use the pinned repo-local Node and pnpm toolchain, MUST bind pnpm's content-addressable store to the repo-local `.pnpm-store` path through project configuration, MUST run without requiring a TTY or interactive confirmation, and MUST use a frozen lockfile. `frontend-install` is an install/readiness target, not a dependency-update target; if `pnpm-lock.yaml` is out of sync with workspace manifests, the target MUST fail with `failure_class=config`, `failure_reason=configuration_error`, and public exit code `2` rather than mutating the lockfile. `frontend-lockfile-update` is a separate helper-only explicit update operation. It serializes with installation, uses pinned repo-local pnpm with lockfile-only and scripts disabled, invalidates installed readiness, and updates only the dependency lockfile and package-manager store. Ordinary installation remains frozen. The bundled CLI help probe runs through Make-owned harness qualification. A package-manager repair that purges and recreates repo-local `node_modules` is allowed only as part of this non-interactive install contract and only for repo-local workspace dependency roots.
 Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-014, TH-HARNESS-AC-023
 
 **TH-HARNESS-REQ-116**
@@ -3006,7 +3012,7 @@ classification. The error markers are harness-owned, not public API errors.
 
 The frontend visual fixture registry is exhaustive only for the semantic fixtures and design projections it explicitly declares. It is not an inventory of every active screenshot assertion or committed golden. An active screenshot and golden MAY have no fixture-registry mapping when its catalog row and emitted capture intent establish an exact consumer. Registry absence alone MUST NOT classify an active golden as drift or an orphan, and a harness MUST NOT manufacture a fixture ID from a filename, title, or path. Every declared registry fixture and every path named by that fixture MUST still reconcile exactly.
 
-Each completed `browser-e2e-visual` attempt MUST retain exactly one non-claim-bearing `cartulary.frontend_visual_reconciliation.v3` artifact. The artifact MUST be a schema-closed JSON object containing `schema_id`, `status`, `renderer`, `golden_manifest`, `source_refs`, `capture_intents`, `goldens`, `counts`, `artifact_refs`, and `errors`. `status` is exactly `pass` or `fail`. `renderer` MUST attest the one active `cartulary.frontend_visual_renderer_profile.v1`; every capture intent MUST name that profile. `golden_manifest` MUST identify and validate the current `cartulary.frontend_visual_golden_manifest.v1`. `source_refs` MUST identify the authored catalog/family inputs, visual fixture registry, renderer profile, golden manifest, Playwright project/snapshot template, and screenshot-helper source used by the run; it MUST NOT use Markdown as executable input. Reconciliation v1 and v2 are historical diagnostic inputs only and MUST NOT be emitted or accepted as current evidence.
+Each completed `browser-e2e-visual` attempt MUST retain exactly one non-claim-bearing `cartulary.frontend_visual_reconciliation.v3` artifact. The artifact MUST be a schema-closed JSON object containing `schema_id`, `status`, `renderer`, `golden_manifest`, `source_refs`, `capture_intents`, `goldens`, `counts`, `artifact_refs`, and `errors`. `status` is exactly `pass` or `fail`. `renderer` MUST attest the one active `cartulary.frontend_visual_renderer_profile.v2`; every capture intent MUST name that profile. `golden_manifest` MUST identify and validate the current `cartulary.frontend_visual_golden_manifest.v1`. `source_refs` MUST identify the authored catalog/family inputs, visual fixture registry, renderer profile, golden manifest, Playwright project/snapshot template, and screenshot-helper source used by the run; it MUST NOT use Markdown as executable input. Reconciliation v1 and v2 are historical diagnostic inputs only and MUST NOT be emitted or accepted as current evidence.
 
 Each `capture_intents[]` item MUST contain a stable `capture_id`, exact catalog `row_id`, stable `scenario_id`, `project_id`, screenshot assertion location, semantic `capture_intent`, and the normalized repo-relative `expected_golden_path`. One assertion that intentionally emits multiple captures MUST emit one item per expected path. Each `goldens[]` item MUST contain `golden_path`, `sha256` or `null` when the expected file is absent, exact `consumer_capture_ids[]`, `catalog_row_ids[]`, `scenario_ids[]`, `project_ids[]`, `fixture_ids[]`, non-Playwright `consumer_refs[]`, and `classification`. `fixture_ids[]` MAY be empty for an active nonregistry golden. `classification` is exactly `active`, `orphan`, `missing_golden`, or `ambiguous_mapping`.
 
@@ -3014,7 +3020,7 @@ Reconciliation MUST derive expected paths from runtime capture intent plus the s
 
 Reconciliation MUST fail with `status=fail` when an active intent has no committed golden, an expected or committed path maps ambiguously, a selected assertion/catalog/scenario/project reference does not resolve exactly, or a declared registry fixture/path does not resolve. An `orphan` classification MUST identify a committed PNG with zero Playwright and zero declared non-Playwright consumers; it is a review input and MUST block blind refresh or movement but MAY proceed to an authorized deletion slice. The artifact remains implementation-readiness evidence and MUST NOT satisfy product conformance, design conformance, release, or Core 05 publication gates.
 
-The one executable visual renderer profile is image `mcr.microsoft.com/playwright@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645` on `linux/amd64`, Playwright `1.59.1`, Chromium revision `1217` and version `147.0.7727.15`, vendored-font manifest SHA-256 `c21f8663e6c8fe72681b2be644aa8398538afc59a0f0cda06b94d46d5fbba5fe`, locale `en-US`, device scale factor `1`, and default color scheme `light`. Existing per-capture viewport, zoom, and reduced-motion settings remain capture-owned. Visual validation and refresh MUST use a harness-owned Playwright server from that digest-pinned container. The server MUST run non-root without a repository mount, publish only its unguessable endpoint on host loopback, expose the client loopback through Playwright's remote-network forwarding only for the harness-owned local services, retain no server log containing page data, and be stopped on success, failure, cancellation, or signal. The observed image architecture, Playwright/Chromium identity, and font manifest MUST match the profile before a test begins. Docker/image absence, renderer death, profile mismatch, or user-supplied endpoint/profile input is a fail-closed harness error. Nonvisual browser targets retain the host Playwright browser.
+The one executable visual renderer profile is image `mcr.microsoft.com/playwright@sha256:bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7` on `linux/amd64`, Playwright `1.63.0`, Chromium revision `1243` and version `153.0.8010.12`, vendored-font manifest SHA-256 `c21f8663e6c8fe72681b2be644aa8398538afc59a0f0cda06b94d46d5fbba5fe`, locale `en-US`, device scale factor `1`, and default color scheme `light`. Existing per-capture viewport, zoom, and reduced-motion settings remain capture-owned. Visual validation and refresh MUST use a harness-owned Playwright server from that digest-pinned container. The server MUST run non-root without a repository mount, publish only its unguessable endpoint on host loopback, expose the client loopback through Playwright's remote-network forwarding only for the harness-owned local services, retain no server log containing page data, and be stopped on success, failure, cancellation, or signal. The observed image architecture, Playwright/Chromium identity, and font manifest MUST match the profile before a test begins. Docker/image absence, renderer death, profile mismatch, or user-supplied endpoint/profile input is a fail-closed harness error. Nonvisual browser targets retain the host Playwright browser.
 
 `browser-e2e-visual-update` MUST use the same visual row selection, runtime-profile session grouping, renderer profile, and service lifecycle as direct `browser-e2e-visual`, with Playwright snapshot update mode enabled for every selected group. Other renderer profiles are unsupported for committed refreshes. The target MUST remain helper-only, MUST NOT be selected by `check`, `test`, `ci`, release gates, or either owner-slice command, and MUST NOT emit passing `browser-e2e-visual` target or owner-accounting evidence. An update MUST copy the complete committed snapshot directory into run-scoped scratch space and write only there while groups execute. The harness MUST validate all selected groups, reconciliation v3, the complete candidate golden manifest, schema shape, and renderer identity before atomically promoting the candidate snapshot directory and manifest. Failure at any earlier point MUST leave tracked bytes unchanged; promotion failure MUST restore the prior directory and manifest. Its authored writes are limited to committed Playwright visual goldens under `apps/web/e2e/workbook.visual.spec.ts-snapshots/` and `tools/frontend_visual_golden_manifest.json`. A refresh record MUST name its accepted trigger, affected row and fixture IDs, changed golden paths, capture-contract changes or their explicit absence, reviewer outcome, and the later ordinary visual validation root. A refresh is complete only after changed images are reviewed and two fresh later `browser-e2e-visual` runs pass with screenshot comparisons active against the same manifest. Refresh artifacts remain implementation-readiness evidence and MUST NOT satisfy product conformance, design conformance, release, or Core 05 publication gates.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-022
@@ -3547,7 +3553,7 @@ rules; schema files are projections.
 | Schema ID | Role and lifetime |
 | --- | --- |
 | `cartulary.ui_review_session.v1` | Retained mutable locator from Section 6. |
-| `cartulary.ui_review_action.v2` | Private caller request from Section 11.11. |
+| `cartulary.ui_review_action.v3` | Private caller request from Section 11.11. |
 | `cartulary.ui_review_capture_request.v1` | Private caller request from Section 8.4. |
 | `cartulary.ui_review_analysis_request.v1` | Private caller request from Section 8.6. |
 | `cartulary.ui_review_command_result.v2` | Transient finite-command stdout/result; contains local private references. |
@@ -3599,8 +3605,8 @@ an unclassified cause uses `preparation_failed`, preserving its known phase.
 Result and receipt v1 have no compatibility reader. Drain active sessions with
 the old implementation before a coordinated v2 upgrade or rollback. Existing
 receipts remain immutable; locator, capture/analysis request and bundle versions are unchanged. The action
-request uses v2 to add the fixed CSS zoom action for rendered qualification;
-there is no action-v1 compatibility reader.
+request uses v3 for bounded diagnostics and retains the fixed CSS zoom action;
+there is no action-v1 or action-v2 compatibility reader.
 `PrivateRef` is `{kind, absolute_path}` with kind `bundle`, `image`, `observations`,
 or `report`; the path is validated beneath this session's private root.
 
@@ -3812,6 +3818,9 @@ sheets name every input in display order.
 | Bundle | At most 64 files and 128 MiB total referenced local bytes. Reject publication when exceeded; no implicit truncation of required components. |
 | Session private outputs | At most 512 MiB and 100 published bundles. New work fails `resource_conflict` before exceeding either cap; no automatic eviction. |
 | Private JSON component | At most 8 MiB encoded. Required component overflow is `artifact_error`. |
+| Canonical Playwright report input | At most 32 MiB encoded. The bounded producer report is parsed only for exact capture joins; it is not copied into a private bundle. Selected JSON components retain the 8 MiB limit. |
+| Canonical trace component | At most 32 MiB encoded; retained as opaque ZIP bytes without extraction. Copied trace bytes count against the unchanged bundle and session limits. |
+| Diagnostic helper scratch | At most 16 MiB, 256 directory entries and 16 directory levels. The owner monitors this private temporary tree, rejects symlinks and cancels on overflow; upstream output settings alone are insufficient. |
 | Report | At most 32 MiB HTML; generated assets count against session storage. Oversize report is `artifact_error`. |
 
 Media encoders' metadata MUST NOT inject filesystem paths or timestamps into
@@ -4918,8 +4927,9 @@ by its current receipt/cache contract.
 Every costly review operation, including PNG validation/import and report
 construction, MUST execute in an owned cancellable worker under host admission.
 The authored topology owns `ui_review_raster` claims of 1 CPU, 1 process and
-1024 MiB, and `ui_review_report` claims of 1 CPU, 1 process and 512 MiB.
-Both profiles also declare 1 IO token, matching executable-profile requirements.
+1024 MiB, `ui_review_report` claims of 1 CPU, 1 process and 512 MiB, and
+`ui_review_diagnostic` claims of 1 CPU, 1 IO, 2 processes and 512 MiB.
+Each profile declares 1 IO token, matching executable-profile requirements.
 Workers are single-operation; separate sessions may execute concurrently only
 when their aggregate numeric reservations fit the effective CPU, process and
 memory capacities. Scheduled host-activity participants declare their existing
@@ -5653,17 +5663,18 @@ Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS
 
 **TH-HARNESS-REQ-417**
 The request is a closed object with exactly
-`schema_id="cartulary.ui_review_action.v2"`, `expected_epoch`, `action`, and
+`schema_id="cartulary.ui_review_action.v3"`, `expected_epoch`, `action`, and
 `parameters`. `expected_epoch` is a nonnegative integer. A mismatch fails with
 `configuration_error` before admission; callers MUST take a new snapshot after
 another actor changes the session. `parameters` is the closed variant selected
 by `action` below. A browser adapter MUST translate these operations to the
-pinned Playwright API adapter and MUST NOT expose the driver's arbitrary-code or
-arbitrary-endpoint entry points.
+pinned Playwright API adapter, except for the bounded CLI diagnostic below, and
+MUST NOT expose arbitrary-code or arbitrary-endpoint entry points.
 
 | Action | Exact parameters | Observable behavior |
 | --- | --- | --- |
 | `snapshot` | `{}` | Observe the current page; return epoch and private accessibility/element observations without changing viewport, scroll, or focus. |
+| `diagnostic_snapshot` | `{}` | Snapshot the exact current page through the bundled CLI; preserve epoch, actionable references, focus, scroll, viewport, authentication and application state. |
 | `navigate` | `path: string` | Navigate within the selected origin to a path starting with one `/`; reject `//`, backslash, fragment, credentials, and origin changes. Length 1–2048 UTF-8 bytes. Query text remains private. |
 | `click` | `target: Target` | Perform one primary-button click after Playwright actionability checks. No force option. |
 | `fill` | `target: Target`, `text: string` | Fill one editable target; allow empty text; maximum 16384 UTF-8 bytes. The text is never retained. |
@@ -5675,13 +5686,47 @@ arbitrary-endpoint entry points.
 | `focus` | `target: Target` | Focus the uniquely resolved focusable target and return the observed active-element identity. |
 | `authenticate` | `actor: enum` | Seeded mode only; actors `admin`, `editor`, `viewer`, `empty` resolve through the private seed owner. Use ordinary application authentication; no credential output or authorization bypass. |
 
-The v2 action request adds `zoom` with exactly `{percent: 100}` or
+The v3 action request retains `zoom` with exactly `{percent: 100}` or
 `{percent: 125}`. It sets only the document root's CSS zoom, advances the action
 epoch and invalidates element references as other page mutations do. It does not
 change device scale, browser zoom, page content or focus directly. Observations
 continue to report CSS zoom and viewport/device scales separately. Other values,
 unknown fields and arbitrary script input are rejected before page mutation.
 This supports the workbook's required responsive focus qualification.
+
+The v3 request adds only `diagnostic_snapshot`. Superseded action requests have
+no compatibility reader. This operation uses the existing session lock, expected
+epoch, origin restrictions and operation deadline. Artifact mode rejects it. The
+API adapter remains the sole owner of actions, authentication, actionable element
+references, captures and canonical evidence. Upstream CLI references are diagnostic
+text only, returned in the existing private observations accessibility snapshot.
+
+The private diagnostic adapter MUST bind the already-owned browser using its
+supported binding API on loopback, attach to that exact endpoint, prove that the
+same single context and page are shared, snapshot, detach and unbind. It MUST NOT
+launch another browser or connect to canonical visual-renderer endpoints. Ambiguous
+attachment and diagnostic failures fail closed without an API fallback represented
+as CLI success. Only fixed attach, snapshot and detach commands are admitted; no
+caller arguments, code, configuration, storage, profiles or paths are forwarded.
+The pinned local executable, explicit private configuration, isolated configuration
+and cache roots, allowlisted environment and owner-only output directories exclude
+ambient CLI/MCP configuration. No automatic installation, global package or global
+cleanup command is permitted. Helper admission is charged to the existing resource
+owner. Stop takes cancellation priority. All acquired helper processes are recorded
+with exact process identity, reaped and detached without terminating the owned
+browser. Cleanup failures remain observable and preserve minimal recovery proof. Before
+CLI spawn the owner records a private random operation nonce and boot/start/UID
+proof; only that child environment inherits the nonce. This bounds recovery of
+the detached daemon before its PID is returned, without a global registry or
+requiring Playwright during stop. Linux directory-descriptor paths may shorten
+private Unix socket names without moving files out of session storage.
+
+The owner may keep one bounded latest diagnostic failure detail in session-private
+storage, replaced on each failure and removed by exact-session stop. Its maximum
+size is 64 KiB. Stage, controlled error category and process exit status may support
+test diagnostics; upstream messages, command output, endpoints and page content
+remain private. A failed operation still has no public private-reference result,
+and failure-detail publication cannot replace the primary failure.
 
 `Target` is a tagged union: `{kind:"test_id", value:string}`,
 `{kind:"role", role:string, name:string}`, or
@@ -5699,7 +5744,7 @@ navigation or a new browser action invalidates them.
 `Backspace`, `Delete`, `Control+A`, `Control+C`, or `Control+V`. Clipboard content
 remains private. Other keys require a later interface revision. Uploads, downloads,
 new tabs, popup control, network mocking, browser storage mutation, and direct API
-seeding are not v1 actions. An unexpected dialog or new tab fails the action;
+seeding are not supported actions. An unexpected dialog or new tab fails the action;
 the adapter does not accept a dialog, switch tab, or retry implicitly.
 
 Dev authentication occurs through the same explicit UI actions as ordinary use;
@@ -5708,7 +5753,7 @@ ambient cookies. Seeded authentication is fixture preparation only. It advances
 the epoch and clears the prior private context before establishing the requested
 actor, so roles never share storage accidentally.
 
-Verified by: TH-HARNESS-AC-109, TH-HARNESS-AC-113, TH-HARNESS-AC-129
+Verified by: TH-HARNESS-AC-109, TH-HARNESS-AC-113, TH-HARNESS-AC-129, TH-HARNESS-AC-133
 
 ## 12. Test-Only Harness Routes
 
@@ -6419,14 +6464,38 @@ Verified by: TH-HARNESS-AC-092
 Harness diagnostics MAY report Linux inotify `max_user_watches`, `max_user_instances`, best-effort current watcher usage, and bounded operator diagnostics. The harness MUST NOT mutate host sysctl settings.
 
 
+The authored renderer profile is the sole machine projection of approved renderer
+values. Profile v2 validates structure independently of the current identity;
+consumers MUST validate the exact active profile and aligned root and web package
+dependency chains through manifest-rooted Node resolution. Installation paths MUST
+NOT depend on pnpm store naming. The lease passes its schema-validated active
+profile as harness-private JSON to browser configuration and assertions; those
+consumers verify its attestation and profile ID without importing the harness
+implementation into the frontend dependency graph. Readiness verifies all three Playwright packages,
+their resolved nested engines and installation receipts. Before attesting readiness,
+the lease verifies the immutable image digest, image platform, copied package
+versions, packaged browser revision, observed browser version, font manifest and
+font-file integrity. Capture additionally verifies served fonts from the sealed
+frontend artifact and successful font loading. Unverified expected values do not
+constitute observed provenance. Renderer attestation v1 retains the active profile
+and observed image ID/reference/platform, package versions, browser revision and
+version, manifest digest and individual font-file hashes. Reconciliation validates
+the closed envelope and compares its observations with the active profile; old
+profile-only attestations cannot close current gates.
+Release is bounded, idempotent and exact to the
+owned container, and succeeds only after confirmed removal. Acquisition, publication
+and signal failures enter the same cleanup path; primary failures remain primary
+and cleanup-only failures use cleanup_error.
+
 ### 14.1 UI review toolchain
 
 **TH-HARNESS-REQ-552**
 The core UI review profile uses Node 24.15.0, pnpm 10.33.0, Playwright and
-playwright-core 1.59.1, Sharp 0.35.4, @axe-core/playwright 4.13.0, and axe-core
+playwright-core 1.63.0, Sharp 0.35.4, @axe-core/playwright 4.13.0, and axe-core
 4.13.0. Package lock integrity fixes native and transitive dependencies. The
-browser is the repository-installed Chromium 1217 (147.0.7727.15). No standalone
-Playwright CLI is installed. The API adapter owns private browser interactions.
+browser is the repository-installed Chromium 1243 (153.0.8010.12). No standalone
+Playwright CLI is installed. The bundled CLI supplies only the private diagnostic
+operation in Section 11.11; the API adapter owns browser interactions.
 
 Bootstrap installs the profile through repository-pinned package tooling; doctor
 checks installed versions without installing. Review work commands fail before
@@ -6445,7 +6514,8 @@ data-producing commands retain the complete core profile.
 
 Supported execution remains Linux/WSL2 amd64. Package updates require explicit
 qualification of action, PNG, transparency, accessibility, privacy, and lifecycle
-contracts before changing pins. The canonical renderer profile is unchanged.
+contracts before changing pins. A browser/image change adopts a new canonical
+renderer identity; unchanged verified font bytes retain their digest.
 Legacy/unversioned review files and superseded canonical schemas have no reader,
 alias, translation, or newest-file fallback. Current capture intent v2,
 reconciliation v3, fixture registry v6, browser group v6 and target v4 are the
@@ -6465,7 +6535,7 @@ mask declarations; absent declarations allow only an explicitly requested refere
 comparison. All borrowed input bytes are snapshotted into the private bundle.
 
 
-Verified by: TH-HARNESS-AC-103, TH-HARNESS-AC-114, TH-HARNESS-AC-115, TH-HARNESS-AC-128
+Verified by: TH-HARNESS-AC-103, TH-HARNESS-AC-114, TH-HARNESS-AC-115, TH-HARNESS-AC-128, TH-HARNESS-AC-132, TH-HARNESS-AC-133
 
 ## 15. Security and Redaction
 
@@ -6639,6 +6709,13 @@ have no legacy reader or persistent migration.
 Verified by: TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015
 
 Screenshots, videos, traces, visual geometry diagnostics, and Playwright HTML reports are diagnostic secret-bearing artifacts. They MUST NOT be described as safe to upload or publish without separate review. Browser visual targets MAY retain compact geometry diagnostics for workbook screenshot failures, including scroll metrics, visible field keys, required element rectangles, active element identity, and inspector state. Those diagnostics are harness mechanics only; they MUST NOT define product UI behavior or supplement the bounded visual-snapshot refresh authority in TH-HARNESS-REQ-255.
+
+The browser runner owns its exact detached child process group through boot/start
+identity proof. Cleanup drains that group, including descendants after leader exit,
+before removing the pinned producer's temporary `.playwright-artifacts-<worker>`
+trees. These unpacked working traces MUST NOT become retained evidence after
+success, failure or interruption. Completed report attachments remain diagnostic
+artifacts; cleanup must neither broaden deletion nor conceal the primary failure.
 
 Workbook visual regression tests that capture an outer grid shell while driving an inner grid scrollport MUST normalize and verify both layers before assertion. The screenshot-target shell MUST be reset to `scrollLeft=0` and `scrollTop=0` for left/default viewport captures unless a test explicitly declares a different shell-scroll contract, while the owned grid scrollport MUST be normalized to the test's declared scroll or anchor state. Anchor-based captures that intentionally frame off-screen workbook columns are explicit shell-scroll contracts and MUST still reset stale shell state before computing their deterministic offset. The diagnostic record MUST identify the screenshot target and both shell and scrollport metrics; exact human wording is non-normative. This normalization is harness mechanics only; it does not promote refresh output into product conformance, design conformance, release, or Core 05 publication evidence.
 
@@ -7229,6 +7306,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-129 | All UI review requirements listed in Section 17.1 | Full seeded editor/viewer review and artifact reimport; separate dev capture | Navigate, act, capture, analyze, inspect report, and stop through public Make; source and lifecycle claims agree in all three modes. | No catalog accounting, committed goldens, or unrelated worktree files changed; dev data changes only through explicit requested UI actions, never lifecycle reset/cleanup. |
 | TH-HARNESS-AC-130 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311 | Valid tools with empty optimization caches; missing/stale installation proof; wrong pins, damaged packages, missing browser/images; missing/outdated source outputs | Readiness validates installed state; current artifacts build without smoke warm-up; missing prerequisites identify phase/subject/condition/recovery before services. | No installer, download, image pull, ambient fallback or stale-source ready publication. |
 | TH-HARNESS-AC-131 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311, TH-HARNESS-REQ-616 | Each preparation phase fails through real child/IPC boundaries; malformed/conflicting envelope; cancellation, child death, and secondary cleanup failure | Exact normalized primary cause and closed context survive human output, v2 receipt and repeated stop; unknown remains unknown. | Private sentinels never retained; all independent cleanup attempted; immutable terminal repetition. |
+| TH-HARNESS-AC-132 | TH-HARNESS-REQ-022, TH-HARNESS-REQ-552 | Package/layout mismatch, invalid renderer identity, font corruption, partial acquisition and failed exact removal | Readiness fails closed; observed identity matches approved profile; cleanup retries exactly the owned resource. | No copied expectation constitutes unverified provenance; cleanup-only failure cannot pass. |
+| TH-HARNESS-AC-133 | TH-HARNESS-REQ-417, TH-HARNESS-REQ-552 | CLI same-page/authentication, hostile configuration, read-only state, malformed output, cancellation and daemon recovery | Snapshot is private text; epoch, API references, page/context and browser ownership are preserved. | No second browser, arbitrary CLI command, public private text, or success after incomplete cleanup. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include
@@ -7236,7 +7315,27 @@ omitted vs null vs empty values, unknown fields, duplicate JSON keys, non-finite
 numbers, wrong schema IDs, duplicate refs, and each allowed enum boundary. These
 are independent obligations even if several are covered by one implementation test.
 
-### 17.1 Requirement-to-Acceptance Traceability
+
+### 17.1 Playwright diagnostics amendment acceptance
+
+TH-HARNESS-REQ-022, TH-HARNESS-REQ-417 and TH-HARNESS-REQ-552 additionally
+require mismatch tests for each resolved package, stale installation receipts,
+invalid/stale renderer profiles, alternate Node package layouts, wrong image
+architecture/digest, browser revision/version and font bytes. Lifecycle evidence
+MUST inject acquisition, publication and exact removal failures and show that
+independent cleanup continues. Diagnostic acceptance MUST prove same-page
+authentication, unchanged state and context/page counts, hostile ambient
+configuration isolation, private sentinels, bounded malformed output, cancellation,
+concurrent sessions, actor changes, daemon death, PID reuse and minimal stop
+readiness. Upgrade qualification covers normalized passed, failed, skipped,
+missing, duplicate and ambiguous report observations, PNG/transparency, clipboard
+and exact capture attachment mapping. The pinned report adapter applies upstream
+screenshot-name normalization and truncation only within an exactly joined test
+result; normalized-name collisions fail closed instead of guessing an ordinal.
+Visual acceptance requires reviewed changes
+and two fresh ordinary passes against the same final golden manifest.
+
+### 17.2 Requirement-to-Acceptance Traceability
 
 | Requirement range         | Owner section                      | Acceptance criteria                                     |
 | ------------------------- | ---------------------------------- | ------------------------------------------------------- |

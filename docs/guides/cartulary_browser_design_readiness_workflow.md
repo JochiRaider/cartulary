@@ -17,7 +17,7 @@ Base/extension conformance, release readiness, or Core 05 publication claims.
 The UI-review interface uses the pinned Playwright API, Sharp and axe. Run
 `make doctor` to inspect readiness and `make bootstrap` to install missing pinned
 dependencies. Review commands never install tools. The supported qualification is
-Linux x64 on WSL2, Node 24.15.0, Playwright 1.59.1 / Chromium 1217,
+Linux x64 on WSL2, Node 24.15.0, Playwright 1.63.0 / Chromium 1243,
 Sharp 0.35.4 and axe 4.13.0. Optional OCR, Python, video and hosted analysis are
 outside this workflow.
 
@@ -29,8 +29,8 @@ installs packages, downloads tools/browsers, or pulls service images. Use the
 closed recovery guidance printed with the failure's phase, subject, and condition.
 A missing or stale frontend installation proof requires `make frontend-install`.
 
-Command results, receipts and browser action requests use v2. The action contract
-adds `zoom` with `percent` of 100 or 125 for CSS zoom qualification. Capture/analysis
+Command results and receipts use v2; browser action requests use v3. The action
+contract retains `zoom` with `percent` of 100 or 125 and adds `diagnostic_snapshot`. Capture/analysis
 requests, bundles and locators retain their existing versions. Before upgrading or rolling back, stop each active session
 through its exact locator using the currently running implementation and confirm
 complete cleanup. Upgrade producers and consumers together, run explicit setup
@@ -68,7 +68,7 @@ Create request files outside documentation paths, with directories 0700 and file
 request is:
 
 ```json
-{"schema_id":"cartulary.ui_review_action.v2","expected_epoch":0,"action":"snapshot","parameters":{}}
+{"schema_id":"cartulary.ui_review_action.v3","expected_epoch":0,"action":"snapshot","parameters":{}}
 ```
 
 Submit it using `make ui-browser UI_SESSION=<exact-session.json>
@@ -80,6 +80,29 @@ Targets may also be exact test IDs or exact role/name pairs. Zero or multiple
 matches fail; the interface never selects a first match. After an action timeout,
 take a fresh snapshot before deciding what to do next; never blindly replay an
 action with uncertain effects.
+
+For a bundled-CLI accessibility snapshot of the current page, submit the same
+`ui-browser` command with a v3 request containing `action: "diagnostic_snapshot"`
+and `parameters: {}`. It preserves the epoch, existing actionable references,
+focus, scroll and viewport. Read its text through the returned observations link.
+CLI reference labels in that text are diagnostic only: obtain actionable
+Cartulary element references with the ordinary `snapshot` operation. Artifact
+mode rejects browser diagnostics. A diagnostic failure is an explicit failure.
+
+The private adapter binds the owned browser, attaches, snapshots and detaches for
+one operation. It does not expose upstream commands, profiles, endpoints or
+configuration. No global package or upstream agent skill is needed. Do not invoke
+the bundled CLI directly against review or canonical-renderer endpoints. All CLI
+output expires with session detail; stop and recovery use the same exact locator.
+A failed diagnostic may leave one bounded private troubleshooting record until
+session stop. Keep that detail out of retained logs and shared findings.
+
+For an intentional future dependency upgrade, amend the owner and renderer
+profile first, then use `make frontend-lockfile-update` and `make frontend-install`.
+The ordinary install stays frozen. `make playwright-install` installs the matching
+browser and renderer image. Stop live sessions before replacing their toolchain;
+never carry browser state through a cutover. Use `make help-all` for current setup
+and qualification routing.
 
 The page capture request below defaults to the viewport and includes advisory axe
 analysis. It observes rendered nodes without moving focus or scrolling. Reveal

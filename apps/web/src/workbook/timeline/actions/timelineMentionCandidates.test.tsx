@@ -556,7 +556,6 @@ it("Mention server-invalid continuation retains failed identity and requires Res
       kind: "validation" as const,
       message: "Invalid cursor",
       publicCode: "invalid_pagination_request",
-      publicReason: "invalid_cursor_token" as const,
     },
   };
   const page = vi

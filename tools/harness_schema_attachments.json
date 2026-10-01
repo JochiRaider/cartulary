@@ -219,8 +219,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_renderer_profile.v1",
-      "path": "tools/schemas/cartulary.frontend_visual_renderer_profile.v1.schema.json",
+      "schema_id": "cartulary.frontend_visual_renderer_attestation.v1",
+      "path": "tools/schemas/cartulary.frontend_visual_renderer_attestation.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "canonical renderer lease",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_visual_renderer_profile.v2",
+      "path": "tools/schemas/cartulary.frontend_visual_renderer_profile.v2.schema.json",
       "classification": "owner_input",
       "producer": "browser visual renderer owner",
       "validation": "json-shape-check"
@@ -990,8 +997,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.ui_review_action.v2",
-      "path": "tools/schemas/cartulary.ui_review_action.v2.schema.json",
+      "schema_id": "cartulary.ui_review_action.v3",
+      "path": "tools/schemas/cartulary.ui_review_action.v3.schema.json",
       "classification": "owner_input",
       "producer": "UI review harness",
       "validation": "json-shape-check"

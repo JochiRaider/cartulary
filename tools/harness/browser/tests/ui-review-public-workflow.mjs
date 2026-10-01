@@ -6,7 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { repoRoot } from "../ui-review/policy.mjs";
 import { schemaID, validate } from "../ui-review/contract.mjs";
-import { digest } from "../ui-review/session-files.mjs";
+import { digest, readLocator, resolveSession } from "../ui-review/session-files.mjs";
+import { readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { importFixture } from "./ui-review-import-fixture.mjs";
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -24,14 +25,22 @@ function make(args, env) {
 export async function publicWorkflow({ seeded = false, profile = "default", resultsRoot, runID = "workflow" } = {}) {
   assert.ok(["default", "network_flow_claimed"].includes(profile));
   const privateRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-public-workflow-"));
-  const env = { ...cleanEnvironment(), CARTULARY_READINESS_CACHE_DIR: path.join(privateRoot, "readiness-cache"), CARTULARY_BUILD_CACHE_DIR: path.join(privateRoot, "build-cache") }, privateRefs = [], manifests = [], sentinel = "review-private-sentinel-392884";
+  const env = { ...cleanEnvironment(), PLAYWRIGHT_MCP_CONFIG: "/no-ambient-cli-config", PWTEST_CLI_GLOBAL_CONFIG: "/no-ambient-global-config", PLAYWRIGHT_CLI_SESSION: "unowned-session", CARTULARY_READINESS_CACHE_DIR: path.join(privateRoot, "readiness-cache"), CARTULARY_BUILD_CACHE_DIR: path.join(privateRoot, "build-cache") }, privateRefs = [], manifests = [], sentinel = `review-private-sentinel-${runID}`;
   let server, running, locator, requestIndex = 0;
   const invoke = async (command, value, extra = []) => {
     let inputs = [];
     if (value) { const file = path.join(privateRoot, `request-${++requestIndex}.json`); writeFileSync(file, JSON.stringify(value), { mode: 0o600 }); inputs = [`UI_REQUEST=${file}`]; }
     const response = await make([command, `UI_SESSION=${locator}`, ...inputs, ...extra], { ...env, CARTULARY_OUTPUT_MODE: "machine" }).ended;
     const result = validate("command_result", JSON.parse(response.output));
-    assert.equal(result.status, "ok", `${command}: ${JSON.stringify(result.failures)}`); assert.equal(response.code, 0);
+    let diagnostic = "";
+    if (result.status !== "ok" && command === "ui-browser" && value?.action === "diagnostic_snapshot") {
+      try {
+        const record = resolveSession(readLocator(locator));
+        const detail = JSON.parse(readLocalFile(path.join(record.runtime.root, "artifacts", "diagnostic-failure.json"), { maximum: 65536 }));
+        if (detail.operation_id === result.operation_id) diagnostic = JSON.stringify({ stage: detail.stage, cause_name: detail.cause_name, cause_code: detail.cause_code, command: detail.last_command?.command, exit_status: detail.last_command?.status });
+      } catch { diagnostic = "private diagnostic unavailable"; }
+    }
+    assert.equal(result.status, "ok", `${command}: ${JSON.stringify(result.failures)} ${diagnostic}`); assert.equal(response.code, 0);
     privateRefs.push(...result.private_refs.map((ref) => ref.absolute_path));
     return result;
   };
@@ -59,6 +68,12 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
     const action = async (name, parameters = {}) => { const result = await invoke("ui-browser", { schema_id: schemaID("action"), expected_epoch: epoch, action: name, parameters }); epoch = result.epoch; return result; };
     const review = async () => {
       await action("snapshot");
+      const before = epoch;
+      const diagnostic = await action("diagnostic_snapshot");
+      assert.equal(epoch, before);
+      const observations = JSON.parse(readFileSync(diagnostic.private_refs[0].absolute_path, "utf8"));
+      assert.ok(observations.accessibility_snapshot.length > 0);
+      if (!seeded) assert.ok(observations.accessibility_snapshot.includes(sentinel));
       const captured = await invoke("ui-capture", { schema_id: schemaID("capture_request"), source: "page", expected_epoch: epoch });
       const file = captured.private_refs[0].absolute_path, bytes = readFileSync(file), bundle = JSON.parse(bytes); manifests.push([file, digest(bytes)]);
       assert.equal(bundle.source.kind, seeded ? "sealed_review" : "live_unattested");

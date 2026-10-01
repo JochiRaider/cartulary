@@ -8936,9 +8936,10 @@ test("a11y.contextual-create target fields reference cancellation and retained r
         name: "Choose Owner",
         exact: true,
       });
-      const ownerSelect = ownerPicker.getByTestId(
-        "contextual-reference-task.owner_user_id",
-      );
+      const ownerSelect = ownerPicker.getByRole("combobox", {
+        name: "Owner",
+        exact: true,
+      });
       await expect(ownerSelect).toBeEnabled();
       await expect(ownerSelect).toHaveValue(actor.user_id);
       await expect(ownerPicker.getByRole("list")).toContainText(

@@ -20,8 +20,8 @@
     "fallow": "2.93.0",
     "json-schema-to-typescript": "15.0.4",
     "markdownlint-cli2": "0.22.1",
-    "playwright": "1.59.1",
-    "playwright-core": "1.59.1",
+    "playwright": "1.63.0",
+    "playwright-core": "1.63.0",
     "sharp": "0.35.4",
     "typescript": "6.0.2"
   }

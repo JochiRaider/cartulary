@@ -20,6 +20,7 @@ import {
 import { groupRowsByPerformanceFixture } from "../performance-fixture/index.mjs";
 import { reportCommandFailure } from "../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
+import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
@@ -28,6 +29,7 @@ import { attachmentAssignments } from "./browser-session-evidence.mjs";
 import { collectFrontendMeasurementObservations } from "./frontend-measurement-evidence.mjs";
 import { startVisualRendererLease } from "./visual-renderer-lease.mjs";
 import { stageVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
+import { removePlaywrightWorkingTraces } from "./playwright-output-cleanup.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -261,18 +263,14 @@ async function main() {
     group.kind === "visual"
       ? await startVisualRendererLease({ root, environment: process.env })
       : null;
-  if (rendererLease !== null) {
-    secureWriteFile(
-      path.join(artifactRoot, "renderer-profile-attestation.json"),
-      `${JSON.stringify(rendererLease.profile, null, 2)}\n`,
-    );
-  }
-  const onSignal = (exitCode) => {
-    rendererLease?.cleanup();
-    process.exit(exitCode);
+  let captureProof, captureStop, signalCleanupError, interruptedSignal;
+  const onSignal = (signal) => {
+    interruptedSignal ??= signal;
+    if (captureProof) captureStop ??= stopOwnedProcess(captureProof).catch((error) => { signalCleanupError = error; });
+    try { rendererLease?.cleanup(); } catch (error) { signalCleanupError = error; }
   };
-  const onInterrupt = () => onSignal(130);
-  const onTerminate = () => onSignal(143);
+  const onInterrupt = () => onSignal("SIGINT");
+  const onTerminate = () => onSignal("SIGTERM");
   process.once("SIGINT", onInterrupt);
   process.once("SIGTERM", onTerminate);
   const startedAt = new Date().toISOString();
@@ -281,8 +279,16 @@ async function main() {
   let primaryError;
   let cleanupError;
   try {
+  if (rendererLease !== null) {
+    secureWriteFile(
+      path.join(artifactRoot, "renderer-profile-attestation.json"),
+      `${JSON.stringify(rendererLease.attestation, null, 2)}\n`,
+    );
+  }
     child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
       cwd: root,
+      detached: true,
+      onSpawn: (process) => { captureProof = ownedProcess(process.pid); if (interruptedSignal) onSignal(interruptedSignal); },
       env: {
         ...process.env,
         ...(rendererLease?.environment ?? {}),
@@ -307,6 +313,12 @@ async function main() {
     primaryError = error;
     throw error;
   } finally {
+    await captureStop;
+    cleanupError ??= signalCleanupError;
+    try {
+      if (captureProof) await stopOwnedProcess(captureProof);
+      removePlaywrightWorkingTraces(path.join(artifactRoot, "playwright-output"));
+    } catch (error) { cleanupError ??= error; }
     for (const release of [() => child?.cleanup(), () => rendererLease?.cleanup()]) {
       try { release(); }
       catch (error) { cleanupError ??= error; }
@@ -316,6 +328,7 @@ async function main() {
     process.removeListener("SIGTERM", onTerminate);
     if (cleanupError && !primaryError && !child) throw cleanupError;
   }
+  if (interruptedSignal) child.signal ??= interruptedSignal;
   let report = null;
   try {
     report = readPlaywrightReport(reportPath);

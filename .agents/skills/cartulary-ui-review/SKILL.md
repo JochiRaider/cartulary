@@ -51,6 +51,10 @@ The adopted owner governs behavior; schemas are its machine projections.
 - Serialize operations. Use a fresh snapshot to obtain element references and
   the returned epoch for the next action. After uncertain effects, observe again
   before deciding another action; never blindly replay a mutation.
+- Use `diagnostic_snapshot` only for an upstream CLI view of the already-owned
+  page. Its reference labels are diagnostic text; use ordinary snapshots for
+  actionable Cartulary references. The harness owns attachment and cleanup; do
+  not run raw CLI commands, create CLI sessions, or install upstream skills.
 - Write requests as UTF-8 JSON in unique caller-owned scratch storage: directories
   `0700`, files `0600`, outside documentation paths. Keep private text in request
   files, not command arguments. Do not tee transient results into retained logs.
