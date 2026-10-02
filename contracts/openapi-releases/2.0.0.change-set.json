@@ -1888,10 +1888,10 @@
       "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
     },
     {
-      "fingerprint": "3d7ed50f17421b7abe77c7fbdecfd1b1bc524de9ea43ea88ff91818bec5e0c72",
+      "fingerprint": "72b51f5be129e92047c3d43e6dbce72bd9fedaef048270913e3677638b4e1ef2",
       "classification": "additive",
       "owner_id": "module.workbook",
-      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including bounded reads, strict atomic actions and retained no-op receipts. Existing routes and stored relationship identities are unchanged."
+      "rationale": "Publish the Artifacts-owned Notes association resource under Core 01 REQ-01-675, including deterministic GET list/pagination errors, cursor-bound continuation limits, strict atomic actions and retained no-op receipts. Coordinate the error correction with generated clients without a legacy error mode. This route is additive to the immutable 1.0.0 baseline; successful payloads and stored relationship identities are unchanged."
     },
     {
       "fingerprint": "f6fbe980e943c1103c29486938b0e2afec22c41115bb9d2677895c4f36753422",

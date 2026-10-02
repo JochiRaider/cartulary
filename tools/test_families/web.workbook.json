@@ -3822,6 +3822,7 @@
           "Note association lifetime accepts a public no-op receipt and rejects contradictory mutation versions",
           "Note association lifetime composes independent production reads and retries only the failed region",
           "Note association lifetime conceals late acceptance while suspended and retires account-replaced attempts",
+          "Note association lifetime keeps corrected list errors local to reads and preserves readable data",
           "Note association lifetime navigates incoming related Notes without exposing a removal action",
           "Note association lifetime preserves readable data on refresh failure and conceals it on incident revocation",
           "Note association lifetime rejects stale preparation and fences late list responses after authority loss",

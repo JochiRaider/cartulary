@@ -34,7 +34,39 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 	}
 	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodGet, route+"?kind=source", nil), http.StatusUnauthorized, "session_required")
 	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, map[string]any{}, appsupport.WithCookies(login.SessionCookie)), http.StatusForbidden, "csrf_verification_failed")
-	httptestx.RequireErrorEnvelope(t, request(http.MethodGet, route, nil), http.StatusBadRequest, "invalid_mutation_payload")
+	httptestx.RequireErrorEnvelope(t, request(http.MethodGet, route, nil), http.StatusBadRequest, "invalid_list_query")
+	for _, test := range []struct{ query, code, reason string }{
+		{"?kind=source&bad=%zz&x=1&x=2", "invalid_list_query", "malformed_query"},
+		{"?kind=source&%ff=value", "invalid_list_query", "malformed_query"},
+		{"?kind=%ff", "invalid_list_query", "malformed_query"},
+		{"?x=1&x=2&page=1", "invalid_list_query", "duplicate_query_member"},
+		{"?unknown=1&page=1", "invalid_pagination_request", "invalid_limit"},
+		{"?unknown=1", "invalid_list_query", "unknown_query_member"},
+		{"?kind=future&limit=0", "invalid_list_query", "invalid_filter_value"},
+		{"?kind=source&limit=", "invalid_pagination_request", "invalid_limit"},
+		{"?kind=source&limit=0&cursor_token=bad", "invalid_pagination_request", "invalid_limit"},
+		{"?kind=source&limit=501", "invalid_pagination_request", "invalid_limit"},
+		{"?kind=source&cursor_token=", "invalid_pagination_request", "invalid_cursor_token"},
+		{"?kind=source&cursor_token=bad", "invalid_pagination_request", "invalid_cursor_token"},
+	} {
+		t.Run(test.query, func(t *testing.T) {
+			body := httptestx.RequireErrorEnvelope(t, request(http.MethodGet, route+test.query, nil), 400, test.code)
+			if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"reason_code": test.reason}) {
+				t.Fatalf("unsafe or incorrect details: %#v", details)
+			}
+		})
+	}
+	for _, limit := range []int{1, 100, 500} {
+		query := "?kind=source"
+		if limit != 100 {
+			query += fmt.Sprintf("&limit=%d", limit)
+		}
+		envelope := httptestx.RequireSuccessEnvelope(t, request(http.MethodGet, route+query, nil), 200)
+		paging := envelope["meta"].(map[string]any)["paging"]
+		if !reflect.DeepEqual(paging, map[string]any{"limit": float64(limit), "has_more": false, "next_cursor": nil}) {
+			t.Fatalf("empty page metadata: %#v", paging)
+		}
+	}
 	empty := get("?kind=source")
 	if len(empty["items"].([]any)) != 0 || empty["next_cursor_token"] != nil {
 		t.Fatalf("empty association page: %#v", empty)
@@ -59,7 +91,10 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 	}
 	cursor := page["next_cursor_token"].(string)
 	for _, query := range []string{"?kind=source&limit=1&cursor_token=", "?kind=related_note&limit=2&cursor_token="} {
-		httptestx.RequireErrorEnvelope(t, request(http.MethodGet, route+query+url.QueryEscape(cursor), nil), http.StatusBadRequest, "invalid_view_query")
+		body := httptestx.RequireErrorEnvelope(t, request(http.MethodGet, route+query+url.QueryEscape(cursor), nil), http.StatusBadRequest, "invalid_pagination_request")
+		if details := httptestx.RequireErrorDetails(t, body); !reflect.DeepEqual(details, map[string]any{"reason_code": "cursor_query_mismatch"}) {
+			t.Fatalf("cursor details: %#v", details)
+		}
 	}
 	seen := map[string]bool{}
 	for {
@@ -73,7 +108,7 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 		if page["next_cursor_token"] == nil {
 			break
 		}
-		page = get("?kind=related_note&limit=1&cursor_token=" + url.QueryEscape(page["next_cursor_token"].(string)))
+		page = get("?kind=related_note&cursor_token=" + url.QueryEscape(page["next_cursor_token"].(string)))
 	}
 	if len(seen) != 3 {
 		t.Fatalf("paged %d of 3 Notes", len(seen))

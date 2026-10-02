@@ -995,7 +995,8 @@
               "minimum": 1,
               "maximum": 500,
               "default": 100
-            }
+            },
+            "description": "Initial requests default to 100. Continuation requests that omit limit reuse the cursor-bound limit; a supplied empty value is invalid."
           },
           {
             "name": "cursor_token",
@@ -1018,14 +1019,18 @@
             }
           },
           "400": {
-            "description": "Invalid association request.",
+            "description": "Invalid Note list query or opaque cursor; details contain only the registered reason_code.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request"
+            ]
           },
           "401": {
             "description": "Authentication required.",

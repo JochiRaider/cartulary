@@ -53,7 +53,9 @@ export async function realStackCleanupCases() {
         assert.deepEqual(resources.map((resource) => resource.kind).sort(), ["browser_stack", "managed_suite"]);
         for (const resource of resources) assert.ok(existsSync(resource.target));
         assert.equal(existsSync(runtime.privatePath("review-access")), false, "closed login consumers leave no credential detail");
+        await assert.rejects(recoverReviewPreparation({ runtime: { ...runtime, runID: "wrong-recovery-run" }, resources }), /does not match the owned runtime/u);
         await recoverReviewPreparation({ runtime, resources,
+          environment: { ...process.env, CARTULARY_TEST_SUITE_ID: "unrelated-ambient-suite", CARTULARY_TEST_SERVICES_CALL_MODE: "none" },
           onReleased: (resource) => recordRuntimeResource(runtime, { ...resource, state: "released" }) });
       }
       assert.equal(runtimeRecoveryResources(runtime).length, 0);

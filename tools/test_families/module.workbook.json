@@ -7381,6 +7381,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
+          "TestNoteAssociationHTTPGuardsAndEffects",
           "TestNoteAssociationsPublicPagingAndHistory"
         ]
       },
@@ -7873,6 +7874,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.workbook.unit.note_association_query_admission",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestNoteAssociationListRequestAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.workbook.unit.openapi_record_mutation_contract_12a2ffaaf6",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",
@@ -7913,6 +7938,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
+          "TestInvalidPayloadFailureDetailMapping_Unit",
           "TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit",
           "TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit",
           "TestWorkbookWritableConflictCapabilityDerivedFromRegistry_Unit"

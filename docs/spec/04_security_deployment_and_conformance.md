@@ -1611,7 +1611,8 @@ These criteria provide direct runtime-family verification for substantive base-p
   compatibility alias, or forwarding path.
   - Verifies: REQ-04-160
 - **AC-552**: Backend Workbook boundary evidence proves that one private
-  application facade registers the exact thirteen adopted Workbook operations;
+  application facade registers exactly the method/path/operation-ID set in
+  Core 01 REQ-01-032A, with exhaustive identity and applicable guard coverage;
   that one immutable, fail-closed catalog contains every active query, create,
   patch, conflict, clipboard, bulk, linked-note, and supersede capability; and
   that concrete source-owner adapters are constructed only by
@@ -1619,8 +1620,12 @@ These criteria provide direct runtime-family verification for substantive base-p
   normalization, defaults, canonical hashes, source mutation, history and
   projection inputs, and Collaboration consequences. Generic Workbook
   production code contains no source-owner command, result, error, field, or
-  collection policy and no opaque admission value. Workbook maps only a closed
-  safe failure vocabulary to public errors and imports no concrete source owner;
+  collection policy and no opaque admission value. Closed public wire-shape and
+  safe response-detail validation does not transfer source admission policy.
+  Workbook retains the application-composed NoteAssociationProvider List/Apply
+  route capability separately from the eight contribution families. Workbook
+  maps only a closed safe failure vocabulary to public errors and imports no
+  concrete source owner;
   its only cross-module production imports are the adopted incident-admission
   and Projections provider-contract capabilities. Exact route, authorization,
   replay, startup, effect-order, restore-probe, query, mutation, browser, and

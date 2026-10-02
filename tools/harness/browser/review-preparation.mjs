@@ -5,6 +5,7 @@ import path from "node:path";
 import { FixtureBroker, productionFixtureProviders, startManagedSuite, createSuiteController, CleanupResults, aggregateCleanup } from "../scheduler/fixture-broker/index.mjs";
 import { createSuiteRuntime, scanRetainedRoot } from "../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../runtime/resource-recovery.mjs";
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
 import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
@@ -259,6 +260,20 @@ export async function recoverReviewPreparation({ runtime, resources, onReleased 
   const privateResults = runtime.privatePath("lifecycle");
   mkdirSync(path.join(privateResults, runtime.runID), { recursive: true, mode: 0o700 });
   const base = { ...environment, CARTULARY_TEST_RESULTS_DIR: privateResults, CARTULARY_TEST_RUN_ID: runtime.runID, CARTULARY_TEST_TARGET: "ui-review", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID, NODE_BIN: process.execPath };
+  // Retiring the browser fixture requires the suite it was allocated from.
+  // Recover that identity from the exact retained owner proof, never ambient
+  // caller credentials or another live review's environment.
+  if (resources.some((resource) => resource.kind === "browser_stack")) {
+    const suites = resources.filter((resource) => resource.kind === "managed_suite");
+    if (suites.length !== 1) throw new Error("browser recovery requires one retained managed suite proof");
+    const suite = JSON.parse(readLocalFile(suites[0].target, { maximum: 1048576 }));
+    if (suite.schema_id !== "cartulary.test_services.lease.v1" || suite.run_id !== runtime.runID ||
+        typeof suite.suite_id !== "string" || !/^[A-Za-z0-9_.-]+$/u.test(suite.suite_id)) {
+      throw new Error("browser recovery suite proof does not match the owned runtime");
+    }
+    base.CARTULARY_TEST_SUITE_ID = suite.suite_id;
+    base.CARTULARY_TEST_SERVICES_CALL_MODE = "attach";
+  }
   for (const kind of ["browser_stack", "managed_suite"]) {
     if (kind === "managed_suite" && failures.length) break;
     for (const resource of resources.filter((entry) => entry.kind === kind)) {

@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { validatedPublicErrorReason } from "../../../services/publicErrorIdentity";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { createNoteAssociationTransport } from "../../adapters/createNoteAssociationTransport";
@@ -367,6 +368,67 @@ describe("Note association lifetime", () => {
     await f.owner.read(noteId, "source");
     expect(f.owner.getSnapshot().authority).toBeNull();
     expect(f.owner.getSnapshot().lists).toEqual({});
+  });
+  it("keeps corrected list errors local to reads and preserves readable data", async () => {
+    const f = fixture(),
+      key = noteAssociationListKey(noteId, "source"),
+      transport = createNoteAssociationTransport("/api-root");
+    await f.owner.read(noteId, "source");
+    f.transport.list.mockImplementation(transport.list);
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    for (const [code, reason] of [
+      ["invalid_list_query", "malformed_query"],
+      ["invalid_list_query", "duplicate_query_member"],
+      ["invalid_list_query", "unknown_query_member"],
+      ["invalid_list_query", "invalid_filter_value"],
+      ["invalid_pagination_request", "invalid_limit"],
+      ["invalid_pagination_request", "invalid_cursor_token"],
+      ["invalid_pagination_request", "cursor_query_mismatch"],
+    ] as const) {
+      expect(validatedPublicErrorReason(code, reason)).toBe(reason);
+      fetch.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code,
+              message: "Invalid read",
+              status: 400,
+              retryable: false,
+              request_id: "note-list-error",
+              details: { reason_code: reason },
+            },
+          }),
+          {
+            status: 400,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Request-ID": "note-list-error",
+            },
+          },
+        ),
+      );
+      const result = await transport.list(
+        noteId,
+        "source",
+        null,
+        new AbortController().signal,
+      );
+      expect(result).toMatchObject({
+        kind: "rejected",
+        failure: { kind: "validation", publicCode: code },
+      });
+      await f.owner.read(noteId, "source");
+      expect(f.owner.getSnapshot().authority).toEqual(authority);
+      expect(f.owner.getSnapshot().lists[key]).toMatchObject({
+        state: "stale_failure",
+        page: { row_version: 2 },
+      });
+    }
+    expect(fetch).toHaveBeenCalledTimes(14);
+    expect(f.transport.send).not.toHaveBeenCalled();
+    expect(f.effects.accepted).not.toHaveBeenCalled();
+    expect(f.owner.getSnapshot().entries).toEqual([]);
   });
   it("navigates incoming related Notes without exposing a removal action", async () => {
     const f = fixture(),

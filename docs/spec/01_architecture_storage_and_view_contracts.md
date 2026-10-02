@@ -909,6 +909,41 @@ The base profile defines no public WebAuthn or passkey routes under `/api/v1/aut
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-370, AC-371, AC-418, AC-429, AC-430, AC-431, AC-432, AC-437, AC-438, AC-439
 
+**REQ-01-032A**
+The Base Profile Workbook HTTP operation set MUST equal the following closed
+method, path-template and operation-ID inventory. GET and POST on the same path
+are distinct operations. Adding, removing, reassigning or changing an identity
+requires an adopted owner amendment and corresponding contract and verification
+projections. View-schema registration or a source contribution MUST NOT
+independently expand this set. WebSocket operations have separate ownership.
+
+| Method | Path template | Operation ID |
+| --- | --- | --- |
+| `GET` | `/api/v1/incidents/{incident_id}/workbook-preferences/default` | `getIncidentDefaultWorkbookPreferences` |
+| `PUT` | `/api/v1/incidents/{incident_id}/workbook-preferences/default` | `putIncidentDefaultWorkbookPreferences` |
+| `GET` | `/api/v1/incidents/{incident_id}/workbook-preferences/me` | `getCurrentUserWorkbookPreferences` |
+| `PUT` | `/api/v1/incidents/{incident_id}/workbook-preferences/me` | `putCurrentUserWorkbookPreferences` |
+| `GET` | `/api/v1/incidents/{incident_id}/workbook-startup` | `getIncidentWorkbookStartup` |
+| `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/query` | `queryWorkbookView` |
+| `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` | `createViewRow` |
+| `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste` | `pasteWorkbookClipboard` |
+| `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations` | `applyWorkbookBulkMutation` |
+| `PATCH` | `/api/v1/records/{record_id}` | `patchRecord` |
+| `POST` | `/api/v1/records/{record_id}/linked-notes` | `createRecordLinkedNote` |
+| `POST` | `/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve` | `resolveRecordSameFieldConflict` |
+| `POST` | `/api/v1/records/{record_id}/supersede` | `supersedeRecord` |
+| `GET` | `/api/v1/records/{note_record_id}/note-associations` | `listNoteAssociations` |
+| `POST` | `/api/v1/records/{note_record_id}/note-associations` | `mutateNoteAssociations` |
+
+The two Note association operations use the dedicated consumer-owned List/Apply
+route capability composed by Workbook; REQ-01-675 owns their behavior. They do
+not add a ninth generic contribution family. Verification MUST compare complete
+identities and applicable guard coverage rather than only operation counts.
+Human review establishes fidelity of typed projections to this inventory;
+runtime, tests and generators MUST NOT read this Markdown.
+Profiles: base
+Verified by: AC-552
+
 **REQ-01-033**
 Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/incidents/{incident_id}/report-compositions/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, `/api/v1/incident-bundles/*`, `/api/v1/auth/providers/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/saml/*`, and `/api/v1/users/{user_id}/auth-bindings*` for the corresponding claimed extension profiles.
 Profiles: base, import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication
@@ -1594,7 +1629,7 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 | `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings read | Singleton read; no body members | Read route | Returns the incident's `timeline_time_conversion_profile` resource, materialized with disabled defaults when absent | Ordinary authorization failures |
 | `PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings mutation | Required `base_profile_version`, `enabled`, `local_offset_minutes`, and `local_label` | Ordinary optimistic concurrency through `base_profile_version`; no route idempotency key | Returns the committed `timeline_time_conversion_profile` resource | `invalid_mutation_payload`, `row_version_conflict` |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations` | View-scoped explicit bulk mutation batch | Required `view_schema_id`, `client_txn_id`, `kind`, and stable `targets[]`; record targets MUST identify active same-incident records for the addressed view; command-specific fields are owned by Core 03 §13.3 | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | `200 OK` with batch result containing `view_schema_id`, optional `change_set_id`, `rows[]`, and ordered `conflicts[]` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict` |
-| `GET /api/v1/records/{note_record_id}/note-associations` | Notes association collection | Required `kind`; common pagination; REQ-01-675 | Read route; actor/incident/Note/kind-bound cursor | Current Note version and directional safe association items | `invalid_pagination_request`, `invalid_mutation_payload`, ordinary authorization and record-not-found failures |
+| `GET /api/v1/records/{note_record_id}/note-associations` | Notes association collection | Required `kind`; common pagination; REQ-01-675 | Read route; actor/incident/Note/kind-bound cursor | Current Note version and directional safe association items | `invalid_pagination_request`, `invalid_list_query`, ordinary authorization and record-not-found failures |
 | `POST /api/v1/records/{note_record_id}/note-associations` | Notes association mutation | Required `kind`, `base_row_version`, `client_txn_id`, 1–64 ordered actions; REQ-01-675 | Keyed by route, actor, Note and transaction identity; exact receipt replay precedes version checks | `200 OK` retained Note row and optional change set, including no-op receipts | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, ordinary authorization failures |
 | `PATCH /api/v1/records/{record_id}` | Record-scoped partial field mutation | Required `view_schema_id`, `base_row_version`, `client_txn_id`, and non-empty `changes[]` | Keyed by `(actor_user_id, record_id, client_txn_id)`; exact replay wins before fresh optimistic-concurrency evaluation | `200 OK` with original committed row refresh on success or exact replay | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `same_field_conflict` |
 | `POST /api/v1/records/{record_id}/mark-reviewed` | Timeline capture-state action | Required `base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, record_id, client_txn_id)` | `200 OK` with updated lifecycle state summary | `client_txn_conflict`, `row_version_conflict`, `illegal_transition`, `record_deleted_use_restore` |
@@ -3990,7 +4025,8 @@ spelling `missing_minimum_create_signal` MUST NOT be accepted or emitted.
 
 | `reason_code` | Canonical meaning |
 | --- | --- |
-| `invalid_limit` | The request supplies `limit` with a non-integer JSON type, a value less than `1`, a value greater than `500`, or an unsupported pagination alias such as `page`, `offset`, `block_size`, or `page_size`. |
+| `invalid_limit` | The request supplies an empty or non-integer `limit`, a value less than `1`, a value greater than `500`, or an unsupported pagination alias such as `page`, `offset`, `block_size`, or `page_size`. |
+| `invalid_cursor_token` | The supplied cursor is empty or malformed, fails cryptographic authentication, uses an unsupported version, fails route or actor binding, or has an invalid mode or server-owned continuation position. It MUST NOT disclose token contents or cryptographic diagnostics. |
 | `cursor_query_mismatch` | The supplied `cursor_token` does not match the current normalized route contract, including any bound route-scoping identifier, normalized sort or filter or grouping contract when present, or the effective `limit`. |
 | `cursor_snapshot_unavailable` | Reserved for future explicit snapshot-backed route families when the supplied `cursor_token` is well-formed but the bound snapshot runtime state is no longer available. Restart the route without `cursor_token` to obtain current live results for that route. |
 | `pagination_not_supported` | The addressed route is not declared pageable and therefore rejects `limit`, `cursor_token`, and pagination aliases. |
@@ -4006,11 +4042,12 @@ spelling `missing_minimum_create_signal` MUST NOT be accepted or emitted.
 
 | `reason_code` | Canonical meaning |
 | --- | --- |
+| `malformed_query` | A route declaring this reason receives a raw query that cannot be parsed or contains a member name or value that is not valid UTF-8 after percent decoding. |
 | `unknown_query_member` | The request includes a query member outside the route's declared GET collection query contract and outside the common pagination members owned by §3.3.7. |
 | `duplicate_query_member` | The raw query string repeats any query member name. |
 | `invalid_search` | The `search` member is not valid UTF-8 after percent decoding, contains a C0 or C1 control code point, exceeds the `list_search_v1` scalar bound, or is non-empty after normalization but yields zero search tokens. |
 | `search_token_count_exceeded` | The normalized `search` member yields more than `16` unique normalized tokens. |
-| `invalid_filter_value` | A route-owned exact-value filter is present with a value outside that filter's closed wire-token set. |
+| `invalid_filter_value` | A route-owned exact-value filter is present with a value outside its closed wire-token set, or a required exact selector such as Note association `kind` is omitted. |
 | `invalid_filter_range` | A route-owned range filter is malformed, contradictory, or outside its declared bound. In the current base profile this is reachable from `occurred_at_gte` and `occurred_at_lt` on the administrative audit read projections. |
 
 `credential_bootstrap_rejected` `error.details.reason_code` values:
@@ -6246,6 +6283,35 @@ outgoing references from incoming `Referenced by` entries. Incoming entries
 navigate to the referring Note; mutation from the current Note manages outgoing
 references only. Lists load asynchronously; inspector metadata does not wait for
 complete lists or retrieve evidence bytes.
+
+Note GET query validation MUST run after current authentication and incident
+visibility checks, in this exact order: raw-query integrity, duplicate member
+names, pagination aliases, unknown members, `kind`, `limit`, cursor integrity
+and actor/route binding, bound query contract, then continuation position.
+Malformed UUID path syntax retains the common bounded path handling; this
+query order MUST NOT reorder authentication, visibility or POST admission.
+All failures in the following table MUST return HTTP 400 in the common error
+envelope with exactly `reason_code` in `error.details`.
+
+| Condition | Error code | Reason code |
+| --- | --- | --- |
+| Raw query cannot be parsed, or any decoded member name/value is invalid UTF-8 | `invalid_list_query` | `malformed_query` |
+| Any decoded member name occurs more than once, including an unknown name | `invalid_list_query` | `duplicate_query_member` |
+| `page`, `offset`, `page_size` or `block_size` is supplied | `invalid_pagination_request` | `invalid_limit` |
+| A non-duplicate member is outside `kind`, `limit`, `cursor_token` | `invalid_list_query` | `unknown_query_member` |
+| `kind` is missing, empty, or not exactly `source`, `evidence` or `related_note` | `invalid_list_query` | `invalid_filter_value` |
+| A supplied `limit` is empty, non-integer or outside 1–500 | `invalid_pagination_request` | `invalid_limit` |
+| A supplied cursor is empty, malformed, fails cryptographic authentication, uses an unsupported version, or binds a different actor or route | `invalid_pagination_request` | `invalid_cursor_token` |
+| An otherwise valid cursor differs in incident, Note, kind, ordering or effective limit | `invalid_pagination_request` | `cursor_query_mismatch` |
+| Cursor mode is not keyset, or its position is not exactly a valid creation timestamp and nonzero link UUID | `invalid_pagination_request` | `invalid_cursor_token` |
+
+Omission and supplied empty values MUST remain distinct. Omitted continuation
+`limit` MUST reuse the cursor-bound limit. `kind` is an exact wire token; case
+folding, trimming and aliases MUST NOT extend its vocabulary. Error details
+MUST NOT include member names, hidden identifiers, values, position fields or
+cryptographic failure diagnostics. Successful paging and existing valid cursor
+formats are unchanged. This coordinated correction defines no legacy error
+mode; POST source-admission errors and view-query error families are unchanged.
 
 POST accepts `kind`, `base_row_version`, `client_txn_id`, and an ordered `actions`
 array of 1–64 entries. Each action is exactly either `add` with

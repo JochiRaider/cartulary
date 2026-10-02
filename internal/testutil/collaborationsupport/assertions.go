@@ -2,6 +2,7 @@ package collaborationsupport
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -298,4 +299,20 @@ func queryRow(t testing.TB, db any, query string, args ...any) rowScanner {
 		t.Fatalf("unsupported Collaboration assertion database %T", db)
 		return nil
 	}
+}
+
+// SnapshotPublicationState captures complete incident-scoped durable publication
+// content without exposing payloads in test diagnostics. Callers must quiesce the
+// dispatcher before comparing snapshots; transactional intent writes remain live.
+func SnapshotPublicationState(t testing.TB, db any, incidentID uuid.UUID) map[string][32]byte {
+	t.Helper()
+	result := map[string][32]byte{}
+	for _, table := range []string{"collaboration_event_intents", "collaboration_replay_events", "collaboration_incident_stream_cursors"} {
+		var data string
+		if err := queryRow(t, db, `SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb)::text FROM (SELECT * FROM `+table+` WHERE incident_id=$1) x`, incidentID).Scan(&data); err != nil {
+			t.Fatalf("snapshot %s: %v", table, err)
+		}
+		result[table] = sha256.Sum256([]byte(data))
+	}
+	return result
 }

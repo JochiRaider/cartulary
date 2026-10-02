@@ -19,8 +19,8 @@ enforce the adopted facts.
 
 ## Decision
 
-Workbook is the generic interaction/application facade for the thirteen
-Workbook-owned HTTP operations. It owns route registration, common
+Workbook is the generic interaction/application facade for the exact
+Workbook-owned HTTP operation set in Core 01 REQ-01-032A. It owns route registration, common
 authentication and authorization coordination, public request and response
 mapping, query and mutation dispatch, startup, bounded telemetry,
 Workbook-owned recovery-state contribution, and the restore-probe registry and
@@ -30,7 +30,8 @@ The final boundary has these properties:
 
 - `RegisterRoutes` is the sole server-facing Workbook entry point. Its private
   route families retain the exact adopted operation inventory and security
-  precedence.
+  precedence. The separate `NoteAssociationProvider.List/Apply` route capability
+  remains application-composed; it is not a ninth contribution family.
 - One immutable contribution catalog indexes query, create, patch, conflict,
   clipboard, bulk, linked-note, and supersede capabilities by stable view or
   record identity. Construction rejects nil, typed-nil, duplicate, unknown,
@@ -43,7 +44,10 @@ The final boundary has these properties:
   source mutation, history inputs, projection inputs, and Collaboration
   consequences. Workbook generic code contains no source field registry,
   source command or result type, source error switch, or opaque `any`
-  admission channel.
+  admission channel. Closed public wire-shape and safe error-detail validation,
+  including Party-conflict detail tokens and supersede response members, belongs
+  to Workbook transport mapping. It MUST NOT decide source eligibility, source
+  normalization, mutation policy or transactional effects.
 - `internal/app/workbookassembly` is the sole concrete cross-owner adapter and
   catalog-construction boundary. It adapts module-native owner capabilities to
   Workbook-owned provider interfaces and validates the complete catalog.
@@ -86,14 +90,17 @@ No public HTTP or WebSocket method, path, operation ID, request or response
 shape, error precedence, cursor, view schema, startup result, OpenAPI contract,
 frontend contract, database schema, Incident Bundle shape, restore artifact,
 or Collaboration event changes under this decision. Existing behavior is
-retained only where an adopted owner requires it.
+retained only where an adopted owner requires it. The separately adopted Note
+GET error correction in Core 01 REQ-01-675 governs its coordinated contract
+change; this topology decision does not preserve the superseded error behavior.
 
 ## Acceptance
 
 The decision is implemented only when:
 
-- the exact thirteen Workbook operations enter through one registrar and use
-  only the immutable contribution catalog and neutral route ports;
+- the exact operation identities in Core 01 REQ-01-032A enter through one
+  registrar and use only the immutable contribution catalog and neutral route
+  ports, including the dedicated Note association capability;
 - all active query, mutation, batch, and record-action capabilities have one
   complete application-composed contribution;
 - source-owner admission, result, error, hash, and effect semantics are absent

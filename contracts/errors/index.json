@@ -543,6 +543,31 @@
       ]
     },
     {
+      "error_code": "invalid_pagination_request",
+      "reason_codes": [
+        {
+          "code": "invalid_limit",
+          "summary": "The limit is empty, non-integer, outside one through five hundred, or uses an unsupported pagination alias."
+        },
+        {
+          "code": "invalid_cursor_token",
+          "summary": "The cursor is empty, malformed, unauthenticated, unsupported, bound to another actor or route, or has an invalid continuation position or mode."
+        },
+        {
+          "code": "cursor_query_mismatch",
+          "summary": "The cursor does not match the bound route scope, normalized query, ordering, or effective limit."
+        },
+        {
+          "code": "cursor_snapshot_unavailable",
+          "summary": "Reserved for future explicit snapshot routes; restart without a cursor if received."
+        },
+        {
+          "code": "pagination_not_supported",
+          "summary": "The addressed route is not pageable and rejects pagination members."
+        }
+      ]
+    },
+    {
       "error_code": "invalid_enterprise_auth_request",
       "reason_codes": [
         {
@@ -1685,6 +1710,10 @@
       "error_code": "invalid_list_query",
       "reason_codes": [
         {
+          "code": "malformed_query",
+          "summary": "A route declaring this reason received an unparseable query or invalid UTF-8 in a decoded member name or value."
+        },
+        {
           "code": "unknown_query_member",
           "summary": "The request includes a query member outside the route's declared GET collection query contract."
         },
@@ -1702,7 +1731,7 @@
         },
         {
           "code": "invalid_filter_value",
-          "summary": "A route-owned exact-value filter uses a value outside its closed wire-token set."
+          "summary": "A route-owned exact-value filter uses a value outside its closed wire-token set, or a required exact selector is omitted."
         },
         {
           "code": "invalid_filter_range",
