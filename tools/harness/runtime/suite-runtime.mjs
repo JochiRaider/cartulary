@@ -17,8 +17,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { processIdentity, processIdentityAlive } from "./host-admission.mjs";
-import { atomicLocalFile, readLocalFile } from "./secure-local-files.mjs";
+import { atomicLocalFile, readLocalFile, removePrivateTree, removePrivateFile, privateDirectory } from "./secure-local-files.mjs";
 import path from "node:path";
+import { runtimeRecoveryResources } from "./resource-recovery.mjs";
 
 const ownerSchemaID = "cartulary.harness_suite_runtime_owner.v1";
 const ownerFilename = "runtime-owner.json";
@@ -86,6 +87,7 @@ function readOwner(directory) {
   if (!info.isFile() || info.isSymbolicLink() || (info.mode & 0o777) !== 0o600) {
     throw new Error(`suite runtime owner marker is not a private regular file: ${ownerPath}`);
   }
+  if (typeof process.getuid === "function" && info.uid !== process.getuid()) throw new Error("suite runtime owner marker belongs to another user");
   const owner = JSON.parse(readFileSync(ownerPath, "utf8"));
   if (
     owner.schema_id !== ownerSchemaID ||
@@ -275,8 +277,36 @@ export function createSuiteRuntime({ repoRoot, runRoot, runID, scratchRoot } = {
       if (!contained(root, child)) throw new Error("suite runtime child path escapes root");
       return child;
     },
+    preserveRecovery() {
+      assertPrivateDirectory(root, "suite runtime root");
+      readOwner(root);
+      // This marker prevents age-based runtime removal even if resource proof
+      // publication failed. Exact resource owners remain the only repair authority.
+      privateDirectory(path.join(root, "recovery"));
+      const resources = runtimeRecoveryResources(this, { maximum: 4096 });
+      if (!resources.length) throw new Error("unresolved cleanup has no resource-owner recovery proof");
+      const protectedDirectories = resources.filter((item) => typeof item.target === "string")
+        .map((item) => path.dirname(item.target));
+      const failures = [];
+      const purge = (directory) => {
+        for (const name of readdirSync(directory)) {
+          if (directory === root && ["runtime-owner.json", "runtime-process.json", "recovery"].includes(name)) continue;
+          const target = path.join(directory, name);
+          if (protectedDirectories.includes(target)) continue;
+          try {
+            const info = lstatSync(target);
+            if (info.isDirectory() && protectedDirectories.some((protectedPath) => contained(target, protectedPath))) purge(target);
+            else if (info.isDirectory()) removePrivateTree(target);
+            else removePrivateFile(target);
+          } catch (error) { failures.push(error); }
+        }
+      };
+      purge(root);
+      if (failures.length) throw new AggregateError(failures, "private detail purge failed");
+    },
     close() {
       if (closed) return;
+      if (runtimeRecoveryResources(this, { maximum: 4096 }).length) throw new Error("suite runtime still has unresolved resource ownership");
       removeOwnedRuntime(root, runtimeBase, leaseID);
       closed = true;
     },

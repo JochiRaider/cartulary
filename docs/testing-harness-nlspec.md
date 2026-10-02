@@ -281,6 +281,18 @@ to already managed Postgres and object-store services, but it MUST NOT close a
 borrowed resource. Every application stack, browser stack, database, namespace,
 port set, and process created by the broker is owned by an explicit lease.
 
+Logical leases and physical allocations have distinct lifetimes. Release of a
+logical lease MUST settle once; repeated or concurrent release with the same
+disposition MUST observe that settlement, including its failure. Contradictory
+repeated dispositions MUST fail rather than change the original operation.
+Each physical allocation MUST have one explicit cleanup owner and at most one
+cleanup attempt within that lifetime. Callback return values MUST NOT select a
+second cleanup operation. A borrowed allocation permits detachment only.
+An unhealthy shared allocation MUST immediately leave the reusable index;
+remaining borrowers drain before its cleanup, and later healthy releases MUST
+NOT restore eligibility. Allocation ownership MUST survive failed publication
+and cleanup until settlement or exact resource-owner recovery proof exists.
+
 A suite-service janitor MUST NOT infer abandonment from container age. Other runs retain service ownership until their exact terminal cleanup proof authorizes reclamation. Unproven orphan resources remain subject to their lease-specific cleanup; startup of a concurrent suite cannot remove them. Cleanup evidence identifies the container and its owning run and suite before removal.
 
 The fixture capability set is closed to `none`, `postgres_transaction`,
@@ -5455,6 +5467,27 @@ Verified by: TH-HARNESS-AC-007
 **TH-HARNESS-REQ-402**
 Owned teardown order MUST be: browser child processes, browser fixtures, reset-tainted runtime roots, test databases, object buckets or prefixes, service containers, lease finalization. Attach mode MUST record diagnostics but MUST NOT delete container-level resources or external services.
 Verified by: TH-HARNESS-AC-007, TH-HARNESS-AC-010
+
+Finalization MUST attempt every independent safe release after a failure and
+retain every failure. Dependent releases that cannot safely proceed MUST be
+recorded as blocked. Repeated finalization MUST observe its original outcome,
+not retry destructive work. Fixture providers MUST NOT close a service suite
+owned by their composition root. Private runtime removal requires complete
+resource settlement; failed cleanup preserves only protected resource-owner
+recovery proof and purges private detail after its consumers close. Missing
+lease material alone is not proof of successful cleanup.
+
+Current graph and prepared-review runs MUST publish one
+`cartulary.harness_cleanup_results.v1` companion as `cleanup-results.json`.
+Its closed records contain cleanup sequence, operation, opaque unit/lease
+identity, completed/failed/blocked outcome, normalized nullable failure fields,
+and run-relative artifact references. Cardinality is bounded by admitted
+allocations and declared finalization steps. Raw exceptions, private paths,
+credentials and resource handles are forbidden. All genuine cleanup failures
+remain discoverable through this artifact; Section 9.1 still selects the primary
+failure. Terminal success and cache admission MUST follow logical lease release,
+and terminal run publication MUST follow required finalization and evidence
+publication. Existing historical evidence MUST NOT be rewritten or backfilled.
 
 Destructive reset, cleanup, attach-mode service mutation, and non-idempotent operations MUST NOT be retried unless a resource row explicitly declares the operation safe to retry.
 

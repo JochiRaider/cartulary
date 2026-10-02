@@ -111,6 +111,7 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.workbook.browser.assessment_timeline_support_enum_filtering_prese_9700791fe7",
             "module.workbook.browser.authoring_candidates_assessments",
             "module.workbook.browser.authoring_candidates_note_source",
             "module.workbook.browser.authoring_candidates_parties"
@@ -2212,6 +2213,7 @@
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
             "module.workbook.browser_stateful.date_filter_drafts_remain_locally_correctable_be_15ce5a6e7c",
+            "module.workbook.browser_stateful.enum_equality_choices_remain_explicit_and_preser_28bc32bc06",
             "module.workbook.browser_stateful.group_requested_replacement",
             "module.workbook.browser_stateful.query_continuation_assessments",
             "module.workbook.browser_stateful.query_continuation_authority",
@@ -3380,6 +3382,7 @@
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
             "module.workbook.browser_stateful.date_filter_drafts_remain_locally_correctable_be_15ce5a6e7c",
+            "module.workbook.browser_stateful.enum_equality_choices_remain_explicit_and_preser_28bc32bc06",
             "module.workbook.browser_stateful.group_requested_replacement",
             "module.workbook.browser_stateful.query_continuation_assessments",
             "module.workbook.browser_stateful.query_continuation_authority",

@@ -104,6 +104,256 @@ const schemas = [
   forensicKeywordsViewSchemaId,
   assessmentsViewSchemaId,
 ];
+
+test("Enum equality choices remain explicit and preserve custom queries", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("ENUM-QUERY"),
+    "Enum query choices",
+  );
+  const row = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("enum-timeline"),
+    "timeline.activity_synopsis_text": "Enum filter fixture",
+  });
+  await createViewRow(page, incident, partiesViewSchemaId, {
+    client_txn_id: uniqueTxn("enum-party"),
+    "party.display_name": "Enum reuse fixture",
+    "party.party_kind": "person",
+  });
+  const before = await currentLifecycle(page, incident);
+  expect(
+    (
+      await lifecycleAction(page, incident, "closeIncident", {
+        client_txn_id: uniqueTxn("enum-close"),
+        base_incident_version: before.incident_version,
+        reason: "Read-only enum query evidence",
+      })
+    ).ok,
+  ).toBe(true);
+  const endpoint = `/incidents/${incident}/views/${timelineViewSchemaId}/query`;
+  const requests: QueryWorkbookViewRequest[] = [];
+  const accepted: QueryWorkbookViewResponse[] = [];
+  let failNext = false;
+  await page.route(`**${endpoint}`, async (route) => {
+    requests.push(route.request().postDataJSON() as QueryWorkbookViewRequest);
+    if (failNext) {
+      failNext = false;
+      await route.abort("failed");
+      return;
+    }
+    const response = await route.fetch();
+    expect(response.ok()).toBe(true);
+    accepted.push((await response.json()) as QueryWorkbookViewResponse);
+    await route.fulfill({ response });
+  });
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${timelineViewSchemaId}`,
+  );
+  const browsing = page.getByRole("group", { name: "Workbook browsing" });
+  await expect(browsing).toContainText(
+    "1 records loaded; end of current results.",
+  );
+  const trigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+  );
+  const apply = page.getByTestId(gridFilterApplyTestId(timelineViewSchemaId));
+  const value = page.getByTestId(gridFilterValueTestId(timelineViewSchemaId));
+  const field = "timeline.activity_time_pair_state";
+  const start = requests.length;
+  await trigger.click();
+  await page
+    .getByTestId(gridFilterFieldTestId(timelineViewSchemaId))
+    .selectOption(field);
+  await expect(value).toHaveValue("");
+  await expect(value.getByRole("option")).toHaveText([
+    "Choose a value",
+    ...(requireViewContract(timelineViewSchemaId).fieldMap[field]?.enumValues ??
+      []),
+  ]);
+  await value.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(value).toHaveValue("disabled");
+  expect(requests.length).toBe(start);
+  await apply.click();
+  await expect(browsing).toContainText(
+    "1 records loaded; end of current results.",
+  );
+  await expect
+    .poll(() => requests.at(-1)?.filters)
+    .toEqual([{ field_key: field, op: "eq", arg: { value: "disabled" } }]);
+  await expect
+    .poll(() => accepted.at(-1)?.meta.query.filters)
+    .toEqual([{ field_key: field, op: "eq", arg: { value: "disabled" } }]);
+  await expect(trigger).toBeFocused();
+  const chip = () =>
+    page.getByRole("button", { name: /^Filter 1, Activity Time Pair State/ });
+  await chip().click();
+  await page
+    .getByRole("combobox", { name: "Equality operand kind", exact: true })
+    .selectOption("values");
+  await page.getByRole("checkbox", { name: "disabled", exact: true }).focus();
+  await page.keyboard.press("Space");
+  await page.getByRole("checkbox", { name: "empty", exact: true }).check();
+  await apply.click();
+  await expect
+    .poll(() => requests.at(-1)?.filters?.[0]?.arg)
+    .toEqual({ values: ["disabled", "empty"] });
+  await expect(browsing).toContainText(
+    "1 records loaded; end of current results.",
+  );
+  await chip().click();
+  await page
+    .getByRole("button", { name: "Custom literals", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add literal", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Value literal 3", exact: true })
+    .fill("Disabled");
+  await page.getByRole("button", { name: "Add literal", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Value literal 4", exact: true })
+    .fill("custom,token");
+  await apply.click();
+  await expect
+    .poll(() => requests.at(-1)?.filters?.[0]?.arg.values)
+    .toEqual(
+      expect.arrayContaining(["disabled", "empty", "Disabled", "custom,token"]),
+    );
+  await expect(browsing).toContainText(
+    "1 records loaded; end of current results.",
+  );
+  await chip().click();
+  await expect(
+    page.getByRole("button", { name: "Custom literals", exact: true }),
+  ).toHaveAttribute("aria-expanded", "true");
+  expect(
+    await page
+      .getByRole("textbox", { name: /^Value literal \d+$/ })
+      .evaluateAll((inputs) =>
+        inputs.map((input) => (input as HTMLInputElement).value),
+      ),
+  ).toContain("custom,token");
+  await page
+    .getByRole("combobox", { name: "Equality operand kind", exact: true })
+    .selectOption("value");
+  await page
+    .getByRole("button", { name: "Custom literals", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Value literal", exact: true })
+    .fill("disable");
+  failNext = true;
+  await apply.click();
+  await expect(
+    browsing.getByRole("button", { name: "Retry", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, row.record_id)),
+  ).toBeVisible();
+  await expect(chip()).toContainText("custom,token");
+  await browsing.getByRole("button", { name: "Revert", exact: true }).click();
+  await expect(chip()).toContainText("custom,token");
+  await chip().click();
+  await page
+    .getByRole("combobox", { name: "Equality operand kind", exact: true })
+    .selectOption("value");
+  await page
+    .getByRole("button", { name: "Custom literals", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Value literal", exact: true })
+    .fill("disable");
+  failNext = true;
+  await apply.click();
+  await expect(
+    browsing.getByRole("button", { name: "Retry", exact: true }),
+  ).toBeVisible();
+  await browsing.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(browsing).toContainText(
+    "0 records loaded; end of current results.",
+  );
+  await expect(chip()).toHaveAccessibleName(
+    "Filter 1, Activity Time Pair State, equals disable",
+  );
+  await chip().click();
+  await expect(
+    page.getByRole("textbox", { name: "Value literal", exact: true }),
+  ).toHaveValue("disable");
+  await page
+    .getByRole("textbox", { name: "Value literal", exact: true })
+    .fill("Disabled");
+  await apply.click();
+  await expect(browsing).toContainText(
+    "1 records loaded; end of current results.",
+  );
+  await expect
+    .poll(() => accepted.at(-1)?.meta.query.filters?.[0]?.arg)
+    .toEqual({ value: "Disabled" });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await trigger.click();
+  await page
+    .getByRole("button", { name: /^Edit Filter 1, Activity Time Pair State/ })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Equality operand kind", exact: true })
+    .selectOption("values");
+  await page
+    .getByRole("checkbox", { name: "conversion_unavailable", exact: true })
+    .check();
+  await page
+    .getByRole("button", { name: "Custom literals", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add literal", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Value literal 2", exact: true })
+    .fill("long_custom_literal,".repeat(12));
+  const spacing = await page.addStyleTag({
+    content: `
+    * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }
+    p { margin-block-end: 2em !important; }
+  `,
+  });
+  await apply.focus();
+  await page.keyboard.press("Shift+Tab");
+  const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+  await expect(cancel).toBeFocused();
+  for (const action of [apply, cancel]) {
+    const box = await action.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) throw new Error("Missing enum action geometry");
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(768);
+    expect(box.y + box.height).toBeLessThanOrEqual(640);
+  }
+  await test.info().attach("enum-filter-text-spacing", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await cancel.click();
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await switchOrdinarySheet(page, partiesViewSchemaId);
+  const partyReads = await observeQuery(page, incident, partiesViewSchemaId);
+  await page
+    .getByTestId(workbookFilterPopoverTriggerTestId(partiesViewSchemaId))
+    .click();
+  await page
+    .getByTestId(gridFilterFieldTestId(partiesViewSchemaId))
+    .selectOption("party.party_kind");
+  await page
+    .getByTestId(gridFilterValueTestId(partiesViewSchemaId))
+    .selectOption("person");
+  await page.getByTestId(gridFilterApplyTestId(partiesViewSchemaId)).click();
+  await expect
+    .poll(() => partyReads.at(-1)?.request.filters?.[0]?.arg)
+    .toEqual({ value: "person" });
+  await expect(browsing).toContainText(
+    "1 records loaded; end of current results.",
+  );
+});
 const fixtureFields: Readonly<
   Record<
     string,

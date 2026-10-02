@@ -1005,6 +1005,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.assessment_timeline_support_enum_filtering_prese_9700791fe7",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/authoring-candidates.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "assessment_support_enum_filter_choices"
+        ],
+        "titles": [
+          "Assessment Timeline support enum filtering preserves staged selection"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.authoring_candidates_assessments",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -4994,6 +5029,41 @@
         "titles": [
           "Communications Log date filter drafts remain locally correctable before query admission",
           "Timeline date filter drafts remain locally correctable before query admission"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser_stateful.enum_equality_choices_remain_explicit_and_preser_28bc32bc06",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "workbook_enum_filter_choices"
+        ],
+        "titles": [
+          "Enum equality choices remain explicit and preserve custom queries"
         ]
       },
       "evidence_class": "browser",

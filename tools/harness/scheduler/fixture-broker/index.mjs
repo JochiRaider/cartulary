@@ -1,4 +1,7 @@
 import { validateSchemaSync } from "../../contract/index.mjs";
+import { CommandFailure } from "../../runtime/command-failure.mjs";
+import { aggregateCleanup, CleanupResults } from "./cleanup-lifecycle.mjs";
+export { aggregateCleanup, cleanupFailure, CleanupResults, createSuiteController } from "./cleanup-lifecycle.mjs";
 
 export {
   productionFixtureProviders,
@@ -35,6 +38,10 @@ export class DedicatedResourcePool {
     this.ready = [];
     this.leased = new Set();
     this.pending = new Set();
+    this.releasePromises = new Map();
+    this.destroyPromises = new Map();
+    this.failures = [];
+    this.closePromise = null;
     this.closed = false;
   }
 
@@ -44,11 +51,12 @@ export class DedicatedResourcePool {
       const pending = Promise.resolve()
         .then(() => this.create())
         .then(async (resource) => {
-          if (this.closed) await this.destroy(resource);
+          if (this.closed) await this.destroyResource(resource);
           else this.ready.push(resource);
         })
         .finally(() => this.pending.delete(pending));
       this.pending.add(pending);
+      pending.catch((error) => this.failures.push(error));
     }
   }
 
@@ -63,12 +71,20 @@ export class DedicatedResourcePool {
     const resource = this.ready.shift();
     if (resource === undefined) throw new Error("dedicated pool failed to replenish");
     this.leased.add(resource);
+    this.releasePromises.delete(resource);
     this.replenish();
     return resource;
   }
 
-  async release(resource, { healthy = true } = {}) {
-    if (!this.leased.delete(resource)) return;
+  release(resource, { healthy = true } = {}) {
+    if (this.releasePromises.has(resource)) return this.releasePromises.get(resource);
+    const promise = this.releaseOnce(resource, healthy);
+    this.releasePromises.set(resource, promise);
+    return promise;
+  }
+
+  async releaseOnce(resource, healthy) {
+    if (!this.leased.has(resource)) throw new Error("dedicated resource is not leased");
     let reusable = healthy && !this.closed;
     if (reusable) {
       try {
@@ -78,17 +94,31 @@ export class DedicatedResourcePool {
         reusable = false;
       }
     }
-    if (reusable && this.ready.length < this.targetSize) this.ready.push(resource);
-    else await this.destroy(resource);
+    if (reusable && !this.closed && this.ready.length < this.targetSize) this.ready.push(resource);
+    else await this.destroyResource(resource);
+    this.leased.delete(resource);
     this.replenish();
   }
 
-  async close() {
-    if (this.closed) return;
+  destroyResource(resource) {
+    if (!this.destroyPromises.has(resource)) this.destroyPromises.set(resource, Promise.resolve().then(() => this.destroy(resource)));
+    return this.destroyPromises.get(resource);
+  }
+
+  close() {
+    if (this.closePromise) return this.closePromise;
     this.closed = true;
-    await Promise.all(this.pending);
-    const ready = this.ready.splice(0);
-    await Promise.all(ready.map((resource) => this.destroy(resource)));
+    this.closePromise = this.closeOnce();
+    return this.closePromise;
+  }
+
+  async closeOnce() {
+    const pending = await Promise.allSettled([...this.pending, ...this.releasePromises.values()]);
+    const destroyed = await Promise.allSettled(this.ready.splice(0).map((resource) => this.destroyResource(resource)));
+    const errors = [...this.failures, ...[...pending, ...destroyed].filter((result) => result.status === "rejected").map((result) => result.reason)];
+    if (this.leased.size) errors.push(new Error("dedicated pool still has unresolved leased resources"));
+    const failure = aggregateCleanup(errors);
+    if (failure) throw failure;
   }
 }
 
@@ -97,9 +127,11 @@ export class DigestPoolRegistry {
     if (typeof createPool !== "function") throw new Error("digest pool registry requires a factory");
     this.createPool = createPool;
     this.pools = new Map();
+    this.closePromise = null;
   }
 
   pool(digest) {
+    if (this.closePromise) throw new Error("digest pool registry is closed");
     if (!/^sha256:[a-f0-9]{64}$/u.test(digest)) {
       throw new Error("migrated template digest must be sha256");
     }
@@ -107,9 +139,14 @@ export class DigestPoolRegistry {
     return this.pools.get(digest);
   }
 
-  async close() {
-    await Promise.all([...this.pools.values()].map((pool) => pool.close()));
-    this.pools.clear();
+  close() {
+    this.closePromise ??= Promise.resolve().then(async () => {
+      const results = await Promise.allSettled([...this.pools.values()].map((pool) => pool.close()));
+      const failure = aggregateCleanup(results.filter((result) => result.status === "rejected").map((result) => result.reason));
+      if (failure) throw failure;
+      this.pools.clear();
+    });
+    return this.closePromise;
   }
 }
 
@@ -121,8 +158,7 @@ export function dedicatedPoolProvider(pool, resourceID = (resource) => String(re
         ownership: "owned",
         resource,
         resource_ids: [resourceID(resource)],
-        release: () => pool.release(resource, { healthy: true }),
-        quarantine: () => pool.release(resource, { healthy: false }),
+        release: ({ healthy }) => pool.release(resource, { healthy }),
       };
     },
     close: () => pool.close(),
@@ -130,200 +166,240 @@ export function dedicatedPoolProvider(pool, resourceID = (resource) => String(re
 }
 
 class FixtureLease {
-  constructor(broker, record, allocation, sharedKey) {
+  constructor(broker, record, entry, unitID) {
     this.broker = broker;
     this.record = record;
-    this.allocation = allocation;
-    this.sharedKey = sharedKey;
-    this.resource = allocation?.resource;
-    this.released = false;
+    this.entry = entry;
+    this.resource = entry.allocation.resource;
+    this.unitID = unitID;
+    this.releasePromise = null;
   }
 
-  async release({ healthy = true, retainWarm = false } = {}) {
-    if (this.released) return { retained: false };
-    this.released = true;
-    return this.broker.release(this, { healthy, retainWarm });
-  }
-
-  async quarantine() {
-    return this.release({ healthy: false });
+  release({ healthy = true, retainWarm = false } = {}) {
+    if (typeof healthy !== "boolean" || typeof retainWarm !== "boolean") {
+      return Promise.reject(new Error("fixture release disposition must be boolean"));
+    }
+    if (this.releasePromise) {
+      if (this.disposition.healthy !== healthy || this.disposition.retainWarm !== retainWarm) {
+        return Promise.reject(new Error("contradictory fixture release disposition"));
+      }
+      return this.releasePromise;
+    }
+    this.disposition = { healthy, retainWarm };
+    this.releasePromise = this.broker.release(this, this.disposition);
+    return this.releasePromise;
   }
 }
 
 export class FixtureBroker {
-  constructor({ providers = {}, clock = () => new Date(), idFactory, recordSink = () => {} } = {}) {
+  constructor({ providers = {}, clock = () => new Date(), idFactory, recordSink = () => {}, cleanupResults = new CleanupResults() } = {}) {
     this.providers = providers;
     this.clock = clock;
     this.nextID = 1;
     this.idFactory = idFactory ?? (() => `lease-${String(this.nextID++).padStart(6, "0")}`);
     if (typeof recordSink !== "function") throw new Error("fixture broker recordSink must be a function");
     this.recordSink = recordSink;
-    this.active = [];
+    this.cleanupResults = cleanupResults;
+    this.active = new Set();
+    this.allocations = new Set();
+    this.acquisitions = new Set();
     this.shared = new Map();
     this.closed = false;
+    this.closePromise = null;
+    this.providerCleanupFailed = false;
+    this.acquisitionCleanupErrors = [];
   }
 
-  async acquire(
-    capability,
-    {
-      affinityKey,
-      unitID = "unit",
-      digest,
-      browserStage,
-      runtimeProfileID,
-      fixtureProfileID,
-      snapshotKey,
-      builderUnitID,
-      rowID,
-      predicateID,
-    } = {},
-  ) {
+  acquire(capability, options = {}) {
+    const promise = this.acquireOnce(capability, options);
+    this.acquisitions.add(promise);
+    promise.then(() => this.acquisitions.delete(promise), () => this.acquisitions.delete(promise));
+    return promise;
+  }
+
+  async acquireOnce(capability, { affinityKey, unitID = "unit", digest, browserStage, runtimeProfileID,
+    fixtureProfileID, snapshotKey, builderUnitID, rowID, predicateID } = {}) {
     if (this.closed) throw new Error("fixture broker is closed");
     if (!capabilities.has(capability)) throw new Error(`unknown fixture capability ${capability}`);
     const sharedKey = capability === "browser_stack"
-        ? `${capability}:${affinityKey ?? unitID}:${fixtureProfileID ?? "none"}:${snapshotKey ?? "none"}`
-        : "";
+      ? `${capability}:${affinityKey ?? unitID}:${fixtureProfileID ?? "none"}:${snapshotKey ?? "none"}` : "";
     const leaseID = this.idFactory();
-    let shared = sharedKey ? this.shared.get(sharedKey) : null;
-    let allocation;
-    if (shared) {
-      shared.references += 1;
-      allocation = shared.allocation;
-    } else if (capability === "none") {
-      allocation = {
-        ownership: "borrowed",
-        resource_ids: [],
-        resource: null,
+    let entry = sharedKey ? this.shared.get(sharedKey) : null;
+    let lease;
+    try {
+      if (!entry) {
+        const provider = this.providers[capability];
+        if (capability !== "none" && typeof provider?.acquire !== "function") {
+          throw new Error(`no provider for fixture capability ${capability}`);
+        }
+        const allocation = capability === "none"
+          ? { ownership: "borrowed", resource_ids: [], resource: null }
+          : await provider.acquire({ affinityKey, unitID, digest, browserStage, runtimeProfileID,
+              fixtureProfileID, snapshotKey, builderUnitID, rowID, predicateID, leaseID });
+        if (!allocation || !["owned", "borrowed"].includes(allocation.ownership)) {
+          throw new Error(`${capability} provider returned invalid ownership`);
+        }
+        // Register ownership before validation or publication can throw.
+        entry = { allocation, capability, sharedKey, references: 0, tainted: false,
+          cleanupPromise: null, cleanupOutcome: "not_required", releaseErrors: [], lastLease: null, leaseID, unitID };
+        this.allocations.add(entry);
+        if (capability !== "none") {
+          const hook = allocation.ownership === "owned" ? "release" : "detach";
+          if (typeof allocation[hook] !== "function") throw new Error(`${capability} provider requires ${hook}`);
+        }
+        allocation.resource_ids = [...(allocation.resource_ids ?? [])].sort(compareASCII);
+        if (new Set(allocation.resource_ids).size !== allocation.resource_ids.length) {
+          throw new Error(`${capability} provider returned duplicate resource IDs`);
+        }
+        if (sharedKey) this.shared.set(sharedKey, entry);
+      }
+      entry.references += 1;
+      const allocation = entry.allocation;
+      const record = {
+        schema_id: "cartulary.harness_fixture_lease.v4", lease_id: leaseID, capability,
+        ownership: allocation.ownership, state: "leased", cleanup_outcome: "not_required",
+        cleanup_failure_reason: null, resource_ids: allocation.resource_ids,
+        ...(affinityKey ? { affinity_key: affinityKey } : {}),
+        ...(allocation.fixture_profile_id ? { fixture_profile_id: allocation.fixture_profile_id } : {}),
+        ...(allocation.snapshot_key ? { snapshot_key: allocation.snapshot_key } : {}),
+        ...(allocation.builder_unit_id ? { builder_unit_id: allocation.builder_unit_id } : {}),
+        ...(allocation.clone_ordinal ? { clone_ordinal: allocation.clone_ordinal } : {}),
+        created_at: this.clock().toISOString(),
       };
-    } else {
-      const provider = this.providers[capability];
-      if (!provider?.acquire) throw new Error(`no provider for fixture capability ${capability}`);
-      allocation = await provider.acquire({
-        affinityKey,
-        unitID,
-        digest,
-        browserStage,
-        runtimeProfileID,
-        fixtureProfileID,
-        snapshotKey,
-        builderUnitID,
-        rowID,
-        predicateID,
-        leaseID,
-      });
-      if (!allocation || !["owned", "borrowed"].includes(allocation.ownership)) {
-        throw new Error(`${capability} provider returned invalid ownership`);
+      lease = new FixtureLease(this, record, entry, unitID);
+      entry.lastLease = lease;
+      this.active.add(lease);
+      await this.publish(lease);
+      if (this.closed) throw new Error("fixture broker closed during acquisition");
+      return lease;
+    } catch (error) {
+      if (entry) {
+        try {
+          if (lease) await lease.release({ healthy: false });
+          else { entry.tainted = true; this.unshare(entry); await this.cleanupAllocation(entry); }
+        } catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
+      } else if (error.cleanupFailures?.length) {
+        const failure = aggregateCleanup(error.cleanupFailures);
+        this.acquisitionCleanupErrors.push(failure);
+        this.providerCleanupFailed = true;
+        this.cleanupResults.record("fixture_acquisition_cleanup", { unitID, leaseID, error: failure });
       }
-      allocation.resource_ids = [...(allocation.resource_ids ?? [])].sort(compareASCII);
-      if (new Set(allocation.resource_ids).size !== allocation.resource_ids.length) {
-        throw new Error(`${capability} provider returned duplicate resource IDs`);
-      }
-      if (sharedKey) {
-        shared = { allocation, references: 1 };
-        this.shared.set(sharedKey, shared);
-      }
+      throw error;
     }
-    const record = {
-      schema_id: "cartulary.harness_fixture_lease.v4",
-      lease_id: leaseID,
-      capability,
-      ownership: allocation.ownership,
-      state: "leased",
-      cleanup_outcome: "not_required",
-      cleanup_failure_reason: null,
-      resource_ids: allocation.resource_ids,
-      ...(affinityKey ? { affinity_key: affinityKey } : {}),
-      ...(allocation.fixture_profile_id
-        ? { fixture_profile_id: allocation.fixture_profile_id }
-        : {}),
-      ...(allocation.snapshot_key ? { snapshot_key: allocation.snapshot_key } : {}),
-      ...(allocation.builder_unit_id
-        ? { builder_unit_id: allocation.builder_unit_id }
-        : {}),
-      ...(allocation.clone_ordinal
-        ? { clone_ordinal: allocation.clone_ordinal }
-        : {}),
-      created_at: this.clock().toISOString(),
-    };
-    validateSchemaSync(record.schema_id, record);
-    await this.recordSink(record);
-    const lease = new FixtureLease(this, record, allocation, sharedKey);
-    this.active.push(lease);
-    return lease;
   }
 
-  async release(lease, { healthy, retainWarm = false }) {
-    const index = this.active.indexOf(lease);
-    if (index >= 0) this.active.splice(index, 1);
-    let releaseAllocation = true;
-    let retained = false;
-    if (lease.sharedKey) {
-      const shared = this.shared.get(lease.sharedKey);
-      if (shared) {
-        shared.references -= 1;
-        releaseAllocation = shared.references === 0;
-        if (
-          releaseAllocation &&
-          healthy &&
-          retainWarm &&
-          lease.record.capability === "browser_stack" &&
-          !this.closed
-        ) {
-          // Browser stacks are run-scoped affinity resources. Keep a healthy
-          // zero-reference allocation warm for later units in the same chain.
-          releaseAllocation = false;
-          retained = true;
-        } else if (releaseAllocation) {
-          this.shared.delete(lease.sharedKey);
-        }
-      }
-    }
-    const cleanupRequired = releaseAllocation && lease.record.capability !== "none";
-    if (!healthy) {
-      lease.record.state = "quarantined";
-      lease.record.cleanup_outcome = cleanupRequired ? "pending" : "not_required";
-      lease.record.cleanup_failure_reason = null;
+  async publish(lease) {
+    try {
       validateSchemaSync(lease.record.schema_id, lease.record);
-      await this.recordSink(lease.record);
-    }
-    if (cleanupRequired) {
-      try {
-        if (lease.allocation.ownership === "borrowed") {
-          await lease.allocation.detach?.();
-        } else if (healthy) {
-          await lease.allocation.release?.();
-        } else {
-          await (lease.allocation.quarantine?.() ?? lease.allocation.destroy?.());
-        }
-      } catch (error) {
-        lease.record.state = healthy ? "failed" : "quarantined";
-        lease.record.cleanup_outcome = "failed";
-        lease.record.cleanup_failure_reason = "cleanup_error";
-        validateSchemaSync(lease.record.schema_id, lease.record);
-        await this.recordSink(lease.record);
-        throw error;
+      if (["released", "destroyed"].includes(lease.record.state) && lease.record.cleanup_outcome === "failed") {
+        throw new Error("settled fixture cannot claim failed cleanup");
       }
+      await this.recordSink(lease.record);
+      lease.published = true;
+    } catch (error) {
+      throw new CommandFailure("fixture lease publication failed", {
+        failure_class: "artifact", failure_reason: "artifact_error",
+      }, { cause: error });
     }
-    lease.record.state = healthy ? "released" : cleanupRequired ? "destroyed" : "quarantined";
-    lease.record.cleanup_outcome = cleanupRequired ? "completed" : "not_required";
-    lease.record.cleanup_failure_reason = null;
-    validateSchemaSync(lease.record.schema_id, lease.record);
-    await this.recordSink(lease.record);
-    return { retained };
   }
 
-  async close() {
-    if (this.closed) return;
-    this.closed = true;
-    for (const lease of [...this.active].reverse()) await lease.release();
-    for (const shared of this.shared.values()) {
-      if (shared.allocation.ownership === "borrowed") {
-        await shared.allocation.detach?.();
-      } else {
-        await shared.allocation.release?.();
+  unshare(entry) {
+    if (this.shared.get(entry.sharedKey) === entry) this.shared.delete(entry.sharedKey);
+  }
+
+  cleanupAllocation(entry) {
+    if (entry.cleanupPromise) return entry.cleanupPromise;
+    entry.cleanupPromise = Promise.resolve().then(async () => {
+      const lease = entry.lastLease;
+      const errors = [...entry.releaseErrors];
+      entry.cleanupOutcome = entry.capability === "none" ? "not_required" : "pending";
+      if (lease && entry.capability !== "none") {
+        lease.record.state = entry.tainted ? "quarantined" : "leased";
+        lease.record.cleanup_outcome = "pending";
+        try { await this.publish(lease); } catch (error) { errors.push(error); }
       }
+      if (entry.capability !== "none") {
+        let physicalFailed = false;
+        try {
+          if (entry.allocation.ownership === "borrowed") await entry.allocation.detach();
+          else await entry.allocation.release({ healthy: !entry.tainted });
+        } catch (error) { physicalFailed = true; errors.push(error); }
+        entry.cleanupOutcome = physicalFailed ? "failed" : "completed";
+
+      }
+      if (lease) {
+        lease.record.state = entry.cleanupOutcome === "failed"
+          ? entry.tainted ? "quarantined" : "failed" : entry.tainted ? "destroyed" : "released";
+        lease.record.cleanup_outcome = entry.cleanupOutcome;
+        lease.record.cleanup_failure_reason = entry.cleanupOutcome === "failed" ? "cleanup_error" : null;
+        try { await this.publish(lease); } catch (error) { errors.push(error); }
+      }
+      const failure = aggregateCleanup(errors);
+      if (entry.capability !== "none") this.cleanupResults.record(entry.allocation.ownership === "borrowed" ? "fixture_detach" : "fixture_release", {
+        unitID: lease?.unitID ?? entry.unitID, leaseID: lease?.record.lease_id ?? entry.leaseID, error: failure,
+        artifactRefs: lease?.published ? [`_shared/fixture-leases/${lease.record.lease_id}.json`] : [],
+      });
+      if (failure) throw failure;
+    });
+    return entry.cleanupPromise;
+  }
+
+  async release(lease, { healthy, retainWarm }) {
+    const entry = lease.entry;
+    entry.references -= 1;
+    entry.tainted ||= !healthy;
+    if (entry.tainted) this.unshare(entry);
+    try {
+      const retained = entry.references === 0 && !entry.tainted && retainWarm &&
+        entry.capability === "browser_stack" && !this.closed;
+      if (entry.references === 0 && !retained) {
+        this.unshare(entry);
+        await this.cleanupAllocation(entry);
+      } else {
+        lease.record.state = entry.tainted ? "quarantined" : "released";
+        lease.record.cleanup_outcome = "not_required";
+        await this.publish(lease);
+      }
+      return { retained };
+    } catch (error) {
+      entry.tainted = true;
+      this.unshare(entry);
+      if (!entry.cleanupPromise) entry.releaseErrors.push(error);
+      if (entry.references === 0 && !entry.cleanupPromise) {
+        try { await this.cleanupAllocation(entry); } catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
+      }
+      throw error;
+    } finally { this.active.delete(lease); }
+  }
+
+  hasUnresolvedCleanup() {
+    return this.providerCleanupFailed || [...this.allocations].some((entry) =>
+      entry.capability !== "none" && entry.cleanupOutcome !== "completed");
+  }
+
+  close() {
+    if (this.closePromise) return this.closePromise;
+    this.closed = true;
+    this.closePromise = this.closeOnce();
+    return this.closePromise;
+  }
+
+  async closeOnce() {
+    await Promise.allSettled([...this.acquisitions]);
+    const errors = [...this.acquisitionCleanupErrors];
+    for (const lease of [...this.active].reverse()) {
+      try { await (lease.releasePromise ?? lease.release()); } catch (error) { errors.push(error); }
     }
-    this.shared.clear();
-    for (const provider of Object.values(this.providers)) await provider.close?.();
+    for (const entry of [...this.allocations].reverse()) {
+      this.unshare(entry);
+      try { await this.cleanupAllocation(entry); } catch (error) { errors.push(error); }
+    }
+    for (const provider of new Set(Object.values(this.providers))) {
+      if (typeof provider.close !== "function") continue;
+      const error = await this.cleanupResults.attempt("provider_close", () => provider.close());
+      if (error) { this.providerCleanupFailed = true; errors.push(error); }
+    }
+    const failure = aggregateCleanup(errors);
+    if (failure) throw failure;
   }
 }

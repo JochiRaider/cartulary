@@ -5,6 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { assertFixtureCleanupCases, assertSchedulerCleanupCases, assertRecoveryCases, assertProductionCleanupCases } from "./fixture-cleanup-cases.mjs";
 import { FixtureBroker } from "../scheduler/fixture-broker/index.mjs";
 import {
   WorkGraphCompiler,
@@ -342,6 +343,16 @@ async function assertAtomicNDJSON() {
 }
 
 async function assertFixtures() {
+  let synchronousStops = 0;
+  const synchronousStop = () => { synchronousStops += 1; };
+  const synchronousBroker = new FixtureBroker({ providers: {
+    browser_stack: { acquire: async () => ({ ownership: "owned", resource_ids: ["browser:sync"],
+      release: synchronousStop }) },
+  } });
+  const synchronousLease = await synchronousBroker.acquire("browser_stack");
+  await synchronousLease.release({ healthy: false });
+  assert.equal(synchronousStops, 1, "synchronous unhealthy cleanup must stop its allocation exactly once");
+  await synchronousBroker.close();
   const released = [];
   let browserAllocation = 0;
   const providers = {
@@ -358,8 +369,7 @@ async function assertFixtures() {
         ownership: "owned",
         resource_ids: [`postgres:${unitID}`],
         resource: { unitID },
-        release: async () => released.push(`healthy:${unitID}`),
-        quarantine: async () => released.push(`quarantined:${unitID}`),
+        release: async ({ healthy }) => released.push(`${healthy ? "healthy" : "quarantined"}:${unitID}`),
       }),
     },
     browser_stack: {
@@ -377,8 +387,7 @@ async function assertFixtures() {
                 clone_ordinal: 1,
               }
             : {}),
-          release: async () => released.push(affinityKey),
-          quarantine: async () => released.push(`quarantined:${affinityKey}`),
+          release: async ({ healthy }) => released.push(healthy ? affinityKey : `quarantined:${affinityKey}`),
         };
       },
     },
@@ -388,7 +397,7 @@ async function assertFixtures() {
   assert.equal(transaction.record.ownership, "borrowed");
   await transaction.release();
   const failedDedicated = await broker.acquire("postgres_dedicated", { unitID: "row-failed" });
-  await failedDedicated.quarantine();
+  await failedDedicated.release({ healthy: false });
   assert.equal(failedDedicated.record.state, "destroyed");
   assert.equal(failedDedicated.record.cleanup_outcome, "completed");
 	const cleanupRecords = [];
@@ -399,14 +408,14 @@ async function assertFixtures() {
 					ownership: "owned",
 					resource_ids: ["postgres:cleanup-failure"],
 					resource: {},
-					quarantine: async () => { throw new Error("cleanup failed"); },
+					release: async () => { throw new Error("cleanup failed"); },
 				}),
 			},
 		},
 		recordSink: async (record) => cleanupRecords.push(structuredClone(record)),
 	});
 	const cleanupFailure = await failingCleanupBroker.acquire("postgres_dedicated");
-	await assert.rejects(cleanupFailure.quarantine(), /cleanup failed/u);
+	await assert.rejects(cleanupFailure.release({ healthy: false }), (error) => error.failure_reason === "cleanup_error");
 	assert.deepEqual(
 		cleanupRecords.slice(-2).map((record) => [record.state, record.cleanup_outcome]),
 		[["quarantined", "pending"], ["quarantined", "failed"]],
@@ -500,4 +509,8 @@ if (["fast", "matrix"].includes(mode)) {
 if (["scheduler-smoke", "scheduler-matrix", "matrix"].includes(mode)) assertScheduler();
 if (["fixture-smoke", "fixture-matrix", "service-backed", "matrix"].includes(mode)) {
   await assertFixtures();
+  await assertFixtureCleanupCases();
+  await assertSchedulerCleanupCases();
+  assertRecoveryCases(root);
+  await assertProductionCleanupCases(root);
 }

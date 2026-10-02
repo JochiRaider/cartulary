@@ -303,6 +303,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_cleanup_results.v1",
+      "path": "tools/schemas/cartulary.harness_cleanup_results.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness fixture finalization",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_command_failure.v1",
       "path": "tools/schemas/cartulary.harness_command_failure.v1.schema.json",
       "classification": "shared_component",

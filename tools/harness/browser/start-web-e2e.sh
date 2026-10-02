@@ -809,8 +809,10 @@ cleanup() {
       rm -f -- "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
     fi
   fi
-  remove_private_runtime_material || cleanup_status=$?
-  if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
+  if [[ "${process_cleanup_complete}" -eq 1 ]]; then
+    remove_private_runtime_material || cleanup_status=$?
+  fi
+  if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 && "${cleanup_status}" -eq 0 ]]; then
     step_start_time="$(step_now_utc)"
     step_start_ms="$(step_now_monotonic_ms)"
     step_status=0
@@ -1015,8 +1017,10 @@ stop_session() {
   load_session_lease "${SESSION_LEASE_FILE}"
   KEEP_RUNTIME_ROOT=0
   cleanup || status=$?
-  if ! rm -f -- "${SESSION_LEASE_FILE}" >/dev/null 2>&1; then
-    status=1
+  if [[ "${status}" -eq 0 && "${CARTULARY_WEB_E2E_RETAIN_SESSION_LEASE:-0}" -ne 1 ]]; then
+    if ! rm -f -- "${SESSION_LEASE_FILE}" >/dev/null 2>&1; then
+      status=1
+    fi
   fi
   return "${status}"
 }

@@ -980,7 +980,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-filter-editing-overflow-linux.png",
-      "sha256": "22cd769b887bf4075ecd5e07ea4a9bda53f465c8c82cc256082342973601779a"
+      "sha256": "9c6ab774fd3d95456caea9efb22cf33c269c052a3f4dde5c0b721527dc375692"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-long-columns-linux.png",

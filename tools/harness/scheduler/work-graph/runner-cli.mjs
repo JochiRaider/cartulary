@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   canonicalJSONString,
+  primaryPublicFailure,
   publicExitCodeForFailure,
   semanticJSONDigest,
   validateSchemaSync,
@@ -22,13 +23,14 @@ import {
 } from "../../services/local-session.mjs";
 import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/canonical-unit-events.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/source-snapshot.mjs";
-import { FixtureBroker } from "../fixture-broker/index.mjs";
+import { FixtureBroker, createSuiteController, CleanupResults, aggregateCleanup } from "../fixture-broker/index.mjs";
 import {
   productionFixtureProviders,
   startManagedSuite,
 } from "../fixture-broker/providers.mjs";
 import { WorkGraphCache, workGraphCacheRootRelative } from "./cache.mjs";
 import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
+import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
 import { createAtomicNDJSONWriter } from "./atomic-ndjson.mjs";
 import {
   captureCapabilitySnapshot,
@@ -721,8 +723,8 @@ async function writeCanonicalArtifacts({
     if (event.event === "cache_miss") cache.miss += 1;
     if (event.event === "cache_bypass") cache.bypass += 1;
   }
-  const failedEvent = result.events.find((event) => event.event === "failed") ??
-    result.events.find((event) => event.failure_class);
+  const failedEvent = primaryPublicFailure(Object.values(result.unit_results)
+    .filter((terminal) => terminal.failure_class).concat(result.cleanup_error ? [result.cleanup_error] : []));
   const runSummary = {
     schema_id: "cartulary.harness_run_summary.v1",
     run_id: runID,
@@ -740,6 +742,7 @@ async function writeCanonicalArtifacts({
     artifact_refs: [
       "run-manifest.json",
       "unit-events.ndjson",
+      "cleanup-results.json",
       ...projectionNames.map((projection) => `target-summaries/${projection}.json`),
       ...fixtureLeaseArtifactRefs(runRoot),
       ...Object.values(result.unit_results).flatMap(serviceScopeArtifactRefs),
@@ -813,43 +816,15 @@ async function main() {
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID,
   }, runtimeEnvironment.NODE_BIN);
-  let suite = null;
-  let suiteClosed = false;
-  let suiteCloseError = null;
-  const suiteController = {
-    ensure() {
-      if (suiteClosed) throw new Error("managed suite is closed");
-      suite ??= serviceSession.mode === "attach"
-        ? attachLocalSession({
-            root,
-            binary: runtimeEnvironment.CARTULARY_TEST_SERVICES_BIN,
-            sessionFile: serviceSession.sessionFile,
-            target: options.target,
-            runID,
-            suiteRuntime,
-          })
-        : startManagedSuite({
-            root,
-            target: options.target,
-            suiteRuntime,
-            environment: baseEnvironment,
-          });
-      return suite;
-    },
-    close() {
-      if (suiteClosed) {
-        if (suiteCloseError) throw suiteCloseError;
-        return;
-      }
-      suiteClosed = true;
-      try {
-        suite?.close();
-      } catch (error) {
-        suiteCloseError = error;
-        throw error;
-      }
-    },
-  };
+  const cleanupResults = new CleanupResults();
+  const onOwnedResource = (resource) => recordRuntimeResource(suiteRuntime, resource);
+  const suiteController = createSuiteController(() => serviceSession.mode === "attach"
+    ? attachLocalSession({ root, binary: runtimeEnvironment.CARTULARY_TEST_SERVICES_BIN,
+        sessionFile: serviceSession.sessionFile, target: options.target, runID, suiteRuntime })
+    : startManagedSuite({ root, target: options.target, suiteRuntime, environment: baseEnvironment, onOwnedResource }));
+  let broker;
+  let finalizationComplete = false;
+  let resourcesUnresolved = false;
   let retainedScanAttempted = false;
   let primaryError = null;
   const publishRetainedScan = async () => {
@@ -862,13 +837,15 @@ async function main() {
     writeJSON(path.join(runRoot, "retained-secret-scan.json"), retainedScan);
   };
   try {
-  const broker = new FixtureBroker({
+  broker = new FixtureBroker({
+    cleanupResults,
     providers: productionFixtureProviders({
       root,
       selectionEnvironment: fixtureSelectionEnvironment(options),
       runtimeEnvironment,
       suiteController,
       suiteRuntime,
+      onOwnedResource,
     }),
     recordSink(record) {
       writeJSON(
@@ -943,7 +920,6 @@ async function main() {
     // Publish the canonical unit result at terminal-unit time. Downstream graph
     // units may consume exact producer evidence before whole-run projections
     // are rendered, and cache storage must include this result.
-    writeUnitResult(runRoot, unit, result, missingOutputs);
     return { ...result, missing_outputs: missingOutputs };
   };
   let result;
@@ -966,7 +942,28 @@ async function main() {
       cache,
       signal: controller.signal,
       agingQuantumMs: compiler.owner.aging_quantum_ms,
-      cleanup: async () => suiteController.close(),
+      cleanupResults,
+      cleanup: async () => {
+        if (runtimeRecoveryResources(suiteRuntime, { maximum: 4096 }).some((resource) => resource.kind !== "managed_suite")) {
+          resourcesUnresolved = true;
+          throw Object.assign(new Error("fixture ownership remains unresolved"), { failure_class: "harness", failure_reason: "cleanup_error" });
+        }
+        await suiteController.close();
+        if (runtimeRecoveryResources(suiteRuntime, { maximum: 4096 }).length) {
+          resourcesUnresolved = true;
+          throw Object.assign(new Error("suite ownership remains unresolved"), { failure_class: "harness", failure_reason: "cleanup_error" });
+        }
+      },
+      onUnitTerminal: (unit, result) => writeUnitResult(runRoot, unit, result, result.missing_outputs ?? []),
+      finalize: async ({ unresolved }) => {
+        resourcesUnresolved ||= unresolved;
+        const error = await cleanupResults.attempt(unresolved ? "recovery_preserve" : "runtime_close",
+          () => resourcesUnresolved ? suiteRuntime.preserveRecovery() : suiteRuntime.close());
+        const errors = error ? [error] : [];
+        try { cleanupResults.publish(runRoot, runID); } catch (failure) { errors.push(failure); }
+        finalizationComplete = true;
+        if (errors.length) throw aggregateCleanup(errors);
+      },
       onEvent: (event) => eventWriter.write(event),
       retainEvents: false,
     });
@@ -1004,27 +1001,33 @@ async function main() {
     primaryError = error;
     throw error;
   } finally {
-    let boundaryError = null;
+    const boundaryErrors = [];
     if (!retainedScanAttempted) {
       try {
         await publishRetainedScan();
       } catch (error) {
-        boundaryError = error;
+        boundaryErrors.push(error);
       }
     }
-    try {
-      suiteController.close();
-    } catch (error) {
-      boundaryError ??= error;
+    if (!finalizationComplete) {
+      try { await broker?.close(); } catch (error) { boundaryErrors.push(error); }
+      resourcesUnresolved ||= broker?.hasUnresolvedCleanup() ?? false;
+      try { resourcesUnresolved ||= runtimeRecoveryResources(suiteRuntime, { maximum: 4096 }).some((resource) => resource.kind !== "managed_suite"); }
+      catch (error) { boundaryErrors.push(error); resourcesUnresolved = true; }
+      const error = resourcesUnresolved ? null : await cleanupResults.attempt("services_close", () => suiteController.close());
+      if (resourcesUnresolved) cleanupResults.record("services_close", { blocked: true });
+      if (error) { boundaryErrors.push(error); resourcesUnresolved = true; }
+      try { resourcesUnresolved ||= runtimeRecoveryResources(suiteRuntime, { maximum: 4096 }).length > 0; }
+      catch (error) { boundaryErrors.push(error); resourcesUnresolved = true; }
+      const runtimeError = await cleanupResults.attempt(resourcesUnresolved ? "recovery_preserve" : "runtime_close",
+        () => resourcesUnresolved ? suiteRuntime.preserveRecovery() : suiteRuntime.close());
+      if (runtimeError) boundaryErrors.push(runtimeError);
+      try { cleanupResults.publish(runRoot, runID); } catch (error) { boundaryErrors.push(error); }
     }
-    if (!suiteCloseError) {
-      try {
-        suiteRuntime.close();
-      } catch (error) {
-        boundaryError ??= error;
-      }
+    if (boundaryErrors.length) {
+      if (primaryError) (primaryError.cleanupFailures ??= []).push(...boundaryErrors);
+      else throw aggregateCleanup(boundaryErrors);
     }
-    if (!primaryError && boundaryError) throw boundaryError;
   }
 }
 
@@ -1038,8 +1041,10 @@ try {
     error.message.includes("harness_capacity_override") ||
     error.message.includes("impossible resource claim") ||
     error.message.includes("dependency cycle");
-  process.stderr.write(
-    `[GRAPH-FAIL] failure_class=${configurationFailure ? "config" : "artifact"} failure_reason=${configurationFailure ? "configuration_error" : "artifact_error"} ${error.message}\n`,
-  );
-  process.exitCode = configurationFailure ? 2 : 11;
+  const failure = primaryPublicFailure([error.failure_reason ? error : {
+    failure_class: configurationFailure ? "config" : "artifact",
+    failure_reason: configurationFailure ? "configuration_error" : "artifact_error",
+  }]);
+  process.stderr.write(`[GRAPH-FAIL] failure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
+  process.exitCode = publicExitCodeForFailure(failure);
 }

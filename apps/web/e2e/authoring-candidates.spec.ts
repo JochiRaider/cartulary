@@ -64,6 +64,180 @@ function button(scope: Locator | Page, name: string) {
   return scope.getByRole("button", { name, exact: true });
 }
 
+test("Assessment Timeline support enum filtering preserves staged selection", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("ENUM-SUPPORT"),
+    "Explicit support filtering",
+  );
+  await createViewRow(page, incident, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("enum-host"),
+    "host.display_name": "Assessment subject",
+  });
+  const ids = await seed(
+    page,
+    incident,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
+  let submissions = 0;
+  const queries: { filters?: unknown }[] = [];
+  let failNext = false;
+  await page.route(
+    `**/incidents/${incident}/views/${assessmentsViewSchemaId}/rows`,
+    async (route) => {
+      submissions++;
+      await route.continue();
+    },
+  );
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${assessmentsViewSchemaId}`,
+  );
+  await page
+    .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
+    .click();
+  await page
+    .getByTestId(assessmentCreateControlTestId("rationale"))
+    .fill("Independent assessment draft");
+  await button(page, "Choose support").click();
+  const support = page.getByRole("group", {
+    name: "Choose assessment support",
+    exact: true,
+  });
+  const candidates = support.getByRole("listbox", {
+    name: "Timeline support candidates",
+    exact: true,
+  });
+  await expect(candidates.getByRole("option")).toHaveCount(100);
+  const first = await chooseFirst(candidates, true);
+  expect(ids).toContain(first);
+  await button(support, "Next candidates").click();
+  await expect(candidates.getByRole("option")).toHaveCount(5);
+  const second = await chooseFirst(candidates, true);
+  expect(second).not.toBe(first);
+  await page.setViewportSize({ width: 768, height: 640 });
+  await page.route(
+    `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      queries.push(route.request().postDataJSON());
+      if (failNext) {
+        failNext = false;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({ response: await route.fetch() });
+    },
+  );
+  await support
+    .getByText("Timeline support candidates ordering and filters", {
+      exact: true,
+    })
+    .click();
+  await support
+    .getByRole("combobox", {
+      name: "Timeline support candidates filter field",
+      exact: true,
+    })
+    .selectOption("timeline.activity_time_pair_state");
+  await support
+    .getByRole("combobox", {
+      name: "Timeline support candidates filter value",
+      exact: true,
+    })
+    .selectOption("disabled");
+  expect(queries).toHaveLength(0);
+  await button(support, "Add filter").click();
+  expect(queries).toHaveLength(0);
+  await expect(candidates.getByRole("option")).toHaveCount(5);
+  await button(support, "Apply candidate query").click();
+  await expect(candidates.getByRole("option")).toHaveCount(100);
+  expect(queries).toHaveLength(1);
+  expect(queries[0]?.filters).toEqual([
+    {
+      field_key: "timeline.activity_time_pair_state",
+      op: "eq",
+      arg: { value: "disabled" },
+    },
+  ]);
+  await expect(
+    support.getByRole("button", {
+      name: /^Remove selected Timeline support candidates /,
+    }),
+  ).toHaveCount(2);
+  await support
+    .getByRole("combobox", {
+      name: "Timeline support candidates equality operand",
+      exact: true,
+    })
+    .selectOption("values");
+  await support.getByRole("checkbox", { name: "empty", exact: true }).check();
+  await button(support, "Custom literals").click();
+  await button(support, "Add literal").click();
+  await support
+    .getByRole("textbox", {
+      name: "Timeline support candidates filter value literal 2",
+      exact: true,
+    })
+    .fill("long_custom_literal,".repeat(12));
+  const spacing = await page.addStyleTag({
+    content: `
+    * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }
+    p { margin-block-end: 2em !important; }
+  `,
+  });
+  await button(support, "Apply candidate query").focus();
+  const applyBox = await button(support, "Apply candidate query").boundingBox();
+  expect(applyBox).not.toBeNull();
+  if (!applyBox) throw new Error("Missing candidate Apply geometry");
+  expect(applyBox.y).toBeGreaterThanOrEqual(0);
+  expect(applyBox.y + applyBox.height).toBeLessThanOrEqual(640);
+  await test.info().attach("enum-candidate-text-spacing", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await button(support, "Add filter").click();
+  failNext = true;
+  await button(support, "Apply candidate query").click();
+  await expect(button(support, "Retry candidates")).toBeVisible();
+  await expect(
+    support.getByRole("button", {
+      name: /^Remove selected Timeline support candidates /,
+    }),
+  ).toHaveCount(2);
+  await button(support, "Retry candidates").click();
+  await expect(candidates.getByRole("option")).toHaveCount(0);
+  await expect(
+    support.getByRole("button", {
+      name: /^Remove selected Timeline support candidates /,
+    }),
+  ).toHaveCount(2);
+  expect(submissions).toBe(0);
+  const selected = page.getByRole("region", {
+    name: "Assessment supporting records",
+    exact: true,
+  });
+  await expect(selected).toContainText("Supporting records (0/64)");
+  await button(support, "Cancel support selection").click();
+  await expect(button(page, "Choose support")).toBeFocused();
+  await expect(selected).toContainText("Supporting records (0/64)");
+  await button(page, "Choose support").click();
+  await expect(candidates.getByRole("option")).toHaveCount(100);
+  await candidates.selectOption(first);
+  await button(support, "Apply support selection").click();
+  await expect(selected).toContainText("Supporting records (1/64)");
+  await button(page, "Choose support").click();
+  await candidates.selectOption([]);
+  await candidates.press("Escape");
+  await expect(selected).toContainText("Supporting records (1/64)");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("rationale")),
+  ).toHaveValue("Independent assessment draft");
+  expect(submissions).toBe(0);
+});
+
 test("Timeline retained Owner reconciles accepted membership labels only on Apply and remains readable through Recovery", async ({
   page,
 }) => {

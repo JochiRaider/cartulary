@@ -2,8 +2,9 @@ import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { FixtureBroker, productionFixtureProviders, startManagedSuite } from "../scheduler/fixture-broker/index.mjs";
+import { FixtureBroker, productionFixtureProviders, startManagedSuite, createSuiteController, CleanupResults, aggregateCleanup } from "../scheduler/fixture-broker/index.mjs";
 import { createSuiteRuntime, scanRetainedRoot } from "../runtime/suite-runtime.mjs";
+import { recordRuntimeResource, runtimeRecoveryResources } from "../runtime/resource-recovery.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
 import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
@@ -50,7 +51,7 @@ export async function withReviewResources({ acquire, prepare, hold, close, finis
   } finally {
     for (const cleanup of [close, finish]) {
       try { await cleanup(primary); } catch (error) {
-        primary ??= new CommandFailure("review cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error", phase: "cleanup", subject_id: "preparation_child", condition: "child_failed", recovery_id: "exact_stop" }, { cause: error });
+        primary ??= Object.assign(aggregateCleanup([error]), { phase: "cleanup", subject_id: "preparation_child", condition: "child_failed", recovery_id: "exact_stop" });
         (primary.cleanupFailures ??= []).push(error);
       }
     }
@@ -90,6 +91,10 @@ export async function runPreparedReview({ environment = process.env, signal, onR
     runtime_profile_id: profile,
   });
   const runtime = borrowedRuntime ?? createSuiteRuntime({ repoRoot: root, runRoot, runID });
+  const ownedResource = (resource) => {
+    if (!borrowedRuntime) recordRuntimeResource(runtime, resource);
+    onOwnedResource(resource);
+  };
   const base = { ...environment };
   for (const name of Object.keys(base)) {
     if (/^(?:MAKEFLAGS|MAKEOVERRIDES|MFLAGS|REVIEW_PROFILE|UI_|OTEL_|CARTULARY_(?:MAKE_|TEST_|WEB_E2E_|BROWSER_|HARNESS_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete base[name];
@@ -121,16 +126,12 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       GO_CACHE_DIR: environment.GO_CACHE_DIR || path.join(machine, "go/build"), GO_MOD_CACHE_DIR: environment.GO_MOD_CACHE_DIR || path.join(machine, "go/mod"), GO_TMP_DIR: environment.GO_TMP_DIR || path.join(machine, "go/tmp"),
       GOTOOLCHAIN: "local", GOPROXY: "off", GONOPROXY: "none", GOSUMDB: "off", GOTELEMETRY: "off", COREPACK_ENABLE_NETWORK: "0", npm_config_offline: "true" });
   }
-  let suite;
   let broker;
+  let leaseForReview;
+  const cleanupResults = new CleanupResults();
+  let resourcesUnresolved = false;
   let state = "preparing";
-  const suiteController = {
-    ensure() {
-      suite ??= startManagedSuite({ root, target, suiteRuntime: runtime, environment: base, onOwnedResource });
-      return suite;
-    },
-    close() { suite?.close(); },
-  };
+  const suiteController = createSuiteController(() => startManagedSuite({ root, target, suiteRuntime: runtime, environment: base, onOwnedResource: ownedResource }));
   let sessionDetails = {};
   const terminal = (extra = {}) => {
     sessionDetails = { ...sessionDetails, ...extra };
@@ -158,10 +159,12 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       signal?.throwIfAborted();
       stage({ phase: "service_acquisition", subject_id: "browser_stack", condition: "child_failed", recovery_id: "inspect_failure" });
       broker = new FixtureBroker({
-        providers: productionFixtureProviders({ root, runtimeEnvironment: base, suiteRuntime: runtime, suiteController, signal, onOwnedResource, onChildProcess }),
+        cleanupResults,
+        providers: productionFixtureProviders({ root, runtimeEnvironment: base, suiteRuntime: runtime, suiteController, signal, onOwnedResource: ownedResource, onChildProcess }),
         recordSink: (record) => json(path.join(runRoot, "_shared/fixture-leases", `${record.lease_id}.json`), record),
       });
       const lease = await broker.acquire("browser_stack", { affinityKey: `design-review-${profile}`, unitID: target, browserStage: "webserver-backed", runtimeProfileID: profile });
+      leaseForReview = lease;
       signal?.throwIfAborted();
       return { ...base, ...lease.resource.environment };
     },
@@ -187,7 +190,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       writeOutput(`Browser review ready: ${attached.CARTULARY_WEB_E2E_PUBLIC_ORIGIN}\nPrivate login instructions: ${path.join(privateDirectory, "access.json")}\nSample files: ${review.samples}\nScenario index: ${path.join(runRoot, "review-session.json")}\n`);
       for (const scenario of review.scenarios) writeOutput(`  ${scenario.name}: ${scenario.url}\n`);
       writeOutput(hold ? "Smoke complete; cleaning up owned resources.\n" : "Press Ctrl-C to stop and remove this session's data.\n");
-      await onReady?.({ attached, review, runRoot, privateDirectory, check: () => child(process.execPath, ["tools/harness/browser/browser-session-evidence.mjs", "attach-json", attached.CARTULARY_WEB_E2E_STACK_JSON_FILE], attached, signal, "ignore", onChildProcess) });
+      await onReady?.({ attached, review, runRoot, privateDirectory, fixtureLease: leaseForReview, fixtureBroker: broker, check: () => child(process.execPath, ["tools/harness/browser/browser-session-evidence.mjs", "attach-json", attached.CARTULARY_WEB_E2E_STACK_JSON_FILE], attached, signal, "ignore", onChildProcess) });
     },
     async hold(attached) {
       if (hold) return hold(attached);
@@ -199,23 +202,45 @@ export async function runPreparedReview({ environment = process.env, signal, onR
     async close(error) {
       state = error ? "failed" : "closed";
       const failures = [];
-      for (const release of [() => broker?.close(), () => suiteController.close()]) {
-        try { await release(); } catch (failure) { failures.push(failure); }
+      try { await broker?.close(); } catch (failure) { failures.push(failure); }
+      resourcesUnresolved = broker?.hasUnresolvedCleanup() ?? false;
+      if (!borrowedRuntime && runtimeRecoveryResources(runtime).some((resource) => resource.kind !== "managed_suite")) resourcesUnresolved = true;
+      if (resourcesUnresolved) cleanupResults.record("services_close", { blocked: true });
+      else {
+        const failure = await cleanupResults.attempt("services_close", () => suiteController.close());
+        if (failure) { resourcesUnresolved = true; failures.push(failure); }
       }
+      if (!borrowedRuntime && runtimeRecoveryResources(runtime).length) resourcesUnresolved = true;
       if (failures.length) throw new AggregateError(failures, "review resource cleanup failed");
     },
     async finish(error) {
       if (error) state = "failed";
-      terminal({ ...(error ? { failure: error.message } : {}) });
+      const terminalDetail = error ? { failure_class: error.failure_class ?? "harness", failure_reason: error.failure_reason ?? "cleanup_error" } : {};
+      let finishFailure;
       try {
         const scan = retainDetail ? await scanRetainedRoot(runRoot, { forbiddenValues: runtime.forbiddenValues(), removeUnsafe: true }) : { status: "pass" };
         json(path.join(runRoot, "retained-secret-scan.json"), scan);
         if (scan.status !== "pass") throw new Error("Review retained-artifact secret scan failed");
       } catch (scanError) {
         state = "failed";
-        terminal({ artifact_failure: scanError.message });
-        throw scanError;
-      } finally { if (!borrowedRuntime) runtime.close(); }
+        terminalDetail.artifact_failure = "artifact_error";
+        finishFailure = Object.assign(scanError, { failure_class: "artifact", failure_reason: "artifact_error" });
+      } finally {
+        const failures = [];
+        if (!borrowedRuntime) {
+          const failure = await cleanupResults.attempt(resourcesUnresolved ? "recovery_preserve" : "runtime_close",
+            () => resourcesUnresolved ? runtime.preserveRecovery() : runtime.close());
+          if (failure) failures.push(failure);
+        }
+        try { cleanupResults.publish(runRoot, runID); } catch (failure) { failures.push(failure); }
+        if (failures.length) state = "failed";
+        try { terminal({ ...terminalDetail, artifact_refs: ["cleanup-results.json"] }); } catch (failure) { failures.push(failure); }
+        if (failures.length) {
+          if (finishFailure) (finishFailure.cleanupFailures ??= []).push(...failures);
+          else finishFailure = aggregateCleanup(failures);
+        }
+      }
+      if (finishFailure) throw finishFailure;
     },
   }); } catch (error) {
     for (const [key, value] of Object.entries(phase)) error[key] ??= value;
@@ -234,14 +259,17 @@ export async function recoverReviewPreparation({ runtime, resources, onReleased 
   const privateResults = runtime.privatePath("lifecycle");
   mkdirSync(path.join(privateResults, runtime.runID), { recursive: true, mode: 0o700 });
   const base = { ...environment, CARTULARY_TEST_RESULTS_DIR: privateResults, CARTULARY_TEST_RUN_ID: runtime.runID, CARTULARY_TEST_TARGET: "ui-review", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID, NODE_BIN: process.execPath };
-  for (const kind of ["browser_stack", "managed_suite"]) for (const resource of resources.filter((entry) => entry.kind === kind)) {
+  for (const kind of ["browser_stack", "managed_suite"]) {
+    if (kind === "managed_suite" && failures.length) break;
+    for (const resource of resources.filter((entry) => entry.kind === kind)) {
     try {
       if (existsSync(resource.target)) {
         if (kind === "browser_stack") terminateBrowserStackLease({ root, leaseFile: resource.target, environment: base });
         else terminateManagedSuiteLease({ root, leaseFile: resource.target, executable: path.join(root, "tmp/toolbin/cartulary-test-services"), environment: base });
-      } else if (resource.state !== "pending") throw new Error("missing acquired recovery proof");
+      } else throw new Error("missing resource-owner recovery proof");
       onReleased(resource);
     } catch (error) { failures.push(error); }
+    }
   }
   if (failures.length) throw new AggregateError(failures, "review resource recovery failed");
 }

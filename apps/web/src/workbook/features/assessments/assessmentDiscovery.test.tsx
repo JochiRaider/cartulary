@@ -54,6 +54,95 @@ function expectCandidatePageStatus(message: string) {
 }
 
 describe("Assessment discovery", () => {
+  it("keeps support identities independent from enum draft staging failed reads and cancellation", async () => {
+    const user = userEvent.setup();
+    const support = vi
+      .fn()
+      .mockResolvedValue(page([]))
+      .mockResolvedValueOnce(page(["a", "b"], "next"))
+      .mockResolvedValueOnce(page(["c"]))
+      .mockResolvedValueOnce({
+        kind: "rejected",
+        failure: { kind: "retryable", message: "Unavailable" },
+      })
+      .mockResolvedValueOnce(page([]));
+    const reader: AssessmentCandidateReadPort = {
+      subjects: vi.fn(async () => page([])),
+      support,
+    };
+    const update = vi.fn();
+    const draft = {
+      ...initialAssessmentDraft(requireViewContract(assessmentsViewSchemaId)),
+      supportRecordIds: ["saved"],
+      supportDisplayText: { saved: "Saved support" },
+    };
+    render(
+      <AssessmentSupportPicker
+        reader={reader}
+        draft={draft}
+        disabled={false}
+        revision={0}
+        update={update}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Choose support" }));
+    await screen.findByRole("option", { name: "Record a" });
+    const list = screen.getByRole("listbox", {
+      name: "Timeline support candidates",
+    });
+    await user.selectOptions(list, "a");
+    await user.click(screen.getByRole("button", { name: "Next candidates" }));
+    await screen.findByRole("option", { name: "Record c" });
+    await user.selectOptions(list, "c");
+    await user.click(
+      screen.getByText("Timeline support candidates ordering and filters"),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Timeline support candidates filter field"),
+      "timeline.activity_time_pair_state",
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Timeline support candidates filter value"),
+      "disabled",
+    );
+    await user.click(screen.getByRole("button", { name: "Add filter" }));
+    expect(support).toHaveBeenCalledTimes(2);
+    expect(update).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
+    );
+    await waitFor(() => expect(support).toHaveBeenCalledTimes(3));
+    expect(update).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", {
+        name: /Remove selected Timeline support candidates Record a/,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: /Remove selected Timeline support candidates Record c/,
+      }),
+    ).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Retry candidates" }));
+    await waitFor(() => expect(support).toHaveBeenCalledTimes(4));
+    expect(
+      screen.getByRole("button", {
+        name: /Remove selected Timeline support candidates Record a/,
+      }),
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", { name: "Cancel support selection" }),
+    );
+    expect(update).not.toHaveBeenCalled();
+    expect(draft.supportRecordIds).toEqual(["saved"]);
+    await user.click(screen.getByRole("button", { name: "Choose support" }));
+    expect(
+      screen.queryByRole("button", {
+        name: /Remove selected Timeline support candidates Record a/,
+      }),
+    ).toBeNull();
+    expect(update).not.toHaveBeenCalled();
+  });
   it("keeps the direct shared support Refresh control focused during a held read", async () => {
     let finish!: (
       value: Awaited<ReturnType<AssessmentCandidateReadPort["support"]>>,

@@ -25,17 +25,21 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useLayoutEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
 import { defaultWorkbookLayoutState } from "../layout/workbookColumnLayout";
 import { workbookOrderedSortLimit } from "../models/workbookGridQueryControls";
 import {
+  type buildFilterFromDraft,
   clearFilterDraftValue,
   defaultFilterDraft,
   emptyWorkbookQueryState,
   type FilterDraft,
+  filterDraftForField,
   validateFilterDraft,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
@@ -52,6 +56,292 @@ afterEach(() => {
 });
 
 describe("WorkbookGridControls", () => {
+  it("offers ordered enum choices without implicit admission and preserves null and set shapes", async () => {
+    const user = userEvent.setup();
+    const applied = vi.fn();
+    render(<EnumGridControls applied={applied} />);
+    const trigger = screen.getByTestId(
+      workbookFilterPopoverTriggerTestId(timelineSurface),
+    );
+    await user.click(trigger);
+    await user.selectOptions(
+      screen.getByLabelText("Field"),
+      "timeline.activity_time_pair_state",
+    );
+    const value = screen.getByLabelText("Value");
+    const choices =
+      requireViewContract(timelineSurface).fieldMap[
+        "timeline.activity_time_pair_state"
+      ]?.enumValues ?? [];
+    expect(
+      within(value)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Choose a value", ...choices]);
+    expect((value as HTMLSelectElement).value).toBe("");
+    expect(
+      screen.getByRole("button", { name: "Apply" }).hasAttribute("disabled"),
+    ).toBe(true);
+    await user.selectOptions(value, "empty");
+    expect(applied).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied.mock.calls[0]?.[0]?.arg).toEqual({ value: "empty" });
+    expect(document.activeElement).toBe(trigger);
+    await user.click(
+      screen.getByRole("button", {
+        name: "Filter 1, Activity Time Pair State, equals empty",
+      }),
+    );
+    expect((screen.getByLabelText("Value") as HTMLSelectElement).value).toBe(
+      "empty",
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Equality operand kind"),
+      "values",
+    );
+    const checks = screen.getAllByRole("checkbox");
+    expect(checks.map((check) => check.parentElement?.textContent)).toEqual(
+      choices,
+    );
+    checks[0]?.focus();
+    await user.keyboard(" ");
+    await user.click(screen.getByRole("checkbox", { name: "empty" }));
+    await user.click(screen.getByRole("checkbox", { name: "empty" }));
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied.mock.calls[1]?.[0]?.arg).toEqual({ values: ["disabled"] });
+    await user.click(
+      screen.getByRole("button", {
+        name: "Filter 1, Activity Time Pair State, equals disabled",
+      }),
+    );
+    expect(
+      (screen.getByRole("checkbox", { name: "disabled" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    await user.click(screen.getByRole("checkbox", { name: "disabled" }));
+    expect(
+      screen.getByRole("button", { name: "Apply" }).hasAttribute("disabled"),
+    ).toBe(true);
+    await user.selectOptions(
+      screen.getByLabelText("Equality operand kind"),
+      "null",
+    );
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied.mock.calls[2]?.[0]?.arg).toEqual({ value: null });
+  });
+
+  it("reopens custom enum sets keeps literal slots and reconciles the complete keyboard order", async () => {
+    const user = userEvent.setup();
+    const applied = vi.fn();
+    render(
+      <EnumGridControls
+        applied={applied}
+        initial={{
+          filters: [
+            {
+              fieldKey: "timeline.activity_time_pair_state",
+              op: "eq",
+              arg: { values: ["disabled", "Disabled", "custom,token"] },
+            },
+          ],
+          groupBy: null,
+          sort: [],
+        }}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /Filter 1, Activity Time Pair State/,
+      }),
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Custom literals" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(
+      (screen.getByLabelText("Value literal 3") as HTMLInputElement).value,
+    ).toBe("custom,token");
+    await user.click(screen.getByRole("checkbox", { name: "empty" }));
+    expect(
+      (screen.getByLabelText("Value literal 2") as HTMLInputElement).value,
+    ).toBe("Disabled");
+    await user.clear(screen.getByLabelText("Value literal 3"));
+    await user.type(screen.getByLabelText("Value literal 3"), "empty");
+    expect(screen.getByLabelText("Value literal 3")).toBe(
+      document.activeElement,
+    );
+    await user.click(screen.getByRole("button", { name: "Add literal" }));
+    expect(screen.getByLabelText("Value literal 5")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Remove literal 5" }));
+    expect(document.activeElement?.isConnected).toBe(true);
+    const add = screen.getByRole("button", { name: "Add literal" });
+    add.focus();
+    await user.tab();
+    expect(document.activeElement?.getAttribute("aria-label")).toContain(
+      "Edit Filter",
+    );
+    expect(applied).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied.mock.calls[0]?.[0]?.arg.values).toEqual(
+      expect.arrayContaining(["disabled", "Disabled", "empty"]),
+    );
+    expect(applied.mock.calls[0]?.[0]?.arg.values).toHaveLength(3);
+    await user.click(
+      screen.getByRole("button", {
+        name: /Filter 1, Activity Time Pair State/,
+      }),
+    );
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(applied).toHaveBeenCalledTimes(1);
+  });
+
+  it("scopes enum disclosure by field view and instance and leaves fallback and prefix controls intact", async () => {
+    const user = userEvent.setup();
+    const apply = vi.fn();
+    const contract = requireViewContract(timelineSurface);
+    render(
+      <>
+        <EnumGridControls applied={apply} />
+        <WorkbookCandidateQueryControl
+          view="cartulary.view.parties.v1"
+          label="Other"
+          query={emptyWorkbookQueryState()}
+          onApply={vi.fn()}
+        />
+      </>,
+    );
+    await user.click(
+      screen.getByTestId(workbookFilterPopoverTriggerTestId(timelineSurface)),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Field"),
+      "timeline.activity_time_pair_state",
+    );
+    await user.click(screen.getByRole("button", { name: "Custom literals" }));
+    await user.type(screen.getByLabelText("Value literal"), "Disabled");
+    await user.selectOptions(
+      screen.getByLabelText("Field"),
+      "timeline.capture_state",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Custom literals" }),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(gridFilterValueTestId(timelineSurface)).tagName,
+    ).toBe("INPUT");
+    await user.selectOptions(screen.getByLabelText("Operator"), "prefix");
+    expect(
+      screen.getByTestId(gridFilterValueTestId(timelineSurface)).tagName,
+    ).toBe("INPUT");
+    await user.selectOptions(
+      screen.getByLabelText("Field"),
+      "timeline.activity_time_pair_state",
+    );
+    expect(
+      (
+        screen.getByTestId(
+          gridFilterValueTestId(timelineSurface),
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("");
+    expect(
+      screen
+        .getByRole("button", { name: "Custom literals" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const other = screen.getByText("Other ordering and filters");
+    await user.click(other);
+    await user.selectOptions(
+      screen.getByLabelText("Other filter field"),
+      "party.party_kind",
+    );
+    expect(
+      within(screen.getByLabelText("Other filter value"))
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual([
+      "Choose a value",
+      "person",
+      "team",
+      "organization",
+      "distribution_list",
+      "other",
+    ]);
+    await user.selectOptions(
+      screen.getByLabelText("Other filter operator"),
+      "prefix",
+    );
+    expect(screen.getByLabelText("Other filter value").tagName).toBe("INPUT");
+    cleanup();
+    const field = contract.fieldMap["timeline.activity_time_pair_state"];
+    if (!field) throw new Error("Missing field");
+    render(
+      <EnumGridControls
+        applied={apply}
+        contract={{
+          ...contract,
+          fieldMap: {
+            ...contract.fieldMap,
+            [field.fieldKey]: { ...field, enumValues: [] },
+          },
+        }}
+      />,
+    );
+    await user.click(
+      screen.getByTestId(workbookFilterPopoverTriggerTestId(timelineSurface)),
+    );
+    await user.selectOptions(screen.getByLabelText("Field"), field.fieldKey);
+    expect(
+      screen.getByTestId(gridFilterValueTestId(timelineSurface)).tagName,
+    ).toBe("INPUT");
+    expect(apply).not.toHaveBeenCalled();
+  });
+
+  it("stages candidate enum choices only on Add and applies custom mixtures explicitly", async () => {
+    const user = userEvent.setup();
+    const apply = vi.fn();
+    render(
+      <WorkbookCandidateQueryControl
+        view={timelineSurface}
+        label="Candidates"
+        query={emptyWorkbookQueryState()}
+        onApply={apply}
+      />,
+    );
+    await user.click(screen.getByText("Candidates ordering and filters"));
+    await user.selectOptions(
+      screen.getByLabelText("Candidates filter field"),
+      "timeline.activity_time_pair_state",
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Candidates equality operand"),
+      "values",
+    );
+    await user.click(screen.getByRole("checkbox", { name: "disabled" }));
+    await user.click(screen.getByRole("button", { name: "Custom literals" }));
+    await user.click(screen.getByRole("button", { name: "Add literal" }));
+    await user.type(
+      screen.getByLabelText("Candidates filter value literal 2"),
+      "Disabled,custom",
+    );
+    expect(apply).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
+    );
+    expect(apply.mock.calls[0]?.[0]?.filters).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Add filter" }));
+    expect(apply).toHaveBeenCalledTimes(1);
+    await user.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
+    );
+    expect(apply.mock.calls[1]?.[0]?.filters[0]?.arg.values).toEqual(
+      expect.arrayContaining(["disabled", "Disabled,custom"]),
+    );
+  });
   it("keeps impossible date correction in the editor with associated feedback", () => {
     const contract = requireViewContract(timelineSurface);
     const onApplyFilter = vi.fn(admitFilter);
@@ -1823,6 +2113,47 @@ function columnsGeometry(panel: HTMLElement, scale = 1, height = 300) {
       }
       return original.call(this);
     });
+}
+
+function EnumGridControls({
+  applied,
+  initial = emptyWorkbookQueryState(),
+  contract = requireViewContract(timelineSurface),
+}: {
+  readonly applied: (filter: ReturnType<typeof buildFilterFromDraft>) => void;
+  readonly initial?: WorkbookQueryState;
+  readonly contract?: ReturnType<typeof requireViewContract>;
+}) {
+  const [queryState, setQueryState] = useState(initial);
+  const [draft, setDraft] = useState(() =>
+    filterDraftForField(contract, "timeline.activity_time_pair_state", "eq"),
+  );
+  return (
+    <WorkbookGridControls
+      contract={contract}
+      surface={timelineSurface}
+      filterDraft={draft}
+      queryState={queryState}
+      layoutState={defaultWorkbookLayoutState(contract)}
+      onApplyFilter={(next) => {
+        const validation = validateFilterDraft(contract, next);
+        if (validation.kind === "valid") {
+          applied(validation.filter);
+          setQueryState({ ...queryState, filters: [validation.filter] });
+        }
+        return validation;
+      }}
+      onFilterDraftChange={setDraft}
+      onRemoveFilter={vi.fn()}
+      onGroupByChange={vi.fn()}
+      onColumnHiddenChange={vi.fn()}
+      onColumnMove={vi.fn()}
+      onResetColumns={vi.fn()}
+      onSortChange={vi.fn()}
+      sizing={sizing}
+      freezing={{ status: null, onBoundaryChange: vi.fn() }}
+    />
+  );
 }
 
 function StatefulGridControls({

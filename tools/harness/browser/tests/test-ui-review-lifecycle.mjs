@@ -45,7 +45,10 @@ test("hung cleanup is bounded and stale cleanup preserves unresolved proof", asy
     atomicLocalFile(runtime.privatePath("runtime-process.json"), JSON.stringify({ boot: "previous-boot", pid: process.pid, start: "1" }), { replace: true });
     cleanupStaleSuiteRuntimeRoots({ repoRoot, runRoot: root, scratchRoot, now: Date.now() + 8 * 86400000 });
     assert.equal(existsSync(runtime.root), true);
-  } finally { runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    recordResource(runtime, { kind: "browser_stack", target: runtime.privatePath("exact", "lease.json"), state: "released" });
+    runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true });
+  }
 });
 test("process recovery rejects PID reuse and reaps descendants after their group leader exits", async () => {
   const child = spawn(process.execPath, ["--input-type=module", "--eval", `import {spawn} from 'node:child_process'; const child=spawn(process.execPath,['-e','process.on("SIGTERM",()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});process.stdout.write(String(child.pid));setTimeout(()=>process.exit(),200);`], { detached: true, stdio: ["ignore", "pipe", "ignore"] });

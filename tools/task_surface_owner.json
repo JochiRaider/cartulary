@@ -6759,7 +6759,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -6971,7 +6974,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -7221,7 +7227,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7323,7 +7332,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7447,7 +7459,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7571,7 +7586,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -7586,7 +7604,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9823,7 +9844,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10819,7 +10843,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10941,7 +10968,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11070,7 +11100,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11236,7 +11269,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "command_id": "cartulary.harness.command.browser_e2e_support.v2",
       "target_class": "internal_helper",
@@ -11251,7 +11287,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11418,7 +11457,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -11430,7 +11472,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11558,7 +11603,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11687,7 +11735,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11816,7 +11867,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11947,7 +12001,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -12072,7 +12129,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -12197,7 +12257,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -12663,7 +12726,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -12802,7 +12868,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -12925,7 +12994,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -13503,7 +13575,10 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -15576,7 +15651,9 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_seeded_default.v1",
       "target_class": "check_internal",
@@ -15630,7 +15707,9 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
+        "tools/harness/runtime/resource-recovery.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_seeded_network_flow_claimed.v1",
       "target_class": "check_internal",
@@ -15904,23 +15983,29 @@
     {
       "name": "harness-smoke-work-graph-fast",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs"
+        "tools/harness/tests/test-work-graph-cutover.mjs",
+        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harness/tests/fixture-stack-driver.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "fast"
+        "fast",
+        "tools/harness/tests/fixture-cleanup-cases.mjs"
       ]
     },
     {
       "name": "harness-smoke-work-graph-matrix",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs"
+        "tools/harness/tests/test-work-graph-cutover.mjs",
+        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harness/tests/fixture-stack-driver.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "matrix"
+        "matrix",
+        "tools/harness/tests/fixture-cleanup-cases.mjs"
       ]
     },
     {
@@ -16098,57 +16183,72 @@
       "name": "harness-smoke-fixture-broker-smoke",
       "gate_smoke_role": "fixture_broker_semantic",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs"
+        "tools/harness/tests/test-work-graph-cutover.mjs",
+        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harness/tests/fixture-stack-driver.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "fixture-smoke"
+        "fixture-smoke",
+        "tools/harness/tests/fixture-cleanup-cases.mjs"
       ]
     },
     {
       "name": "harness-smoke-fixture-broker-matrix",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs"
+        "tools/harness/tests/test-work-graph-cutover.mjs",
+        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harness/tests/fixture-stack-driver.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "fixture-matrix"
+        "fixture-matrix",
+        "tools/harness/tests/fixture-cleanup-cases.mjs"
       ]
     },
     {
       "name": "harness-smoke-work-graph-service-backed-target",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs"
+        "tools/harness/tests/test-work-graph-cutover.mjs",
+        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harness/tests/fixture-stack-driver.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "service-backed"
+        "service-backed",
+        "tools/harness/tests/fixture-cleanup-cases.mjs"
       ]
     },
     {
       "name": "harness-smoke-work-graph-scheduler-smoke",
       "gate_smoke_role": "work_graph_scheduler_semantic",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs"
+        "tools/harness/tests/test-work-graph-cutover.mjs",
+        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harness/tests/fixture-stack-driver.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "scheduler-smoke"
+        "scheduler-smoke",
+        "tools/harness/tests/fixture-cleanup-cases.mjs"
       ]
     },
     {
       "name": "harness-smoke-work-graph-scheduler-matrix",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs"
+        "tools/harness/tests/test-work-graph-cutover.mjs",
+        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harness/tests/fixture-stack-driver.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "scheduler-matrix"
+        "scheduler-matrix",
+        "tools/harness/tests/fixture-cleanup-cases.mjs"
       ]
     },
     {

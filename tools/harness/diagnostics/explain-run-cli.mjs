@@ -13,6 +13,7 @@ import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-e
 import { printObservabilityPerformance } from "../observability/observability.mjs";
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
 import { validateHistoricalPerformanceEvidence } from "./historical-performance-evidence.mjs";
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -102,7 +103,7 @@ function toolSummaryTargets(runDir) {
 }
 
 function hasRunArtifacts(dir) {
-  if (existsSync(path.join(dir, "run-summary.json"))) {
+  if (existsSync(path.join(dir, "run-summary.json")) || existsSync(path.join(dir, "cleanup-results.json"))) {
     return true;
   }
   return toolSummaryTargets(dir).length > 0;
@@ -127,7 +128,7 @@ function defaultToolTarget(runDir) {
 
 function resolveRunContext(options) {
   const resultsDir = resolvePath(options.resultsDir);
-  if (existsSync(path.join(resultsDir, "run-summary.json"))) {
+  if (existsSync(path.join(resultsDir, "run-summary.json")) || existsSync(path.join(resultsDir, "cleanup-results.json"))) {
     return { runDir: resultsDir, targetFromPath: "" };
   }
   if (existsSync(path.join(resultsDir, "tool-run-summary.json"))) {
@@ -1049,6 +1050,21 @@ async function main() {
     throw error;
   }
 
+  const cleanupFile = path.join(runDir, "cleanup-results.json");
+  if (existsSync(cleanupFile)) {
+    const cleanup = JSON.parse(readLocalFile(cleanupFile, { maximum: 1048576 }));
+    validateSchemaSync("cartulary.harness_cleanup_results.v1", cleanup);
+    if (cleanup.run_id !== path.basename(runDir)) throw new Error("cleanup receipt run identity mismatch");
+    const failed = cleanup.results.filter((step) => step.outcome === "failed");
+    const blocked = cleanup.results.filter((step) => step.outcome === "blocked");
+    process.stdout.write(`[CLEANUP] steps=${cleanup.results.length} failed=${failed.length} blocked=${blocked.length} artifact=${relToRepo(cleanupFile)}\n`);
+    for (const step of failed) process.stdout.write(`[CLEANUP-FAILURE] step=${step.sequence} operation=${step.operation} lease=${step.fixture_lease_id ?? "none"} class=${step.failure_class} reason=${step.failure_reason} failures=${step.failures.length}\n`);
+    if (!runSummary && !toolSummary) {
+      if (options.detail !== "summary") throw new Error("cleanup-only evidence supports summary detail");
+      process.stdout.write(`[RUN] cleanup-evidence-only artifacts=${relToRepo(runDir)}\n`);
+      return;
+    }
+  }
   if (options.detail === "summary") {
     writeRunIdentity(runDir);
     await writeRetainedRunRelationship(runDir);

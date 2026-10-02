@@ -13,6 +13,7 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 
 | File | Responsibility |
 | --- | --- |
+| [WorkbookEnumFilterOperand.tsx](WorkbookEnumFilterOperand.tsx) | Shared native enum equality choices and explicit literal editor over FilterDraft; local disclosure only. |
 | [ActiveSurfaceSavedViewSelector.test.tsx](ActiveSurfaceSavedViewSelector.test.tsx) | Tests saved-view dialog focus restoration and late confirmation after surface changes. |
 | [ActiveSurfaceSavedViewSelector.tsx](ActiveSurfaceSavedViewSelector.tsx) | Saved-view selector for the active workbook surface. |
 | [SavedViewBrowser.tsx](SavedViewBrowser.tsx) | Bounded saved-view discovery, explicit resource activation and keyboard/focus behavior in a compact popover. |

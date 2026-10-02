@@ -13,9 +13,14 @@ import {
   setWorkbookColumnWidth,
 } from "../layout/workbookColumnLayout";
 import {
+  enumFilterChoices,
+  toggleEnumFilterChoice,
+} from "./workbookEnumFilterOperand";
+import {
   applyFilterDraft,
   buildFilterFromDraft,
   buildQueryRequest,
+  buildSavedViewQueryJson,
   compareWorkbookGroupValues,
   cycleWorkbookSortField,
   defaultFilterDraft,
@@ -29,6 +34,7 @@ import {
   updateGroupBy,
   validateFilterDraft,
   workbookGroupValue,
+  workbookQueryStateFromSavedViewQueryJson,
 } from "./workbookQuery";
 import {
   workbookContractForViewSchemaId,
@@ -36,6 +42,139 @@ import {
 } from "./workbookSurfaceQueryRuntime";
 
 describe("workbookQuery", () => {
+  it("projects active enum metadata and preserves exact set literals on reopening", () => {
+    for (const contract of listViewContracts()) {
+      for (const field of contract.fields.filter(
+        (field) => field.readKind === "enum" && field.filterOps.includes("eq"),
+      )) {
+        const draft = filterDraftForField(contract, field.fieldKey, "eq");
+        if (draft.op !== "eq") throw new Error("Expected equality");
+        expect(enumFilterChoices(contract, draft)).toEqual(field.enumValues);
+        const first = field.enumValues?.[0];
+        if (!first) continue;
+        const custom = ["Custom,with,commas", "CUSTOM", first];
+        const filter = {
+          fieldKey: field.fieldKey,
+          op: "eq" as const,
+          arg: { values: custom },
+        };
+        const reopened = filterDraftFromFilter(contract, filter);
+        if (reopened.op !== "eq") throw new Error("Expected equality");
+        expect(reopened.values).toEqual(custom);
+        const saved = buildSavedViewQueryJson(contract, {
+          ...emptyWorkbookQueryState(),
+          filters: [filter],
+        });
+        const restored = workbookQueryStateFromSavedViewQueryJson(
+          contract,
+          saved,
+        ).filters[0];
+        expect(restored).toEqual(filter);
+        if (!restored) throw new Error("Missing restored enum filter");
+        expect(filterDraftFromFilter(contract, restored)).toEqual(reopened);
+        const twice = toggleEnumFilterChoice(
+          toggleEnumFilterChoice(reopened, first, true),
+          first,
+          true,
+        );
+        expect(twice.values).toEqual(custom);
+        const removed = toggleEnumFilterChoice(twice, first, false);
+        expect(removed.values).toEqual(custom.slice(0, 2));
+        expect(buildFilterFromDraft(reopened)?.arg.values).toEqual(
+          expect.arrayContaining(custom),
+        );
+        expect(
+          buildFilterFromDraft({ ...reopened, values: [first] })?.arg,
+        ).toEqual({ values: [first] });
+        expect(
+          buildFilterFromDraft({ ...reopened, values: ["", " "] }),
+        ).toBeNull();
+        expect(
+          enumFilterChoices(contract, {
+            fieldKey: field.fieldKey,
+            op: "prefix",
+            value: "pre",
+          }),
+        ).toBeNull();
+        const missing = {
+          ...contract,
+          fieldMap: {
+            ...contract.fieldMap,
+            [field.fieldKey]: { ...field, enumValues: null },
+          },
+        };
+        expect(enumFilterChoices(missing, draft)).toBeNull();
+        expect(
+          enumFilterChoices(
+            {
+              ...missing,
+              fieldMap: {
+                ...missing.fieldMap,
+                [field.fieldKey]: { ...field, enumValues: [] },
+              },
+            },
+            draft,
+          ),
+        ).toBeNull();
+      }
+    }
+    const timeline = requireViewContract("cartulary.view.timeline.v2");
+    expect(
+      enumFilterChoices(
+        timeline,
+        filterDraftForField(timeline, "timeline.capture_state", "eq"),
+      ),
+    ).toBeNull();
+  });
+  it("retains enum custom literals case variants and mixed equality shapes", () => {
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    const draft = filterDraftForField(
+      contract,
+      "timeline.activity_time_pair_state",
+      "eq",
+    );
+    if (draft.op !== "eq") throw new Error("Expected equality");
+    for (const value of ["disable", "Disabled", "disabled", "empty", "unset"]) {
+      const filter = buildFilterFromDraft({ ...draft, value });
+      expect(filter?.arg).toEqual({ value });
+      expect(validateFilterDraft(contract, { ...draft, value }).kind).toBe(
+        "valid",
+      );
+      if (!filter) throw new Error("Expected filter");
+      expect(
+        buildFilterFromDraft(
+          filterDraftFromFilter(
+            requireViewContract("cartulary.view.timeline.v2"),
+            filter,
+          ),
+        ),
+      ).toEqual(filter);
+    }
+    const set = {
+      ...draft,
+      operandKind: "values" as const,
+      values: "disabled, disable, Disabled, disabled",
+    };
+    const filter = buildFilterFromDraft(set);
+    expect(filter?.arg.values).toEqual(
+      expect.arrayContaining(["Disabled", "disable", "disabled"]),
+    );
+    expect(filter?.arg.values).toHaveLength(3);
+    if (!filter) throw new Error("Expected set");
+    expect(
+      buildFilterFromDraft(
+        filterDraftFromFilter(
+          requireViewContract("cartulary.view.timeline.v2"),
+          filter,
+        ),
+      ),
+    ).toEqual(filter);
+    expect(buildFilterFromDraft({ ...set, values: " , , " })).toBeNull();
+    expect(
+      buildFilterFromDraft({ ...draft, operandKind: "null" })?.arg,
+    ).toEqual({ value: null });
+  });
+
   it("validates calendar dates for every declared date filter", () => {
     const consumers = listViewContracts().flatMap((contract) =>
       contract.fields
@@ -298,7 +437,14 @@ describe("workbookQuery", () => {
       { arg: { query: "one  two" }, fieldKey: "text", op: "full_text" },
     ]);
     expect(
-      filters.map((filter) => filter && filterDraftFromFilter(filter).op),
+      filters.map(
+        (filter) =>
+          filter &&
+          filterDraftFromFilter(
+            requireViewContract("cartulary.view.timeline.v2"),
+            filter,
+          ).op,
+      ),
     ).toEqual([
       "eq",
       "range",

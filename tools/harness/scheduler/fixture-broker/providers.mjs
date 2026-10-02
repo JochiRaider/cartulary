@@ -4,6 +4,8 @@ import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, rm
 import { createServer } from "node:net";
 import path from "node:path";
 import { createCommandFailureContext, CommandFailure } from "../../runtime/command-failure.mjs";
+import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
+import { atomicLocalFile, readLocalFile, removePrivateFile } from "../../runtime/secure-local-files.mjs";
 
 import {
   normalizeFailureClass,
@@ -102,6 +104,33 @@ function requireOwnerOnlyRegularFile(file, label) {
   }
 }
 
+// A resource owner's stop protocol may remove its input lease. Give it a
+// private snapshot while keeping the registered original through acknowledgement.
+function stopWithRetainedProof(leaseFile, stop) {
+  const snapshot = `${leaseFile}.cleanup-${randomUUID()}`;
+  atomicLocalFile(snapshot, readLocalFile(leaseFile, { maximum: 1048576 }));
+  let primary;
+  try { stop(snapshot); }
+  catch (error) { primary = error; throw error; }
+  finally {
+    try { removePrivateFile(snapshot); }
+    catch (error) {
+      if (primary) (primary.cleanupFailures ??= []).push(error);
+      else throw error;
+    }
+  }
+}
+
+function acknowledgeRelease(onOwnedResource, kind, target) {
+  try { onOwnedResource({ kind, target, state: "released" }); }
+  catch (error) {
+    throw new CommandFailure("resource ownership publication failed", {
+      failure_class: "artifact", failure_reason: "artifact_error",
+    }, { cause: error });
+  }
+  removePrivateFile(target);
+}
+
 function readSuiteEnvironmentFile(file) {
   const environment = JSON.parse(readFileSync(file, "utf8"));
   if (!environment || typeof environment !== "object" || Array.isArray(environment)) {
@@ -157,7 +186,7 @@ function requiredEnvironment(name) {
   return value;
 }
 
-function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }) {
+function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime, onOwnedResource }) {
   const proxyRoot = suiteRuntime.privatePath("object-store-proxy");
   const proxyBinary = path.join(proxyRoot, "s3corsproxy");
   let binaryReady = false;
@@ -219,8 +248,20 @@ function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }) {
       );
       child.unref();
       closeSync(logFD);
+      const processProof = child.pid ? ownedProcess(child.pid) : null;
+      let ready = false;
+      const stop = async () => {
+        if (ready) {
+          const proofFile = existsSync(leaseFile) ? leaseFile : attemptFile;
+          requireOwnerOnlyRegularFile(proofFile, "object-store proxy recovery proof");
+          stopWithRetainedProof(proofFile, (snapshot) => run(proxyBinary, ["stop", ...common, "--state-file", snapshot], { cwd: root, environment: {}, timeoutMS: 30000 }));
+        } else if (processProof) await stopOwnedProcess(processProof);
+        else throw new Error("object-store proxy has no process proof");
+        acknowledgeRelease(onOwnedResource, "object_store_proxy", existsSync(leaseFile) ? leaseFile : attemptFile);
+        if (processProof) onOwnedResource({ kind: "helper_process", target: processProof, state: "released" });
+      };
       try {
-        let ready = false;
+        if (processProof) onOwnedResource({ kind: "helper_process", target: processProof, state: "acquired" });
         for (let attempt = 0; attempt < 200 && !ready; attempt += 1) {
           ready = commandSucceeded(
             proxyBinary,
@@ -237,17 +278,12 @@ function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }) {
           ["promote", ...common, "--attempt-file", attemptFile, "--lease-file", leaseFile],
           { cwd: root, environment: {} },
         );
+        onOwnedResource({ kind: "object_store_proxy", target: leaseFile, state: "acquired" });
+        if (processProof) onOwnedResource({ kind: "helper_process", target: processProof, state: "released" });
       } catch (error) {
-        commandSucceeded(proxyBinary, ["stop", ...common, "--state-file", attemptFile], {
-          cwd: root,
-        });
+        try { await stop(); } catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
         throw error;
       }
-      const stop = () =>
-        run(proxyBinary, ["stop", ...common, "--state-file", leaseFile], {
-          cwd: root,
-          environment: {},
-        });
       return {
         ownership: "owned",
         resource_ids: [
@@ -264,23 +300,23 @@ function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }) {
           },
         },
         release: stop,
-        quarantine: stop,
-        destroy: stop,
       };
     },
-    close: () => suiteController.close(),
   };
 }
 
-export function terminateManagedSuiteLease({ root, executable, leaseFile, environment }) {
+export function terminateManagedSuiteLease({ root, executable, leaseFile, environment, retainProof = false }) {
   requireOwnerOnlyRegularFile(leaseFile, "managed suite recovery lease");
-  run(executable, ["terminate-suite", "--lease", leaseFile], { cwd: root, environment, timeoutMS: 120000 });
-  rmSync(leaseFile, { force: true });
+  const stop = (proof) => run(executable, ["terminate-suite", "--lease", proof], { cwd: root, environment, timeoutMS: 120000 });
+  if (retainProof) stopWithRetainedProof(leaseFile, stop);
+  else { stop(leaseFile); removePrivateFile(leaseFile); }
 }
 
-export function terminateBrowserStackLease({ root, leaseFile, environment }) {
+export function terminateBrowserStackLease({ root, leaseFile, environment, retainProof = false }) {
   requireOwnerOnlyRegularFile(leaseFile, "browser stack recovery lease");
-  run(path.join(root, "tools/harness/browser/start-web-e2e.sh"), ["--session-stop", "--lease-file", leaseFile], { cwd: root, environment, timeoutMS: 120000 });
+  run(path.join(root, "tools/harness/browser/start-web-e2e.sh"), ["--session-stop", "--lease-file", leaseFile], {
+    cwd: root, environment: { ...environment, CARTULARY_WEB_E2E_RETAIN_SESSION_LEASE: retainProof ? "1" : "0" }, timeoutMS: 120000,
+  });
 }
 
 export function startManagedSuite({
@@ -324,11 +360,22 @@ export function startManagedSuite({
   });
   if (start.error) {
     const missing = start.error.code === "ENOENT";
-    throw acquisitionError(
+    const failure = acquisitionError(
       missing ? "test-services helper is unavailable" : "test-services helper failed before publishing start evidence",
       missing ? "config" : "harness",
       missing ? "configuration_error" : "fixture_error",
     );
+    try {
+      if (existsSync(leaseFile)) {
+        terminateManagedSuiteLease({ root, executable, leaseFile, environment: startEnvironment, retainProof: true });
+        acknowledgeRelease(onOwnedResource, "managed_suite", leaseFile);
+      } else if (!start.pid) {
+        // No child was created. This is positive acquisition state, not an
+        // inference from absent lease material after a running helper failed.
+        onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "released" });
+      }
+    } catch (error) { failure.cleanupFailures = [error]; }
+    throw failure;
   }
   let startResult;
   let serviceScope;
@@ -368,10 +415,8 @@ export function startManagedSuite({
     const cleanupFailures = [];
     if (existsSync(leaseFile)) {
       try {
-        run(executable, ["terminate-suite", "--lease", leaseFile], {
-          cwd: root,
-          environment: startEnvironment,
-        });
+        terminateManagedSuiteLease({ root, executable, leaseFile, environment: startEnvironment, retainProof: true });
+        acknowledgeRelease(onOwnedResource, "managed_suite", leaseFile);
       } catch (cleanupError) {
         cleanupFailures.push(cleanupError);
       }
@@ -405,12 +450,19 @@ export function startManagedSuite({
         [serviceScopeRef],
       );
     }
-    throw acquisitionError(
+    const failure = acquisitionError(
       `test-services suite startup failed: ${startResult.failure_class}/${startResult.failure_reason}`,
       startResult.failure_class,
       startResult.failure_reason,
       [serviceScopeRef],
     );
+    // The validated owner's terminal cleanup status is positive settlement
+    // evidence. Absence of a lease file is never used as this authority.
+    if (serviceScope.cleanup.status === "startup_failed") {
+      try { onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "released" }); }
+      catch (error) { failure.cleanupFailures = [error]; }
+    }
+    throw failure;
   }
   if (startResult.status !== "ready" || serviceScope.failure) {
     throw acquisitionError(
@@ -420,22 +472,29 @@ export function startManagedSuite({
       [serviceScopeRef],
     );
   }
-  const suiteEnvironment = readSuiteEnvironmentFile(envFile);
-  if (!suiteEnvironment || typeof suiteEnvironment !== "object" || Array.isArray(suiteEnvironment)) {
-    throw new Error("test-services suite environment is invalid");
-  }
-  suiteRuntime.registerEnvironment(suiteEnvironment);
-  rmSync(envFile, { force: true });
+  let suiteEnvironment;
   let closed = false;
-  onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "acquired" });
+  try {
+    suiteEnvironment = readSuiteEnvironmentFile(envFile);
+    suiteRuntime.registerEnvironment(suiteEnvironment);
+    rmSync(envFile, { force: true });
+    onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "acquired" });
+  }
+  catch (error) {
+    try {
+      terminateManagedSuiteLease({ root, executable, leaseFile, environment: { ...environment, ...suiteEnvironment }, retainProof: true });
+      acknowledgeRelease(onOwnedResource, "managed_suite", leaseFile);
+    } catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
+    throw error;
+  }
   return {
     environment: suiteEnvironment,
     leaseFile,
     executable,
     close() {
       if (closed) return;
-      terminateManagedSuiteLease({ root, executable, leaseFile, environment: { ...environment, ...suiteEnvironment } });
-      onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "released" });
+      terminateManagedSuiteLease({ root, executable, leaseFile, environment: { ...environment, ...suiteEnvironment }, retainProof: true });
+      acknowledgeRelease(onOwnedResource, "managed_suite", leaseFile);
       closed = true;
     },
   };
@@ -453,7 +512,6 @@ function borrowedProvider(suiteController, resourceID, environmentForSuite = (va
         detach() {},
       };
     },
-    close: () => suiteController.close(),
   };
 }
 
@@ -497,7 +555,7 @@ export function productionFixtureProviders({
   );
   return {
     ...sharedProviders,
-    object_store_namespace: objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }),
+    object_store_namespace: objectStoreNamespaceProvider({ root, suiteController, suiteRuntime, onOwnedResource }),
     browser_stack: {
       async acquire({
         affinityKey,
@@ -520,7 +578,6 @@ export function productionFixtureProviders({
         mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
         const envFile = path.join(sessionRoot, "stack.env");
         const leaseFile = path.join(sessionRoot, "stack.lease");
-        onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "pending" });
         const lifecycle = path.join(root, "tools/harness/browser/start-web-e2e.sh");
         const profiled = Boolean(fixtureProfileID || snapshotKey || builderUnitID);
         if (
@@ -557,11 +614,16 @@ export function productionFixtureProviders({
               }
             : {}),
         };
+        onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "pending" });
+        const close = () => {
+          terminateBrowserStackLease({ root, leaseFile, environment, retainProof: true });
+          acknowledgeRelease(onOwnedResource, "browser_stack", leaseFile);
+        };
         try {
           await acquireProcess(lifecycle, ["--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal, onChildProcess });
         } catch (error) {
           if (existsSync(leaseFile)) {
-            try { terminateBrowserStackLease({ root, leaseFile, environment }); }
+            try { close(); }
             catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
           }
           throw error;
@@ -578,14 +640,15 @@ export function productionFixtureProviders({
             path.join(path.dirname(stackFile), "service-admission.json"),
             "browser service-admission evidence",
           );
+          suiteRuntime.registerEnvironment(stackEnvironment);
+          rmSync(envFile, { force: true });
+          onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "acquired" });
         } catch (error) {
           const failure = new CommandFailure("browser session publication failed", { failure_class: "artifact", failure_reason: "artifact_error" }, { cause: error });
-          try { run(lifecycle, ["--session-stop", "--lease-file", leaseFile], { cwd: root, environment }); }
+          try { close(); }
           catch (cleanupError) { failure.cleanupFailures = [cleanupError]; }
           throw failure;
         }
-        suiteRuntime.registerEnvironment(stackEnvironment);
-        rmSync(envFile, { force: true });
         const unitEnvironment = {
           ...browserSuiteEnvironment(suiteEnvironment),
           ...selectionEnvironment,
@@ -593,11 +656,6 @@ export function productionFixtureProviders({
           CARTULARY_BROWSER_STAGE: browserStage,
           CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
           CARTULARY_WEB_E2E_SESSION_LEASE_FILE: leaseFile,
-        };
-        onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "acquired" });
-        const close = () => {
-          terminateBrowserStackLease({ root, leaseFile, environment: { ...environment, ...unitEnvironment } });
-          onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "released" });
         };
         return {
           ownership: "owned",
@@ -616,11 +674,8 @@ export function productionFixtureProviders({
           resource: { environment: unitEnvironment },
           environment: unitEnvironment,
           release: close,
-          quarantine: close,
-          destroy: close,
         };
       },
-      close: () => suiteController.close(),
-    },
+      },
   };
 }

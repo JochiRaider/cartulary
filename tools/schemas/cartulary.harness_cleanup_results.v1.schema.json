@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_cleanup_results.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "run_id", "results"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_cleanup_results.v1" },
+    "run_id": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" },
+    "results": { "type": "array", "items": { "$ref": "#/$defs/result" } }
+  },
+  "$defs": {
+    "failure": {
+      "type": "object", "additionalProperties": false,
+      "required": ["failure_class", "failure_reason"],
+      "properties": {
+        "failure_class": { "enum": ["harness", "artifact", "timing"] },
+        "failure_reason": { "enum": ["cleanup_error", "artifact_error", "timeout_failure"] }
+      },
+      "oneOf": [
+        { "properties": { "failure_class": { "const": "harness" }, "failure_reason": { "const": "cleanup_error" } } },
+        { "properties": { "failure_class": { "const": "artifact" }, "failure_reason": { "const": "artifact_error" } } },
+        { "properties": { "failure_class": { "const": "timing" }, "failure_reason": { "const": "timeout_failure" } } }
+      ]
+    },
+    "result": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sequence", "operation", "unit_id", "fixture_lease_id", "outcome", "failure_class", "failure_reason", "failures", "artifact_refs"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "operation": { "enum": ["fixture_release", "fixture_detach", "fixture_acquisition_cleanup", "provider_close", "host_release", "services_close", "runtime_close", "recovery_preserve"] },
+        "unit_id": { "oneOf": [{ "type": "null" }, { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" }] },
+        "fixture_lease_id": { "oneOf": [{ "type": "null" }, { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" }] },
+        "outcome": { "enum": ["completed", "failed", "blocked"] },
+        "failure_class": { "enum": [null, "harness", "artifact", "timing"] },
+        "failure_reason": { "enum": [null, "cleanup_error", "artifact_error", "timeout_failure"] },
+        "failures": { "type": "array", "items": { "$ref": "#/$defs/failure" } },
+        "artifact_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^_shared/fixture-leases/[A-Za-z0-9_.-]+\\.json$" } }
+      },
+      "allOf": [{
+        "if": { "properties": { "outcome": { "const": "failed" } } },
+        "then": { "properties": { "failure_class": { "type": "string" }, "failure_reason": { "type": "string" }, "failures": { "minItems": 1 } }, "oneOf": [
+          { "properties": { "failure_class": { "const": "harness" }, "failure_reason": { "const": "cleanup_error" } } },
+          { "properties": { "failure_class": { "const": "artifact" }, "failure_reason": { "const": "artifact_error" } } },
+          { "properties": { "failure_class": { "const": "timing" }, "failure_reason": { "const": "timeout_failure" } } }
+        ] },
+        "else": { "properties": { "failure_class": { "type": "null" }, "failure_reason": { "type": "null" }, "failures": { "maxItems": 0 } } }
+      }]
+    }
+  }
+}

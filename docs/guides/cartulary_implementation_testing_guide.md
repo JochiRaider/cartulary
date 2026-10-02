@@ -226,6 +226,26 @@ reserved `CARTULARY_TEST_SERVICES_*` input boundary rejects caller-supplied
 internal state; use `CARTULARY_TEST_SERVICES_MODE=attach`. There is no selector
 alias or automatic legacy attachment path.
 
+Fixture allocations expose one explicit owned release operation; borrowed
+allocations detach. The broker retains the original release outcome, including
+failure, and removes unhealthy allocations from reuse immediately. Providers
+drain their own reserves; the composition root closes the managed suite after
+fixture settlement. Repeating close observes the same outcome and does not
+repeat destructive work.
+
+Current graph and prepared-review runs publish `cleanup-results.json`
+(`cartulary.harness_cleanup_results.v1`). Use `make explain-run
+RESULTS_DIR=<run-root>` to inspect ordered completed, failed and blocked steps.
+The companion preserves normalized secondary failures without private paths,
+credentials or raw error text. Earlier work failure remains primary; an ordinary
+cleanup-only failure is `harness/cleanup_error`, normalized exit 12.
+
+Unresolved owned resources retain validated proof in the protected private
+runtime. Closed-consumer detail is purged, and age-based runtime maintenance
+does not erase recovery proof. Recovery belongs to the exact resource owner;
+a missing lease alone does not establish success. No generic destructive
+cleanup fallback or legacy allocation callback adapter is supported.
+
 Service evidence uses a hard-cut current model. Each producer appends bounded
 records to one owner-only NDJSON journal; `service-scope.json` is the bounded
 `cartulary.test_services.scope.v2` diagnostic and never contains exhaustive

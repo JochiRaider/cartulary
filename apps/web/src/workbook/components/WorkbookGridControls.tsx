@@ -196,7 +196,7 @@ export function WorkbookGridControls({
         type: "edit_filter",
         activeEntryKey: chip.key,
         fieldKey: filter.fieldKey,
-        filterDraft: filterDraftFromFilter(filter),
+        filterDraft: filterDraftFromFilter(contract, filter),
         subjectKey,
       });
       return;
@@ -297,7 +297,7 @@ export function WorkbookGridControls({
             type: "edit_filter",
             activeEntryKey: `filter:${fieldKey}`,
             fieldKey,
-            filterDraft: filterDraftFromFilter(filter),
+            filterDraft: filterDraftFromFilter(contract, filter),
             subjectKey,
           });
         }}
@@ -310,12 +310,12 @@ export function WorkbookGridControls({
             type: "edit_filter",
             activeEntryKey: `requested-filter:${fieldKey}`,
             fieldKey,
-            filterDraft: filterDraftFromFilter(filter),
+            filterDraft: filterDraftFromFilter(contract, filter),
             subjectKey,
           });
         }}
         onRestoreFilter={(filter) =>
-          onApplyFilter(filterDraftFromFilter(filter))
+          onApplyFilter(filterDraftFromFilter(contract, filter))
         }
         onEditQueryEntry={activateQueryChip}
         onToggle={() => {

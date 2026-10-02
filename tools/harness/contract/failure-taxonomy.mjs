@@ -327,13 +327,18 @@ export function primaryPublicFailure(failures = [], fallback = null) {
     return publicFailure;
   };
   const nonCleanup = normalized.filter(
-    (failure) => failure.failure_reason !== "cleanup_error",
+    (failure) => failure.failure_reason !== "cleanup_error" && failure.lifecycle_step !== "cleanup_finalizers",
   );
   if (nonCleanup.length > 0) {
     return selectByClassPrecedence(nonCleanup);
   }
   if (normalized.length > 0) {
-    return selectByClassPrecedence(normalized);
+    const selected = normalized.slice().sort((left, right) =>
+      numericTie(left.scheduler_event_sequence) - numericTie(right.scheduler_event_sequence) ||
+      numericTie(left.child_registry_order) - numericTie(right.child_registry_order) ||
+      left.__input_order - right.__input_order)[0];
+    const { __input_order: _inputOrder, ...publicFailure } = selected;
+    return publicFailure;
   }
   if (fallback?.failure_reason || fallback?.failure_class) {
     return normalizeFailureRecord(fallback);

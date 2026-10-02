@@ -139,6 +139,14 @@
       "allowed_consumers": []
     },
     {
+      "key": "runtime_resource_recovery",
+      "boundary_group": "execution_runtime",
+      "paths": [
+        "tools/harness/runtime/resource-recovery.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
       "key": "scheduler_contract_helpers",
       "boundary_group": "scheduler",
       "paths": [
@@ -160,7 +168,9 @@
       "key": "scheduler_fixture_broker",
       "boundary_group": "scheduler",
       "paths": [
-        "tools/harness/scheduler/fixture-broker/index.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs"
       ],
       "allowed_consumers": []
     },

@@ -2,8 +2,10 @@ import {
   normalizeFailureClass,
   normalizeFailureReason,
   publicExitCodeForFailure,
+  primaryPublicFailure,
   validateSchemaSync,
 } from "../../contract/index.mjs";
+import { cleanupFailure, aggregateCleanup, CleanupResults } from "../fixture-broker/index.mjs";
 import { validateWorkGraph } from "./model.mjs";
 import { executeUnitProcess } from "./executor.mjs";
 
@@ -32,6 +34,7 @@ function fixtureFailureResult(error) {
       failure_reason: failureReason,
     }),
     artifact_refs: artifactRefs,
+    ...(error?.lifecycle_step ? { lifecycle_step: error.lifecycle_step } : {}),
     error,
   };
 }
@@ -376,8 +379,11 @@ export async function runWorkGraph({
   cache,
   signal,
   agingQuantumMs = 1000,
-  cleanup = async () => {},
+  cleanup,
   onEvent = () => {},
+  onUnitTerminal = () => {},
+  cleanupResults = fixtureBroker?.cleanupResults ?? new CleanupResults(),
+  finalize = async () => {},
   retainEvents = true,
 }) {
   validateWorkGraph(graph, { capacities });
@@ -402,6 +408,8 @@ export async function runWorkGraph({
   const admissions = [];
   const terminalResults = new Map();
   const warmAffinities = new Set();
+  const retainedCacheUnits = [];
+  const releaseErrors = [];
   const controller = new AbortController();
   const onAbort = () => controller.abort(signal?.reason);
   signal?.addEventListener("abort", onAbort, { once: true });
@@ -583,6 +591,8 @@ export async function runWorkGraph({
           const promise = Promise.resolve()
             .then(async () => {
               const hostLease = await hostAdmission?.(unit, controller.signal);
+              let hostCleanup;
+              const finishHost = () => hostCleanup ??= cleanupResults.attempt("host_release", () => hostLease.release(), { unitID: unit.unit_id });
               try {
               const lease = fixtureBroker && unit.fixture_lease !== "none"
                 ? await fixtureBroker.acquire(unit.fixture_lease, {
@@ -615,7 +625,8 @@ export async function runWorkGraph({
                   fixtureLease: lease,
                   signal: controller.signal,
                 });
-                if (result.status === "passed") await cache?.store(unit);
+              } catch (error) {
+                result = fixtureFailureResult(error);
               } finally {
                 if (lease) {
                   const healthy =
@@ -632,21 +643,37 @@ export async function runWorkGraph({
                       fixture_lease_id: lease.record.lease_id,
                     });
                   } catch (error) {
+                    releaseErrors.push(error);
                     await emit("fixture_released", unit, "failed", {
                       fixture_lease_id: lease.record.lease_id,
-                      failure_class: "harness",
-                      failure_reason: "cleanup_error",
+                      failure_class: cleanupFailure(error).failure_class,
+                      failure_reason: cleanupFailure(error).failure_reason,
                     });
                     if (result && result.status !== "passed") {
                       result = { ...result, cleanup_error: error };
                     } else {
-                      throw error;
+                      result = fixtureFailureResult(Object.assign(cleanupFailure(error), { lifecycle_step: "cleanup_finalizers" }));
                     }
                   }
                 }
               }
+              const hostFailure = hostLease
+                ? await finishHost() : null;
+              if (hostFailure) {
+                releaseErrors.push(hostFailure);
+                if (result?.status === "passed") result = fixtureFailureResult(Object.assign(hostFailure, { lifecycle_step: "cleanup_finalizers" }));
+                else (result.cleanup_errors ??= []).push(hostFailure);
+              }
+              await onUnitTerminal(unit, result);
+              if (result.status === "passed") {
+                if (result.retained_fixture) retainedCacheUnits.push(unit);
+                else await cache?.store(unit);
+              }
               return result;
-              } finally { await hostLease?.release(); }
+              } catch (error) {
+                if (hostLease) await finishHost();
+                throw error;
+              }
             })
             .then((result) => ({ unit_id: unit.unit_id, result }))
             .catch((error) => ({
@@ -721,22 +748,40 @@ export async function runWorkGraph({
     controller.abort();
     await Promise.allSettled(running.values());
     await emit("cleanup_started", runLifecycleUnit, "running");
-    const cleanupResults = await Promise.allSettled([
-      fixtureBroker?.close(),
-      cleanup(),
-    ]);
-    cleanupError = cleanupResults.find((result) => result.status === "rejected")?.reason ?? null;
+    const errors = [...releaseErrors];
+    try { await fixtureBroker?.close(); } catch (error) { errors.push(error); }
+    const unresolved = fixtureBroker?.hasUnresolvedCleanup?.() ?? false;
+    let servicesFailed = false;
+    if (cleanup && unresolved) cleanupResults.record("services_close", { blocked: true });
+    else if (cleanup) {
+      const error = await cleanupResults.attempt("services_close", cleanup);
+      if (error) { servicesFailed = true; errors.push(error); }
+    }
+    // A warm logical release does not establish physical cleanup. Defer its
+    // cache admission until the retained allocation has settled successfully.
+    if (!errors.length) for (const unit of retainedCacheUnits) {
+      try { await cache?.store(unit); }
+      catch (error) {
+        errors.push(Object.assign(new Error("cache publication failed", { cause: error }), {
+          failure_class: "artifact", failure_reason: "artifact_error",
+        }));
+      }
+    }
+    try { await finalize({ unresolved: unresolved || servicesFailed, cleanupResults }); }
+    catch (error) { errors.push(error); }
+    cleanupError = aggregateCleanup(errors);
     await emit(
       "cleanup_completed",
       runLifecycleUnit,
       cleanupError ? "failed" : "passed",
       cleanupError
-        ? { failure_class: "harness", failure_reason: "cleanup_error" }
+        ? { failure_class: cleanupError.failure_class, failure_reason: cleanupError.failure_reason }
         : undefined,
     );
     signal?.removeEventListener("abort", onAbort);
   }
   const cancelled = [...state.values()].some((value) => value === "cancelled");
+  const primaryFailure = primaryPublicFailure([...terminalResults.values()].filter((result) => result.failure_class).concat(cleanupError ? [cleanupError] : []));
   const failed = cleanupError || [...state.values()].some((value) =>
     ["failed", "cancelled"].includes(value),
   );
@@ -744,14 +789,13 @@ export async function runWorkGraph({
     "run_completed",
     runLifecycleUnit,
     cancelled ? "cancelled" : failed ? "failed" : "passed",
-    cleanupError
-      ? { failure_class: "harness", failure_reason: "cleanup_error" }
-      : undefined,
+    primaryFailure ? { failure_class: primaryFailure.failure_class, failure_reason: primaryFailure.failure_reason } : undefined,
   );
   return {
     status: failed ? "failed" : "passed",
     duration_ms: lastEventMonotonicMs,
-    cleanup_error: cleanupError ? String(cleanupError.message ?? cleanupError) : null,
+    cleanup_error: cleanupError,
+    cleanup_results: cleanupResults.results,
     admissions,
     states: Object.fromEntries([...state.entries()].sort(([left], [right]) => compareASCII(left, right))),
     unit_results: Object.fromEntries(

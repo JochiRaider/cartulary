@@ -1,5 +1,6 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { type AriaAttributes, useId, useState } from "react";
+import { enumFilterChoices } from "../models/workbookEnumFilterOperand";
 import {
   applyFilterDraft,
   defaultFilterDraft,
@@ -11,6 +12,10 @@ import {
   type WorkbookFilterOperator,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
+import {
+  useEnumLiteralDisclosure,
+  WorkbookEnumFilterOperand,
+} from "./WorkbookEnumFilterOperand";
 import {
   inputStyle,
   secondaryButtonStyle,
@@ -32,6 +37,12 @@ export function WorkbookCandidateQueryControl({
   const contract = requireViewContract(view);
   const [draft, setDraft] = useState(() => defaultFilterDraft(contract));
   const [staged, setStaged] = useState(query);
+  const enumChoices = enumFilterChoices(contract, draft);
+  const enumDisclosure = useEnumLiteralDisclosure(
+    `${view}:${draft.fieldKey}:${draft.op}:${draft.op === "eq" ? draft.operandKind : ""}`,
+    draft.op === "eq" ? draft : null,
+    enumChoices,
+  );
   const validation = validateFilterDraft(contract, draft);
   const feedbackId = useId();
   const feedbackFor = (
@@ -133,6 +144,8 @@ export function WorkbookCandidateQueryControl({
               </select>
             </label>
             <Operand
+              enumChoices={enumChoices}
+              enumDisclosure={enumDisclosure}
               label={label}
               draft={draft}
               onChange={setDraft}
@@ -218,12 +231,16 @@ const operatorLabels: Readonly<Record<string, string>> = {
   range: "Range",
 };
 function Operand({
+  enumChoices,
+  enumDisclosure,
   label,
   draft,
   onChange,
   feedbackFor,
   isDate,
 }: {
+  readonly enumChoices: readonly string[] | null;
+  readonly enumDisclosure: ReturnType<typeof useEnumLiteralDisclosure>;
   readonly label: string;
   readonly draft: FilterDraft;
   readonly onChange: (draft: FilterDraft) => void;
@@ -323,10 +340,23 @@ function Operand({
             <option value="null">Empty</option>
           </select>
         </label>
-        {draft.operandKind === "null" ? null : draft.operandKind ===
+        {enumChoices ? (
+          <WorkbookEnumFilterOperand
+            draft={draft}
+            choices={enumChoices}
+            disclosure={enumDisclosure}
+            onChange={onChange}
+            feedback={feedbackFor("value")}
+            valueLabel={`${label} filter value`}
+          />
+        ) : draft.operandKind === "null" ? null : draft.operandKind ===
           "values" ? (
-          text("Values (comma separated)", draft.values, (values) =>
-            onChange({ ...draft, values }),
+          text(
+            "Values (comma separated)",
+            typeof draft.values === "string"
+              ? draft.values
+              : draft.values.join(", "),
+            (values) => onChange({ ...draft, values }),
           )
         ) : draft.valueType === "boolean" ? (
           <label style={stackedLabelStyle}>

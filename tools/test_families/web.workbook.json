@@ -218,6 +218,7 @@
         "titles": [
           "Assessment discovery keeps failed pages distinct from empty results and retries the same cursor without losing prior candidates",
           "Assessment discovery keeps subject intent across ordering filters paging and empty refreshes",
+          "Assessment discovery keeps support identities independent from enum draft staging failed reads and cancellation",
           "Assessment discovery keeps the direct shared support Refresh control focused during a held read",
           "Assessment discovery preserves an explicitly selected subject absent from refreshed candidate pages",
           "Assessment discovery reads only the authorized selected view and reduces minimal Timeline rows with opaque paging",
@@ -2102,8 +2103,10 @@
           "WorkbookGridControls keeps the roving Sort item aligned with pointer focus and removes toward a neighbor",
           "WorkbookGridControls leaves native filter control keys alone and contains the complete range Tab order after pointer focus",
           "WorkbookGridControls names range operands associates contradictions and completes correction before reopening",
+          "WorkbookGridControls offers ordered enum choices without implicit admission and preserves null and set shapes",
           "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
           "WorkbookGridControls parses filter controls exactly and restores focus on Escape",
+          "WorkbookGridControls reopens custom enum sets keeps literal slots and reconciles the complete keyboard order",
           "WorkbookGridControls replaces an older draft on Fit and follows passive width only while untouched",
           "WorkbookGridControls retains a locally valid editor when the admission callback refuses it",
           "WorkbookGridControls retires Columns return work on outside focus and same-surface subject replacement",
@@ -2111,8 +2114,10 @@
           "WorkbookGridControls returns from the final sort to Add and from a removed invoking chip to Sort",
           "WorkbookGridControls reveals moved controls that keep focus and the early Unfreeze destination",
           "WorkbookGridControls reveals the same Width action and retains list context after Escape and Cancel",
+          "WorkbookGridControls scopes enum disclosure by field view and instance and leaves fallback and prefix controls intact",
           "WorkbookGridControls separates accepted chips from requested filter editing and removal",
           "WorkbookGridControls shows requested Sort controls before acceptance and leaves late updates outside focus",
+          "WorkbookGridControls stages candidate enum choices only on Add and applies custom mixtures explicitly",
           "WorkbookGridControls validates explicit sizing and restores one default with predictable cancellation focus"
         ]
       },
@@ -6927,8 +6932,10 @@
           "workbookQuery keeps grouping separate from authored sorting and cleared overrides",
           "workbookQuery keeps non-date and timestamp operands unchanged and rejects wrong-schema dates",
           "workbookQuery preserves date equality sets null encoding and exact raw input",
+          "workbookQuery projects active enum metadata and preserves exact set literals on reopening",
           "workbookQuery refuses impossible date drafts without replacing query state",
           "workbookQuery rejects structural layout keys and out-of-range widths",
+          "workbookQuery retains enum custom literals case variants and mixed equality shapes",
           "workbookQuery supports ordered additive sort cycles and enforces the owner limit",
           "workbookQuery validates calendar dates for every declared date filter",
           "workbookQuery validates one-sided date ranges and inclusive boundaries"

@@ -13,6 +13,10 @@ import { SlidersHorizontal } from "lucide-react";
 import { type AriaAttributes, type RefObject, useId } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import {
+  enumFilterChoices,
+  enumFilterControlKeys,
+} from "../models/workbookEnumFilterOperand";
+import {
   parseDeclaredFieldKey,
   parseWorkbookBooleanDraftValue,
   type WorkbookGridQueryCommand,
@@ -28,6 +32,10 @@ import {
   validateFilterDraft,
   type WorkbookFilter,
 } from "../models/workbookQuery";
+import {
+  useEnumLiteralDisclosure,
+  WorkbookEnumFilterOperand,
+} from "./WorkbookEnumFilterOperand";
 import {
   clearButtonStyle,
   controlButtonStyle,
@@ -93,13 +101,26 @@ export function WorkbookFiltersControl({
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const feedbackId = useId();
+  const enumChoices = enumFilterChoices(contract, draft);
+  const enumDisclosure = useEnumLiteralDisclosure(
+    `${surface}:${isOpen}:${editingFieldKey}:${draft.fieldKey}:${draft.op}:${draft.op === "eq" ? draft.operandKind : ""}`,
+    draft.op === "eq" ? draft : null,
+    enumChoices,
+  );
   const itemKeys = [
     "field",
     "operator",
     ...(draft.op === "range"
       ? ["lower_kind", "lower_value", "upper_kind", "upper_value"]
       : draft.op === "eq"
-        ? ["operand_kind", ...(draft.operandKind === "null" ? [] : ["value"])]
+        ? [
+            "operand_kind",
+            ...(enumChoices
+              ? enumFilterControlKeys(draft, enumChoices, enumDisclosure.open)
+              : draft.operandKind === "null"
+                ? []
+                : ["value"]),
+          ]
         : ["value"]),
     ...requestedChanges.flatMap((change) =>
       change.kind === "removed"
@@ -245,6 +266,8 @@ export function WorkbookFiltersControl({
             </select>
           </label>
           <FilterOperandControl
+            enumChoices={enumChoices}
+            enumDisclosure={enumDisclosure}
             isDate={field?.readKind === "date"}
             feedbackFor={feedbackFor}
             draft={draft}
@@ -328,6 +351,8 @@ type FilterFeedbackFor = (
 ) => Pick<AriaAttributes, "aria-invalid" | "aria-describedby">;
 
 function FilterOperandControl({
+  enumChoices,
+  enumDisclosure,
   draft,
   isDate,
   feedbackFor,
@@ -335,6 +360,8 @@ function FilterOperandControl({
   onChangeDraft,
   surface,
 }: {
+  readonly enumChoices: readonly string[] | null;
+  readonly enumDisclosure: ReturnType<typeof useEnumLiteralDisclosure>;
   readonly draft: FilterDraft;
   readonly isDate: boolean;
   readonly feedbackFor: FilterFeedbackFor;
@@ -369,7 +396,17 @@ function FilterOperandControl({
             <option value="null">Is empty</option>
           </select>
         </label>
-        {draft.operandKind === "null" ? null : draft.operandKind ===
+        {enumChoices ? (
+          <WorkbookEnumFilterOperand
+            draft={draft}
+            choices={enumChoices}
+            disclosure={enumDisclosure}
+            onChange={onChangeDraft}
+            feedback={feedbackFor("value")}
+            registerItem={navigation.registerItem}
+            valueTestId={gridFilterValueTestId(surface)}
+          />
+        ) : draft.operandKind === "null" ? null : draft.operandKind ===
           "values" ? (
           <TextOperand
             draft={draft}
@@ -381,7 +418,11 @@ function FilterOperandControl({
               isDate ? "YYYY-MM-DD, YYYY-MM-DD" : "Comma-separated values"
             }
             surface={surface}
-            value={draft.values}
+            value={
+              typeof draft.values === "string"
+                ? draft.values
+                : draft.values.join(", ")
+            }
           />
         ) : draft.valueType === "boolean" ? (
           <label style={stackedLabelStyle}>

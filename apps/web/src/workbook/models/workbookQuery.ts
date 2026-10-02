@@ -105,7 +105,7 @@ export type FilterDraft =
       readonly operandKind: "null" | "value" | "values";
       readonly value: string;
       readonly valueType: "boolean" | "number" | "string";
-      readonly values: string;
+      readonly values: string | readonly string[];
     }
   | {
       readonly fieldKey: string;
@@ -307,7 +307,10 @@ export function filterDraftForField(
   }
 }
 
-export function filterDraftFromFilter(filter: WorkbookFilter): FilterDraft {
+export function filterDraftFromFilter(
+  contract: ViewContract,
+  filter: WorkbookFilter,
+): FilterDraft {
   switch (filter.op) {
     case "range":
       return {
@@ -341,7 +344,9 @@ export function filterDraftFromFilter(filter: WorkbookFilter): FilterDraft {
       };
     case "eq": {
       const values = Array.isArray(filter.arg.values)
-        ? filter.arg.values.map(String).join(", ")
+        ? contract.fieldMap[filter.fieldKey]?.readKind === "enum"
+          ? filter.arg.values.map(String)
+          : filter.arg.values.map(String).join(", ")
         : "";
       const rawValue = filter.arg.value;
       return {
@@ -375,7 +380,12 @@ export function filterDraftFromFilter(filter: WorkbookFilter): FilterDraft {
 export function clearFilterDraftValue(draft: FilterDraft): FilterDraft {
   switch (draft.op) {
     case "eq":
-      return { ...draft, booleanValue: "", value: "", values: "" };
+      return {
+        ...draft,
+        booleanValue: "",
+        value: "",
+        values: typeof draft.values === "string" ? "" : [],
+      };
     case "range":
       return { ...draft, lowerValue: "", upperValue: "" };
     case "contains_all":
@@ -928,7 +938,11 @@ export function buildFilterFromDraft(
         return { arg: { value: null }, fieldKey: draft.fieldKey, op: "eq" };
       }
       if (draft.operandKind === "values") {
-        const values = canonicalStringValues(draft.values.split(/[\n,]/u));
+        const values = canonicalStringValues(
+          typeof draft.values === "string"
+            ? draft.values.split(/[\n,]/u)
+            : draft.values,
+        );
         return values.length === 0
           ? null
           : { arg: { values }, fieldKey: draft.fieldKey, op: "eq" };
