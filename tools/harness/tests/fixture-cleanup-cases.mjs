@@ -278,7 +278,11 @@ export async function assertProductionCleanupCases(repoRoot) {
     const environment = { NODE_BIN: process.execPath };
     const suiteLease = runtime.privatePath("test-services", "suite.json");
     mkdirSync(path.dirname(suiteLease), { mode: 0o700 });
-    writeFileSync(suiteLease, JSON.stringify({ schema_id: "cartulary.test_services.lease.v1", run_id: runtime.runID, suite_id: "controlled-suite" }), { mode: 0o600 });
+    const resultRoot = path.join(fixtureRoot, "results");
+    writeFileSync(suiteLease, JSON.stringify({ schema_id: "cartulary.test_services.lease.v1", run_id: runtime.runID, suite_id: "controlled-suite",
+      lease_id: runtime.leaseID, result_root: resultRoot, run_root: path.join(resultRoot, runtime.runID), target: "browser-e2e",
+      mode: "owned", ownership_mode: "owned", owner_pid: process.pid, created_at: new Date().toISOString(),
+      resources: [], proof_labels: {}, proof_prefixes: {}, cleanup_state: "not_started" }), { mode: 0o600 });
     recordRuntimeResource(runtime, { kind: "managed_suite", target: suiteLease });
     let stopCount = 0;
     const closedDetail = runtime.privatePath("closed-consumer");
@@ -324,7 +328,7 @@ export async function assertProductionCleanupCases(repoRoot) {
         }
         // Explicit resource-owner recovery is separate from the memoized broker
         // lifetime. It consumes the still-live exact lease, with no heuristic.
-        await settleBrowserAcquisition({ root: fixtureRoot, file: leaseFile, runtime, environment });
+        await settleBrowserAcquisition({ root: fixtureRoot, file: leaseFile, runtime, environment, recovery: true });
         recordRuntimeResource(runtime, { kind: "browser_stack", target: leaseFile, state: "released" });
       }
       const connected = await new Promise((resolve) => {
@@ -335,7 +339,7 @@ export async function assertProductionCleanupCases(repoRoot) {
       assert.equal(connected, false, "the exact owned listener must be gone after cleanup/recovery");
     } finally {
       if (leaseFile && existsSync(leaseFile)) {
-        await settleBrowserAcquisition({ root: fixtureRoot, file: leaseFile, runtime, environment });
+        await settleBrowserAcquisition({ root: fixtureRoot, file: leaseFile, runtime, environment, recovery: true });
         recordRuntimeResource(runtime, { kind: "browser_stack", target: leaseFile, state: "released" });
       }
       recordRuntimeResource(runtime, { kind: "managed_suite", target: suiteLease, state: "released" });

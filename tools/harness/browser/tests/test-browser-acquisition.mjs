@@ -21,7 +21,11 @@ function fixture(t) {
   const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID: "acquisition-test", scratchRoot: path.join(scratch, "private") });
   const suiteLease = runtime.privatePath("test-services", "suite-lease.json");
   mkdirSync(path.dirname(suiteLease), { mode: 0o700 });
-  writeFileSync(suiteLease, JSON.stringify({ schema_id: "cartulary.test_services.lease.v1", run_id: runtime.runID, suite_id: "test-suite" }), { mode: 0o600 });
+  const resultRoot = path.join(scratch, "results");
+  writeFileSync(suiteLease, JSON.stringify({ schema_id: "cartulary.test_services.lease.v1", run_id: runtime.runID, suite_id: "test-suite",
+    lease_id: runtime.leaseID, result_root: resultRoot, run_root: path.join(resultRoot, runtime.runID), target: "browser-e2e",
+    mode: "owned", ownership_mode: "owned", owner_pid: process.pid, created_at: new Date().toISOString(),
+    resources: [], proof_labels: {}, proof_prefixes: {}, cleanup_state: "not_started" }), { mode: 0o600 });
   const sessionRoot = runtime.privatePath("browser-stack-leases", "attempt"); mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
   const file = createBrowserAcquisition({ runtime, sessionRoot, suiteLease, leaseFile: path.join(sessionRoot, "stack.lease") });
   const ownership = preparationOwnership(runtime);
@@ -46,6 +50,54 @@ test("browser acquisition before launch settles without a ready lease", async (t
   assert.deepEqual(f.ownership.outstanding().map((r) => r.kind), ["managed_suite"]);
   assert.equal(existsSync(f.suiteLease), true, "browser settlement never closes its borrowed suite");
   assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
+});
+
+for (const recovery of [false, true]) test(`browser fixture retirement binds ${recovery ? "recovery" : "ordinary cleanup"} output independently of caller environment`, async (t) => {
+  const f = fixture(t);
+  const metadata = path.join(f.sessionRoot, "runtime-root", "test-services-web-e2e.json");
+  mkdirSync(path.dirname(metadata), { mode: 0o700 });
+  writeFileSync(metadata, "{}", { mode: 0o600 });
+  const suite = JSON.parse(readFileSync(f.suiteLease, "utf8"));
+  let calls = 0;
+  await settleBrowserAcquisition({ ...f, root, recovery,
+    environment: { CARTULARY_TEST_RESULTS_DIR: "/unrelated-results", CARTULARY_TEST_RUN_ID: "unrelated-run",
+      CARTULARY_TEST_TARGET: "unrelated-target", CARTULARY_TEST_SUITE_ID: "unrelated-suite" },
+    run: (command, args, options) => {
+      calls++;
+      assert.equal(command, path.join(root, "tmp/toolbin/cartulary-test-services"));
+      assert.deepEqual(args, ["cleanup-web-e2e", "--metadata-file", metadata]);
+      assert.equal(options.env.CARTULARY_TEST_RUN_ID, f.runtime.runID);
+      assert.equal(options.env.CARTULARY_TEST_SUITE_ID, suite.suite_id);
+      assert.equal(options.env.CARTULARY_TEST_TARGET, suite.target);
+      const output = options.env.CARTULARY_TEST_RESULTS_DIR;
+      if (recovery) {
+        assert.equal(path.dirname(output), f.runtime.privatePath("lifecycle"));
+        assert.match(path.basename(output), /^browser-recovery-[0-9a-f-]{36}$/u);
+      } else assert.equal(output, suite.result_root);
+      return { status: 0 };
+    } });
+  assert.equal(calls, 1);
+  assert.equal(existsSync(metadata), false);
+});
+
+test("explicit browser recovery attempts cannot overwrite earlier immutable retirement output", async (t) => {
+  const f = fixture(t);
+  const metadata = path.join(f.sessionRoot, "runtime-root", "test-services-web-e2e.json");
+  mkdirSync(path.dirname(metadata), { mode: 0o700 });
+  writeFileSync(metadata, "{}", { mode: 0o600 });
+  const outputs = [];
+  const options = { ...f, root, recovery: true, run: (_command, _args, { env }) => {
+    const output = env.CARTULARY_TEST_RESULTS_DIR;
+    assert.equal(typeof output, "string");
+    assert.equal(path.dirname(output), f.runtime.privatePath("lifecycle"));
+    assert.ok(!outputs.includes(output), "each explicit attempt has independent immutable output");
+    outputs.push(output);
+    return { status: outputs.length === 1 ? 1 : 0 };
+  } };
+  await assert.rejects(settleBrowserAcquisition(options), (error) => error.failure_reason === "cleanup_error");
+  assert.equal(existsSync(metadata), true);
+  assert.equal((await settleBrowserAcquisition(options)).state, "released");
+  assert.equal(outputs.length, 2);
 });
 
 test("borrowed runtime controller records do not hide or block preparation dependencies", (t) => {

@@ -289,7 +289,7 @@ export async function recoverReviewPreparation({ runtime, resources, onReleased 
       const acquisition = readBrowserAcquisition(resource.target, runtime);
       dependency = acquisition.suite_lease;
       if (suites.filter((suite) => suite.target === dependency).length !== 1) throw new Error("browser recovery requires its exact retained managed suite proof");
-      await settleBrowserAcquisition({ file: resource.target, runtime, root, environment: base });
+      await settleBrowserAcquisition({ file: resource.target, runtime, root, environment: base, recovery: true });
       onReleased(resource);
     } catch (error) {
       failures.push(error);

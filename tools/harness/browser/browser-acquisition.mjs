@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { CommandFailure, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
-import { atomicLocalFile, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
+import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
 
 const schemaID = "cartulary.browser_acquisition.v1";
 const bytes = (value) => `${JSON.stringify(value)}\n`;
@@ -19,6 +19,16 @@ function inside(parent, child) {
   if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw invalid();
 }
 
+function suiteProof(bytes, runID) {
+  try {
+    const suite = parseStrictJSON(bytes.toString());
+    validateSchemaSync("cartulary.test_services.lease.v1", suite);
+    if (suite.run_id !== runID || !path.isAbsolute(suite.result_root) ||
+        suite.run_root !== path.join(suite.result_root, suite.run_id)) throw invalid();
+    return suite;
+  } catch (cause) { throw invalid(cause); }
+}
+
 // The immutable attempt precedes launch. Independent resource records avoid a
 // shared read/modify/write journal between the producer and detached services.
 export function createBrowserAcquisition({ runtime, sessionRoot, leaseFile, suiteLease }) {
@@ -26,8 +36,7 @@ export function createBrowserAcquisition({ runtime, sessionRoot, leaseFile, suit
   inside(sessionRoot, leaseFile);
   inside(runtime.root, suiteLease);
   const suiteBytes = readLocalFile(suiteLease, { maximum: 1048576 });
-  const suite = parseStrictJSON(suiteBytes.toString());
-  if (suite.schema_id !== "cartulary.test_services.lease.v1" || suite.run_id !== runtime.runID) throw invalid();
+  const suite = suiteProof(suiteBytes, runtime.runID);
   const file = path.join(sessionRoot, "acquisition", "owner.json");
   const value = { schema_id: schemaID, attempt_id: randomUUID(), run_id: runtime.runID,
     runtime_lease_id: runtime.leaseID, runtime_root: runtime.root, session_root: sessionRoot,
@@ -175,7 +184,7 @@ export function acknowledgeBrowserSettlement(file) {
 // interrupted before fixture metadata publication. Releasing this dependent
 // permits that suite's existing ledger/container finalizer to run; it never
 // deletes or reconstructs database/bucket identities here.
-async function settle({ file, runtime, root, environment = {}, producerActive = false,
+async function settle({ file, runtime, root, environment = {}, producerActive = false, recovery = false,
   stop = stopOwnedProcess, run = spawnSync } = {}) {
   const owner = readBrowserAcquisition(file, runtime);
   if (receipt(file)) {
@@ -184,15 +193,23 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
   }
   const suiteBytes = readLocalFile(owner.suite_lease, { maximum: 1048576 });
   if (digest(suiteBytes) !== owner.suite_digest) throw invalid();
-  const suite = parseStrictJSON(suiteBytes.toString());
-  if (suite.run_id !== owner.run_id || suite.suite_id !== owner.suite_id) throw invalid();
+  const suite = suiteProof(suiteBytes, owner.run_id);
+  if (suite.suite_id !== owner.suite_id) throw invalid();
   await stopAcquisitionProcesses(file, { producerActive, stop });
   releaseAcquisitionPorts(file);
   const metadata = path.join(owner.session_root, "runtime-root", "test-services-web-e2e.json");
   if (existsSync(metadata)) {
     readLocalFile(metadata, { maximum: 1048576 });
+    // Ordinary retirement belongs to the original run, even when the provider
+    // has only tool/service environment. Later recovery must never backfill that
+    // run or collide with immutable output from an earlier recovery attempt.
+    const resultsRoot = recovery
+      ? path.join(owner.runtime_root, "lifecycle", `browser-recovery-${randomUUID()}`)
+      : suite.result_root;
+    if (recovery) privateDirectory(path.join(resultsRoot, owner.run_id));
     const result = run(path.join(root, "tmp/toolbin/cartulary-test-services"), ["cleanup-web-e2e", "--metadata-file", metadata], {
       cwd: root, env: { ...environment, CARTULARY_TEST_SUITE_ID: owner.suite_id, CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
+        CARTULARY_TEST_RESULTS_DIR: resultsRoot, CARTULARY_TEST_RUN_ID: owner.run_id, CARTULARY_TEST_TARGET: suite.target,
         CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,
         CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE: "1" },
       timeout: 120000, killSignal: "SIGKILL", stdio: "ignore",

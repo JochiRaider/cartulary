@@ -198,6 +198,9 @@ Read the first structural failure as the primary preparation or action cause.
 Additional failures describe cleanup, recovery or publication separately. The
 private preparation IPC carries bounded failure records; a later successful
 recovery releases resources without rewriting the earlier terminal failure.
+Normal fixture retirement writes to the run bound by the managed-suite proof.
+Each explicit recovery attempt writes disposable lifecycle detail to a separate
+private directory, never to the original retained run or an ambient caller's run.
 
 Raster and report operations use bounded worker processes with shared host
 admission. Raster claims are 1 CPU, 1 process, 1,024 MiB and 1 IO token; reports
