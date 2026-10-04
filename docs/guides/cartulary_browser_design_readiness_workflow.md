@@ -179,6 +179,26 @@ to delete live resources or unresolved proof. Drain owned sessions before privat
 layout changes and restart them afterward; preserve borrowed inputs and unrelated
 work. Do not delete proof to make rollback or cleanup appear successful.
 
+Browser acquisition now has a private v1 ownership record published before
+startup, separate from the ready attachment lease. An absent ready lease does
+not prove resource clearance. Exact process and port records bind the attempt
+to its runtime and managed suite. Stop settles browser resources before closing
+that suite; failed settlement preserves the required suite proof even when the
+runtime directory is borrowed. Unrelated controller records do not create a
+suite dependency.
+
+Drain sessions using their running version before upgrading or rolling back
+this acquisition protocol. Replace producer, provider and recovery reader
+together, then start fresh sessions. There is no legacy reader or translation.
+For damaged older records, use their exact owner proofs to establish clearance.
+If those proofs are insufficient, preserve them and block cutover for that
+environment; never fabricate a lease or infer ownership from age or a name.
+
+Read the first structural failure as the primary preparation or action cause.
+Additional failures describe cleanup, recovery or publication separately. The
+private preparation IPC carries bounded failure records; a later successful
+recovery releases resources without rewriting the earlier terminal failure.
+
 Raster and report operations use bounded worker processes with shared host
 admission. Raster claims are 1 CPU, 1 process, 1,024 MiB and 1 IO token; reports
 claim 1 CPU, 1 process, 512 MiB and 1 IO token. Parallel sessions share those

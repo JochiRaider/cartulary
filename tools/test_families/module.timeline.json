@@ -2027,10 +2027,16 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_timeline_range_scrolling"
+          "scenario_timeline_range_scrolling_horizontal",
+          "scenario_timeline_range_scrolling_paging",
+          "scenario_timeline_range_scrolling_unmount",
+          "scenario_timeline_range_scrolling_vertical"
         ],
         "titles": [
-          "Timeline ranges scroll virtualized loaded cells without querying or scrolling the document"
+          "Timeline ranges release active gestures when the workbook surface unmounts",
+          "Timeline ranges scroll horizontal virtualized cells without querying or scrolling the document",
+          "Timeline ranges scroll vertical virtualized loaded cells without querying or scrolling the document",
+          "Timeline ranges survive explicit paging appends and invalidate on source eviction"
         ]
       },
       "evidence_class": "browser",

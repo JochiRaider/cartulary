@@ -317,7 +317,7 @@
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
-      "resource_profile_id": "standard",
+      "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
     "json-shape-check": {

@@ -75,6 +75,15 @@
       "runner_timeout_ms": 3600000
     },
     {
+      "id": "harness_contract",
+      "resource_claims": {
+        "cpu": 4,
+        "io": 1,
+        "memory_mb": 1024,
+        "process": 4
+      }
+    },
+    {
       "id": "io_heavy",
       "resource_claims": {
         "cpu": 1,

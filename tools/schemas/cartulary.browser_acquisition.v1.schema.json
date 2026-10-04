@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_acquisition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "attempt_id", "run_id", "runtime_lease_id", "runtime_root", "session_root", "ready_lease", "suite_lease", "suite_digest", "suite_id"],
+  "properties": {
+    "schema_id": { "const": "cartulary.browser_acquisition.v1" },
+    "attempt_id": { "type": "string", "format": "uuid" },
+    "run_id": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "runtime_lease_id": { "type": "string", "format": "uuid" },
+    "runtime_root": { "type": "string", "minLength": 1 },
+    "session_root": { "type": "string", "minLength": 1 },
+    "ready_lease": { "type": "string", "minLength": 1 },
+    "suite_lease": { "type": "string", "minLength": 1 },
+    "suite_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "suite_id": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+  }
+}

@@ -293,6 +293,20 @@ remaining borrowers drain before its cleanup, and later healthy releases MUST
 NOT restore eligibility. Allocation ownership MUST survive failed publication
 and cleanup until settlement or exact resource-owner recovery proof exists.
 
+Browser allocation MUST publish a versioned private acquisition identity before
+launch. Its immutable descriptor binds the run, runtime lease, exact managed
+suite proof and ready-lease destination. Producer and service process boot/start
+identities and exact port leases are journaled before their dependent work is
+exposed. The ready attachment is not acquisition or cleanup proof. After a failed
+or cancelled acquisition, the browser owner MUST reap its producer and settle its
+resources, or preserve exact recovery proof and every required service dependency.
+A missing ready lease MUST NOT establish that nothing was acquired. Resources
+owned by the managed suite remain in that owner's cleanup boundary until its
+ledger/container finalizer settles; browser retirement does not claim suite
+cleanup. Ordinary release shares one settlement; a later explicit recovery is a
+separate attempt against the same exact proof.
+
+
 A suite-service janitor MUST NOT infer abandonment from container age. Other runs retain service ownership until their exact terminal cleanup proof authorizes reclamation. Unproven orphan resources remain subject to their lease-specific cleanup; startup of a concurrent suite cannot remove them. Cleanup evidence identifies the container and its owning run and suite before removal.
 
 The fixture capability set is closed to `none`, `postgres_transaction`,
@@ -2866,6 +2880,7 @@ parity-checked with every harness-public row in this table.
 | `cartulary.local_object_store_proxy_health.v1`   | `tools/schemas/cartulary.local_object_store_proxy_health.v1.schema.json`   | present           | Local development proxy lifecycle | During ownership and configuration proof. |
 | `cartulary.test.runtime_identity.v1`             | `tools/schemas/cartulary.test.runtime_identity.v1.schema.json`             | present           | Browser stack            | During backend identity readiness probing. |
 | `cartulary.test.database_reset_diagnostic.v1`   | `tools/schemas/cartulary.test.database_reset_diagnostic.v1.schema.json`   | present           | Recovery reset controller | Before database reset success or failure is accepted. |
+| `cartulary.browser_acquisition.v1` | `tools/schemas/cartulary.browser_acquisition.v1.schema.json` | private | Browser acquisition owner | Before launch and every settlement/recovery read. |
 | `cartulary.browser_reset_attempt.v1`            | `tools/schemas/cartulary.browser_reset_attempt.v1.schema.json`            | present           | Browser reset lifecycle  | Before a browser reset unit reaches a terminal state. |
 | `cartulary.test.clock_control.v1`               | `tools/schemas/cartulary.test.clock_control.v1.schema.json`               | present           | Test clock route         | Before a fixed, offset, reset, or state clock-control response is accepted. |
 | `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
@@ -4226,7 +4241,11 @@ select_primary_failure(failures):
 
 **TH-HARNESS-REQ-301**
 Cleanup failure after an earlier product or operational failure MUST be recorded but MUST NOT override the public exit code selected for the earlier primary failure.
-Verified by: TH-HARNESS-AC-014
+The same primary cause MUST survive preparation IPC, test finalizers and public
+command envelopes. Secondary failures retain bounded normalized records and
+context; a Boolean cleanup flag is insufficient. Unclassified acquisition causes
+remain unknown rather than becoming assertions or reconstructed explanations.
+Verified by: TH-HARNESS-AC-014, TH-HARNESS-AC-110, TH-HARNESS-AC-111
 
 **TH-HARNESS-REQ-302**
 Harness setup, readiness, fixture, artifact, scheduler, timeout, and cleanup failures MUST NOT use `failure_class=product`. A failing assertion after successful harness setup MUST be classified with `failure_class=product` and `failure_reason=test_assertion_failure`.
@@ -4516,6 +4535,14 @@ compile to `cartulary.harness_work_graph.v5`. The graph fields and validation
 rules are closed by TH-HARNESS-REQ-801. Target names and command IDs MUST NOT be
 overloaded to infer omitted selection metadata. Every resolved row maps to one
 canonical row result and at least one target projection.
+
+Harness contract imports may define and register cases, but MUST NOT execute
+assertions, acquire resources or spawn children. Named awaited cases own setup,
+child reaping and finalization. Diagnostic propagation and deadline semantics are
+separate cases. Deadline fixtures establish handler readiness before controlled
+expiry; production deadlines still start at launch and retain timeout precedence.
+The contract Node invocations use one test-file worker; intentional child races
+remain bounded inside named cases and included in execution claims.
 
 Runner concurrency is part of the unit command and claims. A worker pool MUST
 keep its worker bound aligned with CPU, memory, process, and runner-specific
@@ -5712,6 +5739,11 @@ The state set and transitions are closed:
 | `closed` or `failed` | Status or stop | Same state; return existing cleanup outcome without touching other resources. |
 | `closed` or `failed` | Browser/capture/analyze/report | Reject as `configuration_error`; never revive the session. |
 
+Preparation tracks its own acquired resources independently of container
+ownership. Borrowing a runtime permits neither early service closure nor deleting
+that runtime. Unrelated controller records MUST NOT block a suite on which they
+do not depend. No late acquisition may publish readiness after cancellation.
+
 At most one operation that accesses page state or creates a bundle runs per
 session. A competing operation waits at most five seconds for the session lock,
 then returns `infra/resource_conflict` without admission. Status does not take
@@ -6505,6 +6537,13 @@ closure; it cannot publish ready state. Once stopping begins no operation may
 commit a bundle or publish a successful outcome. Each release is attempted within
 its existing owner deadline, once per cleanup attempt; a stalled release cannot
 prevent attempts for independent resources.
+
+Browser cleanup uses the acquisition record, including when startup never
+published a ready lease. Dependency checks bind the exact managed suite, not the
+number of unrelated records in a borrowed container. New acquisition records and
+structured preparation IPC cut over together after old sessions are drained with
+their running version. There is no legacy reader or historical receipt rewrite.
+Unverifiable old ownership remains preserved and blocks that environment's cutover.
 
 Private detail and minimum recovery proof have separate deletion boundaries.
 Delete safely removable screenshots, observations, credentials and staged work
@@ -7404,8 +7443,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-107 | TH-HARNESS-REQ-081, TH-HARNESS-REQ-285, TH-HARNESS-REQ-616 | Every finite command in machine mode; start in machine mode; invalid preflight | Finite result is one schema-valid JSON object plus LF, no page data; start rejects machine mode; private refs appear only in transient results. | Exit 2 before child work for unsupported mode; stderr/receipt behavior matches contract. |
 | TH-HARNESS-AC-108 | TH-HARNESS-REQ-159, TH-HARNESS-REQ-381, TH-HARNESS-REQ-416 | Concurrent commands and sessions; mixed raster/report/scheduled workers; quiet waiter; insufficient memory/CPU/process capacity | One operation per session; parallel reservations remain within capacity; parent activity is counted once; cancellation removes queued claims; process-tree peaks fit declared envelopes. | Contention 4 within five seconds or remaining deadline; no resource or quiet-waiter bypass. |
 | TH-HARNESS-AC-109 | TH-HARNESS-REQ-159, TH-HARNESS-REQ-417 | Action followed by stale ref/epoch; zero/two matching controls; disabled control; text containing shell metacharacters | Stale/ambiguous target is not acted on; text is passed as data; exact action is executed no more than once. | Stale exit 2, non-actionable exit 1; no forced/first-match action. |
-| TH-HARNESS-AC-110 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311 | Stop while busy; repeated stop; SIGINT/SIGTERM; owner/browser death; preparation failure | Session reaches closed/failed with exact primary cause; owned resources and private tree are removed where cleanup succeeds; status survives through retained locator. | Signal codes retained; cleanup-only 12; earlier failure stays primary. |
-| TH-HARNESS-AC-111 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-502, TH-HARNESS-REQ-616 | Partial/late acquisition; stalled release; parent/controller/double death; PID reuse; aged live runtime; rollback and terminal-publication faults | Bounded independent releases continue; safe detail is purged; minimal unresolved proof survives; exact nonterminal recovery works; no late publication, unaccounted residue or unrelated deletion. | No success after unsafe production, missing terminal receipt or incomplete cleanup; valid terminal repetition remains immutable. |
+| TH-HARNESS-AC-110 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-311 | Stop while busy; repeated stop; SIGINT/SIGTERM; owner/browser death; classified preparation failure plus independent cleanup/IPC failures | Session reaches closed/failed with exact primary cause; owned resources and private tree are removed where cleanup succeeds; status survives through retained locator. | Signal codes retained; cleanup-only 12; earlier failure stays primary. |
+| TH-HARNESS-AC-111 | TH-HARNESS-REQ-416, TH-HARNESS-REQ-502, TH-HARNESS-REQ-616 | Pre-launch, pre-ready-lease and partial/late acquisition; owned/borrowed container parity; exact suite dependencies; publication/acknowledgement faults; stalled release; parent/controller/double death; PID reuse; aged live runtime; rollback and terminal-publication faults | Bounded independent releases continue; safe detail is purged; minimal unresolved proof survives; exact nonterminal recovery works; no late publication, unaccounted residue or unrelated deletion. | No success after unsafe production, missing terminal receipt or incomplete cleanup; valid terminal repetition remains immutable. |
 | TH-HARNESS-AC-112 | TH-HARNESS-REQ-284 | Font delay; geometry changing until timeout; geometry changes after screenshot; stable geometry with dynamic text | Stable case publishes one bundle; unstable candidate is discarded; dynamic text is labeled ordinary review without invented pixel stability. | Timeout 13 or unstable artifact 11; no action replay, tolerance adjustment, or recapture. |
 | TH-HARNESS-AC-113 | TH-HARNESS-REQ-417, TH-HARNESS-REQ-284 | Virtualized row absent, then explicitly scrolled into view; focus before/after capture | Absent rendered target is reported; explicit reveal enables observation; capture does not move focus/scroll or infer offscreen record absence. | Unavailable target 1; no hidden data mutation. |
 | TH-HARNESS-AC-114 | TH-HARNESS-REQ-284, TH-HARNESS-REQ-285 | Active registered/unregistered canonical capture; expected-only passing capture; wrong catalog join | Exact current joins import; fixture IDs may be empty; expected-only report shows no_actual; invalid join fails. | Invalid artifact 11; no filename-derived owner or fake actual pixels. |

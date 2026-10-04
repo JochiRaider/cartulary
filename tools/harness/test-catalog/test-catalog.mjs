@@ -65,6 +65,7 @@ const expectedProfiles = Object.freeze({
     "browser_functional",
     "browser_isolated",
     "browser_measurement_quiet",
+    "harness_contract",
     "io_heavy",
     "managed_process",
     "performance_fixture_builder",

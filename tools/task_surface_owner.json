@@ -2415,6 +2415,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
+        "--test-concurrency=1",
         "./tools/harness/browser/tests/test-playwright-row-runner.mjs",
         "./tools/harness/services/tests/test-local-session.mjs",
         "./tools/harness/tests/test-harness-boundary-contracts.mjs",
@@ -2437,6 +2438,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
+        "--test-concurrency=1",
         "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "./tools/harness/execution/tests/test-vitest-diagnostics.mjs"
       ],
@@ -2468,6 +2470,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
+        "--test-concurrency=1",
         "./tools/harness/services/tests/test-local-session.mjs",
         "./tools/harness/tests/test-harness-boundary-contracts.mjs",
         "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
@@ -4876,7 +4879,8 @@
         "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/readiness/installed-readiness.mjs",
-        "tools/harness/runtime/command-failure-cli.mjs"
+        "tools/harness/runtime/command-failure-cli.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -6762,7 +6766,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -6977,7 +6982,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -7230,7 +7236,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7335,7 +7342,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7462,7 +7470,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7589,7 +7598,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -7607,7 +7617,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9847,7 +9858,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10596,7 +10608,8 @@
         "tools/harness/tests/test-frontend-producer-graph.mjs",
         "tools/harness/tests/test-frontend-producer-lifecycle.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
-        "tools/harness/browser/tests/test-ui-review-contract.mjs"
+        "tools/harness/browser/tests/test-ui-review-contract.mjs",
+        "tools/harness/tests/command-failure-fixture.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_command_surface_contract.v2",
       "target_class": "check_internal",
@@ -10846,7 +10859,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10971,7 +10985,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11103,7 +11118,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11272,7 +11288,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.browser_e2e_support.v2",
       "target_class": "internal_helper",
@@ -11290,7 +11307,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11460,7 +11478,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -11475,7 +11494,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11606,7 +11626,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11738,7 +11759,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11870,7 +11892,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12004,7 +12027,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -12132,7 +12156,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -12260,7 +12285,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -12729,7 +12755,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -12871,7 +12898,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -12997,7 +13025,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -13578,7 +13607,8 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -14373,7 +14403,8 @@
         "tools/harness/browser/review-child.mjs",
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/readiness/installed-readiness.mjs",
-        "tools/harness/runtime/command-failure-cli.mjs"
+        "tools/harness/runtime/command-failure-cli.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -14485,7 +14516,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_review.v1",
       "semantic_behaviors": [
@@ -14633,7 +14665,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_review_status.v1",
       "semantic_behaviors": [
@@ -14737,7 +14770,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_browser.v1",
       "semantic_behaviors": [
@@ -14857,7 +14891,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_capture.v1",
       "semantic_behaviors": [
@@ -14977,7 +15012,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_analyze.v1",
       "semantic_behaviors": [
@@ -15097,7 +15133,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_review_report.v1",
       "semantic_behaviors": [
@@ -15217,7 +15254,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_review_stop.v1",
       "semantic_behaviors": [
@@ -15326,7 +15364,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_contract.v1",
       "target_class": "check_internal",
@@ -15381,7 +15420,9 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/tests/test-browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_lifecycle.v1",
       "target_class": "check_internal",
@@ -15435,7 +15476,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_artifacts.v1",
       "target_class": "check_internal",
@@ -15489,7 +15531,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_presentation.v1",
       "target_class": "check_internal",
@@ -15543,7 +15586,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_execution.v1",
       "target_class": "check_internal",
@@ -15597,7 +15641,8 @@
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
-        "tools/harness/runtime/secure-local-files.mjs"
+        "tools/harness/runtime/secure-local-files.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_workflow.v1",
       "target_class": "check_internal",
@@ -15653,7 +15698,8 @@
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_seeded_default.v1",
       "target_class": "check_internal",
@@ -15709,7 +15755,8 @@
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
-        "tools/harness/runtime/resource-recovery.mjs"
+        "tools/harness/runtime/resource-recovery.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_seeded_network_flow_claimed.v1",
       "target_class": "check_internal",
@@ -15985,7 +16032,8 @@
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
         "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs"
+        "tools/harness/tests/fixture-stack-driver.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
@@ -15999,7 +16047,8 @@
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
         "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs"
+        "tools/harness/tests/fixture-stack-driver.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
@@ -16185,7 +16234,8 @@
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
         "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs"
+        "tools/harness/tests/fixture-stack-driver.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
@@ -16199,7 +16249,8 @@
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
         "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs"
+        "tools/harness/tests/fixture-stack-driver.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
@@ -16213,7 +16264,8 @@
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
         "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs"
+        "tools/harness/tests/fixture-stack-driver.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
@@ -16228,7 +16280,8 @@
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
         "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs"
+        "tools/harness/tests/fixture-stack-driver.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
@@ -16242,7 +16295,8 @@
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
         "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs"
+        "tools/harness/tests/fixture-stack-driver.mjs",
+        "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
