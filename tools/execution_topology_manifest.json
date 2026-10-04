@@ -79,8 +79,8 @@
       "resource_claims": {
         "cpu": 4,
         "io": 1,
-        "memory_mb": 1024,
-        "process": 4
+        "memory_mb": 1536,
+        "process": 20
       }
     },
     {

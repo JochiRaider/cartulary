@@ -203,6 +203,9 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
     removePrivateFile(metadata);
   }
   removePrivateTree(path.join(owner.session_root, "runtime-root"));
+  // An exit trap can release services but cannot prove its own producer has
+  // exited. Only the external owner may publish terminal settlement after reaping.
+  if (producerActive) return { state: "recovery_required", acquisition_file: file };
   acknowledgeBrowserSettlement(file);
   return { state: "released" };
 }

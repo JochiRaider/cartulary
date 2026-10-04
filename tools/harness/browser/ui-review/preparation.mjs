@@ -18,7 +18,7 @@ export function cleanupRecords(errors, phase) {
   }))];
 }
 
-export function prepareReview({ input, runtime, runID, signal, onProcess = async () => {}, workerModule = import.meta.url }) {
+export function prepareReview({ input, runtime, runID, signal, onProcess = async () => {}, workerModule = import.meta.url, stopProcess = stopOwnedProcess }) {
   signal.throwIfAborted();
   const ready = Promise.withResolvers(), done = Promise.withResolvers();
   privateDirectory(runtime.privatePath("lifecycle", runID));
@@ -75,10 +75,10 @@ export function prepareReview({ input, runtime, runID, signal, onProcess = async
   child.once("close", async (status) => {
     if (status !== 0 && !signal.aborted && outcome && !outcome.failure) outcome = { failure: failure(new ReviewFailure("diagnostic_invalid", { context: phase })), cleanup_failures: outcome.cleanup_failures };
     signal.removeEventListener("abort", stop);
-    try { if (target) { await stopOwnedProcess(target); recordResource(runtime, { kind: "preparation_process", target, state: "released" }); } }
-    catch (error) { outcome = { ...outcome, cleanup_failures: [...(outcome?.cleanup_failures ?? []), ...cleanupRecords([error], phase)] }; }
-    checking?.reject(new ReviewFailure("session_lost"));
     const secondary = outcome?.cleanup_failures?.map(failureFromRecord) ?? [];
+    try { if (target) { await stopProcess(target); recordResource(runtime, { kind: "preparation_process", target, state: "released" }); } }
+    catch (error) { secondary.push(...cleanupRecords([error], phase).map(failureFromRecord)); }
+    checking?.reject(new ReviewFailure("session_lost"));
     if (!outcome) secondary.push(new ReviewFailure("cleanup_failed", { context: { ...phase, phase: "cleanup", condition: "child_failed", recovery_id: "exact_stop" } }));
     const error = outcome?.failure ? failureFromRecord(outcome.failure) : (outcome ? secondary[0] : null) ?? preparationFailure(signal.aborted ? signal.reason : new ReviewFailure(prepared ? "session_lost" : "preparation_failed", { context: phase }), phase);
     if (secondary.length) error.cleanupFailures = secondary;
@@ -94,7 +94,11 @@ export function prepareReview({ input, runtime, runID, signal, onProcess = async
   return { ready: ready.promise, done: done.promise, stop: async () => {
     stop();
     try { await boundedCleanup(() => done.promise, 250000); }
-    catch (error) { if (target) await stopOwnedProcess(target); throw error; }
+    catch (error) {
+      try { if (target) await stopProcess(target); }
+      catch (cleanupError) { (error.cleanupFailures ??= []).push(...cleanupRecords([cleanupError], phase).map(failureFromRecord)); }
+      throw error;
+    }
   } };
 }
 

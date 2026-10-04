@@ -7,6 +7,8 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { browserReadiness, coreReadiness, goReadiness, nodeReadiness, publishFrontendInstallation, serviceImageReadiness, validateFrontendInstallation } from "../../readiness/installed-readiness.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
+import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
+import { stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { reviewChild } from "../review-child.mjs";
 import { withReviewResources } from "../review-preparation.mjs";
 import { prepareReview, cleanupRecords } from "../ui-review/preparation.mjs";
@@ -230,4 +232,34 @@ test("preparation bounds secondary diagnostics without replacing the primary out
   assert.equal(records.length, 64);
   assert.equal(records.at(-1).diagnostic_code, "diagnostic_invalid");
   assert.ok(records.every((record) => !JSON.stringify(record).includes("private cleanup detail")));
+});
+
+test("missing preparation IPC stays primary when reaping acknowledgement and later stop fail", async () => {
+  const root = scratch(), runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "ipc-reap-failure" });
+  try {
+    const worker = path.join(root, "worker.mjs");
+    write(root, "worker.mjs", `process.once('message',()=>{process.send({phase:${JSON.stringify(context)}},()=>process.exit(1));});`);
+    const preparation = prepareReview({ input: {}, runtime, runID: "death", signal: new AbortController().signal,
+      workerModule: pathToFileURL(worker).href,
+      stopProcess: async (proof) => { await stopOwnedProcess(proof); throw new Error("reaping acknowledgement failed"); },
+    });
+    let primary;
+    await assert.rejects(preparation.ready, (error) => {
+      primary = error;
+      assert.equal(error.diagnostic, "preparation_failed");
+      assert.equal(error.context.phase, "build");
+      assert.equal(error.cleanupFailures.length, 2);
+      assert.ok(error.cleanupFailures.every((failure) => failure.diagnostic === "cleanup_failed"));
+      return true;
+    });
+    await assert.rejects(preparation.done, (error) => error === primary);
+    await assert.rejects(preparation.stop(), (error) => error === primary && error.cleanupFailures.length === 3);
+    assert.equal(runtimeRecoveryResources(runtime).length, 1, "failed acknowledgement retains exact process proof");
+  } finally {
+    for (const record of runtimeRecoveryResources(runtime)) {
+      await stopOwnedProcess(record.target);
+      recordRuntimeResource(runtime, { ...record, state: "released" });
+    }
+    runtime.close(); rmSync(root, { recursive: true, force: true });
+  }
 });

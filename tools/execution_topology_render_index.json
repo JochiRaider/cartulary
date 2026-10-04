@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:e9238fb91a15f8e40cec21913023033d72ec2c366ba7bde99faa6d043abcdc29",
+  "input_digest": "sha256:33b4e2bc1b4406dae6a92a1521a12444a026df42a1e172b87f8999d616abcab4",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -362,7 +362,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:e3a524fabe714ec21f3ad5549ba68d4a036c711ad2bfba195ad57336f4304ae9"
+      "hash": "sha256:52617294ea3005e8af1c0f06c8fb64b40c2c3a692f3c31e39bbb79d358c73f8b"
     },
     {
       "path": "tools/harness/backend/go-lpt-shards.mjs",
@@ -372,7 +372,7 @@
     {
       "path": "tools/harness/browser/browser-acquisition.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8cbcbf9760f3c977f2da2dc108701a1fd6f29473b5be74bc3cc52ef4d277e3b2"
+      "hash": "sha256:1b02d3dd7548b81d15b73c7cb4c72117411ed206fded2def514a31b21d6ba13b"
     },
     {
       "path": "tools/harness/browser/browser-batch-manifest.mjs",
@@ -612,7 +612,7 @@
     {
       "path": "tools/harness/browser/ui-review/preparation.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b5b31c43b8f98227abe7f5e23f58d575c47161d639109f8db86c289b81f4effd"
+      "hash": "sha256:ab3570e01938589f13548ec76102446bce486edd3b950add979c637603b102a9"
     },
     {
       "path": "tools/harness/browser/ui-review/recovery.mjs",

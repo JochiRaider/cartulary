@@ -63,34 +63,34 @@ async function ready(file) {
 export function registerCommandFailureTests() {
   test("command failure envelopes bind identity and reject corruption", (t) => {
     const { scratch, runtime, environment, create } = setup(t);
-  for (const mutation of ["valid", "identity", "malformed", "conflict", "permission", "symlink", "partial"]) {
-    const context = create();
-    const env = { ...environment, ...context.environment };
-    assert.equal(context.read(), null);
-    publishCommandFailure(root, artifactFailure, env);
-    const identity = JSON.parse(env.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT);
-    const file = runtime.privatePath(`command-failure-${identity.invocation_id}`, "failure.json");
-    if (mutation === "identity") writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file)), unit_id: "another-unit" }));
-    if (mutation === "malformed") writeFileSync(file, '{"schema_id":');
-    if (mutation === "conflict") assert.throws(() => publishCommandFailure(root, accounting, env), /conflicting/u);
-    if (mutation === "permission") chmodSync(file, 0o644);
-    if (mutation === "symlink") { rmSync(file); symlinkSync(path.join(scratch, "absent"), file); }
-    if (mutation === "partial") rmSync(file);
-    assert.deepEqual(context.read(), mutation === "valid" ? artifactFailure : accounting, mutation);
-    assert.deepEqual(readCommandFailure(root, env), context.read());
-    if (mutation === "valid") {
+    for (const mutation of ["valid", "identity", "malformed", "conflict", "permission", "symlink", "partial"]) {
+      const context = create();
+      const env = { ...environment, ...context.environment };
+      assert.equal(context.read(), null);
       publishCommandFailure(root, artifactFailure, env);
-      assert.deepEqual(context.read(), artifactFailure, "identical diagnostic is idempotent");
-      assert.equal(lstatSync(file).mode & 0o777, 0o600);
+      const identity = JSON.parse(env.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT);
+      const file = runtime.privatePath(`command-failure-${identity.invocation_id}`, "failure.json");
+      if (mutation === "identity") writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file)), unit_id: "another-unit" }));
+      if (mutation === "malformed") writeFileSync(file, '{"schema_id":');
+      if (mutation === "conflict") assert.throws(() => publishCommandFailure(root, accounting, env), /conflicting/u);
+      if (mutation === "permission") chmodSync(file, 0o644);
+      if (mutation === "symlink") { rmSync(file); symlinkSync(path.join(scratch, "absent"), file); }
+      if (mutation === "partial") rmSync(file);
+      assert.deepEqual(context.read(), mutation === "valid" ? artifactFailure : accounting, mutation);
+      assert.deepEqual(readCommandFailure(root, env), context.read());
+      if (mutation === "valid") {
+        publishCommandFailure(root, artifactFailure, env);
+        assert.deepEqual(context.read(), artifactFailure, "identical diagnostic is idempotent");
+        assert.equal(lstatSync(file).mode & 0o777, 0o600);
+      }
+      context.close();
     }
-    context.close();
-  }
   });
   test("shell classification preserves diagnostics and accounts for contradictory success", () => {
-  const invocation = { rows: [{ row_id: "example" }] };
-  assert.equal(adaptShellInvocation(invocation, { status: 2, commandFailure: artifactFailure })[0].failure_reason, "artifact_error");
-  assert.equal(adaptShellInvocation(invocation, { status: 0, commandFailure: artifactFailure })[0].failure_reason, "scheduler_accounting_error");
-  assert.equal(adaptShellInvocation(invocation, { status: 1 })[0].failure_reason, "test_assertion_failure");
+    const invocation = { rows: [{ row_id: "example" }] };
+    assert.equal(adaptShellInvocation(invocation, { status: 2, commandFailure: artifactFailure })[0].failure_reason, "artifact_error");
+    assert.equal(adaptShellInvocation(invocation, { status: 0, commandFailure: artifactFailure })[0].failure_reason, "scheduler_accounting_error");
+    assert.equal(adaptShellInvocation(invocation, { status: 1 })[0].failure_reason, "test_assertion_failure");
 
   });
   for (const [mode, expected, exit] of [["diagnostic", "artifact_error", 11], ["contradictory", "scheduler_accounting_error", 11], ["assertion", "test_assertion_failure", 10]]) {
@@ -104,15 +104,15 @@ export function registerCommandFailureTests() {
   }
   test("artifact diagnostic survives canonical row execution and removes private captures", { timeout: 15000 }, async (t) => {
     const { scratch, runtime, runRoot, execute } = setup(t);
-  const shim = path.join(scratch, "make-probe");
-  writeFileSync(shim, `#!/bin/sh\ncase "$*" in\n  *protocol-ts-browser-artifact-reachability*) exec ${process.execPath} ${fixture} diagnostic ;;\n  *) exec env MAKE=make make "$@" ;;\nesac\n`, { mode: 0o700 });
-  const rowID = "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b";
-  const rowOutcome = await execute({ unit_id: `row:${rowID}`, kind: "runner", command: { executable: process.execPath, args: ["tools/harness/execution/runners/row-runner-cli.mjs", "--row-id", rowID], environment: { CARTULARY_TEST_TARGET: "protocol-ts-browser-artifact-reachability", MAKE: shim } }, timeout_ms: 10000 });
-  assert.equal(rowOutcome.failure_reason, "artifact_error", JSON.stringify(rowOutcome));
-  assert.ok(lstatSync(path.join(runRoot, "rows", `${rowID}.json`), { throwIfNoEntry: false }), JSON.stringify(rowOutcome));
-  assert.equal(JSON.parse(readFileSync(path.join(runRoot, "rows", `${rowID}.json`))).failure_reason, "artifact_error", "canonical shell row preserves the cause before the executor writes its result");
-  assert.deepEqual(readdirSync(runtime.privatePath("child-captures")), [], "failed row execution releases its private captures");
-  assert.equal(readdirSync(runtime.root).some((name) => name.startsWith("command-failure-")), false, "row execution releases command failure contexts");
+    const shim = path.join(scratch, "make-probe");
+    writeFileSync(shim, `#!/bin/sh\ncase "$*" in\n  *protocol-ts-browser-artifact-reachability*) exec ${process.execPath} ${fixture} diagnostic ;;\n  *) exec env MAKE=make make "$@" ;;\nesac\n`, { mode: 0o700 });
+    const rowID = "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b";
+    const rowOutcome = await execute({ unit_id: `row:${rowID}`, kind: "runner", command: { executable: process.execPath, args: ["tools/harness/execution/runners/row-runner-cli.mjs", "--row-id", rowID], environment: { CARTULARY_TEST_TARGET: "protocol-ts-browser-artifact-reachability", MAKE: shim } }, timeout_ms: 10000 });
+    assert.equal(rowOutcome.failure_reason, "artifact_error", JSON.stringify(rowOutcome));
+    assert.ok(lstatSync(path.join(runRoot, "rows", `${rowID}.json`), { throwIfNoEntry: false }), JSON.stringify(rowOutcome));
+    assert.equal(JSON.parse(readFileSync(path.join(runRoot, "rows", `${rowID}.json`))).failure_reason, "artifact_error", "canonical shell row preserves the cause before the executor writes its result");
+    assert.deepEqual(readdirSync(runtime.privatePath("child-captures")), [], "failed row execution releases its private captures");
+    assert.equal(readdirSync(runtime.root).some((name) => name.startsWith("command-failure-")), false, "row execution releases command failure contexts");
   });
   for (const mode of ["wait", "cooperative", "cancelled"]) {
     test(`executor ${mode} after handler readiness preserves deadline and cancellation precedence`, { timeout: 15000 }, async (t) => {

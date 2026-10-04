@@ -57,6 +57,19 @@ test("borrowed runtime controller records do not hide or block preparation depen
   assert.equal(runtimeRecoveryResources(f.runtime).some((r) => r.kind === "preparation_process"), true);
 });
 
+test("producer exit cleanup cannot publish release before the external owner reaps it", async (t) => {
+  const f = fixture(t);
+  recordAcquisitionProcess(f.file, "producer");
+  const stopped = [];
+  const stop = async (proof) => { stopped.push(proof.pid); };
+  const pending = await settleBrowserAcquisition({ ...f, root, producerActive: true, stop });
+  assert.equal(pending.state, "recovery_required");
+  assert.deepEqual(stopped, []);
+  assert.equal(existsSync(path.join(path.dirname(f.file), "settlement.json")), false);
+  assert.equal((await settleBrowserAcquisition({ ...f, root, stop })).state, "released");
+  assert.deepEqual(stopped, [process.pid]);
+});
+
 test("failed registration acknowledgement retains dependency and exact acquisition proof", (t) => {
   const f = fixture(t);
   const ownership = preparationOwnership(f.runtime, (r) => { if (r.state === "released") throw new Error("acknowledgement failed"); });
