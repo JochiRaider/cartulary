@@ -176,6 +176,13 @@ reserve_port_lease() {
   lease_dir="$(port_lease_dir "${port}")"
   step_secure_mkdir "${lease_root}"
 
+  if [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
+    "${NODE_BIN:-node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
+      reserve-port "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${lease_dir}" "$$" || return $?
+    track_port_lease_dir "${lease_dir}"
+    return 0
+  fi
+
   if ! mkdir "${lease_dir}" 2>/dev/null; then
     if [[ -f "${lease_dir}/pid" ]]; then
       IFS= read -r lease_pid <"${lease_dir}/pid" || true

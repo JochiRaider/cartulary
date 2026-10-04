@@ -225,10 +225,12 @@ export class ReviewSession {
       return this.runtime.close();
     });
     if (cleanupFailures.length) {
-      const artifact = cleanupFailures.some((failure) => failure instanceof ReviewFailure && failure.diagnostic === "unsafe_artifact");
-      const cleanupContext = cleanupFailures.find((failure) => failure instanceof ReviewFailure && failure.diagnostic === "cleanup_failed" && failure.context.phase !== null)?.context;
-      const failure = new ReviewFailure(artifact ? "unsafe_artifact" : "cleanup_failed", artifact ? {} : { context: cleanupContext });
-      this.failures.push(failureRecord(failure)); this.exitCode ||= failure.exitCode;
+      for (const error of cleanupFailures) {
+        const failure = error instanceof ReviewFailure ? error : new ReviewFailure("cleanup_failed");
+        const record = failureRecord(failure);
+        if (!this.failures.some((prior) => JSON.stringify(prior) === JSON.stringify(record))) this.failures.push(record);
+        this.exitCode ||= failure.exitCode;
+      }
     }
     Object.assign(this, await finishTerminal({ record: this.record, locator: { schema_id: schemaID("session"), session_id: this.sessionID, run_id: this.runID, mode: this.mode, created_at: this.started }, runRoot: this.runRoot, counts: this.total, failures: this.failures, exitCode: this.exitCode, duration: Math.floor(performance.now() - this.startedTick), cleanupFailed: cleanupFailures.length > 0, forbiddenValues: this.runtime.forbiddenValues() }));
   }

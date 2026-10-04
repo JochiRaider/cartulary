@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
+import { failureFromRecord } from "../ui-review/failure.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
 import { schemaID, validate } from "../ui-review/contract.mjs";
 import { digest, readLocator, resolveSession } from "../ui-review/session-files.mjs";
@@ -49,6 +50,18 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
     locator = path.join(resultsRoot ?? privateRoot, id, "ui-review/session.json");
     for (let attempt = 0; attempt < 3000 && !running.output().includes("UI review ready"); attempt++) {
       if (running.child.exitCode !== null) break; await pause(100);
+    }
+    if (!running.output().includes("UI review ready")) {
+      await running.ended;
+      const terminalFile = path.join(path.dirname(locator), "terminal.json");
+      if (existsSync(terminalFile)) {
+        const terminal = validate("receipt", JSON.parse(readFileSync(terminalFile, "utf8")));
+        if (terminal.failures.length) {
+          const [primary, ...secondary] = terminal.failures.map(failureFromRecord);
+          primary.cleanupFailures = secondary;
+          throw primary;
+        }
+      }
     }
     assert.ok(running.output().includes("UI review ready"), `review startup failed: ${running.output()}`);
   };

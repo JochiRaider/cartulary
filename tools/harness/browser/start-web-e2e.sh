@@ -74,7 +74,6 @@ RESET_BACKEND_READY_MARKER_FILE=""
 usage() {
   echo "usage: start-web-e2e.sh [-- <command...>]" >&2
   echo "       start-web-e2e.sh --session-start --env-file <path> --lease-file <path>" >&2
-  echo "       start-web-e2e.sh --session-stop --lease-file <path>" >&2
   echo "       start-web-e2e.sh --session-reset-backend --lease-file <path> --label <label> --database-result-file <path> --object-store-marker-file <path> --state-marker-file <path> --backend-ready-marker-file <path>" >&2
 }
 
@@ -106,27 +105,6 @@ parse_child_command() {
         esac
       done
       if [[ -z "${SESSION_ENV_FILE}" || -z "${SESSION_LEASE_FILE}" ]]; then
-        usage
-        return 2
-      fi
-      return 0
-      ;;
-    --session-stop)
-      SESSION_MODE="stop"
-      shift
-      while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-          --lease-file)
-            SESSION_LEASE_FILE="${2:-}"
-            shift 2
-            ;;
-          *)
-            usage
-            return 2
-            ;;
-        esac
-      done
-      if [[ -z "${SESSION_LEASE_FILE}" ]]; then
         usage
         return 2
       fi
@@ -770,6 +748,14 @@ cleanup() {
   fi
   cleanup_done=1
 
+  if [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
+    local acquisition_status=0
+    retain_browser_process_diagnostics cleanup || acquisition_status=$?
+    "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
+      settle "${CARTULARY_BROWSER_ACQUISITION_FILE}" producer-active || acquisition_status=$?
+    return "${acquisition_status}"
+  fi
+
   local step_start_time
   local step_start_ms
   local step_end_time
@@ -892,6 +878,7 @@ write_session_files() {
 const fs = require("node:fs");
 
 const env = {
+  CARTULARY_BROWSER_ACQUISITION_FILE: process.env.CARTULARY_BROWSER_ACQUISITION_FILE,
   CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER: "1",
   CARTULARY_PLAYWRIGHT_STATE_DIR: process.env.CARTULARY_PLAYWRIGHT_STATE_DIR,
   CARTULARY_WEB_E2E_API_ORIGIN: process.env.CARTULARY_WEB_E2E_API_ORIGIN,
@@ -978,6 +965,7 @@ const lease = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const q = (value) => JSON.stringify(String(value ?? ""));
 console.log(`SERVER_PGID=${q(lease.server_pgid)}`);
 console.log(`VITE_PGID=${q(lease.vite_pgid)}`);
+console.log(`CARTULARY_BROWSER_ACQUISITION_FILE=${q(lease.env?.CARTULARY_BROWSER_ACQUISITION_FILE)}`);
 console.log(`BACKEND_PORT=${q(lease.backend_port)}`);
 console.log(`FRONTEND_PORT=${q(lease.frontend_port)}`);
 console.log(`RUNTIME_ROOT_BASE=${q(lease.runtime_root)}`);
@@ -1005,24 +993,6 @@ EOF
   export CARTULARY_TEST_ROUTE_TOKEN_FILE
   adopt_port_lease_for_cleanup "${BACKEND_PORT}"
   adopt_port_lease_for_cleanup "${FRONTEND_PORT}"
-}
-
-stop_session() {
-  local status=0
-
-  if [[ ! -f "${SESSION_LEASE_FILE}" ]]; then
-    echo "browser e2e session lease ${SESSION_LEASE_FILE} is missing" >&2
-    return 1
-  fi
-  load_session_lease "${SESSION_LEASE_FILE}"
-  KEEP_RUNTIME_ROOT=0
-  cleanup || status=$?
-  if [[ "${status}" -eq 0 && "${CARTULARY_WEB_E2E_RETAIN_SESSION_LEASE:-0}" -ne 1 ]]; then
-    if ! rm -f -- "${SESSION_LEASE_FILE}" >/dev/null 2>&1; then
-      status=1
-    fi
-  fi
-  return "${status}"
 }
 
 on_exit() {
@@ -1342,11 +1312,28 @@ browser_wait_frontend_ready() {
   return 1
 }
 
+start_browser_process_group() {
+  local outvar="$1" log_file="$2" role="backend" monitor_pid=""
+  shift 2
+  if [[ -z "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
+    start_process_group "${outvar}" "${log_file}" "$@"
+    return $?
+  fi
+  if [[ "${outvar}" == "VITE_PGID" ]]; then role="frontend"; fi
+  start_process_group "${outvar}" "${log_file}" "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -- \
+    "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" launch "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${role}" "$@" || return $?
+  monitor_pid="${CARTULARY_LIFECYCLE_GROUP_MONITORS[${!outvar}]:-}"
+  if [[ -n "${monitor_pid}" ]]; then
+    "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
+      process "${CARTULARY_BROWSER_ACQUISITION_FILE}" monitor "${monitor_pid}" || return $?
+  fi
+}
+
 start_frontend_preview_process() {
   local pnpm_bin="$1"
 
   run_timing_span "frontend_startup" "browser-e2e start frontend process" \
-  start_process_group VITE_PGID "${WEB_LOG}" \
+  start_browser_process_group VITE_PGID "${WEB_LOG}" \
     env \
     COREPACK_HOME="${NODE_RUNTIME_DIR}/corepack" \
     PATH="${NODE_RUNTIME_DIR}/bin:${PATH}" \
@@ -1421,7 +1408,7 @@ start_backend_ready() {
   "${fixture_node_bin}" "${ROOT_DIR}/apps/web/e2e/support/referencePackFixture.mjs" "${RUNTIME_ROOT_BASE}/reference-pack-bootstrap.json"
   local backend_start_status=0
   if run_timing_span "server_startup" "browser-e2e start backend process" \
-    start_process_group SERVER_PGID "${SERVER_LOG}" \
+    start_browser_process_group SERVER_PGID "${SERVER_LOG}" \
       env \
       CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
       CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
@@ -1663,10 +1650,6 @@ reset_session_backend() {
 main() {
   parse_child_command "$@"
 
-  if [[ "${SESSION_MODE}" == "stop" ]]; then
-    stop_session
-    return $?
-  fi
   if [[ "${SESSION_MODE}" == "reset" ]]; then
     reset_session_backend
     return $?

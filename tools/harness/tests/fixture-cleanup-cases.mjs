@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { FixtureBroker, createSuiteController, CleanupResults, dedicatedPoolProvider, DedicatedResourcePool, productionFixtureProviders } from "../scheduler/fixture-broker/index.mjs";
-import { terminateBrowserStackLease } from "../scheduler/fixture-broker/providers.mjs";
+import { readBrowserAcquisition, settleBrowserAcquisition } from "../browser/browser-acquisition.mjs";
 import { buildWorkGraph, runWorkGraph } from "../scheduler/work-graph/index.mjs";
 import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../runtime/resource-recovery.mjs";
@@ -275,13 +275,19 @@ export async function assertProductionCleanupCases(repoRoot) {
     mkdirSync(path.dirname(lifecycle), { recursive: true, mode: 0o700 });
     const driver = path.join(repoRoot, "tools/harness/tests/fixture-stack-driver.mjs").replaceAll("'", "'\"'\"'");
     writeFileSync(lifecycle, `#!/bin/sh\nexec "$NODE_BIN" -- '${driver}' "$@"\n`, { mode: 0o700 });
-    const environment = { NODE_BIN: process.execPath, CARTULARY_FIXTURE_TEST_STOP_FAILURE: cleanupFailed ? "1" : "0" };
+    const environment = { NODE_BIN: process.execPath };
+    const suiteLease = runtime.privatePath("test-services", "suite.json");
+    mkdirSync(path.dirname(suiteLease), { mode: 0o700 });
+    writeFileSync(suiteLease, JSON.stringify({ schema_id: "cartulary.test_services.lease.v1", run_id: runtime.runID, suite_id: "controlled-suite" }), { mode: 0o600 });
+    recordRuntimeResource(runtime, { kind: "managed_suite", target: suiteLease });
+    let stopCount = 0;
     const closedDetail = runtime.privatePath("closed-consumer");
     mkdirSync(closedDetail, { mode: 0o700 });
     writeFileSync(path.join(closedDetail, "credentials.json"), "private-sentinel", { mode: 0o600 });
     let leaseFile, port;
     const broker = new FixtureBroker({ providers: productionFixtureProviders({ root: fixtureRoot,
-      suiteRuntime: runtime, suiteController: { ensure: () => ({ environment: {} }) },
+      suiteRuntime: runtime, suiteController: { ensure: () => ({ environment: {}, leaseFile: suiteLease }) },
+      settleBrowser: async (options) => { stopCount++; if (cleanupFailed) throw new Error("deliberate owner stop failure"); return settleBrowserAcquisition(options); },
       runtimeEnvironment: environment, onOwnedResource: (resource) => {
         if (resource.kind === "browser_stack" && resource.state === "released" && releasePublicationFailed) {
           throw new Error("release publication failure");
@@ -289,7 +295,7 @@ export async function assertProductionCleanupCases(repoRoot) {
         recordRuntimeResource(runtime, resource);
         if (resource.kind === "browser_stack" && resource.state === "acquired") {
           leaseFile = resource.target;
-          port = JSON.parse(readFileSync(leaseFile, "utf8")).port;
+          port = JSON.parse(readFileSync(readBrowserAcquisition(leaseFile).ready_lease, "utf8")).port;
           if (publicationFailed) throw new Error("acquisition publication failure");
         }
       },
@@ -298,28 +304,27 @@ export async function assertProductionCleanupCases(repoRoot) {
       const result = await runWorkGraph({ graph: buildWorkGraph([workUnit()]), capacities: new Map([["cpu", 1]]),
         cwd: fixtureRoot, environment: {}, fixtureBroker: broker,
         executeUnit: async (_unit, { fixtureLease }) => {
-          leaseFile = fixtureLease.resource.environment.CARTULARY_WEB_E2E_SESSION_LEASE_FILE;
-          port = JSON.parse(readFileSync(leaseFile, "utf8")).port;
+          port = JSON.parse(readFileSync(fixtureLease.resource.environment.CARTULARY_WEB_E2E_SESSION_LEASE_FILE, "utf8")).port;
           return { status: "failed", failure_class: "product", failure_reason: "test_assertion_failure", exit_code: 10 };
         },
         finalize: ({ unresolved }) => { if (unresolved) runtime.preserveRecovery(); },
       });
       assert.equal(result.unit_results["cleanup:work"].failure_reason, publicationFailed ? "artifact_error" : "test_assertion_failure");
-      assert.equal(readFileSync(path.join(path.dirname(leaseFile), "stop-count"), "utf8"), "stop\n");
+      assert.equal(stopCount, 1);
       const unresolved = cleanupFailed || releasePublicationFailed;
       assert.equal(existsSync(leaseFile), unresolved);
       assert.equal(broker.hasUnresolvedCleanup(), unresolved);
       if (unresolved) {
-        assert.equal(runtimeRecoveryResources(runtime).length, 1);
+        assert.equal(runtimeRecoveryResources(runtime).length, 2);
         assert.equal(existsSync(closedDetail), false, "closed-consumer credentials are removed while exact recovery proof remains");
         if (releasePublicationFailed) {
           assert.equal(result.cleanup_error.failure_reason, "artifact_error");
           await assert.rejects(broker.close());
-          assert.equal(readFileSync(path.join(path.dirname(leaseFile), "stop-count"), "utf8"), "stop\n", "reobserving publication failure cannot repeat physical cleanup");
+          assert.equal(stopCount, 1, "reobserving publication failure cannot repeat physical cleanup");
         }
         // Explicit resource-owner recovery is separate from the memoized broker
         // lifetime. It consumes the still-live exact lease, with no heuristic.
-        terminateBrowserStackLease({ root: fixtureRoot, leaseFile, environment: { ...environment, CARTULARY_FIXTURE_TEST_STOP_FAILURE: "0" } });
+        await settleBrowserAcquisition({ root: fixtureRoot, file: leaseFile, runtime, environment });
         recordRuntimeResource(runtime, { kind: "browser_stack", target: leaseFile, state: "released" });
       }
       const connected = await new Promise((resolve) => {
@@ -330,9 +335,10 @@ export async function assertProductionCleanupCases(repoRoot) {
       assert.equal(connected, false, "the exact owned listener must be gone after cleanup/recovery");
     } finally {
       if (leaseFile && existsSync(leaseFile)) {
-        terminateBrowserStackLease({ root: fixtureRoot, leaseFile, environment: { ...environment, CARTULARY_FIXTURE_TEST_STOP_FAILURE: "0" } });
+        await settleBrowserAcquisition({ root: fixtureRoot, file: leaseFile, runtime, environment });
         recordRuntimeResource(runtime, { kind: "browser_stack", target: leaseFile, state: "released" });
       }
+      recordRuntimeResource(runtime, { kind: "managed_suite", target: suiteLease, state: "released" });
       runtime.close(); rmSync(fixtureRoot, { recursive: true, force: true });
     }
   }

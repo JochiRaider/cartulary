@@ -6,6 +6,7 @@ import path from "node:path";
 import { createCommandFailureContext, CommandFailure } from "../../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { atomicLocalFile, readLocalFile, removePrivateFile } from "../../runtime/secure-local-files.mjs";
+import { createBrowserAcquisition, settleBrowserAcquisition } from "../../browser/browser-acquisition.mjs";
 
 import {
   normalizeFailureClass,
@@ -57,15 +58,21 @@ function acquireProcess(command, args, { cwd, environment, signal, onChildProces
     signal?.throwIfAborted();
     const diagnostic = ["ensure", "installed_only"].includes(environment.CARTULARY_PREPARATION_POLICY) ? createCommandFailureContext({ repoRoot: cwd, environment, unitID: "review:browser_stack", commandID: environment.CARTULARY_PREPARATION_POLICY === "installed_only" ? "cartulary.harness.command.ui_review.v1" : "cartulary.harness.command.browser_design_review.v1" }) : null;
     const child = spawn(command, args, { cwd, env: { ...process.env, ...environment, ...diagnostic?.environment }, stdio: "ignore", detached: true });
-    let released = () => {}, spawnError;
+    let released = () => {}, spawnError, killDeadline;
     try { if (child.pid) released = onChildProcess(child.pid); }
     catch (error) { spawnError = error; child.kill("SIGKILL"); }
-    const abort = () => { try { process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") spawnError ??= error; } };
+    const abort = () => {
+      try { if (child.pid) process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") spawnError ??= error; }
+      killDeadline ??= setTimeout(() => { try { if (child.pid) process.kill(-child.pid, "SIGKILL"); } catch (error) { if (error.code !== "ESRCH") spawnError ??= error; } }, 2000);
+    };
     signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
     child.once("error", (error) => { spawnError = error; });
     child.once("close", async (status) => {
+      clearTimeout(killDeadline);
       signal?.removeEventListener("abort", abort);
-      const failure = diagnostic?.read();
+      let failure;
+      try { failure = diagnostic?.read(); } catch (error) { spawnError ??= error; }
       let primary = signal?.aborted ? signal.reason : failure ? new CommandFailure("browser acquisition failed", status === 0 ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" } : failure) : spawnError ?? (status === 0 ? null : new Error("unclassified browser acquisition failure"));
       for (const cleanup of [released, () => diagnostic?.close()]) {
         try { await cleanup(); } catch (error) { primary ??= new CommandFailure("acquisition cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error" }); (primary.cleanupFailures ??= []).push(error); }
@@ -312,13 +319,6 @@ export function terminateManagedSuiteLease({ root, executable, leaseFile, enviro
   else { stop(leaseFile); removePrivateFile(leaseFile); }
 }
 
-export function terminateBrowserStackLease({ root, leaseFile, environment, retainProof = false }) {
-  requireOwnerOnlyRegularFile(leaseFile, "browser stack recovery lease");
-  run(path.join(root, "tools/harness/browser/start-web-e2e.sh"), ["--session-stop", "--lease-file", leaseFile], {
-    cwd: root, environment: { ...environment, CARTULARY_WEB_E2E_RETAIN_SESSION_LEASE: retainProof ? "1" : "0" }, timeoutMS: 120000,
-  });
-}
-
 export function startManagedSuite({
   root,
   target,
@@ -539,6 +539,7 @@ export function productionFixtureProviders({
   signal,
   onOwnedResource = () => {},
   onChildProcess,
+  settleBrowser = settleBrowserAcquisition,
 }) {
   const cloneOrdinals = new Map();
   const browserAllocationOrdinals = new Map();
@@ -614,18 +615,22 @@ export function productionFixtureProviders({
               }
             : {}),
         };
-        onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "pending" });
-        const close = () => {
-          terminateBrowserStackLease({ root, leaseFile, environment, retainProof: true });
-          acknowledgeRelease(onOwnedResource, "browser_stack", leaseFile);
-        };
+        const acquisitionFile = createBrowserAcquisition({ runtime: suiteRuntime, sessionRoot, leaseFile, suiteLease: suite.leaseFile });
+        environment.CARTULARY_BROWSER_ACQUISITION_FILE = acquisitionFile;
+        let settlement;
+        const close = () => settlement ??= (async () => {
+          await settleBrowser({ file: acquisitionFile, runtime: suiteRuntime, root, environment });
+          acknowledgeRelease(onOwnedResource, "browser_stack", acquisitionFile);
+          rmSync(sessionRoot, { recursive: true, force: true });
+        })();
         try {
-          await acquireProcess(lifecycle, ["--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal, onChildProcess });
+          onOwnedResource({ kind: "browser_stack", target: acquisitionFile, state: "pending" });
+          await acquireProcess(process.execPath, ["--", new URL("../../browser/browser-acquisition.mjs", import.meta.url).pathname, "launch", acquisitionFile, "producer", lifecycle,
+            "--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal, onChildProcess });
+          signal?.throwIfAborted();
         } catch (error) {
-          if (existsSync(leaseFile)) {
-            try { close(); }
-            catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
-          }
+          try { await close(); }
+          catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
           throw error;
         }
         let stackEnvironment;
@@ -642,10 +647,10 @@ export function productionFixtureProviders({
           );
           suiteRuntime.registerEnvironment(stackEnvironment);
           rmSync(envFile, { force: true });
-          onOwnedResource({ kind: "browser_stack", target: leaseFile, state: "acquired" });
+          onOwnedResource({ kind: "browser_stack", target: acquisitionFile, state: "acquired" });
         } catch (error) {
           const failure = new CommandFailure("browser session publication failed", { failure_class: "artifact", failure_reason: "artifact_error" }, { cause: error });
-          try { close(); }
+          try { await close(); }
           catch (cleanupError) { failure.cleanupFailures = [cleanupError]; }
           throw failure;
         }

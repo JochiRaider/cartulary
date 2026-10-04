@@ -6,6 +6,17 @@ import { recoverReviewPreparation, runPreparedReview } from "../review-preparati
 import { ReviewFailure, preparationFailure, failureRecord, failureFromRecord } from "./failure.mjs";
 import { boundedCleanup, ownedProcess, recordResource, recoveryResources, stopOwnedProcess } from "./ownership.mjs";
 import { repoRoot } from "./policy.mjs";
+import { cleanupErrors, cleanupFailure } from "../../scheduler/fixture-broker/cleanup-lifecycle.mjs";
+
+export function cleanupRecords(errors, phase) {
+  const records = [...new Set(errors.flatMap((error) => cleanupErrors(error)))].map((error) => failureRecord(preparationFailure(cleanupFailure(error), {
+    ...phase, phase: "cleanup", condition: "child_failed", recovery_id: "exact_stop",
+  })));
+  if (records.length <= 64) return records;
+  return [...records.slice(0, 63), failureRecord(new ReviewFailure("diagnostic_invalid", {
+    context: { ...phase, phase: "cleanup", condition: "child_failed", recovery_id: "exact_stop" },
+  }))];
+}
 
 export function prepareReview({ input, runtime, runID, signal, onProcess = async () => {}, workerModule = import.meta.url }) {
   signal.throwIfAborted();
@@ -29,10 +40,13 @@ export function prepareReview({ input, runtime, runID, signal, onProcess = async
     if (invalid || (outcome && message?.checked !== undefined)) return;
     try {
       const keys = Object.keys(message).sort().join(",");
-      if (!["phase", "ready", "checked", "cleanup_failed,done,failure"].includes(keys)) throw new Error("invalid preparation message");
+      if (!["phase", "ready", "checked", "cleanup_failures,done,failure"].includes(keys)) throw new Error("invalid preparation message");
       if ((keys === "phase" && (!message.phase || typeof message.phase !== "object")) || (keys === "ready" && (!message.ready || typeof message.ready !== "object"))) throw new Error("invalid preparation payload");
       if (outcome || (message.ready && prepared)) throw new Error("duplicate preparation outcome");
-      if (keys === "cleanup_failed,done,failure" && (message.done !== true || typeof message.cleanup_failed !== "boolean")) throw new Error("invalid preparation outcome");
+      if (keys === "cleanup_failures,done,failure") {
+        if (message.done !== true || !Array.isArray(message.cleanup_failures) || message.cleanup_failures.length > 64) throw new Error("invalid preparation outcome");
+        for (const record of message.cleanup_failures) failureFromRecord(record);
+      }
       if (keys === "checked" && typeof message.checked !== "boolean") throw new Error("invalid health outcome");
       if (message.phase) {
         phase = failureFromRecord(failureRecord(new ReviewFailure("preparation_failed", { context: message.phase }))).context;
@@ -40,7 +54,7 @@ export function prepareReview({ input, runtime, runID, signal, onProcess = async
       if (message.done && message.failure !== null) failureFromRecord(message.failure);
     } catch {
       invalid = true;
-      outcome = { failure: failure(new ReviewFailure("diagnostic_invalid", { context: phase })), cleanup_failed: false };
+      outcome = { failure: failure(new ReviewFailure("diagnostic_invalid", { context: phase })), cleanup_failures: [] };
       child.kill("SIGTERM"); return;
     }
     if (message.ready && !signal.aborted) {
@@ -59,16 +73,17 @@ export function prepareReview({ input, runtime, runID, signal, onProcess = async
   });
   child.once("error", (error) => { if (!invalid) outcome = { failure: failure(error) }; });
   child.once("close", async (status) => {
-    if (status !== 0 && !signal.aborted && outcome && !outcome.failure) outcome = { failure: failure(new ReviewFailure("diagnostic_invalid", { context: phase })), cleanup_failed: outcome.cleanup_failed };
+    if (status !== 0 && !signal.aborted && outcome && !outcome.failure) outcome = { failure: failure(new ReviewFailure("diagnostic_invalid", { context: phase })), cleanup_failures: outcome.cleanup_failures };
     signal.removeEventListener("abort", stop);
     try { if (target) { await stopOwnedProcess(target); recordResource(runtime, { kind: "preparation_process", target, state: "released" }); } }
-    catch { outcome = { ...outcome, cleanup_failed: true }; }
+    catch (error) { outcome = { ...outcome, cleanup_failures: [...(outcome?.cleanup_failures ?? []), ...cleanupRecords([error], phase)] }; }
     checking?.reject(new ReviewFailure("session_lost"));
-    const terminalContext = outcome?.cleanup_failed ? { ...phase, phase: "cleanup", condition: "child_failed", recovery_id: "exact_stop" } : phase;
-    const error = outcome?.failure ? failureFromRecord(outcome.failure) : preparationFailure(outcome?.cleanup_failed ? new ReviewFailure("cleanup_failed", { context: terminalContext }) : signal.aborted ? signal.reason : new ReviewFailure(prepared ? "session_lost" : "preparation_failed", { context: terminalContext }), terminalContext);
-    if (outcome?.cleanup_failed || !outcome) error.cleanupFailures = [new ReviewFailure("cleanup_failed", { context: { ...phase, phase: "cleanup", condition: "child_failed", recovery_id: "exact_stop" } })];
+    const secondary = outcome?.cleanup_failures?.map(failureFromRecord) ?? [];
+    if (!outcome) secondary.push(new ReviewFailure("cleanup_failed", { context: { ...phase, phase: "cleanup", condition: "child_failed", recovery_id: "exact_stop" } }));
+    const error = outcome?.failure ? failureFromRecord(outcome.failure) : (outcome ? secondary[0] : null) ?? preparationFailure(signal.aborted ? signal.reason : new ReviewFailure(prepared ? "session_lost" : "preparation_failed", { context: phase }), phase);
+    if (secondary.length) error.cleanupFailures = secondary;
     if (!prepared) ready.reject(error);
-    if (outcome && !outcome.failure && !outcome.cleanup_failed) done.resolve(); else done.reject(error);
+    if (outcome && !outcome.failure && !secondary.length) done.resolve(); else done.reject(error);
   });
   done.promise.catch(() => {}); ready.promise.catch(() => {});
   Promise.resolve().then(() => target && onProcess(target)).then(() => {
@@ -93,7 +108,7 @@ if (process.argv[2] === "--prepare") {
     if (message.stop) stop();
     if (message.check) { let checked = false; try { await prepared.check(); checked = true; } catch {} if (process.connected) process.send({ checked }); }
   });
-  let outcome = { done: true, failure: null, cleanup_failed: false };
+  let outcome = { done: true, failure: null, cleanup_failures: [] };
   try {
     runtime = borrowSuiteRuntime({ repoRoot, runRoot: owner.runRoot, environment: {
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.root,
@@ -102,7 +117,6 @@ if (process.argv[2] === "--prepare") {
   } });
     await runPreparedReview({ environment: { ...process.env, REVIEW_PROFILE: input.REVIEW_PROFILE }, signal: abort.signal,
       target: "ui-review", runID, runRoot: owner.runRoot, runtime, preparationPolicy: "installed_only", onPhase: (phase) => { if (process.connected) process.send({ phase }); }, retainDetail: false, writeOutput: () => {},
-      onOwnedResource: (resource) => recordResource(runtime, resource),
       onChildProcess: (pid) => {
         const resource = { kind: "helper_process", target: ownedProcess(pid) };
         recordResource(runtime, resource);
@@ -111,11 +125,12 @@ if (process.argv[2] === "--prepare") {
       onReady: (value) => { abort.signal.throwIfAborted(); prepared = value; if (process.connected) process.send({ ready: { attached: value.attached, privateDirectory: value.privateDirectory, runRoot: value.runRoot } }); },
       hold: () => hold.promise });
   } catch (error) {
-    outcome = { done: true, failure: abort.signal.aborted && error === abort.signal.reason ? null : failureRecord(preparationFailure(error)), cleanup_failed: Boolean(error.cleanupFailures?.length) };
+    outcome = { done: true, failure: abort.signal.aborted && error === abort.signal.reason ? null : failureRecord(preparationFailure(error)),
+      cleanup_failures: cleanupRecords(error.cleanupFailures ?? [], { subject_id: "preparation_child" }) };
   }
-  if (runtime && !outcome.cleanup_failed) {
+  if (runtime && !outcome.cleanup_failures.length) {
     try { await recoverReviewPreparation({ runtime, resources: recoveryResources(runtime), onReleased: (resource) => recordResource(runtime, { ...resource, state: "released" }) }); }
-    catch { outcome.cleanup_failed = true; }
+    catch (error) { outcome.cleanup_failures.push(...cleanupRecords([error], { subject_id: "preparation_child" })); }
   }
   if (process.connected) process.send(outcome, () => process.disconnect());
 }

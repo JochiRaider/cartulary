@@ -1,3 +1,4 @@
+import "./test-browser-acquisition.mjs";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -8,7 +9,7 @@ import { browserReadiness, coreReadiness, goReadiness, nodeReadiness, publishFro
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { reviewChild } from "../review-child.mjs";
 import { withReviewResources } from "../review-preparation.mjs";
-import { prepareReview } from "../ui-review/preparation.mjs";
+import { prepareReview, cleanupRecords } from "../ui-review/preparation.mjs";
 import { failureRecord, preparationFailure, failureFromRecord, ReviewFailure } from "../ui-review/failure.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
 import { ReviewSession } from "../ui-review/session.mjs";
@@ -118,7 +119,7 @@ test("preparation IPC retains validated context and latches malformed outcomes",
     for (const mode of ["classified", "malformed", "death"]) {
       const record = failureRecord(preparationFailure({ failure_class: "harness", failure_reason: "fixture_error" }, { phase: "seeding", subject_id: "fixture_seed", condition: "child_failed", recovery_id: "inspect_failure" }));
       const worker = path.join(root, `${mode}.mjs`);
-      write(root, `${mode}.mjs`, `process.once('message',()=>{ process.send({phase:${JSON.stringify(context)}}); ${mode === "death" ? "process.exit(1);" : `process.send({done:true,failure:${JSON.stringify(mode === "malformed" ? { ...record, private_message: "secret-sentinel" } : record)},cleanup_failed:false},()=>process.disconnect());`} });`);
+      write(root, `${mode}.mjs`, `process.once('message',()=>{ process.send({phase:${JSON.stringify(context)}}); ${mode === "death" ? "process.exit(1);" : `process.send({done:true,failure:${JSON.stringify(mode === "malformed" ? { ...record, private_message: "secret-sentinel" } : record)},cleanup_failures:[]},()=>process.disconnect());`} });`);
       const preparation = prepareReview({ input: {}, runtime, runID: mode, signal: new AbortController().signal, workerModule: pathToFileURL(worker).href });
       await assert.rejects(preparation.ready, (error) => {
         assert.equal(error.diagnostic, mode === "classified" ? "fixture_failed" : mode === "malformed" ? "diagnostic_invalid" : "preparation_failed");
@@ -146,7 +147,7 @@ test("cancellation in each preparation phase rejects late ready publication and 
   try {
     for (const phase of ["prerequisites", "build", "service_acquisition", "service_readiness", "seeding", "browser_start"]) {
       const abort = new AbortController(), worker = path.join(root, `${phase}.mjs`);
-      write(root, `${phase}.mjs`, `process.once('message',()=>{process.send({phase:${JSON.stringify({ ...context, phase })}});process.on('message',message=>{if(message.stop) {process.send({ready:{}});process.send({done:true,failure:null,cleanup_failed:false},()=>process.disconnect());}});});`);
+      write(root, `${phase}.mjs`, `process.once('message',()=>{process.send({phase:${JSON.stringify({ ...context, phase })}});process.on('message',message=>{if(message.stop) {process.send({ready:{}});process.send({done:true,failure:null,cleanup_failures:[]},()=>process.disconnect());}});});`);
       const preparation = prepareReview({ input: {}, runtime, runID: phase, signal: abort.signal, workerModule: pathToFileURL(worker).href });
       const rejection = assert.rejects(preparation.ready, (error) => error.diagnostic === "interrupted");
       await new Promise((resolve) => setTimeout(resolve, 100)); abort.abort(new ReviewFailure("interrupted"));
@@ -161,7 +162,7 @@ test("IPC rejects duplicate terminal outcomes and success followed by child fail
   try {
     for (const mode of ["duplicate", "nonzero"]) {
       const worker = path.join(root, `${mode}.mjs`);
-      write(root, `${mode}.mjs`, `process.once('message',()=>{process.send({phase:${JSON.stringify(context)}});const done={done:true,failure:null,cleanup_failed:false};process.send(done,()=>{${mode === "duplicate" ? "process.send(done,()=>process.disconnect());" : "process.exit(1);"}});});`);
+      write(root, `${mode}.mjs`, `process.once('message',()=>{process.send({phase:${JSON.stringify(context)}});const done={done:true,failure:null,cleanup_failures:[]};process.send(done,()=>{${mode === "duplicate" ? "process.send(done,()=>process.disconnect());" : "process.exit(1);"}});});`);
       const preparation = prepareReview({ input: {}, runtime, runID: mode, signal: new AbortController().signal, workerModule: pathToFileURL(worker).href });
       await assert.rejects(preparation.ready, (error) => error.diagnostic === "diagnostic_invalid");
       await assert.rejects(preparation.done, (error) => error.diagnostic === "diagnostic_invalid");
@@ -173,7 +174,7 @@ test("preparation cleanup-only IPC outcome retains cleanup context after cancell
   const root = scratch(), runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "cleanup-context" }), abort = new AbortController();
   try {
     const worker = path.join(root, "worker.mjs");
-    write(root, "worker.mjs", `process.once('message',()=>{process.send({phase:${JSON.stringify(context)}});process.send({ready:{}});process.once('message',()=>process.send({done:true,failure:null,cleanup_failed:true},()=>process.disconnect()));});`);
+    write(root, "worker.mjs", `process.once('message',()=>{process.send({phase:${JSON.stringify(context)}});process.send({ready:{}});process.once('message',()=>process.send({done:true,failure:null,cleanup_failures:${JSON.stringify([failureRecord(new ReviewFailure("cleanup_failed", { context: { ...context, phase: "cleanup", recovery_id: "exact_stop" } }))])}},()=>process.disconnect()));});`);
     const preparation = prepareReview({ input: {}, runtime, runID: "cleanup-context", signal: abort.signal, workerModule: pathToFileURL(worker).href });
     await preparation.ready; abort.abort(new ReviewFailure("interrupted"));
     await assert.rejects(preparation.stop(), (error) => error.exitCode === 12 && error.context.phase === "cleanup" && error.context.recovery_id === "exact_stop");
@@ -199,7 +200,7 @@ test("a failing Make producer crosses preparation IPC into the terminal receipt 
           environment:{...process.env,CARTULARY_TEST_RESULTS_DIR:${JSON.stringify(root)},CARTULARY_TEST_RUN_ID:runID,CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:runtime.root,CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:runtime.leaseID,CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:runID},
           commandID:'cartulary.harness.command.build_server_harness.v1',context}); }
         catch(error) { failure=failureRecord(preparationFailure(error,context)); }
-        process.send({done:true,failure,cleanup_failed:false},()=>process.disconnect());
+        process.send({done:true,failure,cleanup_failures:[]},()=>process.disconnect());
       });`);
     session.prepareMode = async () => {
       session.preparedOwner = prepareReview({ input: session.input, runtime: session.runtime, runID: session.runID, signal: session.abort.signal, workerModule: pathToFileURL(worker).href });
@@ -221,4 +222,12 @@ test("a failing Make producer crosses preparation IPC into the terminal receipt 
     assert.equal(existsSync(session.runtime.root), false);
     await session.stop(); assert.equal(readFileSync(file, "utf8"), receipt);
   } finally { await session.stop(); rmSync(root, { recursive: true, force: true }); }
+});
+
+
+test("preparation bounds secondary diagnostics without replacing the primary outcome", () => {
+  const records = cleanupRecords(Array.from({ length: 80 }, () => new Error("private cleanup detail")), { subject_id: "preparation_child" });
+  assert.equal(records.length, 64);
+  assert.equal(records.at(-1).diagnostic_code, "diagnostic_invalid");
+  assert.ok(records.every((record) => !JSON.stringify(record).includes("private cleanup detail")));
 });

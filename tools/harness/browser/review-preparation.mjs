@@ -4,13 +4,13 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { FixtureBroker, productionFixtureProviders, startManagedSuite, createSuiteController, CleanupResults, aggregateCleanup } from "../scheduler/fixture-broker/index.mjs";
 import { createSuiteRuntime, scanRetainedRoot } from "../runtime/suite-runtime.mjs";
-import { recordRuntimeResource, runtimeRecoveryResources } from "../runtime/resource-recovery.mjs";
-import { readLocalFile } from "../runtime/secure-local-files.mjs";
+import { recordRuntimeResource } from "../runtime/resource-recovery.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
 import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
 import { reviewChild } from "./review-child.mjs";
 import { seedDesignReview } from "./design-review-seed.mjs";
+import { readBrowserAcquisition, settleBrowserAcquisition } from "./browser-acquisition.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 
@@ -72,6 +72,23 @@ export async function holdReviewSession({ check, signal, intervalMs = 3000 }) {
   }
 }
 
+export function preparationOwnership(runtime, observe = () => {}) {
+  const acquired = new Map();
+  const key = (resource) => JSON.stringify([resource.kind, resource.target]);
+  return {
+    record(resource) {
+      if (resource.state !== "released") acquired.set(key(resource), resource);
+      // A borrowed container still holds this preparation's exact resources.
+      // Observers are not responsible for durable ownership publication.
+      if (resource.state === "released") observe(resource);
+      recordRuntimeResource(runtime, resource);
+      if (resource.state !== "released") observe(resource);
+      if (resource.state === "released") acquired.delete(key(resource));
+    },
+    outstanding() { return [...acquired.values()]; },
+  };
+}
+
 export async function runPreparedReview({ environment = process.env, signal, onReady, onOwnedResource = () => {}, onChildProcess, hold, verifySamples = false, target = "browser-design-review", runID: selectedRunID, runRoot: selectedRunRoot, runtime: borrowedRuntime, preparationPolicy = "ensure", onPhase = () => {}, retainDetail = true, writeOutput = (value) => process.stdout.write(value) } = {}) {
   if (!["ensure", "installed_only"].includes(preparationPolicy)) throw new Error("invalid review preparation policy");
   let phase = { phase: "prerequisites", subject_id: "preparation_child", condition: "unknown", recovery_id: "inspect_failure" };
@@ -92,10 +109,8 @@ export async function runPreparedReview({ environment = process.env, signal, onR
     runtime_profile_id: profile,
   });
   const runtime = borrowedRuntime ?? createSuiteRuntime({ repoRoot: root, runRoot, runID });
-  const ownedResource = (resource) => {
-    if (!borrowedRuntime) recordRuntimeResource(runtime, resource);
-    onOwnedResource(resource);
-  };
+  const ownership = preparationOwnership(runtime, onOwnedResource);
+  const ownedResource = (resource) => ownership.record(resource);
   const base = { ...environment };
   for (const name of Object.keys(base)) {
     if (/^(?:MAKEFLAGS|MAKEOVERRIDES|MFLAGS|REVIEW_PROFILE|UI_|OTEL_|CARTULARY_(?:MAKE_|TEST_|WEB_E2E_|BROWSER_|HARNESS_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete base[name];
@@ -205,18 +220,21 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       const failures = [];
       try { await broker?.close(); } catch (failure) { failures.push(failure); }
       resourcesUnresolved = broker?.hasUnresolvedCleanup() ?? false;
-      if (!borrowedRuntime && runtimeRecoveryResources(runtime).some((resource) => resource.kind !== "managed_suite")) resourcesUnresolved = true;
-      if (resourcesUnresolved) cleanupResults.record("services_close", { blocked: true });
+      if (ownership.outstanding().some((resource) => resource.kind !== "managed_suite")) resourcesUnresolved = true;
+      if (resourcesUnresolved) {
+        cleanupResults.record("services_close", { blocked: true });
+        failures.push(new CommandFailure("review acquisition ownership remains unresolved", { failure_class: "harness", failure_reason: "cleanup_error" }));
+      }
       else {
         const failure = await cleanupResults.attempt("services_close", () => suiteController.close());
         if (failure) { resourcesUnresolved = true; failures.push(failure); }
       }
-      if (!borrowedRuntime && runtimeRecoveryResources(runtime).length) resourcesUnresolved = true;
+      if (ownership.outstanding().length) resourcesUnresolved = true;
       if (failures.length) throw new AggregateError(failures, "review resource cleanup failed");
     },
     async finish(error) {
       if (error) state = "failed";
-      const terminalDetail = error ? { failure_class: error.failure_class ?? "harness", failure_reason: error.failure_reason ?? "cleanup_error" } : {};
+      const terminalDetail = error ? { failure_class: error.failure_class ?? "unknown", failure_reason: error.failure_reason ?? "unknown_failure" } : {};
       let finishFailure;
       try {
         const scan = retainDetail ? await scanRetainedRoot(runRoot, { forbiddenValues: runtime.forbiddenValues(), removeUnsafe: true }) : { status: "pass" };
@@ -255,7 +273,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
 // newest lease or a borrowed development service. The original owners terminate it.
 export async function recoverReviewPreparation({ runtime, resources, onReleased = () => {}, environment = process.env }) {
   const { existsSync } = await import("node:fs");
-  const { terminateBrowserStackLease, terminateManagedSuiteLease } = await import("../scheduler/fixture-broker/providers.mjs");
+  const { terminateManagedSuiteLease } = await import("../scheduler/fixture-broker/providers.mjs");
   const failures = [];
   const privateResults = runtime.privatePath("lifecycle");
   mkdirSync(path.join(privateResults, runtime.runID), { recursive: true, mode: 0o700 });
@@ -263,28 +281,29 @@ export async function recoverReviewPreparation({ runtime, resources, onReleased 
   // Retiring the browser fixture requires the suite it was allocated from.
   // Recover that identity from the exact retained owner proof, never ambient
   // caller credentials or another live review's environment.
-  if (resources.some((resource) => resource.kind === "browser_stack")) {
-    const suites = resources.filter((resource) => resource.kind === "managed_suite");
-    if (suites.length !== 1) throw new Error("browser recovery requires one retained managed suite proof");
-    const suite = JSON.parse(readLocalFile(suites[0].target, { maximum: 1048576 }));
-    if (suite.schema_id !== "cartulary.test_services.lease.v1" || suite.run_id !== runtime.runID ||
-        typeof suite.suite_id !== "string" || !/^[A-Za-z0-9_.-]+$/u.test(suite.suite_id)) {
-      throw new Error("browser recovery suite proof does not match the owned runtime");
-    }
-    base.CARTULARY_TEST_SUITE_ID = suite.suite_id;
-    base.CARTULARY_TEST_SERVICES_CALL_MODE = "attach";
-  }
-  for (const kind of ["browser_stack", "managed_suite"]) {
-    if (kind === "managed_suite" && failures.length) break;
-    for (const resource of resources.filter((entry) => entry.kind === kind)) {
+  const suites = resources.filter((resource) => resource.kind === "managed_suite");
+  const blocked = new Set();
+  for (const resource of resources.filter((entry) => entry.kind === "browser_stack")) {
+    let dependency;
     try {
-      if (existsSync(resource.target)) {
-        if (kind === "browser_stack") terminateBrowserStackLease({ root, leaseFile: resource.target, environment: base });
-        else terminateManagedSuiteLease({ root, leaseFile: resource.target, executable: path.join(root, "tmp/toolbin/cartulary-test-services"), environment: base });
-      } else throw new Error("missing resource-owner recovery proof");
+      const acquisition = readBrowserAcquisition(resource.target, runtime);
+      dependency = acquisition.suite_lease;
+      if (suites.filter((suite) => suite.target === dependency).length !== 1) throw new Error("browser recovery requires its exact retained managed suite proof");
+      await settleBrowserAcquisition({ file: resource.target, runtime, root, environment: base });
+      onReleased(resource);
+    } catch (error) {
+      failures.push(error);
+      // Unknown or altered dependency proof cannot authorize any suite closure.
+      for (const suite of suites) if (!dependency || suite.target === dependency) blocked.add(suite.target);
+    }
+  }
+  for (const resource of suites) {
+    if (blocked.has(resource.target)) continue;
+    try {
+      if (!existsSync(resource.target)) throw new Error("missing resource-owner recovery proof");
+      terminateManagedSuiteLease({ root, leaseFile: resource.target, executable: path.join(root, "tmp/toolbin/cartulary-test-services"), environment: base });
       onReleased(resource);
     } catch (error) { failures.push(error); }
-    }
   }
-  if (failures.length) throw new AggregateError(failures, "review resource recovery failed");
+  if (failures.length) throw aggregateCleanup(failures);
 }

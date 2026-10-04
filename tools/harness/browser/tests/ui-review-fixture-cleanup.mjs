@@ -15,11 +15,10 @@ export async function realStackCleanupCases() {
     const runRoot = path.join(repoRoot, ".cartulary/test-results", runID);
     mkdirSync(runRoot, { mode: 0o700 });
     const runtime = createSuiteRuntime({ repoRoot, runRoot, runID });
-    let result, origin;
+    let result, origin, primary;
     try {
       const operation = runPreparedReview({ environment: { ...process.env, REVIEW_PROFILE: "default" },
         runID, runRoot, runtime, retainDetail: false, writeOutput: () => {}, hold: async () => {},
-        onOwnedResource: (resource) => recordRuntimeResource(runtime, resource),
         onReady: async ({ attached, fixtureLease, fixtureBroker }) => {
           origin = attached.CARTULARY_WEB_E2E_PUBLIC_ORIGIN;
           assert.equal((await fetch(origin)).status, 200);
@@ -53,19 +52,26 @@ export async function realStackCleanupCases() {
         assert.deepEqual(resources.map((resource) => resource.kind).sort(), ["browser_stack", "managed_suite"]);
         for (const resource of resources) assert.ok(existsSync(resource.target));
         assert.equal(existsSync(runtime.privatePath("review-access")), false, "closed login consumers leave no credential detail");
-        await assert.rejects(recoverReviewPreparation({ runtime: { ...runtime, runID: "wrong-recovery-run" }, resources }), /does not match the owned runtime/u);
+        await assert.rejects(recoverReviewPreparation({ runtime: { ...runtime, runID: "wrong-recovery-run" }, resources }), (error) => error.failure_reason === "artifact_error");
         await recoverReviewPreparation({ runtime, resources,
           environment: { ...process.env, CARTULARY_TEST_SUITE_ID: "unrelated-ambient-suite", CARTULARY_TEST_SERVICES_CALL_MODE: "none" },
           onReleased: (resource) => recordRuntimeResource(runtime, { ...resource, state: "released" }) });
       }
       assert.equal(runtimeRecoveryResources(runtime).length, 0);
       await assert.rejects(fetch(origin), "the owned listener is gone after cleanup or exact recovery");
-    } finally {
-      const resources = runtimeRecoveryResources(runtime);
-      if (resources.length) await recoverReviewPreparation({ runtime, resources,
-        onReleased: (resource) => recordRuntimeResource(runtime, { ...resource, state: "released" }) });
-      runtime.close();
+    } catch (error) { primary = error; }
+    finally {
+      try {
+        const resources = runtimeRecoveryResources(runtime);
+        if (resources.length) await recoverReviewPreparation({ runtime, resources,
+          onReleased: (resource) => recordRuntimeResource(runtime, { ...resource, state: "released" }) });
+        runtime.close();
+      } catch (error) {
+        if (primary) (primary.cleanupFailures ??= []).push(error); else primary = error;
+        try { runtime.preserveRecovery(); } catch (failure) { (primary.cleanupFailures ??= []).push(failure); }
+      }
     }
+    if (primary) throw primary;
     assert.equal(existsSync(runtime.root), false);
   }
 }
