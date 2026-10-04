@@ -417,6 +417,7 @@ describe("range pointer binding", () => {
     const cancelFrame = vi
       .spyOn(window, "cancelAnimationFrame")
       .mockImplementation(() => {});
+    const removeListener = vi.spyOn(document, "removeEventListener");
     const binding = bindGridInteractionDom(root, h.controller, () => cells);
     const pointer = (target: HTMLElement, type: string) => {
       const event = new MouseEvent(type, {
@@ -457,8 +458,20 @@ describe("range pointer binding", () => {
     input.focus();
     expect(h.read().range).toBeNull();
     pointer(cell, "pointerdown");
+    const pendingFrame = raf.mock.calls.at(-1)?.[0];
     binding.dispose();
-    expect(release).toHaveBeenCalled();
+    expect(h.controller.active).toBe(false);
+    expect(cancelFrame).toHaveBeenLastCalledWith(12);
+    expect(release).toHaveBeenLastCalledWith(1);
+    for (const event of ["pointermove", "pointerup", "pointercancel"])
+      expect(removeListener).toHaveBeenCalledWith(
+        event,
+        expect.any(Function),
+        true,
+      );
+    pendingFrame?.(performance.now() + 16);
+    pointer(document.body, "pointermove");
+    pointer(document.body, "pointerup");
     const count = capture.mock.calls.length;
     pointer(cell, "pointerdown");
     expect(capture).toHaveBeenCalledTimes(count);

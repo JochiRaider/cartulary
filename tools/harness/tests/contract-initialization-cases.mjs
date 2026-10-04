@@ -45,6 +45,8 @@ export function assertImportAndFailureIsolation(context) {
       }
       syncBuiltinESMExports();
       await import(process.argv[2]);
+      for (const helper of ["test-command-failure", "test-frontend-producer-graph", "test-frontend-producer-lifecycle"])
+        await import(new URL(helper + ".mjs", process.argv[2]));
     `, context.root, supportURL], { encoding: "utf8", timeout: 30_000, env: childEnvironment });
     assert.equal(probe.status, 0, probe.stderr);
 

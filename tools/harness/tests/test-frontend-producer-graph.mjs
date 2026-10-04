@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -8,7 +9,17 @@ import { validateMakeRecipes } from "../generated-artifacts/task-surface/recipe-
 import { WorkGraphCompiler } from "../scheduler/work-graph/index.mjs";
 
 const root = new URL("../../../", import.meta.url).pathname;
+export function registerFrontendProducerGraphTests() {
+test("frontend producer graph selects canonical dependencies and Make admission", () => {
 const compiler = new WorkGraphCompiler(root);
+for (const name of ["harness-contract", "harness-contract-tests", "harness-command-surface-contract"]) {
+  const command = compiler.taskSurface.make_recipes[name].command;
+  assert.equal(command.filter((arg) => arg === "--test-concurrency=1").length, 1, `${name} bounds Node test-file workers`);
+}
+const contracts = compiler.compile({ kind: "target", target: "harness-contract" }).units.find((unit) => unit.unit_id === "target:harness-contract");
+const contractRow = compiler.compile({ kind: "owner", owner_id: "harness.command_surface" }).units.find((unit) => unit.unit_id === "row:harness.command_surface.behavior.public_registry_parity");
+assert.deepEqual(contractRow.resource_claims, contracts.resource_claims, "direct and aggregate contract reservations agree");
+assert.equal(contracts.resource_claims.process, 4, "one contract worker plus up to three deliberate producer children");
 const target = "protocol-ts-browser-artifact-reachability";
 const rowID = "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b";
 const selected = compiler.compile({ kind: "rows", row_ids: [rowID] });
@@ -85,3 +96,6 @@ try {
   assert.deepEqual(invoke("1"), ["server"], "graph binary consumer never invokes upstream producers");
   assert.deepEqual(invoke("0"), ["web", "embedded", "server"], "standalone file prerequisites still compose production");
 } finally { rmSync(scratch, { recursive: true, force: true }); }
+
+});
+}

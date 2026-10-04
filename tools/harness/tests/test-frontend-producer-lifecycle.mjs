@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 import { fork } from "node:child_process";
 import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -9,13 +10,16 @@ import { claimFrontendProducer, publishFrontendOutput, resolveFrontendArtifact, 
 import { executeUnitProcess } from "../scheduler/work-graph/executor.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
+export function registerFrontendProducerLifecycleTests() {
+test("frontend artifact rejects duplicate publication", (t) => {
 const scratch = mkdtempSync(path.join(os.tmpdir(), "frontend-producer-lifecycle-"));
 const runRoot = path.join(scratch, "run");
 mkdirSync(runRoot, { mode: 0o700 });
 writeFileSync(path.join(runRoot, "run-manifest.json"), JSON.stringify({ source_digest: `sha256:${"1".repeat(64)}`, toolchain_digest: `sha256:${"2".repeat(64)}` }), { mode: 0o600 });
 const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
 const profile = { id: "production", producer_target: "build-web", entries: ["index.html"] };
-try {
+t.after(() => { runtime.close(); rmSync(scratch, { recursive: true, force: true }); });
+{
   for (const name of ["first", "second"]) {
     const staging = runtime.privatePath(name);
     mkdirSync(staging, { mode: 0o700 });
@@ -24,8 +28,11 @@ try {
     if (name === "first") seal();
     else assert.throws(seal, (error) => error.failure_class === "harness" && error.failure_reason === "scheduler_accounting_error", "duplicate publication is an attributed producer violation");
   }
-} finally { runtime.close(); rmSync(scratch, { recursive: true, force: true }); }
+}
 
+});
+test("frontend producer races, interrupted publication, and compiler failure own awaited children", { timeout: 60000 }, async (t) => {
+const profile = { id: "production", producer_target: "build-web", entries: ["index.html"] };
 const processRoot = mkdtempSync(path.join(os.tmpdir(), "frontend-producer-process-"));
 const runtimes = [];
 const children = [];
@@ -39,10 +46,16 @@ function fixture(id) {
 }
 function worker(f, id = "production", mode = "producer", boundary = "", publication = "") {
   const child = fork(path.join(root, "tools/harness/tests/frontend-producer-fixture.mjs"), [mode, id, boundary, publication], { env: { ...process.env, ...f.environment }, stdio: ["ignore", "ignore", "pipe", "ipc", "pipe"] });
-  children.push(child);
+  children.push({ child, closed: once(child, "close") });
   return { child, first: once(child, "message"), closed: once(child, "exit") };
 }
-try {
+t.after(async () => {
+  for (const { child } of children) if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+  await Promise.all(children.map(({ closed }) => closed));
+  for (const runtime of runtimes) runtime.close();
+  rmSync(processRoot, { recursive: true, force: true });
+});
+{
   const f = fixture("race");
   const contenders = [worker(f, "production", "producer-race"), worker(f, "production", "producer-race")];
   assert.deepEqual(await Promise.all(contenders.map(async (producer) => (await producer.first)[0])), [{ state: "ready" }, { state: "ready" }]);
@@ -125,8 +138,7 @@ try {
   assert.equal(result.exit_code, 1);
   assert.throws(() => resolveFrontendArtifact(root, "build-web", failed.environment));
   assert.throws(() => claimFrontendProducer(failed.runtime, profile), /already admitted/u);
-} finally {
-  for (const child of children) if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-  for (const runtime of runtimes) runtime.close();
-  rmSync(processRoot, { recursive: true, force: true });
+}
+
+});
 }

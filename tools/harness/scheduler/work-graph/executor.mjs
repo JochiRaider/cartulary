@@ -157,6 +157,7 @@ export function executeUnitProcess(
     fixtureLease,
     inheritProcessEnvironment = true,
     outputLimitBytes = 1048576,
+    timers = { setTimeout, clearTimeout },
   } = {},
 ) {
   return new Promise((resolve) => {
@@ -225,18 +226,18 @@ export function executeUnitProcess(
       if (reason === "cancelled") cancelled = true;
       if (reason === "timeout") timedOut = true;
       terminateOwnedProcess(child, "SIGTERM");
-      killDeadline ??= setTimeout(() => terminateOwnedProcess(child, "SIGKILL"), 2000);
+      killDeadline ??= timers.setTimeout(() => terminateOwnedProcess(child, "SIGKILL"), 2000);
       killDeadline.unref?.();
     };
     const onAbort = () => terminate("cancelled");
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) onAbort();
-    const timeout = setTimeout(() => terminate("timeout"), unit.timeout_ms);
+    const timeout = timers.setTimeout(() => terminate("timeout"), unit.timeout_ms);
     timeout.unref?.();
     child.on("error", (error) => {
       spawnFailed = true;
-      clearTimeout(timeout);
-      clearTimeout(killDeadline);
+      timers.clearTimeout(timeout);
+      timers.clearTimeout(killDeadline);
       diagnostic?.close();
       signal?.removeEventListener("abort", onAbort);
       const nodeLaunch = unit.command.executable === "node";
@@ -255,8 +256,8 @@ export function executeUnitProcess(
     });
     child.on("close", (code, closeSignal) => {
       if (spawnFailed) return;
-      clearTimeout(timeout);
-      clearTimeout(killDeadline);
+      timers.clearTimeout(timeout);
+      timers.clearTimeout(killDeadline);
       signal?.removeEventListener("abort", onAbort);
       let failure = code === 0 && !cancelled && !timedOut
         ? {}

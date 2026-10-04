@@ -36,14 +36,11 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { createTimelineRangeRows } from "./support/timeline/fixtures";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { holdBrowserRequest } from "./support/transport/requestInterception";
-import {
-  createViewRow,
-  patchRecord,
-  queryViewRows,
-} from "./support/workbook/query";
+import { patchRecord, queryViewRows } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 
 const synopsis = "timeline.activity_synopsis_text";
@@ -69,17 +66,42 @@ const preview = (page: Page) =>
 async function advanceScrollFramesUntil(
   page: Page,
   reached: () => Promise<boolean>,
+  phase: string,
 ) {
-  // Advance only the frames needed for this functional boundary. Running a
-  // fixed multi-second clock interval also executes unrelated idle frames and
-  // can exhaust the test's real-time budget after scrolling has already ended.
-  for (let frame = 0; frame < 500; frame += 1) {
-    if (await reached()) return;
-    await page.clock.runFor(16);
+  const started = performance.now();
+  let frame = 0;
+  let calls = 0;
+  try {
+    while (frame < 500) {
+      if (await reached()) return;
+      const batch = Math.min(8, 500 - frame);
+      await page.clock.runFor(batch * 16);
+      frame += batch;
+      calls++;
+    }
+    const geometry = await grid(page).evaluate((el) => ({
+      top: el.scrollTop,
+      left: el.scrollLeft,
+      height: el.scrollHeight,
+      width: el.scrollWidth,
+      viewportHeight: el.clientHeight,
+      viewportWidth: el.clientWidth,
+    }));
+    expect(
+      await reached(),
+      `Auto-scroll ${phase} boundary after ${frame} frames: ${JSON.stringify(geometry)}`,
+    ).toBe(true);
+  } finally {
+    test.info().annotations.push({
+      type: "range_clock",
+      description: JSON.stringify({
+        phase,
+        frames: frame,
+        calls,
+        elapsed_ms: performance.now() - started,
+      }),
+    });
   }
-  expect(await reached(), "Auto-scroll reaches its declared boundary").toBe(
-    true,
-  );
 }
 
 function required<T>(value: T | null | undefined): T {
@@ -125,13 +147,16 @@ async function seed(page: Page, count = 4) {
     uniqueIncidentKey("RANGE"),
     "Timeline range selection regression",
   );
-  for (let i = 0; i < count; i++)
-    await createViewRow(page, incident, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("range-seed"),
-      [synopsis]: `Range fact ${i}`,
-      [source]: `Range source ${i}`,
-    });
-  const rows = await queryViewRows(page, incident, timelineViewSchemaId);
+  const seedStart = performance.now();
+  const rows = await createTimelineRangeRows(page, incident, count);
+  test.info().annotations.push({
+    type: "range_seed",
+    description: JSON.stringify({
+      row_create_requests: count,
+      authentication_snapshots: 1,
+      elapsed_ms: performance.now() - seedStart,
+    }),
+  });
   await page.goto(`/?incident_id=${incident}`);
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
@@ -467,13 +492,13 @@ test("Timeline pointer cancellation preserves completed membership and stationar
   ).toHaveLength(4);
 });
 
-test("Timeline ranges scroll virtualized loaded cells without querying or scrolling the document", async ({
+test("Timeline ranges scroll vertical virtualized loaded cells without querying or scrolling the document", async ({
   page,
 }) => {
   // This is functional scrolling evidence. Drive animation frames explicitly
   // so host scheduling cannot turn the frame-work cap into a wall-clock claim.
   await page.clock.install();
-  const f = await seed(page, 405);
+  const f = await seed(page, 105);
   const first = required(f.ids[0]);
   await reveal(page, first);
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
@@ -492,12 +517,19 @@ test("Timeline ranges scroll virtualized loaded cells without querying or scroll
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(start.x, root.y + root.height - 2, { steps: 6 });
-  await advanceScrollFramesUntil(page, () =>
-    port.evaluate((el) => el.scrollTop > 900),
+  await advanceScrollFramesUntil(
+    page,
+    () => port.evaluate((el) => el.scrollTop > 900),
+    "vertical virtualization",
   );
   await expect(cell(page, first)).toHaveCount(0);
-  await advanceScrollFramesUntil(page, () =>
-    port.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop < 2),
+  await advanceScrollFramesUntil(
+    page,
+    () =>
+      port.evaluate(
+        (el) => el.scrollHeight - el.clientHeight - el.scrollTop < 2,
+      ),
+    "loaded window boundary",
   );
   await page.mouse.up();
   await page.clock.resume();
@@ -540,6 +572,24 @@ test("Timeline ranges scroll virtualized loaded cells without querying or scroll
     ),
   ).toHaveCount(1);
   expect(queries).toHaveLength(0);
+});
+
+test("Timeline ranges scroll horizontal virtualized cells without querying or scrolling the document", async ({
+  page,
+}) => {
+  await page.clock.install();
+  const f = await seed(page);
+  const first = required(f.ids[0]);
+  const port = grid(page);
+  const queries: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes(`/views/${timelineViewSchemaId}/query`))
+      queries.push(request.url());
+  });
+  const documentScroll = await page.evaluate(() => ({
+    x: window.scrollX,
+    y: window.scrollY,
+  }));
   // Horizontal virtualization uses the same mounted semantic-cell registry.
   await reveal(page, first);
   const origin = await point(cell(page, first));
@@ -548,8 +598,13 @@ test("Timeline ranges scroll virtualized loaded cells without querying or scroll
   await page.mouse.move(origin.x, origin.y);
   await page.mouse.down();
   await page.mouse.move(bounds.x + bounds.width - 2, origin.y, { steps: 6 });
-  await advanceScrollFramesUntil(page, () =>
-    port.evaluate((el) => el.scrollWidth - el.clientWidth - el.scrollLeft < 2),
+  await advanceScrollFramesUntil(
+    page,
+    () =>
+      port.evaluate(
+        (el) => el.scrollWidth - el.clientWidth - el.scrollLeft < 2,
+      ),
+    "horizontal boundary",
   );
   await page.mouse.up();
   await page.clock.resume();
@@ -564,6 +619,21 @@ test("Timeline ranges scroll virtualized loaded cells without querying or scroll
   await page.keyboard.press("Tab");
   await expect(cell(page, first)).toBeFocused();
   expect(queries).toHaveLength(0);
+});
+
+test("Timeline ranges survive explicit paging appends and invalidate on source eviction", async ({
+  page,
+}) => {
+  const f = await seed(page, 405);
+  const first = required(f.ids[0]);
+  await reveal(page, first, source);
+  await drag(page, cell(page, first), cell(page, required(f.ids[1]), source));
+  await dimensions(page, 2, 2);
+  const queries: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes(`/views/${timelineViewSchemaId}/query`))
+      queries.push(request.url());
+  });
   // Explicit paging may append compatible members, then evict the captured
   // source. The gesture itself never requests either transition.
   const controls = page.getByRole("group", { name: "Workbook browsing" });
@@ -584,14 +654,44 @@ test("Timeline ranges scroll virtualized loaded cells without querying or scroll
   await expect(rangeStatus).toHaveCount(0);
   await earlier.click();
   await expect(controls).toContainText("100 records loaded; more available.");
-  // Unmount during a live gesture disposes its capture and frame work.
+  expect(queries).toHaveLength(4);
+});
+
+test("Timeline ranges release active gestures when the workbook surface unmounts", async ({
+  page,
+}) => {
+  const f = await seed(page);
+  const first = required(f.ids[0]);
+  const document = await page.evaluateHandle(() => window.document);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   await reveal(page, first);
   await drag(page, cell(page, first), cell(page, required(f.ids[1])), false);
-  await page.goto("about:blank");
+  await expect(grid(page)).toHaveAttribute(
+    "data-grid-pointer-selecting",
+    "true",
+  );
+  // Activate the real surface control without a preceding pointerup cancelling
+  // the gesture; component disposal must own the still-active capture.
+  await page
+    .getByRole("tab", { name: "Hosts", exact: true })
+    .dispatchEvent("click");
+  await expect(
+    page.getByRole("tab", { name: "Hosts", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await page.mouse.up();
+  await expect(
+    page.locator('[data-grid-pointer-selecting="true"]'),
+  ).toHaveCount(0);
   expect(
-    await page.locator('[data-grid-pointer-selecting="true"]').count(),
-  ).toBe(0);
+    await page.evaluate((prior) => prior === window.document, document),
+  ).toBe(true);
+  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+  await reveal(page, first);
+  await cell(page, first).click();
+  await expect(editor(page, first)).toBeFocused();
+  expect(errors).toEqual([]);
+  await document.dispose();
 });
 
 test("Timeline ranges respect columns groups inspector context and bulk checkboxes", async ({
