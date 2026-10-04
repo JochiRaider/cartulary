@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
-import { CommandFailure } from "../runtime/command-failure.mjs";
+import { CommandFailure, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { atomicLocalFile, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
 
@@ -246,5 +246,14 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     else if (operation === "process") recordAcquisitionProcess(file, args[0], Number(args[1]));
     else if (operation === "settle") await settleBrowserAcquisition({ file, root, environment: process.env, producerActive: args[0] === "producer-active" });
     else throw invalid();
-  } catch (error) { process.stderr.write(`browser acquisition ${operation} failed\n`); process.exitCode = error.failure_reason === "artifact_error" ? 11 : 12; }
+  } catch (error) {
+    process.stderr.write(`browser acquisition ${operation} failed\n`);
+    process.exitCode = error.failure_reason === "artifact_error" ? 11 : 12;
+    // Startup owners publish their known cause through the existing private
+    // channel. An exit-trap settlement is secondary to the producer's outcome.
+    if (operation !== "settle" && error instanceof CommandFailure) {
+      try { if (!readCommandFailure(root)) publishCommandFailure(root, error); }
+      catch { process.exitCode = 11; }
+    }
+  }
 }

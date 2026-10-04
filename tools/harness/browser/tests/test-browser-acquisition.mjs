@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createConnection } from "node:net";
 import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionPort, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
-import { preparationOwnership, withReviewResources } from "../review-preparation.mjs";
+import { preparationOwnership, recoverReviewPreparation, withReviewResources } from "../review-preparation.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
-import { CommandFailure } from "../../runtime/command-failure.mjs";
+import { CommandFailure, createCommandFailureContext, publishCommandFailure } from "../../runtime/command-failure.mjs";
 import { productionFixtureProviders } from "../../scheduler/fixture-broker/providers.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
@@ -126,6 +126,44 @@ test("wrong runtime or changed suite proof is rejected before destructive recove
   writeFileSync(f.suiteLease, "{}", { mode: 0o600 });
   await assert.rejects(settleBrowserAcquisition({ ...f, root, stop }), (e) => e.failure_reason === "artifact_error");
   assert.equal(stopped, false);
+});
+
+test("missing and ambiguous browser dependencies fail closed without releasing a suite", async (t) => {
+  const f = fixture(t), resources = runtimeRecoveryResources(f.runtime);
+  const suite = resources.find((resource) => resource.kind === "managed_suite");
+  let released = false;
+  const recover = (selected) => recoverReviewPreparation({ runtime: f.runtime, resources: selected,
+    onReleased: () => { released = true; },
+  });
+  await assert.rejects(recover(resources.filter((resource) => resource !== suite)));
+  await assert.rejects(recover([...resources, suite]));
+  rmSync(f.file);
+  await assert.rejects(recover(resources));
+  assert.equal(released, false);
+  assert.equal(existsSync(f.suiteLease), true);
+});
+
+test("acquisition CLI preserves classified startup proof failures and prior diagnostics", (t) => {
+  const f = fixture(t);
+  mkdirSync(path.join(f.scratch, f.runtime.runID), { mode: 0o700 });
+  const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: f.scratch, CARTULARY_TEST_RUN_ID: f.runtime.runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: f.runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: f.runtime.runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: f.runtime.leaseID };
+  writeFileSync(f.file, "{}", { mode: 0o600 });
+  for (const prior of [null, { failure_class: "infra", failure_reason: "service_start_error" }]) {
+    const context = createCommandFailureContext({ repoRoot: root, environment,
+      unitID: "review:browser_stack", commandID: "cartulary.harness.command.ui_review.v1" });
+    try {
+      const childEnvironment = { ...environment, ...context.environment };
+      if (prior) publishCommandFailure(root, prior, childEnvironment);
+      const child = spawnSync(process.execPath, ["--", path.join(root, "tools/harness/browser/browser-acquisition.mjs"),
+        "launch", f.file, "producer", process.execPath, "-e", "process.exit(77)"],
+      { env: childEnvironment, timeout: 10000, killSignal: "SIGKILL", stdio: "ignore" });
+      assert.equal(child.error, undefined);
+      assert.equal(child.status, 11);
+      assert.deepEqual(context.read(), prior ?? { failure_class: "artifact", failure_reason: "artifact_error" });
+    } finally { context.close(); }
+  }
 });
 
 test("changed port proof preserves unrelated resources and remains recoverable", async (t) => {
