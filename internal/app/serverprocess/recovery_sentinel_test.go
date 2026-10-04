@@ -12,10 +12,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	recoverytestsupport "github.com/JochiRaider/cartulary/internal/modules/recovery/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -35,45 +37,55 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		t.Fatalf("compose restore projection runtime: %v", err)
 	}
 
-	recoverytestsupport.RestoreLatest(t, ctx,
-		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, recoveryExtensionCatalog(t)),
-		target.Postgres,
-		recovery.RestoreTarget{
-			Postgres:        target.Postgres,
-			ObjectStore:     target.ObjectStore,
-			EvidenceObjects: evidencemodule.NewRecoveryProvider(target.Postgres),
-			Projections:     projectionRuntime.RecoveryPorts().Rebuilder,
-		}, fixture.AsOf, recoverytestsupport.RestoreExpectation{
-			BackupSetID:             fixture.LatestBackupSetID,
-			ConsistencyPointAt:      fixture.ConsistencyPointAt,
-			AuthoritativeRowsSHA256: fixture.AuthoritativeRowsSHA256,
-			ChangeSetsSHA256:        fixture.ChangeSetsSHA256,
-			BlobHashesSHA256:        fixture.BlobHashesSHA256,
-			ChangeSetRowCount:       fixture.ChangeSetRowCount,
-			BlobCount:               1,
-			EvidenceRecordID:        fixture.EvidenceRecordID,
-			EvidenceBlob:            fixture.EvidenceBlob,
-			BlobSHA256:              fixture.BlobSHA256,
-		})
+	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	graphRestore, err := recoveryassembly.NewGraphProjectionRestoreParticipant(target.Postgres)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packs := openRecoveryPackStorage(t, target.Env)
+	runner := recovery.NewVersionedRestoreRunner(fixture.SourceStore, fixture.BackupStorage, recoveryExtensionCatalog(t), stateCatalog)
+	restored, err := runner.RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+		RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
+		Postgres: target.Postgres, ObjectStore: target.ObjectStore, ReferencePacks: packs,
+		EvidenceObjects: evidencemodule.NewRecoveryProvider(target.Postgres),
+		GraphProjection: graphRestore, Projections: projectionRuntime.RecoveryPorts().Rebuilder,
+	}, fixture.AsOf)
+	if err != nil {
+		t.Fatalf("restore current process fixture: %v", err)
+	}
+	if restored.BackupSet.BackupSetID != fixture.LatestBackupSetID || restored.ConsistencyReport.BlobCount != 1 || restored.RestoredObjectCount != fixture.ObjectCount || restored.GraphProjectionCompletion == nil {
+		t.Fatalf("incomplete current restore: %#v", restored)
+	}
 
 	basis := recovery.RestoreVerificationBasis{
-		MechanismID:                "backup_restore.process.restore.v1",
-		DatabaseBindingSHA256:      recovery.SHA256String("backup_restore-i-10-02-database"),
-		ObjectStoreBindingSHA256:   recovery.SHA256String("backup_restore-i-10-02-objects"),
-		BackupStorageBindingSHA256: recovery.SHA256String("backup_restore-i-10-02-backups"),
-		RecoveryStateCatalogSHA256: recovery.SHA256String("backup_restore-i-10-02-catalog"),
-		CodecRegistrySHA256:        recovery.SHA256String("backup_restore-i-10-02-codecs"),
+		MechanismID:                       "backup_restore.process.restore.v1",
+		DatabaseBindingSHA256:             recovery.SHA256String("backup_restore-i-10-02-database"),
+		ObjectStoreBindingSHA256:          recovery.SHA256String("backup_restore-i-10-02-objects"),
+		ReferencePackStorageBindingSHA256: recovery.SHA256String("backup_restore-i-10-02-reference-packs"),
+		BackupStorageBindingSHA256:        recovery.SHA256String("backup_restore-i-10-02-backups"),
+		RecoveryStateCatalogSHA256:        recovery.SHA256String("backup_restore-i-10-02-catalog"),
+		CodecRegistrySHA256:               recovery.SHA256String("backup_restore-i-10-02-codecs"),
 	}
 	verificationTarget := prepareRestoreTarget(t, "backup_restore-i-10-02-verification-target")
 	verificationRebuilder, verificationQuery, err := projectionassembly.NewRecoveryServices(verificationTarget.Postgres)
 	if err != nil {
 		t.Fatalf("compose restore projection services: %v", err)
 	}
+	verificationGraph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(verificationTarget.Postgres)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificationPacks := openRecoveryPackStorage(t, verificationTarget.Env)
 	verification, err := recovery.NewRestoreVerificationService(
 		fixture.SourceStore,
-		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, recoveryExtensionCatalog(t)),
+		runner,
 	).VerifyLatestSuccessfulRetained(ctx, recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
+			RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
+			ReferencePacks: verificationPacks, GraphProjection: verificationGraph,
 			Postgres:        verificationTarget.Postgres,
 			ObjectStore:     verificationTarget.ObjectStore,
 			EvidenceObjects: evidencemodule.NewRecoveryProvider(verificationTarget.Postgres),
@@ -91,7 +103,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		BackupSetID:        fixture.LatestBackupSetID,
 		ConsistencyPointAt: fixture.ConsistencyPointAt,
 		IncidentID:         fixture.IncidentID,
-		ObjectCount:        1,
+		ObjectCount:        fixture.ObjectCount,
 		RegistrationID:     "timeline.base_restore_probe.v1",
 		ViewSchemaID:       "cartulary.view.timeline.v2",
 	})
@@ -114,22 +126,16 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 }
 
 type sourceBackupFixture struct {
-	SourceStore             *recovery.Store
-	BackupStorage           recovery.BackupStorage
-	AsOf                    time.Time
-	ConsistencyPointAt      time.Time
-	LatestBackupSetID       uuid.UUID
-	IncidentID              string
-	TimelineRecordID        string
-	TimelineRowVersion      int
-	EvidenceRecordID        string
-	BlobSHA256              string
-	AuthoritativeRowsSHA256 string
-	ChangeSetsSHA256        string
-	BlobHashesSHA256        string
-	ChangeSetRowCount       int
-	EvidenceBlob            recoverytestsupport.EvidenceBlobConsistency
-	AdminTOTPSecret         string
+	SourceStore        *recovery.Store
+	BackupStorage      recovery.BackupStorage
+	AsOf               time.Time
+	ConsistencyPointAt time.Time
+	LatestBackupSetID  uuid.UUID
+	IncidentID         string
+	TimelineRecordID   string
+	TimelineRowVersion int
+	ObjectCount        int64
+	AdminTOTPSecret    string
 }
 
 func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
@@ -228,58 +234,52 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	})
 	linkedTimeline := requireTimelineEvidenceCount(t, server, adminLogin, incidentID, timelineRecordID, 1, true)
 	linkedTimelineRowVersion := int(linkedTimeline["row_version"].(float64))
-	olderBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100201")
-	latestBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100202")
+	latestBackupSetID := uuid.New()
 	asOf := time.Now().UTC().Truncate(time.Second)
-	olderConsistencyPointAt := asOf.Add(-9 * time.Minute)
 	consistencyPointAt := asOf.Add(-time.Minute)
-	backupRoot := t.TempDir()
-	backupStorage := encryptedBackupStorage(t, backupRoot)
+	backupStorage := encryptedBackupStorage(t, t.TempDir())
 	sourceRecoveryStore := recovery.NewStore(sourcePool)
-	captured := recoverytestsupport.CaptureSourceBackup(t, ctx, recoverytestsupport.CaptureInput{
-		Prefix:                  prefix,
-		AsOf:                    asOf,
-		OlderBackupSetID:        olderBackupSetID,
-		OlderConsistencyPointAt: olderConsistencyPointAt,
-		BackupSetID:             latestBackupSetID,
-		ConsistencyPointAt:      consistencyPointAt,
-		Postgres:                sourcePool,
-		ObjectStore:             sourceObjectStore,
-		ObjectStoreBucket:       bucket,
-		Store:                   sourceRecoveryStore,
-		EvidenceObjects:         evidencemodule.NewRecoveryProvider(sourcePool),
-		BackupStorage:           backupStorage,
-		BackupStorageRoot:       backupRoot,
-		ExtensionCatalog:        recoveryExtensionCatalog(t),
-		EvidenceLocation:        recoveryEvidenceLocation(t, "backup-restore"),
-		IncidentID:              incidentID,
-		TimelineRecordID:        timelineRecordID,
-		TimelineRowVersion:      linkedTimelineRowVersion,
-		EvidenceRecordID:        evidenceRecordID,
-		ObjectBlobID:            objectBlobID,
-		BlobBody:                payload,
-	})
-	t.Logf("object_store_backup_manifest=%s", captured.ManifestEvidencePath)
-	t.Logf("object_store_backup_summary=%s", captured.SummaryEvidencePath)
-
-	return sourceBackupFixture{
-		SourceStore:             sourceRecoveryStore,
-		BackupStorage:           backupStorage,
-		AsOf:                    captured.AsOf,
-		ConsistencyPointAt:      captured.ConsistencyPointAt,
-		LatestBackupSetID:       captured.BackupSetID,
-		IncidentID:              captured.IncidentID,
-		TimelineRecordID:        captured.TimelineRecordID,
-		TimelineRowVersion:      captured.TimelineRowVersion,
-		EvidenceRecordID:        captured.EvidenceRecordID,
-		BlobSHA256:              captured.BlobSHA256,
-		AuthoritativeRowsSHA256: captured.AuthoritativeRowsSHA256,
-		ChangeSetsSHA256:        captured.ChangeSetsSHA256,
-		BlobHashesSHA256:        captured.BlobHashesSHA256,
-		ChangeSetRowCount:       captured.ChangeSetRowCount,
-		EvidenceBlob:            captured.EvidenceBlob,
-		AdminTOTPSecret:         adminSecret,
+	catalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		t.Fatal(err)
 	}
+	packs := openRecoveryPackStorage(t, sourceEnv)
+	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), packs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streaming, err := recovery.RequireStreamingBackupStorage(backupStorage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, catalog, inventories)
+	if err != nil {
+		t.Fatal(err)
+	}
+	captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{
+		BackupSetID: latestBackupSetID, ConsistencyPointAt: consistencyPointAt,
+		CreatedAt: consistencyPointAt.Add(-time.Minute), RetainedUntil: asOf.Add(31 * 24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sourceRecoveryStore.PublishVNextCapturedBackup(ctx, captured); err != nil {
+		t.Fatal(err)
+	}
+	var packCount int64
+	if err := sourcePool.QueryRow(ctx, `SELECT count(*) FROM reference_pack_objects o WHERE EXISTS(SELECT 1 FROM reference_pack_object_refs r WHERE r.object_id=o.object_id)`).Scan(&packCount); err != nil {
+		t.Fatal(err)
+	}
+	if packCount < 9 {
+		t.Fatal("Base bytes were absent from process backup")
+	}
+	return sourceBackupFixture{
+		SourceStore: sourceRecoveryStore, BackupStorage: backupStorage, AsOf: asOf,
+		ConsistencyPointAt: consistencyPointAt, LatestBackupSetID: latestBackupSetID,
+		IncidentID: incidentID, TimelineRecordID: timelineRecordID,
+		TimelineRowVersion: linkedTimelineRowVersion, ObjectCount: packCount + 1, AdminTOTPSecret: adminSecret,
+	}
+
 }
 
 const recoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
@@ -348,6 +348,17 @@ func prepareRestoreTarget(t testing.TB, prefix string) recoverytestsupport.Targe
 	target := recoverytestsupport.NewTargetFixture(env, targetPool, store)
 	t.Cleanup(target.Cleanup)
 	return target
+}
+
+func openRecoveryPackStorage(t testing.TB, env map[string]string) *referenceassembly.RecoveryStorage {
+	t.Helper()
+	cfg := configtest.LoadFixture(t, []string{"config", "valid.toml"}, env).Deployment()
+	packs, err := referenceassembly.NewRecoveryStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(packs.Close)
+	return packs
 }
 
 func openObjectStore(t testing.TB, env map[string]string) objectstore.Store {

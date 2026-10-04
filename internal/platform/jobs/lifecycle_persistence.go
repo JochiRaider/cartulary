@@ -24,8 +24,8 @@ func createDefinedQueuedTx(ctx context.Context, tx pgx.Tx, params EnqueueParams,
 	if err != nil {
 		return Resource{}, err
 	}
-	if params.SubmittedByUserID == uuid.Nil {
-		return Resource{}, fmt.Errorf("%w: missing submitted_by_user_id", ErrInvalidJobDefinition)
+	if (params.SubmittedByUserID == uuid.Nil) == (params.OperatorOperationID == uuid.Nil) {
+		return Resource{}, fmt.Errorf("%w: exactly one submitting actor is required", ErrInvalidJobDefinition)
 	}
 	if err := validateExtensionAdmission(params, definition); err != nil {
 		return Resource{}, err
@@ -47,16 +47,16 @@ INSERT INTO jobs (
     handler_name, handler_payload_json, extension_owner_profile_id,
     job_kind, progress_unit_id, extension_idempotency_identity,
     extension_idempotency_route_key, extension_idempotency_scope_key,
-    extension_normalized_request_sha256
+    extension_normalized_request_sha256, submitting_operator_operation_id
 )
-VALUES ($1, $2, 'queued', $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+VALUES ($1, $2, 'queued', $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
           auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
           finished_at, retained_until, result_summary_json, error_summary_json, message
-`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message, definition.HandlerName, handlerPayload,
+`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, nullableJobSubmitter(params.SubmittedByUserID), now, params.Progress.Completed, params.Progress.Total, params.Message, definition.HandlerName, handlerPayload,
 		extensionOwner(params.Extension), definition.JobKind, definition.ProgressUnitID, extensionIdempotencyIdentity(params.Extension),
-		extensionIdempotencyRouteKey(params.Extension), extensionIdempotencyScopeKey(params.Extension), extensionRequestDigest(params.Extension)))
+		extensionIdempotencyRouteKey(params.Extension), extensionIdempotencyScopeKey(params.Extension), extensionRequestDigest(params.Extension), nullableJobSubmitter(params.OperatorOperationID)))
 	if err != nil {
 		return Resource{}, err
 	}
@@ -65,7 +65,7 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 
 func validateExtensionAdmission(params EnqueueParams, definition Definition) error {
 	if definition.Extension == nil {
-		if params.Extension != nil {
+		if params.Extension != nil || params.OperatorOperationID != uuid.Nil {
 			return fmt.Errorf("%w: unexpected extension job admission", ErrInvalidJobDefinition)
 		}
 		return nil
@@ -80,27 +80,19 @@ func validateExtensionAdmission(params EnqueueParams, definition Definition) err
 		len(admission.NormalizedRequestSHA256) != 64 {
 		return fmt.Errorf("%w: incomplete extension job admission", ErrInvalidJobDefinition)
 	}
-	var identity routeScopedIdempotencyIdentity
-	var identityMembers map[string]json.RawMessage
-	if err := json.Unmarshal(admission.IdempotencyIdentity, &identityMembers); err != nil ||
-		len(identityMembers) != 6 ||
-		!hasExactIdentityMembers(identityMembers) {
+	identity, err := decodeRouteIdentity(admission.IdempotencyIdentity, definition.Extension.IdentitySchemaID)
+	if err != nil || identity.RouteIdentity != admission.IdempotencyRouteKey+":"+admission.IdempotencyScopeKey || identity.ScopeKind != params.Scope.Kind {
 		return fmt.Errorf("%w: invalid extension idempotency identity", ErrInvalidJobDefinition)
 	}
-	if err := json.Unmarshal(admission.IdempotencyIdentity, &identity); err != nil ||
-		identity.SchemaID != "cartulary.route_scoped_idempotency_identity.v1" ||
-		identity.ActorUserID != params.SubmittedByUserID.String() ||
-		identity.ScopeKind != params.Scope.Kind ||
-		identity.RouteIdentity != admission.IdempotencyRouteKey+":"+admission.IdempotencyScopeKey ||
-		identity.ClientTxnID == "" {
-		return fmt.Errorf("%w: invalid extension idempotency identity", ErrInvalidJobDefinition)
-	}
-	if params.Scope.Kind == ScopeKindIncident {
-		if identity.ScopeID == nil || params.Scope.IncidentID == nil || *identity.ScopeID != params.Scope.IncidentID.String() {
-			return fmt.Errorf("%w: extension incident scope mismatch", ErrInvalidJobDefinition)
+	if identity.ActorKind == "user" {
+		if params.SubmittedByUserID == uuid.Nil || *identity.ActorUserID != params.SubmittedByUserID.String() || params.OperatorOperationID != uuid.Nil {
+			return fmt.Errorf("%w: submitting actor mismatch", ErrInvalidJobDefinition)
 		}
-	} else if identity.ScopeID != nil {
-		return fmt.Errorf("%w: extension deployment scope must omit scope_id", ErrInvalidJobDefinition)
+	} else if params.SubmittedByUserID != uuid.Nil || params.OperatorOperationID == uuid.Nil || *identity.OperatorOperationID != params.OperatorOperationID.String() || params.AuthPolicy != AuthPolicyDeploymentAdmin {
+		return fmt.Errorf("%w: local operation attribution mismatch", ErrInvalidJobDefinition)
+	}
+	if params.Scope.Kind == ScopeKindIncident && (params.Scope.IncidentID == nil || identity.ScopeID == nil || *identity.ScopeID != params.Scope.IncidentID.String()) {
+		return fmt.Errorf("%w: extension incident scope mismatch", ErrInvalidJobDefinition)
 	}
 	for _, character := range admission.NormalizedRequestSHA256 {
 		if !((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')) {
@@ -110,16 +102,11 @@ func validateExtensionAdmission(params EnqueueParams, definition Definition) err
 	return nil
 }
 
-func hasExactIdentityMembers(members map[string]json.RawMessage) bool {
-	for _, key := range []string{
-		"schema_id", "actor_user_id", "route_identity",
-		"scope_kind", "scope_id", "client_txn_id",
-	} {
-		if _, present := members[key]; !present {
-			return false
-		}
+func nullableJobSubmitter(id uuid.UUID) *uuid.UUID {
+	if id == uuid.Nil {
+		return nil
 	}
-	return true
+	return &id
 }
 
 func extensionOwner(admission *ExtensionJobAdmission) *string {

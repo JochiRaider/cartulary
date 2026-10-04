@@ -166,6 +166,8 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
+          "TestRestoreProjectionRebuildReadinessFailsClosed",
+          "TestRestoreProjectionRebuildReceivesStructuredRequest",
           "TestRestoreReadinessAndCoherentStoreOrder_Unit"
         ]
       },
@@ -249,6 +251,7 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
+          "TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit",
           "TestMissingArtifactFailsBeforeReadinessBlocked_Integration"
         ]
       },
@@ -368,7 +371,6 @@
         "tests": [
           "TestBackupMetadataShapeAndRetentionFloors_Unit",
           "TestCaptureRequiresArtifactProofs_Unit",
-          "TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit",
           "TestExtensionBackupManifestRecordsCanonicalBindingProofs_Integration",
           "TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit",
           "TestRetentionFloorRejectsShortMetadataAndArtifacts_Unit",

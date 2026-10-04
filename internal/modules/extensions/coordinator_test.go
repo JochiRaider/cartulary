@@ -31,13 +31,17 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		t.Fatalf("descriptors are not canonical: %#v", descriptors)
 	}
 	inactivePolicies := coordinator.InactiveConfigurationPolicies()
-	if len(inactivePolicies) != 3 ||
+	if len(inactivePolicies) != 5 ||
 		inactivePolicies[0].Key != "enterprise_authentication.provider_manifest_path" ||
 		inactivePolicies[0].Kind != "forbidden" ||
 		inactivePolicies[1].Key != "network_flow_activity.key_ring_manifest_path" ||
 		inactivePolicies[1].Kind != "forbidden" ||
 		inactivePolicies[2].Key != "network_flow_activity.resource_limits" ||
-		inactivePolicies[2].Kind != "forbidden" {
+		inactivePolicies[2].Kind != "forbidden" ||
+		inactivePolicies[3].Key != "reference_packs.clock_trusted" ||
+		inactivePolicies[3].Kind != "forbidden" ||
+		inactivePolicies[4].Key != "reference_packs.trust_bootstrap_path" ||
+		inactivePolicies[4].Kind != "forbidden" {
 		t.Fatalf("inactive configuration policies = %#v", inactivePolicies)
 	}
 	descriptors[0].RouteFamilies[0] = "mutated"
@@ -65,7 +69,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"import":                    1,
 		"incident_portability":      1,
 		"network_flow_activity":     7,
-		"reference_pack":            1,
+		"reference_pack":            2,
 		"snapshot_reporting":        1,
 	}
 	adoption := map[string][]jobIdentity{
@@ -75,21 +79,21 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			{jobKind: "import.apply_v1", operationKind: "import.apply", workerKind: "import.apply_worker_v1"},
 		},
 		"incident_portability": {
-			{jobKind: "incident_portability.export_v1", operationKind: "incident_portability.export", workerKind: "incident_portability.bundle_worker_v1"},
-			{jobKind: "incident_portability.import_v1", operationKind: "incident_portability.import", workerKind: "incident_portability.bundle_worker_v1"},
+			{jobKind: "incident_portability.export_v2", operationKind: "incident_portability.export", workerKind: "incident_portability.bundle_worker_v2"},
+			{jobKind: "incident_portability.import_v2", operationKind: "incident_portability.import", workerKind: "incident_portability.bundle_worker_v2"},
 		},
 		"network_flow_activity": {
 			{jobKind: "network_flow_activity.graph_view_materialize_v1", operationKind: "network_flow_activity.graph_view_materialize", workerKind: "network_flow_activity.graph_view_worker_v1"},
 		},
 		"reference_pack": {
-			{jobKind: "reference_pack.import_v1", operationKind: "reference_pack.import", workerKind: "reference_pack.lifecycle_worker_v1"},
-			{jobKind: "reference_pack.reverify_v1", operationKind: "reference_pack.reverify", workerKind: "reference_pack.lifecycle_worker_v1"},
-			{jobKind: "reference_pack.refresh_v1", operationKind: "reference_pack.refresh", workerKind: "reference_pack.lifecycle_worker_v1"},
+			{jobKind: "reference_pack.import_v2", operationKind: "reference_pack.import", workerKind: "reference_pack.lifecycle_worker_v2"},
+			{jobKind: "reference_pack.reverify_v2", operationKind: "reference_pack.reverify", workerKind: "reference_pack.lifecycle_worker_v2"},
+			{jobKind: "reference_pack.refresh_v2", operationKind: "reference_pack.refresh", workerKind: "reference_pack.lifecycle_worker_v2"},
 		},
 		"snapshot_reporting": {
-			{jobKind: "snapshot_reporting.snapshot_create_v1", operationKind: "snapshot_reporting.snapshot_create", workerKind: "snapshot_reporting.job_worker_v1"},
-			{jobKind: "snapshot_reporting.release_create_v1", operationKind: "snapshot_reporting.release_create", workerKind: "snapshot_reporting.job_worker_v1"},
-			{jobKind: "snapshot_reporting.composition_preview_v1", operationKind: "snapshot_reporting.composition_preview", workerKind: "snapshot_reporting.job_worker_v1"},
+			{jobKind: "snapshot_reporting.snapshot_create_v2", operationKind: "snapshot_reporting.snapshot_create", workerKind: "snapshot_reporting.job_worker_v2"},
+			{jobKind: "snapshot_reporting.release_create_v2", operationKind: "snapshot_reporting.release_create", workerKind: "snapshot_reporting.job_worker_v2"},
+			{jobKind: "snapshot_reporting.composition_preview_v2", operationKind: "snapshot_reporting.composition_preview", workerKind: "snapshot_reporting.job_worker_v2"},
 		},
 	}
 	if len(adoption) != 6 {
@@ -119,15 +123,15 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 	progressUnits := map[string]string{
 		"import.discovery_v1":                             "import.discovery.session.v1",
 		"import.apply_v1":                                 "import.apply.import_unit.v1",
-		"incident_portability.export_v1":                  "incident_portability.export.request.v1",
-		"incident_portability.import_v1":                  "incident_portability.import.request.v1",
+		"incident_portability.export_v2":                  "incident_portability.export.request.v2",
+		"incident_portability.import_v2":                  "incident_portability.import.request.v2",
 		"network_flow_activity.graph_view_materialize_v1": "network_flow_activity.graph_view_materialize.projection_result.v1",
-		"reference_pack.import_v1":                        "reference_pack.import.request.v1",
-		"reference_pack.refresh_v1":                       "reference_pack.refresh.pack_key.v1",
-		"reference_pack.reverify_v1":                      "reference_pack.reverify.pack_version.v1",
-		"snapshot_reporting.composition_preview_v1":       "snapshot_reporting.composition_preview.render_attempt.v1",
-		"snapshot_reporting.release_create_v1":            "snapshot_reporting.release_create.render_attempt.v1",
-		"snapshot_reporting.snapshot_create_v1":           "snapshot_reporting.snapshot_create.materialization.v1",
+		"reference_pack.import_v2":                        "reference_pack.import.request.v2",
+		"reference_pack.refresh_v2":                       "reference_pack.refresh.cohort_member.v2",
+		"reference_pack.reverify_v2":                      "reference_pack.reverify.pack_version.v2",
+		"snapshot_reporting.composition_preview_v2":       "snapshot_reporting.composition_preview.render_attempt.v1",
+		"snapshot_reporting.release_create_v2":            "snapshot_reporting.release_create.render_attempt.v1",
+		"snapshot_reporting.snapshot_create_v2":           "snapshot_reporting.snapshot_create.materialization.v1",
 	}
 	liveJobs := coordinator.JobKindContracts()
 	if len(liveJobs) != len(jobKinds) {
@@ -202,13 +206,13 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 	if participant.ContractKind != "cartulary.extension_participant_specialization.v3" ||
 		participant.InputSchemaID != "cartulary.extension_snapshot_reporting_participant_context.v1" ||
 		!reflect.DeepEqual(participant.AlgorithmIDs, []string{
-			"materialize_reporting_export_model_v1",
+			"materialize_reporting_export_model_v2",
 			"snapshot_reporting.render_export_v1",
 		}) ||
 		len(participant.Operations) != 1 ||
 		participant.Operations[0].OperationKind != "emit" ||
 		participant.Operations[0].ResultSchemaID != "cartulary.extension_snapshot_reporting_participant_result.v1" ||
-		participant.Operations[0].OutputSchemaID != "cartulary.reporting_export_model.v1" {
+		participant.Operations[0].OutputSchemaID != "cartulary.reporting_export_model.v2" {
 		t.Fatalf("Snapshot/Reporting participant specialization = %#v", participant)
 	}
 }

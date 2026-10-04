@@ -6,6 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -24,7 +25,7 @@ type Owners struct {
 // production application assembly, without starting HTTP transport.
 func NewOwners(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) (*Owners, error) {
 	intents := collaborationsupport.NewRecordChangedAppender()
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		return nil, err
 	}

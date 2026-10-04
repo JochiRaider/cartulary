@@ -299,7 +299,7 @@ func validateAndDiscardInactiveExtensionConfiguration(cfg *document, presence co
 					Path:       finding[0],
 					ReasonCode: finding[1],
 					Message:    "Extension configuration is present while the profile is inactive.",
-					Details:    inactiveDiagnosticDetails(finding[0]),
+					Details:    inactiveDiagnosticDetails(finding[0], claimKey, policy),
 				})
 			}
 			continue
@@ -360,6 +360,8 @@ func applyDefaultLimitValues(cfg *document, presence configPresence) {
 	applyDefaultInt64(&cfg.Limits.Archives.MaxCompressionRatio, defaultArchiveMaxCompressionRatio, presence, "limits", "archives", "max_compression_ratio")
 	applyDefaultInt64(&cfg.Limits.Archives.MaxMembers, defaultArchiveMaxMembers, presence, "limits", "archives", "max_members")
 	applyDefaultInt64(&cfg.Limits.ReferencePacks.MaxExtractedBytes, defaultReferencePackMaxExtractedBytes, presence, "limits", "reference_packs", "max_extracted_bytes")
+	applyDefaultInt64(&cfg.Limits.ReferencePacks.MaxContainerBytes, defaultReferencePackMaxContainerBytes, presence, "limits", "reference_packs", "max_container_bytes")
+	applyDefaultInt64(&cfg.Limits.ReferencePacks.MaxVerificationSeconds, defaultReferencePackMaxVerificationSeconds, presence, "limits", "reference_packs", "max_verification_seconds")
 	applyDefaultInt64(&cfg.Limits.IncidentBundles.MaxExtractedBytes, defaultIncidentBundleMaxExtractedBytes, presence, "limits", "incident_bundles", "max_extracted_bytes")
 	applyDefaultInt64(&cfg.Limits.Previews.MaxPreviewablePayloadBytes, defaultPreviewMaxPreviewablePayloadBytes, presence, "limits", "previews", "max_previewable_payload_bytes")
 	applyDefaultInt64(&cfg.Limits.Previews.MaxTextInlineBytes, defaultPreviewMaxTextInlineBytes, presence, "limits", "previews", "max_text_inline_bytes")
@@ -427,6 +429,8 @@ func validateLimitRegistry(limits LimitConfig, diagnostics *[]Diagnostic) {
 	validateLimitValue(limits.Archives.MaxCompressionRatio, "limits.archives.max_compression_ratio", 1, 1000, diagnostics)
 	validateLimitValue(limits.Archives.MaxMembers, "limits.archives.max_members", 1, limitRegistryMaxInt64, diagnostics)
 	validateLimitValue(limits.ReferencePacks.MaxExtractedBytes, "limits.reference_packs.max_extracted_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.ReferencePacks.MaxContainerBytes, "limits.reference_packs.max_container_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.ReferencePacks.MaxVerificationSeconds, "limits.reference_packs.max_verification_seconds", 60, 86400, diagnostics)
 	validateLimitValue(limits.IncidentBundles.MaxExtractedBytes, "limits.incident_bundles.max_extracted_bytes", 1, limitRegistryMaxInt64, diagnostics)
 	validateLimitValue(limits.Previews.MaxPreviewablePayloadBytes, "limits.previews.max_previewable_payload_bytes", 1, limitRegistryMaxInt64, diagnostics)
 	validateLimitValue(limits.Previews.MaxTextInlineBytes, "limits.previews.max_text_inline_bytes", 1, limitRegistryMaxInt64, diagnostics)

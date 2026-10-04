@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 const (
@@ -50,6 +51,7 @@ type RecoveryCompletionRecord struct {
 	ErrorCode                 *string
 	ErrorReason               *string
 	GraphProjectionCompletion *GraphProjectionCompletionEvidence
+	TargetBindings            *TargetBindingDigests
 }
 
 type GraphProjectionCompletionEvidence = restorecontract.GraphProjectionCompletionEvidence
@@ -82,6 +84,15 @@ func NormalizeAdmissionRecord(record RecoveryAdmissionRecord) (RecoveryAdmission
 }
 
 func NormalizeCompletionRecord(record RecoveryCompletionRecord) (RecoveryCompletionRecord, error) {
+	if record.TargetBindings != nil {
+		b := *record.TargetBindings
+		if !isLowerSHA256(b.DatabaseSHA256) || !isLowerSHA256(b.ObjectStoreSHA256) || !isLowerSHA256(b.ReferencePackStorageSHA256) {
+			return RecoveryCompletionRecord{}, fmt.Errorf("restore target binding digests are invalid")
+		}
+		record.TargetBindings = &b
+	} else if record.GraphProjectionCompletion != nil {
+		return RecoveryCompletionRecord{}, fmt.Errorf("restore completion target binding digests are required")
+	}
 	if err := validateEvidenceIdentity(record.OperationID, record.Operation, record.AttemptID); err != nil {
 		return RecoveryCompletionRecord{}, err
 	}
@@ -165,9 +176,13 @@ type DecodedRecoveryJournalPayload struct {
 	SchemaID                  string
 	RecordKind                string
 	GraphProjectionCompletion *GraphProjectionCompletionEvidence
+	TargetBindings            *TargetBindingDigests
 }
 
 func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, error) {
+	if _, err := canonicaljson.DecodeStrict(body); err != nil {
+		return DecodedRecoveryJournalPayload{}, fmt.Errorf("invalid Recovery journal JSON")
+	}
 	var selector struct {
 		SchemaID   string `json:"schema_id"`
 		RecordKind string `json:"record_kind"`
@@ -207,14 +222,50 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return DecodedRecoveryJournalPayload{}, fmt.Errorf("recovery journal payload has trailing content")
 	}
+	if selector.SchemaID == RecoveryJournalPayloadSchemaID {
+		// All current members are required, including nullable members. Comparing
+		// the lossless admitted object with its typed projection rejects omitted
+		// fields and null-to-zero decoding at every nested struct boundary.
+		admitted, err := canonicaljson.Canonicalize(body)
+		projected, projectionErr := canonicaljson.Marshal(destination)
+		if err != nil || projectionErr != nil || !bytes.Equal(admitted, projected) {
+			return DecodedRecoveryJournalPayload{}, fmt.Errorf("recovery journal payload has an incomplete or invalid shape")
+		}
+		if err := validateCurrentJournalPayload(destination); err != nil {
+			return DecodedRecoveryJournalPayload{}, fmt.Errorf("recovery journal payload violates its current contract")
+		}
+	}
 	decoded := DecodedRecoveryJournalPayload{SchemaID: selector.SchemaID, RecordKind: selector.RecordKind}
 	if completion, ok := destination.(*recoveryJournalCompletionPayloadV3); ok {
 		decoded.GraphProjectionCompletion = completion.GraphProjectionCompletion
 	}
 	if completion, ok := destination.(*recoveryJournalCompletionPayloadV4); ok {
 		decoded.GraphProjectionCompletion = completion.GraphProjectionCompletion
+		decoded.TargetBindings = completion.TargetBindings
 	}
 	return decoded, nil
+}
+
+func validateCurrentJournalPayload(destination any) error {
+	switch value := destination.(type) {
+	case *recoveryJournalAdmissionPayloadV4:
+		if value.ArtifactKinds == nil || len(value.ArtifactKinds) > 128 {
+			return fmt.Errorf("invalid artifact kinds")
+		}
+		normalized, err := NormalizeAdmissionRecord(RecoveryAdmissionRecord{OperationID: value.OperationID, Operation: value.Operation, AttemptID: value.AttemptID, StartedAt: value.StartedAt, BackupSetID: value.BackupSetID, ConsistencyPointAt: value.ConsistencyPointAt, ArtifactKinds: value.ArtifactKinds})
+		if err != nil || len(normalized.ArtifactKinds) != len(value.ArtifactKinds) {
+			return fmt.Errorf("invalid admission")
+		}
+		return nil
+	case *recoveryJournalCompletionPayloadV4:
+		if value.ArtifactCounts == nil || len(value.ArtifactCounts) > 128 {
+			return fmt.Errorf("invalid artifact counts")
+		}
+		_, err := NormalizeCompletionRecord(RecoveryCompletionRecord{OperationID: value.OperationID, Operation: value.Operation, AttemptID: value.AttemptID, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, Result: value.Result, BackupSetID: value.BackupSetID, ConsistencyPointAt: value.ConsistencyPointAt, ArtifactCounts: value.ArtifactCounts, ErrorCode: value.ErrorCode, ErrorReason: value.ErrorReason, GraphProjectionCompletion: value.GraphProjectionCompletion, TargetBindings: value.TargetBindings})
+		return err
+	default:
+		return fmt.Errorf("invalid record kind")
+	}
 }
 
 type recoveryJournalAdmissionPayloadV2 struct {
@@ -257,6 +308,7 @@ type recoveryJournalAdmissionPayloadV4 = recoveryJournalAdmissionPayloadV2
 type recoveryJournalCompletionPayloadV4 struct {
 	recoveryJournalCompletionPayloadV2
 	GraphProjectionCompletion *GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
+	TargetBindings            *TargetBindingDigests              `json:"target_binding_digests"`
 }
 
 func ArtifactCountsFor(refs []ArtifactRef) []ArtifactCount {

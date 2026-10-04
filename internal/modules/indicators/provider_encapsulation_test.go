@@ -1,6 +1,8 @@
 package indicators
 
 import (
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+
 	"go/parser"
 	"go/token"
 	"os"
@@ -56,14 +58,14 @@ func TestIndicatorProviderImplementationsAreInternal(t *testing.T) {
 	if projection.Source() == nil || len(projection.ProjectionContribution().SurfaceIntents()) != 1 {
 		t.Fatalf("incomplete Indicator projection contribution: %#v", projection.ProjectionContribution().SurfaceIntents())
 	}
-	bundle, err := NewIncidentBundleContribution()
+	bundle, err := NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
 	}
 	if bundle.SourcePort == nil || bundle.SubtypePresence.Source == nil {
 		t.Fatal("incomplete Indicator incident-bundle contribution")
 	}
-	revision := NewRevisionContribution()
+	revision := NewRevisionContribution(referencefixture.IndicatorRegistry{})
 	if len(revision.Records) != 1 || len(revision.NonRowTargets) != 2 {
 		t.Fatalf("incomplete Indicator revision contribution: records=%d non-row=%d", len(revision.Records), len(revision.NonRowTargets))
 	}

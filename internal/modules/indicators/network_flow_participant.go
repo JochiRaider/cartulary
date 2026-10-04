@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-// CanonicalIPIndicatorType supplies Core's atomic IP policy to source owners.
-// It recognizes exact canonical values; it never repairs a confirmation.
+// CanonicalIPIndicatorType classifies an exact IP confirmation. Creating an
+// Indicator still requires evaluation through the injected Reference Data
+// consumer; this classifier does not produce an identity or dedupe key.
 func CanonicalIPIndicatorType(value string) (string, bool) {
 	addr, err := netip.ParseAddr(value)
 	if err != nil {
@@ -23,11 +22,10 @@ func CanonicalIPIndicatorType(value string) (string, bool) {
 	if addr.Is4() {
 		kind = "ipv4_addr"
 	}
-	canonical, err := identity.Canonicalize(identity.Input{IndicatorType: kind, ValueKind: "atomic", DisplayValue: value})
-	if err != nil || canonical.DisplayValue != value {
+	if addr.Zone() != "" || addr.Is4In6() || addr.String() != value {
 		return "", false
 	}
-	return canonical.IndicatorType, true
+	return kind, true
 }
 
 type indicatorRecordQuerier interface {

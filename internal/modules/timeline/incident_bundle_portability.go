@@ -122,7 +122,7 @@ func ImportIncidentBundleFilesTx(
 	attributions incidentportability.AttributionRecorder,
 ) error {
 	switch bundleVersion {
-	case 4:
+	case 5:
 		if err := importTimelineProfilesTx(ctx, tx, timelineBundleProfilesPath, files[timelineBundleProfilesPath], actorUserID, attributions); err != nil {
 			return err
 		}

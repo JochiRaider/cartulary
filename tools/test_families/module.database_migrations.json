@@ -79,10 +79,11 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
+          "TestPreCutoverDDLRollbackThroughZeroResidue_Integration",
           "TestProductionDDLCatalogManifestParity_Integration",
           "TestProductionDDLContaminationFailsBeforeMutation_Integration",
           "TestProductionDDLExtensionPrerequisiteMatrix_Integration",
-          "TestProductionDDLRollbackThroughZeroResidue_Integration"
+          "TestReferencePackCutoverRejectsDowngradeWithoutMutation_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -111,11 +112,11 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
-          "TestCanonicalCatalogAppliesAndRollsBackEveryVersion_Integration",
           "TestMigrationLineagePreflightAllowsCurrentLine",
           "TestMigrationLineagePreflightRejectsSyntheticV1Lineage",
           "TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase",
           "TestMigrationLineagePreflightReportsApplyHeadTarget",
+          "TestPreCutoverCatalogAppliesAndRollsBackEveryVersion_Integration",
           "TestProductionPreflightStateMatrix"
         ]
       },

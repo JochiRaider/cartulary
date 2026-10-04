@@ -40,7 +40,7 @@ func deriveExtensionArtifacts(root string) ([]artifact, error) {
 	}
 
 	factsByProfile := extensionFactsByProfile(fragments)
-	configsByProfile := extensionObjectsByProfile(indexed, "cartulary.extension_profile_configuration_contract.v3")
+	configsByProfile := extensionObjectsByProfile(indexed, "cartulary.extension_profile_configuration_contract.v4")
 	descriptors := make([]map[string]any, 0, len(requiredExtensionProfiles))
 	descriptorDigest := map[string]string{}
 	for _, profileID := range requiredExtensionProfiles {

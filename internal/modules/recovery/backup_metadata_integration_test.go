@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -17,8 +18,10 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -59,7 +62,6 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	if err != nil {
 		t.Fatalf("create backup storage from runtime config: %v", err)
 	}
-	capture := recovery.NewCaptureService(store, backupStorage, testExtensionBackupCatalog(t))
 
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -93,93 +95,63 @@ INSERT INTO object_blobs (
 `, objectBlobID, incidentID, adminUserID, objectKey, int64(len(objectPayload)), objectSHA, asTime(t, "2026-05-22T13:00:00Z"), asTime(t, "2026-05-22T12:00:00Z")); err != nil {
 		t.Fatalf("insert source durable object blob row: %v", err)
 	}
-	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, recoveryPool)
+	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
 	if err != nil {
-		t.Fatalf("capture postgres snapshot artifact: %v", err)
+		t.Fatal(err)
 	}
-	if !bytes.Contains(postgresArtifact, []byte("backup_restore-i-10-01")) {
-		t.Fatalf("postgres snapshot artifact does not contain seeded incident data: %s", postgresArtifact)
-	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, evidence.NewRecoveryProvider(recoveryPool))
+	sourcePacks, err := referenceassembly.NewRecoveryStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
 	if err != nil {
-		t.Fatalf("index source blob storage refs: %v", err)
+		t.Fatal(err)
 	}
-
-	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	olderCreatedAt := asOf.Add(-6 * time.Hour)
+	t.Cleanup(sourcePacks.Close)
+	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streaming, err := recovery.RequireStreamingBackupStorage(backupStorage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(recoveryPool), streaming, stateCatalog, inventories)
+	if err != nil {
+		t.Fatal(err)
+	}
+	asOf := time.Now().UTC()
+	captureAt := func(id uuid.UUID, created, point time.Time) (recovery.VNextCapturedBackup, recovery.BackupSet) {
+		t.Helper()
+		captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{BackupSetID: id, ConsistencyPointAt: point, CreatedAt: created, RetainedUntil: created.Add(31 * 24 * time.Hour)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		published, err := store.PublishVNextCapturedBackup(ctx, captured)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return captured, published
+	}
 	olderID := uuid.MustParse("00000000-0000-0000-0000-000000101001")
-	olderPoint := asOf.Add(-5 * time.Hour)
-	olderObjectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, sourceObjectStore, recovery.ObjectStoreBackupCaptureParams{
-		BackupSetID:               olderID,
-		ConsistencyPointAt:        olderPoint,
-		Bucket:                    sourceBucket,
-		Prefix:                    "backup_restore/i-10-01/",
-		BlobObjectIDsByStorageRef: blobIndex,
-	})
-	if err != nil {
-		t.Fatalf("capture older SeaweedFS object-store backup artifacts: %v", err)
-	}
-	if _, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
-		BackupSetID:        olderID,
-		ConsistencyPointAt: olderPoint,
-		CreatedAt:          olderCreatedAt,
-		RetainedUntil:      olderCreatedAt.Add(31 * 24 * time.Hour),
-		PostgresArtifact: recovery.BackupArtifact{
-			Body:        postgresArtifact,
-			ContentType: "application/json",
-		},
-		ObjectStoreArtifact: recovery.BackupArtifact{
-			Body:        olderObjectArtifacts.SnapshotBody,
-			ContentType: "application/json",
-		},
-		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: olderObjectArtifacts.ManifestBody, ContentType: "application/json"},
-		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: olderObjectArtifacts.SummaryBody, ContentType: "application/json"},
-	})); err != nil {
-		t.Fatalf("create older backup metadata: %v", err)
-	}
-
-	latestCreatedAt := asOf.Add(-2 * time.Hour)
+	captureAt(olderID, asOf.Add(-6*time.Hour), asOf.Add(-5*time.Hour))
 	latestID := uuid.MustParse("00000000-0000-0000-0000-000000101002")
-	latestPoint := asOf.Add(-time.Hour)
-	latestObjectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, sourceObjectStore, recovery.ObjectStoreBackupCaptureParams{
-		BackupSetID:               latestID,
-		ConsistencyPointAt:        latestPoint,
-		Bucket:                    sourceBucket,
-		Prefix:                    "backup_restore/i-10-01/",
-		BlobObjectIDsByStorageRef: blobIndex,
-	})
-	if err != nil {
-		t.Fatalf("capture latest SeaweedFS object-store backup artifacts: %v", err)
+	latestCaptured, latestCreated := captureAt(latestID, asOf.Add(-2*time.Hour), asOf.Add(-time.Hour))
+	var objectManifestBody bytes.Buffer
+	if err := streaming.ReadArtifactStream(ctx, latestCaptured.ObjectManifestProof, &objectManifestBody); err != nil {
+		t.Fatal(err)
 	}
-	latestCreated, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
-		BackupSetID:        latestID,
-		ConsistencyPointAt: latestPoint,
-		CreatedAt:          latestCreatedAt,
-		RetainedUntil:      latestCreatedAt.Add(31 * 24 * time.Hour),
-		PostgresArtifact: recovery.BackupArtifact{
-			Body:        postgresArtifact,
-			ContentType: "application/json",
-		},
-		ObjectStoreArtifact: recovery.BackupArtifact{
-			Body:        latestObjectArtifacts.SnapshotBody,
-			ContentType: "application/json",
-		},
-		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: latestObjectArtifacts.ManifestBody, ContentType: "application/json"},
-		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: latestObjectArtifacts.SummaryBody, ContentType: "application/json"},
-	}))
-	if err != nil {
-		t.Fatalf("create latest backup metadata: %v", err)
+	var objectManifest recovery.VNextObjectStoreBackupManifest
+	if err := json.Unmarshal(objectManifestBody.Bytes(), &objectManifest); err != nil {
+		t.Fatal(err)
 	}
-	decodedObjectManifest, err := recovery.DecodeObjectStoreBackupManifestArtifact(latestObjectArtifacts.ManifestBody)
-	if err != nil {
-		t.Fatalf("decode latest object-store backup manifest: %v", err)
+	foundBlob := false
+	for _, item := range objectManifest.Objects {
+		if item.OwnerID == "module.evidence" && item.StorageKey == objectKey {
+			if item.PlaintextSHA256 != objectSHA || item.PlaintextBytes != int64(len(objectPayload)) {
+				t.Fatalf("backup blob identity changed: %#v", item)
+			}
+			foundBlob = true
+		}
 	}
-	if decodedObjectManifest.Bucket != sourceBucket ||
-		decodedObjectManifest.ObjectStoreBackend != recovery.ObjectStoreBackendSeaweedFSS3 ||
-		decodedObjectManifest.ObjectCount != 1 ||
-		decodedObjectManifest.Objects[0].ObjectBlobID != objectBlobID.String() ||
-		decodedObjectManifest.Objects[0].SHA256 != objectSHA {
-		t.Fatalf("latest SeaweedFS backup manifest does not prove the durable blob: %#v", decodedObjectManifest)
+	if !foundBlob || len(objectManifest.Objects) <= 1 {
+		t.Fatal("backup omitted evidence blob or Reference Pack assets")
 	}
 
 	reopenedStore := recovery.NewStore(recoveryPool)
@@ -203,11 +175,20 @@ INSERT INTO object_blobs (
 	if err != nil {
 		t.Fatalf("compose target projection runtime: %v", err)
 	}
-	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage, testExtensionBackupCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		Postgres:        targetPool,
-		ObjectStore:     targetObjectStore,
+	targetPacks, err := referenceassembly.NewRecoveryStorage(t.TempDir(), t.TempDir(), reference_data.DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(targetPacks.Close)
+	graph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(targetPool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serviceBackedRestore, err := recovery.NewVersionedRestoreRunner(reopenedStore, backupStorage, testExtensionBackupCatalog(t), stateCatalog).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+		RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
+		Postgres: targetPool, ObjectStore: targetObjectStore, ReferencePacks: targetPacks,
 		EvidenceObjects: evidence.NewRecoveryProvider(targetPool),
-		Projections:     projectionRuntime.RecoveryPorts().Rebuilder,
+		GraphProjection: graph, Projections: projectionRuntime.RecoveryPorts().Rebuilder,
 	}, asOf)
 	if err != nil {
 		t.Fatalf("restore latest retained backup into fresh SeaweedFS-backed target: %v", err)
@@ -256,46 +237,44 @@ SELECT count(*)
 		reloaded.IntegrityManifestSHA256 != latestCreated.IntegrityManifestSHA256 {
 		t.Fatalf("committed metadata did not persist stable identity, point, and anchors:\ncreated=%#v\nreloaded=%#v", latestCreated, reloaded)
 	}
-	rawPostgresArtifact := filepath.Join(harness.Server.Config.Roots.BackupStorage.Path, filepath.FromSlash(reloaded.PostgresArtifactKey))
-	rawBody, err := os.ReadFile(rawPostgresArtifact)
+	var incidentProof recovery.BackupArtifactStreamProof
+	for _, artifact := range latestCaptured.IntegrityManifest.Artifacts {
+		if strings.HasSuffix(artifact.LogicalRef, "/postgres/incidents.ndjson") {
+			incidentProof = recovery.BackupArtifactStreamProof{LogicalRef: artifact.LogicalRef, ContentType: artifact.ContentType, PlaintextBytes: artifact.PlaintextBytes, PlaintextSHA256: artifact.PlaintextSHA256, EnvelopeRef: artifact.EnvelopeRef, EnvelopeSHA256: artifact.EnvelopeSHA256}
+		}
+	}
+	if incidentProof.LogicalRef == "" {
+		t.Fatal("backup omitted incident table unit")
+	}
+	rawBody, err := os.ReadFile(filepath.Join(harness.Server.Config.Roots.BackupStorage.Path, filepath.FromSlash(incidentProof.EnvelopeRef)))
 	if err != nil {
-		t.Fatalf("read raw encrypted postgres artifact: %v", err)
+		t.Fatal(err)
 	}
 	if bytes.Contains(rawBody, []byte("backup_restore-i-10-01")) {
-		t.Fatalf("raw backup storage artifact contains incident marker plaintext: %s", rawBody)
+		t.Fatal("encrypted backup envelope contains incident plaintext")
 	}
-	requireArtifactProof(t, reloaded)
-	reloadedPostgresArtifact := requireStoredArtifactProof(t, backupStorage, recovery.BackupArtifactProof{
-		Key:       reloaded.PostgresArtifactKey,
-		SHA256:    reloaded.PostgresArtifactSHA256,
-		SizeBytes: reloaded.PostgresArtifactSizeBytes,
-	})
-	if !bytes.Equal(reloadedPostgresArtifact, postgresArtifact) {
-		t.Fatalf("reloaded postgres artifact body changed")
+	var incidentRows bytes.Buffer
+	if err := streaming.ReadArtifactStream(ctx, incidentProof, &incidentRows); err != nil {
+		t.Fatal(err)
 	}
-	reloadedObjectArtifact := requireStoredArtifactProof(t, backupStorage, recovery.BackupArtifactProof{
-		Key:       reloaded.ObjectStoreArtifactKey,
-		SHA256:    reloaded.ObjectStoreArtifactSHA256,
-		SizeBytes: reloaded.ObjectStoreArtifactSizeBytes,
-	})
-	if !bytes.Equal(reloadedObjectArtifact, latestObjectArtifacts.SnapshotBody) {
-		t.Fatalf("reloaded object-store artifact body changed")
+	if !bytes.Contains(incidentRows.Bytes(), []byte("backup_restore-i-10-01")) {
+		t.Fatal("authenticated backup omitted incident content")
 	}
-	manifestBody := requireStoredArtifactProof(t, backupStorage, recovery.BackupArtifactProof{
-		Key:       reloaded.IntegrityManifestKey,
-		SHA256:    reloaded.IntegrityManifestSHA256,
-		SizeBytes: reloaded.IntegrityManifestSizeBytes,
-	})
-	manifest, err := recovery.DecodeIntegrityManifest(manifestBody)
-	if err != nil {
-		t.Fatalf("decode persisted integrity manifest: %v", err)
+	var manifestBody bytes.Buffer
+	if err := streaming.ReadArtifactStream(ctx, latestCaptured.IntegrityProof, &manifestBody); err != nil {
+		t.Fatal(err)
 	}
-	if manifest.SchemaID != recovery.BackupIntegrityManifestSchemaID ||
-		manifest.BackupSetID != latestID.String() ||
-		manifest.PostgresArtifact.Key != reloaded.PostgresArtifactKey ||
-		manifest.ObjectStoreArtifact.Key != reloaded.ObjectStoreArtifactKey {
+	var manifest recovery.VNextBackupIntegrityManifest
+	if err := json.Unmarshal(manifestBody.Bytes(), &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaID != recovery.BackupIntegrityManifestV3SchemaID || manifest.BackupSetID != latestID.String() || reloaded.IntegrityManifestSHA256 != latestCaptured.IntegrityProof.PlaintextSHA256 {
 		t.Fatalf("persisted integrity manifest does not match reloaded metadata: %#v", manifest)
 	}
+	if err := recovery.NewBackupCatalog(reopenedStore, backupStorage, testExtensionBackupCatalog(t), stateCatalog).VerifyBackupSetDurability(ctx, reloaded); err != nil {
+		t.Fatal(err)
+	}
+
 	if reloaded.VerificationState != recovery.VerificationUnverified || reloaded.LastVerifiedRestoreAt != nil {
 		t.Fatalf("committed backup metadata must remain unverified with null restore timestamp until verification: %#v", reloaded)
 	}
@@ -342,13 +321,4 @@ func asTime(t testing.TB, value string) time.Time {
 		t.Fatalf("parse time fixture %q: %v", value, err)
 	}
 	return parsed
-}
-
-func requireStoredArtifactProof(t *testing.T, storage recovery.BackupStorage, proof recovery.BackupArtifactProof) []byte {
-	t.Helper()
-	body, err := recovery.VerifyArtifactProof(context.Background(), storage, proof)
-	if err != nil {
-		t.Fatalf("verify stored artifact proof for %s: %v", proof.Key, err)
-	}
-	return body
 }

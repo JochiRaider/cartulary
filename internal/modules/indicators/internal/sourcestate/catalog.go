@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-const portableBundleVersion = 4
+const portableBundleVersion = 5
 
 var identifierPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
@@ -100,7 +100,7 @@ func canonicalDefinition() definition {
 				Order:                     0,
 				LogicalPath:               "data/indicators.ndjson",
 				ContentRole:               "source_rows",
-				SchemaID:                  "cartulary.incident_bundle.indicators.row.v1",
+				SchemaID:                  "cartulary.incident_bundle.indicators.row.v2",
 				Versions:                  []int{portableBundleVersion},
 				StableIdentity:            []string{"record_id"},
 				StableIdentityInvariantID: "indicators.source_identity_admitted",
@@ -211,8 +211,12 @@ func validatePortabilityDescriptor(
 	if !identifierPattern.MatchString(base) {
 		return fmt.Errorf("indicators: source-state catalog contains invalid portable path %q", descriptor.LogicalPath)
 	}
-	wantSchema := "cartulary.incident_bundle." + base + ".row.v1"
-	if descriptor.SchemaID != wantSchema {
+	wantSchema, known := map[string]string{
+		"indicators":                "cartulary.incident_bundle.indicators.row.v2",
+		"indicator_observations":    "cartulary.incident_bundle.indicator_observations.row.v1",
+		"indicator_state_intervals": "cartulary.incident_bundle.indicator_state_intervals.row.v1",
+	}[base]
+	if !known || descriptor.SchemaID != wantSchema {
 		return fmt.Errorf("indicators: portable path %s has schema %s, want %s", descriptor.LogicalPath, descriptor.SchemaID, wantSchema)
 	}
 	if descriptor.ContentRole != "source_rows" {

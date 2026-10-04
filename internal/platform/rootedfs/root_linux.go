@@ -244,7 +244,7 @@ func (root *Root) ListRegular() ([]RegularEntry, error) {
 	if err := root.checkReady("list"); err != nil {
 		return nil, err
 	}
-	rootFD, err := unix.Dup(root.fd)
+	rootFD, err := duplicateDescriptor(root.fd)
 	if err != nil {
 		return nil, operationError("list", Reference{}, "root traversal failed", err)
 	}
@@ -554,6 +554,16 @@ func (root *Root) RenameExclusive(source Reference, destination Reference) error
 }
 
 func (root *Root) RemoveRegular(reference Reference) error {
+	return root.remove(reference, false)
+}
+
+// RemoveEmptyDir removes one empty admitted directory. It never recurses or
+// follows links, and uses the same identity guards as regular-file removal.
+func (root *Root) RemoveEmptyDir(reference Reference) error {
+	return root.remove(reference, true)
+}
+
+func (root *Root) remove(reference Reference, directory bool) error {
 	root.mu.RLock()
 	defer root.mu.RUnlock()
 	if err := root.checkReady("remove"); err != nil {
@@ -565,9 +575,11 @@ func (root *Root) RemoveRegular(reference Reference) error {
 	}
 	defer chain.close()
 	var stat unix.Stat_t
-	if err := unix.Fstatat(chain.lastFD(), finalName, &stat, unix.AT_SYMLINK_NOFOLLOW); err != nil ||
-		requireAllowedRegularStat(stat, true) != nil {
-		return operationError("remove", reference, "object is not an allowed regular file", err)
+	if err := unix.Fstatat(chain.lastFD(), finalName, &stat, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		return operationError("remove", reference, "object inspection failed", err)
+	}
+	if directory && stat.Mode&unix.S_IFMT != unix.S_IFDIR || !directory && requireAllowedRegularStat(stat, true) != nil {
+		return operationError("remove", reference, "object type is not allowed", ErrInvalidReference)
 	}
 	if err := root.validateChain(chain); err != nil {
 		return operationError("remove", reference, "directory identity changed", err)
@@ -590,7 +602,11 @@ func (root *Root) RemoveRegular(reference Reference) error {
 		_ = unix.Renameat2(chain.lastFD(), tempName, chain.lastFD(), finalName, unix.RENAME_NOREPLACE)
 		return err
 	}
-	if err := unix.Unlinkat(chain.lastFD(), tempName, 0); err != nil {
+	flags := 0
+	if directory {
+		flags = unix.AT_REMOVEDIR
+	}
+	if err := unix.Unlinkat(chain.lastFD(), tempName, flags); err != nil {
 		_ = unix.Renameat2(chain.lastFD(), tempName, chain.lastFD(), finalName, unix.RENAME_NOREPLACE)
 		return operationError("remove", reference, "quarantined file cleanup failed", err)
 	}
@@ -640,7 +656,7 @@ func (root *Root) openParent(reference Reference) (*directoryChain, string, erro
 }
 
 func (root *Root) openDirectoryChain(reference Reference, create bool) (*directoryChain, error) {
-	rootFD, err := unix.Dup(root.fd)
+	rootFD, err := duplicateDescriptor(root.fd)
 	if err != nil {
 		return nil, err
 	}
@@ -761,7 +777,7 @@ func openRootPath(rootPath string, create bool) (int, int, string, error) {
 		return -1, -1, "", err
 	}
 	if rootPath == "/" {
-		rootFD, err := unix.Dup(current)
+		rootFD, err := duplicateDescriptor(current)
 		if err != nil {
 			unix.Close(current)
 			return -1, -1, "", err
@@ -920,4 +936,10 @@ func metadataFromStat(stat unix.Stat_t) Metadata {
 		Mode:    fs.FileMode(stat.Mode & 0o777),
 		ModTime: time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec),
 	}
+}
+
+// Duplicate atomically with close-on-exec; setting the flag after dup leaves
+// a descriptor-inheritance race with concurrently launched renderer processes.
+func duplicateDescriptor(fd int) (int, error) {
+	return unix.FcntlInt(uintptr(fd), unix.F_DUPFD_CLOEXEC, 0)
 }

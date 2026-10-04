@@ -22,6 +22,12 @@ import {
   errorResponse,
   jsonResponse,
 } from "../testing/fetchMockTestSupport";
+import {
+  referencePackFixture,
+  referencePackJobFixture,
+  referencePackRejectedJobFixture,
+  referencePackValidationFixture,
+} from "../testing/referencePackTestSupport";
 import type { SessionData } from "./api/publicHttpTypes";
 import { ReferencePackAdminPanel as Panel } from "./ReferencePackAdminPanel";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
@@ -64,12 +70,168 @@ describe("ReferencePackAdminPanel", () => {
     vi.unstubAllGlobals();
   });
 
+  it("shows ordered validation details with a read retry that never resubmits work", async () => {
+    let diagnosticReads = 0;
+    fetchMock.mockImplementation((input, init) => {
+      const path = String(input);
+      if (path.includes("/validation-summaries/")) {
+        diagnosticReads++;
+        if (diagnosticReads === 1) return Promise.reject(new Error("Offline"));
+        return Promise.resolve(
+          jsonResponse({
+            data: referencePackValidationFixture(),
+            meta: { request_id: "details" },
+          }),
+        );
+      }
+      if (init?.method === "POST")
+        return Promise.resolve(
+          jsonResponse(
+            {
+              data: referencePackJobFixture(),
+              meta: { request_id: "admission" },
+            },
+            202,
+          ),
+        );
+      if (path.startsWith("/api/v1/jobs/"))
+        return Promise.resolve(
+          jsonResponse({
+            data: referencePackRejectedJobFixture(),
+            meta: { request_id: "outcome" },
+          }),
+        );
+      return Promise.resolve(jsonResponse(packListEnvelope([packResource()])));
+    });
+    const view = render(<ReferencePackAdminPanel session={session(true)} />);
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByTestId(
+            referencePackRefreshAllButtonTestId(),
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByTestId(referencePackRefreshAllButtonTestId()));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "View validation details" }),
+    );
+    const retry = await screen.findByRole("button", {
+      name: "Retry validation details",
+    });
+    retry.focus();
+    fireEvent.click(retry);
+    expect(await screen.findByText('$.entries[0]["<unknown>"]')).toBeTruthy();
+    expect(screen.getByText("1 validation issue.")).toBeTruthy();
+    expect(document.activeElement).toBe(retry);
+    expect(screen.queryByRole("unknown")).toBeNull();
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(1);
+    view.rerender(<ReferencePackAdminPanel session={session(false)} />);
+    expect(screen.queryByText('$.entries[0]["<unknown>"]')).toBeNull();
+  });
+
+  it("shows health and retention blockers without offering an ineligible mutation", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        packListEnvelope([
+          packResource({
+            health: "failed",
+            pack_version_state: "failed",
+            administratively_disabled: true,
+            pending_work: true,
+            reproducibility_pinned: true,
+          }),
+        ]),
+      ),
+    );
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    await screen.findByText("Work pending for this pack key.");
+    expect(screen.getByText("Health: Failed")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Retained by a snapshot, report, or imported incident. Removal is unavailable.",
+      ),
+    ).toBeTruthy();
+    for (const label of ["Activate", "Disable", "Reverify"]) {
+      expect(
+        (screen.getByRole("button", { name: label }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+    }
+    expect(
+      screen.getByText(/Snapshots and reports retain the provenance captured/),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+  });
+
+  it("identifies active Base safety fallback without labelling its content unhealthy", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        packListEnvelope([
+          packResource({
+            active: true,
+            distribution_kind: "packaged_builtin",
+            fallback_from_version: "failed-import.2",
+          }),
+        ]),
+      ),
+    );
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    expect(
+      await screen.findByText(
+        "Base safety fallback is active. It replaced version failed-import.2.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Health: Verified, available")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Activate" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+  });
+
   it("hides deployment Reference Pack controls from non-admin sessions", () => {
     render(<ReferencePackAdminPanel session={session(false)} />);
     expect(
       screen.getByTestId(referencePackAdminPanelTestId()).textContent,
     ).toContain("Deployment admin access is required");
     expect(screen.queryByTestId(referencePackFileInputTestId())).toBeNull();
+  });
+
+  it("exposes exact verified source digests and dependencies in version details", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        packListEnvelope([
+          packResource({
+            source_version: "<source-version>",
+            source_as_of: "2026-10-01",
+            previous_active_version: "previous.1",
+            dependencies: [
+              {
+                pack_key: "framework.attack",
+                pack_version: "fixture.1",
+                payload_sha256: "f".repeat(64),
+              },
+            ],
+          }),
+        ]),
+      ),
+    );
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    const summary = await screen.findByText("Version details");
+    fireEvent.click(summary);
+    expect(summary.closest("details")?.open).toBe(true);
+    expect(screen.getByText("<source-version>")).toBeTruthy();
+    expect(screen.getByText("2026-10-01")).toBeTruthy();
+    expect(screen.getByText("previous.1")).toBeTruthy();
+    expect(screen.getByText("a".repeat(64))).toBeTruthy();
+    expect(screen.getByText("b".repeat(64))).toBeTruthy();
+    expect(screen.getByText("framework.attack@fixture.1")).toBeTruthy();
+    expect(screen.getByText(`Payload SHA-256: ${"f".repeat(64)}`)).toBeTruthy();
+    expect(document.querySelector("source-version")).toBeNull();
   });
 
   it("admits material search and filter edits without a separate submit", async () => {
@@ -292,7 +454,6 @@ describe("ReferencePackAdminPanel", () => {
                   pack_key: "type_registry.identity",
                   pack_version_state: "staged",
                   active: false,
-                  verification_result: "pending",
                 }),
               ]
             : [
@@ -300,13 +461,11 @@ describe("ReferencePackAdminPanel", () => {
                   pack_key: "type_registry.host",
                   pack_version_state: "verified_available",
                   active: true,
-                  verification_result: "passed",
                 }),
                 packResource({
                   pack_key: "type_registry.identity",
                   pack_version_state: "staged",
                   active: false,
-                  verification_result: "pending",
                 }),
               ];
         return Promise.resolve(jsonResponse(packListEnvelope(filtered)));
@@ -372,12 +531,6 @@ describe("ReferencePackAdminPanel", () => {
     fireEvent.change(screen.getByLabelText("Reference pack state"), {
       target: { value: "verified_available" },
     });
-    fireEvent.change(
-      screen.getByLabelText("Reference pack verification result"),
-      {
-        target: { value: "passed" },
-      },
-    );
     fireEvent.change(screen.getByLabelText("Reference pack active state"), {
       target: { value: "true" },
     });
@@ -387,7 +540,7 @@ describe("ReferencePackAdminPanel", () => {
         fetchMock.mock.calls.some(
           ([input]) =>
             String(input) ===
-            "/api/v1/reference-packs?active=true&limit=100&pack_version_state=verified_available&verification_result=passed",
+            "/api/v1/reference-packs?active=true&limit=100&pack_version_state=verified_available",
         ),
       ).toBe(true);
     });
@@ -445,7 +598,6 @@ describe("ReferencePackAdminPanel", () => {
             pack_key: "type_registry.identity",
             pack_version_state: "staged",
             active: false,
-            verification_result: "pending",
           }),
         ]),
       ),
@@ -463,7 +615,6 @@ describe("ReferencePackAdminPanel", () => {
             pack_key: "type_registry.host",
             pack_version_state: "verified_available",
             active: true,
-            verification_result: "passed",
           }),
         ]),
       ),
@@ -684,38 +835,9 @@ function jobResource(
 }
 
 function packResource(
-  overrides: Partial<{
-    active: boolean;
-    pack_key: string;
-    pack_version_state:
-      | "staged"
-      | "verified_available"
-      | "disabled"
-      | "failed"
-      | "missing";
-    verification_result: "pending" | "passed" | "failed";
-  }> = {},
+  overrides: Parameters<typeof referencePackFixture>[0] = {},
 ) {
-  return {
-    activated_at: null,
-    activated_by_user_id: null,
-    active: false,
-    imported_at: "2026-05-24T00:00:00Z",
-    imported_by_user_id: null,
-    manifest_sha256: "a".repeat(64),
-    pack_contract_version: "cartulary.reference_pack.v1",
-    pack_key: "type_registry.host",
-    pack_kind: "type_registry",
-    pack_version: "1",
-    pack_version_state: "verified_available" as const,
-    payload_sha256: "b".repeat(64),
-    previous_active_version: null,
-    signer_key_id: null,
-    source_identifier: null,
-    verification_method: "manifest_sha256_v1",
-    verification_result: "passed" as const,
-    ...overrides,
-  };
+  return referencePackFixture(overrides);
 }
 
 function packListEnvelope(

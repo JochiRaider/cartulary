@@ -162,7 +162,7 @@
             }
           },
           "409": {
-            "description": "Render, release-state, or idempotency conflict",
+            "description": "Release admission conflict or required_reference_pack_unavailable for the exact snapshot binding",
             "content": {
               "application/json": {
                 "schema": {

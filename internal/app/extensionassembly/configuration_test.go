@@ -57,6 +57,9 @@ func TestGeneratedConfigurationPolicyHasExactClaimRegistrationParity_Unit(t *tes
 }
 
 func TestConfigurationPolicyRejectsMalformedCatalog_Unit(t *testing.T) {
+	if _, err := newConfigurationPolicy([]extensions.Descriptor{{ProfileID: "future_profile", Claimable: true, ClaimConfigKey: "future_profile.claimed"}}, []extensions.InactiveConfigurationPolicy{{ProfileID: "future_profile", Namespace: "future_settings", ClaimKey: "future_profile.claimed", Key: "future_settings.setting", Kind: extensions.PolicyForbidden}}); err != nil {
+		t.Fatal("declared configuration namespace rejected", err)
+	}
 	tests := map[string]struct {
 		descriptors []extensions.Descriptor
 		inactive    []extensions.InactiveConfigurationPolicy
@@ -82,7 +85,7 @@ func TestConfigurationPolicyRejectsMalformedCatalog_Unit(t *testing.T) {
 		"foreign inactive path": {
 			descriptors: []extensions.Descriptor{{ProfileID: "future_profile", Claimable: true, ClaimConfigKey: "future_profile.claimed"}},
 			inactive: []extensions.InactiveConfigurationPolicy{{
-				ProfileID: "future_profile", ClaimKey: "future_profile.claimed", Key: "other.setting", Kind: extensions.PolicyForbidden,
+				ProfileID: "future_profile", Namespace: "future_profile", ClaimKey: "future_profile.claimed", Key: "other.setting", Kind: extensions.PolicyForbidden,
 			}},
 		},
 	}

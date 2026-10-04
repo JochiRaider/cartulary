@@ -272,6 +272,114 @@
       "filename": "00045_note_association_lookup.sql",
       "sha256": "463f5bdd5672e32a8eae16227ba00a0c2a852df66e6632d89ffd701d7cddcb74",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 46,
+      "filename": "00046_reference_pack_immutable_state.sql",
+      "sha256": "77579641153d293af7f02879a01b5fdcdd1bc1730aaedf3cac37594a974e711f",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 47,
+      "filename": "00047_reporting_reference_pack_binding.sql",
+      "sha256": "e5a4ac7d64c11bafe907cc92ddb145aa9bf4a4de0121a4988109ccdb61bfe285",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 48,
+      "filename": "00048_indicator_registry_identity.sql",
+      "sha256": "b52810cbc07c20a14e7b70da879c68e618c52dae8239ef634ab92faabe8f4938",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 49,
+      "filename": "00049_reference_pack_audit.sql",
+      "sha256": "0ea23d0e4c49a2ba81a45e82969d039a17bddf16fd3b4aa83a788b27120d8c5b",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 50,
+      "filename": "00050_reference_pack_invalidation_evidence.sql",
+      "sha256": "9c5bbbce4aee9abdec113ffa2bd2deaae609c7db620fa73b7fc453ab12e4a751",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 51,
+      "filename": "00051_reference_pack_portability_retention.sql",
+      "sha256": "e73779384d7256fbebca20347ccedfdc1d35653cc8e4961572c7013e69c957e2",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 52,
+      "filename": "00052_reference_pack_validation_summaries.sql",
+      "sha256": "c36052455684340ad024f0c2866dc1e585a2808a9345159af80c24f85629fa27",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 53,
+      "filename": "00053_reference_pack_operator_jobs.sql",
+      "sha256": "47a2c1594575b3bb9be749df99da1b7f121a7650fa877f22da4e2f88c8cecbf8",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 54,
+      "filename": "00054_reference_pack_dependency_guards.sql",
+      "sha256": "dc5310cc69c74558c37cddf0d544e8ba4c478dca88ac244bc21a1812c17750a4",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 55,
+      "filename": "00055_reference_pack_portability_requirements.sql",
+      "sha256": "b143c7ce88ddbcaeb5e87417f6614ed610302b51685e83ab1cb807e951a15aa1",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 56,
+      "filename": "00056_reference_pack_portable_preparation.sql",
+      "sha256": "938a05413daf2df31d7e647ddec011cf5862171ac5e5d1451b3a064d00721c60",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 57,
+      "filename": "00057_reference_pack_preparation_privileges.sql",
+      "sha256": "13e48ee0ada3f3853836156b59ae86b1ece5220d1590c466c447218bce116393",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 58,
+      "filename": "00058_reference_pack_retire_legacy_tables.sql",
+      "sha256": "fdbb180297083bd355d9648bf19edcf03299a7a51714f4818ecca96bb42c4361",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 59,
+      "filename": "00059_reporting_portable_artifacts.sql",
+      "sha256": "1a2cb867a2496707f7f7a7cce49f97d2d2ac6dc3adf3d3022b5c5132a680fbca",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 60,
+      "filename": "00060_reporting_artifact_trigger_privileges.sql",
+      "sha256": "363d0689689e49d79f68d8acd9443ae31960c3e2901a87f25e8c1905d76f2b6e",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 61,
+      "filename": "00061_reference_pack_fallback_attribution.sql",
+      "sha256": "5024dd336c9a001f427307b50823fb23a464209aadd1a071c8022a5d43cb784f",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 62,
+      "filename": "00062_reference_pack_fallback_full_index.sql",
+      "sha256": "2ca459f7a532dca1c60621b16876d321830f8d45c4d86b07af7406e56a70623d",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 63,
+      "filename": "00063_reporting_admitted_model_identity.sql",
+      "sha256": "9b993b4087c7ba92a17b76655ff552df46cc2bb86d8a52d9226f98de657f0ae7",
+      "historical_phase_shaped": false
     }
   ]
 }

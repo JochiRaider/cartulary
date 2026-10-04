@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_admission_json_unknown",
+  "fixture_version": 1,
+  "fixture_family": "json_admission",
+  "input_refs": [
+    "contracts/reference-packs/fixtures/admission/json_unknown.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "manifest_schema",
+      "severity": "error",
+      "phase": "manifest_schema",
+      "code": "manifest_schema_invalid",
+      "path": "$.builder[\"<unknown>\"]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": "unknown_member",
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_08f7edc19160d83b2991f98254680551e44e5146fcb430d83f9091272472dd8a",
+      "reason_code": "manifest_schema_invalid"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "manifest_schema_invalid"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

@@ -35,11 +35,27 @@ type TransactionService struct {
 	progressIntents       ProgressIntentAppender
 	routeIdempotency      RouteIdempotencyPort
 	extensionCancellation ExtensionCancellationPort
+	terminalEffects       TerminalEffects
 	catalog               *Catalog
 	selection             *RuntimeSelection
 }
 
+// ReadTerminalResourceTx supplies an immutable terminal observation to the
+// finalization owner after a lost commit acknowledgement. It acquires the row
+// lock so an in-flight transition cannot be mistaken for a completed outcome.
+func (s *TransactionService) ReadTerminalResourceTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (Resource, error) {
+	resource, err := getJobTx(ctx, tx, jobID)
+	if err != nil {
+		return Resource{}, err
+	}
+	if resource.Status != StatusSucceeded && resource.Status != StatusFailed && resource.Status != StatusCanceled {
+		return Resource{}, ErrInvalidTransition
+	}
+	return resource, nil
+}
+
 type ExtensionFinalizationContext struct {
+	OperatorOperationID     uuid.UUID
 	Definition              Definition
 	IdempotencyIdentity     json.RawMessage
 	IdempotencyRouteKey     string
@@ -50,14 +66,15 @@ type ExtensionFinalizationContext struct {
 }
 
 func NewTransactionService(progressIntents ProgressIntentAppender, ownerPorts OwnerTransactionPorts, catalog *Catalog, selection *RuntimeSelection) (*TransactionService, error) {
-	if progressIntents == nil || ownerPorts.RouteIdempotency == nil || ownerPorts.ExtensionCancellation == nil || catalog == nil ||
+	if progressIntents == nil || ownerPorts.RouteIdempotency == nil || ownerPorts.ExtensionCancellation == nil || ownerPorts.TerminalEffects == nil || catalog == nil ||
 		selection == nil || selection.catalog != catalog {
-		return nil, errors.New("jobs transaction service requires progress, route idempotency, and extension cancellation ports")
+		return nil, errors.New("jobs transaction service requires progress, route idempotency, and extension cancellation and terminal-effects ports")
 	}
 	return &TransactionService{
 		progressIntents:       progressIntents,
 		routeIdempotency:      ownerPorts.RouteIdempotency,
 		extensionCancellation: ownerPorts.ExtensionCancellation,
+		terminalEffects:       ownerPorts.TerminalEffects,
 		catalog:               catalog,
 		selection:             selection,
 	}, nil
@@ -144,6 +161,14 @@ func (s *TransactionService) CompleteFailedTx(ctx context.Context, tx pgx.Tx, ex
 	}, now, StatusFailed, false)
 }
 
+// CompleteTimedOutTx records a proven-absent publication classified as a
+// timeout by the owner's shared deadline policy. Cancellation observed at or
+// after expiry cannot reverse it; ordinary failure still rejects cancellation.
+func (s *TransactionService) CompleteTimedOutTx(ctx context.Context, tx pgx.Tx, execution Execution, completion FailureCompletion, now time.Time) (Resource, error) {
+	summary := completion.ErrorSummary
+	return s.completeExecutionTerminalTx(ctx, tx, execution, terminalTransition{JobID: execution.jobID, Progress: completion.Progress, ErrorSummary: &summary, Message: completion.Message}, now, StatusFailed, true)
+}
+
 func (s *TransactionService) CompleteCanceledTx(ctx context.Context, tx pgx.Tx, execution Execution, completion CancellationCompletion, now time.Time) (Resource, error) {
 	summary := completion.ResultSummary
 	if summary.Code == "" && summary.Message == "" {
@@ -206,28 +231,39 @@ SELECT status
 // then returns only the definition and replay facts required by its owner
 // finalizer. Callers never query Jobs storage directly.
 func (s *TransactionService) ExtensionFinalizationContextTx(ctx context.Context, tx pgx.Tx, execution Execution) (ExtensionFinalizationContext, error) {
+	return s.extensionFinalizationContextTx(ctx, tx, execution, false)
+}
+
+func (s *TransactionService) ExtensionCancellationContextTx(ctx context.Context, tx pgx.Tx, execution Execution) (ExtensionFinalizationContext, error) {
+	return s.extensionFinalizationContextTx(ctx, tx, execution, true)
+}
+
+func (s *TransactionService) extensionFinalizationContextTx(ctx context.Context, tx pgx.Tx, execution Execution, allowCancellation bool) (ExtensionFinalizationContext, error) {
 	if s == nil || s.catalog == nil || tx == nil || !execution.valid() {
 		return ExtensionFinalizationContext{}, ErrNotConfigured
 	}
-	if err := s.validateExecutionTx(ctx, tx, execution, false); err != nil {
+	if err := s.validateExecutionTx(ctx, tx, execution, allowCancellation); err != nil {
 		return ExtensionFinalizationContext{}, err
 	}
 	var metadata ExtensionFinalizationContext
 	var ownerProfileID string
 	var jobKind string
 	var workerKind string
+	var submitter, operatorOperation *uuid.UUID
+	var scope Scope
+	var authPolicy string
 	err := tx.QueryRow(ctx, `
 SELECT extension_owner_profile_id, job_kind, handler_name,
        extension_idempotency_identity, extension_idempotency_route_key,
        extension_idempotency_scope_key, extension_normalized_request_sha256,
-       submitted_by_user_id
+       submitted_by_user_id, scope_kind, incident_id, auth_policy, submitting_operator_operation_id
   FROM jobs
  WHERE job_id = $1
 	AND handler_attempt_id = $2
 	AND handler_lease_expires_at > now()
-	AND status = 'running'
+	AND (status = 'running' OR ($3 AND status = 'cancel_requested'))
  FOR UPDATE
-`, execution.jobID, execution.attemptID).Scan(
+`, execution.jobID, execution.attemptID, allowCancellation).Scan(
 		&ownerProfileID,
 		&jobKind,
 		&workerKind,
@@ -235,7 +271,7 @@ SELECT extension_owner_profile_id, job_kind, handler_name,
 		&metadata.IdempotencyRouteKey,
 		&metadata.IdempotencyScopeKey,
 		&metadata.NormalizedRequestSHA256,
-		&metadata.ActorUserID,
+		&submitter, &scope.Kind, &scope.IncidentID, &authPolicy, &operatorOperation,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ExtensionFinalizationContext{}, ErrInvalidTransition
@@ -248,13 +284,22 @@ SELECT extension_owner_profile_id, job_kind, handler_name,
 		definition.Extension.OwnerProfileID != ownerProfileID || definition.HandlerName != workerKind {
 		return ExtensionFinalizationContext{}, ErrInvalidJobDefinition
 	}
-	var identity routeScopedIdempotencyIdentity
-	if err := json.Unmarshal(metadata.IdempotencyIdentity, &identity); err != nil ||
-		identity.SchemaID != "cartulary.route_scoped_idempotency_identity.v1" ||
-		identity.ActorUserID != metadata.ActorUserID.String() ||
-		identity.RouteIdentity != metadata.IdempotencyRouteKey+":"+metadata.IdempotencyScopeKey ||
-		identity.ClientTxnID == "" {
-		return ExtensionFinalizationContext{}, ErrInvalidJobDefinition
+	identity, err := decodeRouteIdentity(metadata.IdempotencyIdentity, definition.Extension.IdentitySchemaID)
+	if err != nil {
+		return ExtensionFinalizationContext{}, err
+	}
+	if submitter != nil {
+		metadata.ActorUserID = *submitter
+	}
+	if operatorOperation != nil {
+		metadata.OperatorOperationID = *operatorOperation
+	}
+	if err := validateExtensionAdmission(EnqueueParams{
+		Scope: scope, AuthPolicy: authPolicy, SubmittedByUserID: metadata.ActorUserID, OperatorOperationID: metadata.OperatorOperationID,
+		Extension: &ExtensionJobAdmission{OwnerProfileID: ownerProfileID, IdempotencyIdentity: metadata.IdempotencyIdentity,
+			IdempotencyRouteKey: metadata.IdempotencyRouteKey, IdempotencyScopeKey: metadata.IdempotencyScopeKey, NormalizedRequestSHA256: metadata.NormalizedRequestSHA256},
+	}, definition); err != nil {
+		return ExtensionFinalizationContext{}, err
 	}
 	metadata.Definition = definition
 	metadata.ClientTxnID = identity.ClientTxnID
@@ -408,8 +453,17 @@ func (s *TransactionService) completeExecutionTerminalTx(
 }
 
 func (s *TransactionService) appendProgressIntentTx(ctx context.Context, tx pgx.Tx, resource Resource) error {
-	if s == nil || s.progressIntents == nil {
+	if s == nil || s.progressIntents == nil || s.terminalEffects == nil {
 		return ErrNotConfigured
+	}
+	if resource.Status == StatusSucceeded || resource.Status == StatusFailed || resource.Status == StatusCanceled {
+		jobID, err := uuid.Parse(resource.JobID)
+		if err != nil || resource.FinishedAt == nil || resource.FinishedAt.IsZero() {
+			return ErrInvalidTransition
+		}
+		if err := s.terminalEffects.ApplyJobTerminalEffectsTx(ctx, tx, TerminalDisposition{JobID: jobID, Status: resource.Status, FinishedAt: resource.FinishedAt.UTC()}); err != nil {
+			return err
+		}
 	}
 	if resource.Scope.Kind != ScopeKindIncident || resource.Scope.IncidentID == nil {
 		return nil

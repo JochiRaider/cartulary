@@ -191,6 +191,11 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 
 	var loaded configassembly.Loaded
 	if options.Loaded == nil {
+		if env["CARTULARY__REFERENCE_PACK__CLAIMED"] != "false" {
+			if _, exists := env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"]; !exists {
+				env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"] = fixtures.Path("reference-packs", "trust-bootstrap.json")
+			}
+		}
 		tempRoots := configtest.SetupTempRoots(t)
 		for key, value := range tempRoots.Paths {
 			if _, exists := env[key]; !exists {

@@ -1,9 +1,11 @@
 package reference_data_test
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepacks"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
@@ -11,33 +13,32 @@ func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *test
 	document := contracttest.OpenAPIDocument(t)
 	schemas := openAPIObjectAt(t, document, "components", "schemas")
 	requireEnum(t, openAPIObjectAt(t, schemas, "ReferencePackVersionState"), []string{"staged", "verified_available", "disabled", "failed", "missing"})
-	requireEnum(t, openAPIObjectAt(t, schemas, "ReferencePackVerificationResult"), []string{"pending", "passed", "failed"})
 	resource := openAPIObjectAt(t, schemas, "ReferencePackVersionResource")
 	requireClosedObject(t, resource, "ReferencePackVersionResource")
-	requireRequired(t, resource, []string{
-		"pack_key",
-		"pack_kind",
-		"pack_version",
-		"pack_version_state",
-		"active",
-		"source_identifier",
-		"manifest_sha256",
-		"payload_sha256",
-		"pack_contract_version",
-		"verification_method",
-		"verification_result",
-		"signer_key_id",
-		"previous_active_version",
-		"imported_by_user_id",
-		"imported_at",
-		"activated_by_user_id",
-		"activated_at",
-	})
+	var typed map[string]any
+	for _, artifact := range contractreferencepacks.Artifacts {
+		if artifact.Path == "contracts/reference-packs/administrative_version.v2.schema.json" {
+			if err := json.Unmarshal([]byte(artifact.JSON), &typed); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if typed == nil {
+		t.Fatal("missing administrative version projection")
+	}
+	delete(typed, "$id")
+	delete(typed, "$schema")
+	openAPIObjectAt(t, typed, "properties")["pack_version_state"] = map[string]any{"$ref": "#/components/schemas/ReferencePackVersionState"}
+	if !reflect.DeepEqual(resource, typed) {
+		t.Fatal("administrative version and public OpenAPI projections disagree")
+	}
+	requireRequired(t, resource, []string{"pack_key", "pack_kind", "pack_version", "pack_version_state", "health", "administratively_disabled", "distribution_kind", "active", "removed", "missing_reason", "last_failure_code", "source_identifier", "manifest_sha256", "payload_sha256", "pack_contract_version", "content_profile_id", "content_profile_version", "verification_method", "last_verified_at", "trust_valid_until", "verified_signer_key_ids", "imported_by_user_id", "imported_at", "previous_active_version", "activated_by_user_id", "activated_at", "pack_release_sequence", "source_profile_id", "source_profile_sha256", "source_version", "source_as_of", "license_expression", "redistribution", "trust_repository_id", "pending_work", "reproducibility_pinned", "fallback_from_version", "dependencies"})
 	paths := openAPIObjectAt(t, document, "paths")
 	listOperation := openAPIObjectAt(t, paths, "/api/v1/reference-packs", "get")
 	requireResponseRef(t, listOperation, "200", "ReferencePackListEnvelope")
-	requireParameterNames(t, listOperation, []string{"limit", "cursor_token", "search", "pack_version_state", "verification_result", "active"})
+	requireParameterNames(t, listOperation, []string{"limit", "cursor_token", "search", "pack_version_state", "active"})
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}", "get"), "200", "ReferencePackVersionEnvelope")
+	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/validation-summaries/{summary_id}", "get"), "200", "ReferencePackValidationSummaryEnvelope")
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/import", "post"), "202", "JobEnvelope")
 	for _, action := range []string{"activate", "disable"} {
 		requireRequestRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/"+action, "post"), "ReferencePackActionRequest")
@@ -50,14 +51,59 @@ func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *test
 	requireReasonRegistry(t, errorsDoc, "invalid_reference_pack_request", []string{
 		"unsupported_upload_envelope", "missing_required_part", "duplicate_part", "unexpected_part", "invalid_part_content_type",
 		"invalid_metadata_encoding", "malformed_metadata_json", "request_not_object", "missing_required_field", "field_not_nullable",
-		"unknown_field", "invalid_activation_policy", "pack_version_required", "auto_activation_not_supported", "invalid_pack_keys", "empty_pack_keys",
+		"unknown_field", "invalid_activation_policy", "pack_version_required", "auto_activation_not_supported", "invalid_pack_keys", "empty_pack_keys", "invalid_reason", "reason_too_long", "request_too_large",
 	})
 	requireReasonRegistry(t, errorsDoc, "reference_pack_verification_failed", []string{
-		"checksum_mismatch", "signature_mismatch", "missing_integrity_metadata", "contract_incompatible", "path_traversal",
-		"disallowed_content", "payload_missing", "archive_extracted_bytes_exceeded", "archive_compression_ratio_exceeded", "archive_member_count_exceeded",
+		"archive_compression_ratio_exceeded",
+		"archive_extracted_bytes_exceeded",
+		"archive_member_count_exceeded",
+		"archive_structure_invalid",
+		"bundle_hint_invalid",
+		"bundle_hint_noncanonical",
+		"checksum_mismatch",
+		"container_bytes_exceeded",
+		"content_schema_invalid",
+		"content_semantic_invalid",
+		"contract_incompatible",
+		"dependency_cycle",
+		"dependency_unsatisfied",
+		"disallowed_content",
+		"disallowed_member_type",
+		"duplicate_object_member",
+		"manifest_encoding_invalid",
+		"manifest_json_invalid",
+		"manifest_noncanonical",
+		"manifest_schema_invalid",
+		"metadata_expired",
+		"metadata_expiry_policy_invalid",
+		"metadata_mix_and_match_detected",
+		"metadata_noncanonical",
+		"metadata_rollback_detected",
+		"missing_integrity_metadata",
+		"pack_conflict",
+		"pack_release_sequence_collision",
+		"pack_release_sequence_rollback",
+		"pack_version_collision",
+		"path_collision",
+		"path_traversal",
+		"payload_missing",
+		"required_member_missing",
+		"signature_threshold_not_met",
+		"target_length_mismatch",
+		"target_not_declared",
+		"tuf_metadata_invalid",
+		"tuf_root_rotation_invalid",
+		"tuf_root_untrusted",
+		"type_registry_incompatible",
+		"undeclared_member",
+		"unexpected_target",
+		"unsupported_container_format",
+		"verification_timeout",
 	})
-	requireReasonRegistry(t, errorsDoc, "reference_pack_activation_rejected", []string{"already_active", "not_verified_available"})
-	requireReasonRegistry(t, errorsDoc, "reference_pack_state_conflict", []string{"already_disabled", "not_disableable", "verification_pending"})
+	requireReasonRegistry(t, errorsDoc, "reference_pack_activation_rejected", []string{"already_active", "not_verified_available", "metadata_expired"})
+	requireReasonRegistry(t, errorsDoc, "reference_pack_operation_rejected", []string{"verification_pending", "no_successful_verification", "stale_admission_state", "clock_untrusted", "packaged_builtin", "removed", "not_disableable", "active", "pinned", "dependency_unsatisfied", "dependency_cycle", "pack_conflict", "required_registry_gap", "contract_incompatible", "type_registry_incompatible"})
+	requireRequestRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/remove", "post"), "ReferencePackRemovalRequest")
+	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/remove", "post"), "200", "ReferencePackActionEnvelope")
 }
 
 func requireParameterNames(t testing.TB, operation map[string]any, want []string) {

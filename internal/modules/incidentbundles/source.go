@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -14,11 +16,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/artifactport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
 // BlobPortability is the Incident Bundles-owned consumer port for blob data.
@@ -29,19 +33,32 @@ type BlobPortability interface {
 	CleanupStagedObjects(context.Context, []string)
 }
 
+// ArtifactReferenceSource exposes exact retained bindings in the same export
+// snapshot. The source owner is responsible for its artifact identity checks.
+type ArtifactReferenceSource interface {
+	ReferenceBindingsTx(context.Context, pgx.Tx, uuid.UUID) ([]reference_data.SetBinding, error)
+	ExportArtifactsTx(context.Context, pgx.Tx, uuid.UUID, []byte, artifactport.WriteFile) error
+	PrepareArtifactImport(context.Context, artifactport.ImportRequest) (artifactport.Prepared, error)
+}
+
 type bundleBuilder struct {
-	pool          *pgxpool.Pool
-	blobPort      BlobPortability
-	portability   portabilityCoordinator
-	sourceCatalog sourcePortCatalog
+	limits             Limits
+	artifactReferences ArtifactReferenceSource
+	pool               *pgxpool.Pool
+	blobPort           BlobPortability
+	portability        portabilityCoordinator
+	sourceCatalog      sourcePortCatalog
+	referencePacks     reference_data.IncidentReferences
 }
 
 type importer struct {
-	pool              *pgxpool.Pool
-	blobPort          BlobPortability
-	finalizer         importfinalizerport.Finalizer
-	projectionRebuild ImportProjectionRebuilder
-	sourceCatalog     sourcePortCatalog
+	artifactReferences ArtifactReferenceSource
+	pool               *pgxpool.Pool
+	blobPort           BlobPortability
+	finalizer          importfinalizerport.Finalizer
+	projectionRebuild  ImportProjectionRebuilder
+	sourceCatalog      sourcePortCatalog
+	referencePacks     reference_data.IncidentReferences
 }
 
 type builtIncidentBundle struct {
@@ -52,10 +69,13 @@ type builtIncidentBundle struct {
 }
 
 type importParams struct {
-	ActorUserID uuid.UUID
-	PublishedAt time.Time
-	RequestID   *string
-	OperationID string
+	Execution          jobs.Execution
+	ExecutionStarted   time.Time
+	ReferenceExecution *reference_data.IncidentReferenceExecution
+	ActorUserID        uuid.UUID
+	PublishedAt        time.Time
+	RequestID          *string
+	OperationID        string
 }
 
 type preparedImport struct {
@@ -66,6 +86,8 @@ type preparedImport struct {
 	blobPort           BlobPortability
 	sourcePreparations []preparedSource
 	importContext      sourceport.ImportContext
+	referencePacks     *reference_data.PreparedReferenceImport
+	artifacts          artifactport.Prepared
 }
 
 type preparedSource struct {
@@ -125,7 +147,35 @@ func (b bundleBuilder) build(ctx context.Context, incidentID uuid.UUID, request 
 		return builtIncidentBundle{}, err
 	}
 	incidentKey := incidentIdentity.IncidentKey
-	files["data/reference_pack_refs.json"] = []byte("[]\n")
+	if b.referencePacks == nil {
+		return builtIncidentBundle{}, errors.New("incident bundle Reference Pack retention is required")
+	}
+	if b.artifactReferences == nil {
+		return builtIncidentBundle{}, errors.New("incident bundle artifact reference source is required")
+	}
+	bindings, err := b.artifactReferences.ReferenceBindingsTx(ctx, tx, incidentID)
+	if err != nil {
+		return builtIncidentBundle{}, err
+	}
+	files["data/reference_pack_refs.json"], err = b.referencePacks.ExportTx(ctx, tx, incidentID, bindings)
+	if err != nil {
+		return builtIncidentBundle{}, err
+	}
+	if slices.Contains(request.OptionalSections, "snapshots") {
+		if err := b.artifactReferences.ExportArtifactsTx(ctx, tx, incidentID, files["data/reference_pack_refs.json"], boundedContainerSink(files, b.limits)); err != nil {
+			return builtIncidentBundle{}, err
+		}
+	}
+	contentManifest, err := b.referencePacks.ExportContentTx(ctx, tx, reference_data.IncidentReferenceExportRequest{
+		IncidentID: incidentID, References: files["data/reference_pack_refs.json"], Embed: request.ReferencePackMode == referencePackModeEmbedded,
+		WriteContainer: boundedContainerSink(files, b.limits),
+	})
+	if err != nil {
+		return builtIncidentBundle{}, err
+	}
+	if contentManifest != nil {
+		files[reference_data.IncidentPackContentPath] = contentManifest
+	}
 	actors, err := b.exportActors(ctx, tx, incidentID, files)
 	if err != nil {
 		return builtIncidentBundle{}, err
@@ -151,6 +201,7 @@ func (b bundleBuilder) build(ctx context.Context, incidentID uuid.UUID, request 
 		}
 	}
 	archive, err := buildBundleArchive(manifestInput{
+		Limits:               &b.limits,
 		BundleID:             bundleID.String(),
 		IncidentID:           incidentID.String(),
 		IncidentKey:          incidentKey,
@@ -360,6 +411,42 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 			InvariantID:    invariantID,
 		}
 	}
+	if i.referencePacks == nil {
+		return nil, errors.New("incident bundle Reference Pack retention is required")
+	}
+	operationID, err := uuid.Parse(params.OperationID)
+	if err != nil {
+		return nil, errors.New("incident bundle import operation identity is invalid")
+	}
+	referenceRequest := reference_data.IncidentReferenceImportRequest{References: verified.Files["data/reference_pack_refs.json"], IncidentID: incidentID, OperationID: operationID, ActorID: params.ActorUserID, At: params.PublishedAt, Execution: params.Execution, ExecutionStarted: params.ExecutionStarted, ExecutionScope: params.ReferenceExecution, OpenContainer: func(readCtx context.Context, path string) (io.ReadCloser, error) {
+		if err := readCtx.Err(); err != nil {
+			return nil, err
+		}
+		data, present := verified.Files[path]
+		if !present {
+			return nil, reference_data.ErrArtifactUnavailable
+		}
+		return io.NopCloser(bytes.NewReader(data)), nil
+	}}
+	if content, present := verified.Files[reference_data.IncidentPackContentPath]; present {
+		referenceRequest.ContentManifest = &content
+	}
+	for path := range verified.Files {
+		if strings.HasPrefix(path, "ext/reference_packs/") && path != reference_data.IncidentPackContentPath {
+			referenceRequest.EmbeddedPaths = append(referenceRequest.EmbeddedPaths, path)
+		}
+	}
+	referencePacks, err := i.referencePacks.PrepareImport(ctx, referenceRequest)
+	if err != nil {
+		return nil, referenceImportError(err)
+	}
+	if i.artifactReferences == nil {
+		return nil, errors.New("incident bundle artifact source is required")
+	}
+	artifacts, err := i.artifactReferences.PrepareArtifactImport(ctx, artifactport.ImportRequest{IncidentID: incidentID, OperationID: operationID, References: verified.Files["data/reference_pack_refs.json"], Bundle: sourceport.MapBundle(verified.Files)})
+	if err != nil {
+		return nil, verificationErrorFromPort(err)
+	}
 	sourcePreparations := make([]preparedSource, 0, len(i.sourceCatalog.Ports()))
 	bundle := sourceport.MapBundle(verified.Files)
 	for _, port := range i.sourceCatalog.Ports() {
@@ -386,6 +473,7 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 		IncidentID: incidentID, files: importFiles, attributions: attributions,
 		stagedObjectKeys: writtenObjectKeys, blobPort: i.blobPort,
 		sourcePreparations: sourcePreparations, importContext: importContext,
+		referencePacks: referencePacks, artifacts: artifacts,
 	}, nil
 }
 
@@ -420,6 +508,18 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	}
 	if err := i.importActors(ctx, tx, prepared.files["data/actors.ndjson"], incidentID); err != nil {
 		return uuid.UUID{}, verificationErrorFromPort(err)
+	}
+	if i.referencePacks == nil {
+		return uuid.Nil, errors.New("incident bundle Reference Pack retention is required")
+	}
+	if err := i.referencePacks.ApplyImportTx(ctx, tx, prepared.referencePacks); err != nil {
+		return uuid.Nil, referenceImportError(err)
+	}
+	if prepared.artifacts == nil {
+		return uuid.Nil, errors.New("incident bundle artifact preparation is required")
+	}
+	if err := prepared.artifacts.ApplyTx(ctx, tx); err != nil {
+		return uuid.Nil, verificationErrorFromPort(err)
 	}
 	for _, source := range prepared.sourcePreparations[1:] {
 		if err := source.port.ApplyImportTx(ctx, tx, source.prepared, importContext); err != nil {
@@ -466,6 +566,13 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	return incidentID, nil
 }
 
+func referenceImportError(err error) error {
+	if invariant, ok := reference_data.IncidentBundleReferenceInvariant(err); ok {
+		return &verificationError{ReasonCode: "source_family_invalid", SourceFamilyID: "reference_pack_refs", InvariantID: invariant}
+	}
+	return err
+}
+
 func revisionsSequenceRepairVerificationError() error {
 	return &verificationError{
 		ReasonCode:     "source_family_invalid",
@@ -475,6 +582,9 @@ func revisionsSequenceRepairVerificationError() error {
 }
 
 func verificationErrorFromPort(err error) error {
+	if errors.Is(err, artifactport.ErrInvalid) {
+		return &verificationError{ReasonCode: "malformed_manifest"}
+	}
 	var malformed *incidentportability.MalformedPayloadError
 	if errors.As(err, &malformed) {
 		return &verificationError{ReasonCode: "malformed_manifest"}

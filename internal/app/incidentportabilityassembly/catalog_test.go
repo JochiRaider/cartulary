@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 )
 
 func TestIncidentsSourcePortConstructionFailureHasOwnerContext_Unit(t *testing.T) {
@@ -20,14 +21,14 @@ func TestIncidentsSourcePortConstructionFailureHasOwnerContext_Unit(t *testing.T
 }
 
 func TestCatalogRequiresTheComposedRevisionsSourcePort_Unit(t *testing.T) {
-	if catalog, err := NewCatalog(nil); catalog != nil || !errors.Is(err, sourceport.ErrInvalidCatalog) {
+	if catalog, err := NewCatalog(nil, referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{}); catalog != nil || !errors.Is(err, sourceport.ErrInvalidCatalog) {
 		t.Fatalf("nil Revisions source port = catalog %#v, error %v", catalog, err)
 	}
 	wrongOwner := sourceport.NewAdapter(sourceport.AdapterOptions{Descriptor: sourceport.Descriptor{
 		FamilyID: "revisions",
 		OwnerID:  "module.fixture",
 	}})
-	if catalog, err := NewCatalog(wrongOwner); catalog != nil || !errors.Is(err, sourceport.ErrInvalidCatalog) {
+	if catalog, err := NewCatalog(wrongOwner, referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{}); catalog != nil || !errors.Is(err, sourceport.ErrInvalidCatalog) {
 		t.Fatalf("wrong-owner Revisions source port = catalog %#v, error %v", catalog, err)
 	}
 }

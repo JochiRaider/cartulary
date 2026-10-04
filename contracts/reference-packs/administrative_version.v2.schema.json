@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_administrative_version.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "pack_key": {
+      "type": "string"
+    },
+    "pack_kind": {
+      "type": "string"
+    },
+    "pack_version": {
+      "type": "string"
+    },
+    "pack_version_state": {
+      "type": "string",
+      "enum": [
+        "staged",
+        "verified_available",
+        "disabled",
+        "failed",
+        "missing"
+      ]
+    },
+    "health": {
+      "type": "string",
+      "enum": [
+        "staged",
+        "verified_available",
+        "failed",
+        "missing"
+      ]
+    },
+    "administratively_disabled": {
+      "type": "boolean"
+    },
+    "distribution_kind": {
+      "type": "string",
+      "enum": [
+        "operator_imported",
+        "packaged_builtin"
+      ]
+    },
+    "active": {
+      "type": "boolean"
+    },
+    "removed": {
+      "type": "boolean"
+    },
+    "missing_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "staging_loss",
+        "storage_loss",
+        "administrative_removal"
+      ]
+    },
+    "last_failure_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_identifier": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "manifest_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payload_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "pack_contract_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "content_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "content_profile_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "verification_method": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_verified_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "trust_valid_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "verified_signer_key_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "uniqueItems": true,
+      "maxItems": 64
+    },
+    "imported_by_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "imported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "previous_active_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "activated_by_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "activated_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "pack_release_sequence": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "source_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+    },
+    "source_profile_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256,
+      "minLength": 1
+    },
+    "source_as_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "license_expression": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1024,
+      "minLength": 1
+    },
+    "redistribution": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "allowed",
+        "restricted",
+        "prohibited"
+      ]
+    },
+    "trust_repository_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "pending_work": {
+      "type": "boolean"
+    },
+    "reproducibility_pinned": {
+      "type": "boolean"
+    },
+    "fallback_from_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "dependencies": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "pack_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+            "minLength": 3,
+            "maxLength": 128
+          },
+          "pack_version": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+          },
+          "payload_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "pack_key",
+          "pack_version",
+          "payload_sha256"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 64
+    }
+  },
+  "required": [
+    "pack_key",
+    "pack_kind",
+    "pack_version",
+    "pack_version_state",
+    "health",
+    "administratively_disabled",
+    "distribution_kind",
+    "active",
+    "removed",
+    "missing_reason",
+    "last_failure_code",
+    "source_identifier",
+    "manifest_sha256",
+    "payload_sha256",
+    "pack_contract_version",
+    "content_profile_id",
+    "content_profile_version",
+    "verification_method",
+    "last_verified_at",
+    "trust_valid_until",
+    "verified_signer_key_ids",
+    "imported_by_user_id",
+    "imported_at",
+    "previous_active_version",
+    "activated_by_user_id",
+    "activated_at",
+    "pack_release_sequence",
+    "source_profile_id",
+    "source_profile_sha256",
+    "source_version",
+    "source_as_of",
+    "license_expression",
+    "redistribution",
+    "trust_repository_id",
+    "pending_work",
+    "reproducibility_pinned",
+    "fallback_from_version",
+    "dependencies"
+  ]
+}

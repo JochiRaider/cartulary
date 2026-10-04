@@ -279,7 +279,7 @@ type preparedSavedViewRow struct {
 
 func prepareSavedViewImport(bundle savedViewBundle, importContext savedViewImportContext) (preparedSavedViewImport, error) {
 	const logicalPath = "data/saved_views.ndjson"
-	if importContext.BundleVersion != 4 {
+	if importContext.BundleVersion != 5 {
 		return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.query_layout_legal")
 	}
 	payload, ok := bundle.File(logicalPath)

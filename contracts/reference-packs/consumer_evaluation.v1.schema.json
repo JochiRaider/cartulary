@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_consumer_evaluation.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "indicator_type_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 64
+        },
+        "value_kind": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 64
+        },
+        "raw_value": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 8192
+        },
+        "valid": {
+          "const": true
+        },
+        "validation_code": {
+          "type": "null"
+        },
+        "display_value": {
+          "type": "string",
+          "minLength": 0
+        },
+        "normalized_value": {
+          "type": "string",
+          "minLength": 0
+        },
+        "defanged_value": {
+          "type": "string",
+          "minLength": 0
+        },
+        "dedupe_key": {
+          "type": "string",
+          "minLength": 0
+        },
+        "normalization_algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+        },
+        "validation_algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+        },
+        "defang_algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+        },
+        "dedupe_algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+        },
+        "provenance": {
+          "$ref": "provenance.v1.schema.json"
+        }
+      },
+      "required": [
+        "indicator_type_id",
+        "value_kind",
+        "raw_value",
+        "valid",
+        "validation_code",
+        "display_value",
+        "normalized_value",
+        "defanged_value",
+        "dedupe_key",
+        "normalization_algorithm_id",
+        "validation_algorithm_id",
+        "defang_algorithm_id",
+        "dedupe_algorithm_id",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "indicator_type_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 64
+        },
+        "value_kind": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 64
+        },
+        "raw_value": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 8192
+        },
+        "valid": {
+          "const": false
+        },
+        "validation_code": {
+          "enum": [
+            "invalid_ipv4",
+            "invalid_ipv6",
+            "invalid_domain_name",
+            "invalid_http_url",
+            "invalid_sha256",
+            "invalid_email_addr",
+            "invalid_registry_key",
+            "invalid_process_name",
+            "invalid_text"
+          ]
+        },
+        "display_value": {
+          "type": "null"
+        },
+        "normalized_value": {
+          "type": "null"
+        },
+        "defanged_value": {
+          "type": "null"
+        },
+        "dedupe_key": {
+          "type": "null"
+        },
+        "normalization_algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+        },
+        "validation_algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+        },
+        "defang_algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+        },
+        "dedupe_algorithm_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+        },
+        "provenance": {
+          "$ref": "provenance.v1.schema.json"
+        }
+      },
+      "required": [
+        "indicator_type_id",
+        "value_kind",
+        "raw_value",
+        "valid",
+        "validation_code",
+        "display_value",
+        "normalized_value",
+        "defanged_value",
+        "dedupe_key",
+        "normalization_algorithm_id",
+        "validation_algorithm_id",
+        "defang_algorithm_id",
+        "dedupe_algorithm_id",
+        "provenance"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

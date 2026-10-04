@@ -3,11 +3,13 @@ package indicators
 import (
 	"context"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
@@ -17,13 +19,28 @@ func NewImportContribution(application *Application) (ownerfacade.ImportOwnerCre
 	if application == nil {
 		return nil, fmt.Errorf("indicator import owner facade is required")
 	}
-	return ownerfacade.NewImportOwnerCreateFacade(
+	return ownerfacade.NewImportOwnerCreateFacadeWithNormalizer(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: ViewSchemaID,
 			FacadeID:           indicatorImportContributionID,
 		},
+		normalizeIndicatorImportField,
 		application.createImportRowTx,
 	)
+}
+
+func normalizeIndicatorImportField(fieldKey, raw, emptyValuePolicy string) (ownerfacade.ImportScalarValue, bool, error) {
+	if raw != "" {
+		switch fieldKey {
+		case "indicator.indicator_type", "indicator.value_kind", "indicator.display_value", "indicator.normalized_value", "indicator.defanged_value":
+			boundedValue := fieldKey == "indicator.display_value" || fieldKey == "indicator.normalized_value"
+			if !utf8.ValidString(raw) || (boundedValue && utf8.RuneCountInString(raw) > 8192) {
+				return ownerfacade.ImportScalarValue{}, false, ownerfacade.NewImportOwnerCreateValidationError("invalid_text", fieldKey, "indicator_value", nil)
+			}
+			return ownerfacade.NewTextImportScalar(raw), true, nil
+		}
+	}
+	return ownerfacade.NormalizeImportScalar(ViewSchemaID, fieldKey, raw, emptyValuePolicy)
 }
 
 func (s *Application) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
@@ -35,13 +52,30 @@ func (s *Application) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("indicator import surface %q not mapped", request.TargetViewSchemaID)
 	}
 	createCommand := indicatorImportCreateCommand(request.ClientTxnID, request.FieldValues)
-	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, request.IncidentID, createCommand)
+	assignment, err := s.registry.BeginTx(ctx, tx)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, request.ActorUserID, request.IncidentID, createCommand, command.Now.UTC())
+	evaluate, err := identity.FromConsumer(ctx, assignment)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	input, err := indicatorInputFromCreateCommand(evaluate, createCommand)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, request.IncidentID, input)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, request.ActorUserID, request.IncidentID, input, command.Now.UTC())
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	if beforeRow == nil {
+		if err := assignment.RecordUsage(ctx, "type_registry.indicator"); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
 	}
 	row, err := s.refreshAndLoadProjectionRowTx(ctx, tx, record.RecordID)
 	if err != nil {

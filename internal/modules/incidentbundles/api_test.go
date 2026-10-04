@@ -31,9 +31,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/artifactport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -154,8 +156,8 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	if first.ManifestSHA256 == "" || len(first.ChecksumLines) == 0 {
 		t.Fatalf("bundle result must expose manifest hash and checksums: %#v", first)
 	}
-	if first.Manifest.BundleVersion != 4 {
-		t.Fatalf("manifest bundle_version must be numeric 4, got %#v", first.Manifest.BundleVersion)
+	if first.Manifest.BundleVersion != 5 {
+		t.Fatalf("manifest bundle_version must be numeric 5, got %#v", first.Manifest.BundleVersion)
 	}
 	if first.Manifest.SourceChangeSetHighWatermark == "" {
 		t.Fatalf("manifest must expose source_change_set_high_watermark: %#v", first.Manifest)
@@ -459,7 +461,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	for _, version := range []int{4} {
+	for _, version := range []int{5} {
 		original := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) { manifest["bundle_version"] = version })
 		verified, err := verifyBundle(verificationInput{Bundle: original, Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}}})
 		if err != nil || verified.Manifest.BundleVersion != version {
@@ -467,7 +469,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 		}
 	}
 
-	for _, version := range []int{1, 2, 3, 5} {
+	for _, version := range []int{1, 2, 3, 4, 6} {
 		t.Run(fmt.Sprintf("unsupported_version_%d", version), func(t *testing.T) {
 			unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
 				manifest["bundle_version"] = version
@@ -606,7 +608,7 @@ func minimalRequiredBundleFiles() map[string][]byte {
 		case "data/incident.json":
 			files[path] = []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n")
 		case "data/reference_pack_refs.json":
-			files[path] = []byte("[]\n")
+			files[path] = []byte(`{"schema_id":"reference_pack_refs.v1","sets":[],"versions":[]}` + "\n")
 		default:
 			files[path] = []byte{}
 		}
@@ -740,6 +742,7 @@ func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T
 }
 
 var incidentBundleExportAllowlist = map[string]struct{}{
+	"ArtifactReferenceSource":                     {},
 	"ArchiveLimits":                               {},
 	"BlobPortability":                             {},
 	"BundleStagingRef":                            {},
@@ -775,6 +778,7 @@ var incidentBundleExportAllowlist = map[string]struct{}{
 	"ImportedAttributionResolver":                 {},
 	"IncidentBundleLimits":                        {},
 	"IncidentPublicationLock":                     {},
+	"JobCancellationFinalization":                 {},
 	"JobFailureFinalization":                      {},
 	"JobOperations":                               {},
 	"JobRunner":                                   {},
@@ -1092,6 +1096,8 @@ func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *t
 		{name: "projection rebuild", want: "projection rebuilder", mutate: func(dependencies *ModuleDependencies) { dependencies.ProjectionRebuilder = nil }},
 		{name: "source catalog", want: "source catalog", mutate: func(dependencies *ModuleDependencies) { dependencies.SourceCatalog = nil }},
 		{name: "blob portability", want: "blob portability", mutate: func(dependencies *ModuleDependencies) { dependencies.BlobPortability = nil }},
+		{name: "artifact reference source", want: "artifact reference source", mutate: func(dependencies *ModuleDependencies) { dependencies.ArtifactReferences = nil }},
+		{name: "Reference Pack retention", want: "Reference Pack retention", mutate: func(dependencies *ModuleDependencies) { dependencies.ReferencePacks = nil }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -1119,7 +1125,31 @@ func moduleTestDependencies() ModuleDependencies {
 		ProjectionRebuilder:     projectionRebuilderStub{},
 		SourceCatalog:           &sourceport.Catalog{},
 		BlobPortability:         &recordingBlobPortability{},
+		ReferencePacks:          referenceRetentionStub{},
+		ArtifactReferences:      referenceRetentionStub{},
 	}
+}
+
+type referenceRetentionStub struct{}
+
+func (referenceRetentionStub) ReferenceBindingsTx(context.Context, pgx.Tx, uuid.UUID) ([]reference_data.SetBinding, error) {
+	return nil, nil
+}
+
+func (referenceRetentionStub) BeginImportExecution(context.Context, jobs.Execution, time.Time) (*reference_data.IncidentReferenceExecution, error) {
+	return nil, errors.New("unexpected worker execution in registration stub")
+}
+func (referenceRetentionStub) PrepareImport(context.Context, reference_data.IncidentReferenceImportRequest) (*reference_data.PreparedReferenceImport, error) {
+	return nil, nil
+}
+func (referenceRetentionStub) ApplyImportTx(context.Context, pgx.Tx, *reference_data.PreparedReferenceImport) error {
+	return nil
+}
+func (referenceRetentionStub) ExportContentTx(context.Context, pgx.Tx, reference_data.IncidentReferenceExportRequest) ([]byte, error) {
+	return nil, nil
+}
+func (referenceRetentionStub) ExportTx(context.Context, pgx.Tx, uuid.UUID, []reference_data.SetBinding) ([]byte, error) {
+	return reference_data.EncodeIncidentBundleReferences(nil, nil)
 }
 
 type importFinalizerStub struct{}
@@ -1143,6 +1173,13 @@ func (jobFinalizerStub) FinalizeIncidentBundleJobSuccessTx(context.Context, cros
 }
 
 func (jobFinalizerStub) FinalizeIncidentBundleJobFailure(context.Context, JobFailureFinalization) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
+}
+
+func (jobFinalizerStub) FinalizeIncidentBundleJobTimeout(context.Context, JobFailureFinalization) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
+}
+func (jobFinalizerStub) FinalizeIncidentBundleJobCancellation(context.Context, JobCancellationFinalization) (jobs.Resource, error) {
 	return jobs.Resource{}, nil
 }
 
@@ -1191,6 +1228,8 @@ func (projectionRebuilderStub) RebuildImportedIncidentTx(context.Context, pgx.Tx
 }
 
 func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
+	testImportInputRetention(t)
+	testBoundedContainerExport(t)
 	bundleID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	incidentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 
@@ -1340,8 +1379,10 @@ func (s *recordingBundleStorage) RemovePublished(reference BundleStorageRef) err
 }
 
 type recordingJobOperations struct {
-	failed     *jobs.FailureCompletion
-	observeErr error
+	failed      *jobs.FailureCompletion
+	observeErr  error
+	getErr      error
+	getResource jobs.Resource
 }
 
 type recordingBlobPortability struct {
@@ -1362,8 +1403,17 @@ func (p *recordingBlobPortability) CleanupStagedObjects(_ context.Context, keys 
 	p.cleaned = append(p.cleaned, keys...)
 }
 
-func (*recordingJobOperations) Get(context.Context, uuid.UUID) (jobs.Resource, error) {
-	return jobs.Resource{}, nil
+func (o *recordingJobOperations) Get(ctx context.Context, _ uuid.UUID) (jobs.Resource, error) {
+	if err := ctx.Err(); err != nil {
+		return jobs.Resource{}, err
+	}
+	if o.getErr != nil {
+		return jobs.Resource{}, o.getErr
+	}
+	if o.failed != nil {
+		return jobs.Resource{Status: jobs.StatusFailed}, nil
+	}
+	return o.getResource, nil
 }
 
 func (o *recordingJobOperations) ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error) {
@@ -1847,3 +1897,14 @@ func incidentBundleUploadEnvelopeRequest(t testing.TB, contentType string) *http
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	return request
 }
+
+func (referenceRetentionStub) ExportArtifactsTx(context.Context, pgx.Tx, uuid.UUID, []byte, artifactport.WriteFile) error {
+	return nil
+}
+func (referenceRetentionStub) PrepareArtifactImport(context.Context, artifactport.ImportRequest) (artifactport.Prepared, error) {
+	return emptyArtifactPreparation{}, nil
+}
+
+type emptyArtifactPreparation struct{}
+
+func (emptyArtifactPreparation) ApplyTx(context.Context, pgx.Tx) error { return nil }

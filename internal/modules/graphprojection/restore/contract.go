@@ -23,7 +23,7 @@ import (
 const (
 	RestoreAlgorithmID                         = "graphprojection.restore_rebuild.v4"
 	RestoreSourceRegistrySchemaID              = "cartulary.graph_projection_restore_source_registry.v4"
-	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v4"
+	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v5"
 	RestoreRebuildResultSchemaID               = "cartulary.graph_projection_restore_rebuild_result.v4"
 	RestoreMaximumSourceRegistrations          = 128
 	RestoreMaximumCandidates                   = 128

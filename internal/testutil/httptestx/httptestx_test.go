@@ -173,6 +173,9 @@ func TestStartServerHonorsTestRouteMode(t *testing.T) {
 	for key, value := range s3Harness.Env(bucket) {
 		env[key] = value
 	}
+	// These runtimes reopen one database. Its retained Base content must outlive
+	// each child runtime, just as it does across a deployment process restart.
+	env["CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH"] = t.TempDir()
 
 	t.Run("harness owned", func(t *testing.T) {
 		server := StartServer(t, ServerOptions{Env: env, TestRouteMode: TestRouteModeHarnessOwned})

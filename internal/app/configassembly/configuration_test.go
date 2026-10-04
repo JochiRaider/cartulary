@@ -16,7 +16,40 @@ func TestArtifactAdmissionDefaultsAndProjectionIsolation_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load deployment defaults: %v", err)
 	}
+	t.Run("inactive Reference Pack settings retain the registered profile identity", func(t *testing.T) {
+		_, err := loadProjection(t, map[string]string{
+			"CARTULARY__REFERENCE_PACK__CLAIMED":               "false",
+			"CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED":        "true",
+			"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": "/fixture/must-not-be-read.json",
+		})
+		diagnostics, ok := config.DiagnosticsFromError(err)
+		if !ok || len(diagnostics) != 2 {
+			t.Fatalf("inactive reference settings: %#v / %v", diagnostics, err)
+		}
+		for _, diagnostic := range diagnostics {
+			if diagnostic.ReasonCode != "extension_config_without_claim" || diagnostic.Details["profile_id"] != "reference_pack" || diagnostic.Details["config_path"] != "$."+diagnostic.Path {
+				t.Fatalf("namespace replaced registered owner identity: %#v", diagnostic)
+			}
+		}
+	})
 	wantLimits := wantLoaded.Deployment().Limits
+	if wantLimits.ReferencePacks.MaxVerificationSeconds != 1800 || wantLimits.ReferencePacks.MaxContainerBytes != 536870912 || wantLoaded.Deployment().ReferencePacks.ClockTrusted {
+		t.Fatal("Reference Pack defaults changed")
+	}
+	for _, value := range []string{"59", "86401", "null", "60.5"} {
+		if _, err := loadProjection(t, map[string]string{"CARTULARY__LIMITS__REFERENCE_PACKS__MAX_VERIFICATION_SECONDS": value}); err == nil {
+			t.Fatalf("invalid verification budget %s admitted", value)
+		}
+	}
+	for _, value := range []string{"60", "86400"} {
+		if _, err := loadProjection(t, map[string]string{"CARTULARY__LIMITS__REFERENCE_PACKS__MAX_VERIFICATION_SECONDS": value}); err != nil {
+			t.Fatalf("inclusive verification budget %s: %v", value, err)
+		}
+	}
+	trusted, err := loadProjection(t, map[string]string{"CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"})
+	if err != nil || !trusted.Deployment().ReferencePacks.ClockTrusted || !trusted.Deployment().ReferencePacks.ClockTrustedExplicit {
+		t.Fatal("explicit clock assertion lost", err)
+	}
 	content := string(fixtures.MustRead("config", "valid.toml"))
 	content, _, _ = strings.Cut(content, "\n[limits.object_blobs]\n")
 	path := filepath.Join(t.TempDir(), "config.toml")

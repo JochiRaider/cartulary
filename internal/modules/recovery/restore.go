@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -75,6 +76,7 @@ type RestoreTarget struct {
 	TargetGenerationID uuid.UUID
 	Postgres           postgres.DB
 	ObjectStore        objectstore.Store
+	ReferencePacks     ReferencePackStorage
 	EvidenceObjects    EvidenceRecoveryProvider
 	GraphProjection    restorecontract.GraphProjectionParticipant
 	Projections        restorecontract.ProjectionRebuilder
@@ -120,33 +122,16 @@ type RestoreConsistencyReport struct {
 	BlobCount               int
 }
 
-type selectedRestoreArtifacts struct {
-	PostgresSnapshot          PostgresSnapshotArtifact
-	ObjectStoreSnapshot       ObjectStoreSnapshotArtifact
-	ObjectStoreBackupManifest ObjectStoreBackupManifest
-	ExtensionBindings         []ExtensionBindingProof
-}
-
-func NewRestoreRunner(store backupRepository, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *RestoreRunner {
+func NewVersionedRestoreRunner(store backupRepository, storage BackupStorage, extensionBackups *ExtensionBackupCatalog, stateCatalog *recoverystate.Catalog) *RestoreRunner {
 	return &RestoreRunner{
 		store:            store,
 		storage:          storage,
 		extensionBackups: extensionBackups,
+		stateCatalog:     stateCatalog,
 		now: func() time.Time {
 			return time.Now().UTC()
 		},
 	}
-}
-
-func NewVersionedRestoreRunner(
-	store backupRepository,
-	storage BackupStorage,
-	extensionBackups *ExtensionBackupCatalog,
-	stateCatalog *recoverystate.Catalog,
-) *RestoreRunner {
-	runner := NewRestoreRunner(store, storage, extensionBackups)
-	runner.stateCatalog = stateCatalog
-	return runner
 }
 
 func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context, target RestoreTarget, asOf time.Time) (RestoreResult, error) {
@@ -168,7 +153,7 @@ func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context
 	if asOf.IsZero() {
 		asOf = runner.now()
 	}
-	backupSet, err := NewBackupCatalog(runner.store, runner.storage, runner.extensionBackups).RestoreCandidateBackup(ctx, asOf)
+	backupSet, err := NewBackupCatalog(runner.store, runner.storage, runner.extensionBackups, runner.stateCatalog).RestoreCandidateBackup(ctx, asOf)
 	if err != nil {
 		return RestoreResult{}, err
 	}
@@ -202,71 +187,10 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	if err := requireEmptyRestoreTarget(ctx, target, runner.extensionBackups); err != nil {
 		return RestoreResult{}, err
 	}
-	if _, vNext := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); vNext {
-		return runner.restoreVNextBackupSet(ctx, target, backupSet)
+	if _, current := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); !current {
+		return RestoreResult{}, fmt.Errorf("%w: retired backup representation", ErrInvalidBackupArtifact)
 	}
-	artifacts, err := runner.loadSelectedRestoreArtifacts(ctx, backupSet)
-	if err != nil {
-		return RestoreResult{}, err
-	}
-	partialResult := RestoreResult{
-		BackupSet:                 backupSet,
-		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
-		ExtensionBindings:         append([]ExtensionBindingProof(nil), artifacts.ExtensionBindings...),
-		IntegrityManifestSHA256:   backupSet.IntegrityManifestSHA256,
-		RestoredObjectCount:       int64(artifacts.ObjectStoreBackupManifest.ObjectCount),
-	}
-
-	recordStep(target.Observer, RestoreStepPostgresRestore)
-	if err := restorePostgresSnapshot(ctx, target.Postgres, artifacts.PostgresSnapshot); err != nil {
-		return partialResult, restoreStageFailure(RestoreStepPostgresRestore, err)
-	}
-
-	recordStep(target.Observer, RestoreStepObjectStoreRestore)
-	if err := restoreObjectStoreSnapshot(ctx, target.ObjectStore, artifacts.ObjectStoreSnapshot); err != nil {
-		return partialResult, restoreStageFailure(RestoreStepObjectStoreRestore, err)
-	}
-
-	recordStep(target.Observer, RestoreStepExtensionBindings)
-	if err := validateRestoredExtensionBindings(ctx, runner.extensionBackups, artifacts.ExtensionBindings, target.Postgres); err != nil {
-		return partialResult, restoreStageFailure(RestoreStepExtensionBindings, err)
-	}
-
-	recordStep(target.Observer, RestoreStepProjectionRebuild)
-	projectionResult, err := target.Projections.RebuildRestoreProjections(ctx, restoreProjectionRebuildRequest(target, backupSet))
-	partialResult.ProjectionRebuildResult = projectionResult
-	if err != nil {
-		return partialResult, restoreStageFailure(RestoreStepProjectionRebuild, err)
-	}
-	if !projectionResult.ReadinessSatisfied() {
-		return partialResult, restoreStageFailure(
-			RestoreStepProjectionRebuild,
-			fmt.Errorf("%w: projection rebuild did not produce ready restore state: status=%q readiness_outcome=%q", ErrInvalidBackupArtifact, projectionResult.Status, projectionResult.ReadinessOutcome),
-		)
-	}
-
-	recordStep(target.Observer, RestoreStepConsistencyCheck)
-	report, err := verifyRestoredConsistency(ctx, target, artifacts)
-	if err != nil {
-		return partialResult, restoreStageFailure(RestoreStepConsistencyCheck, err)
-	}
-	result = RestoreResult{
-		BackupSet:                 backupSet,
-		ConsistencyReport:         report,
-		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
-		ProjectionRebuildResult:   projectionResult,
-		ExtensionBindings:         append([]ExtensionBindingProof(nil), artifacts.ExtensionBindings...),
-		IntegrityManifestSHA256:   backupSet.IntegrityManifestSHA256,
-		RestoredObjectCount:       int64(artifacts.ObjectStoreBackupManifest.ObjectCount),
-	}
-
-	if target.Readiness != nil {
-		recordStep(target.Observer, RestoreStepReadiness)
-		if err := target.Readiness.MarkRestoreReady(ctx, result); err != nil {
-			return result, restoreStageFailure(RestoreStepReadiness, err)
-		}
-	}
-	return result, nil
+	return runner.restoreVNextBackupSet(ctx, target, backupSet)
 }
 
 func (runner *RestoreRunner) restoreVNextBackupSet(
@@ -324,6 +248,16 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepPostgresRestore, err)
 	}
 	recordStep(target.Observer, RestoreStepProjectionRebuild)
+	if target.ReferencePacks != nil {
+		if err := target.ReferencePacks.ValidateHistoricalState(ctx, target.Postgres); err != nil {
+			return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepProjectionRebuild, err)
+		}
+	} else {
+		var present bool
+		if err := target.Postgres.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM reference_pack_candidates)`).Scan(&present); err != nil || present {
+			return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepProjectionRebuild, errors.New("reference pack restore participant is required"))
+		}
+	}
 	graphResult, projectionResult, err := runner.runVNextProjectionRebuilds(ctx, target, backupSet, verificationEvidence)
 	if err != nil {
 		return RestoreResult{BackupSet: backupSet, GraphProjectionResult: graphResult, ProjectionRebuildResult: projectionResult}, restoreStageFailure(RestoreStepProjectionRebuild, err)
@@ -494,7 +428,7 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 		return fmt.Errorf("disable vNext restore referential triggers: %w", err)
 	}
 	mutation := &vNextRestoreMutation{
-		tx: tx, objects: target.target.ObjectStore, stateCatalog: stateCatalog,
+		tx: tx, objects: target.target.ObjectStore, referencePacks: target.target.ReferencePacks, stateCatalog: stateCatalog,
 	}
 	if err := run(mutation); err != nil {
 		return err
@@ -506,9 +440,67 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 }
 
 type vNextRestoreMutation struct {
-	tx           pgx.Tx
-	objects      objectstore.Store
-	stateCatalog *recoverystate.Catalog
+	tx             pgx.Tx
+	objects        objectstore.Store
+	referencePacks ReferencePackStorage
+	stateCatalog   *recoverystate.Catalog
+	insertPlans    map[string]restoreInsertPlan
+}
+
+type restoreInsertPlan struct {
+	query     string
+	writable  []string
+	fields    []string
+	generated bool
+}
+
+// Snapshot rows include stored generated values as integrity evidence. Restore
+// supplies only writable columns and verifies PostgreSQL's recomputation of
+// generated columns against that evidence. The plan is resolved once per table.
+func (mutation *vNextRestoreMutation) insertPlan(ctx context.Context, tableName string) (restoreInsertPlan, error) {
+	if plan, ok := mutation.insertPlans[tableName]; ok {
+		return plan, nil
+	}
+	identifier := pgx.Identifier{"public", tableName}.Sanitize()
+	rows, err := mutation.tx.Query(ctx, `SELECT attname,attgenerated<>'' FROM pg_catalog.pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum`, identifier)
+	if err != nil {
+		return restoreInsertPlan{}, err
+	}
+	var plan restoreInsertPlan
+	var columns []string
+	for rows.Next() {
+		var name string
+		var generated bool
+		if err := rows.Scan(&name, &generated); err != nil {
+			rows.Close()
+			return plan, err
+		}
+		plan.fields = append(plan.fields, name)
+		if generated {
+			plan.generated = true
+			continue
+		}
+		plan.writable = append(plan.writable, name)
+		columns = append(columns, pgx.Identifier{name}.Sanitize())
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return plan, err
+	}
+	if len(columns) == 0 {
+		return plan, fmt.Errorf("%w: restore table has no writable columns", ErrInvalidBackupArtifact)
+	}
+	list := strings.Join(columns, ",")
+	plan.query = fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM jsonb_populate_record(NULL::%s, $1::jsonb)", identifier, list, list, identifier)
+	if plan.generated {
+		plan.query = fmt.Sprintf("WITH restored AS (INSERT INTO %s (%s) SELECT %s FROM jsonb_populate_record(NULL::%s, $1::jsonb) RETURNING *) SELECT (to_jsonb(restored)-$2::text[]) IS NOT DISTINCT FROM ($1::jsonb-$2::text[]) FROM restored", identifier, list, list, identifier)
+	}
+	if mutation.insertPlans == nil {
+		mutation.insertPlans = map[string]restoreInsertPlan{}
+	}
+	mutation.insertPlans[tableName] = plan
+	return plan, nil
 }
 
 func (mutation *vNextRestoreMutation) PreparePostgresTables(
@@ -539,13 +531,30 @@ func (mutation *vNextRestoreMutation) InsertPostgresRow(
 	tableName string,
 	row json.RawMessage,
 ) error {
-	identifier := pgx.Identifier{tableName}.Sanitize()
-	query := fmt.Sprintf(
-		"INSERT INTO %s SELECT * FROM jsonb_populate_record(NULL::%s, $1::jsonb)",
-		identifier,
-		identifier,
-	)
-	if _, err := mutation.tx.Exec(ctx, query, string(row)); err != nil {
+	plan, err := mutation.insertPlan(ctx, tableName)
+	if err != nil {
+		return fmt.Errorf("resolve restore columns: %w", err)
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(row, &fields) != nil || len(fields) != len(plan.fields) {
+		return fmt.Errorf("%w: restore row does not match its retained table shape", ErrInvalidBackupArtifact)
+	}
+	for _, name := range plan.fields {
+		if _, ok := fields[name]; !ok {
+			return fmt.Errorf("%w: restore row omits a required column", ErrInvalidBackupArtifact)
+		}
+	}
+	if plan.generated {
+		var valid bool
+		if err := mutation.tx.QueryRow(ctx, plan.query, string(row), plan.writable).Scan(&valid); err != nil {
+			return fmt.Errorf("restore vNext table %s: %w", tableName, err)
+		}
+		if !valid {
+			return fmt.Errorf("%w: restored generated column mismatch", ErrInvalidBackupArtifact)
+		}
+		return nil
+	}
+	if _, err := mutation.tx.Exec(ctx, plan.query, string(row)); err != nil {
 		return fmt.Errorf("restore vNext table %s: %w", tableName, err)
 	}
 	return nil
@@ -565,6 +574,12 @@ func (mutation *vNextRestoreMutation) RestoreObject(
 ) error {
 	hasher := sha256.New()
 	counted := &countedReader{reader: io.TeeReader(reader, hasher)}
+	if object.OwnerID == "module.reference_data" || object.ObjectFamilyID == "reference_packs.members" {
+		if object.OwnerID != "module.reference_data" || object.ObjectFamilyID != "reference_packs.members" || mutation.referencePacks == nil {
+			return errors.New("reference pack restore dispatch is unavailable")
+		}
+		return mutation.referencePacks.RestoreMember(ctx, object.StorageKey, object.PlaintextSHA256, object.PlaintextBytes, reader)
+	}
 	if err := mutation.objects.PutObject(
 		ctx,
 		object.StorageKey,
@@ -670,15 +685,8 @@ SELECT (SELECT COUNT(*) FROM change_sets)
 }
 
 func restoreProjectionRebuildRequest(target RestoreTarget, backupSet BackupSet) restorecontract.ProjectionRebuildRequest {
-	operationID := target.RestoreOperationID
-	if operationID == uuid.Nil {
-		// Historical direct RestoreRunner callers predate admitted Recovery
-		// operation identities. Preserve that workbook-only compatibility path;
-		// vNext recovery requires and propagates the admitted identity above.
-		operationID = uuid.New()
-	}
 	return restorecontract.ProjectionRebuildRequest{
-		RestoreOperationID:     operationID,
+		RestoreOperationID:     target.RestoreOperationID,
 		RestoredSourceStateRef: restoreProjectionSourceStateRef(backupSet),
 		RebuildScope:           restorecontract.ProjectionRebuildScopeAllActiveProviders,
 		ProviderRegistryRef:    restorecontract.ProviderRegistryRefCodeBacked,
@@ -738,6 +746,11 @@ SELECT table_name
 	}
 	if len(objects) != 0 {
 		return fmt.Errorf("%w: object store contains %d objects", ErrRestoreTargetNotEmpty, len(objects))
+	}
+	if target.ReferencePacks != nil {
+		if err := target.ReferencePacks.RequireEmpty(ctx); err != nil {
+			return fmt.Errorf("%w: Reference Pack storage is not empty", ErrRestoreTargetNotEmpty)
+		}
 	}
 	return nil
 }
@@ -862,119 +875,10 @@ INSERT INTO extension_state_metadata (
 			return fmt.Errorf("delete restore verification target object %s: %w", object.Key, err)
 		}
 	}
-	return nil
-}
-
-func (runner *RestoreRunner) loadSelectedRestoreArtifacts(ctx context.Context, backupSet BackupSet) (selectedRestoreArtifacts, error) {
-	manifestProof := BackupArtifactProof{
-		Key:       backupSet.IntegrityManifestKey,
-		SHA256:    backupSet.IntegrityManifestSHA256,
-		SizeBytes: backupSet.IntegrityManifestSizeBytes,
-	}
-	manifestBody, err := VerifyArtifactProof(ctx, runner.storage, manifestProof)
-	if err != nil {
-		return selectedRestoreArtifacts{}, fmt.Errorf("verify selected backup integrity manifest: %w", err)
-	}
-	manifest, err := DecodeIntegrityManifest(manifestBody)
-	if err != nil {
-		return selectedRestoreArtifacts{}, fmt.Errorf("%w: decode selected backup integrity manifest: %v", ErrInvalidBackupArtifact, err)
-	}
-	if err := validateSelectedRestoreManifest(backupSet, manifest); err != nil {
-		return selectedRestoreArtifacts{}, err
-	}
-	postgresBody, err := VerifyArtifactProof(ctx, runner.storage, manifest.PostgresArtifact)
-	if err != nil {
-		return selectedRestoreArtifacts{}, fmt.Errorf("verify selected postgres artifact: %w", err)
-	}
-	objectBody, err := VerifyArtifactProof(ctx, runner.storage, manifest.ObjectStoreArtifact)
-	if err != nil {
-		return selectedRestoreArtifacts{}, fmt.Errorf("verify selected object-store artifact: %w", err)
-	}
-	postgresSnapshot, err := DecodePostgresSnapshotArtifact(postgresBody)
-	if err != nil {
-		return selectedRestoreArtifacts{}, err
-	}
-	objectSnapshot, err := DecodeObjectStoreSnapshotArtifact(objectBody)
-	if err != nil {
-		return selectedRestoreArtifacts{}, err
-	}
-	if manifest.ObjectStoreBackupManifestArtifact == nil {
-		return selectedRestoreArtifacts{}, fmt.Errorf("%w: selected backup is missing object-store backup manifest artifact", ErrInvalidBackupArtifact)
-	}
-	objectManifestBody, err := VerifyArtifactProof(ctx, runner.storage, *manifest.ObjectStoreBackupManifestArtifact)
-	if err != nil {
-		return selectedRestoreArtifacts{}, fmt.Errorf("verify selected object-store backup manifest artifact: %w", err)
-	}
-	objectManifest, err := DecodeObjectStoreBackupManifestArtifact(objectManifestBody)
-	if err != nil {
-		return selectedRestoreArtifacts{}, err
-	}
-	if err := ValidateObjectStoreBackupManifestForBackup(backupSet, objectManifest); err != nil {
-		return selectedRestoreArtifacts{}, err
-	}
-	if err := ValidateObjectStoreManifestAgainstSnapshot(objectManifest, objectSnapshot); err != nil {
-		return selectedRestoreArtifacts{}, err
-	}
-	if err := validateExtensionBindingProofs(runner.extensionBackups, manifest.ExtensionBindings, postgresSnapshot); err != nil {
-		return selectedRestoreArtifacts{}, err
-	}
-	if manifest.ObjectStoreBackupSummaryArtifact != nil {
-		summaryBody, err := VerifyArtifactProof(ctx, runner.storage, *manifest.ObjectStoreBackupSummaryArtifact)
-		if err != nil {
-			return selectedRestoreArtifacts{}, fmt.Errorf("verify selected object-store backup summary artifact: %w", err)
-		}
-		summary, err := DecodeObjectStoreBackupSummaryArtifact(summaryBody)
-		if err != nil {
-			return selectedRestoreArtifacts{}, err
-		}
-		if summary.BackupSetID != objectManifest.BackupSetID ||
-			!summary.ConsistencyPointAt.Equal(objectManifest.ConsistencyPointAt) ||
-			summary.ManifestSHA256 != objectManifest.ManifestSHA256 ||
-			summary.ObjectCount != objectManifest.ObjectCount ||
-			summary.TotalSizeBytes != objectManifest.TotalSizeBytes {
-			return selectedRestoreArtifacts{}, fmt.Errorf("%w: object-store backup summary does not match private manifest", ErrInvalidBackupArtifact)
-		}
-	}
-	return selectedRestoreArtifacts{
-		PostgresSnapshot:          postgresSnapshot,
-		ObjectStoreSnapshot:       objectSnapshot,
-		ObjectStoreBackupManifest: objectManifest,
-		ExtensionBindings:         append([]ExtensionBindingProof(nil), manifest.ExtensionBindings...),
-	}, nil
-}
-
-func validateSelectedRestoreManifest(backupSet BackupSet, manifest BackupIntegrityManifest) error {
-	if manifest.SchemaID != BackupIntegrityManifestSchemaID {
-		return fmt.Errorf("%w: unsupported integrity manifest schema %q", ErrInvalidBackupArtifact, manifest.SchemaID)
-	}
-	if manifest.StorageEncryption.Mode != BackupStorageEncryptionModeAESGCM ||
-		manifest.StorageEncryption.EnvelopeSchemaID != BackupArtifactEnvelopeSchemaID ||
-		!validSHA256Hex(manifest.StorageEncryption.KeyFingerprintSHA256) {
-		return fmt.Errorf("%w: integrity manifest does not prove encrypted backup storage", ErrInvalidBackupArtifact)
-	}
-	if manifest.BackupSetID != backupSet.BackupSetID.String() {
-		return fmt.Errorf("%w: manifest backup_set_id does not match selected backup", ErrInvalidBackupArtifact)
-	}
-	if !manifest.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) {
-		return fmt.Errorf("%w: manifest consistency_point_at does not match selected backup", ErrInvalidBackupArtifact)
-	}
-	if manifest.PostgresRestoreAnchor != backupSet.PostgresRestoreAnchor ||
-		manifest.ObjectStoreRestoreAnchor != backupSet.ObjectStoreRestoreAnchor {
-		return fmt.Errorf("%w: manifest restore anchors do not match selected backup", ErrInvalidBackupArtifact)
-	}
-	if manifest.PostgresRestoreAnchor != backupStorageAnchorScheme+manifest.PostgresArtifact.Key ||
-		manifest.ObjectStoreRestoreAnchor != backupStorageAnchorScheme+manifest.ObjectStoreArtifact.Key {
-		return fmt.Errorf("%w: manifest restore anchors do not match artifact keys", ErrInvalidBackupArtifact)
-	}
-	if !backupProofMatches(manifest.PostgresArtifact, backupSet.PostgresArtifactKey, backupSet.PostgresArtifactSHA256, backupSet.PostgresArtifactSizeBytes) ||
-		!backupProofMatches(manifest.ObjectStoreArtifact, backupSet.ObjectStoreArtifactKey, backupSet.ObjectStoreArtifactSHA256, backupSet.ObjectStoreArtifactSizeBytes) {
-		return fmt.Errorf("%w: manifest artifact proofs do not match selected backup", ErrInvalidBackupArtifact)
+	if target.ReferencePacks != nil {
+		return target.ReferencePacks.ResetVerificationTarget(ctx)
 	}
 	return nil
-}
-
-func backupProofMatches(proof BackupArtifactProof, key string, sha256 string, sizeBytes int64) bool {
-	return proof.Key == key && proof.SHA256 == sha256 && proof.SizeBytes == sizeBytes
 }
 
 func DecodePostgresSnapshotArtifact(body []byte) (PostgresSnapshotArtifact, error) {
@@ -1043,46 +947,6 @@ func DecodeObjectStoreSnapshotArtifact(body []byte) (ObjectStoreSnapshotArtifact
 	return artifact, nil
 }
 
-func restorePostgresSnapshot(ctx context.Context, db postgres.DB, artifact PostgresSnapshotArtifact) error {
-	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("begin postgres restore: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	if _, err := tx.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
-		return fmt.Errorf("disable postgres restore referential triggers: %w", err)
-	}
-	tableNames := make([]string, 0, len(artifact.Tables))
-	for _, table := range artifact.Tables {
-		tableNames = append(tableNames, table.TableName)
-	}
-	if len(tableNames) > 0 {
-		truncateSQL := "TRUNCATE " + sanitizedTableList(tableNames) + " CASCADE"
-		if _, err := tx.Exec(ctx, truncateSQL); err != nil {
-			return fmt.Errorf("truncate postgres restore target tables: %w", err)
-		}
-	}
-	for _, table := range artifact.Tables {
-		identifier := pgx.Identifier{table.TableName}.Sanitize()
-		insertSQL := fmt.Sprintf("INSERT INTO %s SELECT * FROM jsonb_populate_record(NULL::%s, $1::jsonb)", identifier, identifier)
-		for _, rawRow := range table.Rows {
-			if _, err := tx.Exec(ctx, insertSQL, string(rawRow)); err != nil {
-				return fmt.Errorf("restore postgres table %s: %w", table.TableName, err)
-			}
-		}
-		if err := resetOwnedSequences(ctx, tx, table.TableName); err != nil {
-			return err
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit postgres restore: %w", err)
-	}
-	return nil
-}
-
 func sanitizedTableList(tableNames []string) string {
 	parts := make([]string, 0, len(tableNames))
 	for _, tableName := range tableNames {
@@ -1139,162 +1003,6 @@ ORDER BY ordinal_position ASC
 		}
 	}
 	return nil
-}
-
-func restoreObjectStoreSnapshot(ctx context.Context, store objectstore.Store, artifact ObjectStoreSnapshotArtifact) error {
-	existing, err := store.ListObjects(ctx, "")
-	if err != nil {
-		return fmt.Errorf("list object-store restore target: %w", err)
-	}
-	sort.Slice(existing, func(i, j int) bool {
-		return existing[i].Key < existing[j].Key
-	})
-	for _, object := range existing {
-		if err := store.DeleteObject(ctx, object.Key); err != nil {
-			return fmt.Errorf("delete object-store restore target object %s: %w", object.Key, err)
-		}
-	}
-	for _, item := range artifact.Objects {
-		body, err := base64.StdEncoding.DecodeString(item.BodyBase64)
-		if err != nil {
-			return fmt.Errorf("%w: decode object-store restore body for %s: %v", ErrInvalidBackupArtifact, item.Key, err)
-		}
-		if err := store.PutObject(ctx, item.Key, bytes.NewReader(body), int64(len(body)), item.ContentType); err != nil {
-			return fmt.Errorf("restore object-store object %s: %w", item.Key, err)
-		}
-	}
-	return nil
-}
-
-func verifyRestoredConsistency(ctx context.Context, target RestoreTarget, artifacts selectedRestoreArtifacts) (RestoreConsistencyReport, error) {
-	authoritativeDigest, authoritativeCount, err := postgresSnapshotDigest(artifacts.PostgresSnapshot, nil)
-	if err != nil {
-		return RestoreConsistencyReport{}, err
-	}
-	targetSnapshotBody, err := CapturePostgresSnapshotArtifact(ctx, target.Postgres)
-	if err != nil {
-		return RestoreConsistencyReport{}, fmt.Errorf("capture restored postgres consistency snapshot: %w", err)
-	}
-	targetSnapshot, err := DecodePostgresSnapshotArtifact(targetSnapshotBody)
-	if err != nil {
-		return RestoreConsistencyReport{}, err
-	}
-	targetDigest, _, err := postgresSnapshotDigest(targetSnapshot, nil)
-	if err != nil {
-		return RestoreConsistencyReport{}, err
-	}
-	if targetDigest != authoritativeDigest {
-		return RestoreConsistencyReport{}, fmt.Errorf("%w: restored authoritative row digest mismatch", ErrInvalidBackupArtifact)
-	}
-
-	changeSetDigest, changeSetCount, err := postgresSnapshotDigest(artifacts.PostgresSnapshot, isChangeSetTable)
-	if err != nil {
-		return RestoreConsistencyReport{}, err
-	}
-	targetChangeSetDigest, _, err := postgresSnapshotDigest(targetSnapshot, isChangeSetTable)
-	if err != nil {
-		return RestoreConsistencyReport{}, err
-	}
-	if targetChangeSetDigest != changeSetDigest {
-		return RestoreConsistencyReport{}, fmt.Errorf("%w: restored change-set digest mismatch", ErrInvalidBackupArtifact)
-	}
-
-	blobDigest, blobCount, err := verifyRestoredBlobHashes(ctx, target, artifacts.ObjectStoreSnapshot)
-	if err != nil {
-		return RestoreConsistencyReport{}, err
-	}
-	return RestoreConsistencyReport{
-		AuthoritativeRowsSHA256: authoritativeDigest,
-		AuthoritativeRowCount:   authoritativeCount,
-		ChangeSetsSHA256:        changeSetDigest,
-		ChangeSetRowCount:       changeSetCount,
-		BlobHashesSHA256:        blobDigest,
-		BlobCount:               blobCount,
-	}, nil
-}
-
-func postgresSnapshotDigest(artifact PostgresSnapshotArtifact, include func(string) bool) (string, int, error) {
-	digest := sha256.New()
-	rowCount := 0
-	tables := append([]PostgresSnapshotTable(nil), artifact.Tables...)
-	sort.Slice(tables, func(i, j int) bool {
-		return tables[i].TableName < tables[j].TableName
-	})
-	for _, table := range tables {
-		if include != nil && !include(table.TableName) {
-			continue
-		}
-		_, _ = digest.Write([]byte("table:" + table.TableName + "\n"))
-		rows := make([]string, 0, len(table.Rows))
-		for _, rawRow := range table.Rows {
-			normalized, err := normalizeJSONForDigest(rawRow)
-			if err != nil {
-				return "", 0, fmt.Errorf("normalize postgres snapshot row for %s: %w", table.TableName, err)
-			}
-			rows = append(rows, normalized)
-		}
-		sort.Strings(rows)
-		for _, row := range rows {
-			_, _ = digest.Write([]byte(row))
-			_, _ = digest.Write([]byte("\n"))
-			rowCount++
-		}
-	}
-	return hex.EncodeToString(digest.Sum(nil)), rowCount, nil
-}
-
-func normalizeJSONForDigest(raw json.RawMessage) (string, error) {
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return "", err
-	}
-	normalized, err := json.Marshal(value)
-	if err != nil {
-		return "", err
-	}
-	return string(normalized), nil
-}
-
-func isChangeSetTable(tableName string) bool {
-	switch tableName {
-	case "change_sets", "change_set_mutations", "record_history_entry_refs", "record_revision_conflict_facts", "record_revisions":
-		return true
-	default:
-		return false
-	}
-}
-
-func verifyRestoredBlobHashes(ctx context.Context, target RestoreTarget, artifact ObjectStoreSnapshotArtifact) (string, int, error) {
-	digest := sha256.New()
-	objects := append([]ObjectStoreSnapshotItem(nil), artifact.Objects...)
-	sort.Slice(objects, func(i, j int) bool {
-		return objects[i].Key < objects[j].Key
-	})
-	for _, item := range objects {
-		reader, info, err := target.ObjectStore.ReadObject(ctx, item.Key, objectstore.ReadOptions{})
-		if err != nil {
-			return "", 0, fmt.Errorf("read restored object %s: %w", item.Key, err)
-		}
-		body, readErr := io.ReadAll(reader)
-		closeErr := reader.Close()
-		if readErr != nil {
-			return "", 0, fmt.Errorf("read restored object body %s: %w", item.Key, readErr)
-		}
-		if closeErr != nil {
-			return "", 0, fmt.Errorf("close restored object %s: %w", item.Key, closeErr)
-		}
-		if info.Size != item.SizeBytes || int64(len(body)) != item.SizeBytes || sha256Hex(body) != item.SHA256 {
-			return "", 0, fmt.Errorf("%w: restored object proof mismatch for %s", ErrInvalidBackupArtifact, item.Key)
-		}
-		_, _ = digest.Write([]byte("object:" + item.Key + ":" + item.SHA256 + "\n"))
-	}
-
-	rowDigest, _, err := verifyRestoredBlobRowsDetailed(ctx, target.EvidenceObjects, target.ObjectStore)
-	if err != nil {
-		return "", 0, err
-	}
-	_, _ = digest.Write([]byte("blob_rows:" + rowDigest + "\n"))
-	return hex.EncodeToString(digest.Sum(nil)), len(objects), nil
 }
 
 func verifyRestoredBlobRowsDetailed(ctx context.Context, provider EvidenceRecoveryProvider, store objectstore.Store) (string, int, error) {

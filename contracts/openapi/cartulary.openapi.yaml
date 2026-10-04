@@ -247,6 +247,26 @@
                 "deployment_admin_revoked",
                 "password_changed",
                 "password_reset",
+                "reference_pack_activation",
+                "reference_pack_dependency_invalidation",
+                "reference_pack_disablement",
+                "reference_pack_exact_reimport",
+                "reference_pack_import_admitted",
+                "reference_pack_import_verification",
+                "reference_pack_payload_invalidation",
+                "reference_pack_profile_reconciliation",
+                "reference_pack_refresh_admitted",
+                "reference_pack_refresh_verification",
+                "reference_pack_removal",
+                "reference_pack_reverification",
+                "reference_pack_reverify_admitted",
+                "reference_pack_rollback_activation",
+                "reference_pack_root_import",
+                "reference_pack_safety_fallback",
+                "reference_pack_sequence_rejection",
+                "reference_pack_trust_root_rejection",
+                "reference_pack_trust_root_update",
+                "reference_pack_verification_completed",
                 "restore_completed",
                 "restore_failed",
                 "restore_started",
@@ -272,6 +292,7 @@
                 "account_preferences",
                 "auth_binding",
                 "backup_set",
+                "reference_pack_operation",
                 "restore_operation",
                 "user"
               ],
@@ -6877,15 +6898,6 @@
             }
           },
           {
-            "description": "Optional exact Reference Pack verification-result filter.",
-            "in": "query",
-            "name": "verification_result",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/ReferencePackVerificationResult"
-            }
-          },
-          {
             "description": "Optional exact lowercase boolean filter for active versions.",
             "in": "query",
             "name": "active",
@@ -7054,6 +7066,67 @@
           }
         ],
         "summary": "Refresh local verification for selected reference-pack keys.",
+        "tags": [
+          "reference-packs"
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    },
+    "/api/v1/reference-packs/validation-summaries/{summary_id}": {
+      "get": {
+        "operationId": "getReferencePackValidationSummary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "summary_id",
+            "required": true,
+            "schema": {
+              "pattern": "^rpvs_[0-9a-f]{64}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencePackValidationSummaryEnvelope"
+                }
+              }
+            },
+            "description": "Committed validation summary"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid pagination request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Reference-pack version not found"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Read one committed immutable Reference Pack validation summary.",
         "tags": [
           "reference-packs"
         ],
@@ -7328,6 +7401,96 @@
         "x-cartulary-availability": "reference_pack"
       }
     },
+    "/api/v1/reference-packs/{pack_key}/{pack_version}/remove": {
+      "post": {
+        "operationId": "removeReferencePackVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pack_version",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferencePackRemovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencePackActionEnvelope"
+                }
+              }
+            },
+            "description": "Disabled reference-pack version response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid reference-pack action request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Reference-pack version not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "State conflict or replay conflict"
+          }
+        },
+        "security": [
+          {
+            "csrfCookie": [],
+            "csrfHeader": [],
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Remove an inactive, unpinned operator pack while preserving its history.",
+        "tags": [
+          "reference-packs"
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/reverify": {
       "post": {
         "operationId": "reverifyReferencePackVersion",
@@ -7460,7 +7623,7 @@
                 }
               }
             },
-            "description": "Render, release-state, or idempotency conflict"
+            "description": "Release admission conflict or required_reference_pack_unavailable for the exact snapshot binding"
           }
         },
         "security": [
@@ -14015,6 +14178,7 @@
       },
       "IndicatorCreateRequest": {
         "additionalProperties": false,
+        "description": "Identity values are admitted without transport normalization and evaluated by Reference Data against the effective registry. Type and value-kind tokens are exact. Text values may contain newlines and tabs; raw identity input is limited to 8192 Unicode scalars. Canonical-equivalent input reuses the same active incident identity.",
         "properties": {
           "client_txn_id": {
             "type": "string"
@@ -14023,6 +14187,7 @@
             "type": "string"
           },
           "indicator.display_value": {
+            "maxLength": 8192,
             "type": "string"
           },
           "indicator.hash_algorithm": {
@@ -14035,6 +14200,7 @@
             "type": "string"
           },
           "indicator.normalized_value": {
+            "maxLength": 8192,
             "type": "string"
           },
           "indicator.stix_pattern": {
@@ -14045,7 +14211,10 @@
           }
         },
         "required": [
-          "client_txn_id"
+          "client_txn_id",
+          "indicator.indicator_type",
+          "indicator.value_kind",
+          "indicator.display_value"
         ],
         "type": "object"
       },
@@ -15057,7 +15226,10 @@
           },
           "submitted_by_user_id": {
             "format": "uuid",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "updated_at": {
             "format": "date-time",
@@ -17022,6 +17194,7 @@
             "type": "string"
           },
           "reason": {
+            "maxLength": 4096,
             "type": [
               "string",
               "null"
@@ -17065,6 +17238,119 @@
         "required": [
           "metadata",
           "file"
+        ],
+        "type": "object"
+      },
+      "ReferencePackIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "check_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "entry_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issue_id": {
+            "pattern": "^rpi_[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "phase": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason_code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "safe_details": {
+            "additionalProperties": false,
+            "properties": {
+              "actual_token": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "expected_token": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "limit_id": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "related_pack_key": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "related_pack_version": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "limit_id",
+              "expected_token",
+              "actual_token",
+              "related_pack_key",
+              "related_pack_version"
+            ],
+            "type": "object"
+          },
+          "severity": {
+            "const": "error"
+          }
+        },
+        "required": [
+          "issue_id",
+          "check_id",
+          "severity",
+          "phase",
+          "code",
+          "reason_code",
+          "path",
+          "entry_id",
+          "safe_details"
         ],
         "type": "object"
       },
@@ -17115,13 +17401,90 @@
         ],
         "type": "object"
       },
-      "ReferencePackVerificationResult": {
-        "enum": [
-          "pending",
-          "passed",
-          "failed"
+      "ReferencePackRemovalRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "reason"
         ],
-        "type": "string"
+        "type": "object"
+      },
+      "ReferencePackValidationSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ReferencePackIssue"
+            },
+            "maxItems": 1000,
+            "type": "array"
+          },
+          "issues_truncated": {
+            "type": "boolean"
+          },
+          "primary_issue_id": {
+            "pattern": "^rpi_[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result": {
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "retained_issue_count": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "schema_id": {
+            "const": "cartulary.reference_pack_validation_summary.v1"
+          },
+          "total_issue_count": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_id",
+          "result",
+          "primary_issue_id",
+          "issues_truncated",
+          "total_issue_count",
+          "retained_issue_count",
+          "issues"
+        ],
+        "type": "object"
+      },
+      "ReferencePackValidationSummaryEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReferencePackValidationSummary"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
       },
       "ReferencePackVersionEnvelope": {
         "additionalProperties": false,
@@ -17159,6 +17522,77 @@
           "active": {
             "type": "boolean"
           },
+          "administratively_disabled": {
+            "type": "boolean"
+          },
+          "content_profile_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content_profile_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dependencies": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "pack_key": {
+                  "maxLength": 128,
+                  "minLength": 3,
+                  "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+                  "type": "string"
+                },
+                "pack_version": {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$",
+                  "type": "string"
+                },
+                "payload_sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "pack_key",
+                "pack_version",
+                "payload_sha256"
+              ],
+              "type": "object"
+            },
+            "maxItems": 64,
+            "minItems": 0,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "distribution_kind": {
+            "enum": [
+              "operator_imported",
+              "packaged_builtin"
+            ],
+            "type": "string"
+          },
+          "fallback_from_version": {
+            "maxLength": 128,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "health": {
+            "enum": [
+              "staged",
+              "verified_available",
+              "failed",
+              "missing"
+            ],
+            "type": "string"
+          },
           "imported_at": {
             "format": "date-time",
             "type": "string"
@@ -17170,17 +17604,65 @@
               "null"
             ]
           },
+          "last_failure_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_verified_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "license_expression": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "manifest_sha256": {
-            "type": "string"
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "missing_reason": {
+            "enum": [
+              null,
+              "staging_loss",
+              "storage_loss",
+              "administrative_removal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "pack_contract_version": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "pack_key": {
             "type": "string"
           },
           "pack_kind": {
             "type": "string"
+          },
+          "pack_release_sequence": {
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "pack_version": {
             "type": "string"
@@ -17189,7 +17671,14 @@
             "$ref": "#/components/schemas/ReferencePackVersionState"
           },
           "payload_sha256": {
-            "type": "string"
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pending_work": {
+            "type": "boolean"
           },
           "previous_active_version": {
             "type": [
@@ -17197,7 +17686,26 @@
               "null"
             ]
           },
-          "signer_key_id": {
+          "redistribution": {
+            "enum": [
+              null,
+              "allowed",
+              "restricted",
+              "prohibited"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "removed": {
+            "type": "boolean"
+          },
+          "reproducibility_pinned": {
+            "type": "boolean"
+          },
+          "source_as_of": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
@@ -17209,11 +17717,56 @@
               "null"
             ]
           },
-          "verification_method": {
-            "type": "string"
+          "source_profile_id": {
+            "pattern": "^[A-Za-z0-9._:-]{1,192}$",
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "verification_result": {
-            "$ref": "#/components/schemas/ReferencePackVerificationResult"
+          "source_profile_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_version": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trust_repository_id": {
+            "maxLength": 128,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trust_valid_until": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verification_method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verified_signer_key_ids": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array",
+            "uniqueItems": true
           }
         },
         "required": [
@@ -17221,19 +17774,40 @@
           "pack_kind",
           "pack_version",
           "pack_version_state",
+          "health",
+          "administratively_disabled",
+          "distribution_kind",
           "active",
+          "removed",
+          "missing_reason",
+          "last_failure_code",
           "source_identifier",
           "manifest_sha256",
           "payload_sha256",
           "pack_contract_version",
+          "content_profile_id",
+          "content_profile_version",
           "verification_method",
-          "verification_result",
-          "signer_key_id",
-          "previous_active_version",
+          "last_verified_at",
+          "trust_valid_until",
+          "verified_signer_key_ids",
           "imported_by_user_id",
           "imported_at",
+          "previous_active_version",
           "activated_by_user_id",
-          "activated_at"
+          "activated_at",
+          "pack_release_sequence",
+          "source_profile_id",
+          "source_profile_sha256",
+          "source_version",
+          "source_as_of",
+          "license_expression",
+          "redistribution",
+          "trust_repository_id",
+          "pending_work",
+          "reproducibility_pinned",
+          "fallback_from_version",
+          "dependencies"
         ],
         "type": "object"
       },

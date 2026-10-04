@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_historical_readiness",
+  "scenario": "historical_readiness",
+  "owner_id": "module.reference_data",
+  "row_id": "module.reference_data.integration.canonical_persistence",
+  "test_name": "TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration"
+}

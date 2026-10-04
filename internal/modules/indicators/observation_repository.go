@@ -14,7 +14,7 @@ import (
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 )
 
-func insertIndicatorObservationTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorObservationCreateParams, createdAt time.Time) (IndicatorObservationRecord, error) {
+func insertIndicatorObservationTx(ctx context.Context, tx pgx.Tx, evaluate identity.Evaluator, actorUserID uuid.UUID, params IndicatorObservationCreateParams, createdAt time.Time) (IndicatorObservationRecord, error) {
 	if params.IncidentID == uuid.Nil || params.SourceRecordID == uuid.Nil {
 		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
 	}
@@ -29,7 +29,7 @@ func insertIndicatorObservationTx(ctx context.Context, tx pgx.Tx, actorUserID uu
 	if observedText == "" || strings.ContainsRune(observedText, 0) {
 		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
 	}
-	parsedIndicatorType, normalizedCandidate, err := identity.NormalizeObservationCandidate(params.ParsedIndicatorType, params.normalizedCandidate, observedText)
+	parsedIndicatorType, normalizedCandidate, err := identity.NormalizeObservationCandidate(evaluate, params.ParsedIndicatorType, params.normalizedCandidate, observedText)
 	if err != nil {
 		return IndicatorObservationRecord{}, err
 	}

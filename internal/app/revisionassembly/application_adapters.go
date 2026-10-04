@@ -13,16 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
-
-type transactionRunnerAdapter struct {
-	database postgres.DB
-}
-
-func (adapter transactionRunnerAdapter) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
-	return adapter.database.BeginTx(ctx, options)
-}
 
 type commandAuthorizerAdapter struct {
 	access *admission.Checker

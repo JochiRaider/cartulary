@@ -132,13 +132,13 @@ WHERE operation_id = $1 AND result = 'succeeded'
 	wantKeys := []string{
 		"artifact_counts", "attempt_id", "backup_set_id", "completed_at",
 		"consistency_point_at", "error_code", "error_reason", "graph_projection_completion", "operation",
-		"operation_id", "record_kind", "result", "schema_id", "started_at",
+		"operation_id", "record_kind", "result", "schema_id", "started_at", "target_binding_digests",
 	}
 	if got := sortedJSONKeys(payload); strings.Join(got, ",") != strings.Join(wantKeys, ",") {
 		t.Fatalf("terminal journal keys got %v want %v", got, wantKeys)
 	}
-	if payload["graph_projection_completion"] != nil {
-		t.Fatalf("non-restore completion unexpectedly carries Graph Projection evidence: %#v", payload["graph_projection_completion"])
+	if payload["graph_projection_completion"] != nil || payload["target_binding_digests"] != nil {
+		t.Fatalf("non-restore completion unexpectedly carries restore evidence: %#v", payload)
 	}
 	counts := payload["artifact_counts"].([]any)
 	if first := counts[0].(map[string]any)["kind"]; first != "backup_attestation" {
@@ -311,8 +311,8 @@ func TestRecoveryCompletionRecordsCloseEveryOperationAndFailureTiming_Unit(t *te
 			if err := json.Unmarshal(body, &decoded); err != nil {
 				t.Fatalf("decode completion payload: %v", err)
 			}
-			if len(decoded) != 14 || decoded["graph_projection_completion"] != nil {
-				t.Fatalf("completion payload field count/Graph default got %d/%#v want 14/null: %v", len(decoded), decoded["graph_projection_completion"], sortedJSONKeys(decoded))
+			if len(decoded) != 15 || decoded["graph_projection_completion"] != nil || decoded["target_binding_digests"] != nil {
+				t.Fatalf("completion payload field count/Graph default got %d/%#v want 15/null: %v", len(decoded), decoded["graph_projection_completion"], sortedJSONKeys(decoded))
 			}
 		})
 	}

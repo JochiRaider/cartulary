@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_get_pack_entry_result.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "item": {
+              "$ref": "consumer_item.v1.schema.json"
+            },
+            "provenance": {
+              "$ref": "provenance.v1.schema.json"
+            }
+          },
+          "required": [
+            "item",
+            "provenance"
+          ],
+          "additionalProperties": false
+        },
+        "error": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "value",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "null"
+        },
+        "error": {
+          "$ref": "consumer_error.v1.schema.json"
+        }
+      },
+      "required": [
+        "value",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

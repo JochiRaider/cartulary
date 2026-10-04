@@ -3,6 +3,7 @@ package revisionassembly
 import (
 	"encoding/json"
 	"errors"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/historytest"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ import (
 const historyFixtureID = "20000000-0000-4000-8000-000000000001"
 
 func TestSemanticHistorySourceContributions(t *testing.T) {
-	contributions, err := CurrentProviderContributions()
+	contributions, err := CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatal(err)
 	}

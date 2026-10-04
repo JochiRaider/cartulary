@@ -7,11 +7,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 func TestRevisionProviderContributionOwnsIndicatorHistoryFacet_Unit(t *testing.T) {
-	contribution := indicators.NewRevisionContribution()
+	contribution := indicators.NewRevisionContribution(referencefixture.IndicatorRegistry{})
 	if contribution.SourceOwnerModule != revisions.SourceOwnerIndicators || len(contribution.Records) != 1 || len(contribution.NonRowTargets) != 2 {
 		t.Fatalf("unexpected Indicators revision contribution: %#v", contribution)
 	}

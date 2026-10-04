@@ -45,11 +45,13 @@ type RootBinding struct {
 type Deployment struct {
 	DatabaseStorage            RootBinding
 	ObjectStorage              RootBinding
+	ReferencePackStorage       RootBinding
 	BackupStorage              RootBinding
 	PostgresSettings           postgres.Settings
 	ObjectSettings             objectstore.Settings
 	OpenPostgres               func(context.Context) (PostgresPool, error)
 	OpenObjectStore            func(context.Context) (objectstore.Store, error)
+	OpenReferencePacks         func() (recovery.ReferencePackStorage, error)
 	OpenBackup                 func() (recovery.BackupStorage, error)
 	ServingLeaseAcquireTimeout time.Duration
 	ServingLeaseLossDetection  time.Duration
@@ -64,6 +66,7 @@ type RecoveryStateCoverageValidator func(context.Context, PostgresPool, *recover
 type VNextCaptureFactory func(
 	PostgresPool,
 	objectstore.Store,
+	recovery.VNextObjectSource,
 	recovery.BackupStorage,
 	*recoverystate.Catalog,
 ) (*recovery.VNextCaptureService, error)
@@ -210,7 +213,15 @@ func (service Service) backupCreate(ctx context.Context, parsed operationRequest
 			errors.New("vNext capture assembly is unavailable"),
 		)
 	}
-	capture, err := service.NewVNextCapture(pool, objectStore, backupStorage, service.RecoveryStateCatalog)
+	if cfg.OpenReferencePacks == nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, errors.New("reference pack recovery storage is required"))
+	}
+	referencePacks, err := cfg.OpenReferencePacks()
+	if err != nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupObject, err)
+	}
+	defer referencePacks.Close()
+	capture, err := service.NewVNextCapture(pool, objectStore, referencePacks, backupStorage, service.RecoveryStateCatalog)
 	if err != nil {
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, err)
 	}
@@ -301,7 +312,7 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	if !ok {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission"))
 	}
-	if replay, found, replayErr := service.replaySuccessfulRestore(ctx, sourcePool, parsed, backupSet, generationIdentity, targetGenerationID); replayErr != nil {
+	if replay, found, replayErr := service.replaySuccessfulRestore(ctx, sourcePool, parsed, backupSet, generationIdentity, targetGenerationID, TargetBindingDigestsFor(targetCfg)); replayErr != nil {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreJournalWrite, replayErr)
 	} else if found {
 		if admissionErr := admission.AssertHeld(); admissionErr != nil {
@@ -314,10 +325,11 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
-	target, err := service.restoreTarget(targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
+	target, err := service.restoreTarget(targetCfg, targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
 	if err != nil {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreProjectionRebuild, err)
 	}
+	defer target.ReferencePacks.Close()
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
 	ReportProgress(progress, "projection_rebuild", 0, nil)
@@ -338,6 +350,8 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	ReportProgress(progress, "finalize", 1, IntPtr(1))
 	outcome = ResultForBackupSet(result.BackupSet, "restore_operation", "cartulary.restore_operation.v1")
 	outcome.graphProjectionCompletion = result.GraphProjectionCompletion
+	bindings := TargetBindingDigestsFor(targetCfg)
+	outcome.targetBindings = &bindings
 	return outcome, nil
 }
 
@@ -386,10 +400,11 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	if !ok {
 		return Result{}, NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission"))
 	}
-	target, err := service.restoreVerificationTarget(targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
+	target, err := service.restoreVerificationTarget(targetCfg, targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationProjectionRebuild, err)
 	}
+	defer target.ReferencePacks.Close()
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
 	ReportProgress(progress, "projection_rebuild", 0, nil)
@@ -408,6 +423,8 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	result, err := verify.VerifyLatestSuccessfulRetained(admission.Context(), target, service.now(), basis)
 	outcome = ResultForStoredBackupSet(result.BackupSet)
 	outcome.graphProjectionCompletion = result.RestoreResult.GraphProjectionCompletion
+	bindings := TargetBindingDigestsFor(targetCfg)
+	outcome.targetBindings = &bindings
 	if result.Run.RestoreVerificationRunID != uuid.Nil {
 		outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor("restore_verification", recovery.RestoreVerificationArtifactSchemaID, "restore_verification:"+result.Run.RestoreVerificationRunID.String(), outcome.BackupSetID))
 	}
@@ -567,11 +584,12 @@ func (service Service) runRestoreVerifyDueAttempt(
 	if !ok {
 		return outcome, NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission")), true
 	}
-	target, attemptErr := service.restoreVerificationTarget(targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
+	target, attemptErr := service.restoreVerificationTarget(targetCfg, targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
 	if attemptErr != nil {
 		attemptErr = NewFailure(FailureVerificationProjectionRebuild, attemptErr)
 		return outcome, attemptErr, true
 	}
+	defer target.ReferencePacks.Close()
 
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
@@ -580,6 +598,8 @@ func (service Service) runRestoreVerifyDueAttempt(
 	ReportProgress(progress, "workbook_probe", 0, nil)
 	result, verifyErr := verify.VerifyBackupSetAttempt(admission.Context(), target, backupSet, basis, attemptID)
 	outcome.graphProjectionCompletion = result.RestoreResult.GraphProjectionCompletion
+	bindings := TargetBindingDigestsFor(targetCfg)
+	outcome.targetBindings = &bindings
 	if result.ArtifactProof.Key != "" && result.Run.RestoreVerificationRunID == attemptID {
 		outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor(
 			"restore_verification",
@@ -677,6 +697,7 @@ func (service Service) openRestoreRuntime(ctx context.Context, parsed operationR
 }
 
 func (service Service) restoreTarget(
+	targetCfg Deployment,
 	targetPool postgres.DB,
 	targetObjectStore objectstore.Store,
 	restoreOperationID uuid.UUID,
@@ -694,11 +715,19 @@ func (service Service) restoreTarget(
 	if err != nil {
 		return recovery.RestoreTarget{}, err
 	}
+	if targetCfg.OpenReferencePacks == nil {
+		return recovery.RestoreTarget{}, errors.New("reference pack restore storage is required")
+	}
+	packs, err := targetCfg.OpenReferencePacks()
+	if err != nil {
+		return recovery.RestoreTarget{}, err
+	}
 	return recovery.RestoreTarget{
 		RestoreOperationID: restoreOperationID,
 		TargetGenerationID: targetGenerationID,
 		Postgres:           targetPool,
 		ObjectStore:        targetObjectStore,
+		ReferencePacks:     packs,
 		EvidenceObjects:    evidenceProvider,
 		GraphProjection:    graphRestore,
 		Projections:        rebuilder,
@@ -706,6 +735,7 @@ func (service Service) restoreTarget(
 }
 
 func (service Service) restoreVerificationTarget(
+	targetCfg Deployment,
 	targetPool postgres.DB,
 	targetObjectStore objectstore.Store,
 	restoreOperationID uuid.UUID,
@@ -723,12 +753,20 @@ func (service Service) restoreVerificationTarget(
 	if err != nil {
 		return recovery.RestoreVerificationTarget{}, err
 	}
+	if targetCfg.OpenReferencePacks == nil {
+		return recovery.RestoreVerificationTarget{}, errors.New("reference pack restore storage is required")
+	}
+	packs, err := targetCfg.OpenReferencePacks()
+	if err != nil {
+		return recovery.RestoreVerificationTarget{}, err
+	}
 	return recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
 			RestoreOperationID: restoreOperationID,
 			TargetGenerationID: targetGenerationID,
 			Postgres:           targetPool,
 			ObjectStore:        targetObjectStore,
+			ReferencePacks:     packs,
 			EvidenceObjects:    evidenceProvider,
 			GraphProjection:    graphRestore,
 			Projections:        rebuilder,
@@ -792,7 +830,34 @@ func requireDistinctRestoreTarget(sourceConfigPath string, targetConfigPath stri
 	if objectStoreBindingID(sourceObject) == objectStoreBindingID(targetObject) {
 		return NewFailure(FailureSameObjectStoreBinding, errors.New("restore target source and target object-store bindings must differ"))
 	}
+	if sourceDeployment.OpenReferencePacks != nil || targetDeployment.OpenReferencePacks != nil {
+		sourceRoot, targetRoot := sourceDeployment.ReferencePackStorage, targetDeployment.ReferencePackStorage
+		if sourceRoot.BindingKind != "filesystem_root" || targetRoot.BindingKind != "filesystem_root" || !filepath.IsAbs(sourceRoot.Path) || !filepath.IsAbs(targetRoot.Path) {
+			return NewFailure(FailureSameObjectStoreBinding, errors.New("restore source and target Reference Pack roots must be distinct admitted filesystem roots"))
+		}
+		// Both restore and disposable-target reset mutate these roots. Compare
+		// across storage kinds as well, so target packs cannot alias source
+		// objects or backups (nor target objects alias retained source packs).
+		for _, destination := range []RootBinding{targetDeployment.ObjectStorage, targetRoot} {
+			for _, source := range []RootBinding{sourceDeployment.DatabaseStorage, sourceDeployment.ObjectStorage, sourceDeployment.BackupStorage, sourceRoot} {
+				if restoreRootsOverlap(source, destination) {
+					return NewFailure(FailureSameObjectStoreBinding, errors.New("restore destination overlaps retained source storage"))
+				}
+			}
+		}
+		if restoreRootsOverlap(targetDeployment.ObjectStorage, targetRoot) || restoreRootsOverlap(targetDeployment.BackupStorage, targetRoot) {
+			return NewFailure(FailureSameObjectStoreBinding, errors.New("reference pack restore root overlaps another target storage binding"))
+		}
+	}
 	return nil
+}
+
+func restoreRootsOverlap(a, b RootBinding) bool {
+	if a.BindingKind != "filesystem_root" || b.BindingKind != "filesystem_root" {
+		return false
+	}
+	aPath, bPath := filepath.Clean(a.Path), filepath.Clean(b.Path)
+	return aPath == bPath || strings.HasPrefix(aPath, strings.TrimRight(bPath, string(filepath.Separator))+string(filepath.Separator)) || strings.HasPrefix(bPath, strings.TrimRight(aPath, string(filepath.Separator))+string(filepath.Separator))
 }
 
 func (service Service) acquireTargetAdmission(
@@ -976,6 +1041,7 @@ func (service Service) finishJournalAndAudit(ctx context.Context, pool PostgresP
 		ErrorCode:                 errorCode,
 		ErrorReason:               reasonCode,
 		GraphProjectionCompletion: outcome.graphProjectionCompletion,
+		TargetBindings:            outcome.targetBindings,
 	}); err != nil {
 		replaceWithJournalFailure(operationErr, parsed.Operation, err)
 	}
@@ -995,6 +1061,7 @@ func (service Service) replaySuccessfulRestore(
 	backupSet recovery.BackupSet,
 	generationIdentity recovery.RecoveryGenerationIdentity,
 	targetGenerationID uuid.UUID,
+	targetBindings TargetBindingDigests,
 ) (Result, bool, error) {
 	repository, err := service.evidenceRepository(pool)
 	if err != nil {
@@ -1009,7 +1076,7 @@ func (service Service) replaySuccessfulRestore(
 		return Result{}, false, err
 	}
 	completion := record.GraphProjectionCompletion
-	if completion == nil || completion.TargetGenerationID != targetGenerationID ||
+	if completion == nil || record.TargetBindings == nil || *record.TargetBindings != targetBindings || completion.TargetGenerationID != targetGenerationID ||
 		completion.RestoreOperationID != parsed.OperationID || completion.BackupSetID != backupSet.BackupSetID ||
 		!completion.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) ||
 		!generationIdentity.AdmitsGraphCompletion(
@@ -1022,6 +1089,7 @@ func (service Service) replaySuccessfulRestore(
 	}
 	result := ResultForBackupSet(backupSet, "restore_operation", "cartulary.restore_operation.v1")
 	result.graphProjectionCompletion = completion
+	result.targetBindings = &targetBindings
 	return result, true, nil
 }
 
@@ -1033,12 +1101,13 @@ func (service Service) restoreVerificationBasisForConfigs(
 		return recovery.RestoreVerificationBasis{}, recoverystate.ErrInvalidCatalog
 	}
 	basis := recovery.RestoreVerificationBasis{
-		MechanismID:                recovery.VNextBackupMechanismID,
-		CodecRegistrySHA256:        recovery.VNextCodecRegistrySHA256(),
-		RecoveryStateCatalogSHA256: service.RecoveryStateCatalog.DigestSHA256(),
-		DatabaseBindingSHA256:      recovery.SHA256String(rootBindingBasis(target.DatabaseStorage)),
-		ObjectStoreBindingSHA256:   recovery.SHA256String(rootBindingBasis(target.ObjectStorage)),
-		BackupStorageBindingSHA256: recovery.SHA256String(rootBindingBasis(source.BackupStorage)),
+		MechanismID:                       recovery.VNextBackupMechanismID,
+		CodecRegistrySHA256:               recovery.VNextCodecRegistrySHA256(),
+		RecoveryStateCatalogSHA256:        service.RecoveryStateCatalog.DigestSHA256(),
+		DatabaseBindingSHA256:             recovery.SHA256String(rootBindingBasis(target.DatabaseStorage)),
+		ObjectStoreBindingSHA256:          recovery.SHA256String(rootBindingBasis(target.ObjectStorage)),
+		ReferencePackStorageBindingSHA256: recovery.SHA256String(rootBindingBasis(target.ReferencePackStorage)),
+		BackupStorageBindingSHA256:        recovery.SHA256String(rootBindingBasis(source.BackupStorage)),
 	}
 	return basis, basis.Validate()
 }

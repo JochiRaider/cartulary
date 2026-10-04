@@ -1,0 +1,103 @@
+{
+  "references": {
+    "schema_id": "reference_pack_refs.v1",
+    "sets": [
+      {
+        "schema_id": "cartulary.reference_pack_set.v1",
+        "pack_set_id": "rpset_e60943629f9d9076f096f5c96209e853c1bca31da99a6f2e34887ef1a544b4c4",
+        "pack_set_sha256": "e60943629f9d9076f096f5c96209e853c1bca31da99a6f2e34887ef1a544b4c4",
+        "members": [
+          {
+            "pack_key": "type_registry.evidence",
+            "pack_version": "fixture-1",
+            "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+            "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pack_contract_version": "cartulary.reference_pack_contract.v1",
+            "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
+            "content_profile_version": "1"
+          },
+          {
+            "pack_key": "type_registry.host",
+            "pack_version": "fixture-1",
+            "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000002",
+            "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pack_contract_version": "cartulary.reference_pack_contract.v1",
+            "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
+            "content_profile_version": "1"
+          },
+          {
+            "pack_key": "type_registry.indicator",
+            "pack_version": "fixture-1",
+            "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000003",
+            "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "pack_contract_version": "cartulary.reference_pack_contract.v1",
+            "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
+            "content_profile_version": "1"
+          }
+        ]
+      }
+    ],
+    "versions": [
+      {
+        "pack_key": "type_registry.evidence",
+        "pack_version": "fixture-1",
+        "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+        "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "pack_contract_version": "cartulary.reference_pack_contract.v1",
+        "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
+        "content_profile_version": "1",
+        "distribution_kind": "operator_imported",
+        "verification_method": "tuf_1_0_35_offline_bundle_v1",
+        "source_profile_id": "fixture.source.v1",
+        "source_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "pack_key": "type_registry.host",
+        "pack_version": "fixture-1",
+        "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000002",
+        "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "pack_contract_version": "cartulary.reference_pack_contract.v1",
+        "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
+        "content_profile_version": "1",
+        "distribution_kind": "packaged_builtin",
+        "verification_method": "packaged_release_manifest_v1",
+        "source_profile_id": "fixture.source.v1",
+        "source_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "pack_key": "type_registry.indicator",
+        "pack_version": "fixture-1",
+        "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000003",
+        "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "pack_contract_version": "cartulary.reference_pack_contract.v1",
+        "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
+        "content_profile_version": "1",
+        "distribution_kind": "packaged_builtin",
+        "verification_method": "packaged_release_manifest_v1",
+        "source_profile_id": "fixture.source.v1",
+        "source_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ]
+  },
+  "content": {
+    "schema_id": "reference_pack_content.v1",
+    "containers": [
+      {
+        "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+        "container_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "size_bytes": 1000
+      }
+    ],
+    "required_members": [
+      {
+        "pack_set_id": "rpset_e60943629f9d9076f096f5c96209e853c1bca31da99a6f2e34887ef1a544b4c4",
+        "pack_key": "type_registry.evidence"
+      }
+    ]
+  },
+  "expected_container_path": "ext/reference_packs/containers/0000000000000000000000000000000000000000000000000000000000000001.pack",
+  "expected_required_version": {
+    "pack_key": "type_registry.evidence",
+    "pack_version": "fixture-1"
+  }
+}

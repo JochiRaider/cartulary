@@ -101,6 +101,15 @@
       "rationale": "Recovery capture, restore, verification, consistency, and safe-artifact helpers; final packaged-server startup remains at the process edge."
     },
     {
+      "path": "internal/modules/reference_data/testsupport",
+      "owner": "reference_data",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Owner-provided indicator registry fixtures for caller tests; production uses the exact-set consumer and transactional assignment ports."
+    },
+    {
       "path": "internal/modules/timeline/testsupport",
       "owner": "timeline",
       "posture": "owner_local",
@@ -179,7 +188,9 @@
       "owner": "platform_bootstrap_auth",
       "posture": "shared",
       "data_kind": "bootstrap_manifest",
-      "file_roles": ["fixture"],
+      "file_roles": [
+        "fixture"
+      ],
       "owner_semantic_data_policy": "reject_unclassified",
       "retained_path_policy": "stable",
       "rationale": "Canonical bootstrap-admin manifest fixture used by bootstrap, runtime, and app test-server support."
@@ -189,7 +200,9 @@
       "owner": "platform_config",
       "posture": "shared",
       "data_kind": "platform_config",
-      "file_roles": ["fixture"],
+      "file_roles": [
+        "fixture"
+      ],
       "owner_semantic_data_policy": "reject_unclassified",
       "retained_path_policy": "stable",
       "rationale": "Config loader fixtures for valid and invalid platform configuration behavior."
@@ -211,7 +224,9 @@
       "owner": "platform_httpapi",
       "posture": "shared",
       "data_kind": "http_envelope",
-      "file_roles": ["fixture"],
+      "file_roles": [
+        "fixture"
+      ],
       "owner_semantic_data_policy": "reject_unclassified",
       "retained_path_policy": "stable",
       "rationale": "HTTP success and error envelope fixtures shared by protocol-level tests."
@@ -221,10 +236,24 @@
       "owner": "networkflow",
       "posture": "shared",
       "data_kind": "platform_config",
-      "file_roles": ["fixture"],
+      "file_roles": [
+        "fixture"
+      ],
       "owner_semantic_data_policy": "reject_unclassified",
       "retained_path_policy": "stable",
       "rationale": "Production-shaped Network Flow key-ring manifest used by application runtime tests with test-only secret material."
+    },
+    {
+      "path": "internal/testutil/fixtures/reference-packs",
+      "owner": "reference_data",
+      "posture": "shared",
+      "data_kind": "platform_config",
+      "file_roles": [
+        "fixture"
+      ],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Public test-only offline trust bootstrap used by claimed Reference Pack application runtime fixtures."
     },
     {
       "path": "internal/testutil/fixtures/revisions",
@@ -243,7 +272,9 @@
       "owner": "platform_websocket",
       "posture": "shared",
       "data_kind": "websocket_protocol",
-      "file_roles": ["fixture"],
+      "file_roles": [
+        "fixture"
+      ],
       "owner_semantic_data_policy": "reject_unclassified",
       "retained_path_policy": "stable",
       "rationale": "WebSocket handshake and session-revocation protocol fixtures."
@@ -253,7 +284,9 @@
       "owner": "platform_bootstrap_auth",
       "posture": "shared",
       "data_kind": "platform_diagnostics",
-      "file_roles": ["golden"],
+      "file_roles": [
+        "golden"
+      ],
       "owner_semantic_data_policy": "reject_unclassified",
       "retained_path_policy": "move_only_with_owner_accounting",
       "rationale": "Bootstrap and startup diagnostic goldens owned by platform bootstrap/auth support."
@@ -263,7 +296,9 @@
       "owner": "platform_config",
       "posture": "shared",
       "data_kind": "platform_config",
-      "file_roles": ["golden"],
+      "file_roles": [
+        "golden"
+      ],
       "owner_semantic_data_policy": "reject_unclassified",
       "retained_path_policy": "stable",
       "rationale": "Golden diagnostic output for platform configuration failures."
@@ -273,7 +308,9 @@
       "owner": "platform_httpapi",
       "posture": "shared",
       "data_kind": "http_envelope",
-      "file_roles": ["golden"],
+      "file_roles": [
+        "golden"
+      ],
       "owner_semantic_data_policy": "reject_unclassified",
       "retained_path_policy": "stable",
       "rationale": "Golden HTTP success and error envelope bytes shared by protocol tests."
@@ -283,7 +320,12 @@
       "owner": "platform_otel",
       "posture": "shared",
       "data_kind": "otel_evidence",
-      "file_roles": ["fixture", "golden", "manifest", "placeholder"],
+      "file_roles": [
+        "fixture",
+        "golden",
+        "manifest",
+        "placeholder"
+      ],
       "owner_semantic_data_policy": "adopted_external_evidence",
       "retained_path_policy": "stable",
       "rationale": "Adopted OTel corpus, normalized signal goldens, dependency classification, and retained empty evidence roots."

@@ -15,11 +15,13 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 )
 
 const (
 	bundleFormat              = "cartulary.incident_bundle"
-	bundleVersion             = 4
+	bundleVersion             = 5
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )
@@ -70,6 +72,7 @@ var requiredStructuredFiles = []string{
 }
 
 type manifestInput struct {
+	Limits               *Limits
 	BundleID             string
 	IncidentID           string
 	IncidentKey          string
@@ -181,6 +184,22 @@ func buildBundleArchive(input manifestInput, files map[string][]byte) (bundleArc
 	checksumLines := checksumLinesFor(normalizedFiles)
 	normalizedFiles["integrity/checksums.sha256"] = []byte(strings.Join(checksumLines, "\n") + "\n")
 
+	if input.Limits != nil {
+		if err := checkMemberCount(len(normalizedFiles), *input.Limits); err != nil {
+			return bundleArchive{}, err
+		}
+		limit := input.Limits.IncidentBundles.MaxExtractedBytes
+		if limit <= 0 {
+			limit = defaultIncidentBundleMaxExtractedBytes
+		}
+		total := int64(0)
+		for _, data := range normalizedFiles {
+			if int64(len(data)) > limit-total {
+				return bundleArchive{}, &verificationError{ReasonCode: "archive_extracted_bytes_exceeded"}
+			}
+			total += int64(len(data))
+		}
+	}
 	archiveBytes, err := zipFiles(normalizedFiles)
 	if err != nil {
 		return bundleArchive{}, err
@@ -430,6 +449,9 @@ func bundleOptionalSectionsAllowed(files map[string][]byte, manifest bundleManif
 			continue
 		}
 		switch {
+		case pathName == reference_data.IncidentPackContentPath:
+			// Exact requirements are transport metadata, including refs-only exports.
+			continue
 		case strings.HasPrefix(pathName, "ext/reference_packs/"):
 			if _, ok := declared["reference_packs"]; !ok {
 				return false

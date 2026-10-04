@@ -196,4 +196,37 @@ SELECT job_kind, progress_unit_id, handler_name, extension_owner_profile_id, sta
 	if err != nil || compacted != 0 {
 		t.Fatalf("idempotent compaction = %d, %v; want 0", compacted, err)
 	}
+	t.Run("local operator attribution survives compaction", func(t *testing.T) {
+		operationID, jobID := uuid.New(), uuid.New()
+		_, err := pool.Exec(ctx, `INSERT INTO jobs(job_id,scope_kind,status,cancelable,submitted_by_user_id,submitting_operator_operation_id,submitted_at,updated_at,progress_completed,finished_at,retained_until,result_summary_json,auth_policy,handler_name,job_kind,progress_unit_id,extension_owner_profile_id,extension_idempotency_identity,extension_idempotency_route_key,extension_idempotency_scope_key,extension_normalized_request_sha256)
+  VALUES($1,'deployment','succeeded',false,NULL,$2,$3::timestamptz-interval '8 days',$3::timestamptz-interval '7 days',1,$3::timestamptz-interval '7 days',$3::timestamptz-interval '1 hour','{"code":"done","message":"Done."}','deployment_admin','expiry.worker_v1','expiry.run_v1','expiry.run.attempt.v1','expiry',jsonb_build_object('schema_id','cartulary.route_scoped_idempotency_identity.v2','actor_kind','local_operator','actor_user_id',NULL,'operator_operation_id',($2::uuid)::text,'client_txn_id',($2::uuid)::text,'route_identity','expiry.run:deployment','scope_kind','deployment','scope_id',NULL),'expiry.run','deployment',repeat('a',64))`, jobID, operationID, cutoff)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, mutation := range []string{
+			`UPDATE jobs SET submitting_operator_operation_id=NULL WHERE job_id=$1`,
+			`UPDATE jobs SET submitting_operator_operation_id='00000000-0000-0000-0000-000000000000' WHERE job_id=$1`,
+			`UPDATE jobs SET extension_idempotency_identity=extension_idempotency_identity-'operator_operation_id' WHERE job_id=$1`,
+			`UPDATE jobs SET extension_idempotency_identity=jsonb_set(extension_idempotency_identity,'{operator_operation_id}','"61000000-0000-4000-8000-000000000001"') WHERE job_id=$1`,
+			`UPDATE jobs SET extension_idempotency_identity=jsonb_set(extension_idempotency_identity,'{actor_user_id}','"61000000-0000-4000-8000-000000000001"') WHERE job_id=$1`,
+		} {
+			if _, err := pool.Exec(ctx, mutation, jobID); err == nil {
+				t.Fatal("database admitted contradictory submitting actor")
+			}
+		}
+		if n, err := restarted.compactExpiredJobs(ctx, 1000); err != nil || n != 1 {
+			t.Fatal("local compaction failed", n, err)
+		}
+		var retainedOperator uuid.UUID
+		var submitter *uuid.UUID
+		var private []byte
+		var expired *time.Time
+		if err := pool.QueryRow(ctx, `SELECT submitting_operator_operation_id,submitted_by_user_id,extension_idempotency_identity,expired_at FROM jobs WHERE job_id=$1`, jobID).Scan(&retainedOperator, &submitter, &private, &expired); err != nil {
+			t.Fatal(err)
+		}
+		if retainedOperator != operationID || submitter != nil || len(private) != 0 || expired == nil {
+			t.Fatal("local expiry erased attribution or retained private data")
+		}
+	})
+
 }

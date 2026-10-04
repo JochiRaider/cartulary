@@ -10,6 +10,7 @@ import (
 // projection supplied by app composition to the platform configuration owner.
 type InactiveConfigurationPolicy struct {
 	ProfileID string
+	Namespace string
 	ClaimKey  string
 	Key       string
 	Kind      string
@@ -64,7 +65,7 @@ func admitInactiveConfigurationPolicies(source ArtifactSource, records map[strin
 		if readErr != nil {
 			return nil, readErr
 		}
-		if contract["schema_id"] != "cartulary.extension_profile_configuration_contract.v3" || stringValue(contract["profile_id"]) != profileID {
+		if contract["schema_id"] != "cartulary.extension_profile_configuration_contract.v4" || stringValue(contract["profile_id"]) != profileID {
 			return nil, invalidArtifact("configuration_contract", fmt.Errorf("profile mismatch for %s", profileID))
 		}
 		record := records[profileID]
@@ -88,6 +89,7 @@ func admitInactiveConfigurationPolicies(source ArtifactSource, records map[strin
 			seenKeys[key] = struct{}{}
 			policy := InactiveConfigurationPolicy{
 				ProfileID: profileID,
+				Namespace: stringValue(contract["configuration_namespace"]),
 				ClaimKey:  records[profileID].descriptor.ClaimConfigKey,
 				Key:       key,
 				Kind:      kind,

@@ -2,9 +2,7 @@ package reference_data_test
 
 import (
 	"context"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -14,77 +12,14 @@ func TestReferencePackStorageReferenceHeadSchemaContract_Integration(t *testing.
 	harness := pgtest.Start(t)
 	db := harness.OpenIsolatedDatabaseT(t, "reference-pack-storage-reference-head", postgres.PurposeRecovery)
 	ctx := context.Background()
-
-	for table, column := range map[string]string{
-		"reference_packs":             "bundle_storage_ref",
-		"reference_pack_job_payloads": "bundle_staging_ref",
-	} {
-		var count int
-		if err := db.QueryRowContext(ctx, `
-SELECT count(*)
-  FROM information_schema.columns
- WHERE table_schema = 'public'
-   AND table_name = $1
-   AND column_name = $2
-`, table, column).Scan(&count); err != nil {
-			t.Fatal(err)
-		}
-		if count != 1 {
-			t.Fatalf("%s.%s count = %d want 1", table, column, count)
+	for _, name := range []string{"reference_packs", "reference_pack_job_payloads", "reference_pack_attestations", "reference_pack_activation_state"} {
+		var present bool
+		if err := db.QueryRowContext(ctx, `SELECT to_regclass($1) IS NOT NULL`, "public."+name).Scan(&present); err != nil || present {
+			t.Fatal("retired mutable store remains", name, present, err)
 		}
 	}
-
-	for table, oldColumn := range map[string]string{
-		"reference_packs":             "bundle_storage_path",
-		"reference_pack_job_payloads": "bundle_staging_path",
-	} {
-		var count int
-		if err := db.QueryRowContext(ctx, `
-SELECT count(*)
-  FROM information_schema.columns
- WHERE table_schema = 'public'
-   AND table_name = $1
-   AND column_name = $2
-`, table, oldColumn).Scan(&count); err != nil {
-			t.Fatal(err)
-		}
-		if count != 0 {
-			t.Fatalf("legacy column %s.%s remains present", table, oldColumn)
-		}
-	}
-
-	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
-		t.Fatal(err)
-	}
-	now := time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC)
-	_, packErr := db.ExecContext(ctx, `
-INSERT INTO reference_packs (
-    pack_key, version, pack_kind, manifest_sha256, payload_sha256,
-    pack_contract_version, verification_method, status, imported_at,
-    verification_result, bundle_sha256, bundle_storage_ref, metadata
-) VALUES (
-    'type_registry.invalid', '1', 'type_registry', repeat('a', 64), repeat('b', 64),
-    'reference_pack.v1', 'manifest_sha256_v1', 'available', $1,
-    'passed', repeat('c', 64), '/host/reference.bundle', '{}'::jsonb
-)
-`, now)
-	if packErr == nil || !strings.Contains(packErr.Error(), "reference_packs_bundle_storage_ref_relative_check") {
-		t.Fatalf("absolute pack reference must fail lexical check, got %v", packErr)
-	}
-	_, stagingErr := db.ExecContext(ctx, `
-INSERT INTO reference_pack_job_payloads (
-    job_id, job_kind, actor_user_id, resolved_pack_keys, bundle_staging_ref,
-    request_json, created_at
-) VALUES (
-    '50000000-0000-4000-8000-000000000001',
-    'import',
-    '50000000-0000-4000-8000-000000000002',
-    '{}'::text[],
-    'reference-packs/../escape.bundle',
-    '{}'::jsonb, $1
-)
-`, now)
-	if stagingErr == nil || !strings.Contains(stagingErr.Error(), "reference_pack_job_payloads_bundle_staging_ref_relative_check") {
-		t.Fatalf("traversing staging reference must fail lexical check, got %v", stagingErr)
+	var reference, path int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FILTER(WHERE column_name='storage_ref'), count(*) FILTER(WHERE column_name IN ('storage_path','bundle_storage_path')) FROM information_schema.columns WHERE table_schema='public' AND table_name='reference_pack_objects'`).Scan(&reference, &path); err != nil || reference != 1 || path != 0 {
+		t.Fatal("immutable storage must retain opaque references", reference, path, err)
 	}
 }

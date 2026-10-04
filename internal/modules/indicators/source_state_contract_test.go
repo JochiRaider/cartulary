@@ -1,6 +1,8 @@
 package indicators
 
 import (
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -34,9 +36,9 @@ type indicatorSourceDescriptorProjection struct {
 func TestIndicatorSourceStateProjectionsHaveExactParity(t *testing.T) {
 	t.Parallel()
 
-	contribution, err := NewIncidentBundleContribution()
+	contribution, err := NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
 	if err != nil {
-		t.Fatalf("NewIncidentBundleContribution() error = %v", err)
+		t.Fatalf("NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{}) error = %v", err)
 	}
 	runtimeDescriptor := contribution.SourcePort.Descriptor()
 	gotDescriptor := indicatorSourceDescriptorProjection{
@@ -77,11 +79,11 @@ func TestIndicatorSourceStateProjectionsHaveExactParity(t *testing.T) {
 
 func TestIndicatorSourceStateProjectionOrderingAndCopiesAreStable(t *testing.T) {
 	t.Parallel()
-	first, err := NewIncidentBundleContribution()
+	first, err := NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("first contribution: %v", err)
 	}
-	second, err := NewIncidentBundleContribution()
+	second, err := NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("second contribution: %v", err)
 	}

@@ -1,0 +1,42 @@
+{
+  "schema_id": "cartulary.reference_pack_diagnostic_vocabulary.v1",
+  "virtual_members": [
+    "archive_members",
+    "entries",
+    "metadata",
+    "objects",
+    "relationships"
+  ],
+  "tokens": [
+    "array",
+    "boolean",
+    "canonical",
+    "const",
+    "enum",
+    "integer",
+    "maximum",
+    "minimum",
+    "missing",
+    "noncanonical",
+    "not",
+    "null",
+    "object",
+    "pattern",
+    "required",
+    "string",
+    "type",
+    "unique",
+    "unknown_member"
+  ],
+  "fixed_paths": [
+    "bundle.json",
+    "manifest.json",
+    "metadata/root.json",
+    "metadata/snapshot.json",
+    "metadata/targets.json",
+    "metadata/timestamp.json",
+    "payload/entries.ndjson",
+    "payload/objects.ndjson",
+    "payload/relationships.ndjson"
+  ]
+}

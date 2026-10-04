@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { ownersByVersion as ownerByVersion } from "../../../database-migrations/owner-allocation.mjs";
 
 import {
   assertObjectKeys,
@@ -18,22 +19,6 @@ import {
 } from "../../contract/json-shape.mjs";
 
 const schemaID = "cartulary.schema_object_ownership_manifest.v2";
-const ownerByVersion = new Map([
-  [1, "database_migrations"], [2, "auth"], [3, "incidents"], [4, "recovery"],
-  [5, "deployment_admin"], [6, "platform_jobs"], [7, "records"], [8, "revisions"],
-  [9, "parties"], [10, "timeline"], [11, "entities"], [12, "indicators"],
-  [13, "assessments"], [14, "links"], [15, "tasksdecisions"], [16, "artifacts"],
-  [17, "evidence"], [18, "savedviews"], [19, "imports"], [20, "networkflow"],
-  [21, "projections"], [22, "graphprojection"], [23, "reporting"],
-  [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
-  [27, "extensions"], [28, "audit"], [29, "collaboration"], [30, "evidence"],
-  [31, "evidence"], [32, "networkflow"], [33, "networkflow"],
-  [34, "graphprojection"], [35, "assessments"], [36, "entities"],
-  [37, "entities"], [38, "indicators"], [39, "parties"], [40, "parties"], [41, "entities"],
-  [42, "timeline"], [43, "savedviews"],
-  [44, "platform_jobs"],
-  [45, "links"],
-]);
 const manifestKeys = new Set([
   "schema_id", "migration_root", "supported_postgres_major", "application_schemas",
   "goose_ledger", "lineage_relation", "allowed_owners", "entries",

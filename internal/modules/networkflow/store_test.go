@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -47,6 +48,7 @@ func newTestNetworkFlowStore(
 		t.Fatalf("compose Projections: %v", err)
 	}
 	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        db,
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(db)),
 		IncidentState:   admission.NewChecker(db),

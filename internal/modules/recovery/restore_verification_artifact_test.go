@@ -12,12 +12,13 @@ import (
 
 func TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit(t *testing.T) {
 	basis := recovery.RestoreVerificationBasis{
-		MechanismID:                recovery.VNextBackupMechanismID,
-		DatabaseBindingSHA256:      strings.Repeat("1", 64),
-		ObjectStoreBindingSHA256:   strings.Repeat("2", 64),
-		BackupStorageBindingSHA256: strings.Repeat("3", 64),
-		RecoveryStateCatalogSHA256: strings.Repeat("4", 64),
-		CodecRegistrySHA256:        strings.Repeat("5", 64),
+		MechanismID:                       recovery.VNextBackupMechanismID,
+		DatabaseBindingSHA256:             strings.Repeat("1", 64),
+		ObjectStoreBindingSHA256:          strings.Repeat("2", 64),
+		ReferencePackStorageBindingSHA256: strings.Repeat("6", 64),
+		BackupStorageBindingSHA256:        strings.Repeat("3", 64),
+		RecoveryStateCatalogSHA256:        strings.Repeat("4", 64),
+		CodecRegistrySHA256:               strings.Repeat("5", 64),
 	}
 	basisSHA256, err := basis.SHA256()
 	if err != nil {
@@ -75,8 +76,8 @@ func TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit(t *tes
 
 	duplicate := bytes.Replace(
 		body,
-		[]byte(`"schema_id":"cartulary.restore_verification.v2"`),
-		[]byte(`"schema_id":"cartulary.restore_verification.v2","schema_id":"cartulary.restore_verification.v2"`),
+		[]byte(`"schema_id":"cartulary.restore_verification.v3"`),
+		[]byte(`"schema_id":"cartulary.restore_verification.v3","schema_id":"cartulary.restore_verification.v3"`),
 		1,
 	)
 	if _, err := recovery.DecodeRestoreVerificationArtifact(duplicate); err == nil {
@@ -123,7 +124,7 @@ func TestRestoreVerificationArtifactV1HistoricalDecoderRemainsStrict_Unit(t *tes
 
 func TestRestoreVerificationArtifactV2CanonicalFixture_Unit(t *testing.T) {
 	for _, artifact := range contractrecovery.Artifacts {
-		if artifact.Path != "contracts/recovery/fixtures/restore-verification.v2.json" {
+		if artifact.Path != "contracts/recovery/fixtures/restore-verification.v3.json" {
 			continue
 		}
 		decoded, err := recovery.DecodeRestoreVerificationArtifact([]byte(artifact.JSON + "\n"))

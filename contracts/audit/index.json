@@ -1,9 +1,25 @@
 {
   "schema_id": "cartulary.administrative_audit.v1",
-  "scope_kinds": ["deployment", "incident"],
-  "actor_kinds": ["operator", "system", "user"],
-  "sources": ["api", "operator", "startup", "system", "ui"],
-  "value_states": ["redacted", "visible"],
+  "scope_kinds": [
+    "deployment",
+    "incident"
+  ],
+  "actor_kinds": [
+    "operator",
+    "system",
+    "user"
+  ],
+  "sources": [
+    "api",
+    "operator",
+    "startup",
+    "system",
+    "ui"
+  ],
+  "value_states": [
+    "redacted",
+    "visible"
+  ],
   "actions": [
     {
       "action_code": "account_preferences_updated",
@@ -69,6 +85,106 @@
       "action_code": "password_reset",
       "scope_kind": "deployment",
       "target_kind": "user"
+    },
+    {
+      "action_code": "reference_pack_activation",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_dependency_invalidation",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_disablement",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_exact_reimport",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_import_admitted",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_import_verification",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_payload_invalidation",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_profile_reconciliation",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_refresh_admitted",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_refresh_verification",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_removal",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_reverification",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_reverify_admitted",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_rollback_activation",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_root_import",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_safety_fallback",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_sequence_rejection",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_trust_root_rejection",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_trust_root_update",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
+    },
+    {
+      "action_code": "reference_pack_verification_completed",
+      "scope_kind": "deployment",
+      "target_kind": "reference_pack_operation"
     },
     {
       "action_code": "restore_completed",

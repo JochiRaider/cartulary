@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 
@@ -21,14 +21,14 @@ import (
 )
 
 type Service struct {
-	store               *Store
+	coordinator         *Coordinator
 	authStore           *authn.Store
 	jobManager          referenceJobOperations
 	jobRunner           referenceJobRunner
 	jobSuccessFinalizer JobSuccessFinalizer
 	keys                authn.MasterKeys
 	cursorCodec         *pagination.Codec
-	storage             Storage
+	storage             ArtifactStorage
 	limits              Limits
 	now                 func() time.Time
 }
@@ -53,12 +53,27 @@ type referenceJobRunner interface {
 type RouteOption func(*routeOptions)
 
 type routeOptions struct {
+	observer            OperationObserver
 	jobSuccessFinalizer JobSuccessFinalizer
-	storage             Storage
+	storage             ArtifactStorage
 	limits              Limits
 	jobAdmission        referenceJobAdmission
 	jobOperations       referenceJobOperations
 	jobRunner           referenceJobRunner
+	configuration       Configuration
+	registryUsage       RegistryUsageReader
+}
+
+func WithRegistryUsage(reader RegistryUsageReader) RouteOption {
+	return func(options *routeOptions) { options.registryUsage = reader }
+}
+
+func WithOperationObserver(observer OperationObserver) RouteOption {
+	return func(options *routeOptions) { options.observer = observer }
+}
+
+func WithConfiguration(configuration Configuration) RouteOption {
+	return func(options *routeOptions) { options.configuration = configuration }
 }
 
 func WithJobs(admission referenceJobAdmission, operations referenceJobOperations, runner referenceJobRunner) RouteOption {
@@ -75,7 +90,7 @@ func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
 	}
 }
 
-func WithStorage(storage Storage) RouteOption {
+func WithStorage(storage ArtifactStorage) RouteOption {
 	return func(options *routeOptions) {
 		options.storage = storage
 	}
@@ -100,13 +115,15 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 			return err
 		}
 		return httpapi.BindOwnerRoutes(mux, deps, "module.reference_data", map[string]http.HandlerFunc{
-			"activateReferencePackVersion": service.handleMember,
-			"disableReferencePackVersion":  service.handleMember,
-			"getReferencePackVersion":      service.handleMember,
-			"importReferencePack":          service.handleMember,
-			"listReferencePacks":           service.handleCollection,
-			"refreshReferencePacks":        service.handleMember,
-			"reverifyReferencePackVersion": service.handleMember,
+			"activateReferencePackVersion":      service.handleMember,
+			"disableReferencePackVersion":       service.handleMember,
+			"getReferencePackVersion":           service.handleMember,
+			"getReferencePackValidationSummary": service.handleValidationSummary,
+			"importReferencePack":               service.handleMember,
+			"listReferencePacks":                service.handleCollection,
+			"refreshReferencePacks":             service.handleMember,
+			"reverifyReferencePackVersion":      service.handleMember,
+			"removeReferencePackVersion":        service.handleMember,
 		})
 	}
 }
@@ -138,7 +155,6 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		return nil, fmt.Errorf("reference pack admitted route requires storage")
 	}
 	service := &Service{
-		store:               NewStore(deps.Postgres, options.jobAdmission),
 		authStore:           authn.NewStore(deps.PostgresHandle()),
 		jobManager:          options.jobOperations,
 		jobRunner:           options.jobRunner,
@@ -148,6 +164,19 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		storage:             options.storage,
 		limits:              options.limits,
 		now:                 now,
+	}
+	if options.jobOperations != nil {
+		if options.storage == nil {
+			return nil, errors.New("reference pack routes require bounded artifact storage")
+		}
+		guard, ok := options.jobAdmission.(referenceJobExecutionGuard)
+		if !ok {
+			return nil, errors.New("reference pack routes require the Jobs execution guard")
+		}
+		service.coordinator, err = NewCoordinator(CoordinatorOptions{Observer: options.observer, Postgres: deps.Postgres, Storage: options.storage, Configuration: options.configuration, Limits: options.limits, JobAdmission: options.jobAdmission, JobOperations: options.jobOperations, JobExecutionGuard: guard, JobFinalizer: options.jobSuccessFinalizer, RegistryUsage: options.registryUsage, Now: now})
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := service.registerJobHandler(); err != nil {
 		return nil, err
@@ -159,7 +188,10 @@ func (s *Service) registerJobHandler() error {
 	if s == nil || s.jobRunner == nil {
 		return nil
 	}
-	return s.jobRunner.RegisterHandler(LifecycleWorkerKind, s.executeReferencePackJob)
+	if s.coordinator == nil {
+		return errors.New("reference pack Jobs coordinator unavailable")
+	}
+	return s.jobRunner.RegisterHandler(LifecycleWorkerKind, s.coordinator.Execute)
 }
 
 func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
@@ -184,12 +216,12 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, invalidPaginationRequest(reason))
 			return
 		}
-		records, err := s.store.ListVersions(r.Context())
+		records, err := s.coordinator.ListVersions(r.Context())
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		records = filterReferencePackVersions(records, binding.Scope)
+		records = filterAdministrativeVersions(records, binding.Scope)
 		resources := make([]map[string]any, 0, len(records))
 		for _, record := range records {
 			resources = append(resources, record.Resource())
@@ -232,9 +264,8 @@ func parseReferencePackListScope(rawQuery string) (listquery.Result, *httpapi.AP
 	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
 		Search: true,
 		ExactFilters: map[string]listquery.ExactFilter{
-			"pack_version_state":  {Allowed: []string{ConditionStaged, ConditionVerifiedAvailable, ConditionDisabled, ConditionFailed, ConditionMissing}},
-			"verification_result": {Allowed: []string{VerificationPending, VerificationPassed, VerificationFailed}},
-			"active":              {Allowed: []string{"true", "false"}},
+			"pack_version_state": {Allowed: []string{ConditionStaged, ConditionVerifiedAvailable, ConditionDisabled, ConditionFailed, ConditionMissing}},
+			"active":             {Allowed: []string{"true", "false"}},
 		},
 	})
 	if queryErr == nil {
@@ -244,38 +275,6 @@ func parseReferencePackListScope(rawQuery string) (listquery.Result, *httpapi.AP
 		return listquery.Result{}, invalidPaginationRequest(queryErr.ReasonCode)
 	}
 	return listquery.Result{}, invalidListQuery(queryErr.ReasonCode)
-}
-
-func filterReferencePackVersions(records []VersionRecord, scope map[string]string) []VersionRecord {
-	tokens := strings.Fields(scope["search"])
-	packVersionState := scope["pack_version_state"]
-	verificationResult := scope["verification_result"]
-	active := scope["active"]
-	filtered := records[:0]
-	for _, record := range records {
-		if packVersionState != "" && publicCondition(record.StoredStatus, record.VerificationResult) != packVersionState {
-			continue
-		}
-		if verificationResult != "" && record.VerificationResult != verificationResult {
-			continue
-		}
-		if active != "" && (record.Active != (active == "true")) {
-			continue
-		}
-		if !listquery.MatchSearchTokens(tokens,
-			record.PackKey,
-			record.PackKind,
-			record.PackVersion,
-			searchableOptionalString(record.SourceIdentifier),
-			record.ManifestSHA256,
-			record.PayloadSHA256,
-			searchableOptionalString(record.SignerKeyID),
-		) {
-			continue
-		}
-		filtered = append(filtered, record)
-	}
-	return filtered
 }
 
 func searchableOptionalString(value *string) string {
@@ -319,6 +318,8 @@ func (s *Service) handleMember(w http.ResponseWriter, r *http.Request) {
 		s.handleActivate(w, r, route.PackKey, route.PackVersion)
 	case route.Kind == "disable" && r.Method == http.MethodPost:
 		s.handleDisable(w, r, route.PackKey, route.PackVersion)
+	case route.Kind == "remove" && r.Method == http.MethodPost:
+		s.handleRemove(w, r, route.PackKey, route.PackVersion)
 	case route.Kind == "reverify" && r.Method == http.MethodPost:
 		s.handleReverify(w, r, route.PackKey, route.PackVersion)
 	default:
@@ -340,7 +341,7 @@ func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, packKey str
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.store.GetVersion(r.Context(), packKey, packVersion)
+	record, err := s.coordinator.GetVersion(r.Context(), packKey, packVersion)
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, referencePackNotFound())
 		return
@@ -356,13 +357,60 @@ func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, packKey str
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, record.Resource())
 }
 
+func (s *Service) handleValidationSummary(w http.ResponseWriter, r *http.Request) {
+	principal, apiErr := s.requireDeploymentAdmin(r, false)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	summary, err := s.coordinator.GetValidationSummary(r.Context(), r.PathValue("summary_id"))
+	if errors.Is(err, ErrNotFound) {
+		writeAPIError(w, r, referencePackNotFound())
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, summary)
+}
+
 func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 	principal, apiErr := s.requireDeploymentAdmin(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	envelope, envelopeErr := httpapi.ParseUploadEnvelope(r, httpapi.UploadEnvelopePolicy{FileContentTypes: ReferencePackFileContentTypes})
+	if s.coordinator == nil {
+		writeAPIError(w, r, internalAPIError(errors.New("reference pack coordinator unavailable")))
+		return
+	}
+	var pending *PendingImport
+	defer func() {
+		if pending != nil {
+			_ = pending.Close()
+		}
+	}()
+	envelope, envelopeErr, receiveErr := httpapi.ParseStreamingUploadEnvelope(r, httpapi.UploadEnvelopePolicy{FileContentTypes: ReferencePackFileContentTypes}, MaxAdministrativeRequestBytes, func(source io.Reader) (string, error) {
+		var err error
+		pending, err = s.coordinator.PrepareImport(r.Context(), source)
+		if err != nil {
+			return "", err
+		}
+		return pending.SHA256(), nil
+	})
+	if receiveErr != nil {
+		writeAPIError(w, r, internalAPIError(receiveErr))
+		return
+	}
 	if envelopeErr != nil {
 		writeAPIError(w, r, uploadEnvelopeAPIError(envelopeErr))
 		return
@@ -372,33 +420,17 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	stagingRef, err := s.storage.Stage(r.Context(), envelope.FileSHA256Hex, envelope.File)
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	result, err := s.store.AcceptImport(r.Context(), ImportAcceptedParams{
-		ActorUserID:       principal.User.ID,
-		Request:           request,
-		BundleSHA256:      envelope.FileSHA256Hex,
-		BundleStagingRef:  stagingRef,
-		NormalizedRequest: request.Normalized,
-		Now:               s.now(),
-	})
+	result, err := pending.Accept(r.Context(), principal.User.ID, request.ClientTxnID)
 	if errors.Is(err, authn.ErrClientTxnConflict) {
-		_ = s.storage.RemoveStaged(stagingRef)
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
 	if err != nil {
-		_ = s.storage.RemoveStaged(stagingRef)
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
 	if !result.Replayed {
 		s.dispatchReferencePackJob(result.Job.JobID)
-	} else {
-		_ = s.storage.RemoveStaged(stagingRef)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -412,18 +444,12 @@ func (s *Service) handleActivate(w http.ResponseWriter, r *http.Request, packKey
 	if !ok {
 		return
 	}
-	result, err := s.store.Activate(r.Context(), ActionParams{
+	result, err := s.coordinator.Activate(r.Context(), ActionParams{
 		ActorUserID: principal.User.ID,
 		PackKey:     packKey,
 		PackVersion: packVersion,
 		Request:     request,
-		ActivationPreflight: func(record VersionRecord) error {
-			if _, verificationErr := s.verifyStoredBundle(record); verificationErr != nil {
-				return verificationErr
-			}
-			return nil
-		},
-		Now: s.now(),
+		Now:         s.now(),
 	})
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
@@ -433,7 +459,7 @@ func (s *Service) handleDisable(w http.ResponseWriter, r *http.Request, packKey 
 	if !ok {
 		return
 	}
-	result, err := s.store.Disable(r.Context(), ActionParams{
+	result, err := s.coordinator.Disable(r.Context(), ActionParams{
 		ActorUserID: principal.User.ID,
 		PackKey:     packKey,
 		PackVersion: packVersion,
@@ -443,18 +469,21 @@ func (s *Service) handleDisable(w http.ResponseWriter, r *http.Request, packKey 
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
+func (s *Service) handleRemove(w http.ResponseWriter, r *http.Request, key, version string) {
+	principal, request, ok := s.decodeAdminAction(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.coordinator.Remove(r.Context(), ActionParams{ActorUserID: principal.User.ID, PackKey: key, PackVersion: version, Request: request, Now: s.now()})
+	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
+}
+
 func (s *Service) handleReverify(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
 	principal, request, ok := s.decodeAdminAction(w, r)
 	if !ok {
 		return
 	}
-	result, err := s.store.AcceptReverify(r.Context(), ActionParams{
-		ActorUserID: principal.User.ID,
-		PackKey:     packKey,
-		PackVersion: packVersion,
-		Request:     request,
-		Now:         s.now(),
-	})
+	result, err := s.coordinator.VerifyRetained(r.Context(), VerificationRequest{Kind: "reverify", ActorUserID: principal.User.ID, ClientTxnID: request.ClientTxnID, PackKeys: []string{packKey}, KeysProvided: true, PackVersion: packVersion, Reason: request.Reason})
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, referencePackNotFound())
 		return
@@ -469,14 +498,14 @@ func (s *Service) handleReverify(w http.ResponseWriter, r *http.Request, packKey
 		return
 	}
 	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
 	if !result.Replayed {
 		s.dispatchReferencePackJob(result.Job.JobID)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
@@ -493,59 +522,20 @@ func (s *Service) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if replay, payload, ok, err := s.store.LookupRefreshReplay(r.Context(), principal.User.ID, request.ClientTxnID); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	} else if ok {
-		if request.PackKeysProvided {
-			resolved := append([]string(nil), request.PackKeys...)
-			sort.Strings(resolved)
-			if !sameStringSet(resolved, payload.ResolvedPackKeys) {
-				writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
-				return
-			}
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, replay.Job)
-		return
-	}
-	visiblePackKeys, err := s.store.ListPackKeys(r.Context())
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	resolved, apiErr := ValidateRefreshPackKeys(request, visiblePackKeys)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, err = NormalizeRefreshRequest(request, resolved)
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	result, err := s.store.AcceptRefresh(r.Context(), RefreshAcceptedParams{
-		ActorUserID:       principal.User.ID,
-		Request:           request,
-		NormalizedRequest: request.Normalized,
-		Now:               s.now(),
-	})
+	result, err := s.coordinator.VerifyRetained(r.Context(), VerificationRequest{Kind: "refresh", ActorUserID: principal.User.ID, ClientTxnID: request.ClientTxnID, PackKeys: request.PackKeys, KeysProvided: request.PackKeysProvided})
 	if errors.Is(err, authn.ErrClientTxnConflict) {
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
 	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
 	if !result.Replayed {
 		s.dispatchReferencePackJob(result.Job.JobID)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
@@ -557,7 +547,7 @@ func (s *Service) decodeAdminAction(w http.ResponseWriter, r *http.Request) (htt
 		writeAPIError(w, r, apiErr)
 		return httpauth.Principal{}, ActionRequest{}, false
 	}
-	request, apiErr := DecodeActionRequest(r.Body)
+	request, apiErr := decodeActionRequest(r.Body, strings.HasSuffix(r.URL.Path, "/remove"))
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return httpauth.Principal{}, ActionRequest{}, false
@@ -580,7 +570,7 @@ func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, prin
 		return
 	}
 	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, coordinatorAPIError(err))
 		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
@@ -601,282 +591,6 @@ func (s *Service) dispatchReferencePackJob(jobID string) {
 	s.jobRunner.Notify(parsed)
 }
 
-func (s *Service) executeReferencePackJob(ctx context.Context, execution jobs.Execution) error {
-	jobID := execution.JobID()
-	if _, err := s.jobManager.ObserveExecution(ctx, execution); err != nil {
-		return err
-	}
-	payload, err := s.store.JobPayload(ctx, jobID)
-	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
-		return fmt.Errorf("load reference pack job payload: %w", err)
-	}
-	runReferencePackWorkerStartHook(payload.JobKind)
-	total := 1
-	if payload.JobKind == "refresh" && len(payload.ResolvedPackKeys) > 0 {
-		total = len(payload.ResolvedPackKeys)
-	}
-	if ok := s.prepareClaimedJob(ctx, execution, total); !ok {
-		if payload.JobKind == "import" && payload.BundleStagingRef != nil {
-			_ = s.storage.RemoveStaged(*payload.BundleStagingRef)
-		}
-		return nil
-	}
-	switch payload.JobKind {
-	case "import":
-		return s.executeImportJob(ctx, execution, payload)
-	case "reverify":
-		return s.executeReverifyJob(ctx, execution, payload)
-	case "refresh":
-		return s.executeRefreshJob(ctx, execution, payload)
-	default:
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{"job_kind": payload.JobKind}))
-	}
-	return nil
-}
-
-func (s *Service) prepareClaimedJob(ctx context.Context, execution jobs.Execution, total int) bool {
-	if total <= 0 {
-		total = 1
-	}
-	job, err := s.jobManager.ObserveExecution(ctx, execution)
-	if err != nil {
-		return false
-	}
-	switch job.Status {
-	case jobs.StatusRunning:
-		_, err := s.jobManager.UpdateProgress(ctx, execution, jobs.Progress{Completed: 0, Total: &total}, nil)
-		return err == nil
-	case jobs.StatusCancelRequested:
-		_, _ = s.jobManager.CompleteCanceled(ctx, execution, jobs.CancellationCompletion{
-			Progress: jobs.Progress{Completed: 0, Total: &total},
-		})
-		return false
-	default:
-		return false
-	}
-}
-
-func (s *Service) executeImportJob(ctx context.Context, execution jobs.Execution, payload JobPayload) error {
-	if payload.BundleStagingRef == nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
-		return nil
-	}
-	removeStaging := true
-	defer func() {
-		if removeStaging {
-			_ = s.storage.RemoveStaged(*payload.BundleStagingRef)
-		}
-	}()
-	if s.jobCancelRequested(ctx, execution) {
-		s.completeCanceled(ctx, execution, 0, 1)
-		return nil
-	}
-	data, err := s.storage.ReadStaged(*payload.BundleStagingRef, referencePackStorageReadLimit(s.limits.ReferencePacks.MaxExtractedBytes))
-	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("reference_pack_verification_failed", map[string]any{"reason_code": "payload_missing"}))
-		return nil
-	}
-	verification, verificationErr := s.verifyUpload(data, MediaTypeOctetStream)
-	if verificationErr != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}))
-		return nil
-	}
-	if s.jobCancelRequested(ctx, execution) {
-		s.completeCanceled(ctx, execution, 0, 1)
-		return nil
-	}
-	bundleRef, err := s.storage.Publish(ctx, verification.BundleSHA256, data)
-	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
-		return nil
-	}
-	if s.jobCancelRequested(ctx, execution) {
-		_ = s.storage.RemovePublished(bundleRef)
-		s.completeCanceled(ctx, execution, 0, 1)
-		return nil
-	}
-	err = s.finalizeReferencePackJobSuccess(ctx, execution, payload, jobs.SuccessCompletion{
-		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ResultSummary: jobs.ResultSummary{
-			Code: ResultReferencePackImported, Message: "Reference pack imported.",
-			ResourceRefs: []jobs.ResourceRef{jobs.ResourceRef(referencePackResourceRef(verification.PackKey, verification.PackVersion))},
-		},
-	}, func(ctx context.Context, tx pgx.Tx) error {
-		_, err := s.store.CompleteImportVerificationTx(ctx, tx, payload.JobID, payload.ActorUserID, *verification, bundleRef, s.now())
-		return err
-	})
-	if err != nil {
-		if !errors.Is(err, ErrJobFinalizationIndeterminate) {
-			_ = s.storage.RemovePublished(bundleRef)
-		}
-		// Preserve staged input for retry. Indeterminate finalization also
-		// preserves the complete published object because committed rows may
-		// reference it.
-		removeStaging = false
-	}
-	return err
-}
-
-func (s *Service) executeReverifyJob(ctx context.Context, execution jobs.Execution, payload JobPayload) error {
-	if payload.PackKey == nil || payload.PackVersion == nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
-		return nil
-	}
-	if s.jobCancelRequested(ctx, execution) {
-		s.completeCanceled(ctx, execution, 0, 1)
-		return nil
-	}
-	record, err := s.store.GetVersion(ctx, *payload.PackKey, *payload.PackVersion)
-	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("reference_pack_not_found", map[string]any{}))
-		return nil
-	}
-	verification, verificationErr := s.verifyStoredBundle(record)
-	if s.jobCancelRequested(ctx, execution) {
-		s.completeCanceled(ctx, execution, 0, 1)
-		return nil
-	}
-	if verificationErr != nil {
-		_, err := s.jobSuccessFinalizer.FinalizeReferencePackJobFailure(ctx, JobFailureFinalization{
-			Execution:  execution,
-			Completion: failedCompletion("reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}),
-			Mutate: func(ctx context.Context, tx pgx.Tx) error {
-				_, err := s.store.ApplyVerificationResultTx(ctx, tx, record, verification, verificationErr, "reverify", payload.ActorUserID, payload.JobID, s.now())
-				return err
-			},
-		})
-		return err
-	}
-	if s.jobCancelRequested(ctx, execution) {
-		s.completeCanceled(ctx, execution, 0, 1)
-		return nil
-	}
-	return s.finalizeReferencePackJobSuccess(ctx, execution, payload, jobs.SuccessCompletion{
-		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ResultSummary: jobs.ResultSummary{
-			Code: ResultReferencePackReverified, Message: "Reference pack reverified.",
-			ResourceRefs: []jobs.ResourceRef{jobs.ResourceRef(referencePackResourceRef(record.PackKey, record.PackVersion))},
-		},
-	}, func(ctx context.Context, tx pgx.Tx) error {
-		_, err := s.store.ApplyVerificationResultTx(ctx, tx, record, verification, nil, "reverify", payload.ActorUserID, payload.JobID, s.now())
-		return err
-	})
-}
-
-func (s *Service) executeRefreshJob(ctx context.Context, execution jobs.Execution, payload JobPayload) error {
-	total := len(payload.ResolvedPackKeys)
-	if total == 0 {
-		return s.finalizeReferencePackJobSuccess(ctx, execution, payload, jobs.SuccessCompletion{
-			Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-			ResultSummary: jobs.ResultSummary{
-				Code: ResultReferencePacksRefreshed, Message: "Reference packs refreshed.",
-			},
-		})
-	}
-	records, err := s.store.ListVersionsForPackKeys(ctx, payload.ResolvedPackKeys)
-	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
-		return nil
-	}
-	type verifiedRecord struct {
-		record       VersionRecord
-		verification *VerificationResult
-	}
-	verified := make([]verifiedRecord, 0, len(records))
-	for i, record := range records {
-		if s.jobCancelRequested(ctx, execution) {
-			s.completeCanceled(ctx, execution, i, total)
-			return nil
-		}
-		verification, verificationErr := s.verifyStoredBundle(record)
-		if s.jobCancelRequested(ctx, execution) {
-			s.completeCanceled(ctx, execution, i, total)
-			return nil
-		}
-		if verificationErr != nil {
-			_, err := s.jobSuccessFinalizer.FinalizeReferencePackJobFailure(ctx, JobFailureFinalization{
-				Execution:  execution,
-				Completion: failedCompletion("reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}),
-				Mutate: func(ctx context.Context, tx pgx.Tx) error {
-					_, err := s.store.ApplyVerificationResultTx(ctx, tx, record, verification, verificationErr, "refresh", payload.ActorUserID, payload.JobID, s.now())
-					return err
-				},
-			})
-			return err
-		}
-		verified = append(verified, verifiedRecord{record: record, verification: verification})
-	}
-	if s.jobCancelRequested(ctx, execution) {
-		s.completeCanceled(ctx, execution, 0, total)
-		return nil
-	}
-	return s.finalizeReferencePackJobSuccess(ctx, execution, payload, jobs.SuccessCompletion{
-		Progress: jobs.Progress{Completed: total, Total: &total},
-		ResultSummary: jobs.ResultSummary{
-			Code: ResultReferencePacksRefreshed, Message: "Reference packs refreshed.",
-			ResourceRefs: sortedRefs(records),
-		},
-	}, func(ctx context.Context, tx pgx.Tx) error {
-		for _, item := range verified {
-			if _, err := s.store.ApplyVerificationResultTx(ctx, tx, item.record, item.verification, nil, "refresh", payload.ActorUserID, payload.JobID, s.now()); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-func (s *Service) finalizeReferencePackJobSuccess(
-	ctx context.Context,
-	execution jobs.Execution,
-	payload JobPayload,
-	completion jobs.SuccessCompletion,
-	mutations ...JobSuccessMutation,
-) error {
-	if s.jobSuccessFinalizer == nil {
-		return fmt.Errorf("reference pack job success finalizer is unavailable")
-	}
-	var mutation JobSuccessMutation
-	if len(mutations) > 0 {
-		mutation = mutations[0]
-	}
-	_, err := s.jobSuccessFinalizer.FinalizeReferencePackJobSuccess(ctx, JobSuccessFinalization{
-		Execution:     execution,
-		Completion:    completion,
-		FinalCommitID: ProfileID + "." + payload.JobKind + ":" + payload.JobID.String(),
-		Mutate:        mutation,
-	})
-	return err
-}
-
-func (s *Service) jobCancelRequested(ctx context.Context, execution jobs.Execution) bool {
-	job, err := s.jobManager.ObserveExecution(ctx, execution)
-	return err == nil && job.Status == jobs.StatusCancelRequested
-}
-
-func (s *Service) completeCanceled(ctx context.Context, execution jobs.Execution, completed int, total int) {
-	_, _ = s.jobManager.CompleteCanceled(ctx, execution, jobs.CancellationCompletion{
-		Progress: jobs.Progress{Completed: completed, Total: &total},
-	})
-}
-
-func sameStringSet(left []string, right []string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	sortedLeft := append([]string(nil), left...)
-	sortedRight := append([]string(nil), right...)
-	sort.Strings(sortedLeft)
-	sort.Strings(sortedRight)
-	for i := range sortedLeft {
-		if sortedLeft[i] != sortedRight[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func failedCompletion(code string, details map[string]any) jobs.FailureCompletion {
 	return jobs.FailureCompletion{
 		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
@@ -887,45 +601,6 @@ func failedCompletion(code string, details map[string]any) jobs.FailureCompletio
 			Details:   details,
 		},
 	}
-}
-
-func (s *Service) verifyUpload(bundle []byte, contentType string) (*VerificationResult, *VerificationError) {
-	result, err := VerifyBundle(VerificationInput{
-		Bundle:          bundle,
-		ContentType:     contentType,
-		ArchiveLimits:   s.limits.Archives,
-		ReferenceLimits: s.limits.ReferencePacks,
-	})
-	if err != nil {
-		var verificationErr *VerificationError
-		if errors.As(err, &verificationErr) {
-			return nil, verificationErr
-		}
-		return nil, &VerificationError{ReasonCode: "payload_missing"}
-	}
-	return &result, nil
-}
-
-func (s *Service) verifyStoredBundle(record VersionRecord) (*VerificationResult, *VerificationError) {
-	data, err := s.storage.ReadPublished(record.BundleStorageRef, referencePackStorageReadLimit(s.limits.ReferencePacks.MaxExtractedBytes))
-	if err != nil {
-		return nil, &VerificationError{ReasonCode: "payload_missing"}
-	}
-	return s.verifyUpload(data, MediaTypeOctetStream)
-}
-
-func referencePackStorageReadLimit(maxExtractedBytes int64) int64 {
-	const (
-		archiveOverheadBytes int64 = 64 << 20
-		maxInt64                   = int64(1<<63 - 1)
-	)
-	if maxExtractedBytes <= 0 {
-		return archiveOverheadBytes
-	}
-	if maxExtractedBytes > maxInt64-archiveOverheadBytes {
-		return maxInt64
-	}
-	return maxExtractedBytes + archiveOverheadBytes
 }
 
 func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
@@ -966,7 +641,7 @@ func parseReferencePackPath(requestPath string) (parsedReferencePackRoute, bool)
 		}
 	}
 	if len(parts) == 2 {
-		if parts[1] == "activate" || parts[1] == "disable" || parts[1] == "reverify" {
+		if parts[1] == "activate" || parts[1] == "disable" || parts[1] == "reverify" || parts[1] == "remove" {
 			return parsedReferencePackRoute{Kind: "missing_version"}, true
 		}
 		packKey, ok1 := unescapePathSegment(parts[0])
@@ -978,7 +653,7 @@ func parseReferencePackPath(requestPath string) (parsedReferencePackRoute, bool)
 	}
 	if len(parts) == 3 {
 		switch parts[2] {
-		case "activate", "disable", "reverify":
+		case "activate", "disable", "reverify", "remove":
 			packKey, ok1 := unescapePathSegment(parts[0])
 			packVersion, ok2 := unescapePathSegment(parts[1])
 			if !ok1 || !ok2 {

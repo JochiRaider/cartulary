@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	ImportTransactionParticipantID = "incident_portability.import_v1"
+	ImportTransactionParticipantID = "incident_portability.import_v2"
 	importTransactionInputSchema   = "cartulary.incident_portability_import_transaction_input.v1"
 )
 

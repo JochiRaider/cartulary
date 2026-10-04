@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -18,8 +19,9 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 	now := time.Date(2026, 7, 29, 17, 30, 0, 0, time.UTC)
 	generationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
 	expected := TargetBindingDigests{
-		DatabaseSHA256:    strings.Repeat("1", 64),
-		ObjectStoreSHA256: strings.Repeat("2", 64),
+		DatabaseSHA256:             strings.Repeat("1", 64),
+		ObjectStoreSHA256:          strings.Repeat("2", 64),
+		ReferencePackStorageSHA256: strings.Repeat("3", 64),
 	}
 	validMarker := RestoreTargetMarker{
 		SchemaID:           RestoreTargetMarkerSchemaID,
@@ -46,6 +48,8 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 		{"wrong generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody, GenerationBody: []byte("00000000-0000-0000-0000-000000005002\n")}, RestoreVerificationTargetPurpose, expected},
 		{"missing generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody}, RestoreVerificationTargetPurpose, expected},
 		{"v1 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_verification_target.v1"), RestoreVerificationTargetPurpose, expected},
+		{"v2 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_target_marker.v2"), RestoreVerificationTargetPurpose, expected},
+		{"wrong Reference Pack root", replaceMarkerMember(validMaterial, expected.ReferencePackStorageSHA256, strings.Repeat("4", 64)), RestoreVerificationTargetPurpose, expected},
 		{"duplicate member", TargetMarkerMaterial{MarkerBody: bytes.Replace(validMaterial.MarkerBody, []byte(`"purpose":`), []byte(`"purpose":"restore_verification_target","purpose":`), 1), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected},
 		{"unknown member", TargetMarkerMaterial{MarkerBody: bytes.Replace(validMaterial.MarkerBody, []byte(`{`), []byte(`{"unknown":true,`), 1), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected},
 		{"trailing data", TargetMarkerMaterial{MarkerBody: append(append([]byte(nil), validMaterial.MarkerBody...), []byte(` {}`)...), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected},
@@ -65,7 +69,7 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 func TestRestoreTargetMarkerAdmissionReturnsValidatedGeneration_Unit(t *testing.T) {
 	now := time.Date(2026, 7, 29, 17, 30, 0, 0, time.UTC)
 	generationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
-	expected := TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64)}
+	expected := TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64)}
 	material := markerMaterialForTest(t, RestoreTargetMarker{
 		SchemaID: RestoreTargetMarkerSchemaID, Purpose: RestoreTargetPurpose,
 		TargetGenerationID: generationID.String(), BindingDigests: expected,
@@ -120,7 +124,7 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 	}
 	v3, err := json.Marshal(recoveryJournalCompletionPayloadV3{
 		recoveryJournalCompletionPayloadV2: recoveryJournalCompletionPayloadV2{
-			SchemaID: RecoveryJournalPayloadSchemaID, RecordKind: "completion", OperationID: operationID,
+			SchemaID: RecoveryJournalPayloadV3SchemaID, RecordKind: "completion", OperationID: operationID,
 			Operation: OperationRestoreLatest, StartedAt: consistencyPoint, CompletedAt: consistencyPoint.Add(time.Minute),
 			Result: ResultSucceeded, BackupSetID: &backupSetID, ConsistencyPointAt: &consistencyPoint,
 			ArtifactCounts: []ArtifactCount{},
@@ -138,6 +142,61 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 	if _, err := DecodeRecoveryJournalPayload(unknown); err == nil {
 		t.Fatal("journal decoder admitted an unknown completion member")
 	}
+	current := recoveryJournalCompletionPayloadV4{
+		recoveryJournalCompletionPayloadV2: recoveryJournalCompletionPayloadV2{
+			SchemaID: RecoveryJournalPayloadSchemaID, RecordKind: "completion", OperationID: operationID,
+			Operation: OperationRestoreLatest, StartedAt: consistencyPoint, CompletedAt: consistencyPoint.Add(time.Minute),
+			Result: ResultSucceeded, BackupSetID: &backupSetID, ConsistencyPointAt: &consistencyPoint, ArtifactCounts: []ArtifactCount{},
+		}, GraphProjectionCompletion: completion,
+		TargetBindings: &TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64)},
+	}
+	encoded, err := json.Marshal(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeRecoveryJournalPayload(encoded); err != nil {
+		t.Fatal("valid current journal", err)
+	}
+	var root map[string]any
+	if err := json.Unmarshal(encoded, &root); err != nil {
+		t.Fatal(err)
+	}
+	var checkObjects func(map[string]any)
+	checkObjects = func(object map[string]any) {
+		for name, original := range object {
+			delete(object, name)
+			changed, _ := json.Marshal(root)
+			if _, err := DecodeRecoveryJournalPayload(changed); err == nil {
+				t.Fatalf("omitted journal member admitted: %s", name)
+			}
+			object[name] = true
+			changed, _ = json.Marshal(root)
+			if _, err := DecodeRecoveryJournalPayload(changed); err == nil {
+				t.Fatalf("wrong journal member type admitted: %s", name)
+			}
+			object[name] = original
+			if nested, ok := original.(map[string]any); ok {
+				checkObjects(nested)
+			}
+		}
+		object["unexpected"] = true
+		changed, _ := json.Marshal(root)
+		if _, err := DecodeRecoveryJournalPayload(changed); err == nil {
+			t.Fatal("unknown journal member admitted")
+		}
+		delete(object, "unexpected")
+	}
+	checkObjects(root)
+	for _, bad := range [][]byte{
+		bytes.Replace(encoded, []byte(`"record_kind":`), []byte(`"record_kind":"completion","record_kind":`), 1),
+		bytes.Replace(encoded, []byte(`"attempt_id":null`), []byte(`"attempt_id":"\ud800"`), 1),
+		bytes.Replace(encoded, []byte(`"artifact_counts":[]`), []byte(`"artifact_counts":null`), 1),
+	} {
+		if _, err := DecodeRecoveryJournalPayload(bad); err == nil {
+			t.Fatal("lossy or null journal content admitted")
+		}
+	}
+
 }
 
 func TestRestoreTargetBindingDigestsExcludeCredentials_Unit(t *testing.T) {
@@ -168,6 +227,37 @@ func TestRestoreTargetBindingDigestsExcludeCredentials_Unit(t *testing.T) {
 	if TargetBindingDigestsFor(base) == TargetBindingDigestsFor(differentTarget) {
 		t.Fatal("different restore target binding produced identical digest pair")
 	}
+	differentTarget = base
+	differentTarget.ReferencePackStorage = RootBinding{BindingKind: "filesystem_root", Path: "/different/reference-packs"}
+	if TargetBindingDigestsFor(base) == TargetBindingDigestsFor(differentTarget) {
+		t.Fatal("Reference Pack root absent from restore target identity")
+	}
+	factory := func() (recovery.ReferencePackStorage, error) { return nil, nil }
+	source := Deployment{PostgresSettings: postgres.Settings{DSN: "source"}, ObjectSettings: objectstore.Settings{BindingKind: "filesystem_root", RootPath: "/source/objects"}, OpenReferencePacks: factory,
+		ReferencePackStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/packs"}, ObjectStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/objects"}, BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/backups"}}
+	target := Deployment{PostgresSettings: postgres.Settings{DSN: "target"}, ObjectSettings: objectstore.Settings{BindingKind: "filesystem_root", RootPath: "/target/objects"}, OpenReferencePacks: factory,
+		ReferencePackStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/packs"}, ObjectStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/objects"}, BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/backups"}}
+	if err := requireDistinctRestoreTarget("/source.toml", "/target.toml", source, target); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/source/packs", "/source", "/source/packs/nested", "/source/objects", "/source/backups/nested", "/target/objects/nested", "/target/backups"} {
+		changed := target
+		changed.ReferencePackStorage.Path = path
+		if requireDistinctRestoreTarget("/source.toml", "/target.toml", source, changed) == nil {
+			t.Fatalf("overlapping pack root admitted: %s", path)
+		}
+	}
+	changed := target
+	changed.ObjectStorage.Path = "/source/packs"
+	if requireDistinctRestoreTarget("/source.toml", "/target.toml", source, changed) == nil {
+		t.Fatal("target objects alias source packs")
+	}
+	changed = target
+	changed.ReferencePackStorage.Path = "/source/packs-other"
+	if err := requireDistinctRestoreTarget("/source.toml", "/target.toml", source, changed); err != nil {
+		t.Fatal("non-overlapping sibling rejected", err)
+	}
+
 }
 
 func markerMaterialForTest(t testing.TB, marker RestoreTargetMarker, generationID uuid.UUID) TargetMarkerMaterial {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 )
 
 type portableRecordEnvelope struct {
@@ -26,6 +27,7 @@ type portableRecordEnvelope struct {
 }
 
 func validatePreparedIndicatorImportTx(
+	evaluate identity.Evaluator,
 	ctx context.Context,
 	tx pgx.Tx,
 	prepared preparedIndicatorImport,
@@ -38,13 +40,13 @@ func validatePreparedIndicatorImportTx(
 	if err != nil {
 		return indicatorSourceFailure(representationInvariant)
 	}
-	actualIndicators, err := loadPortableIndicators(ctx, sourceport.ExportContext{
+	actualIndicators, err := loadPortableIndicators(ctx, evaluate, sourceport.ExportContext{
 		Query: tx, IncidentID: importContext.IncidentID,
 	})
 	if err != nil {
 		return indicatorSourceFailure(representationInvariant)
 	}
-	actualObservations, err := loadPortableObservations(ctx, sourceport.ExportContext{
+	actualObservations, err := loadPortableObservations(ctx, evaluate, sourceport.ExportContext{
 		Query: tx, IncidentID: importContext.IncidentID,
 	})
 	if err != nil {

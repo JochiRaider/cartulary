@@ -14,7 +14,7 @@ func TestSourcePortFailuresRequireDeclaredFamilyAndInvariant(t *testing.T) {
 		OwnerID: "module.fixture",
 		Paths: []sourceport.Path{{
 			LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows",
-			Versions: []int{4}, StableIdentity: []string{"id"},
+			Versions: []int{5}, StableIdentity: []string{"id"},
 			StableIdentityInvariantID: "fixture.declared",
 		}},
 		InvariantIDs: []string{"fixture.declared"},

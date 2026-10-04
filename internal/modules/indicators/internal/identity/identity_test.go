@@ -1,6 +1,8 @@
 package identity
 
 import (
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+
 	"errors"
 	"strings"
 	"testing"
@@ -13,13 +15,13 @@ func TestCanonicalizeRegistryAndDedupe(t *testing.T) {
 		display     string
 		wantDisplay string
 	}{
-		{name: "ipv4_addr", display: "203[.]0[.]113[.]7", wantDisplay: "203.0.113.7"},
+		{name: "ipv4_addr", display: "203.0.113.7", wantDisplay: "203.0.113.7"},
 		{name: "ipv6_addr", display: "2001:0db8:0:0:0:0:0:1", wantDisplay: "2001:db8::1"},
-		{name: "domain_name", display: "VPN[.]EXAMPLE.TEST", wantDisplay: "vpn.example.test"},
-		{name: "url", display: "hxxps://EXAMPLE[.]TEST/A", wantDisplay: "https://example.test/A"},
+		{name: "domain_name", display: "VPN.EXAMPLE.TEST", wantDisplay: "vpn.example.test"},
+		{name: "url", display: "https://EXAMPLE.TEST/A", wantDisplay: "https://example.test/A"},
 		{name: "sha256", display: strings.Repeat("A", 64), wantDisplay: strings.Repeat("a", 64)},
-		{name: "email_addr", display: "User@Example.TEST", wantDisplay: "user@example.test"},
-		{name: "registry_key", display: `HKLM\Software\Example`, wantDisplay: `HKLM\Software\Example`},
+		{name: "email_addr", display: "User@Example.TEST", wantDisplay: "User@example.test"},
+		{name: "registry_key", display: `HKLM\Software\Example`, wantDisplay: `HKEY_LOCAL_MACHINE\SOFTWARE\EXAMPLE`},
 		{name: "process_name", display: "PowerShell.EXE", wantDisplay: "PowerShell.EXE"},
 		{name: "text", display: "  suspicious payload  ", wantDisplay: "suspicious payload"},
 	}
@@ -35,7 +37,7 @@ func TestCanonicalizeRegistryAndDedupe(t *testing.T) {
 					DefangedValue: stringPointer("presentation-only"),
 					STIXPattern:   stringPointer("[presentation:only = true]"),
 				}
-				if isIPType(indicatorType.name) && valueKind != "atomic" {
+				if valueKind != "atomic" && !(valueKind == "reference" && (indicatorType.name == "url" || indicatorType.name == "registry_key" || indicatorType.name == "process_name" || indicatorType.name == "text")) && !(valueKind == "pattern" && indicatorType.name == "text") {
 					assertValidationField(t, input, "value_kind")
 					return
 				}
@@ -43,7 +45,7 @@ func TestCanonicalizeRegistryAndDedupe(t *testing.T) {
 					input.HashAlgorithm = stringPointer("SHA256")
 					input.HashValue = stringPointer(strings.Repeat("B", 64))
 				}
-				canonical, err := Canonicalize(input)
+				canonical, err := Canonicalize(referencefixture.EvaluateIndicator, input)
 				if err != nil {
 					t.Fatalf("canonicalize identity: %v", err)
 				}
@@ -53,13 +55,17 @@ func TestCanonicalizeRegistryAndDedupe(t *testing.T) {
 				if canonical.DisplayValue != indicatorType.wantDisplay || canonical.NormalizedValue == nil || *canonical.NormalizedValue != indicatorType.wantDisplay {
 					t.Fatalf("canonical value = %q/%v, want %q", canonical.DisplayValue, canonical.NormalizedValue, indicatorType.wantDisplay)
 				}
-				if len(canonical.DedupeKey) != 64 {
+				wantKey := indicatorType.name + ":" + indicatorType.wantDisplay
+				if indicatorType.name == "text" {
+					wantKey = "text:5398de1df5d2d1f8a998a76866592b529b5d5d7efb786604edf1d5a5acd067e7"
+				}
+				if canonical.DedupeKey != wantKey {
 					t.Fatalf("dedupe key = %q", canonical.DedupeKey)
 				}
 
 				input.DefangedValue = nil
 				input.STIXPattern = nil
-				identityOnly, err := Canonicalize(input)
+				identityOnly, err := Canonicalize(referencefixture.EvaluateIndicator, input)
 				if err != nil {
 					t.Fatalf("canonicalize without presentation fields: %v", err)
 				}
@@ -103,13 +109,13 @@ func TestIPCanonicalizationAndDedupe(t *testing.T) {
 		normalized    *string
 		want          string
 	}{
-		{name: "ipv4 canonical", indicatorType: "ipv4_addr", display: "203[.]0[.]113[.]7", want: "203.0.113.7"},
+		{name: "ipv4 canonical", indicatorType: "ipv4_addr", display: "203.0.113.7", want: "203.0.113.7"},
 		{name: "ipv6 canonical", indicatorType: "ipv6_addr", display: "2001:0DB8:0000:0000:0000:0000:0000:0001", want: "2001:db8::1"},
 		{name: "ipv6 normalized input", indicatorType: "ipv6_addr", display: "2001:db8::1", normalized: stringPointer("2001:0db8:0:0:0:0:0:1"), want: "2001:db8::1"},
 	}
 	var expandedKey string
 	for _, test := range tests {
-		canonical, err := Canonicalize(Input{IndicatorType: test.indicatorType, ValueKind: "atomic", DisplayValue: test.display, NormalizedValue: test.normalized})
+		canonical, err := Canonicalize(referencefixture.EvaluateIndicator, Input{IndicatorType: test.indicatorType, ValueKind: "atomic", DisplayValue: test.display, NormalizedValue: test.normalized})
 		if err != nil {
 			t.Fatalf("%s: %v", test.name, err)
 		}
@@ -140,7 +146,7 @@ func TestIPCanonicalizationAndDedupe(t *testing.T) {
 
 func assertValidationField(t testing.TB, input Input, wantFields ...string) {
 	t.Helper()
-	_, err := Canonicalize(input)
+	_, err := Canonicalize(referencefixture.EvaluateIndicator, input)
 	var validation *ValidationError
 	if !errors.As(err, &validation) {
 		t.Fatalf("validation = %#v, want ValidationError", err)

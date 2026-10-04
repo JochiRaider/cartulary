@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_portability_input.v1",
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_portability_input.v1"
+    },
+    "incident_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "source_operation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "catalog_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "content_manifest": {
+      "type": "object",
+      "properties": {
+        "schema_id": {
+          "const": "reference_pack_content.v1"
+        },
+        "containers": {
+          "type": "array",
+          "maxItems": 16384,
+          "items": {
+            "type": "object",
+            "properties": {
+              "manifest_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "container_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "manifest_sha256",
+              "container_sha256",
+              "size_bytes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required_members": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "properties": {
+              "pack_set_id": {
+                "type": "string",
+                "pattern": "^rpset_[0-9a-f]{64}$"
+              },
+              "pack_key": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+                "maxLength": 128
+              }
+            },
+            "required": [
+              "pack_set_id",
+              "pack_key"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schema_id",
+        "containers",
+        "required_members"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_id",
+    "incident_id",
+    "source_operation_id",
+    "catalog_sha256",
+    "content_manifest"
+  ],
+  "additionalProperties": false
+}

@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -110,7 +111,7 @@ func NewEvidenceMutationOwner(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) evidence.MutationContribution {
 	intents := collaborationsupport.NewRecordChangedAppender()
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		panic(err)
 	}
@@ -151,7 +152,7 @@ func NewTaskDecisionOwnerWithPublications(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	intents collaboration.RecordChangedAppender,
 ) *tasksdecisions.MutationFacade {
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		panic(err)
 	}
@@ -177,7 +178,7 @@ func NewTaskDecisionOwnerWithPublications(
 // server for focused generic coordination tests.
 func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *workbook.WorkbookContributionCatalog {
 	intents := collaborationsupport.NewRecordChangedAppender()
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		panic(err)
 	}
@@ -213,6 +214,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		panic(err)
 	}
 	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        pool,
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(pool)),
 		IncidentState:   admission.NewChecker(pool),
@@ -278,7 +280,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 // source semantics through its owner facade.
 func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
 	intents := collaborationsupport.NewRecordChangedAppender()
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		panic(err)
 	}
@@ -307,7 +309,7 @@ func NewPartyOwner(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) *parties.MutationFacade {
 	intents := collaborationsupport.NewRecordChangedAppender()
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		panic(err)
 	}

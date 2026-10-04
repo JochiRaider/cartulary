@@ -106,7 +106,7 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	if err != nil {
 		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
 	}
-	submitterID, err := uuid.Parse(job.SubmittedByUserID)
+	submitterID, err := uuid.Parse(jobSubmitter(job))
 	if err != nil {
 		return m.failGraphViewMaterialization(ctx, execution, payload, "publication_conflict", false)
 	}
@@ -350,4 +350,11 @@ func graphViewSelectedResultFromBinding(binding graphprojection.ResultBindingV2)
 
 func graphViewRoute(incidentID uuid.UUID, graphViewID string) string {
 	return "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views/" + graphViewID
+}
+
+func jobSubmitter(job jobs.Resource) string {
+	if job.SubmittedByUserID == nil {
+		return ""
+	}
+	return *job.SubmittedByUserID
 }

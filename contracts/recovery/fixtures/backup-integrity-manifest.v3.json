@@ -11,11 +11,11 @@
   "artifacts": [
     {
       "kind": "graph_projection_restore_implementation_binding",
-      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v4",
+      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v5",
       "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/implementation-binding",
       "content_type": "application/json",
       "plaintext_bytes": 1461,
-      "plaintext_sha256": "2a04b36c624970358a52fda65efd9b0f1ab1398cbb0a049b06e77ac9b7f84ac7",
+      "plaintext_sha256": "01a6b736bc33c211fb246bdf64fabc19b115cb431c0cc3f2c6902ee6f889a314",
       "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/graph-implementation-binding",
       "envelope_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
     },

@@ -41,7 +41,8 @@ claimed = true
 claimed = true
 
 [reference_pack]
-claimed = true
+# Enable after configuring offline trust and completing profile adoption.
+claimed = false
 
 [revisions]
 conflict_token_key_ring_manifest_path = "/etc/cartulary/revisions-conflict-token-key-ring.json"

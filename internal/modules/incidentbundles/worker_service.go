@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -84,41 +85,45 @@ type transactionCoordinator interface {
 }
 
 type incidentBundleWorker struct {
-	store             *store
-	pool              *pgxpool.Pool
-	jobManager        JobOperations
-	jobRunner         JobRunner
-	results           incidentBundleJobResultSink
-	storage           BundleStorage
-	importFinalizer   importfinalizerport.Finalizer
-	jobFinalizer      JobSuccessFinalizer
-	portability       portabilityCoordinator
-	publicationLock   IncidentPublicationLock
-	transactions      transactionCoordinator
-	projectionRebuild ImportProjectionRebuilder
-	sourceCatalog     sourcePortCatalog
-	blobPort          BlobPortability
-	limits            Limits
-	now               func() time.Time
+	artifactReferences ArtifactReferenceSource
+	store              *store
+	pool               *pgxpool.Pool
+	jobManager         JobOperations
+	jobRunner          JobRunner
+	results            incidentBundleJobResultSink
+	storage            BundleStorage
+	importFinalizer    importfinalizerport.Finalizer
+	jobFinalizer       JobSuccessFinalizer
+	portability        portabilityCoordinator
+	publicationLock    IncidentPublicationLock
+	transactions       transactionCoordinator
+	projectionRebuild  ImportProjectionRebuilder
+	sourceCatalog      sourcePortCatalog
+	blobPort           BlobPortability
+	referencePacks     reference_data.IncidentReferences
+	limits             Limits
+	now                func() time.Time
 }
 
-func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, importFinalizer importfinalizerport.Finalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, blobPort BlobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, importFinalizer importfinalizerport.Finalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, blobPort BlobPortability, referencePacks reference_data.IncidentReferences, artifactReferences ArtifactReferenceSource, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
-		store:             store,
-		pool:              pool,
-		jobManager:        jobManager,
-		jobRunner:         jobRunner,
-		results:           incidentBundleJobResultSink{manager: jobManager, store: store, finalizer: jobFinalizer, now: now},
-		storage:           storage,
-		importFinalizer:   importFinalizer,
-		jobFinalizer:      jobFinalizer,
-		portability:       portability,
-		publicationLock:   publicationLock,
-		projectionRebuild: projectionRebuild,
-		sourceCatalog:     sourceCatalog,
-		blobPort:          blobPort,
-		limits:            limits,
-		now:               now,
+		artifactReferences: artifactReferences,
+		store:              store,
+		pool:               pool,
+		jobManager:         jobManager,
+		jobRunner:          jobRunner,
+		results:            incidentBundleJobResultSink{manager: jobManager, store: store, finalizer: jobFinalizer, now: now},
+		storage:            storage,
+		importFinalizer:    importFinalizer,
+		jobFinalizer:       jobFinalizer,
+		portability:        portability,
+		publicationLock:    publicationLock,
+		projectionRebuild:  projectionRebuild,
+		sourceCatalog:      sourceCatalog,
+		blobPort:           blobPort,
+		referencePacks:     referencePacks,
+		limits:             limits,
+		now:                now,
 	}
 }
 
@@ -193,7 +198,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 	}
 	bundleID := uuid.New()
 	exportedAt := w.now().UTC()
-	builder := bundleBuilder{pool: w.pool, blobPort: w.blobPort, portability: w.portability, sourceCatalog: w.sourceCatalog}
+	builder := bundleBuilder{limits: w.limits, artifactReferences: w.artifactReferences, pool: w.pool, blobPort: w.blobPort, portability: w.portability, sourceCatalog: w.sourceCatalog, referencePacks: w.referencePacks}
 	built, err := builder.build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
 	if err != nil {
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_export_rejected", err)
@@ -258,12 +263,16 @@ func (w *incidentBundleWorker) handleExportFinalizationError(ctx context.Context
 }
 
 func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution jobs.Execution, payload jobPayload) {
+	executionStarted := time.Now()
 	if payload.BundleStagingRef == nil {
 		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
+	finalityUnknown := false
 	defer func() {
-		_ = w.storage.RemoveStaged(*payload.BundleStagingRef)
+		if !finalityUnknown {
+			w.removeTerminalImportInput(ctx, payload.JobID, *payload.BundleStagingRef)
+		}
 	}()
 	if !w.prepareClaimedJob(ctx, execution, 1) {
 		return
@@ -282,32 +291,39 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
 		return
 	}
-	requestID := importBundleRequestID(payload.JobID)
-	importer := importer{
-		pool:              w.pool,
-		blobPort:          w.blobPort,
-		finalizer:         w.importFinalizer,
-		projectionRebuild: w.projectionRebuild,
-		sourceCatalog:     w.sourceCatalog,
-	}
-	importParams := importParams{
-		ActorUserID: payload.ActorUserID,
-		PublishedAt: w.now().UTC(),
-		RequestID:   &requestID,
-		OperationID: payload.JobID.String(),
-	}
-	prepared, err := importer.prepareImport(ctx, verified, importParams)
+	scope, err := w.referencePacks.BeginImportExecution(ctx, execution, executionStarted)
 	if err != nil {
-		var verificationErr *verificationError
-		if errors.As(err, &verificationErr) {
-			w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
-			return
-		}
 		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
+	defer scope.Close()
+	baseCtx := ctx
+	ctx = scope.Context()
+	requestID := importBundleRequestID(payload.JobID)
+	importer := importer{
+		artifactReferences: w.artifactReferences,
+		pool:               w.pool,
+		blobPort:           w.blobPort,
+		finalizer:          w.importFinalizer,
+		projectionRebuild:  w.projectionRebuild,
+		sourceCatalog:      w.sourceCatalog,
+		referencePacks:     w.referencePacks,
+	}
+	importParams := importParams{
+		Execution:          execution,
+		ExecutionStarted:   executionStarted,
+		ReferenceExecution: scope,
+		ActorUserID:        payload.ActorUserID,
+		PublishedAt:        w.now().UTC(),
+		RequestID:          &requestID,
+		OperationID:        payload.JobID.String(),
+	}
+	prepared, err := importer.prepareImport(ctx, verified, importParams)
+	if err != nil {
+		w.finishImportFailure(baseCtx, scope, execution, err)
+		return
+	}
 	committed := false
-	finalityUnknown := false
 	defer func() {
 		if !committed && !finalityUnknown {
 			prepared.cleanup(context.WithoutCancel(ctx))
@@ -315,7 +331,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 	}()
 	portability, err := w.portability.PrepareImport(ctx, payload.JobID.String(), prepared.IncidentID, verified.Files)
 	if err != nil {
-		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
+		w.finishImportFailure(baseCtx, scope, execution, err)
 		return
 	}
 	defer func() {
@@ -325,7 +341,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 	}()
 	coreParticipant, err := newImportTransactionParticipant(prepared, importParams, execution, verified.ManifestSHA256)
 	if err != nil {
-		w.results.completeInternalFailure(ctx, execution)
+		w.finishImportFailure(baseCtx, scope, execution, errors.New("incident import execution failed"))
 		return
 	}
 	participants := append([]crossownertransaction.Participant{coreParticipant}, portability.Participants...)
@@ -342,22 +358,34 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 			finalityUnknown = true
 			return
 		}
-		var verificationErr *verificationError
-		if errors.As(err, &verificationErr) {
-			w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", verificationErr)
-			return
-		}
-		w.results.completeInternalFailure(ctx, execution)
+		w.finishImportFailure(baseCtx, scope, execution, err)
 		return
 	}
-	value, ok := result.ParticipantValues[ImportTransactionParticipantID].(importTransactionResult)
-	if !ok || value.IncidentID != prepared.IncidentID {
-		w.results.completeInternalFailure(ctx, execution)
-		return
-	}
+	// Execute has proved commit. Output-shape checks cannot authorize deleting
+	// objects that are now referenced by the committed incident.
 	committed = true
 	prepared.stagedObjectKeys = nil
 	portability.Committed()
+	value, ok := result.ParticipantValues[ImportTransactionParticipantID].(importTransactionResult)
+	if !ok || value.IncidentID != prepared.IncidentID {
+		return
+	}
+}
+
+// A handler return is not a durable outcome. Jobs may recover an interrupted
+// attempt, including after cancellation or a lost completion acknowledgement.
+// Only an authoritative terminal read permits deletion of its frozen input.
+func (w *incidentBundleWorker) removeTerminalImportInput(ctx context.Context, jobID uuid.UUID, reference BundleStagingRef) {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	resource, err := w.jobManager.Get(cleanupCtx, jobID)
+	if err != nil {
+		return
+	}
+	switch resource.Status {
+	case jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
+		_ = w.storage.RemoveStaged(reference)
+	}
 }
 
 func incidentBundleStagingReadLimit(maxExtractedBytes int64) int64 {

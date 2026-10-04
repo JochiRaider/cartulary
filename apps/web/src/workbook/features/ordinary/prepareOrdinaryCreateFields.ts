@@ -21,6 +21,10 @@ export function prepareOrdinaryCreateFields(
   values: OrdinaryCreateValues,
   clientTxnId: string,
   options: {
+    text?: (
+      field: ViewFieldContract,
+      raw: string,
+    ) => { value: string; error?: string } | undefined;
     scalar?: (
       field: ViewFieldContract,
       raw: string,
@@ -124,9 +128,11 @@ export function prepareOrdinaryCreateFields(
         errors[key] = "Enter a whole number from 0 to 100.";
       else request[key] = Number(raw);
     } else {
-      const normalized = field.stringContractId
-        ? normalizeWorkbookAuthoringText(raw, field.stringContractId)
-        : (options.scalar?.(field, raw) ?? { value: raw });
+      const normalized =
+        options.text?.(field, raw) ??
+        (field.stringContractId
+          ? normalizeWorkbookAuthoringText(raw, field.stringContractId)
+          : (options.scalar?.(field, raw) ?? { value: raw }));
       if (normalized.error) errors[key] = normalized.error;
       else if (normalized.value === "") {
         if (field.clearable) request[key] = null;

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_issue.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["issue_id", "check_id", "severity", "phase", "code", "reason_code", "path", "entry_id", "safe_details"],
+  "properties": {
+    "issue_id": {"type": "string", "pattern": "^rpi_[0-9a-f]{64}$"},
+    "check_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "severity": {"const": "error"},
+    "phase": {"type": "string", "minLength": 1, "maxLength": 64},
+    "code": {"type": "string", "minLength": 1, "maxLength": 128},
+    "reason_code": {"type": ["string", "null"], "minLength": 1, "maxLength": 128},
+    "path": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "entry_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 512},
+    "safe_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limit_id", "expected_token", "actual_token", "related_pack_key", "related_pack_version"],
+      "properties": {
+        "limit_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 256},
+        "expected_token": {"type": ["string", "null"], "minLength": 1, "maxLength": 256},
+        "actual_token": {"type": ["string", "null"], "minLength": 1, "maxLength": 256},
+        "related_pack_key": {"type": ["string", "null"], "minLength": 1, "maxLength": 128},
+        "related_pack_version": {"type": ["string", "null"], "minLength": 1, "maxLength": 128}
+      }
+    }
+  }
+}

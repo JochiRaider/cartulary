@@ -100,6 +100,31 @@ func MetadataUploadEnvelopeContentTypes() []string {
 }
 
 func ParseUploadEnvelope(r *http.Request, policy UploadEnvelopePolicy) (UploadEnvelope, *UploadEnvelopeError) {
+	return parseUploadEnvelope(r, policy, 0, nil)
+}
+
+// ParseStreamingUploadEnvelope admits the complete multipart shape while an
+// owner-controlled receiver consumes the file with its own streaming bound.
+// The receiver must not perform semantic admission until this function has
+// returned success: a later duplicate or malformed part rejects the envelope.
+// The owner remains responsible for discarding unadmitted prepared input.
+func ParseStreamingUploadEnvelope(r *http.Request, policy UploadEnvelopePolicy, maximumMetadataBytes int64, receive func(io.Reader) (string, error)) (UploadEnvelope, *UploadEnvelopeError, error) {
+	if maximumMetadataBytes < 1 || maximumMetadataBytes >= 1<<63-1 || receive == nil {
+		return UploadEnvelope{}, nil, errors.New("httpapi: incomplete streaming upload policy")
+	}
+	var receiveErr error
+	envelope, err := parseUploadEnvelope(r, policy, maximumMetadataBytes, func(r io.Reader) (string, error) {
+		var digest string
+		digest, receiveErr = receive(r)
+		return digest, receiveErr
+	})
+	if receiveErr != nil {
+		return UploadEnvelope{}, nil, receiveErr
+	}
+	return envelope, err, nil
+}
+
+func parseUploadEnvelope(r *http.Request, policy UploadEnvelopePolicy, maximumMetadataBytes int64, receive func(io.Reader) (string, error)) (UploadEnvelope, *UploadEnvelopeError) {
 	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || !strings.EqualFold(mediaType, "multipart/form-data") || params["boundary"] == "" {
 		return UploadEnvelope{}, uploadEnvelopeError(UploadEnvelopeReasonUnsupportedUploadEnvelope, "", nil, nil)
@@ -137,7 +162,14 @@ func ParseUploadEnvelope(r *http.Request, policy UploadEnvelopePolicy) (UploadEn
 				}
 				return UploadEnvelope{}, uploadEnvelopeError(UploadEnvelopeReasonInvalidPartContentType, "metadata", received, metadataUploadEnvelopeContentTypes)
 			}
-			metadataBytes, err := io.ReadAll(part)
+			var metadataReader io.Reader = part
+			if maximumMetadataBytes > 0 {
+				metadataReader = io.LimitReader(part, maximumMetadataBytes+1)
+			}
+			metadataBytes, err := io.ReadAll(metadataReader)
+			if maximumMetadataBytes > 0 && int64(len(metadataBytes)) > maximumMetadataBytes {
+				return UploadEnvelope{}, uploadEnvelopeError(UploadEnvelopeReasonMalformedMetadataJSON, "metadata", nil, nil)
+			}
 			if err != nil {
 				return UploadEnvelope{}, uploadEnvelopeError(UploadEnvelopeReasonMalformedMetadataJSON, "metadata", nil, nil)
 			}
@@ -164,13 +196,21 @@ func ParseUploadEnvelope(r *http.Request, policy UploadEnvelopePolicy) (UploadEn
 				}
 				return UploadEnvelope{}, uploadEnvelopeError(UploadEnvelopeReasonInvalidPartContentType, "file", received, allowedFileTypes)
 			}
-			fileBytes, err := io.ReadAll(part)
-			if err != nil {
-				return UploadEnvelope{}, uploadEnvelopeError(UploadEnvelopeReasonUnsupportedUploadEnvelope, "file", nil, nil)
+			if receive != nil {
+				digest, err := receive(part)
+				if err != nil {
+					return UploadEnvelope{}, uploadEnvelopeError(UploadEnvelopeReasonUnsupportedUploadEnvelope, "file", nil, nil)
+				}
+				envelope.FileSHA256Hex = digest
+			} else {
+				fileBytes, err := io.ReadAll(part)
+				if err != nil {
+					return UploadEnvelope{}, uploadEnvelopeError(UploadEnvelopeReasonUnsupportedUploadEnvelope, "file", nil, nil)
+				}
+				hash := sha256.Sum256(fileBytes)
+				envelope.File = fileBytes
+				envelope.FileSHA256Hex = hex.EncodeToString(hash[:])
 			}
-			hash := sha256.Sum256(fileBytes)
-			envelope.File = fileBytes
-			envelope.FileSHA256Hex = hex.EncodeToString(hash[:])
 			envelope.FileContentType = normalizedContentType
 			envelope.FileContentTypeHeader = rawContentType
 			envelope.FileName = part.FileName()

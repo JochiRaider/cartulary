@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/google/uuid"
 	"sort"
 	"time"
 )
@@ -148,28 +150,66 @@ func reconcileInactiveExtensionProfile(ctx context.Context, store InactiveJobSto
 	return nil
 }
 
+func validJobIdentitySchema(schema string) bool {
+	return schema == "cartulary.route_scoped_idempotency_identity.v1" || schema == "cartulary.route_scoped_idempotency_identity.v2"
+}
+
 func validateInactiveJobIdentity(job InactiveJob, contract JobKindContract) error {
-	if contract.IdempotencyPolicy != "required" ||
-		contract.IdempotencyIdentitySchemaID != "cartulary.route_scoped_idempotency_identity.v1" ||
-		contract.TerminalResultSchemaID != "cartulary.common_job_terminal_success.v1" ||
-		!lowerHexDigest(job.NormalizedRequestSHA256) {
+	if contract.IdempotencyPolicy != "required" || !validJobIdentitySchema(contract.IdempotencyIdentitySchemaID) ||
+		contract.TerminalResultSchemaID != "cartulary.common_job_terminal_success.v1" || !lowerHexDigest(job.NormalizedRequestSHA256) {
 		return ErrUnclaimReconciliationFailed
 	}
-	var identity struct {
-		SchemaID      string  `json:"schema_id"`
-		ActorUserID   string  `json:"actor_user_id"`
-		RouteIdentity string  `json:"route_identity"`
-		ScopeKind     string  `json:"scope_kind"`
-		ScopeID       *string `json:"scope_id"`
-		ClientTxnID   string  `json:"client_txn_id"`
+	names := []string{"schema_id", "actor_user_id", "route_identity", "scope_kind", "scope_id", "client_txn_id"}
+	attributed := contract.IdempotencyIdentitySchemaID == "cartulary.route_scoped_idempotency_identity.v2"
+	if attributed {
+		names = append(names, "actor_kind", "operator_operation_id")
 	}
-	if err := decodeClosedObject(
-		job.IdempotencyIdentity,
-		[]string{"schema_id", "actor_user_id", "route_identity", "scope_kind", "scope_id", "client_txn_id"},
-		&identity,
-	); err != nil ||
-		identity.SchemaID != contract.IdempotencyIdentitySchemaID ||
-		identity.ActorUserID == "" || identity.RouteIdentity == "" || identity.ClientTxnID == "" {
+	value, err := canonicaljson.DecodeStrict(job.IdempotencyIdentity)
+	if err != nil {
+		return ErrUnclaimReconciliationFailed
+	}
+	object, ok := value.(map[string]any)
+	if !ok || len(object) != len(names) {
+		return ErrUnclaimReconciliationFailed
+	}
+	for _, name := range names {
+		if _, ok := object[name]; !ok {
+			return ErrUnclaimReconciliationFailed
+		}
+	}
+	var identity struct {
+		SchemaID            string  `json:"schema_id"`
+		ActorKind           string  `json:"actor_kind"`
+		ActorUserID         *string `json:"actor_user_id"`
+		OperatorOperationID *string `json:"operator_operation_id"`
+		RouteIdentity       string  `json:"route_identity"`
+		ScopeKind           string  `json:"scope_kind"`
+		ScopeID             *string `json:"scope_id"`
+		ClientTxnID         string  `json:"client_txn_id"`
+	}
+	if json.Unmarshal(job.IdempotencyIdentity, &identity) != nil || identity.SchemaID != contract.IdempotencyIdentitySchemaID || identity.RouteIdentity == "" || identity.ClientTxnID == "" {
+		return ErrUnclaimReconciliationFailed
+	}
+	canonicalUUID := func(value *string) bool {
+		if value == nil {
+			return false
+		}
+		id, err := uuid.Parse(*value)
+		return err == nil && id != uuid.Nil && id.String() == *value
+	}
+	if !attributed {
+		identity.ActorKind = "user"
+	}
+	switch identity.ActorKind {
+	case "user":
+		if !canonicalUUID(identity.ActorUserID) || identity.OperatorOperationID != nil {
+			return ErrUnclaimReconciliationFailed
+		}
+	case "local_operator":
+		if !attributed || identity.ActorUserID != nil || !canonicalUUID(identity.OperatorOperationID) || identity.ScopeKind != "deployment" || identity.ClientTxnID != *identity.OperatorOperationID {
+			return ErrUnclaimReconciliationFailed
+		}
+	default:
 		return ErrUnclaimReconciliationFailed
 	}
 	switch identity.ScopeKind {
@@ -178,7 +218,7 @@ func validateInactiveJobIdentity(job InactiveJob, contract JobKindContract) erro
 			return ErrUnclaimReconciliationFailed
 		}
 	case "incident":
-		if identity.ScopeID == nil || *identity.ScopeID == "" {
+		if !canonicalUUID(identity.ScopeID) {
 			return ErrUnclaimReconciliationFailed
 		}
 	default:

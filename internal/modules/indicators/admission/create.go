@@ -65,6 +65,19 @@ func DecodeCreateRequest(reader io.Reader) (indicators.CreateCommand, *indicator
 		if err := json.Unmarshal(value, &rawValue); err != nil {
 			return indicators.CreateCommand{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
+		switch fieldKey {
+		case "indicator.indicator_type", "indicator.value_kind":
+			if strings.TrimSpace(rawValue) == "" {
+				return indicators.CreateCommand{}, invalidMutationPayload(fieldKey, "invalid_value")
+			}
+			values[fieldKey] = rawValue
+			continue
+		case "indicator.display_value", "indicator.normalized_value", "indicator.defanged_value":
+			// Reference Data owns trimming, Unicode, newline handling and
+			// normalization. Transport admission must preserve the input.
+			values[fieldKey] = rawValue
+			continue
+		}
 		normalized, ok := fieldnorm.NormalizeLine(rawValue)
 		if !ok {
 			return indicators.CreateCommand{}, invalidMutationPayload(fieldKey, "invalid_value")

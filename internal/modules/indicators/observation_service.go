@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -37,10 +38,19 @@ func (s *Application) CreateIndicatorObservation(ctx context.Context, actorUserI
 		return IndicatorObservationMutationResult{}, fmt.Errorf("begin Indicator observation transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	assignment, err := s.registry.BeginTx(ctx, tx)
+	if err != nil {
+		return IndicatorObservationMutationResult{}, err
+	}
 	if err := s.incidentState.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 
+	evaluate, err := identity.FromConsumer(ctx, assignment)
+	if err != nil {
+		return IndicatorObservationMutationResult{}, err
+	}
 	affectedIDs := []uuid.UUID{params.SourceRecordID}
 	if params.ResolvedIndicatorRecordID != nil {
 		affectedIDs = append(affectedIDs, *params.ResolvedIndicatorRecordID)
@@ -79,9 +89,14 @@ func (s *Application) CreateIndicatorObservation(ctx context.Context, actorUserI
 		return IndicatorObservationMutationResult{}, err
 	}
 	createdAt := s.now().UTC().Truncate(time.Microsecond)
-	record, err := insertIndicatorObservationTx(ctx, tx, actorUserID, params, createdAt)
+	record, err := insertIndicatorObservationTx(ctx, tx, evaluate, actorUserID, params, createdAt)
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
+	}
+	if record.ParsedIndicatorType != nil {
+		if err := assignment.RecordUsage(ctx, "type_registry.indicator"); err != nil {
+			return IndicatorObservationMutationResult{}, err
+		}
 	}
 	changeSetID, err := s.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID: params.IncidentID, ActorUserID: actorUserID, Source: observationCreateSource,

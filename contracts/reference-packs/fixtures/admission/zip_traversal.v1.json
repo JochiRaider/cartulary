@@ -1,0 +1,7 @@
+{
+  "schema_id": "cartulary.reference_pack_admission_fixture.v1",
+  "kind": "archive",
+  "bytes_base64": "UEsDBBQAAAAIAAAAIVxDv6ajBAAAAAIAAAASAAAAYS8uLi9tYW5pZmVzdC5qc29uq64FAFBLAQIUAxQAAAAIAAAAIVxDv6ajBAAAAAIAAAASAAAAAAAAAAAAAACAgQAAAABhLy4uL21hbmlmZXN0Lmpzb25QSwUGAAAAAAEAAQBAAAAANAAAAAAA",
+  "expected_members": {},
+  "operator": true
+}

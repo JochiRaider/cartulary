@@ -9,6 +9,7 @@ func RecoveryStateContribution() recoverystate.Contribution {
 			"reporting_composition_preview_output_files",
 			"reporting_composition_preview_outputs",
 			"reporting_job_payloads",
+			"reporting_imported_artifact_files",
 			"reporting_release_approvals",
 			"reporting_releases",
 			"reporting_render_bundle_files",

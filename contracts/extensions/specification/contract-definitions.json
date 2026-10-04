@@ -174,7 +174,7 @@
       "owner_id": "core04"
     },
     {
-      "schema_id": "cartulary.extension_profile_configuration_contract.v3",
+      "schema_id": "cartulary.extension_profile_configuration_contract.v4",
       "artifact_class": "owner_input",
       "owner_id": "core04"
     },
@@ -289,12 +289,17 @@
       "owner_id": "network_flow_activity"
     },
     {
-      "schema_id": "cartulary.reporting_export_model.v1",
+      "schema_id": "cartulary.reporting_export_model.v2",
       "artifact_class": "runtime_protocol",
       "owner_id": "reporting"
     },
     {
       "schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "core01"
+    },
+    {
+      "schema_id": "cartulary.route_scoped_idempotency_identity.v2",
       "artifact_class": "runtime_protocol",
       "owner_id": "core01"
     }

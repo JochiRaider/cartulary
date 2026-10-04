@@ -19,7 +19,8 @@
           "TestRootedFSDetectsComponentAndRootReplacementRaces_Unit",
           "TestRootedFSErrorsDoNotDiscloseHostRoot_Unit",
           "TestRootedFSOperationContainment_Unit",
-          "TestRootedFSReferenceValidation_Unit"
+          "TestRootedFSReferenceValidation_Unit",
+          "TestRootedFSRemoveEmptyDirectoryFailsClosed_Unit"
         ]
       },
       "evidence_class": "unit",

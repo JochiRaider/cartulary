@@ -7,9 +7,12 @@ import {
   type ReferencePackCommand,
   type ReferencePackJobResource,
   type ReferencePackQuery,
+  readReferencePackValidationSummary,
   readReferencePackVersion,
   referencePackContractProblem,
   referencePackTransportProblem,
+  referencePackValidationMatches,
+  referencePackValidationRef,
   submitReferencePackAttempt,
 } from "../services/referencePacks";
 import {
@@ -44,6 +47,7 @@ export type ReferencePackAccess = {
 export type ReferencePackAdminPorts = {
   readonly list: typeof listReferencePacks;
   readonly version: typeof readReferencePackVersion;
+  readonly validation: typeof readReferencePackValidationSummary;
   readonly submit: typeof submitReferencePackAttempt;
   readonly job: typeof loadReferencePackJob;
   readonly cancel: typeof cancelReferencePackJob;
@@ -64,6 +68,7 @@ export const referencePackTiming = {
 export const referencePackTransportPorts = {
   list: listReferencePacks,
   version: readReferencePackVersion,
+  validation: readReferencePackValidationSummary,
   submit: submitReferencePackAttempt,
   job: loadReferencePackJob,
   cancel: cancelReferencePackJob,
@@ -80,6 +85,7 @@ export class ReferencePackAdminController {
   private activation = 0;
   private catalogAbort: AbortController | null = null;
   private jobAbort: AbortController | null = null;
+  private readonly diagnosticReads = new Map<string, AbortController>();
   private jobRead: Promise<boolean> | null = null;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly requests = new Set<AbortController>();
@@ -129,9 +135,19 @@ export class ReferencePackAdminController {
     this.stopPolling();
     this.catalogAbort?.abort();
     this.jobAbort?.abort();
+    for (const read of this.diagnosticReads.values()) read.abort();
+    this.diagnosticReads.clear();
     this.publish({
       ...this.state,
       active,
+      diagnostics: Object.fromEntries(
+        Object.entries(this.state.diagnostics).map(([id, diagnostic]) => [
+          id,
+          diagnostic.phase === "loading"
+            ? { ...diagnostic, phase: "paused" as const }
+            : diagnostic,
+        ]),
+      ),
       operation:
         this.state.operation?.phase === "checking"
           ? {
@@ -175,6 +191,7 @@ export class ReferencePackAdminController {
     this.stopPolling();
     for (const request of this.requests) request.abort();
     this.requests.clear();
+    this.diagnosticReads.clear();
     this.catalogAbort = null;
     this.jobAbort = null;
     this.jobRead = null;
@@ -844,6 +861,91 @@ export class ReferencePackAdminController {
     if (this.state.active && this.state.access === "ready")
       void this.observeJob(id);
   }
+  async inspectValidation(id: string) {
+    const authority = this.state.authority;
+    const job = this.state.jobs[id];
+    const reference = job && referencePackValidationRef(job.snapshot);
+    if (
+      !authority ||
+      !job ||
+      !reference ||
+      !this.state.active ||
+      this.state.access !== "ready" ||
+      this.state.reconciling ||
+      !this.current(authority) ||
+      this.diagnosticReads.has(id) ||
+      this.state.diagnostics[id]?.phase === "ready"
+    )
+      return;
+    const epoch = this.epoch;
+    const activation = this.activation;
+    const request = new AbortController();
+    this.diagnosticReads.set(id, request);
+    this.publish({
+      ...this.state,
+      diagnostics: {
+        ...this.state.diagnostics,
+        [id]: { reference, phase: "loading" },
+      },
+    });
+    const outcome = await this.bounded(
+      (signal) => this.ports.validation(reference, signal),
+      referencePackTiming.read,
+      request,
+    );
+    if (this.diagnosticReads.get(id) !== request) return;
+    this.diagnosticReads.delete(id);
+    if (
+      !this.current(authority, epoch) ||
+      !this.state.active ||
+      activation !== this.activation ||
+      referencePackValidationRef(
+        this.state.jobs[id]?.snapshot ?? job.snapshot,
+      ) !== reference
+    ) {
+      if (
+        this.current(authority, epoch) &&
+        this.state.diagnostics[id]?.phase === "loading"
+      )
+        this.publish({
+          ...this.state,
+          diagnostics: {
+            ...this.state.diagnostics,
+            [id]: { reference, phase: "paused" },
+          },
+        });
+      return;
+    }
+    const result =
+      outcome.kind === "value"
+        ? outcome.value
+        : { kind: "failed" as const, problem: referencePackTransportProblem };
+    if (result.kind === "access_failed") {
+      this.authorizationLost(result.status);
+      return;
+    }
+    const diagnostic =
+      result.kind === "read" &&
+      referencePackValidationMatches(job.snapshot, result.value)
+        ? { reference, phase: "ready" as const, summary: result.value }
+        : {
+            reference,
+            phase: "failed" as const,
+            problem:
+              result.kind === "failed"
+                ? result.problem
+                : referencePackContractProblem,
+          };
+    this.publish({
+      ...this.state,
+      diagnostics: { ...this.state.diagnostics, [id]: diagnostic },
+    });
+    this.announce(
+      diagnostic.phase === "ready"
+        ? "Validation details loaded."
+        : "Validation details could not be loaded. Retry the read to inspect this outcome.",
+    );
+  }
   dismissJob(id: string) {
     const job = this.state.jobs[id];
     if (
@@ -855,6 +957,10 @@ export class ReferencePackAdminController {
       return;
     const jobs = { ...this.state.jobs };
     delete jobs[id];
-    this.publish({ ...this.state, jobs });
+    this.diagnosticReads.get(id)?.abort();
+    this.diagnosticReads.delete(id);
+    const diagnostics = { ...this.state.diagnostics };
+    delete diagnostics[id];
+    this.publish({ ...this.state, jobs, diagnostics });
   }
 }

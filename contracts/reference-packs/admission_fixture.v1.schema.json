@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "kind", "bytes_base64", "expected_members", "operator"],
+  "properties": {
+    "schema_id": {"const": "cartulary.reference_pack_admission_fixture.v1"},
+    "kind": {"enum": ["archive", "manifest", "license"]},
+    "operator": {"type": "boolean"},
+    "bytes_base64": {"type": "string", "minLength": 1, "maxLength": 1048576},
+    "expected_members": {
+      "type": "object",
+      "maxProperties": 4096,
+      "additionalProperties": {"type": "string", "maxLength": 1048576}
+    }
+  }
+}

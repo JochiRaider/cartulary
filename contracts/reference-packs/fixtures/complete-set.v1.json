@@ -1,0 +1,150 @@
+{
+  "schema_id": "cartulary.reference_pack_complete_set_vector.v1",
+  "members": [
+    {
+      "pack_key": "enrichment.cisa_kev",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.cisa_kev.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.entra_app_ids",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.entra_app_ids.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.hijacklibs",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.hijacklibs.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.lolbas",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.lolbas.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.loldrivers",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.loldrivers.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.lolesxi",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.lolesxi.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.ms_portals",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.ms_portals.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.tor",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.tor.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.windows_event_ids",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.windows_event_ids.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.windows_sids",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.enrichment.windows_sids.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "framework.attack",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.framework.attack.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "framework.d3fend",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.framework.d3fend.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "framework.veris",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.framework.veris.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "type_registry.evidence",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "type_registry.host",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "type_registry.indicator",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
+      "content_profile_version": "1"
+    }
+  ],
+  "expected_set_id": "rpset_86ae1b3bd0957d3785c8caa1da184cc5e25ad051b0bbcc32924b94d6ac95e715"
+}

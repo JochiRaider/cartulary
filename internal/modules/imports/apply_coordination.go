@@ -31,7 +31,7 @@ func (s *service) applyUnit(
 	} else if !errors.Is(err, errNotFound) {
 		return unitApplyOutcome{}, err
 	}
-	tx, err := s.store.db.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.applyTransactions.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return unitApplyOutcome{}, fmt.Errorf("begin import apply unit transaction: %w", err)
 	}

@@ -12,6 +12,7 @@ import {
   catalogStarted,
   initialReferencePackState,
   normalizeReferencePackQuery,
+  referencePackEligible,
   selectionChanged,
 } from "./referencePackAdminModel";
 
@@ -23,9 +24,35 @@ const query = {
   active: "",
   packVersionState: "",
   search: "",
-  verificationResult: "",
 };
 describe("Reference Pack ownership", () => {
+  it("uses server pin and selected-key work projections for action eligibility", () => {
+    const pinned = referencePackFixture({ reproducibility_pinned: true });
+    expect(referencePackEligible(pinned, "remove")).toBe(false);
+    expect(referencePackEligible(pinned, "activate")).toBe(true);
+    for (const action of [
+      "activate",
+      "disable",
+      "reverify",
+      "remove",
+    ] as const) {
+      expect(
+        referencePackEligible(
+          referencePackFixture({ pending_work: true }),
+          action,
+        ),
+      ).toBe(false);
+    }
+    expect(
+      referencePackEligible(
+        referencePackFixture({
+          health: "failed",
+          administratively_disabled: true,
+        }),
+        "activate",
+      ),
+    ).toBe(false);
+  });
   it("gates catalog success and failure by the newest admitted generation", () => {
     let state = catalogStarted(initialReferencePackState(), 1, false);
     state = catalogAccepted(state, 1, [pack("accepted")], paging);

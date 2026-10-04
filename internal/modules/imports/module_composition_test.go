@@ -141,6 +141,7 @@ func validModuleTestDependencies() ModuleDependencies {
 	jobService := &moduleTestJobs{}
 	return ModuleDependencies{
 		Postgres:            &moduleTestDB{},
+		ApplyTransactions:   &moduleTestDB{},
 		JobTransactions:     jobService,
 		JobOperations:       jobService,
 		JobRunner:           &moduleTestRunner{},
@@ -161,6 +162,7 @@ func TestImportsModuleRejectsEveryMissingDependency(t *testing.T) {
 		name   string
 		remove func(*ModuleDependencies)
 	}{
+		{name: "ApplyTransactions", remove: func(deps *ModuleDependencies) { deps.ApplyTransactions = nil }},
 		{name: "Postgres", remove: func(deps *ModuleDependencies) { deps.Postgres = nil }},
 		{name: "Jobs transactions", remove: func(deps *ModuleDependencies) { deps.JobTransactions = nil }},
 		{name: "Jobs operations", remove: func(deps *ModuleDependencies) { deps.JobOperations = nil }},

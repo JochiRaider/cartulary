@@ -1,10 +1,12 @@
 package indicators
 
 import (
+	"errors"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	indicatorbundle "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/incidentbundle"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/sourcestate"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 )
 
 // IncidentBundleContribution is the complete Indicator-owned portability
@@ -15,7 +17,10 @@ type IncidentBundleContribution struct {
 	SubtypePresence subtypepresence.Contribution
 }
 
-func NewIncidentBundleContribution() (IncidentBundleContribution, error) {
+func NewIncidentBundleContribution(consumer reference_data.Consumer, assignments reference_data.RegistryAssignments) (IncidentBundleContribution, error) {
+	if consumer == nil || assignments == nil {
+		return IncidentBundleContribution{}, errors.New("indicator portability requires Reference Data")
+	}
 	catalog, err := sourcestate.Load()
 	if err != nil {
 		return IncidentBundleContribution{}, err
@@ -32,7 +37,7 @@ func NewIncidentBundleContribution() (IncidentBundleContribution, error) {
 		})
 	}
 	return IncidentBundleContribution{
-		SourcePort:      indicatorbundle.NewSourcePort(paths),
+		SourcePort:      indicatorbundle.NewSourcePort(paths, consumer, assignments),
 		SubtypePresence: indicatorbundle.SubtypeContribution(),
 	}, nil
 }

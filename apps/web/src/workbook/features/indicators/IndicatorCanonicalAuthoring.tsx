@@ -15,6 +15,7 @@ import {
   type IndicatorCreateErrors,
   indicatorCreateErrors,
   indicatorCreateTypes,
+  indicatorValueKinds,
 } from "./indicatorCreateModel";
 
 const labels: Readonly<Record<string, string>> = {
@@ -63,16 +64,26 @@ export function IndicatorCanonicalAuthoring({
       key === "indicator.indicator_type"
         ? indicatorCreateTypes
         : key === "indicator.value_kind"
-          ? (constraints.atomicTypes as readonly string[]).includes(type)
-            ? ["atomic"]
-            : constraints.valueKinds
+          ? indicatorValueKinds(type)
           : entry.enumValues;
     const errorId = `${id}-${key}-error`;
     return (
       <div key={key} style={observationField}>
         <label htmlFor={`${id}-${key}`}>{labels[key] ?? entry.label}</label>
         <GenericMutationControl
-          field={{ ...entry, enumValues: values }}
+          field={{
+            ...entry,
+            enumValues: values,
+            stringContractId:
+              type === "text" &&
+              [
+                "indicator.display_value",
+                "indicator.normalized_value",
+                "indicator.defanged_value",
+              ].includes(key)
+                ? "multiline_body_v1"
+                : entry.stringContractId,
+          }}
           collectionMode="add"
           id={`${id}-${key}`}
           ariaLabel={labels[key] ?? entry.label}

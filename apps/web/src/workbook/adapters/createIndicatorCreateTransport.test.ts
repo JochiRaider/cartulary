@@ -157,12 +157,12 @@ it("Indicator canonical request constraints preserve exact vocabularies identity
   const seed = indicatorCreateSeed(testObservation);
   expect(seed).toEqual({
     "indicator.indicator_type": "domain_name",
-    "indicator.value_kind": "",
+    "indicator.value_kind": "atomic",
     "indicator.display_value": testObservation.normalized_candidate,
   });
   expect(
     indicatorCreateRequest(canonicalCreateContract, seed, "txn"),
-  ).toBeNull();
+  ).not.toBeNull();
   const valid = {
     ...seed,
     "indicator.value_kind": "atomic",
@@ -239,7 +239,7 @@ it("Indicator canonical request constraints preserve exact vocabularies identity
       ...valid,
       "indicator.indicator_type": "sha256",
     })["indicator.display_value"],
-  ).toBeTruthy();
+  ).toBeUndefined(); // Value algorithms are evaluated by the Reference Data owner.
   expect(
     indicatorCreateAvailable({
       ...canonicalCreateContract,

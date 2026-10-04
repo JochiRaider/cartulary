@@ -1,9 +1,9 @@
 package reporting
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"regexp"
 	"sort"
 	"strings"
@@ -17,9 +17,9 @@ const (
 
 	RedactionProfileSchemaID       = "cartulary.redaction_profile.v1"
 	RedactionProfileViewSchemaID   = "cartulary.redaction_profile_view.v1"
-	RedactionManifestSchemaID      = "cartulary.redaction_manifest.v1"
-	RedactionTokenManifestSchemaID = "cartulary.redaction_token_manifest.v1"
-	RedactionRevealMapSchemaID     = "cartulary.redaction_reveal_map.v1"
+	RedactionManifestSchemaID      = "cartulary.redaction_manifest.v2"
+	RedactionTokenManifestSchemaID = "cartulary.reporting_token_manifest.v2"
+	RedactionRevealMapSchemaID     = "cartulary.reporting_token_reveal_map.v2"
 
 	ActionAllow    = "allow"
 	ActionDrop     = "drop"
@@ -79,21 +79,16 @@ type RedactionActionSpec struct {
 	MaxChars        *int    `json:"max_chars,omitempty"`
 }
 
-type ExportModel struct {
-	SchemaID                     string                         `json:"schema_id"`
-	ExportModelID                string                         `json:"export_model_id"`
+type SnapshotContent struct {
+	ReferencePacks               reference_data.SetBinding      `json:"reference_packs"`
 	IncidentID                   string                         `json:"incident_id"`
 	SnapshotID                   string                         `json:"snapshot_id"`
 	SnapshotAt                   time.Time                      `json:"snapshot_at"`
-	RenderAdmittedAt             time.Time                      `json:"render_admitted_at"`
 	SourceChangeSetHighWatermark string                         `json:"source_change_set_high_watermark"`
 	SnapshotBoundaryKind         *string                        `json:"snapshot_boundary_kind"`
 	DerivationVersion            string                         `json:"derivation_version"`
-	ExportModelCreatedAt         time.Time                      `json:"export_model_created_at"`
 	ExportModelGeneratorID       string                         `json:"export_model_generator_id"`
 	ExportModelGeneratorVersion  string                         `json:"export_model_generator_version"`
-	ReleaseScope                 string                         `json:"release_scope"`
-	RecipientPartitionRefs       []string                       `json:"recipient_partition_refs"`
 	Sections                     []ReportingSection             `json:"sections"`
 	Records                      []ReportingRecordSummary       `json:"records"`
 	Relationships                []ReportingRelationshipSummary `json:"relationships"`
@@ -104,6 +99,23 @@ type ExportModel struct {
 	SupportIndex                 []ReportingSupportRef          `json:"support_index"`
 	ValidationSummary            ReportingExportModelValidation `json:"validation_summary"`
 	Fields                       []ExportField                  `json:"-"`
+}
+
+type SnapshotModel struct {
+	SchemaID        string `json:"schema_id"`
+	SnapshotModelID string `json:"snapshot_model_id"`
+	SnapshotContent
+}
+
+type ExportModel struct {
+	SchemaID        string `json:"schema_id"`
+	ExportModelID   string `json:"export_model_id"`
+	SnapshotModelID string `json:"snapshot_model_id"`
+	RenderIdentity
+	ExportModelCreatedAt   string   `json:"export_model_created_at"`
+	ReleaseScope           string   `json:"release_scope"`
+	RecipientPartitionRefs []string `json:"recipient_partition_refs"`
+	SnapshotContent
 }
 
 type ExportField struct {
@@ -282,12 +294,18 @@ type ReportingSectionValidation struct {
 }
 
 type RedactedExportModel struct {
-	SchemaID                     string          `json:"schema_id"`
-	IncidentID                   string          `json:"incident_id"`
-	SnapshotAt                   time.Time       `json:"snapshot_at"`
-	SourceChangeSetHighWatermark string          `json:"source_change_set_high_watermark"`
-	DerivationVersion            string          `json:"derivation_version"`
-	Fields                       []RedactedField `json:"fields"`
+	ExportModelSHA256 string `json:"export_model_sha256"`
+	RenderIdentity
+	SnapshotID    string `json:"snapshot_id"`
+	ExportModelID string `json:"export_model_id"`
+
+	ReferencePacks               reference_data.SetBinding `json:"reference_packs"`
+	SchemaID                     string                    `json:"schema_id"`
+	IncidentID                   string                    `json:"incident_id"`
+	SnapshotAt                   time.Time                 `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string                    `json:"source_change_set_high_watermark"`
+	DerivationVersion            string                    `json:"derivation_version"`
+	Fields                       []RedactedField           `json:"fields"`
 }
 
 type RedactedField struct {
@@ -303,6 +321,10 @@ type RedactedField struct {
 }
 
 type RedactionManifest struct {
+	RenderIdentity
+	SnapshotID string `json:"snapshot_id"`
+	CreatedAt  string `json:"created_at"`
+
 	SchemaID               string                   `json:"schema_id"`
 	ProfileID              string                   `json:"profile_id"`
 	ProfileVersion         string                   `json:"profile_version"`
@@ -364,6 +386,10 @@ type RedactionActionView struct {
 }
 
 type RedactionTokenManifest struct {
+	RenderIdentity
+	SnapshotID string `json:"snapshot_id"`
+	CreatedAt  string `json:"created_at"`
+
 	SchemaID             string                        `json:"schema_id"`
 	SourceExportSHA256   string                        `json:"source_export_model_sha256"`
 	RedactedExportSHA256 string                        `json:"redacted_export_model_sha256"`
@@ -385,6 +411,10 @@ type RedactionTokenManifestEntry struct {
 }
 
 type RedactionRevealMap struct {
+	RenderIdentity
+	SnapshotID string `json:"snapshot_id"`
+	CreatedAt  string `json:"created_at"`
+
 	SchemaID             string                    `json:"schema_id"`
 	Sensitivity          string                    `json:"sensitivity"`
 	TokenManifestSHA256  string                    `json:"token_manifest_sha256"`
@@ -456,7 +486,7 @@ type IncidentMetadataSnapshot struct {
 	Version      int64
 }
 
-func BuildExportModel(incident IncidentMetadataSnapshot, snapshotAt time.Time, watermark string, workbookFields []ExportField) (ExportModel, string, error) {
+func BuildSnapshotModel(incident IncidentMetadataSnapshot, snapshotID string, snapshotAt time.Time, watermark string, workbookFields []ExportField) (SnapshotModel, string, error) {
 	fields := []ExportField{
 		{
 			Path:         "/incident/title",
@@ -508,10 +538,10 @@ func BuildExportModel(incident IncidentMetadataSnapshot, snapshotAt time.Time, w
 			Value:        *incident.CurrentPhase,
 		})
 	}
-	return buildStructuredExportModel(incident.ID, "", snapshotAt, watermark, ReleaseScopeInternalReview, nil, fields)
+	return buildStructuredSnapshotModel(incident.ID, snapshotID, snapshotAt, watermark, fields)
 }
 
-func buildStructuredExportModel(incidentID string, snapshotID string, snapshotAt time.Time, watermark string, releaseScope string, recipientPartitionRefs []string, fields []ExportField) (ExportModel, string, error) {
+func buildStructuredSnapshotModel(incidentID string, snapshotID string, snapshotAt time.Time, watermark string, fields []ExportField) (SnapshotModel, string, error) {
 	sort.Slice(fields, func(i, j int) bool {
 		return fields[i].Path < fields[j].Path
 	})
@@ -684,48 +714,55 @@ func buildStructuredExportModel(incidentID string, snapshotID string, snapshotAt
 	sort.Slice(supportIndex, func(i, j int) bool {
 		return supportIndex[i].SupportRefID < supportIndex[j].SupportRefID
 	})
+	snapshotIdentity, err := snapshotModelID(snapshotID, DerivationVersion, snapshotAt)
+	if err != nil {
+		return SnapshotModel{}, "", err
+	}
 	createdAt := snapshotAt.UTC()
-	model := ExportModel{
-		SchemaID:                     ExportModelSchemaID,
-		ExportModelID:                exportModelID(snapshotID, incidentID, DerivationVersion, createdAt),
-		IncidentID:                   incidentID,
-		SnapshotID:                   snapshotID,
-		SnapshotAt:                   createdAt,
-		RenderAdmittedAt:             createdAt,
-		SourceChangeSetHighWatermark: watermark,
-		DerivationVersion:            DerivationVersion,
-		ExportModelCreatedAt:         createdAt,
-		ExportModelGeneratorID:       "cartulary.reporting.materializer",
-		ExportModelGeneratorVersion:  "1",
-		ReleaseScope:                 releaseScope,
-		RecipientPartitionRefs:       cloneStrings(recipientPartitionRefs),
-		Sections:                     []ReportingSection{section},
-		Records:                      records,
-		Relationships:                relationships,
-		TimelineEvents:               timelineEvents,
-		Subjects:                     subjects,
-		Diagrams:                     []ReportingDiagram{},
-		Assets:                       []ReportingAssetDeclaration{},
-		SupportIndex:                 supportIndex,
-		ValidationSummary: ReportingExportModelValidation{
-			SchemaID: "cartulary.reporting_export_model_validation.v1",
-			Result:   "passed",
-			Issues:   []ReportingValidationIssue{},
-		},
-		Fields: fields,
+	model := SnapshotModel{
+		SchemaID:        SnapshotModelSchemaID,
+		SnapshotModelID: snapshotIdentity,
+		SnapshotContent: SnapshotContent{
+			IncidentID: incidentID,
+			SnapshotID: snapshotID,
+			SnapshotAt: createdAt,
+
+			SourceChangeSetHighWatermark: watermark,
+			DerivationVersion:            DerivationVersion,
+
+			ExportModelGeneratorID:      "cartulary.reporting.materializer",
+			ExportModelGeneratorVersion: "1",
+
+			Sections:       []ReportingSection{section},
+			Records:        records,
+			Relationships:  relationships,
+			TimelineEvents: timelineEvents,
+			Subjects:       subjects,
+			Diagrams:       []ReportingDiagram{},
+			Assets:         []ReportingAssetDeclaration{},
+			SupportIndex:   supportIndex,
+			ValidationSummary: ReportingExportModelValidation{
+				SchemaID: "cartulary.reporting_export_model_validation.v1",
+				Result:   "passed",
+				Issues:   []ReportingValidationIssue{},
+			},
+			Fields: fields},
+	}
+	if err := validateSnapshotModelIdentity(model); err != nil {
+		return SnapshotModel{}, "", err
 	}
 	encoded, err := canonicalJSON(model)
 	if err != nil {
-		return ExportModel{}, "", err
+		return SnapshotModel{}, "", err
 	}
-	return model, hashHex(encoded), nil
+	return model, reportingObjectDigest(model.SchemaID, encoded), nil
 }
 
-func (model ExportModel) CompatibilityFields() []ExportField {
+func (model SnapshotContent) CompatibilityFields() []ExportField {
 	return model.RedactionFields()
 }
 
-func (model ExportModel) RedactionFields() []ExportField {
+func (model SnapshotContent) RedactionFields() []ExportField {
 	fields := []ExportField{}
 	for _, section := range model.Sections {
 		fields = append(fields, redactionFieldsFromBlocks(section.Blocks)...)
@@ -804,11 +841,6 @@ func appendUniqueStrings(values []string, additions ...string) []string {
 	}
 	sort.Strings(values)
 	return values
-}
-
-func exportModelID(snapshotID string, incidentID string, derivationVersion string, createdAt time.Time) string {
-	input := fmt.Sprintf("cartulary.reporting_export_model_id.v1\n%s\n%s\n%s\n%s", snapshotID, incidentID, derivationVersion, createdAt.UTC().Format(time.RFC3339Nano))
-	return "expm_" + hashHex([]byte(input))
 }
 
 func fieldKeyFromExportPath(path string) string {
@@ -1101,7 +1133,7 @@ func ValidateRedactionProfile(profile RedactionProfile) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return hashHex(encoded), nil
+	return reportingObjectDigest(profile.SchemaID, encoded), nil
 }
 
 func BuildRedactionProfileView(profile RedactionProfile, profileSHA256 string) (RedactionProfileView, []byte, string, error) {
@@ -1144,7 +1176,7 @@ func BuildRedactionProfileView(profile RedactionProfile, profileSHA256 string) (
 	if err != nil {
 		return RedactionProfileView{}, nil, "", err
 	}
-	return view, encoded, hashHex(encoded), nil
+	return view, encoded, reportingObjectDigest(view.SchemaID, encoded), nil
 }
 
 func redactionActionView(action RedactionActionSpec) RedactionActionView {
@@ -1175,7 +1207,10 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 		return fields[i].Path < fields[j].Path
 	})
 	redacted := RedactedExportModel{
-		SchemaID:                     "cartulary.redacted_export_model.v1",
+		ExportModelSHA256: sourceExportSHA256,
+		RenderIdentity:    model.RenderIdentity, SnapshotID: model.SnapshotID, ExportModelID: model.ExportModelID,
+		SchemaID:                     "cartulary.redacted_export_model.v2",
+		ReferencePacks:               model.ReferencePacks,
 		IncidentID:                   model.IncidentID,
 		SnapshotAt:                   model.SnapshotAt.UTC(),
 		SourceChangeSetHighWatermark: model.SourceChangeSetHighWatermark,
@@ -1201,7 +1236,10 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 				tokenCandidate = true
 				stableSubjectRef = ref
 				subjectKind = kind
-				tokenID, displayToken = deriveDisplayToken(sourceExportSHA256, profileSHA256, releaseScope, stableSubjectRef)
+				tokenID, displayToken, err = deriveDisplayToken(model.RenderIdentity, stableSubjectRef)
+				if err != nil {
+					return RedactionResult{}, err
+				}
 				value = displayToken
 				include = true
 				outcome = "tokenized"
@@ -1256,8 +1294,8 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 	if err != nil {
 		return RedactionResult{}, err
 	}
-	modelSHA := hashHex(redactedBytes)
-	tokenManifest, tokenManifestJSON, tokenManifestSHA, revealMap, revealMapJSON, revealMapSHA, err := buildTokenArtifacts(tokenEntriesByID, revealEntries, sourceExportSHA256, modelSHA, profileSHA256, releaseScope)
+	modelSHA := reportingObjectDigest(redacted.SchemaID, redactedBytes)
+	tokenManifest, tokenManifestJSON, tokenManifestSHA, revealMap, revealMapJSON, revealMapSHA, err := buildTokenArtifacts(model.RenderIdentity, model.SnapshotID, tokenEntriesByID, revealEntries, sourceExportSHA256, modelSHA, profileSHA256, releaseScope)
 	if err != nil {
 		return RedactionResult{}, err
 	}
@@ -1266,6 +1304,7 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 		tokenManifestSHAPtr = &tokenManifestSHA
 	}
 	manifest := RedactionManifest{
+		RenderIdentity: model.RenderIdentity, SnapshotID: model.SnapshotID, CreatedAt: model.RenderAdmittedAt,
 		SchemaID:               RedactionManifestSchemaID,
 		ProfileID:              profile.ProfileID,
 		ProfileVersion:         profile.Version,
@@ -1291,7 +1330,7 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 		TokenManifest:       tokenManifest,
 		RevealMap:           revealMap,
 		ModelSHA256:         modelSHA,
-		ManifestSHA256:      hashHex(manifestBytes),
+		ManifestSHA256:      reportingObjectDigest(manifest.SchemaID, manifestBytes),
 		ProfileViewSHA256:   profileViewSHA,
 		TokenManifestSHA256: tokenManifestSHA,
 		RevealMapSHA256:     revealMapSHA,
@@ -1350,16 +1389,12 @@ func tokenizableSubjectRefForField(field ExportField) (string, string, bool) {
 	return subjectKind + ":" + recordID, subjectKind, true
 }
 
-func deriveDisplayToken(sourceExportSHA256 string, profileSHA256 string, releaseScope string, stableSubjectRef string) (string, string) {
-	input := strings.Join([]string{
-		"cartulary.reporting.derive_display_token.v1",
-		sourceExportSHA256,
-		profileSHA256,
-		releaseScope,
-		stableSubjectRef,
-	}, "\n")
-	digest := hashHex([]byte(input))
-	return "rtok_" + digest[:24], "SUBJECT-" + strings.ToUpper(digest[:12])
+func deriveDisplayToken(identity RenderIdentity, stableSubjectRef string) (string, string, error) {
+	id, err := identity.generatedID("token", "tok_", map[string]any{"stable_subject_ref": stableSubjectRef})
+	if err != nil {
+		return "", "", err
+	}
+	return id, "SUBJECT-" + strings.ToUpper(strings.TrimPrefix(id, "tok_")[:12]), nil
 }
 
 func recordTokenManifestEntry(entries map[string]*RedactionTokenManifestEntry, tokenID string, displayToken string, stableSubjectRef string, subjectKind string, field ExportField, action string) {
@@ -1403,7 +1438,7 @@ func redactionRevealMapEntry(tokenID string, displayToken string, stableSubjectR
 	}, nil
 }
 
-func buildTokenArtifacts(entriesByID map[string]*RedactionTokenManifestEntry, revealEntries []RedactionRevealMapEntry, sourceExportSHA256 string, redactedExportSHA256 string, profileSHA256 string, releaseScope string) (*RedactionTokenManifest, []byte, string, *RedactionRevealMap, []byte, string, error) {
+func buildTokenArtifacts(identity RenderIdentity, snapshotID string, entriesByID map[string]*RedactionTokenManifestEntry, revealEntries []RedactionRevealMapEntry, sourceExportSHA256 string, redactedExportSHA256 string, profileSHA256 string, releaseScope string) (*RedactionTokenManifest, []byte, string, *RedactionRevealMap, []byte, string, error) {
 	if len(entriesByID) == 0 {
 		return nil, nil, "", nil, nil, "", nil
 	}
@@ -1411,19 +1446,16 @@ func buildTokenArtifacts(entriesByID map[string]*RedactionTokenManifestEntry, re
 	for _, entry := range entriesByID {
 		tokenEntries = append(tokenEntries, *entry)
 	}
-	sort.Slice(tokenEntries, func(i, j int) bool {
-		if tokenEntries[i].StableSubjectRef == tokenEntries[j].StableSubjectRef {
-			return tokenEntries[i].TokenID < tokenEntries[j].TokenID
-		}
-		return tokenEntries[i].StableSubjectRef < tokenEntries[j].StableSubjectRef
-	})
+
+	sort.Slice(tokenEntries, func(i, j int) bool { return tokenEntries[i].TokenID < tokenEntries[j].TokenID })
 	sort.Slice(revealEntries, func(i, j int) bool {
-		if revealEntries[i].StableSubjectRef == revealEntries[j].StableSubjectRef {
+		if revealEntries[i].TokenID == revealEntries[j].TokenID {
 			return revealEntries[i].Path < revealEntries[j].Path
 		}
-		return revealEntries[i].StableSubjectRef < revealEntries[j].StableSubjectRef
+		return revealEntries[i].TokenID < revealEntries[j].TokenID
 	})
 	tokenManifest := RedactionTokenManifest{
+		RenderIdentity: identity, SnapshotID: snapshotID, CreatedAt: identity.RenderAdmittedAt,
 		SchemaID:             RedactionTokenManifestSchemaID,
 		SourceExportSHA256:   sourceExportSHA256,
 		RedactedExportSHA256: redactedExportSHA256,
@@ -1435,8 +1467,9 @@ func buildTokenArtifacts(entriesByID map[string]*RedactionTokenManifestEntry, re
 	if err != nil {
 		return nil, nil, "", nil, nil, "", err
 	}
-	tokenManifestSHA := hashHex(tokenManifestJSON)
+	tokenManifestSHA := reportingObjectDigest(tokenManifest.SchemaID, tokenManifestJSON)
 	revealMap := RedactionRevealMap{
+		RenderIdentity: identity, SnapshotID: snapshotID, CreatedAt: identity.RenderAdmittedAt,
 		SchemaID:             RedactionRevealMapSchemaID,
 		Sensitivity:          "internal_sensitive",
 		TokenManifestSHA256:  tokenManifestSHA,
@@ -1448,7 +1481,7 @@ func buildTokenArtifacts(entriesByID map[string]*RedactionTokenManifestEntry, re
 	if err != nil {
 		return nil, nil, "", nil, nil, "", err
 	}
-	return &tokenManifest, tokenManifestJSON, tokenManifestSHA, &revealMap, revealMapJSON, hashHex(revealMapJSON), nil
+	return &tokenManifest, tokenManifestJSON, tokenManifestSHA, &revealMap, revealMapJSON, reportingObjectDigest(revealMap.SchemaID, revealMapJSON), nil
 }
 
 func ValidateRedactionResult(model RedactedExportModel, manifest RedactionManifest, releaseScope string) error {
@@ -1723,7 +1756,7 @@ func canonicalJSON(value any) ([]byte, error) {
 	return encodeCanonicalJSON(value)
 }
 
-var encodeCanonicalJSON = json.Marshal
+var encodeCanonicalJSON = marshalReportingJSON
 
 func cloneStrings(values []string) []string {
 	if len(values) == 0 {

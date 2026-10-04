@@ -50,6 +50,7 @@ type recoveryJournalCompletionPayload struct {
 	ErrorCode                 *string                                        `json:"error_code"`
 	ErrorReason               *string                                        `json:"error_reason"`
 	GraphProjectionCompletion *application.GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
+	TargetBindings            *application.TargetBindingDigests              `json:"target_binding_digests"`
 }
 
 type recoveryAuditSummary struct {
@@ -141,6 +142,7 @@ func (repository *recoveryEvidenceRepository) AppendCompletion(ctx context.Conte
 		ErrorCode:                 record.ErrorCode,
 		ErrorReason:               record.ErrorReason,
 		GraphProjectionCompletion: record.GraphProjectionCompletion,
+		TargetBindings:            record.TargetBindings,
 	}
 	envelope, err := repository.encryptPayload(record.OperationID, record.Operation, "completion", payload)
 	if err != nil {
@@ -256,6 +258,7 @@ SELECT envelope_schema_id, encryption_mode, key_fingerprint_sha256,
 			BackupSetID: payload.BackupSetID, ConsistencyPointAt: payload.ConsistencyPointAt,
 			ArtifactCounts: payload.ArtifactCounts, ErrorCode: payload.ErrorCode, ErrorReason: payload.ErrorReason,
 			GraphProjectionCompletion: payload.GraphProjectionCompletion,
+			TargetBindings:            payload.TargetBindings,
 		})
 		if err != nil {
 			return nil, err

@@ -1,13 +1,16 @@
 ---
 title: Cartulary Reporting Subsystem NLSpec
-status: adopted/current
+status: proposed-amendment
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
-document_version: 1.3.0
+document_version: 1.4.0
+adopted_base_version: 1.3.0
 ---
 
 # 1. Status, scope, and authority
+
+This 1.4.0 cutover amendment is proposed over the adopted 1.3.0 base. Reference Pack binding and admitted-model identity changes require coordinated companion adoption; the implementation ledger records evidence and does not promote this revision.
 
 This NLSpec defines the Cartulary Reporting Subsystem for the Snapshot and Reporting Extension Profile. It becomes implementation-conformance authority only after promotion to `status: adopted/current` and after every Core companion amendment in §5 is adopted or the affected requirement is explicitly reclassified as future-only.
 
@@ -55,7 +58,7 @@ A repository MUST NOT promote this NLSpec to `adopted/current` until the promoti
 | Core 01 composition tuple | Nullable composition tuple fields and composition byte-form recognition are adopted. |
 | Core 04 authored presentation text gate | `allow_authored_presentation_text` is adopted with default `false`. |
 | Report Composition NLSpec (`docs/report-composition-nlspec.md`) | `cartulary.report_composition.v1` is adopted as the authoring and schema owner for compositions consumed by this NLSpec. |
-| Reporting derivation profile | `cartulary.reporting_derivation_profile.v1` is adopted and every `derivation_version` resolves to it under REQ-RPT-027a. |
+| Reporting derivation profile | `cartulary.reporting_derivation_profile.v2` is adopted and every `derivation_version` resolves to it under REQ-RPT-027a. |
 | Reporting behavioral validation | Every current behavior in this NLSpec has an implementation disposition and production-facing validation where implemented. |
 
 # 2. Normative language and document discipline
@@ -93,7 +96,7 @@ The subsystem MUST make the reporting questions in Table 3-A answerable without 
 | What timeline facts are eligible for a recipient-specific report or deck? | Canonical export-model sections, timeline-selection rules, content classes, support references, disclosure partitions, and redaction outcomes. |
 | How are identities, hosts, indicators, evidence, parties, and related entities represented in diagrams? | Completed Graph Projection consumption, diagram objects, auto-layout Mermaid source generation, manual-layout SVG serialization, source references, overflow reporting, and validation. |
 | Which values are visible, tokenized, stubbed, masked, dropped, or blocked for a recipient? | Disclosure partitions, redaction profiles, token manifests, redaction manifests, and reveal-map handling. |
-| How are Slidev decks generated reproducibly? | `cartulary.reporting_slide_deck.v1`, Slidev subset validation, reveal-only click-step profile, toolchain snapshot, and deterministic render bundle. |
+| How are Slidev decks generated reproducibly? | `cartulary.reporting_slide_deck.v2`, Slidev subset validation, reveal-only click-step profile, toolchain snapshot, and deterministic render bundle. |
 | What bytes are approved and published? | Per-file SHA-256 entries, canonical render-bundle manifest, root `output_sha256`, release binding, and rerender determinism. |
 
 **REQ-RPT-015**
@@ -169,7 +172,7 @@ A `blocked-until-core-adoption` row MUST name the affected Reporting requirement
 | Core 02 / Core 04 | Party public-directory eligibility and redaction-profile permission for public Party labels. | `core-owned-current` | Public-label branch of REQ-RPT-058 |
 | Graph Projection NLSpec | Projection input, output, lifecycle, validation, identity, and consumer behavior. | `adopted-subsystem-current` | REQ-RPT-076..REQ-RPT-080 |
 | Report Composition NLSpec (`docs/report-composition-nlspec.md`) | Composition schema, operation vocabulary, semantic anchors, lifecycle, authorization surface, versioning, and builder-facing validation codes. | `adopted-subsystem-current` | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-079e, REQ-RPT-087d..REQ-RPT-087h |
-| Reporting derivation profile | Adoption of `cartulary.reporting_derivation_profile.v1` as the versioned owner of snapshot-to-export-model content derivation referenced by `derivation_version`. | `reporting-owned-current` | REQ-RPT-027a |
+| Reporting derivation profile | Adoption of `cartulary.reporting_derivation_profile.v2` as the versioned owner of snapshot-to-export-model content derivation referenced by `derivation_version`. | `reporting-owned-current` | REQ-RPT-027a |
 
 ## 5.2 Companion edit status
 
@@ -187,7 +190,7 @@ The companion edits in Table 5-C record the owner status required for this NLSpe
 | Core 04 | `closed` | Reveal-map sensitive-artifact authorization and retention, render sandbox boundary, authored-presentation-text default, superseded-record external-release default, `neutral_token_family` default, recipient partition validation boundary, and public Party-label permission default. |
 | Report Composition NLSpec | `closed` | `cartulary.report_composition.v1` authoring and schema ownership for digest-bound compositions consumed by Reporting. |
 | Graph Projection NLSpec | `closed` | Completed digest-bound graph projection output lifecycle and consumer validation. |
-| Reporting derivation profile | `closed` | `cartulary.reporting_derivation_profile.v1` is the versioned owner for snapshot-to-export-model derivation decisions referenced by `derivation_version`. |
+| Reporting derivation profile | `closed` | `cartulary.reporting_derivation_profile.v2` is the versioned owner for snapshot-to-export-model derivation decisions referenced by `derivation_version`. |
 
 **REQ-RPT-019a**
 Reporting imports the adopted Extensions Subsystem typed participant boundary
@@ -199,8 +202,8 @@ that same exact identity. The participant specialization uses
 `shared_context_schema_id='cartulary.extension_snapshot_reporting_participant_context.v1'`,
 and exactly one `emit` operation. That operation returns only
 `cartulary.extension_snapshot_reporting_participant_result.v1`, emits only
-`cartulary.reporting_export_model.v1`, orders under
-`materialize_reporting_export_model_v1`, uses this requirement as its
+`cartulary.reporting_export_model.v2`, orders under
+`materialize_reporting_export_model_v2`, uses this requirement as its
 authorization contract, uses REQ-RPT-059a as its redaction contract, and uses
 REQ-RPT-114 as its error contract. It admits at most 67,108,864 input bytes,
 67,108,864 output bytes, and 1,048,576 selected or emitted items.
@@ -223,16 +226,16 @@ participant follows the adopted shared invocation matrix and never falls back to
 package scanning, profile callbacks, a compatibility reader, or silent omission.
 
 The exact durable job facts owned by this profile are
-`snapshot_reporting.snapshot_create_v1` ->
+`snapshot_reporting.snapshot_create_v2` ->
 `snapshot_reporting.snapshot_create` with progress unit
 `snapshot_reporting.snapshot_create.materialization.v1`,
-`snapshot_reporting.release_create_v1` ->
+`snapshot_reporting.release_create_v2` ->
 `snapshot_reporting.release_create` with progress unit
 `snapshot_reporting.release_create.render_attempt.v1`, and
-`snapshot_reporting.composition_preview_v1` ->
+`snapshot_reporting.composition_preview_v2` ->
 `snapshot_reporting.composition_preview` with progress unit
 `snapshot_reporting.composition_preview.render_attempt.v1`. Their only worker kind is
-`snapshot_reporting.job_worker_v1`. All three jobs require route-scoped
+`snapshot_reporting.job_worker_v2`. All three jobs require route-scoped
 idempotency, a proof on terminal success, and precommit-observable
 cancellation under Core 01 REQ-01-634. Snapshot create permits one `snapshot`
 resource ref, release create permits one `release` resource ref, and
@@ -241,7 +244,7 @@ terminal success and proof.
 
 The participant may read only the immutable snapshot/export-model view supplied
 through the scoped accessor. Reporting validates and admits the returned
-canonical model before redaction and rendering. Release creation and
+canonical model before redaction and rendering. The current emit operation MUST return the exact canonical bytes and object digest of its frozen admitted model; an internally consistent but changed model is rejected. A future transforming participant requires a separately adopted contract that explicitly retains its input and output identities. Release creation and
 authoritative composition preview invoke only the admitted participant when
 the `snapshot_reporting` profile is claimed and the required immutable
 snapshot exists. Profile-local extension state metadata, migrations, codecs,
@@ -299,8 +302,8 @@ validation where implemented.
 | Identifier | Kind | Owner section |
 | --- | --- | --- |
 | `cartulary.reporting_render_request_options.v1` | schema | §7 |
-| `cartulary.reporting_derivation_profile.v1` | schema | §7 |
-| `cartulary.reporting_export_model.v1` | schema | §9 |
+| `cartulary.reporting_derivation_profile.v2` | schema | §7 |
+| `cartulary.reporting_export_model.v2` | schema | §9 |
 | `cartulary.reporting_section.v1` | schema | §9 |
 | `cartulary.reporting_block.v1` | schema | §9 |
 | `cartulary.reporting_field.v1` | schema | §9 |
@@ -313,8 +316,8 @@ validation where implemented.
 | `cartulary.reporting_timeline_event.v1` | schema | §14 |
 | `cartulary.tokenizable_subject.v1` | schema | §13 |
 | `stable_subject_ref_v1` | identifier grammar | §13 |
-| `cartulary.reporting_token_manifest.v1` | schema | §13 |
-| `cartulary.reporting_token_reveal_map.v1` | schema | §13 |
+| `cartulary.reporting_token_manifest.v2` | schema | §13 |
+| `cartulary.reporting_token_reveal_map.v2` | schema | §13 |
 | `cartulary.reporting_redaction_profile_view.v1` | schema | §13 |
 | `cartulary.reporting_redaction_rule_view.v1` | schema | §13 |
 | `selected_rule_trace.v1` | schema | §13 |
@@ -324,7 +327,7 @@ validation where implemented.
 | `diagram_overflow_summary.v1` | schema | §15 |
 | `derive_diagram_label_v1` | derivation algorithm | §15 |
 | `mermaid_source_serialize_v1` | serializer | §16 |
-| `cartulary.reporting_slide_deck.v1` | schema | §17 |
+| `cartulary.reporting_slide_deck.v2` | schema | §17 |
 | `slidev_markdown_serialize_v1` | serializer | §18 |
 | `field_value_to_text_v1` | serialization algorithm | §18 |
 | `click_step.v1` | schema | §19 |
@@ -334,10 +337,10 @@ validation where implemented.
 | `template_asset_item.v1` | schema | §21 |
 | `template_diagram_decl.v1` | schema | §21 |
 | `aggregate_category_allowlist.v1` | schema | §21 |
-| `cartulary.render_bundle_manifest.v1` | schema | §22 |
+| `cartulary.render_bundle_manifest.v2` | schema | §22 |
 | `cartulary.reporting_render_validation_summary.v1` | schema | §23 |
 | `cartulary.reporting_export_model_validation.v1` | schema | §9 |
-| `cartulary.redaction_manifest.v1` | schema | §13 |
+| `cartulary.redaction_manifest.v2` | schema | §13 |
 | `safe_details.v1` | schema | §23 |
 | `first_failure.v1` | schema | §23 |
 | `cartulary.reporting_export_model_id.v1` | schema | §10 |
@@ -346,7 +349,7 @@ validation where implemented.
 | `cartulary.click_state.v1` | schema | §19 |
 | `reporting_canonical_json_v1` | canonicalization algorithm | §10 |
 | `content_manifest_digest_v1` | digest algorithm | §10 |
-| `materialize_reporting_export_model_v1` | derivation algorithm | §11 |
+| `materialize_reporting_export_model_v2` | derivation algorithm | §11 |
 | `assign_party_disclosure_partitions_v1` | derivation algorithm | §12 |
 | `filter_disclosure_partitions_v1` | derivation algorithm | §12 |
 | `aggregate_public_v1` | derivation algorithm | §12 |
@@ -412,7 +415,7 @@ When a fixture, import, template binding, or report section names an unmapped `p
 ## 7.1 Source boundary
 
 **REQ-RPT-025**
-The reporting subsystem MUST accept case content only through an immutable snapshot boundary admitted by the Core Snapshot and Reporting route family. It MUST NOT read mutable workbook tables, mutable projection tables, live search indexes, live graph views, or live evidence metadata after `materialize_reporting_export_model_v1` completes.
+The reporting subsystem MUST accept case content only through an immutable snapshot boundary admitted by the Core Snapshot and Reporting route family. It MUST NOT read mutable workbook tables, mutable projection tables, live search indexes, live graph views, or live evidence metadata after `materialize_reporting_export_model_v2` completes.
 
 **REQ-RPT-026**
 The implementation MUST enforce the source boundary with an observable guard. Any attempt by a renderer, template, Mermaid generator, Slidev generator, asset resolver, or validation stage to query live workbook tables or mutable projections after export-model materialization MUST fail the render with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='live_query_after_export_model'`.
@@ -582,7 +585,7 @@ A render operation MUST bind to one immutable source tuple with at least the mem
 | `source_change_set_high_watermark` | `identifier` | Yes | Yes | None | Source-state high-water mark when the snapshot exposes it; otherwise null with `snapshot_boundary_kind` non-null. |
 | `snapshot_boundary_kind` | string | Yes | Yes | None | Null only when `source_change_set_high_watermark` is non-null; otherwise names the Core-owned immutable boundary. |
 | `render_admitted_at` | `timestamp` | Yes | No | None | Deterministic timestamp fixed by Core render admission. All Reporting-owned generated timestamps that participate in canonical bytes MUST equal this value unless diagnostic-only. |
-| `derivation_version` | `identifier` | Yes | No | None | Reporting derivation version; MUST resolve to an adopted `cartulary.reporting_derivation_profile.v1` under REQ-RPT-027a. |
+| `derivation_version` | `identifier` | Yes | No | None | Reporting derivation version; MUST resolve to an adopted `cartulary.reporting_derivation_profile.v2` under REQ-RPT-027a. |
 | `template_id` | `identifier` | Yes | No | None | Local template identity. |
 | `template_version` | `identifier` | Yes | No | None | Exact template version; `latest` is invalid. |
 | `template_manifest_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical template-pack manifest bytes. |
@@ -605,7 +608,7 @@ The composition tuple fields `composition_id`, `composition_version`, and `compo
 When the composition tuple is non-null, Reporting MUST resolve it through the companion-owned Report Composition consumer interface and load exactly the companion-owned `cartulary.report_composition.v1` canonical bytes named by the tuple. An absent composition, including a composition that exists only in a different incident, MUST fail before render output bytes with `reason_code='composition_not_found'`. An absent immutable version under an otherwise valid in-incident composition MUST fail with `reason_code='composition_version_not_found'`. A digest mismatch MUST fail with `error.code='release_render_failed'`, `failure_code='composition_invalid'`, and `reason_code='composition_digest_mismatch'`. A composition whose `template_id` or `template_version` differs from the release tuple MUST fail with `failure_code='composition_invalid'` and `reason_code='composition_template_mismatch'`. A non-null composition tuple is valid only after the Core 01 and `docs/report-composition-nlspec.md` dependencies in §5 are adopted.
 
 **REQ-RPT-027a**
-`derivation_version` MUST resolve to exactly one adopted `cartulary.reporting_derivation_profile.v1`. That profile is the versioned owner of every snapshot-to-export-model content-derivation decision that an export-model schema in §9 does not itself fix, and it MUST close each obligation in Table 7-A1 deterministically. The Reporting-owned derivations `derive_section_ordering_key_v1` (REQ-RPT-040a), `derive_display_token_v1` (REQ-RPT-063a), `filter_disclosure_partitions_v1` (REQ-RPT-059a), and `select_timeline_rows_v1` (REQ-RPT-073) are fixed by this NLSpec and MUST NOT be redefined by a derivation profile. An unresolved or unsupported derivation profile MUST fail before render output bytes with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='unsupported_derivation_algorithm'`.
+`derivation_version` MUST resolve to exactly one adopted `cartulary.reporting_derivation_profile.v2`. That profile is the versioned owner of every snapshot-to-export-model content-derivation decision that an export-model schema in §9 does not itself fix, and it MUST close each obligation in Table 7-A1 deterministically. The Reporting-owned derivations `derive_section_ordering_key_v1` (REQ-RPT-040a), `derive_display_token_v1` (REQ-RPT-063a), `filter_disclosure_partitions_v1` (REQ-RPT-059a), and `select_timeline_rows_v1` (REQ-RPT-073) are fixed by this NLSpec and MUST NOT be redefined by a derivation profile. An unresolved or unsupported derivation profile MUST fail before render output bytes with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='unsupported_derivation_algorithm'`.
 
 **Table 7-A1. Derivation-profile closure obligations**
 
@@ -631,7 +634,7 @@ For `external_release`, every member of `recipient_partition_refs[]` MUST match 
 A graph-derived template or composition diagram MUST resolve its `source_graph_view_id` against `graph_projection_refs[]` to exactly one item. No match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_not_bound'`. More than one match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_ambiguous'`. Reporting MUST NOT select a latest result, request projection during render, fall back to a mutable declaration, or substitute a result whose exact tuple differs.
 
 **REQ-RPT-027c**
-`cartulary.reporting_derivation_profile.v1` MUST use Table 7-A2. Unknown members
+`cartulary.reporting_derivation_profile.v2` MUST use Table 7-A2. Unknown members
 are invalid. The v1 allowed algorithm tokens in Table 7-A2 are exhaustive; a
 later revision that adds an algorithm token MUST define the token's inputs,
 ordering, output shape, failure behavior, and behavioral validation in the same
@@ -641,7 +644,7 @@ revision.
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
-| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_derivation_profile.v1`. |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_derivation_profile.v2`. |
 | `derivation_version` | `identifier` | Yes | No | None | Exact value referenced by the release tuple. |
 | `profile_status` | string | Yes | No | None | `adopted_current`, `adopted_deprecated`, or `future_only`; only `adopted_current` may satisfy external-release conformance. |
 | `record_selection_algorithm` | string | Yes | No | None | Exact `template_binding_reachable_records_v1` when the composition tuple is all-null; exact `template_and_composition_reachable_records_v1` when the composition tuple is non-null. |
@@ -661,7 +664,7 @@ The v1 derivation algorithms named by Table 7-A2 MUST use only immutable snapsho
 The `record_selection_algorithm` token MUST match the composition tuple state in Table 7-A2. A profile that names `template_binding_reachable_records_v1` for a non-null composition tuple, or `template_and_composition_reachable_records_v1` for an all-null composition tuple, MUST fail with `failure_code='export_model_invalid'` and `reason_code='unsupported_derivation_algorithm'`.
 
 **REQ-RPT-027e**
-The algorithm tokens in `cartulary.reporting_derivation_profile.v1` MUST have the semantics in Table 7-A3. The profile MUST choose source families, fields, section declarations, narrative slots, and diagram declarations only through its declared template manifest and `derived_field_keys[]`; it MUST NOT add an implementation-local selection rule.
+The algorithm tokens in `cartulary.reporting_derivation_profile.v2` MUST have the semantics in Table 7-A3. The profile MUST choose source families, fields, section declarations, narrative slots, and diagram declarations only through its declared template manifest and `derived_field_keys[]`; it MUST NOT add an implementation-local selection rule.
 
 **Table 7-A3. V1 derivation algorithm semantics**
 
@@ -789,17 +792,21 @@ Every schema object defined by this NLSpec is closed. Unknown members are invali
 ## 9.1 Top-level export model
 
 **REQ-RPT-038**
-`cartulary.reporting_export_model.v1` is the only canonical case-content render input for this subsystem. Templates, Mermaid generation, Slidev generation, render validation, redaction, tokenization, and bundle generation MUST read case content only from this model after materialization.
+`cartulary.reporting_export_model.v2` is the only canonical case-content render input for this subsystem. Templates, Mermaid generation, Slidev generation, render validation, redaction, tokenization, and bundle generation MUST read case content only from this model after materialization.
 
 **REQ-RPT-039**
 A reporting export model MUST be a JSON-compatible object with exactly the top-level members in Table 9-A. Unknown top-level members are invalid.
 
-**Table 9-A. `cartulary.reporting_export_model.v1` top-level schema**
+**Table 9-A. `cartulary.reporting_export_model.v2` top-level schema**
 
 | Member | Type | Required | Nullable | Default | Ordering and notes |
 | --- | --- | ---: | ---: | --- | --- |
-| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_export_model.v1`. |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_export_model.v2`. |
 | `export_model_id` | `generated_id` | Yes | No | None | Generated under Table 10-B. |
+| `snapshot_model_id` | `generated_id` | Yes | No | None | Exact immutable materialization identity from REQ-RPT-039a. |
+| `release_id` | `identifier` | Yes | Yes | None | Non-null for release renders; null for previews. |
+| `preview_attempt_id` | `identifier` | Yes | Yes | None | Non-null only for an admitted internal-draft preview; null for release renders. |
+| `reference_packs` | `reference_pack_set_binding.v1` | Yes | No | None | Exact set and immutable provenance captured and pinned in snapshot admission. |
 | `incident_id` | `identifier` | Yes | No | None | Copied from release tuple. |
 | `snapshot_id` | `identifier` | Yes | No | None | Copied from release tuple. |
 | `snapshot_at` | `timestamp` | Yes | No | None | Copied from source snapshot. |
@@ -823,6 +830,18 @@ A reporting export model MUST be a JSON-compatible object with exactly the top-l
 | `validation_summary` | `cartulary.reporting_export_model_validation.v1` | Yes | No | None | Export-model-local validation summary per Table 9-I (REQ-RPT-046a); distinct from the render validation summary. |
 
 ## 9.2 Section object
+
+**REQ-RPT-039a**
+The release/preview identity union changes adopted artifact schemas: redaction manifest, token manifest, reveal map and slide-deck schemas advance to v2 independently. Their retired v1 variants are not admitted by this cutover. The new snapshot materialization and render-identity projections use previously unpublished v1 identifiers.
+
+Snapshot admission MUST materialize `cartulary.reporting_snapshot_model.v1` after allocating the exact immutable snapshot identity and while acquiring the Reference Data pin. Its top-level members are Table 9-A with `schema_id` replaced by that snapshot schema, and with `export_model_id`, `release_id`, `preview_attempt_id`, `render_admitted_at`, `export_model_created_at`, `release_scope`, and `recipient_partition_refs` removed. `snapshot_model_id` is required. All remaining nested schemas, required nullable members and ordering rules are unchanged. Unknown members are invalid. Every nested `source_snapshot_id`, including support references and relationship endpoints, MUST equal the allocated snapshot ID. Completion MUST NOT repair an empty reference or recalculate materialization identity.
+
+A release admission MUST derive a distinct Table 9-A model from the exact retained snapshot, preserving source fields, `snapshot_model_id`, and the complete Reference Pack binding. It MUST allocate the release identity before rendering, freeze one `render_admitted_at`, set `export_model_created_at` to that instant, and derive `export_model_id` from Table 10-B. Its immutable Job input retains the exact derived model and its schema-domain digest. Successful and failed render finalization MUST use that same release identity. Restart, participant invocation, redaction, rendering, rerendering and completion MUST NOT substitute execution wall time or the snapshot's capture time. A new render admission gets its own identity; replay of one admitted Job preserves its identity and bytes.
+
+An authoritative composition preview uses the companion's exact `preview_attempt_id` and admission instant. Exactly one of `release_id` and `preview_attempt_id` MUST be non-null; both members MUST appear. Preview-generated IDs use Table 10-B's separate preview domains. Preview identity is admitted only for `internal_draft` and MUST NOT authorize external release, approval or release publication. Generated artifacts carry the same required nullable identity pair; tables naming a required release identity apply to release artifacts, while preview artifacts substitute the required preview identity and explicit null release identity. The render model, redacted model, redaction/token/reveal manifests, deck and bundle retain the exact snapshot ID and identity pair. Their generated timestamps follow §10, including the required `created_at` on retained toolchain and validation objects and `bundle_created_at` on the bundle.
+
+Local admission captures time at microsecond precision once. Input with more than six fractional digits is rejected at subsequent canonical boundaries; consumers MUST NOT round, truncate, or replace received or retained time values. Snapshot capture is source time and is distinct from render admission. A snapshot has no generated render timestamps.
+
 
 **REQ-RPT-040**
 `cartulary.reporting_section.v1` MUST use Table 9-B.
@@ -910,7 +929,7 @@ Structural IDs are assigned after disclosure filtering and ordinal recomputation
 | `disclosure_partition_refs[]` | array | Yes | No | None | Non-empty after partition assignment. |
 
 **REQ-RPT-042a**
-Retained field values MUST satisfy Table 9-D1. A retained canonical export model MUST NOT contain a field whose `redacted_value_state` is `dropped` or `blocked`; those outcomes appear only in `cartulary.redaction_manifest.v1`. If a redaction action removes a field, the field is absent after ordinal recomputation under REQ-RPT-059b and the redaction manifest records the removal. In current v1, `raw_value_sha256` MUST be `null` for every retained field in every release scope; a later revision that emits raw-value digests MUST define a separate internal-only artifact and MUST NOT place those digests in an external bundle.
+Retained field values MUST satisfy Table 9-D1. A retained canonical export model MUST NOT contain a field whose `redacted_value_state` is `dropped` or `blocked`; those outcomes appear only in `cartulary.redaction_manifest.v2`. If a redaction action removes a field, the field is absent after ordinal recomputation under REQ-RPT-059b and the redaction manifest records the removal. In current v1, `raw_value_sha256` MUST be `null` for every retained field in every release scope; a later revision that emits raw-value digests MUST define a separate internal-only artifact and MUST NOT place those digests in an external bundle.
 
 **Table 9-D1. Retained field value-state matrix**
 
@@ -926,7 +945,7 @@ Retained field values MUST satisfy Table 9-D1. A retained canonical export model
 | `derived` | `unchanged`, `allowed`, `masked`, `truncated`, `stubbed`, `tokenized` | Deterministic derived scalar or array after the selected redaction action. | Always `null` in v1. |
 
 **REQ-RPT-042b**
-Source input state MUST be mapped before redaction using Table 9-D2. This mapping is part of `cartulary.reporting_derivation_profile.v1`; an implementation MUST NOT infer an alternate state from visible labels, renderer output, database nullability, or UI omission. If the derivation profile cannot classify a selected value into one Table 9-D2 row, materialization fails with `failure_code='export_model_invalid'` and `reason_code='invalid_scalar_value'`.
+Source input state MUST be mapped before redaction using Table 9-D2. This mapping is part of `cartulary.reporting_derivation_profile.v2`; an implementation MUST NOT infer an alternate state from visible labels, renderer output, database nullability, or UI omission. If the derivation profile cannot classify a selected value into one Table 9-D2 row, materialization fails with `failure_code='export_model_invalid'` and `reason_code='invalid_scalar_value'`.
 
 **Table 9-D2. Source input state matrix**
 
@@ -1110,6 +1129,28 @@ The nested objects `validation_summary` (a member of Table 9-A), `content_class_
 | `result` | string | Yes | No | None | `passed` or `failed`. |
 | `issue_count` | `finite_integer` | Yes | No | `0` | Count of section-local validation issues. |
 
+## 9.8 Exact Reference Pack binding
+
+**REQ-RPT-046rp**
+Snapshot admission MUST capture and pin one current Reference Pack set in the same transaction as its Job and immutable input. `reference_pack_set_binding.v1` is closed and contains required, non-null `pack_set_id`, `pack_set_sha256`, and `provenance`. The identifier and digest MUST identify the same canonical Reference Pack set. `provenance` MUST contain exactly the set's first-success provenance anchor for every member, ordered by `pack_key`; current administrative verification MUST NOT replace that history. The snapshot Job owns the admission pin, retained while its snapshot, releases, pending work or history require it. Replay MUST reuse the admitted binding.
+
+Incident exports obtain Reporting's exact retained snapshot bindings through a narrow owner interface in the export's consistent transaction. Reporting verifies snapshot identity, derivation, admitted export-model shape and stored model digest before returning a binding. Repeated uses of one set coalesce only when the whole immutable binding agrees. More than 1024 distinct sets fails under the Reference Data portable catalog bound. This discovery is independent of whether optional snapshot payloads are embedded and remains available for retained snapshots when current Reporting routes are unclaimed. It never resolves the current active set.
+
+Snapshot export models, release inputs, composition previews, render outputs and rerenders MUST preserve this binding. Render admission and execution MUST validate the retained binding and bytes through Reference Data's interface. Missing, altered or unavailable required content MUST fail explicitly without resolving the current deployment set or substituting Base. A participant MUST NOT change the binding. Pack-sensitive derived fields MUST additionally retain the exact entry identity and the member's immutable provenance. The new export model and derivation contracts are v2; retained v1 inputs are rejected by the coordinated cutover preflight, never assigned a guessed set.
+
+## 9.9 Portable historical artifacts
+
+**REQ-RPT-046pa**
+When an incident export selects `optional_sections=['snapshots']` (possibly alongside other admitted tokens), Reporting supplies a canonical `cartulary.reporting_portable_artifacts.v1` catalog at `ext/snapshots/catalog.json`. The catalog is a transport object using Reference Data's strict JSON admission and RFC 8785 canonical serialization; it does not change the Reporting canonical bytes or digest of a transported artifact. Its required, non-null members are `schema_id`, `incident_id`, `snapshots`, `releases`, and `omitted_files`. Unknown members are invalid at every catalog object boundary. Empty inventories serialize as arrays, never null or omission. An export with no artifacts emits the empty catalog. A wholly absent optional section on import means no artifact payloads to retain; it never selects the current pack set.
+
+Each snapshot row contains exactly `snapshot_id`, `export_model_path`, and `export_model_sha256`. The path is `ext/snapshots/{snapshot_id}/export-model.json`. Each release row contains exactly `release_id`, `snapshot_id`, `manifest_path`, and `manifest_sha256`; its snapshot must occur in the same catalog, and its path is `ext/snapshots/releases/{release_id}/manifest.json`. Identifiers use lowercase canonical non-nil UUID syntax. Digests use lowercase SHA-256 hexadecimal. `export_model_sha256` and `manifest_sha256` are the schema-domain object digests from REQ-RPT-049, not checksums of the archive member bytes alone. The enclosing portability archive inventory and each rendered file inventory use SHA-256 of exact file bytes. Implementations must retain this distinction for token manifests and all other schema-bearing files as well. Snapshot and release arrays sort by their respective identities and prohibit duplicates. Limits are 1024 snapshots, 4096 releases, and 4096 omissions; the enclosing archive member and extracted-byte limits apply additionally. Catalog bytes are bounded at 16 MiB before decoding. Equality is admitted by each guard; a complete fixture must also satisfy the enclosing archive's limits. The byte ceiling is a defensive parser guard: the other closed catalog bounds and path lengths make a valid 16 MiB catalog unreachable, so validation uses a constraint argument plus an isolated guard test rather than increasing any limit.
+
+The transported snapshot model must bind the same incident and snapshot and use the adopted derivation and `cartulary.reporting_snapshot_model.v1` schema. Its generated identity and all nested source snapshot identities must validate. A release manifest must bind the catalog release and snapshot, carry null preview identity, and preserve its generated admission time. Its complete immutable Reference Pack binding must agree with the incident's exact reference catalog. A release's complete binding must equal its snapshot's binding. Reporting must validate stored object shape and digest before recovering bytes from JSONB. Import must additionally receive those exact producer bytes. Unknown, omitted, malformed or digest-inconsistent admitted content fails the import before publication; the consumer must not repair the source bytes or replace their provenance with destination verification.
+
+Every rendered member is carried under `ext/snapshots/releases/{release_id}/files/{original_path}` and checked against its original manifest's byte count, digest, role and media type. Original paths are at most 512 UTF-8 bytes, relative, and contain no empty, dot or parent segment, reverse solidus, colon, ASCII control or DEL. The original manifest is retained unchanged. Every declared nonsensitive member, including the primary output, must be present; undeclared members and duplicate paths are invalid. Members sort by original path. A member with role `sensitive_reveal_map` is never embedded. Exactly one omission row `{release_id, path, reason:'sensitive_reveal_map'}` records each such member; omissions sort by `(release_id, path)`. No other omission reason is admitted. The omission does not claim a complete local render bundle or grant permission to expose a sensitive artifact.
+
+Imported artifacts are immutable historical source evidence owned by Reporting. They publish with the incident, exact reference catalog and pins in the parent's transaction, with attribution to the import operation. They do not create native snapshot/render Jobs, local release approvals or active pack selections. Exact operation replay preserves byte identity; conflicting identity or bytes fail. Re-export includes this retained source evidence and any subsequent native artifacts, preserving each source binding. Native reads and rerenders retain their existing exact-set requirements; importing source evidence does not create a native rerender route for an unexecuted source release. Recovery includes all imported files and validates catalog, inventory, digests and source bindings before readiness, without demanding source freshness at restore time or treating source attestations as destination trust.
+
 # 10. Canonical JSON, identifiers, hashes, and deterministic timestamps
 
 **REQ-RPT-047**
@@ -1141,6 +1182,11 @@ Reporting-generated hash IDs MUST use Table 10-B. No other Reporting-generated h
 | `export_model_id` | `expm_` | Canonical object `{schema_id:'cartulary.reporting_export_model_id.v1', release_id, snapshot_id, derivation_version, render_admitted_at}` hashed under REQ-RPT-049. |
 | `deck_id` | `deck_` | Canonical object `{schema_id:'cartulary.reporting_deck_id.v1', release_id, template_id, template_version, export_model_id}` hashed under REQ-RPT-049. |
 | `token_id` | `tok_` | Canonical object `{schema_id:'cartulary.reporting_token_id.v1', release_id, stable_subject_ref}` hashed under REQ-RPT-049. |
+| `snapshot_model_id` | `snapm_` | Canonical object `{schema_id:'cartulary.reporting_snapshot_model_id.v1', snapshot_id, derivation_version, snapshot_at}`; timestamp uses six fractional digits. |
+| Preview `export_model_id` | `expm_` | The release export tuple with `schema_id='cartulary.reporting_preview_export_model_id.v1'` and `preview_attempt_id` replacing `release_id`. |
+| Preview `deck_id` | `deck_` | The release deck tuple with `schema_id='cartulary.reporting_preview_deck_id.v1'` and `preview_attempt_id` replacing `release_id`. |
+| Preview `token_id` | `tok_` | The release token tuple with `schema_id='cartulary.reporting_preview_token_id.v1'` and `preview_attempt_id` replacing `release_id`. |
+
 
 **REQ-RPT-050a**
 `content_manifest_digest_v1` MUST be used to reduce a set of files to one digest wherever this NLSpec requires a digest "of every" file in a declared set (for example `font_manifest_sha256` and `package_store_digest` in §20). The algorithm MUST:
@@ -1176,7 +1222,7 @@ The fields in Table 10-A MUST equal `render_admitted_at` whenever they appear in
 # 11. Export-model materialization algorithm
 
 **REQ-RPT-053**
-`materialize_reporting_export_model_v1` MUST execute the deterministic stages in Table 11-A in order. A stage MUST NOT read live source state after the source boundary is frozen for that stage.
+`materialize_reporting_export_model_v2` MUST execute the deterministic stages in Table 11-A in order. A stage MUST NOT read live source state after the source boundary is frozen for that stage.
 
 **Table 11-A. Materialization stages**
 
@@ -1426,7 +1472,7 @@ Core redaction rule selection consumed by Reporting MUST be deterministic. For e
 Every redaction-manifest entry MUST include the selected rule's `selected_rule_trace.v1`. Trace objects MUST NOT contain raw source values, literal replacement values, token display values, credentials, raw evidence, object-store keys, or external URLs. Omission behavior: if Core omits a trace object, Reporting MUST synthesize the Table 13-A3 object from the selected rule metadata; if any required metadata is unavailable, materialization fails with `failure_code='redaction_manifest_invalid'` and `reason_code='redaction_profile_invalid'`.
 
 **REQ-RPT-062a**
-The redaction manifest byte form MUST be `cartulary.redaction_manifest.v1` from §13.5, serialized under `reporting_canonical_json_v1` and hashed under REQ-RPT-049. It MUST NOT contain source values, post-redaction literal values, replacement text, stub text, or mask parameters. The internal-scope and external-scope byte forms are identical for the same redaction outcomes.
+The redaction manifest byte form MUST be `cartulary.redaction_manifest.v2` from §13.5, serialized under `reporting_canonical_json_v1` and hashed under REQ-RPT-049. It MUST NOT contain source values, post-redaction literal values, replacement text, stub text, or mask parameters. The internal-scope and external-scope byte forms are identical for the same redaction outcomes.
 
 **REQ-RPT-062b**
 Core redaction actions consumed by Reporting MUST map to retained field states and manifest outcomes through Table 13-A1. Reporting MUST NOT reinterpret a selected Core action, invent a replacement value, or choose a different action to make a section renderable. If the selected action cannot produce a retained value that satisfies Table 9-D1 and the action is not `drop`, materialization MUST fail with `error.code='release_render_failed'`, `failure_code='redaction_manifest_invalid'`, and `reason_code='redaction_action_unresolved'`.
@@ -1497,13 +1543,13 @@ An unresolved subject without `entity_mention_id` MUST fail with `failure_code='
 ## 13.3 Token manifest
 
 **REQ-RPT-067**
-`cartulary.reporting_token_manifest.v1` MUST contain exactly the top-level fields in Table 13-D. External token manifests MUST NOT include raw subject display values or reversible display material.
+`cartulary.reporting_token_manifest.v2` MUST contain exactly the top-level fields in Table 13-D. External token manifests MUST NOT include raw subject display values or reversible display material.
 
 **Table 13-D. Token manifest schema**
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
-| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_token_manifest.v1`. |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_token_manifest.v2`. |
 | `release_id` | `identifier` | Yes | No | None | From release tuple. |
 | `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
 | `redaction_profile_sha256` | `sha256_hex` | Yes | No | None | Exact selected profile digest. |
@@ -1523,13 +1569,13 @@ An unresolved subject without `entity_mention_id` MUST fail with `failure_code='
 ## 13.4 Reveal map
 
 **REQ-RPT-068**
-`cartulary.reporting_token_reveal_map.v1` MUST use Table 13-E and MUST be retained only as a Core-authorized internal sensitive release artifact.
+`cartulary.reporting_token_reveal_map.v2` MUST use Table 13-E and MUST be retained only as a Core-authorized internal sensitive release artifact.
 
 **Table 13-E. Reveal-map schema**
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
-| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_token_reveal_map.v1`. |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_token_reveal_map.v2`. |
 | `release_id` | `identifier` | Yes | No | None | From release tuple. |
 | `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
 | `token_manifest_sha256` | `sha256_hex` | Yes | No | None | Digest of Table 13-D canonical bytes. |
@@ -1552,13 +1598,13 @@ Reveal maps MUST NOT be listed as `required_for_release=true`, MUST NOT be inclu
 ## 13.5 Redaction manifest
 
 **REQ-RPT-069a**
-`cartulary.redaction_manifest.v1` MUST use Table 13-F. The object is canonicalized under §10 and its digest is the `redaction_manifest_sha256` bound by the release record and bundle manifest.
+`cartulary.redaction_manifest.v2` MUST use Table 13-F. The object is canonicalized under §10 and its digest is the `redaction_manifest_sha256` bound by the release record and bundle manifest.
 
 **Table 13-F. Redaction manifest schema**
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
-| `schema_id` | string | Yes | No | None | Exact `cartulary.redaction_manifest.v1`. |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.redaction_manifest.v2`. |
 | `release_id` | `identifier` | Yes | No | None | From release tuple. |
 | `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
 | `redaction_profile_id` | `identifier` | Yes | No | None | Exact selected profile identity. |
@@ -2000,13 +2046,13 @@ The SVG bytes MUST be UTF-8 with LF line endings, deterministic element ordering
 # 17. Slide-deck model
 
 **REQ-RPT-087**
-`cartulary.reporting_slide_deck.v1` MUST use Table 17-A.
+`cartulary.reporting_slide_deck.v2` MUST use Table 17-A.
 
 **Table 17-A. Slide-deck schema**
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
-| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_slide_deck.v1`. |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_slide_deck.v2`. |
 | `deck_id` | `generated_id` | Yes | No | None | Generated ID from Table 10-B. |
 | `release_id` | `identifier` | Yes | No | None | From release tuple. |
 | `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
@@ -2492,19 +2538,20 @@ Physical archive bytes are a delivery wrapper, not the approval hash. `output_sh
 ## 22.2 Bundle manifest schema
 
 **REQ-RPT-107**
-`cartulary.render_bundle_manifest.v1` MUST include exactly the fields in Table 22-A. Unknown members are invalid.
+`cartulary.render_bundle_manifest.v2` MUST include exactly the fields in Table 22-A. Unknown members are invalid.
 
 **Table 22-A. Bundle manifest top-level schema**
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
-| `schema_id` | string | Yes | No | None | Exact `cartulary.render_bundle_manifest.v1`. |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.render_bundle_manifest.v2`. |
 | `release_id` | `identifier` | Yes | No | None | From release tuple. |
 | `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
 | `output_kind` | string | Yes | No | None | `slidev` or `mermaid`. |
 | `release_scope` | string | Yes | No | None | From §7.3. |
 | `bundle_created_at` | `timestamp` | Yes | No | None | Equals normalized `render_admitted_at`. |
 | `export_model_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical export model. |
+| `reference_packs` | `reference_pack_set_binding.v1` | Yes | No | None | Exact snapshot binding from REQ-RPT-046rp. |
 | `toolchain_snapshot_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical toolchain snapshot. |
 | `validation_summary_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical validation summary. |
 | `redaction_manifest_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical redaction manifest. |
@@ -3133,7 +3180,7 @@ result exercises production code and proves the complete observable outcome.
 | `RPT-FIX-039` | External recipient ref does not match the selected profile's allowed `party:*` set. | Fails before render output bytes with `recipient_partition_profile_mismatch`. |
 | `RPT-FIX-040` | Deck derived from mixed singleton and expanded sections with chunking. | `derive_deck_v1` golden matches, including `slide_id`, per-slide `layout`, block distribution, and `expected_export_page_count`. |
 | `RPT-FIX-041` | Section declaration with `click_profile='reveal_blocks'`. | Emits `N-1` click steps for `N` top-level blocks, fixed `resulting_state_hash` values, and `N` page states. |
-| `RPT-FIX-042` | Redaction manifest with `allow`, tokenized, and partition-filter-dropped entries. | `cartulary.redaction_manifest.v1` bytes match the golden and contain no literal source or replacement values. |
+| `RPT-FIX-042` | Redaction manifest with `allow`, tokenized, and partition-filter-dropped entries. | `cartulary.redaction_manifest.v2` bytes match the golden and contain no literal source or replacement values. |
 | `RPT-FIX-043` | Export model with nested, split, and chunked structures. | Section, block, slide, diagram, and generated hash IDs match the ID goldens. |
 | `RPT-FIX-044` | Valid and invalid support refs for source records, evidence items, artifacts, timeline events, relationships, and diagrams. | Valid support refs serialize as `cartulary.reporting_support_ref.v1`; refs containing raw evidence bytes, object-store keys, blob hashes, or multiple targets fail with `invalid_support_ref`. |
 | `RPT-FIX-045` | Retained fields covering every Table 9-D1 source/redaction state combination and every Table 9-D2 source input state, plus invalid retained `dropped`, `blocked`, and deleted-source states. | Valid fields canonicalize with `raw_value_sha256=null`; deleted sources do not retain fields; retained `dropped` or `blocked` fields fail export-model validation. |
@@ -3228,8 +3275,8 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-LIFE-001` | Cancellation, timeout, partial output, exact replay, and new retry have deterministic job and release outcomes. |
 | `RPT-AC-SANDBOX-001` | Non-loopback outbound attempt fails before persistence and safe details do not include raw external URLs. |
 | `RPT-AC-LIMIT-001` | Every limit key enforces the default when the template is silent, the template-declared value when present, rejection above the hard limit, and exact failure mapping. |
-| `RPT-AC-DERIVE-001` | `derivation_version` resolves to an adopted `cartulary.reporting_derivation_profile.v1`; an unresolved or unsupported profile fails closed with `unsupported_derivation_algorithm`, and every Table 7-A1 obligation is closed. |
-| `RPT-AC-DERIVE-002` | `cartulary.reporting_derivation_profile.v1` accepts only Table 7-A2 algorithm tokens and fails unknown tokens with `unsupported_derivation_algorithm`. |
+| `RPT-AC-DERIVE-001` | `derivation_version` resolves to an adopted `cartulary.reporting_derivation_profile.v2`; an unresolved or unsupported profile fails closed with `unsupported_derivation_algorithm`, and every Table 7-A1 obligation is closed. |
+| `RPT-AC-DERIVE-002` | `cartulary.reporting_derivation_profile.v2` accepts only Table 7-A2 algorithm tokens and fails unknown tokens with `unsupported_derivation_algorithm`. |
 | `RPT-AC-DERIVE-003` | V1 derivation algorithms in Table 7-A3 select records, timelines, field keys, labels, support refs, subjects, field-subject mappings, and ordinals identically across implementations. |
 | `RPT-AC-COMP-001` | Composition tuple all-null selects `derive_deck_v1` and preserves no-composition golden bytes; partial-null, digest mismatch, and template mismatch fail with exact composition reason codes. |
 | `RPT-AC-COMP-002` | `template_and_composition_reachable_records_v1` includes composition-reachable records, relationships, subjects, diagram refs, authored placeholders, and support refs without reading live state. |
@@ -3248,7 +3295,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-TOOLCHAIN-002` | `content_manifest_digest_v1` produces identical `font_manifest_sha256` and `package_store_digest` regardless of file enumeration order and excludes mtime, ownership, and permission bits. |
 | `RPT-AC-TIME-002` | Invalid calendar timestamps fail with `invalid_timestamp_value`; aggregate-public bucketed times are deterministic per Table 12-F. |
 | `RPT-AC-PART-005` | Disclosure filtering uses the subset predicate, profile-rule-only resolution, post-filter ordinal recomputation, required-empty-section failure, and redaction-manifest removal entries. |
-| `RPT-AC-REDACT-001` | `cartulary.redaction_manifest.v1` canonical bytes match the digest-bound artifact, include allow and removal entries, and exclude source and replacement values. |
+| `RPT-AC-REDACT-001` | `cartulary.redaction_manifest.v2` canonical bytes match the digest-bound artifact, include allow and removal entries, and exclude source and replacement values. |
 | `RPT-AC-REDACT-002` | Core redaction actions map through Table 13-A1; unresolved actions fail with `redaction_action_unresolved` and never invent replacement values. |
 | `RPT-AC-REDACT-003` | Redaction executes in every scope; omitted internal profiles materialize `internal_passthrough`; rule precedence, trace objects, token-backed parameters, and truncation bounds follow §13. |
 | `RPT-AC-SUPPORT-001` | `cartulary.reporting_support_ref.v1` identifies exactly one support target, rejects raw evidence/storage/blob material, orders by `support_ref_id`, and fails invalid refs with `invalid_support_ref`. |
@@ -3359,7 +3406,7 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Behavioral disposition | Every current behavior is retained and routed, implemented and tested, or revised before being pruned or moved to a future profile. |
 | Filtering algorithm | `filter_disclosure_partitions_v1` exists with effective-set construction, subset predicate, profile-rule-only resolution, and fail-closed unresolved-disclosure behavior. |
 | Recipient validation | `external_release` recipient partitions are validated against snapshot Parties and the selected redaction profile's allowed `party:*` set. |
-| Redaction-manifest bytes | `cartulary.redaction_manifest.v1` is defined, digest-bound, safe, and acceptance-covered. |
+| Redaction-manifest bytes | `cartulary.redaction_manifest.v2` is defined, digest-bound, safe, and acceptance-covered. |
 | Generated-ID registry | Every Reporting-generated hash ID appears in Table 10-B, and every structural ID has an ordinal derivation rule. |
 | Deck derivation | `derive_deck_v1`, `serialize_block_markdown_v1`, click-profile generation, and per-slide layout frontmatter are closed. |
 | Template nested schemas | Section, layout, narrative-slot, render-profile, output-support, and limit declarations have requiredness, defaults, and failure behavior. |

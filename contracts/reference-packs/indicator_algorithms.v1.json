@@ -1,0 +1,100 @@
+{
+  "schema_id": "cartulary.reference_pack_indicator_algorithms.v1",
+  "policies": [
+    {
+      "indicator_type_id": "ipv4_addr",
+      "allowed_value_kinds": [
+        "atomic"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.ipv4.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.ipv4.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.ipv4.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.normalized.v1"
+    },
+    {
+      "indicator_type_id": "ipv6_addr",
+      "allowed_value_kinds": [
+        "atomic"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.ipv6.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.ipv6.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.ipv6.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.normalized.v1"
+    },
+    {
+      "indicator_type_id": "domain_name",
+      "allowed_value_kinds": [
+        "atomic"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.domain_ascii.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.domain_ascii.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.domain.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.normalized.v1"
+    },
+    {
+      "indicator_type_id": "url",
+      "allowed_value_kinds": [
+        "atomic",
+        "reference"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.http_url.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.http_url.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.http_url.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.normalized.v1"
+    },
+    {
+      "indicator_type_id": "sha256",
+      "allowed_value_kinds": [
+        "atomic"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.sha256.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.sha256.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.identity.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.sha256.v1"
+    },
+    {
+      "indicator_type_id": "email_addr",
+      "allowed_value_kinds": [
+        "atomic"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.email_ascii.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.email_ascii.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.email.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.normalized.v1"
+    },
+    {
+      "indicator_type_id": "registry_key",
+      "allowed_value_kinds": [
+        "atomic",
+        "reference"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.windows_registry_key.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.windows_registry_key.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.identity.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.normalized.v1"
+    },
+    {
+      "indicator_type_id": "process_name",
+      "allowed_value_kinds": [
+        "atomic",
+        "reference"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.process_name.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.process_name.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.identity.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.normalized.v1"
+    },
+    {
+      "indicator_type_id": "text",
+      "allowed_value_kinds": [
+        "atomic",
+        "pattern",
+        "reference"
+      ],
+      "normalization_algorithm_id": "cartulary.indicator.normalize.text.v1",
+      "validation_algorithm_id": "cartulary.indicator.validate.text.v1",
+      "defang_algorithm_id": "cartulary.indicator.defang.identity.v1",
+      "dedupe_algorithm_id": "cartulary.indicator.dedupe.text_hash.v1"
+    }
+  ]
+}

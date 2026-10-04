@@ -79,6 +79,7 @@ var evidenceExportClassifications = map[string]map[string]exportDisposition{
 		"OwnerRuntimeDependencies":                    exportRetain,
 		"PersistedObjectBlobStorageKeyErrorReason":    exportRetain,
 		"RecoveryStateContribution":                   exportRetain,
+		"ReferencedEvidenceRegistryEntriesTx":         exportRetain,
 		"RevisionProviderContribution":                exportRetain,
 		"RowVersionConflictError":                     exportRetain,
 		"RowVersionConflictError.Error":               exportRetain,

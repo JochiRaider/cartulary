@@ -165,19 +165,21 @@ func (s *fakeReportingJobStore) ReleasePayloadForJob(ctx context.Context, _ uuid
 		return releaseCreateJobPayload{}, err
 	}
 	s.releasePayloadCalls++
-	model := ExportModel{
-		SchemaID:          ExportModelSchemaID,
-		IncidentID:        "00000000-0000-0000-0000-000000000311",
-		SnapshotID:        "00000000-0000-0000-0000-000000000312",
-		DerivationVersion: DerivationVersion,
+	model := ExportModel{RenderIdentity: fixtureRenderIdentity(),
+		SchemaID: ExportModelSchemaID,
+		SnapshotContent: SnapshotContent{
+			IncidentID:        "00000000-0000-0000-0000-000000000311",
+			SnapshotID:        "00000000-0000-0000-0000-000000000312",
+			DerivationVersion: DerivationVersion},
 	}
+	model = bindFixtureRenderModel(model.SnapshotContent)
 	modelJSON, _ := canonicalJSON(model)
 	return releaseCreateJobPayload{
 		ActorUserID:             "00000000-0000-0000-0000-000000000313",
 		IncidentID:              model.IncidentID,
 		SnapshotID:              model.SnapshotID,
 		ExportModel:             model,
-		ExportModelSHA256:       hashHex(modelJSON),
+		ExportModelSHA256:       reportingObjectDigest(ExportModelSchemaID, modelJSON),
 		RedactionProfileID:      InternalRedactionProfileID,
 		RedactionProfileVersion: "1",
 	}, nil

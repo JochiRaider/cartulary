@@ -3,10 +3,13 @@ import {
   referencePackFixture,
   referencePackJobFixture,
   referencePackTestJobId,
+  referencePackTestValidationRef,
+  referencePackValidationFixture,
 } from "../testing/referencePackTestSupport";
 import {
   captureReferencePackAttempt,
   loadReferencePackJob,
+  readReferencePackValidationSummary,
   submitReferencePackAttempt,
   validReferencePackJob,
 } from "./referencePacks";
@@ -25,6 +28,70 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Reference Pack transport", () => {
+  it("validates bounded diagnostic summaries and never follows an arbitrary reference", async () => {
+    expect(
+      (
+        await readReferencePackValidationSummary(
+          "https://other.example/private",
+          signal(),
+        )
+      ).kind,
+    ).toBe("failed");
+    expect(fetchMock).not.toHaveBeenCalled();
+    const summary = referencePackValidationFixture();
+    fetchMock.mockResolvedValueOnce(envelope(summary, 200));
+    expect(
+      await readReferencePackValidationSummary(
+        referencePackTestValidationRef,
+        signal(),
+      ),
+    ).toEqual({ kind: "read", value: summary });
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      `/api/v1/reference-packs/validation-summaries/${referencePackTestValidationRef}`,
+    );
+    for (const changes of [
+      { issues: [] },
+      { retained_issue_count: 2 },
+      { total_issue_count: 2 },
+      { issues_truncated: true },
+      { primary_issue_id: `rpi_${"b".repeat(64)}` },
+      { extra: "hostile" },
+      { issues: [{ ...summary.issues[0], safe_details: null }] },
+    ]) {
+      fetchMock.mockResolvedValueOnce(
+        envelope({ ...summary, ...changes }, 200),
+      );
+      expect(
+        (
+          await readReferencePackValidationSummary(
+            referencePackTestValidationRef,
+            signal(),
+          )
+        ).kind,
+      ).toBe("failed");
+    }
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "forbidden",
+            message: "Denied",
+            retryable: false,
+            details: {},
+          },
+          meta: { request_id: "denied" },
+        }),
+        { status: 403, headers: { "content-type": "application/json" } },
+      ),
+    );
+    expect(
+      await readReferencePackValidationSummary(
+        referencePackTestValidationRef,
+        signal(),
+      ),
+    ).toEqual({ kind: "access_failed", status: 403 });
+  });
+
   it("validates inline and asynchronous activation and disable by successful HTTP status", async () => {
     for (const kind of ["activate", "disable"] as const) {
       const attempt = captureReferencePackAttempt(

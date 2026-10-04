@@ -62,7 +62,7 @@ SELECT true
 func scanStoredJob(row pgx.Row) (storedJob, error) {
 	var stored storedJob
 	var jobID uuid.UUID
-	var submittedBy uuid.UUID
+	var submittedBy *uuid.UUID
 	var incidentID *uuid.UUID
 	var progressTotal *int
 	var resultJSON []byte
@@ -108,7 +108,7 @@ func scanStoredJob(row pgx.Row) (storedJob, error) {
 func scanJob(row pgx.Row) (Resource, error) {
 	var record Resource
 	var jobID uuid.UUID
-	var submittedBy uuid.UUID
+	var submittedBy *uuid.UUID
 	var incidentID *uuid.UUID
 	var progressTotal *int
 	var resultJSON []byte
@@ -140,11 +140,14 @@ func scanJob(row pgx.Row) (Resource, error) {
 	return (storedJob{resource: record}).publicResource(), nil
 }
 
-func hydrateJobResource(record *Resource, jobID uuid.UUID, submittedBy uuid.UUID, incidentID *uuid.UUID, progressTotal *int, resultJSON []byte, errorJSON []byte) error {
+func hydrateJobResource(record *Resource, jobID uuid.UUID, submittedBy *uuid.UUID, incidentID *uuid.UUID, progressTotal *int, resultJSON []byte, errorJSON []byte) error {
 	record.JobID = jobID.String()
 	record.Scope.IncidentID = incidentID
 	record.StatusRoute = "/api/v1/jobs/" + record.JobID
-	record.SubmittedByUserID = submittedBy.String()
+	if submittedBy != nil {
+		value := submittedBy.String()
+		record.SubmittedByUserID = &value
+	}
 	record.Progress.Total = progressTotal
 	if len(resultJSON) > 0 {
 		var summary ResultSummary

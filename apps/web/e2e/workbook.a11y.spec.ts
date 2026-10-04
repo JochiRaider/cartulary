@@ -8711,7 +8711,7 @@ test("a11y.canonical-indicator proposal validation and separate resolution remai
   await expect(value).toBeFocused();
   await expect(value).toHaveAttribute("aria-invalid", "true");
   await expect(value).toHaveAccessibleDescription("Required.");
-  await value.fill("NEW[.]EXAMPLE");
+  await value.fill("NEW.EXAMPLE");
   await form.getByText("Additional canonical details", { exact: true }).click();
   for (const viewport of [
     { width: 1280, height: 720 },

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { ownersByVersion } from "./owner-allocation.mjs";
 
 const root = process.cwd();
 const migrationRoot = path.join(root, "db/migrations");
@@ -38,22 +39,6 @@ const history = {
 };
 writeJSON("tools/migration_history_manifest.json", history);
 
-const ownersByVersion = new Map([
-  [1, "database_migrations"], [2, "auth"], [3, "incidents"], [4, "recovery"],
-  [5, "deployment_admin"], [6, "platform_jobs"], [7, "records"], [8, "revisions"],
-  [9, "parties"], [10, "timeline"], [11, "entities"], [12, "indicators"],
-  [13, "assessments"], [14, "links"], [15, "tasksdecisions"], [16, "artifacts"],
-  [17, "evidence"], [18, "savedviews"], [19, "imports"], [20, "networkflow"],
-  [21, "projections"], [22, "graphprojection"], [23, "reporting"],
-  [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
-  [27, "extensions"], [28, "audit"], [29, "collaboration"],
-  [30, "evidence"], [31, "evidence"], [32, "networkflow"],
-  [33, "networkflow"], [34, "graphprojection"], [35, "assessments"],
-  [36, "entities"], [37, "entities"], [38, "indicators"], [39, "parties"],
-  [40, "parties"], [41, "entities"], [42, "timeline"], [43, "savedviews"],
-  [44, "platform_jobs"],
-  [45, "links"],
-]);
 for (const [index, filename] of migrationFiles.entries()) {
   const version = index + 1;
   if (!ownersByVersion.has(version)) {
@@ -70,9 +55,10 @@ const profileByVersion = new Map([
   [26, "reference_pack"],
   [32, "network_flow_activity"],
   [33, "network_flow_activity"],
+  [47, "snapshot_reporting"],
 ]);
 const recoveryCatalog = JSON.parse(
-  readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v1.json"), "utf8"),
+  readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v2.json"), "utf8"),
 );
 const recoveryByTable = new Map(
   recoveryCatalog.tables.map((entry) => [entry.table_name, entry]),
@@ -348,6 +334,22 @@ function toManifestEntry(object) {
   const runtimeAppendOnlyTables = new Set([
     "administrative_audit_projections",
     "deployment_admin_audit_events",
+    "reference_pack_attempt_members",
+    "reference_pack_envelopes",
+    "reference_pack_events",
+    "reference_pack_operation_dependency_keys",
+    "reference_pack_operation_keys",
+    "reference_pack_operation_members",
+    "reference_pack_operation_repositories",
+    "reference_pack_portable_catalogs",
+    "reference_pack_portable_preparations",
+    "reference_pack_portable_selections",
+    "reference_pack_release_bindings",
+    "reference_pack_roots",
+    "reference_pack_set_members",
+    "reference_pack_sets",
+    "reference_pack_versions",
+    "reporting_imported_artifact_files",
   ]);
   const derivedReadOnlyTables = new Set([
     "entity_active_identifier_claims",

@@ -3,12 +3,8 @@ import {
   coreIndicatorCreateConstraints as constraints,
   coreIndicatorTypes,
 } from "../../adapters/indicatorCreateProtocol";
-import {
-  normalizeGenericTextValue,
-  workbookCreationAvailable,
-} from "../../models/genericWorkbookModel";
+import { workbookCreationAvailable } from "../../models/genericWorkbookModel";
 import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
-import { buildGenericCreateRequest } from "../generic/genericCreateRequestBuilder";
 import {
   freezeObservation,
   observationIndicatorView,
@@ -27,6 +23,15 @@ export type IndicatorCreateDraft = Readonly<{
 export type IndicatorCreateErrors = Readonly<Record<string, string>>;
 const includes = (values: readonly string[], value: string) =>
   values.includes(value);
+export function indicatorValueKinds(type: string): readonly string[] {
+  return (
+    (
+      constraints.valueKindsByType as Readonly<
+        Record<string, readonly string[]>
+      >
+    )[type] ?? []
+  );
+}
 export function indicatorCreateAvailable(contract: ViewContract) {
   return (
     contract.viewSchemaId === observationIndicatorView &&
@@ -70,7 +75,7 @@ export function indicatorCreateErrors(
   values: IndicatorCreateValues,
 ): IndicatorCreateErrors {
   const errors: Record<string, string> = {};
-  const value = (key: string) => normalizeGenericTextValue(values[key] ?? "");
+  const value = (key: string) => values[key] ?? "";
   if (!indicatorCreateAvailable(contract))
     errors.contract =
       "Canonical creation is unavailable for the active Indicator contract.";
@@ -82,8 +87,9 @@ export function indicatorCreateErrors(
     errors["indicator.indicator_type"] = "Choose a supported Indicator type.";
   if (kind && !includes(constraints.valueKinds, kind))
     errors["indicator.value_kind"] = "Choose a supported value kind.";
-  if (includes(constraints.atomicTypes, type) && kind !== "atomic")
-    errors["indicator.value_kind"] = "IP Indicators require atomic values.";
+  if (type && kind && !indicatorValueKinds(type).includes(kind))
+    errors["indicator.value_kind"] =
+      "Choose a value kind supported by this Indicator type.";
   const [algorithm, hash] = constraints.hashFields;
   if (Boolean(value(algorithm)) !== Boolean(value(hash))) {
     errors[value(algorithm) ? hash : algorithm] =
@@ -99,15 +105,11 @@ export function indicatorCreateErrors(
     !new RegExp(constraints.hashValuePattern, "u").test(value(hash))
   )
     errors[hash] = "Use hexadecimal hash digits.";
-  const pattern = (
-    constraints.displayPatterns as Readonly<Record<string, string>>
-  )[type];
-  if (
-    pattern &&
-    !new RegExp(pattern, "u").test(value("indicator.display_value"))
-  )
-    errors["indicator.display_value"] =
-      "Enter a 64-digit hexadecimal SHA-256 value.";
+  for (const key of ["indicator.display_value", "indicator.normalized_value"]) {
+    if (Array.from(value(key)).length > constraints.maximumValueScalars)
+      errors[key] =
+        `Use at most ${constraints.maximumValueScalars} characters.`;
+  }
   for (const [key, raw] of Object.entries(values)) {
     if (raw.includes("\0")) errors[key] = "Remove the null character.";
     if (
@@ -125,7 +127,14 @@ export function indicatorCreateRequest(
   values: IndicatorCreateValues,
   id: string,
 ) {
-  return Object.keys(indicatorCreateErrors(contract, values)).length
-    ? null
-    : buildGenericCreateRequest(contract, values, id);
+  if (Object.keys(indicatorCreateErrors(contract, values)).length) return null;
+  const request: Record<string, unknown> & { client_txn_id: string } = {
+    client_txn_id: id,
+  };
+  for (const field of contract.fields) {
+    const raw = values[field.fieldKey];
+    if (field.createWritable && raw !== undefined && raw !== "")
+      request[field.fieldKey] = raw;
+  }
+  return request;
 }

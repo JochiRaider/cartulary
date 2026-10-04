@@ -17,9 +17,9 @@ import (
 const (
 	ProfileID                  = "incident_portability"
 	BundlesRouteContributionID = "incident_portability.bundles_route"
-	bundleWorkerKind           = "incident_portability.bundle_worker_v1"
-	exportJobKind              = "incident_portability.export_v1"
-	importJobKind              = "incident_portability.import_v1"
+	bundleWorkerKind           = "incident_portability.bundle_worker_v2"
+	exportJobKind              = "incident_portability.export_v2"
+	importJobKind              = "incident_portability.import_v2"
 
 	historyModeFull = "full"
 	blobModeFull    = "full"

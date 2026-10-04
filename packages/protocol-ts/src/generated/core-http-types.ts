@@ -37,11 +37,6 @@ export type ActivateReferencePackVersionSuccessBody = ReferencePackActionEnvelop
 export type ReferencePackVersionState = "staged" | "verified_available" | "disabled" | "failed" | "missing";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ReferencePackVerificationResult".
- */
-export type ReferencePackVerificationResult = "pending" | "passed" | "failed";
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "JobScope".
  */
 export type JobScope = {
@@ -365,20 +360,54 @@ export interface ReferencePackVersionResource {
   activated_at: string | null;
   activated_by_user_id: string | null;
   active: boolean;
+  administratively_disabled: boolean;
+  content_profile_id: string | null;
+  content_profile_version: string | null;
+  /**
+   * @minItems 0
+   * @maxItems 64
+   */
+  dependencies:
+    | {
+        pack_key: string;
+        pack_version: string;
+        payload_sha256: string;
+      }[]
+    | null;
+  distribution_kind: "operator_imported" | "packaged_builtin";
+  fallback_from_version: string | null;
+  health: "staged" | "verified_available" | "failed" | "missing";
   imported_at: string;
   imported_by_user_id: string | null;
-  manifest_sha256: string;
-  pack_contract_version: string;
+  last_failure_code: string | null;
+  last_verified_at: string | null;
+  license_expression: string | null;
+  manifest_sha256: string | null;
+  missing_reason: null | "staging_loss" | "storage_loss" | "administrative_removal";
+  pack_contract_version: string | null;
   pack_key: string;
   pack_kind: string;
+  pack_release_sequence: number | null;
   pack_version: string;
   pack_version_state: ReferencePackVersionState;
-  payload_sha256: string;
+  payload_sha256: string | null;
+  pending_work: boolean;
   previous_active_version: string | null;
-  signer_key_id: string | null;
+  redistribution: null | "allowed" | "restricted" | "prohibited";
+  removed: boolean;
+  reproducibility_pinned: boolean;
+  source_as_of: string | null;
   source_identifier: string | null;
-  verification_method: string;
-  verification_result: ReferencePackVerificationResult;
+  source_profile_id: string | null;
+  source_profile_sha256: string | null;
+  source_version: string | null;
+  trust_repository_id: string | null;
+  trust_valid_until: string | null;
+  verification_method: string | null;
+  /**
+   * @maxItems 64
+   */
+  verified_signer_key_ids: string[];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -406,7 +435,7 @@ export interface JobResource {
   status: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "canceled";
   status_route: string;
   submitted_at: string;
-  submitted_by_user_id: string;
+  submitted_by_user_id: string | null;
   updated_at: string;
 }
 /**
@@ -775,19 +804,21 @@ export interface IdentityCreateRequest {
   "identity.upn"?: string;
 }
 /**
+ * Identity values are admitted without transport normalization and evaluated by Reference Data against the effective registry. Type and value-kind tokens are exact. Text values may contain newlines and tabs; raw identity input is limited to 8192 Unicode scalars. Canonical-equivalent input reuses the same active incident identity.
+ *
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "IndicatorCreateRequest".
  */
 export interface IndicatorCreateRequest {
   client_txn_id: string;
   "indicator.defanged_value"?: string;
-  "indicator.display_value"?: string;
+  "indicator.display_value": string;
   "indicator.hash_algorithm"?: string;
   "indicator.hash_value"?: string;
-  "indicator.indicator_type"?: string;
+  "indicator.indicator_type": string;
   "indicator.normalized_value"?: string;
   "indicator.stix_pattern"?: string;
-  "indicator.value_kind"?: string;
+  "indicator.value_kind": string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -2519,6 +2550,59 @@ export interface ReferencePackListEnvelope {
 export interface ReferencePackRefreshRequest {
   client_txn_id: string;
   pack_keys?: string[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackRemovalRequest".
+ */
+export interface ReferencePackRemovalRequest {
+  client_txn_id: string;
+  reason: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackValidationSummaryEnvelope".
+ */
+export interface ReferencePackValidationSummaryEnvelope {
+  data: ReferencePackValidationSummary;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackValidationSummary".
+ */
+export interface ReferencePackValidationSummary {
+  /**
+   * @maxItems 1000
+   */
+  issues: ReferencePackIssue[];
+  issues_truncated: boolean;
+  primary_issue_id: string | null;
+  result: "succeeded" | "failed";
+  retained_issue_count: number;
+  schema_id: "cartulary.reference_pack_validation_summary.v1";
+  total_issue_count: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackIssue".
+ */
+export interface ReferencePackIssue {
+  check_id: string;
+  code: string;
+  entry_id: string | null;
+  issue_id: string;
+  path: string;
+  phase: string;
+  reason_code: string | null;
+  safe_details: {
+    actual_token: string | null;
+    expected_token: string | null;
+    limit_id: string | null;
+    related_pack_key: string | null;
+    related_pack_version: string | null;
+  };
+  severity: "error";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

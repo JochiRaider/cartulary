@@ -369,7 +369,8 @@ for (const death of ["parent", "both"]) test(`${death} supervisor death permits 
 
 test("stop interrupts a busy public dev action and leaves the borrowed origin alive", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-review-cancel-"));
-  const server = createServer((request, response) => { response.setHeader("content-type", "text/html"); if (request.url === "/slow") { const timer = setTimeout(() => response.end("late"), 30000); response.once("close", () => clearTimeout(timer)); } else response.end("<html><body>Ready</body></html>"); });
+  const navigationStarted = Promise.withResolvers();
+  const server = createServer((request, response) => { response.setHeader("content-type", "text/html"); if (request.url === "/slow") { navigationStarted.resolve(); const timer = setTimeout(() => response.end("late"), 30000); response.once("close", () => clearTimeout(timer)); } else response.end("<html><body>Ready</body></html>"); });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
   const child = spawn("make", ["--silent", "ui-review", "UI_MODE=dev", `UI_ORIGIN=${origin}`], { cwd: repoRoot, env: { ...cleanEnvironment(), CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "dev" }, stdio: ["ignore", "pipe", "pipe"] });
@@ -385,7 +386,17 @@ test("stop interrupts a busy public dev action and leaves the borrowed origin al
     actionChild = spawn("make", ["--silent", "ui-browser", `UI_SESSION=${locator}`, `UI_REQUEST=${file}`], { cwd: repoRoot, env, stdio: ["ignore", "pipe", "pipe"] });
     let actionOutput = ""; actionChild.stdout.on("data", (part) => { actionOutput += part; }); actionChild.stderr.resume();
     const actionEnded = new Promise((resolve) => actionChild.once("exit", resolve));
-    for (let index = 0; index < 100 && JSON.parse(readFileSync(locator)).state !== "busy"; index++) await pause(20);
+    // Synchronize on the actual navigation, not Make/Node startup taking less
+    // than two seconds under aggregate load. The stop-latency assertion below
+    // starts only once the browser has begun the action being interrupted.
+    let admissionTimer;
+    try {
+      await Promise.race([
+        navigationStarted.promise,
+        actionEnded.then(() => { throw new Error("navigation ended before the borrowed origin received it"); }),
+        new Promise((_, reject) => { admissionTimer = setTimeout(() => reject(new Error("navigation did not reach the borrowed origin")), 15000); }),
+      ]);
+    } finally { clearTimeout(admissionTimer); }
     assert.equal(JSON.parse(readFileSync(locator)).state, "busy");
     const tick = performance.now();
     const stopped = spawnSync("make", ["--silent", "ui-review-stop", `UI_SESSION=${locator}`], { cwd: repoRoot, env, encoding: "utf8", timeout: 10000 });

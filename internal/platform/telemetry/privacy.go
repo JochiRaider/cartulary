@@ -177,7 +177,8 @@ func safeOperation(value string) bool {
 	case "connect", "query", "create", "patch", "enqueue", "run", "exec", "query_row", "begin_tx",
 		"create_upload_target", "complete_upload_target", "put_object", "get_object", "get_object_range",
 		"head_object", "list_prefix", "delete_object", "ensure_bucket_for_dev_test", "rebuild", "cleanup_sweep",
-		"graph_materialization", "unknown":
+		"graph_materialization", "unknown",
+		"reference_pack.import", "reference_pack.verify", "reference_pack.reverify", "reference_pack.activate", "reference_pack.disable", "reference_pack.refresh", "reference_pack.reconcile", "reference_pack.remove", "reference_pack.invalidate", "reference_pack.collection", "reference_pack.lookup":
 		return true
 	default:
 		return false

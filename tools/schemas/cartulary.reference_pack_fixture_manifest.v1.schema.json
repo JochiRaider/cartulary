@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_fixture_manifest.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "fixture_id",
+    "fixture_version",
+    "fixture_family",
+    "input_refs",
+    "expected_container_sha256",
+    "expected_manifest_sha256",
+    "expected_payload_sha256",
+    "expected_pack_set_sha256",
+    "expected_condition",
+    "expected_issues",
+    "expected_public_error",
+    "expected_side_effects",
+    "forbidden_side_effects"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_fixture_manifest.v1"
+    },
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^rpfx_[a-z0-9_]{1,96}$"
+    },
+    "fixture_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "fixture_family": {
+      "enum": [
+        "container_equivalence",
+        "archive_attack",
+        "json_admission",
+        "manifest_identity",
+        "tuf_success",
+        "tuf_failure",
+        "version_identity",
+        "content_profile",
+        "type_compatibility",
+        "dependency",
+        "atomic_publication",
+        "base_fallback",
+        "builtin_reconciliation",
+        "refresh",
+        "verification_envelope_renewal",
+        "removal",
+        "consumer",
+        "snapshot_reporting",
+        "portability",
+        "backup_restore",
+        "resource_limit",
+        "cancellation_timeout",
+        "no_egress",
+        "licensing",
+        "source_profile",
+        "spec_traceability",
+        "telemetry_privacy"
+      ]
+    },
+    "input_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "expected_container_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expected_manifest_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expected_payload_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expected_pack_set_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expected_condition": {
+      "enum": [
+        null,
+        "staged",
+        "verified_available",
+        "disabled",
+        "failed",
+        "missing"
+      ]
+    },
+    "expected_issues": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issue_id",
+          "check_id",
+          "severity",
+          "phase",
+          "code",
+          "reason_code",
+          "path",
+          "entry_id",
+          "safe_details"
+        ],
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "pattern": "^rpi_[0-9a-f]{64}$"
+          },
+          "check_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "severity": {
+            "const": "error"
+          },
+          "phase": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "entry_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "safe_details": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "limit_id",
+              "expected_token",
+              "actual_token",
+              "related_pack_key",
+              "related_pack_version"
+            ],
+            "properties": {
+              "limit_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "expected_token": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "actual_token": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "related_pack_key": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "related_pack_version": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      }
+    },
+    "expected_public_error": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason_code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "reason_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "expected_side_effects": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "active_pointer_changed",
+          "attestation_appended",
+          "audit_event_appended",
+          "candidate_created",
+          "condition_changed",
+          "index_published",
+          "job_admitted",
+          "network_request_attempted",
+          "pack_set_published",
+          "payload_bytes_deleted",
+          "temporary_state_removed",
+          "trust_state_changed"
+        ]
+      }
+    },
+    "forbidden_side_effects": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "active_pointer_changed",
+          "attestation_appended",
+          "audit_event_appended",
+          "candidate_created",
+          "condition_changed",
+          "index_published",
+          "job_admitted",
+          "network_request_attempted",
+          "pack_set_published",
+          "payload_bytes_deleted",
+          "temporary_state_removed",
+          "trust_state_changed"
+        ]
+      }
+    }
+  }
+}

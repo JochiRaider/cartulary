@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.route_scoped_idempotency_identity.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "actor_kind",
+    "actor_user_id",
+    "operator_operation_id",
+    "route_identity",
+    "scope_kind",
+    "scope_id",
+    "client_txn_id"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.route_scoped_idempotency_identity.v2"
+    },
+    "actor_kind": {
+      "enum": [
+        "user",
+        "local_operator"
+      ]
+    },
+    "actor_user_id": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "operator_operation_id": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "route_identity": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_kind": {
+      "enum": [
+        "incident",
+        "deployment"
+      ]
+    },
+    "scope_id": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "client_txn_id": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "actor_kind": {
+              "const": "user"
+            },
+            "actor_user_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            },
+            "operator_operation_id": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "actor_kind": {
+              "const": "local_operator"
+            },
+            "actor_user_id": {
+              "type": "null"
+            },
+            "operator_operation_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            },
+            "scope_kind": {
+              "const": "deployment"
+            },
+            "scope_id": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "scope_kind": {
+              "const": "deployment"
+            },
+            "scope_id": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "scope_kind": {
+              "const": "incident"
+            },
+            "scope_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "description": "For local_operator, client_txn_id must equal operator_operation_id; this cross-field invariant is enforced by admission and finalization.",
+  "schema_id": "cartulary.route_scoped_idempotency_identity_schema.v2"
+}

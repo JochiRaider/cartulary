@@ -2,16 +2,16 @@ package reference_data
 
 import (
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"sort"
 	"strings"
-	"time"
+	"unicode/utf8"
 
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -20,11 +20,11 @@ const (
 	ProfileID = "reference_pack"
 
 	PacksRouteContributionID = "reference_pack.packs_route"
-	LifecycleWorkerKind      = "reference_pack.lifecycle_worker_v1"
+	LifecycleWorkerKind      = "reference_pack.lifecycle_worker_v2"
 
-	ImportJobKind     = "reference_pack.import_v1"
-	ReverifyJobKind   = "reference_pack.reverify_v1"
-	RefreshJobKind    = "reference_pack.refresh_v1"
+	ImportJobKind     = "reference_pack.import_v2"
+	ReverifyJobKind   = "reference_pack.reverify_v2"
+	RefreshJobKind    = "reference_pack.refresh_v2"
 	ImportOperation   = "reference_pack.import"
 	ReverifyOperation = "reference_pack.reverify"
 	RefreshOperation  = "reference_pack.refresh"
@@ -42,16 +42,6 @@ const (
 	ConditionDisabled          = "disabled"
 	ConditionFailed            = "failed"
 	ConditionMissing           = "missing"
-
-	StoredStatusStaged    = "staged"
-	StoredStatusAvailable = "available"
-	StoredStatusDisabled  = "disabled"
-	StoredStatusFailed    = "failed"
-	StoredStatusMissing   = "missing"
-
-	VerificationPending = "pending"
-	VerificationPassed  = "passed"
-	VerificationFailed  = "failed"
 
 	ResultReferencePackImported   = "reference_pack_imported"
 	ResultReferencePackReverified = "reference_pack_reverified"
@@ -86,28 +76,6 @@ type RefreshRequest struct {
 	Normalized       []byte
 }
 
-type VersionRecord struct {
-	PackKey             string
-	PackKind            string
-	PackVersion         string
-	StoredStatus        string
-	Active              bool
-	SourceIdentifier    *string
-	ManifestSHA256      string
-	PayloadSHA256       string
-	PackContractVersion string
-	VerificationMethod  string
-	VerificationResult  string
-	SignerKeyID         *string
-	PreviousActive      *string
-	ImportedByUserID    *string
-	ImportedAt          time.Time
-	ActivatedByUserID   *string
-	ActivatedAt         *time.Time
-	BundleSHA256        string
-	BundleStorageRef    StorageRef
-}
-
 type apiError struct {
 	apiErr *httpapi.APIError
 }
@@ -126,49 +94,6 @@ func wrapAPIError(apiErr *httpapi.APIError) error {
 	return apiError{apiErr: apiErr}
 }
 
-func (r VersionRecord) Resource() map[string]any {
-	return map[string]any{
-		"pack_key":                r.PackKey,
-		"pack_kind":               r.PackKind,
-		"pack_version":            r.PackVersion,
-		"pack_version_state":      publicCondition(r.StoredStatus, r.VerificationResult),
-		"active":                  r.Active,
-		"source_identifier":       optionalString(r.SourceIdentifier),
-		"manifest_sha256":         r.ManifestSHA256,
-		"payload_sha256":          r.PayloadSHA256,
-		"pack_contract_version":   r.PackContractVersion,
-		"verification_method":     r.VerificationMethod,
-		"verification_result":     r.VerificationResult,
-		"signer_key_id":           optionalString(r.SignerKeyID),
-		"previous_active_version": optionalString(r.PreviousActive),
-		"imported_by_user_id":     optionalString(r.ImportedByUserID),
-		"imported_at":             r.ImportedAt,
-		"activated_by_user_id":    optionalString(r.ActivatedByUserID),
-		"activated_at":            optionalTime(r.ActivatedAt),
-	}
-}
-
-func publicCondition(status string, verificationResult string) string {
-	switch status {
-	case StoredStatusAvailable:
-		if verificationResult == VerificationPassed {
-			return ConditionVerifiedAvailable
-		}
-		if verificationResult == VerificationFailed {
-			return ConditionFailed
-		}
-		return ConditionStaged
-	case StoredStatusDisabled:
-		return ConditionDisabled
-	case StoredStatusFailed:
-		return ConditionFailed
-	case StoredStatusMissing:
-		return ConditionMissing
-	default:
-		return ConditionStaged
-	}
-}
-
 func optionalString(value *string) any {
 	if value == nil {
 		return nil
@@ -176,14 +101,12 @@ func optionalString(value *string) any {
 	return *value
 }
 
-func optionalTime(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
-
 func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataRequest, *httpapi.APIError) {
+	if len(envelope.MetadataRaw) != 0 {
+		if _, err := canonicaljson.DecodeStrict(envelope.MetadataRaw); err != nil {
+			return ImportMetadataRequest{}, invalidReferencePackRequest("metadata", "malformed_metadata_json")
+		}
+	}
 	allowed := map[string]struct{}{
 		"client_txn_id":     {},
 		"activation_policy": {},
@@ -226,6 +149,14 @@ func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataReques
 }
 
 func DecodeActionRequest(reader io.Reader) (ActionRequest, *httpapi.APIError) {
+	return decodeActionRequest(reader, false)
+}
+
+func DecodeRemovalRequest(reader io.Reader) (ActionRequest, *httpapi.APIError) {
+	return decodeActionRequest(reader, true)
+}
+
+func decodeActionRequest(reader io.Reader, requireReason bool) (ActionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
 		return ActionRequest{}, apiErr
@@ -244,14 +175,29 @@ func DecodeActionRequest(reader io.Reader) (ActionRequest, *httpapi.APIError) {
 		return ActionRequest{}, apiErr
 	}
 	var reason *string
+	if value, ok := raw["reason"]; requireReason && (!ok || bytesEqualJSONNull(value)) {
+		code := "missing_required_field"
+		if ok {
+			code = "field_not_nullable"
+		}
+		return ActionRequest{}, invalidReferencePackRequest("reason", code)
+	}
 	if value, ok := raw["reason"]; ok && !bytesEqualJSONNull(value) {
 		var parsed string
 		if err := json.Unmarshal(value, &parsed); err != nil {
-			return ActionRequest{}, invalidReferencePackRequest("reason", "request_not_object")
+			return ActionRequest{}, invalidReferencePackRequest("reason", "invalid_reason")
 		}
 		if normalized, ok := fieldnorm.NormalizeNote(parsed); ok {
+			if utf8.RuneCountInString(normalized) > 4096 {
+				return ActionRequest{}, invalidReferencePackRequest("reason", "reason_too_long")
+			}
 			reason = &normalized
+		} else if strings.TrimSpace(parsed) != "" {
+			return ActionRequest{}, invalidReferencePackRequest("reason", "invalid_reason")
 		}
+	}
+	if requireReason && reason == nil {
+		return ActionRequest{}, invalidReferencePackRequest("reason", "invalid_reason")
 	}
 	normalized, err := json.Marshal(map[string]any{
 		"client_txn_id": clientTxnID,
@@ -342,15 +288,25 @@ func ValidateRefreshPackKeys(request RefreshRequest, visible []string) ([]string
 }
 
 func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
+	data, err := io.ReadAll(io.LimitReader(reader, MaxAdministrativeRequestBytes+1))
+	if err != nil {
+		return nil, invalidReferencePackRequest("request", "request_not_object")
+	}
+	if len(data) > MaxAdministrativeRequestBytes {
+		return nil, invalidReferencePackRequest("request", "request_too_large")
+	}
+	value, err := canonicaljson.DecodeStrict(data)
+	if err != nil {
+		return nil, invalidReferencePackRequest("request", "request_not_object")
+	}
+	if _, ok := value.(map[string]any); !ok {
+		return nil, invalidReferencePackRequest("request", "request_not_object")
+	}
 	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
+	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
 	}
 	if raw == nil {
-		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
 	}
 	return raw, nil
@@ -372,6 +328,12 @@ func requiredStringField(raw map[string]json.RawMessage, field string) (string, 
 }
 
 func invalidReferencePackRequest(field string, reasonCode string) *httpapi.APIError {
+	// Never reflect hostile object member names into diagnostics.
+	switch field {
+	case "client_txn_id", "reason", "pack_keys", "activation_policy", "metadata", "request":
+	default:
+		field = "request"
+	}
 	return &httpapi.APIError{
 		Status: http.StatusBadRequest,
 		Code:   "invalid_reference_pack_request",
@@ -400,10 +362,6 @@ func referencePackNotFound() *httpapi.APIError {
 
 func referencePackActivationRejected(reasonCode string) *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_activation_rejected", Details: map[string]any{"reason_code": reasonCode}}
-}
-
-func referencePackStateConflict(reasonCode string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_state_conflict", Details: map[string]any{"reason_code": reasonCode}}
 }
 
 func referencePackVerificationFailed(reasonCode string) *httpapi.APIError {
@@ -448,9 +406,21 @@ func internalAPIError(err error) *httpapi.APIError {
 	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
-		Message: err.Error(),
+		Message: "reference pack operation could not be completed",
 		Details: map[string]any{},
 	}
+}
+
+func coordinatorAPIError(err error) *httpapi.APIError {
+	var rejected *OperationRejection
+	if errors.As(err, &rejected) {
+		return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_operation_rejected", Details: map[string]any{"reason_code": rejected.Reason}}
+	}
+	var wrapped apiError
+	if errors.As(err, &wrapped) {
+		return wrapped.apiErr
+	}
+	return internalAPIError(err)
 }
 
 func bytesEqualJSONNull(value json.RawMessage) bool {
@@ -462,39 +432,6 @@ func hashBytes(data []byte) []byte {
 	return sum[:]
 }
 
-func hashHex(data []byte) string {
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
-
-func referencePackResourceRef(packKey string, packVersion string) struct {
-	Kind  string `json:"kind"`
-	ID    string `json:"id"`
-	Route string `json:"route"`
-} {
-	route := referencePackRoute(packKey, packVersion)
-	return struct {
-		Kind  string `json:"kind"`
-		ID    string `json:"id"`
-		Route string `json:"route"`
-	}{Kind: "reference_pack_version", ID: route, Route: route}
-}
-
 func referencePackRoute(packKey string, packVersion string) string {
 	return "/api/v1/reference-packs/" + packKey + "/" + packVersion
-}
-
-func isValidVerificationFailureReason(reason string) bool {
-	return slices.Contains([]string{
-		"checksum_mismatch",
-		"signature_mismatch",
-		"missing_integrity_metadata",
-		"contract_incompatible",
-		"path_traversal",
-		"disallowed_content",
-		"payload_missing",
-		"archive_extracted_bytes_exceeded",
-		"archive_compression_ratio_exceeded",
-		"archive_member_count_exceeded",
-	}, reason)
 }

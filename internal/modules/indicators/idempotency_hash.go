@@ -8,33 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Legacy comparison is retained for receipts written before normalized digests.
-func createIndicatorRequestHash(command CreateCommand) []byte {
-	return hashReplayRequest(createIndicatorRequestPreimage(command))
-}
-
-func createIndicatorRequestPreimage(command CreateCommand) []byte {
-	payload := map[string]any{
-		"view_schema_id":           ViewSchemaID,
-		"client_txn_id":            command.ClientTxnID,
-		"indicator.indicator_type": command.IndicatorType,
-		"indicator.value_kind":     command.ValueKind,
-		"indicator.display_value":  command.DisplayValue,
-	}
-	for key, value := range map[string]*string{
-		"indicator.normalized_value": command.NormalizedValue,
-		"indicator.defanged_value":   command.DefangedValue,
-		"indicator.hash_algorithm":   command.HashAlgorithm,
-		"indicator.hash_value":       command.HashValue,
-		"indicator.stix_pattern":     command.STIXPattern,
-	} {
-		if value != nil {
-			payload[key] = *value
-		}
-	}
-	return marshalReplayRequest(payload)
-}
-
 func observationCreateRequestHash(params IndicatorObservationCreateParams) []byte {
 	return hashReplayRequest(observationCreateRequestPreimage(params))
 }

@@ -31,7 +31,7 @@ export function importBundleFixture(status: "active" | "closed" = "active") {
     ...catalog.families.flatMap((family) => family.paths),
     ...catalog.special_consumers,
   ]) {
-    if (source.versions.includes(4) && !source.logical_path.includes("*"))
+    if (source.versions.includes(5) && !source.logical_path.includes("*"))
       sources.set(source.logical_path, Buffer.alloc(0));
   }
   const json = (value: unknown) => Buffer.from(`${JSON.stringify(value)}\n`);
@@ -60,7 +60,16 @@ export function importBundleFixture(status: "active" | "closed" = "active") {
     "data/actors.ndjson",
     json({ actor_id: actorId, display_name: "Portable operator" }),
   );
-  sources.set("data/reference_pack_refs.json", json([]));
+  sources.set(
+    "data/reference_pack_refs.json",
+    Buffer.from(
+      JSON.stringify({
+        schema_id: "reference_pack_refs.v1",
+        sets: [],
+        versions: [],
+      }),
+    ),
+  );
   sources.set(
     "data/timeline_time_profiles.ndjson",
     json({
@@ -76,7 +85,7 @@ export function importBundleFixture(status: "active" | "closed" = "active") {
   const hash = (bytes: Buffer) =>
     createHash("sha256").update(bytes).digest("hex");
   const files = [...sources]
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([path, bytes]) => ({
       path,
       sha256: `sha256:${hash(bytes)}`,
@@ -87,7 +96,7 @@ export function importBundleFixture(status: "active" | "closed" = "active") {
     "manifest.json",
     json({
       bundle_format: "cartulary.incident_bundle",
-      bundle_version: 4,
+      bundle_version: 5,
       bundle_id: randomUUID(),
       incident_id: incidentId,
       incident_key: key,

@@ -11,7 +11,7 @@ func TestIndicatorCreateAdmissionAndHashCompatibility(t *testing.T) {
 	t.Parallel()
 	left, apiErr := DecodeCreateRequest(strings.NewReader(`{
         "client_txn_id":"txn-indicator",
-        "indicator.indicator_type":" ipv4_addr ",
+        "indicator.indicator_type":"ipv4_addr",
         "indicator.value_kind":"atomic",
         "indicator.display_value":"203[.]0[.]113[.]7"
     }`))
@@ -27,6 +27,10 @@ func TestIndicatorCreateAdmissionAndHashCompatibility(t *testing.T) {
 	}
 	if !reflect.DeepEqual(left, right) {
 		t.Fatalf("reordered wire members changed admitted command: left=%#v right=%#v", left, right)
+	}
+	multiline, apiErr := DecodeCreateRequest(strings.NewReader(`{"client_txn_id":"txn-text","indicator.indicator_type":"text","indicator.value_kind":"atomic","indicator.display_value":" A\r\nB\tC\rD "}`))
+	if apiErr != nil || multiline.DisplayValue != " A\r\nB\tC\rD " {
+		t.Fatal("transport changed owner algorithm input", apiErr)
 	}
 }
 
@@ -57,6 +61,7 @@ func TestIndicatorCreateAdmissionRejectsBeforeOwnerExecution(t *testing.T) {
 		{name: "blank value", body: `{"client_txn_id":"txn","indicator.indicator_type":"  "}`, field: "indicator.indicator_type", reasonCode: "invalid_value"},
 		{name: "missing identity", body: `{"client_txn_id":"txn"}`, field: "indicator.indicator_type", reasonCode: "missing_required_field"},
 		{name: "invalid type alias", body: `{"client_txn_id":"txn","indicator.indicator_type":"domain","indicator.value_kind":"atomic","indicator.display_value":"example.test"}`, field: "indicator.indicator_type", reasonCode: "invalid_value"},
+		{name: "padded type token", body: `{"client_txn_id":"txn","indicator.indicator_type":" ipv4_addr ","indicator.value_kind":"atomic","indicator.display_value":"192.0.2.1"}`, field: "indicator.indicator_type", reasonCode: "invalid_value"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

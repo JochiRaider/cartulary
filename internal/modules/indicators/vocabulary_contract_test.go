@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 )
 
 func TestIndicatorVocabularyMatchesPortableAndOpenAPIContracts(t *testing.T) {
@@ -23,7 +24,7 @@ func TestIndicatorVocabularyMatchesPortableAndOpenAPIContracts(t *testing.T) {
 	}
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	openAPI := readIndicatorContractJSON(t, filepath.Join(root, "contracts/openapi/cartulary.openapi.yaml"))
-	indicatorSchema := readIndicatorContractJSON(t, filepath.Join(root, "contracts/incident-bundles/indicators.row.v1.schema.json"))
+	indicatorSchema := readIndicatorContractJSON(t, filepath.Join(root, "contracts/incident-bundles/indicators.row.v2.schema.json"))
 	observationSchema := readIndicatorContractJSON(t, filepath.Join(root, "contracts/incident-bundles/indicator_observations.row.v1.schema.json"))
 	intervalSchema := readIndicatorContractJSON(t, filepath.Join(root, "contracts/incident-bundles/indicator_state_intervals.row.v1.schema.json"))
 
@@ -43,7 +44,7 @@ func TestIndicatorVocabularyMatchesPortableAndOpenAPIContracts(t *testing.T) {
 
 func TestIndicatorPortableVocabularyAndSupportReferencesAreExact(t *testing.T) {
 	t.Parallel()
-	canonical, err := identity.Canonicalize(identity.Input{IndicatorType: "domain_name", ValueKind: "atomic", DisplayValue: "example.test"})
+	canonical, err := identity.Canonicalize(referencefixture.EvaluateIndicator, identity.Input{IndicatorType: "domain_name", ValueKind: "atomic", DisplayValue: "example.test"})
 	if err != nil {
 		t.Fatalf("canonical fixture: %v", err)
 	}

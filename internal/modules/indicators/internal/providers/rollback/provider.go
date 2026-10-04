@@ -10,14 +10,19 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
-type Provider struct{}
+type Provider struct {
+	assignments reference_data.RegistryAssignments
+}
 
 var _ rollbackcontract.RowSourceProvider = Provider{}
 
-func NewProvider() Provider { return Provider{} }
+func NewProvider(assignments reference_data.RegistryAssignments) Provider {
+	return Provider{assignments: assignments}
+}
 
 func (Provider) ValidateRollbackValue(value map[string]any) error {
 	_, err := parseIndicatorSourcePatch(value)
@@ -57,8 +62,16 @@ type indicatorSourcePatch struct {
 	stixPattern   nullableTextPatch
 }
 
-func (Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
+func (p Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
 	patch, err := parseIndicatorSourcePatch(request.RetainedValue)
+	if err != nil {
+		return err
+	}
+	assignment, err := p.assignments.BeginTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	evaluate, err := identity.FromConsumer(ctx, assignment)
 	if err != nil {
 		return err
 	}
@@ -79,10 +92,11 @@ SELECT record_id, incident_id, indicator_type, value_kind, display_value, normal
 		}
 		return err
 	}
+	previousType := state.indicatorType
 	if !patch.overlay(&state) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(evaluate, identity.Input{
 		IndicatorType:   state.indicatorType,
 		ValueKind:       state.valueKind,
 		DisplayValue:    state.displayValue,
@@ -117,6 +131,9 @@ UPDATE indicators
 	}
 	if tag.RowsAffected() != 1 {
 		return rollbackcontract.ErrStaleTarget
+	}
+	if previousType != state.indicatorType {
+		return assignment.RecordUsage(ctx, "type_registry.indicator")
 	}
 	return nil
 }
@@ -268,11 +285,12 @@ func (patch indicatorSourcePatch) overlay(state *rowState) bool {
 }
 
 func identityMatchesCanonical(state rowState, canonical identity.Canonical) bool {
+	// Retained presentation fields preserve explicit nulls. Creation may derive
+	// a defanged suggestion, but rollback must not require or materialize it.
 	return state.indicatorType == canonical.IndicatorType &&
 		state.valueKind == canonical.ValueKind &&
 		state.displayValue == canonical.DisplayValue &&
 		equalStringPointers(state.normalized, canonical.NormalizedValue) &&
-		equalStringPointers(state.defanged, canonical.DefangedValue) &&
 		equalStringPointers(state.hashAlgorithm, canonical.HashAlgorithm) &&
 		equalStringPointers(state.hashValue, canonical.HashValue) &&
 		equalStringPointers(state.stixPattern, canonical.STIXPattern)

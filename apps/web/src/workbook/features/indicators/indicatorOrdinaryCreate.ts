@@ -2,7 +2,7 @@ import { validateIndicatorCreateReceipt } from "../../adapters/createIndicatorCr
 import type { OrdinaryCreateContribution } from "../ordinary/ordinaryCreateContract";
 import { prepareOrdinaryCreateFields } from "../ordinary/prepareOrdinaryCreateFields";
 import { indicatorCreateErrors } from "./indicatorCreateModel";
-/** Canonicalization, unchanged reuse, and legacy receipt semantics remain with Indicators. */
+/** The source owner evaluates raw values against the effective registry. */
 export const indicatorOrdinaryCreate: OrdinaryCreateContribution = {
   views: ["cartulary.view.indicators.v1"],
   referenceViews: () => [],
@@ -10,7 +10,15 @@ export const indicatorOrdinaryCreate: OrdinaryCreateContribution = {
     !!validateIndicatorCreateReceipt({ contract, body }, receipt, status),
   prepare: (contract, values, id) =>
     prepareOrdinaryCreateFields(contract, values, id, {
-      scalar: (_field, raw) => ({ value: raw.trim() }),
+      text: (field, raw) =>
+        [
+          "indicator.display_value",
+          "indicator.normalized_value",
+          "indicator.defanged_value",
+        ].includes(field.fieldKey)
+          ? { value: raw }
+          : undefined,
+      scalar: (_field, raw) => ({ value: raw }),
       minimum: (request) =>
         [
           "indicator.indicator_type",

@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -336,6 +337,7 @@ type inertIndicatorRecordEnvelopes struct {
 
 func inertIndicatorOwner() *indicators.Application {
 	owner, err := indicators.NewApplication(indicators.ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        inertOwnerRegistryDB{},
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(inertOwnerRegistryDB{})),
 		IncidentState:   admission.NewChecker(inertOwnerRegistryDB{}),

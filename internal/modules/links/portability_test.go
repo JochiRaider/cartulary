@@ -65,7 +65,7 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 				"data/tags.ndjson":         {},
 				"data/record_tags.ndjson":  {},
 			}, sourceport.ImportContext{
-				IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 4,
+				IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 5,
 				OperationID: "unknown-member-" + member, Attributions: attributions,
 			})
 			var failure *sourceport.Failure

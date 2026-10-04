@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack.configuration_namespace.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "clock_trusted",
+    "trust_bootstrap_path"
+  ],
+  "properties": {
+    "clock_trusted": {
+      "type": "boolean"
+    },
+    "trust_bootstrap_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}

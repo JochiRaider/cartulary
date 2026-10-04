@@ -3,6 +3,8 @@ package database_migrations_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -112,9 +114,30 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 	})
 }
 
-func TestProductionDDLRollbackThroughZeroResidue_Integration(t *testing.T) {
+func TestReferencePackCutoverRejectsDowngradeWithoutMutation_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	database := harness.MigrationDatabaseT(t)
+	for _, version := range []int64{46, 47, 48} {
+		t.Run(fmt.Sprintf("version-%d", version), func(t *testing.T) {
+			database := harness.MigrationDatabaseThroughT(t, version)
+			db := database.SQL()
+			before := queryManagedCatalogObjects(t, db)
+			if err := database.RollbackThrough(t.Context(), version-1); err == nil {
+				t.Fatal("cutover downgrade must require a matching historical backup")
+			}
+			var head int64
+			if err := db.QueryRowContext(t.Context(), `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`).Scan(&head); err != nil || head != version {
+				t.Fatalf("rejected downgrade changed migration head: %d, %v", head, err)
+			}
+			if after := queryManagedCatalogObjects(t, db); !reflect.DeepEqual(before, after) {
+				t.Fatal("rejected downgrade changed managed schema objects")
+			}
+		})
+	}
+}
+
+func TestPreCutoverDDLRollbackThroughZeroResidue_Integration(t *testing.T) {
+	harness := pgtest.Start(t)
+	database := harness.MigrationDatabaseThroughT(t, 45)
 	if err := database.RollbackThrough(context.Background(), 0); err != nil {
 		t.Fatalf("rollback through zero: %v", err)
 	}

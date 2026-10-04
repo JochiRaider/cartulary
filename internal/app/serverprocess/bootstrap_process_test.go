@@ -46,7 +46,7 @@ func TestReadyState_Process(t *testing.T) {
 	server.RequireStatus(t, "/readyz", http.StatusOK)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
-	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 1)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 
 	payload := []byte("bootstrap ready state proof")
@@ -153,7 +153,7 @@ func TestFirstAdminBootstrap_Process(t *testing.T) {
 
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
-	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 1)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 
 	var userID string
@@ -265,7 +265,7 @@ func TestBootstrapFailures_Process(t *testing.T) {
 			server.RequireDiagnosticsMatchGolden(t, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
-			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 0)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 		})
 	}
@@ -300,10 +300,11 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 			},
 		}
 
+		packRoot := filepath.Join(t.TempDir(), "reference-packs")
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-				env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: tc.manifestPath})
+				env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: tc.manifestPath, Overrides: map[string]string{"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH": packRoot}})
 
 				server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 				defer server.Stop(t)
@@ -312,7 +313,7 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 				server.RequireStatus(t, "/readyz", http.StatusOK)
 				requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)
 				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
-				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 0)
 				requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 			})
 		}
@@ -349,7 +350,7 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 		server.RequireDiagnosticsMatchGolden(t, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 0)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
-		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 0)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 	})
 }
@@ -455,6 +456,7 @@ SELECT COALESCE(actor_user_id::text, ''),
        created_at,
        after_json
   FROM deployment_admin_audit_events
+ WHERE event_kind = 'bootstrap_admin_created'
  ORDER BY created_at ASC
  LIMIT 1
 `).Scan(&actorUserID, &eventSource, &eventKind, &requestID, &createdAt, &afterJSON); err != nil {

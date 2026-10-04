@@ -73,6 +73,7 @@ type Result struct {
 	ArtifactRefs              []ArtifactRef
 	Status                    ResultStatus
 	graphProjectionCompletion *GraphProjectionCompletionEvidence
+	targetBindings            *TargetBindingDigests
 }
 
 type ArtifactRef struct {

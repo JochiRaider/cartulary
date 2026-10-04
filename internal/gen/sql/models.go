@@ -1055,7 +1055,7 @@ type Indicator struct {
 	IndicatorType   string      `json:"indicator_type"`
 	ValueKind       string      `json:"value_kind"`
 	DisplayValue    string      `json:"display_value"`
-	NormalizedValue pgtype.Text `json:"normalized_value"`
+	NormalizedValue string      `json:"normalized_value"`
 	DedupeKey       string      `json:"dedupe_key"`
 	DefangedValue   pgtype.Text `json:"defanged_value"`
 	HashAlgorithm   pgtype.Text `json:"hash_algorithm"`
@@ -1068,6 +1068,7 @@ type IndicatorActiveIdentity struct {
 	IndicatorType     string      `json:"indicator_type"`
 	DedupeKey         string      `json:"dedupe_key"`
 	IndicatorRecordID pgtype.UUID `json:"indicator_record_id"`
+	DedupeSha256      []byte      `json:"dedupe_sha256"`
 }
 
 type IndicatorGridProjection struct {
@@ -1166,6 +1167,7 @@ type Job struct {
 	HandlerFailureCount              int32              `json:"handler_failure_count"`
 	HandlerNextAttemptAt             pgtype.Timestamptz `json:"handler_next_attempt_at"`
 	ExpiredAt                        pgtype.Timestamptz `json:"expired_at"`
+	SubmittingOperatorOperationID    pgtype.UUID        `json:"submitting_operator_operation_id"`
 }
 
 type NetworkFlowGraphView struct {
@@ -1449,68 +1451,274 @@ type RecordTag struct {
 	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
-type ReferencePack struct {
-	PackKey               string             `json:"pack_key"`
-	Version               string             `json:"version"`
-	PackKind              string             `json:"pack_kind"`
-	SourceIdentifier      pgtype.Text        `json:"source_identifier"`
-	ManifestSha256        string             `json:"manifest_sha256"`
-	PayloadSha256         string             `json:"payload_sha256"`
-	PackContractVersion   string             `json:"pack_contract_version"`
-	VerificationMethod    string             `json:"verification_method"`
-	SignerKeyID           pgtype.Text        `json:"signer_key_id"`
-	Status                string             `json:"status"`
-	ImportedAt            pgtype.Timestamptz `json:"imported_at"`
-	ImportedByUserID      pgtype.UUID        `json:"imported_by_user_id"`
-	ActivatedAt           pgtype.Timestamptz `json:"activated_at"`
-	ActivatedByUserID     pgtype.UUID        `json:"activated_by_user_id"`
-	PreviousActiveVersion pgtype.Text        `json:"previous_active_version"`
-	VerificationResult    string             `json:"verification_result"`
-	BundleSha256          string             `json:"bundle_sha256"`
-	BundleStorageRef      string             `json:"bundle_storage_ref"`
-	Metadata              []byte             `json:"metadata"`
+type ReferencePackAttempt struct {
+	AttemptID       pgtype.UUID        `json:"attempt_id"`
+	OperationID     pgtype.UUID        `json:"operation_id"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	CompletedAt     pgtype.Timestamptz `json:"completed_at"`
+	Outcome         pgtype.Text        `json:"outcome"`
+	CanonicalResult []byte             `json:"canonical_result"`
 }
 
-type ReferencePackActivationState struct {
-	PackKey               string             `json:"pack_key"`
-	ActiveVersion         pgtype.Text        `json:"active_version"`
-	PreviousActiveVersion pgtype.Text        `json:"previous_active_version"`
-	ActivatedAt           pgtype.Timestamptz `json:"activated_at"`
-	ActivatedByUserID     pgtype.UUID        `json:"activated_by_user_id"`
-	OperatorNote          pgtype.Text        `json:"operator_note"`
+type ReferencePackAttemptMember struct {
+	AttemptID                  pgtype.UUID `json:"attempt_id"`
+	Ordinal                    int64       `json:"ordinal"`
+	PackKey                    pgtype.Text `json:"pack_key"`
+	PackVersion                pgtype.Text `json:"pack_version"`
+	Verdict                    string      `json:"verdict"`
+	CanonicalPrepared          []byte      `json:"canonical_prepared"`
+	FailureCode                pgtype.Text `json:"failure_code"`
+	CheckID                    pgtype.Text `json:"check_id"`
+	InvalidatedContent         bool        `json:"invalidated_content"`
+	CanonicalValidationSummary []byte      `json:"canonical_validation_summary"`
+	ValidationSummaryID        pgtype.Text `json:"validation_summary_id"`
 }
 
-type ReferencePackAttestation struct {
-	ID                    pgtype.UUID        `json:"id"`
-	PackKey               string             `json:"pack_key"`
-	PackVersion           string             `json:"pack_version"`
-	PackKind              string             `json:"pack_kind"`
-	EventKind             string             `json:"event_kind"`
-	ManifestSha256        string             `json:"manifest_sha256"`
-	PayloadSha256         string             `json:"payload_sha256"`
-	SourceIdentifier      pgtype.Text        `json:"source_identifier"`
-	VerificationMethod    string             `json:"verification_method"`
-	SignerKeyID           pgtype.Text        `json:"signer_key_id"`
-	PreviousActiveVersion pgtype.Text        `json:"previous_active_version"`
-	VerificationResult    string             `json:"verification_result"`
-	ActorUserID           pgtype.UUID        `json:"actor_user_id"`
-	JobID                 pgtype.UUID        `json:"job_id"`
-	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
-	OperatorNote          pgtype.Text        `json:"operator_note"`
-	Metadata              []byte             `json:"metadata"`
+type ReferencePackCandidate struct {
+	PackKey                  string             `json:"pack_key"`
+	PackVersion              string             `json:"pack_version"`
+	DistributionKind         string             `json:"distribution_kind"`
+	Health                   string             `json:"health"`
+	LastFailureCode          pgtype.Text        `json:"last_failure_code"`
+	AdministrativelyDisabled bool               `json:"administratively_disabled"`
+	Removed                  bool               `json:"removed"`
+	MissingReason            pgtype.Text        `json:"missing_reason"`
+	CurrentEnvelopeID        pgtype.Text        `json:"current_envelope_id"`
+	CurrentIndexID           pgtype.UUID        `json:"current_index_id"`
+	AdmittedAt               pgtype.Timestamptz `json:"admitted_at"`
+	AdmittedByUserID         pgtype.UUID        `json:"admitted_by_user_id"`
+	FallbackFromVersion      pgtype.Text        `json:"fallback_from_version"`
 }
 
-type ReferencePackJobPayload struct {
-	JobID            pgtype.UUID        `json:"job_id"`
-	JobKind          string             `json:"job_kind"`
-	ActorUserID      pgtype.UUID        `json:"actor_user_id"`
-	PackKey          pgtype.Text        `json:"pack_key"`
-	PackVersion      pgtype.Text        `json:"pack_version"`
-	ResolvedPackKeys []string           `json:"resolved_pack_keys"`
-	BundleSha256     pgtype.Text        `json:"bundle_sha256"`
-	RequestJson      []byte             `json:"request_json"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	BundleStagingRef pgtype.Text        `json:"bundle_staging_ref"`
+type ReferencePackCurrentSet struct {
+	Singleton            bool        `json:"singleton"`
+	PackSetID            pgtype.Text `json:"pack_set_id"`
+	Revision             int64       `json:"revision"`
+	ConfigurationSha256  string      `json:"configuration_sha256"`
+	ApplicationReleaseID pgtype.Text `json:"application_release_id"`
+	ProfileClaimed       bool        `json:"profile_claimed"`
+}
+
+type ReferencePackEnvelope struct {
+	EnvelopeID        string             `json:"envelope_id"`
+	OperationID       pgtype.UUID        `json:"operation_id"`
+	PackKey           string             `json:"pack_key"`
+	PackVersion       string             `json:"pack_version"`
+	VerifiedAt        pgtype.Timestamptz `json:"verified_at"`
+	TrustValidUntil   pgtype.Timestamptz `json:"trust_valid_until"`
+	ContainerSha256   pgtype.Text        `json:"container_sha256"`
+	ContainerRef      pgtype.Text        `json:"container_ref"`
+	RepositoryID      pgtype.Text        `json:"repository_id"`
+	RootVersion       pgtype.Int8        `json:"root_version"`
+	CanonicalEnvelope []byte             `json:"canonical_envelope"`
+}
+
+type ReferencePackEvent struct {
+	AttestationID        string      `json:"attestation_id"`
+	OperationID          pgtype.UUID `json:"operation_id"`
+	EventKind            string      `json:"event_kind"`
+	PackKey              string      `json:"pack_key"`
+	PackVersion          string      `json:"pack_version"`
+	CanonicalAttestation []byte      `json:"canonical_attestation"`
+}
+
+type ReferencePackIndex struct {
+	IndexID       pgtype.UUID `json:"index_id"`
+	EntryKind     string      `json:"entry_kind"`
+	EntryID       string      `json:"entry_id"`
+	CanonicalItem []byte      `json:"canonical_item"`
+	LookupKeys    []byte      `json:"lookup_keys"`
+}
+
+type ReferencePackIndexGeneration struct {
+	IndexID           pgtype.UUID `json:"index_id"`
+	OperationID       pgtype.UUID `json:"operation_id"`
+	PackKey           string      `json:"pack_key"`
+	PackVersion       string      `json:"pack_version"`
+	ManifestSha256    string      `json:"manifest_sha256"`
+	PayloadSha256     string      `json:"payload_sha256"`
+	EntryCount        int64       `json:"entry_count"`
+	ObjectCount       int64       `json:"object_count"`
+	RelationshipCount int64       `json:"relationship_count"`
+	Complete          bool        `json:"complete"`
+}
+
+type ReferencePackKeyState struct {
+	PackKey  string `json:"pack_key"`
+	Revision int64  `json:"revision"`
+}
+
+type ReferencePackLookupKey struct {
+	IndexID      pgtype.UUID `json:"index_id"`
+	EntryKind    string      `json:"entry_kind"`
+	EntryID      string      `json:"entry_id"`
+	LookupKind   string      `json:"lookup_kind"`
+	LookupValue  []byte      `json:"lookup_value"`
+	LookupSha256 []byte      `json:"lookup_sha256"`
+	SortKey      []byte      `json:"sort_key"`
+}
+
+type ReferencePackMetadataVersion struct {
+	RepositoryID    string `json:"repository_id"`
+	PackKey         string `json:"pack_key"`
+	PackVersion     string `json:"pack_version"`
+	Role            string `json:"role"`
+	MetadataVersion int64  `json:"metadata_version"`
+	CanonicalBytes  []byte `json:"canonical_bytes"`
+}
+
+type ReferencePackObject struct {
+	ObjectID   pgtype.UUID `json:"object_id"`
+	Sha256     string      `json:"sha256"`
+	StorageRef string      `json:"storage_ref"`
+	SizeBytes  int64       `json:"size_bytes"`
+	Generation int64       `json:"generation"`
+	Available  bool        `json:"available"`
+}
+
+type ReferencePackObjectRef struct {
+	OwnerKind   string      `json:"owner_kind"`
+	OwnerID     string      `json:"owner_id"`
+	LogicalPath string      `json:"logical_path"`
+	ObjectID    pgtype.UUID `json:"object_id"`
+}
+
+type ReferencePackOperation struct {
+	OperationID  pgtype.UUID        `json:"operation_id"`
+	JobID        pgtype.UUID        `json:"job_id"`
+	Kind         string             `json:"kind"`
+	ActorKind    string             `json:"actor_kind"`
+	ActorUserID  pgtype.UUID        `json:"actor_user_id"`
+	AdmittedAt   pgtype.Timestamptz `json:"admitted_at"`
+	TerminalAt   pgtype.Timestamptz `json:"terminal_at"`
+	FrozenInput  []byte             `json:"frozen_input"`
+	FinalOutcome []byte             `json:"final_outcome"`
+}
+
+type ReferencePackOperationDependencyKey struct {
+	OperationID      pgtype.UUID `json:"operation_id"`
+	PackKey          string      `json:"pack_key"`
+	AdmittedRevision int64       `json:"admitted_revision"`
+}
+
+type ReferencePackOperationKey struct {
+	OperationID      pgtype.UUID `json:"operation_id"`
+	PackKey          string      `json:"pack_key"`
+	AdmittedRevision int64       `json:"admitted_revision"`
+	UsageRevision    pgtype.Int8 `json:"usage_revision"`
+}
+
+type ReferencePackOperationMember struct {
+	OperationID pgtype.UUID `json:"operation_id"`
+	Ordinal     int64       `json:"ordinal"`
+	PackKey     string      `json:"pack_key"`
+	PackVersion string      `json:"pack_version"`
+	EnvelopeID  pgtype.Text `json:"envelope_id"`
+}
+
+type ReferencePackOperationRepository struct {
+	OperationID      pgtype.UUID `json:"operation_id"`
+	RepositoryID     string      `json:"repository_id"`
+	AdmittedRevision int64       `json:"admitted_revision"`
+	RootVersion      int64       `json:"root_version"`
+}
+
+type ReferencePackPin struct {
+	OwnerKind   string      `json:"owner_kind"`
+	OwnerID     string      `json:"owner_id"`
+	PackSetID   string      `json:"pack_set_id"`
+	OperationID pgtype.UUID `json:"operation_id"`
+}
+
+type ReferencePackPortableCatalog struct {
+	IncidentID          pgtype.UUID `json:"incident_id"`
+	OperationID         pgtype.UUID `json:"operation_id"`
+	CatalogSha256       string      `json:"catalog_sha256"`
+	CanonicalReferences []byte      `json:"canonical_references"`
+	CanonicalResolution []byte      `json:"canonical_resolution"`
+}
+
+type ReferencePackPortablePreparation struct {
+	OperationID         pgtype.UUID `json:"operation_id"`
+	CanonicalReferences []byte      `json:"canonical_references"`
+	CanonicalContext    []byte      `json:"canonical_context"`
+}
+
+type ReferencePackPortableSelection struct {
+	OperationID             pgtype.UUID `json:"operation_id"`
+	Ordinal                 int32       `json:"ordinal"`
+	PackKey                 string      `json:"pack_key"`
+	PackVersion             string      `json:"pack_version"`
+	EnvelopeID              pgtype.Text `json:"envelope_id"`
+	Available               bool        `json:"available"`
+	ReasonCode              pgtype.Text `json:"reason_code"`
+	VerificationOrdinal     pgtype.Int8 `json:"verification_ordinal"`
+	InputObjectID           pgtype.UUID `json:"input_object_id"`
+	ExpectedContainerSha256 pgtype.Text `json:"expected_container_sha256"`
+	ExpectedContainerBytes  pgtype.Int8 `json:"expected_container_bytes"`
+}
+
+type ReferencePackRegistryUsage struct {
+	PackKey  string `json:"pack_key"`
+	Revision int64  `json:"revision"`
+}
+
+type ReferencePackReleaseBinding struct {
+	ApplicationReleaseID string `json:"application_release_id"`
+	PackKey              string `json:"pack_key"`
+	PackVersion          string `json:"pack_version"`
+	CanonicalBinding     []byte `json:"canonical_binding"`
+}
+
+type ReferencePackRepository struct {
+	RepositoryID string `json:"repository_id"`
+	Revision     int64  `json:"revision"`
+	RootVersion  int64  `json:"root_version"`
+}
+
+type ReferencePackRoot struct {
+	RepositoryID       string      `json:"repository_id"`
+	RootVersion        int64       `json:"root_version"`
+	CanonicalBytes     []byte      `json:"canonical_bytes"`
+	Sha256             string      `json:"sha256"`
+	PredecessorVersion pgtype.Int8 `json:"predecessor_version"`
+	TransitionEvidence []byte      `json:"transition_evidence"`
+}
+
+type ReferencePackSet struct {
+	PackSetID           string      `json:"pack_set_id"`
+	PackSetSha256       string      `json:"pack_set_sha256"`
+	CanonicalSet        []byte      `json:"canonical_set"`
+	CanonicalProvenance []byte      `json:"canonical_provenance"`
+	FirstOperationID    pgtype.UUID `json:"first_operation_id"`
+}
+
+type ReferencePackSetMember struct {
+	PackSetID            string `json:"pack_set_id"`
+	PackKey              string `json:"pack_key"`
+	PackVersion          string `json:"pack_version"`
+	ManifestSha256       string `json:"manifest_sha256"`
+	PayloadSha256        string `json:"payload_sha256"`
+	ProvenanceEnvelopeID string `json:"provenance_envelope_id"`
+}
+
+type ReferencePackVersion struct {
+	PackKey             string      `json:"pack_key"`
+	PackVersion         string      `json:"pack_version"`
+	RepositoryID        pgtype.Text `json:"repository_id"`
+	PackReleaseSequence int64       `json:"pack_release_sequence"`
+	ManifestSha256      string      `json:"manifest_sha256"`
+	PayloadSha256       string      `json:"payload_sha256"`
+	ManifestBytes       []byte      `json:"manifest_bytes"`
+}
+
+type ReferencePackVersionPin struct {
+	OwnerKind   string      `json:"owner_kind"`
+	OwnerID     string      `json:"owner_id"`
+	PackKey     string      `json:"pack_key"`
+	PackVersion string      `json:"pack_version"`
+	EnvelopeID  string      `json:"envelope_id"`
+	OperationID pgtype.UUID `json:"operation_id"`
 }
 
 type ReportComposition struct {
@@ -1608,6 +1816,15 @@ type ReportingCompositionPreviewOutputFile struct {
 	ObjectRef        pgtype.Text        `json:"object_ref"`
 	InlineBytes      []byte             `json:"inline_bytes"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportingImportedArtifactFile struct {
+	IncidentID  pgtype.UUID `json:"incident_id"`
+	BundlePath  string      `json:"bundle_path"`
+	OperationID pgtype.UUID `json:"operation_id"`
+	SizeBytes   int64       `json:"size_bytes"`
+	Sha256      string      `json:"sha256"`
+	Content     []byte      `json:"content"`
 }
 
 type ReportingJobPayload struct {

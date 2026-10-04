@@ -13,7 +13,7 @@ import (
 
 const createRenderFailedReportingRelease = `-- name: CreateRenderFailedReportingRelease :one
 INSERT INTO reporting_releases (
-    incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
+    release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
     snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
     output_kind, output_options, graph_projection_refs, composition_id, composition_version,
@@ -22,17 +22,18 @@ INSERT INTO reporting_releases (
     create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
 )
 VALUES (
-    $1, $2, $3, $4, $5, 'render_failed',
-    $6, $7, $8, $9,
-    $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19,
-    $20, $21, NULL, NULL, NULL, NULL,
-    $22, $23, $24, $25, $25
+    $1, $2, $3, $4, $5, $6, 'render_failed',
+    $7, $8, $9, $10,
+    $11, $12, $13, $14, $15,
+    $16, $17, $18, $19, $20,
+    $21, $22, NULL, NULL, NULL, NULL,
+    $23, $24, $25, $26, $26
 )
 RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
 `
 
 type CreateRenderFailedReportingReleaseParams struct {
+	ReleaseID                    pgtype.UUID        `json:"release_id"`
 	IncidentID                   pgtype.UUID        `json:"incident_id"`
 	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
 	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
@@ -62,6 +63,7 @@ type CreateRenderFailedReportingReleaseParams struct {
 
 func (q *Queries) CreateRenderFailedReportingRelease(ctx context.Context, arg CreateRenderFailedReportingReleaseParams) (ReportingRelease, error) {
 	row := q.db.QueryRow(ctx, createRenderFailedReportingRelease,
+		arg.ReleaseID,
 		arg.IncidentID,
 		arg.SnapshotID,
 		arg.CreatedByUserID,

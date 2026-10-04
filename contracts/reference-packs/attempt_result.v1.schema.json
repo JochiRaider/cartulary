@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_attempt_result.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.reference_pack_attempt_result.v1"
+        },
+        "outcome": {
+          "const": "interrupted"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "outcome",
+        "member_count",
+        "failed_count"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.reference_pack_attempt_result.v1"
+        },
+        "outcome": {
+          "enum": [
+            "succeeded",
+            "content_rejected",
+            "canceled",
+            "timed_out",
+            "stale_state",
+            "execution_failed"
+          ]
+        },
+        "member_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "failed_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  ],
+  "description": "Reference Pack attempt or terminal operation outcome"
+}

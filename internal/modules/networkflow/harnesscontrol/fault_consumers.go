@@ -164,7 +164,7 @@ func (m *faultJobManager) ObserveExecution(ctx context.Context, execution jobs.E
 		if err != nil {
 			return err
 		}
-		actor, err := uuid.Parse(job.SubmittedByUserID)
+		actor, err := uuid.Parse(jobSubmitter(job))
 		if err != nil {
 			return err
 		}
@@ -196,4 +196,11 @@ func (f *faultJobFinalizer) FinalizeGraphViewJobSuccess(ctx context.Context, p n
 		return result, err
 	}
 	return result, nil
+}
+
+func jobSubmitter(job jobs.Resource) string {
+	if job.SubmittedByUserID == nil {
+		return ""
+	}
+	return *job.SubmittedByUserID
 }

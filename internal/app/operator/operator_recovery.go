@@ -9,10 +9,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/operator/internal/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
@@ -85,6 +87,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 			NewVNextCapture: func(
 				pool application.PostgresPool,
 				objects objectstore.Store,
+				referencePacks recovery.VNextObjectSource,
 				storage recovery.BackupStorage,
 				state *recoverystate.Catalog,
 			) (*recovery.VNextCaptureService, error) {
@@ -94,6 +97,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 				}
 				inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(
 					recoveryassembly.NewVNextObjectSource(objects),
+					referencePacks,
 				)
 				if err != nil {
 					return nil, err
@@ -135,6 +139,7 @@ func (executor recoveryExecutor) loadDeployment(path string) (application.Deploy
 			Path:        cfg.Roots.ObjectStorage.Path,
 			ServiceRef:  cfg.Roots.ObjectStorage.ServiceRef,
 		},
+		ReferencePackStorage: application.RootBinding{BindingKind: cfg.Roots.ReferencePackStorage.BindingKind, Path: cfg.Roots.ReferencePackStorage.Path, ServiceRef: cfg.Roots.ReferencePackStorage.ServiceRef},
 		BackupStorage: application.RootBinding{
 			BindingKind: cfg.Roots.BackupStorage.BindingKind,
 			Path:        cfg.Roots.BackupStorage.Path,
@@ -147,6 +152,12 @@ func (executor recoveryExecutor) loadDeployment(path string) (application.Deploy
 		},
 		OpenObjectStore: func(ctx context.Context) (objectstore.Store, error) {
 			return executor.setupObjectStore(ctx, objectSettings, configassembly.ObjectStoreInstrumentation(cfg))
+		},
+		OpenReferencePacks: func() (recovery.ReferencePackStorage, error) {
+			return referenceassembly.NewRecoveryStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path, reference_data.Limits{
+				Archives:       reference_data.ArchiveLimits{DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes, MaxCompressionRatio: cfg.Limits.Archives.MaxCompressionRatio, MaxMembers: cfg.Limits.Archives.MaxMembers},
+				ReferencePacks: reference_data.ReferenceLimits{MaxExtractedBytes: cfg.Limits.ReferencePacks.MaxExtractedBytes, MaxContainerBytes: cfg.Limits.ReferencePacks.MaxContainerBytes, MaxVerificationSeconds: cfg.Limits.ReferencePacks.MaxVerificationSeconds},
+			})
 		},
 		OpenBackup: func() (recovery.BackupStorage, error) {
 			return executor.newBackupStorage(

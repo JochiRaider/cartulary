@@ -30,7 +30,6 @@ func TestRestoreReadinessAndCoherentStoreOrder_Unit(t *testing.T) {
 	if got, want := failingObserver.Steps, []recovery.RestoreStep{
 		recovery.RestoreStepPostgresRestore,
 		recovery.RestoreStepObjectStoreRestore,
-		recovery.RestoreStepExtensionBindings,
 		recovery.RestoreStepProjectionRebuild,
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("failing restore steps got %v want %v", got, want)
@@ -52,7 +51,6 @@ func TestRestoreReadinessAndCoherentStoreOrder_Unit(t *testing.T) {
 	if got, want := observer.Steps, []recovery.RestoreStep{
 		recovery.RestoreStepPostgresRestore,
 		recovery.RestoreStepObjectStoreRestore,
-		recovery.RestoreStepExtensionBindings,
 		recovery.RestoreStepProjectionRebuild,
 		recovery.RestoreStepConsistencyCheck,
 		recovery.RestoreStepReadiness,
@@ -70,10 +68,10 @@ func TestMissingArtifactFailsBeforeReadinessBlocked_Integration(t *testing.T) {
 	fixture.Target.Readiness = readiness
 	fixture.Target.Observer = observer
 
-	runner := recovery.NewRestoreRunner(fixture.Store, tamperedBackupStorage{
+	runner := recovery.NewVersionedRestoreRunner(fixture.Store, tamperedBackupStorage{
 		Inner:   fixture.BackupStorage,
 		Missing: map[string]bool{fixture.BackupSet.ObjectStoreArtifactKey: true},
-	}, testExtensionBackupCatalog(t))
+	}, testExtensionBackupCatalog(t), currentStateCatalog(t))
 	_, err := runner.RestoreBackupSet(ctx, fixture.Target, fixture.BackupSet)
 	if err == nil {
 		t.Fatal("restore with missing object artifact unexpectedly succeeded")
@@ -144,7 +142,7 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 			target.Projections = &recordingProjectionRebuilder{}
 			target.Readiness = readiness
 			target.Observer = observer
-			_, err := recovery.NewRestoreRunner(fixture.Store, tc.storage, testExtensionBackupCatalog(t)).RestoreBackupSet(ctx, target, fixture.BackupSet)
+			_, err := recovery.NewVersionedRestoreRunner(fixture.Store, tc.storage, testExtensionBackupCatalog(t), currentStateCatalog(t)).RestoreBackupSet(ctx, target, fixture.BackupSet)
 			if err == nil {
 				t.Fatalf("tampered backup %q unexpectedly restored", tc.name)
 			}
@@ -160,12 +158,13 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 	}
 
 	basis := recovery.RestoreVerificationBasis{
-		MechanismID:                "backup_restore.recovery.restore.v1",
-		DatabaseBindingSHA256:      recovery.SHA256String("backup_restore-u-10-03-database"),
-		ObjectStoreBindingSHA256:   recovery.SHA256String("backup_restore-u-10-03-objects"),
-		BackupStorageBindingSHA256: recovery.SHA256String("backup_restore-u-10-03-backups"),
-		RecoveryStateCatalogSHA256: recovery.SHA256String("backup_restore-u-10-03-catalog"),
-		CodecRegistrySHA256:        recovery.SHA256String("backup_restore-u-10-03-codecs"),
+		MechanismID:                       "backup_restore.recovery.restore.v1",
+		DatabaseBindingSHA256:             recovery.SHA256String("backup_restore-u-10-03-database"),
+		ObjectStoreBindingSHA256:          recovery.SHA256String("backup_restore-u-10-03-objects"),
+		ReferencePackStorageBindingSHA256: recovery.SHA256String("backup_restore-u-10-03-reference-packs"),
+		BackupStorageBindingSHA256:        recovery.SHA256String("backup_restore-u-10-03-backups"),
+		RecoveryStateCatalogSHA256:        currentStateCatalog(t).DigestSHA256(),
+		CodecRegistrySHA256:               recovery.VNextCodecRegistrySHA256(),
 	}
 	basisSHA256, err := basis.SHA256()
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -80,6 +81,7 @@ type Store struct {
 	jobTransactions    reportingJobAdmission
 	exportMaterializer reportingExportMaterializer
 	graphSources       *GraphSourceRegistry
+	referencePacks     reference_data.Retention
 }
 
 type SnapshotRecord struct {
@@ -186,7 +188,7 @@ type snapshotCreateJobPayload struct {
 	SnapshotAt                   time.Time       `json:"snapshot_at"`
 	SourceChangeSetHighWatermark string          `json:"source_change_set_high_watermark"`
 	SourceBoundaryJSON           json.RawMessage `json:"source_boundary_json"`
-	ExportModel                  ExportModel     `json:"export_model"`
+	ExportModel                  SnapshotModel   `json:"export_model"`
 	ExportModelSHA256            string          `json:"export_model_sha256"`
 }
 
@@ -277,16 +279,19 @@ func newStore(
 	jobTransactions reportingJobAdmission,
 	exportMaterializer reportingExportMaterializer,
 	graphSources *GraphSourceRegistry,
+	referencePacks reference_data.Retention,
 ) *Store {
 	return &Store{
 		pool:               pool,
 		jobTransactions:    jobTransactions,
 		exportMaterializer: exportMaterializer,
 		graphSources:       graphSources,
+		referencePacks:     referencePacks,
 	}
 }
 
 func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams) (CreateSnapshotResult, error) {
+	params.Now = params.Now.UTC().Truncate(time.Microsecond)
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "snapshots.create",
 		ActorUserID: params.ActorUserID,
@@ -346,23 +351,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	model, exportSHA, err := BuildExportModel(incident, params.Now.UTC(), boundary.Token, workbookFields)
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	payloadJSON, err := canonicalJSON(snapshotCreateJobPayload{
-		IncidentID:                   params.Request.IncidentID.String(),
-		ActorUserID:                  params.ActorUserID.String(),
-		ClientTxnID:                  params.Request.ClientTxnID,
-		SnapshotAt:                   params.Now.UTC(),
-		SourceChangeSetHighWatermark: boundary.Token,
-		SourceBoundaryJSON:           append(json.RawMessage(nil), boundary.CanonicalJSON...),
-		ExportModel:                  model,
-		ExportModelSHA256:            exportSHA,
-	})
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
+
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
@@ -385,6 +374,41 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 		return CreateSnapshotResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
+	model, _, err := BuildSnapshotModel(incident, reportingResourceID(jobID, "snapshot").String(), params.Now, boundary.Token, workbookFields)
+	if err != nil {
+		return CreateSnapshotResult{}, err
+	}
+
+	if s.referencePacks == nil {
+		return CreateSnapshotResult{}, errors.New("reporting: Reference Pack retention is required")
+	}
+	binding, err := s.referencePacks.CaptureCurrentTx(ctx, tx, "reporting_snapshot_job", jobID.String(), jobID)
+	if err != nil {
+		var unavailable *reference_data.ConsumerError
+		if errors.As(err, &unavailable) {
+			return CreateSnapshotResult{}, ErrRequiredReferencePackUnavailable
+		}
+		return CreateSnapshotResult{}, err
+	}
+	model.ReferencePacks = binding
+	boundModel, err := canonicalJSON(model)
+	if err != nil {
+		return CreateSnapshotResult{}, err
+	}
+	exportSHA := reportingObjectDigest(model.SchemaID, boundModel)
+	payloadJSON, err := canonicalJSON(snapshotCreateJobPayload{
+		IncidentID:                   params.Request.IncidentID.String(),
+		ActorUserID:                  params.ActorUserID.String(),
+		ClientTxnID:                  params.Request.ClientTxnID,
+		SnapshotAt:                   params.Now.UTC(),
+		SourceChangeSetHighWatermark: boundary.Token,
+		SourceBoundaryJSON:           append(json.RawMessage(nil), boundary.CanonicalJSON...),
+		ExportModel:                  model,
+		ExportModelSHA256:            exportSHA,
+	})
+	if err != nil {
+		return CreateSnapshotResult{}, err
+	}
 	if err := sqlc.New(tx).CreateReportingJobPayload(ctx, sqlc.CreateReportingJobPayloadParams{
 		JobID:       pgUUID(jobID),
 		JobKind:     "snapshot_create",
@@ -421,25 +445,41 @@ func (s *Store) GetSnapshot(ctx context.Context, snapshotID uuid.UUID) (map[stri
 	return snapshotResource(record), record.IncidentID, nil
 }
 
-func (s *Store) GetSnapshotForRender(ctx context.Context, snapshotID uuid.UUID) (SnapshotRecord, ExportModel, error) {
+func (s *Store) GetSnapshotForRender(ctx context.Context, snapshotID uuid.UUID) (SnapshotRecord, SnapshotModel, error) {
 	record, err := s.getSnapshotRecord(ctx, snapshotID)
 	if err != nil {
-		return SnapshotRecord{}, ExportModel{}, err
+		return SnapshotRecord{}, SnapshotModel{}, err
 	}
 	if record.DerivationVersion != DerivationVersion {
-		return SnapshotRecord{}, ExportModel{}, &UnsupportedSnapshotDerivationError{DerivationVersion: record.DerivationVersion}
+		return SnapshotRecord{}, SnapshotModel{}, &UnsupportedSnapshotDerivationError{DerivationVersion: record.DerivationVersion}
 	}
-	var model ExportModel
-	if err := json.Unmarshal(record.ExportModelJSON, &model); err != nil {
-		return SnapshotRecord{}, ExportModel{}, err
+	model, _, err := decodePortableObject[SnapshotModel](record.ExportModelJSON, record.ExportModelSHA256)
+	if err != nil {
+		return SnapshotRecord{}, SnapshotModel{}, err
 	}
-	if model.SchemaID != ExportModelSchemaID || model.DerivationVersion != DerivationVersion {
-		return SnapshotRecord{}, ExportModel{}, &UnsupportedSnapshotDerivationError{DerivationVersion: model.DerivationVersion, SchemaID: model.SchemaID}
+	if validateSnapshotModelIdentity(model) != nil {
+		return SnapshotRecord{}, SnapshotModel{}, &UnsupportedSnapshotDerivationError{DerivationVersion: model.DerivationVersion, SchemaID: model.SchemaID}
 	}
+
 	return record, model, nil
 }
 
+// Only Reference Data classifies missing content. Preserve cancellation and
+// infrastructure failures as operation failures without a content verdict.
+func (s *Store) validateReferenceBinding(ctx context.Context, binding reference_data.SetBinding) error {
+	if s.referencePacks == nil {
+		return errors.New("reporting: Reference Pack retention is required")
+	}
+	err := s.referencePacks.ValidateBinding(ctx, binding)
+	var failure *reference_data.ConsumerError
+	if errors.As(err, &failure) {
+		return ErrRequiredReferencePackUnavailable
+	}
+	return err
+}
+
 func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (CreateReleaseResult, error) {
+	params.Now = params.Now.UTC().Truncate(time.Microsecond)
 	sum := sha256.Sum256(params.Request.Normalized)
 	requestHash := sum[:]
 	key := authn.RouteIdempotencyKey{
@@ -483,12 +523,18 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if snapshot.DerivationVersion != DerivationVersion {
 		return CreateReleaseResult{}, &InvalidReleaseRequestError{Field: "derivation_version", ReasonCode: "unsupported_derivation_version"}
 	}
-	var model ExportModel
-	if err := json.Unmarshal(snapshot.ExportModelJSON, &model); err != nil {
+	snapshotModel, _, err := decodePortableObject[SnapshotModel](snapshot.ExportModelJSON, snapshot.ExportModelSHA256)
+	if err != nil {
 		return CreateReleaseResult{}, err
 	}
-	if model.SchemaID != ExportModelSchemaID || model.DerivationVersion != DerivationVersion {
+	if validateSnapshotModelIdentity(snapshotModel) != nil {
 		return CreateReleaseResult{}, &InvalidReleaseRequestError{Field: "derivation_version", ReasonCode: "unsupported_derivation_version"}
+	}
+	if s.referencePacks == nil {
+		return CreateReleaseResult{}, errors.New("reporting: Reference Pack retention is required")
+	}
+	if err := s.validateReferenceBinding(ctx, snapshotModel.ReferencePacks); err != nil {
+		return CreateReleaseResult{}, err
 	}
 	resolvedComposition, err := resolveReleaseCompositionTupleTx(ctx, tx, snapshot, params.Request)
 	if err != nil {
@@ -502,36 +548,6 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	var compositionJSON json.RawMessage
 	if resolvedComposition != nil {
 		compositionJSON = append(json.RawMessage(nil), resolvedComposition.CanonicalComposition...)
-	}
-	payloadJSON, err := canonicalJSON(releaseCreateJobPayload{
-		ActorUserID:                  params.ActorUserID.String(),
-		ClientTxnID:                  params.Request.ClientTxnID,
-		SnapshotID:                   snapshot.SnapshotID.String(),
-		IncidentID:                   snapshot.IncidentID.String(),
-		SnapshotAt:                   snapshot.SnapshotAt.UTC(),
-		SourceChangeSetHighWatermark: snapshot.SourceChangeSetHighWatermark,
-		DerivationVersion:            snapshot.DerivationVersion,
-		ExportModelSHA256:            snapshot.ExportModelSHA256,
-		ExportModel:                  model,
-		TemplateID:                   params.Request.TemplateID,
-		TemplateVersion:              params.Request.TemplateVersion,
-		TemplateContract:             params.TemplateContract,
-		RedactionProfileID:           params.Request.RedactionProfileID,
-		RedactionProfileVersion:      params.Request.RedactionProfileVersion,
-		OutputKind:                   params.Request.OutputKind,
-		OutputOptions:                append(json.RawMessage(nil), params.Request.OutputOptions...),
-		ReleaseScope:                 params.Request.ReleaseScope,
-		RecipientPartitionRefs:       cloneStrings(params.Request.RecipientPartitionRefs),
-		GraphProjectionRefs:          append(json.RawMessage(nil), params.Request.GraphProjectionRefs...),
-		CompositionJSON:              compositionJSON,
-		CompositionID:                compositionIDString,
-		CompositionVersion:           cloneStringPtr(params.Request.CompositionVersion),
-		CompositionSHA256:            cloneStringPtr(params.Request.CompositionSHA256),
-		RenderAdmittedAt:             params.Now.UTC(),
-		NormalizedRequest:            append([]byte(nil), params.Request.Normalized...),
-	})
-	if err != nil {
-		return CreateReleaseResult{}, err
 	}
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &snapshot.IncidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
@@ -555,6 +571,48 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 		return CreateReleaseResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
+	releaseID := reportingResourceID(jobID, "release").String()
+	admittedAt, err := normalizedReportingTimestamp(params.Now)
+	if err != nil {
+		return CreateReleaseResult{}, err
+	}
+	model, modelDigest, err := bindRenderModel(snapshotModel, RenderIdentity{ReleaseID: &releaseID, RenderAdmittedAt: admittedAt}, params.Request.ReleaseScope, params.Request.RecipientPartitionRefs)
+	if err != nil {
+		return CreateReleaseResult{}, err
+	}
+	// The private Job codec retains normalized request bytes as base64. It is
+	// not a Reporting canonical object or a consumer-visible content identity.
+	payloadJSON, err := json.Marshal(releaseCreateJobPayload{
+		ActorUserID:                  params.ActorUserID.String(),
+		ClientTxnID:                  params.Request.ClientTxnID,
+		SnapshotID:                   snapshot.SnapshotID.String(),
+		IncidentID:                   snapshot.IncidentID.String(),
+		SnapshotAt:                   snapshot.SnapshotAt.UTC(),
+		SourceChangeSetHighWatermark: snapshot.SourceChangeSetHighWatermark,
+		DerivationVersion:            snapshot.DerivationVersion,
+		ExportModelSHA256:            modelDigest,
+		ExportModel:                  model,
+		TemplateID:                   params.Request.TemplateID,
+		TemplateVersion:              params.Request.TemplateVersion,
+		TemplateContract:             params.TemplateContract,
+		RedactionProfileID:           params.Request.RedactionProfileID,
+		RedactionProfileVersion:      params.Request.RedactionProfileVersion,
+		OutputKind:                   params.Request.OutputKind,
+		OutputOptions:                append(json.RawMessage(nil), params.Request.OutputOptions...),
+		ReleaseScope:                 params.Request.ReleaseScope,
+		RecipientPartitionRefs:       cloneStrings(params.Request.RecipientPartitionRefs),
+		GraphProjectionRefs:          append(json.RawMessage(nil), params.Request.GraphProjectionRefs...),
+		CompositionJSON:              compositionJSON,
+		CompositionID:                compositionIDString,
+		CompositionVersion:           cloneStringPtr(params.Request.CompositionVersion),
+		CompositionSHA256:            cloneStringPtr(params.Request.CompositionSHA256),
+		RenderAdmittedAt:             params.Now.UTC(),
+		NormalizedRequest:            append([]byte(nil), params.Request.Normalized...),
+	})
+	if err != nil {
+		return CreateReleaseResult{}, err
+	}
+
 	if err := s.graphSources.ValidateAndLeaseTx(ctx, tx, snapshot.IncidentID, jobID, graphRefs, params.Now.UTC()); err != nil {
 		return CreateReleaseResult{}, err
 	}
@@ -606,9 +664,16 @@ func (s *Store) CompleteSnapshotCreateJobTx(ctx context.Context, tx pgx.Tx, jobI
 	if err != nil {
 		return err
 	}
+
+	if payload.ExportModel.SnapshotID != snapshotID.String() || validateSnapshotModelIdentity(payload.ExportModel) != nil {
+		return errors.New("reporting: invalid frozen snapshot model")
+	}
 	exportJSON, err := canonicalJSON(payload.ExportModel)
 	if err != nil {
 		return err
+	}
+	if reportingObjectDigest(payload.ExportModel.SchemaID, exportJSON) != payload.ExportModelSHA256 {
+		return errors.New("reporting: altered frozen snapshot model")
 	}
 	row, err := sqlc.New(tx).CreateReportingSnapshot(ctx, sqlc.CreateReportingSnapshotParams{
 		SnapshotID:                   pgUUID(snapshotID),
@@ -626,26 +691,9 @@ func (s *Store) CompleteSnapshotCreateJobTx(ctx context.Context, tx pgx.Tx, jobI
 	if err != nil {
 		return err
 	}
-	record, err := snapshotRecordFromSQL(row)
-	if err != nil {
-		return err
-	}
-	finalModel := payload.ExportModel
-	finalModel.SnapshotID = record.SnapshotID.String()
-	finalModel.ExportModelID = exportModelID(finalModel.SnapshotID, finalModel.IncidentID, finalModel.DerivationVersion, finalModel.ExportModelCreatedAt)
-	finalModel.Fields = finalModel.RedactionFields()
-	finalExportJSON, err := canonicalJSON(finalModel)
-	if err != nil {
-		return err
-	}
-	finalExportSHA := hashHex(finalExportJSON)
-	if _, err := tx.Exec(ctx, `
-UPDATE reporting_snapshots
-   SET export_model_sha256 = $1,
-       export_model_json = $2
- WHERE snapshot_id = $3
-`, finalExportSHA, finalExportJSON, record.SnapshotID); err != nil {
-		return err
+
+	if row.SnapshotID.Bytes != snapshotID {
+		return errors.New("reporting: snapshot publication identity mismatch")
 	}
 	return nil
 }
@@ -663,6 +711,15 @@ func (s *Store) ReleasePayloadForJob(ctx context.Context, jobID uuid.UUID) (rele
 	}
 	var payload releaseCreateJobPayload
 	if err := json.Unmarshal(row.RequestJson, &payload); err != nil {
+		return releaseCreateJobPayload{}, err
+	}
+	if err := validateReleasePayloadIdentity(payload, jobID); err != nil {
+		return releaseCreateJobPayload{}, err
+	}
+	if s.referencePacks == nil {
+		return releaseCreateJobPayload{}, errors.New("reporting: Reference Pack retention is required")
+	}
+	if err := s.validateReferenceBinding(ctx, payload.ExportModel.ReferencePacks); err != nil {
 		return releaseCreateJobPayload{}, err
 	}
 	snapshotID, err := uuid.Parse(payload.SnapshotID)
@@ -718,6 +775,7 @@ func (s *Store) ReportingJobKind(ctx context.Context, jobID uuid.UUID) (string, 
 func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, jobID uuid.UUID) (compositionPreviewJobPayload, error) {
 	source, err := reportcomposition.NewStore(s.pool).PreviewSourceForRender(ctx, jobID)
 	if err != nil {
+
 		return compositionPreviewJobPayload{}, err
 	}
 	if source.RenderAttemptID != jobID ||
@@ -731,6 +789,9 @@ func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, jobID uuid.
 	}
 	snapshot, model, err := s.GetSnapshotForRender(ctx, snapshotID)
 	if err != nil {
+		return compositionPreviewJobPayload{}, err
+	}
+	if err := s.validateReferenceBinding(ctx, model.ReferencePacks); err != nil {
 		return compositionPreviewJobPayload{}, err
 	}
 	if snapshot.IncidentID != source.IncidentID || snapshot.DerivationVersion != source.DerivationVersion {
@@ -789,6 +850,16 @@ func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, jobID uuid.
 		CompositionVersion:      compositionVersion,
 		CompositionSHA256:       cloneStringPtr(source.CompositionSHA256),
 	}
+
+	previewID := source.PreviewAttemptID.String()
+	admittedAt, err := normalizedReportingTimestamp(source.CreatedAt)
+	if err != nil {
+		return compositionPreviewJobPayload{}, err
+	}
+	renderModel, renderDigest, err := bindRenderModel(model, RenderIdentity{PreviewAttemptID: &previewID, RenderAdmittedAt: admittedAt}, ReleaseScopeInternalDraft, nil)
+	if err != nil {
+		return compositionPreviewJobPayload{}, err
+	}
 	return compositionPreviewJobPayload{
 		PreviewAttemptID: source.PreviewAttemptID,
 		Release: releaseCreateJobPayload{
@@ -798,8 +869,8 @@ func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, jobID uuid.
 			SnapshotAt:                   snapshot.SnapshotAt.UTC(),
 			SourceChangeSetHighWatermark: snapshot.SourceChangeSetHighWatermark,
 			DerivationVersion:            snapshot.DerivationVersion,
-			ExportModelSHA256:            snapshot.ExportModelSHA256,
-			ExportModel:                  model,
+			ExportModelSHA256:            renderDigest,
+			ExportModel:                  renderModel,
 			TemplateID:                   source.TemplateID,
 			TemplateVersion:              source.TemplateVersion,
 			TemplateContract:             templateContract,
@@ -925,9 +996,6 @@ func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID
 	outputOptions := cloneRawMessageWithDefault(payload.OutputOptions, json.RawMessage(`{}`))
 	graphProjectionRefs := cloneRawMessageWithDefault(payload.GraphProjectionRefs, json.RawMessage(`[]`))
 	renderAdmittedAt := payload.RenderAdmittedAt.UTC()
-	if renderAdmittedAt.IsZero() {
-		renderAdmittedAt = now.UTC()
-	}
 	row, err := sqlc.New(tx).CreateReportingRelease(ctx, sqlc.CreateReportingReleaseParams{
 		ReleaseID:                    pgUUID(releaseID),
 		IncidentID:                   pgUUID(incidentID),
@@ -1034,9 +1102,6 @@ func (s *Store) CompleteReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx,
 	outputOptions := cloneRawMessageWithDefault(payload.OutputOptions, json.RawMessage(`{}`))
 	graphProjectionRefs := cloneRawMessageWithDefault(payload.GraphProjectionRefs, json.RawMessage(`[]`))
 	renderAdmittedAt := payload.RenderAdmittedAt.UTC()
-	if renderAdmittedAt.IsZero() {
-		renderAdmittedAt = now.UTC()
-	}
 	if profile.ProfileID == "" {
 		profile.ProfileID = payload.RedactionProfileID
 		profile.Version = payload.RedactionProfileVersion
@@ -1045,6 +1110,7 @@ func (s *Store) CompleteReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx,
 		profileSHA = strings.Repeat("0", 64)
 	}
 	row, err := sqlc.New(tx).CreateRenderFailedReportingRelease(ctx, sqlc.CreateRenderFailedReportingReleaseParams{
+		ReleaseID:                    pgUUID(reportingResourceID(jobID, "release")),
 		IncidentID:                   pgUUID(incidentID),
 		SnapshotID:                   pgUUID(snapshotID),
 		CreatedByUserID:              pgUUID(actorID),
@@ -1588,6 +1654,9 @@ func getReleasePayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (relea
 	}
 	var payload releaseCreateJobPayload
 	if err := json.Unmarshal(row.RequestJson, &payload); err != nil {
+		return releaseCreateJobPayload{}, err
+	}
+	if err := validateReleasePayloadIdentity(payload, jobID); err != nil {
 		return releaseCreateJobPayload{}, err
 	}
 	return payload, nil

@@ -107,12 +107,13 @@ func jobDefinition(contract extensions.JobKindContract, workerKind string) jobs.
 		ProgressUnitID: contract.ProgressUnitID,
 		HandlerName:    workerKind,
 		Extension: &jobs.ExtensionPolicy{
-			OwnerProfileID: contract.ProfileID,
-			OperationKind:  contract.OperationKind,
-			ContractSHA256: contract.SHA256(),
-			ProofRequired:  contract.ProofPolicy == "required_on_terminal_success",
-			MaxProofBytes:  contract.MaxProofBytes,
-			ResourceRefs:   resourceRefs,
+			OwnerProfileID:   contract.ProfileID,
+			IdentitySchemaID: contract.IdempotencyIdentitySchemaID,
+			OperationKind:    contract.OperationKind,
+			ContractSHA256:   contract.SHA256(),
+			ProofRequired:    contract.ProofPolicy == "required_on_terminal_success",
+			MaxProofBytes:    contract.MaxProofBytes,
+			ResourceRefs:     resourceRefs,
 		},
 	}
 }

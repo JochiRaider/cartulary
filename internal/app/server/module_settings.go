@@ -86,7 +86,9 @@ func (projection applicationSettingsProjection) ReferenceData() reference_data.L
 			MaxMembers:               cfg.Limits.Archives.MaxMembers,
 		},
 		ReferencePacks: reference_data.ReferenceLimits{
-			MaxExtractedBytes: cfg.Limits.ReferencePacks.MaxExtractedBytes,
+			MaxExtractedBytes:      cfg.Limits.ReferencePacks.MaxExtractedBytes,
+			MaxContainerBytes:      cfg.Limits.ReferencePacks.MaxContainerBytes,
+			MaxVerificationSeconds: cfg.Limits.ReferencePacks.MaxVerificationSeconds,
 		},
 	}
 }

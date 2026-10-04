@@ -53,7 +53,47 @@ func TestRootedFSReferenceValidation_Unit(t *testing.T) {
 	}
 }
 
+func TestRootedFSRemoveEmptyDirectoryFailsClosed_Unit(t *testing.T) {
+	base := t.TempDir()
+	root, err := Open(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	dir := MustParseReference("workspace")
+	if err := root.MakePrivateDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	file := MustParseReference("workspace/retained")
+	if err := root.CreateExclusive(context.Background(), file, func(w io.Writer) error { _, err := io.WriteString(w, "retained"); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if err := root.RemoveEmptyDir(dir); err == nil {
+		t.Fatal("non-empty directory removed")
+	}
+	if _, _, err := root.ReadRegular(file, 8); err != nil {
+		t.Fatal("failed directory removal lost contents")
+	}
+	if err := root.RemoveEmptyDir(file); err == nil {
+		t.Fatal("regular file removed as directory")
+	}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(base, "link")); err != nil {
+		t.Fatal(err)
+	}
+	if err := root.RemoveEmptyDir(MustParseReference("link")); err == nil {
+		t.Fatal("followed directory symlink")
+	}
+	if err := root.RemoveRegular(file); err != nil {
+		t.Fatal(err)
+	}
+	if err := root.RemoveEmptyDir(dir); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRootedFSOperationContainment_Unit(t *testing.T) {
+	t.Run("directory ownership and bounded traversal", testDirectoryLeases)
 	rootPath := filepath.Join(t.TempDir(), "storage")
 	if err := os.Mkdir(rootPath, 0o700); err != nil {
 		t.Fatal(err)

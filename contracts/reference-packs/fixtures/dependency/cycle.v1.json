@@ -1,0 +1,41 @@
+{
+  "schema_id": "cartulary.reference_pack_dependency_fixture.v1",
+  "candidate": {
+    "pack_key": "enrichment.lolbas",
+    "pack_version": "root",
+    "dependencies": [
+      {
+        "pack_key": "enrichment.lolbas",
+        "pack_version": "a",
+        "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "conflicts": []
+  },
+  "retained": [
+    {
+      "pack_key": "enrichment.lolbas",
+      "pack_version": "a",
+      "dependencies": [
+        {
+          "pack_key": "enrichment.lolbas",
+          "pack_version": "b",
+          "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "conflicts": []
+    },
+    {
+      "pack_key": "enrichment.lolbas",
+      "pack_version": "b",
+      "dependencies": [
+        {
+          "pack_key": "enrichment.lolbas",
+          "pack_version": "a",
+          "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "conflicts": []
+    }
+  ]
+}

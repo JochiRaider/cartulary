@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_evaluate_indicator_value_result.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "consumer_evaluation.v1.schema.json"
+        },
+        "error": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "value",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "null"
+        },
+        "error": {
+          "$ref": "consumer_error.v1.schema.json"
+        }
+      },
+      "required": [
+        "value",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

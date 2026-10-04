@@ -612,6 +612,20 @@ test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newe
   test.setTimeout(180_000);
   // Keep the newer position reachable when removing the notice expands the grid.
   const { notice } = await prepareUndoContinuity(page, 48);
+  const grid = page.locator(gridScrollportSelector());
+  // Establish the position before Undo captures its owner state. Relationship
+  // authoring does not promise a particular final scroll offset.
+  await grid.evaluate(async (element) => {
+    element.scrollTop = Math.floor(
+      (element.scrollHeight - element.clientHeight) / 2,
+    );
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+  });
+  await expect
+    .poll(() => grid.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(2);
   const held = await holdBrowserRequest(page, {
     method: "POST",
     path: "/api/v1/entity-mentions/*/resolve",
@@ -623,9 +637,9 @@ test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newe
     await held.waitForHit;
     await expect(undo).toBeFocused();
     await expect(undo).toHaveAttribute("aria-busy", "true");
-    const grid = page.locator(gridScrollportSelector());
     await grid.hover();
     const initialScroll = await grid.evaluate((element) => element.scrollTop);
+    expect(initialScroll).toBeGreaterThan(2);
     // Wheel dispatch finishes before the browser's animated scroll. Observe its
     // end before releasing Undo, and move away from the bottom clamp so the
     // notice's removal cannot make the user's position unreachable.
@@ -649,7 +663,7 @@ test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newe
       return { done, cleanup };
     });
     try {
-      await page.mouse.wheel(0, -120);
+      await page.mouse.wheel(0, -Math.floor(initialScroll / 2));
       await scrollEnd.evaluate(async ({ done }) => done);
     } finally {
       await scrollEnd.evaluate(({ cleanup }) => cleanup());

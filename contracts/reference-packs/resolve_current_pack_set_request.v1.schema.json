@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_resolve_current_pack_set_request.v1",
+  "type": "object",
+  "properties": {},
+  "required": [],
+  "additionalProperties": false
+}

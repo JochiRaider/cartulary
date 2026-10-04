@@ -2,8 +2,10 @@ package indicators_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
@@ -71,7 +73,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	for key, value := range payload {
 		normalizedPayload[key] = value
 	}
-	normalizedPayload["indicator.display_value"] = "203[.]0[.]113[.]24"
+	normalizedPayload["indicator.display_value"] = " 203.0.113.24 "
 	delete(normalizedPayload, "indicator.normalized_value")
 	if got := post(normalizedPayload, http.StatusOK); !reflect.DeepEqual(got, data) {
 		t.Fatalf("normalized replay differs: %#v", got)
@@ -162,6 +164,49 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	if !reflect.DeepEqual(rowBeforeRebuild["cells"], rowAfterRebuild["cells"]) {
 		t.Fatalf("indicator projection rebuild drifted: before=%#v after=%#v", rowBeforeRebuild, rowAfterRebuild)
 	}
+	t.Run("creation uses exact registry algorithms and bounded identity indexes", func(t *testing.T) {
+		var usageBefore int64
+		if err := harness.DB.QueryRowContext(context.Background(), `SELECT revision FROM reference_pack_registry_usage WHERE pack_key='type_registry.indicator'`).Scan(&usageBefore); err != nil {
+			t.Fatal(err)
+		}
+		vectors := []struct{ typ, raw, normalized string }{
+			{"ipv4_addr", " 192.0.2.7\u00a0", "192.0.2.7"},
+			{"ipv6_addr", "2001:0DB8:0:0:1:0:0:1", "2001:db8::1:0:0:1"},
+			{"domain_name", "EXAMPLE.COM.", "example.com"},
+			{"url", "HTTPS://Example.COM:0443/a/%2e%2E/b/%7e?q=%2f&x=%7e#", "https://example.com/b/~?q=%2F&x=~#"},
+			{"sha256", strings.Repeat("AB", 32), strings.Repeat("ab", 32)},
+			{"email_addr", "User+Case@EXAMPLE.COM.", "User+Case@example.com"},
+			{"registry_key", `hklm//Software\Vendor\`, `HKEY_LOCAL_MACHINE\SOFTWARE\VENDOR`},
+			{"process_name", " Cafe\u0301.exe ", "Café.exe"},
+			{"text", " A\r\nB\tC\rD ", "A\nB\tC\nD"},
+			{"url", "https://example.com/" + strings.Repeat("a", 6000), "https://example.com/" + strings.Repeat("a", 6000)},
+		}
+		for i, vector := range vectors {
+			body := map[string]any{"client_txn_id": fmt.Sprintf("registry-create-%d", i), "indicator.indicator_type": vector.typ, "indicator.value_kind": "atomic", "indicator.display_value": vector.raw}
+			created := post(body, http.StatusCreated)
+			id := created["row"].(map[string]any)["record_id"]
+			var normalized, dedupe string
+			if err := harness.DB.QueryRowContext(context.Background(), `SELECT normalized_value,dedupe_key FROM indicators WHERE record_id=$1`, id).Scan(&normalized, &dedupe); err != nil {
+				t.Fatal(err)
+			}
+			if normalized != vector.normalized || !strings.HasPrefix(dedupe, vector.typ+":") {
+				t.Fatalf("%s identity diverged from declared vector", vector.typ)
+			}
+			body["client_txn_id"] = fmt.Sprintf("registry-reuse-%d", i)
+			body["indicator.display_value"] = vector.normalized
+			reused := post(body, http.StatusCreated)
+			if reused["row"].(map[string]any)["record_id"] != id {
+				t.Fatalf("%s canonical identity failed to deduplicate", vector.typ)
+			}
+		}
+		var usageAfter int64
+		if err := harness.DB.QueryRowContext(context.Background(), `SELECT revision FROM reference_pack_registry_usage WHERE pack_key='type_registry.indicator'`).Scan(&usageAfter); err != nil {
+			t.Fatal(err)
+		}
+		if usageAfter != usageBefore+int64(len(vectors)) {
+			t.Fatalf("usage revisions include reuses or omit creations: %d -> %d", usageBefore, usageAfter)
+		}
+	})
 	// Current transport authorization precedes replay, including after closure.
 	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload), http.StatusUnauthorized, "session_required")
 	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")

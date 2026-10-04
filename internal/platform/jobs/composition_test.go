@@ -7,11 +7,12 @@ import (
 )
 
 func TestImmutableCompositionContract_Unit(t *testing.T) {
+	t.Run("attributed admission", testAttributedAdmission)
 	definitions := []Definition{{
 		JobKind:        "test_profile.run_v1",
 		ProgressUnitID: "test_profile.run.attempt.v1",
 		HandlerName:    "test_profile.worker_v1",
-		Extension: &ExtensionPolicy{
+		Extension: &ExtensionPolicy{IdentitySchemaID: HumanRouteIdentitySchema,
 			OwnerProfileID: "test_profile",
 			OperationKind:  "test_profile.run",
 			ContractSHA256: strings.Repeat("a", 64),

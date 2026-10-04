@@ -95,7 +95,10 @@
       "row_id": "module.incidentbundles.integration.incident_bundle_export_and_import_preserve_an_ac_02b4ecb4b8",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.reference_data",
+        "module.reporting"
+      ],
       "verification_ids": [
         "module.incidentbundles.verification.behavior_contract"
       ],
@@ -103,6 +106,8 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
+          "TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration",
+          "TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration",
           "TestSupersededTimelineReplacementSurvivesImport_Integration"
         ]
       },

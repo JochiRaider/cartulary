@@ -468,6 +468,12 @@ func (w *reportingJobWorker) completeContextFailure(runCtx context.Context, term
 }
 
 func (w *reportingJobWorker) failReportingJob(ctx context.Context, execution jobs.Execution, code string, err error, retryable bool, progress jobs.Progress) {
+	if errors.Is(err, ErrRequiredReferencePackUnavailable) {
+		code = "required_reference_pack_unavailable"
+		err = ErrRequiredReferencePackUnavailable
+		retryable = false
+	}
+
 	if err == nil {
 		err = errors.New(code)
 	}

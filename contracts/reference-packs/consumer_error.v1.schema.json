@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_consumer_error.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_pack_request",
+            "pack_set_not_found",
+            "pack_unavailable",
+            "entry_not_found",
+            "lookup_kind_unsupported",
+            "cursor_invalid",
+            "cursor_query_mismatch",
+            "indicator_type_unsupported",
+            "indicator_value_kind_unsupported",
+            "indicator_algorithm_unsupported"
+          ]
+        },
+        "reason_code": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "code",
+        "reason_code"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "const": "invalid_pack_request"
+        },
+        "reason_code": {
+          "const": "indicator_input_too_long"
+        }
+      },
+      "required": [
+        "code",
+        "reason_code"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

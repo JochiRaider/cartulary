@@ -29,7 +29,7 @@ var testJobDefinitions = []jobs.Definition{
 		JobKind:        "test_profile.run_v1",
 		ProgressUnitID: "test_profile.run.attempt.v1",
 		HandlerName:    "test_profile.worker_v1",
-		Extension: &jobs.ExtensionPolicy{
+		Extension: &jobs.ExtensionPolicy{IdentitySchemaID: jobs.HumanRouteIdentitySchema,
 			OwnerProfileID: "test_profile",
 			OperationKind:  "test_profile.run",
 			ContractSHA256: strings.Repeat("a", 64),
@@ -173,6 +173,18 @@ func NewJobCatalog() *jobs.Catalog {
 }
 
 func NewJobTransactionsForCatalog(catalog *jobs.Catalog, workerContractSets ...[]jobs.WorkerRuntimeContract) *jobs.TransactionService {
+	return NewJobTransactionsWithTerminalEffects(catalog, NoJobTerminalEffects{}, workerContractSets...)
+}
+
+// NoJobTerminalEffects is explicit test composition for owners without durable
+// terminal side effects. Source-owner integration tests inject the real port.
+type NoJobTerminalEffects struct{}
+
+func (NoJobTerminalEffects) ApplyJobTerminalEffectsTx(context.Context, pgx.Tx, jobs.TerminalDisposition) error {
+	return nil
+}
+
+func NewJobTransactionsWithTerminalEffects(catalog *jobs.Catalog, effects jobs.TerminalEffects, workerContractSets ...[]jobs.WorkerRuntimeContract) *jobs.TransactionService {
 	ownerPorts := NewJobOwnerTransactionAdapters()
 	workerContracts := TestWorkerRuntimeContracts(TestJobDefinitions())
 	if len(workerContractSets) > 0 {
@@ -185,6 +197,7 @@ func NewJobTransactionsForCatalog(catalog *jobs.Catalog, workerContractSets ...[
 	service, err := jobs.NewTransactionService(NewJobProgressIntentAdapter(), jobs.OwnerTransactionPorts{
 		RouteIdempotency:      ownerPorts,
 		ExtensionCancellation: ownerPorts,
+		TerminalEffects:       effects,
 	}, catalog, selection)
 	if err != nil {
 		panic(err)

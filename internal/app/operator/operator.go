@@ -22,6 +22,7 @@ type operatorRunner struct {
 	migrationEvidence migrationEvidenceExecutor
 	objectStore       objectStoreExecutor
 	collaboration     collaborationExecutor
+	referencePacks    referencePackExecutor
 }
 
 func RunOperatorCLIContext(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
@@ -89,6 +90,7 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 			loadConfig:              loadConfig,
 			ensureObjectStoreBucket: ensureObjectStoreBucket,
 		},
+		referencePacks: referencePackExecutor{transport: transport, loadConfig: loadConfig, newOperationID: uuid.New, open: openReferencePackLocalRuntime},
 		collaboration: collaborationExecutor{
 			transport:       transport,
 			loadConfig:      loadConfig,
@@ -157,6 +159,7 @@ func (runner operatorRunner) commandRegistry() (operatorCommandRegistry, error) 
 			Usage:  "operator object-store init [-config <path>]",
 			Run:    runner.objectStore.runCommand,
 		},
+		{Tokens: []string{"reference-pack", "import"}, Usage: referencePackImportUsage, Run: runner.referencePacks.runCommand, InvalidNamespace: runner.referencePacks.runCommand},
 		{
 			Tokens: []string{"collaboration", "requeue"},
 			Usage:  collaborationRequeueUsage,

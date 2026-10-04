@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.11.0
+document_version: 0.12.0
 contract_major: 2
 ---
 
@@ -12,7 +12,7 @@ contract_major: 2
 
 This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
-This document is `status: adopted/current`. Version `0.11.0` reconciles Core
+This document retains the adopted Extensions authority. The coordinated pre-production `0.12.0` amendment adds Reference Pack profile major 2, explicit configuration namespaces, lifecycle Job v2 attribution, and shared commit-proof finalization; these edits do not by themselves adopt the draft Reference Pack NLSpec or publish its conformance. Version `0.11.0` reconciles Core
 registered job references, immutable initiating receipts and read-only saved-graph
 cutover admission with Network Flow major 6. Version `0.10.0` separates
 executable migration definitions from inert committed-ledger verification,
@@ -47,7 +47,7 @@ The current machine projection uses these breaking versions with no compatibilit
 - `cartulary.extension_authored_input_catalog.v3`;
 - `cartulary.extension_dependency_declaration_set.v3` and `cartulary.extension_dependency_snapshot.v3`;
 - `cartulary.extension_owner_fragment.v3` and `cartulary.extension_owner_input_registry.v2`;
-- `cartulary.extension_profile_configuration_contract.v3`;
+- `cartulary.extension_profile_configuration_contract.v4`;
 - `cartulary.extension_validation_surface_declaration_set.v3`;
 - `cartulary.base_route_reservation_registry.v3`;
 - `cartulary.extension_participant_specialization.v3`;
@@ -501,7 +501,7 @@ Verified by: EXT-AC-003, EXT-AC-004, EXT-AC-011, EXT-AC-016, EXT-AC-024, EXT-AC-
 | `import` | `true` | `1` | `import.claimed` | `/api/v1/import-sessions` | `[]` | none |
 | `incident_portability` | `true` | `1` | `incident_portability.claimed` | `/api/v1/incident-bundles` | `[]` | none |
 | `network_flow_activity` | `true` | `6` | `network_flow_activity.claimed` | `/api/v1/incidents/{incident_id}/network-flow` | `["network_analysis"]` | `import`, major `1` |
-| `reference_pack` | `true` | `1` | `reference_pack.claimed` | `/api/v1/reference-packs` | `[]` | none |
+| `reference_pack` | `true` | `2` | `reference_pack.claimed` | `/api/v1/reference-packs` | `[]` | none |
 | `snapshot_reporting` | `true` | `1` | `snapshot_reporting.claimed` | `/api/v1/incidents/{incident_id}/report-compositions`; `/api/v1/releases`; `/api/v1/snapshots` | `[]` | none |
 
 **Table 6-B. Current-profile descriptor classifications**
@@ -675,7 +675,7 @@ Profiles: base
 Verified by: EXT-AC-016, EXT-AC-018, EXT-AC-019, EXT-AC-083
 
 **EXT-REQ-037**
-`prestage_config_keys[]` MUST be derived as the exact sorted set of configuration-contract keys whose `inactive_policy='syntax_only'`. The array MUST NOT be independently authored in an owner fragment, descriptor source, implementation binding, or deployment configuration. Every item MUST be an exact fully qualified key inside the profile namespace, MUST NOT equal the claim key, and MUST resolve to one key row in the digest-bound `cartulary.extension_profile_configuration_contract.v3`. `[]` means no profile-local key other than the claim key is valid while the profile is unclaimed.
+`prestage_config_keys[]` MUST be derived as the exact sorted set of configuration-contract keys whose `inactive_policy='syntax_only'`. The array MUST NOT be independently authored in an owner fragment, descriptor source, implementation binding, or deployment configuration. Every item MUST be an exact fully qualified key inside the declared configuration namespace, MUST NOT equal the claim key, and MUST resolve to one key row in the digest-bound `cartulary.extension_profile_configuration_contract.v4`. `[]` means no profile-local key other than the claim key is valid while the profile is unclaimed.
 
 Profiles: base
 Verified by: EXT-AC-012, EXT-AC-013, EXT-AC-087, EXT-AC-102
@@ -876,14 +876,17 @@ Profiles: base
 Verified by: EXT-AC-012, EXT-AC-013, EXT-AC-087, EXT-AC-102
 
 **EXT-REQ-207**
-Every `claim_configuration` fact MUST resolve to one closed canonical `cartulary.extension_profile_configuration_contract.v3` object containing exactly:
+Every `claim_configuration` fact MUST resolve to one closed canonical `cartulary.extension_profile_configuration_contract.v4` object containing exactly:
 
-- `schema_id`, exactly `cartulary.extension_profile_configuration_contract.v3`;
+- `schema_id`, exactly `cartulary.extension_profile_configuration_contract.v4`;
 - `profile_id`;
 - `configuration_contract_id`;
 - `configuration_contract_major`;
+- `configuration_namespace`;
 - `namespace_schema_id`;
 - `keys[]`.
+
+`configuration_namespace` MUST be one ASCII token matching `[a-z][a-z0-9_]{0,63}`. Every configuration key in the contract MUST be below that exact namespace. Different profiles MUST NOT claim overlapping key namespaces. The namespace and profile identifier are distinct: Reference Pack uses `reference_packs` for configuration and `reference_pack.claimed` for its claim key. Other current profiles use their profile identifier as the configuration namespace. No alias namespace is admitted.
 
 `configuration_contract_id` MUST equal `<profile_id>.configuration.v<configuration_contract_major>`. `configuration_contract_major` MUST be a JSON integer in `1..2147483647`. `namespace_schema_id` MUST satisfy the public schema-ID scalar contract. The contract's canonical digest MUST equal the `configuration_contract_sha256` in the owner fact, and the artifact index MUST resolve that digest to exactly one configuration-contract artifact for the same profile.
 
@@ -897,7 +900,7 @@ Each `keys[]` row MUST contain exactly:
 - `resolution_kind`;
 - `diagnostic_policy`.
 
-`key` MUST be one fully qualified key inside the profile namespace and MUST NOT equal the claim key. `value_schema_id` MUST be a non-empty public schema ID and resolve through the typed schema registry. `inactive_policy` MUST equal `forbidden` or `syntax_only`. `inactive_value_schema_id` MUST be a non-null public schema ID resolving through the inert-schema registry exactly when `inactive_policy='syntax_only'` and MUST be `null` when `inactive_policy='forbidden'`. The inactive schema vocabulary is closed to JSON type, object-member grammar, required presence of explicitly structural members, scalar grammar, collection length, string byte length, and nesting depth; it MUST NOT declare a default, semantic format, external reference existence, value substitution, conditional execution, profile algorithm, view, secret, file, trust material, DNS, endpoint, or egress behavior. `resolution_kind` MUST equal `plain`, `secret_ref`, `regular_file_ref`, or `trust_material_ref`. `diagnostic_policy` MUST equal `name_only` or `safe_value`.
+`key` MUST be one fully qualified key inside the declared configuration namespace and MUST NOT equal the claim key. `value_schema_id` MUST be a non-empty public schema ID and resolve through the typed schema registry. `inactive_policy` MUST equal `forbidden` or `syntax_only`. `inactive_value_schema_id` MUST be a non-null public schema ID resolving through the inert-schema registry exactly when `inactive_policy='syntax_only'` and MUST be `null` when `inactive_policy='forbidden'`. The inactive schema vocabulary is closed to JSON type, object-member grammar, required presence of explicitly structural members, scalar grammar, collection length, string byte length, and nesting depth; it MUST NOT declare a default, semantic format, external reference existence, value substitution, conditional execution, profile algorithm, view, secret, file, trust material, DNS, endpoint, or egress behavior. `resolution_kind` MUST equal `plain`, `secret_ref`, `regular_file_ref`, or `trust_material_ref`. `diagnostic_policy` MUST equal `name_only` or `safe_value`.
 
 `omission_policy` MUST be exactly one closed variant:
 
@@ -2908,7 +2911,7 @@ Every durable extension job kind MUST be declared by one closed canonical `cartu
 - `cancellation_policy`;
 - `max_proof_bytes`.
 
-`operation_kind` MUST equal `<profile_id>.<local_key>` under the Table 4-B local-key grammar. `progress_unit_id` MUST contain no more than 191 ASCII bytes and MUST match `[a-z][a-z0-9_]{0,62}(\.[a-z][a-z0-9_]{0,62})+\.v[1-9][0-9]*`. It is immutable semantic identity, not a display label, counter value, telemetry attribute, or caller-selected option. `proof_policy` MUST equal `required_on_terminal_success` or `forbidden`. `idempotency_policy` MUST equal `required` or `none`. `cancellation_policy` MUST equal `precommit_observable` or `not_cancelable`. `terminal_result_schema_id` MUST be a non-null public schema ID that resolves through the current typed schema registry and implementation binding. `idempotency_policy='required'` requires a non-null public identity schema ID that resolves through the same typed boundaries; `none` requires `idempotency_identity_schema_id=null`. A job that can publish any extension-owned or cross-owner resource MUST use `required_on_terminal_success`. A proof-required terminal success MUST commit one proof even when `resource_refs=[]`. A proof-forbidden job MUST never create a proof.
+`operation_kind` MUST equal `<profile_id>.<local_key>` under the Table 4-B local-key grammar. `progress_unit_id` MUST contain no more than 191 ASCII bytes and MUST match `[a-z][a-z0-9_]{0,62}(\.[a-z][a-z0-9_]{0,62})+\.v[1-9][0-9]*`. It is immutable semantic identity, not a display label, counter value, telemetry attribute, or caller-selected option. `proof_policy` MUST equal `required_on_terminal_success` or `forbidden`. `idempotency_policy` MUST equal `required` or `none`. `cancellation_policy` MUST equal `precommit_observable` or `not_cancelable`. `terminal_result_schema_id` MUST be a non-null public schema ID that resolves through the current typed schema registry and implementation binding. `idempotency_policy='required'` requires a non-null public identity schema ID that resolves through the same typed boundaries; `none` requires `idempotency_identity_schema_id=null`. Core 01 owns both route identity versions. A declared v2 identity admits its closed human/local-operator union; finalization and inactive-job reconciliation MUST validate that exact declared version and actor branch. Local operator outcomes bind the common Job itself and do not fabricate a human route receipt. A job that can publish any extension-owned or cross-owner resource MUST use `required_on_terminal_success`. A proof-required terminal success MUST commit one proof even when `resource_refs=[]`. A proof-forbidden job MUST never create a proof.
 
 `resource_ref_contracts[]` MUST contain `0..64` rows. Each row MUST contain exactly `resource_ref_kind`, `resource_id_schema_id`, and `max_refs`. `resource_ref_kind` MUST satisfy Table 4-B. `resource_id_schema_id` MUST be a public schema ID that resolves through the current typed schema registry and implementation binding. Rows MUST reject duplicate kinds and sort by ascending UTF-8 bytes of `resource_ref_kind`. `max_refs` MUST be a JSON integer in `1..1024`; a kind that permits no references MUST be omitted rather than declared with zero. The sum across rows MUST NOT exceed `1024`. `max_proof_bytes` MUST be a JSON integer in `1..1048576`.
 

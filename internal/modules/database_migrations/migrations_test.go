@@ -261,17 +261,19 @@ func emptyMigrationDatabase(t testing.TB, harness *pgtest.Harness) *pgtest.Migra
 	return database
 }
 
-func TestCanonicalCatalogAppliesAndRollsBackEveryVersion_Integration(t *testing.T) {
+func TestPreCutoverCatalogAppliesAndRollsBackEveryVersion_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	database := harness.MigrationDatabaseT(t)
+	// The Reference Pack cutover starts at 46. Earlier reversible migrations
+	// retain their complete recurrence evidence; cutover rejection is separate.
+	database := harness.MigrationDatabaseThroughT(t, 45)
 	ctx := context.Background()
 
-	for version := int64(28); version >= 0; version-- {
+	for version := int64(44); version >= 0; version-- {
 		if err := database.RollbackThrough(ctx, version); err != nil {
 			t.Fatalf("rollback canonical catalog through version %d: %v", version, err)
 		}
 	}
-	for version := int64(1); version <= 29; version++ {
+	for version := int64(1); version <= 45; version++ {
 		if err := database.ApplyThrough(ctx, version); err != nil {
 			t.Fatalf("apply canonical catalog through version %d: %v", version, err)
 		}

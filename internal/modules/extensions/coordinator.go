@@ -1074,7 +1074,7 @@ func parseJobKindContracts(profileID string, value any) ([]JobKindContract, erro
 			!strings.HasPrefix(contract.OperationKind, profileID+".") ||
 			contract.ProofPolicy != "required_on_terminal_success" ||
 			contract.IdempotencyPolicy != "required" ||
-			contract.IdempotencyIdentitySchemaID != "cartulary.route_scoped_idempotency_identity.v1" ||
+			!validJobIdentitySchema(contract.IdempotencyIdentitySchemaID) ||
 			contract.TerminalResultSchemaID != "cartulary.common_job_terminal_success.v1" ||
 			contract.CancellationPolicy != "precommit_observable" ||
 			contract.MaxProofBytes < 1 || contract.MaxProofBytes > 1048576 {

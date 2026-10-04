@@ -124,7 +124,8 @@
           "Reference Pack ownership coalesces exact repeated versions without changing server order or key selection",
           "Reference Pack ownership gates catalog success and failure by the newest admitted generation",
           "Reference Pack ownership keeps query generations independent from transport cancellation and invalidation",
-          "Reference Pack ownership normalizes Unicode input while retaining server search semantics"
+          "Reference Pack ownership normalizes Unicode input while retaining server search semantics",
+          "Reference Pack ownership uses server pin and selected-key work projections for action eligibility"
         ]
       },
       "evidence_class": "unit",
@@ -154,6 +155,7 @@
           "Reference Pack execution bounds ignored-abort admission and observation without treating read failure as job failure",
           "Reference Pack execution captures selected scope once and admits no conflicting operation",
           "Reference Pack execution coalesces completion behind the newest query and preserves failed query recovery",
+          "Reference Pack execution fences concealed dismissed and retired diagnostic reads and rejects mismatched outcomes",
           "Reference Pack execution keeps an inline commit committed when catalog reconciliation fails",
           "Reference Pack execution keeps concealed observation unavailable until access is confirmed and clears confirmed loss",
           "Reference Pack execution observes a completion race before cancellation and never sends a replacement action",
@@ -162,7 +164,9 @@
           "Reference Pack execution rejects regressing observations and keeps terminal snapshots stable",
           "Reference Pack execution replays an uncertain upload with the original bytes target and transaction",
           "Reference Pack execution replays only the captured uncertain cancellation and observes authoritative completion",
+          "Reference Pack execution retires all protected state when a diagnostic read denies access",
           "Reference Pack execution retires captured upload bytes and ignores a late admission after capability loss",
+          "Reference Pack execution retries bounded diagnostic reads without resubmitting and clears protected details on access loss",
           "Reference Pack execution reviews exact version eligibility without substituting a different mutation"
         ]
       },
@@ -192,6 +196,7 @@
           "Reference Pack transport distinguishes definitive rejection conflict malformed success and transport uncertainty",
           "Reference Pack transport keeps all omission separate from deduplicated explicit selected scope during replay",
           "Reference Pack transport preserves upload bytes filename media hint and staged-only metadata across lost-response replay",
+          "Reference Pack transport validates bounded diagnostic summaries and never follows an arbitrary reference",
           "Reference Pack transport validates complete job envelopes while accepting unknown additive reference kinds",
           "Reference Pack transport validates inline and asynchronous activation and disable by successful HTTP status"
         ]
@@ -219,6 +224,8 @@
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "titles": [
+          "ReferencePackAdminPanel exposes exact verified source digests and dependencies in version details",
+          "ReferencePackAdminPanel identifies active Base safety fallback without labelling its content unhealthy",
           "admits material search and filter edits without a separate submit",
           "admits only one request for the same pending cursor",
           "clears protected list state and invalidates pending generations on authorization loss",
@@ -231,7 +238,9 @@
           "retains a selected upload across panel remount without native validation blocking import",
           "retains accepted rows while searching, resets paging on Enter, and ignores stale terminal results",
           "retains the actual ancestor scroll position across ordinary panel concealment",
-          "shows job progress and cancel controls for deployment-admin Reference Pack work"
+          "shows health and retention blockers without offering an ineligible mutation",
+          "shows job progress and cancel controls for deployment-admin Reference Pack work",
+          "shows ordered validation details with a read retry that never resubmits work"
         ]
       },
       "evidence_class": "unit",
@@ -324,6 +333,73 @@
       ]
     },
     {
+      "row_id": "module.reference_data.integration.all_profiles_consumer_boundary",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestAllCanonicalProfilesThroughProductionConsumers_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.reference_data.integration.canonical_persistence",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestBaseReconciliationRechecksSelectedBytesBeforePublication_Integration",
+          "TestCanonicalAdmissionFreezesCohortAndRejectsRelevantStaleState_Integration",
+          "TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration",
+          "TestCanonicalCoordinatorLeasedJobsAndTerminalReplay_Integration",
+          "TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integration",
+          "TestCanonicalCutoverRejectsIntermediateIndicatorStateBeforeMutation_Integration",
+          "TestCanonicalCutoverRejectsLegacyStateBeforeMutation_Integration",
+          "TestCanonicalCutoverRejectsRetiredOperatorAttributionBeforeMutation_Integration",
+          "TestCanonicalCutoverRejectsUnboundDiagnosticsBeforeMutation_Integration",
+          "TestCanonicalCutoverRejectsUnboundImportedReferencesBeforeMutation_Integration",
+          "TestCanonicalCutoverRejectsUnprovenDependencyStateBeforeMutation_Integration",
+          "TestCanonicalLifecycleFixtureManifests_Integration",
+          "TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.reference_data.integration.disconnected_reference_pack_failure_modes_produc_d1bffa4cca",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
@@ -389,7 +465,14 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestActivationDisableReverifyAndRefreshLifecycle_Integration"
+          "TestActivationDisableReverifyAndRefreshLifecycle_Integration",
+          "TestConcurrentRootPublicationRejectsFrozenOtherKey_Integration",
+          "TestConsumerLossPublishesInvalidationAndAbortsSourceTransaction_Integration",
+          "TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration",
+          "TestLiveVerificationResolvesExactDependenciesBeforeIndexing_Integration",
+          "TestMixedRefreshCommitsCohortFallbackAndReplay_Integration",
+          "TestRequiredBaseLossClearsSelectionAndBlocksReadiness_Integration",
+          "TestUnavailableBasePreservesHealthyReplacement_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -470,7 +553,8 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestImportListReadReplayAndJobSummary_Integration"
+          "TestImportListReadReplayAndJobSummary_Integration",
+          "TestLocalOperatorImportUsesDeploymentWorker_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -541,6 +625,262 @@
       ]
     },
     {
+      "row_id": "module.reference_data.unit.canonical_consumers",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestCanonicalBaseReleaseBindingsAndConsumerEvaluation_Unit",
+          "TestCanonicalConsumerCursorBindingOmissionAndExactExpiry_Unit",
+          "TestCanonicalVerificationEngineIndependentSignedContainer_Unit",
+          "TestPreparedResultClosedShapeAndBindings_Unit",
+          "TestRetainedContentChecksFollowVerificationPrecedence_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.canonical_fixture_manifests",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestFixtureManifestsAndTraceability_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.canonical_pack_archive_admission",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestArchiveAdmissionRejectsAttacksAndLimits_Unit",
+          "TestArchiveContainersHaveEquivalentLogicalBytes_Unit",
+          "TestArchiveDirectoryMarkersHaveAnIndependentStructuralBound_Unit",
+          "TestArchiveExtractionRejectsChangedAdmittedSource_Unit",
+          "TestArchivePathDirectoryExceptionAndCancellation_Unit",
+          "TestArchiveRatioUsesCompleteContainerOnceAndHandlesOverflow_Unit",
+          "TestArchiveRegistryPrecedenceAndNoRejectedWrites_Unit",
+          "TestArchiveTAROriginalNameAndChecksumAdmission_Unit",
+          "TestArchiveTARPaddingHasIndependentStructuralBound_Unit",
+          "TestArchiveZIPChecksDecodedCRCSizeAndCompressedEnd_Unit",
+          "TestArchiveZIPMetadataHasBoundedWorkingReads_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.canonical_pack_diagnostics",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestDiagnosticRegistrySelectsOneCheckAndStableDeduplicatedPrefix_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.canonical_pack_indicators",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestIndicatorAlgorithmsCanonicalVectors_Unit",
+          "TestURLNormalizationPreservesDelimitersAndIsIdempotent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.canonical_pack_manifest",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestAttestationIndependentIdentityAndClosedShape_Unit",
+          "TestBuiltinBindingClosesIdentityAndShape_Unit",
+          "TestDependencyVerificationGraphAndPrecedence_Unit",
+          "TestInventoryAndBindingDiagnosticsEnumerateEveryMember_Unit",
+          "TestLicenseGrammarAndNoticeBindings_Unit",
+          "TestManifestClosesNestedOmissionsAndNulls_Unit",
+          "TestManifestDiagnosticEnumerationAndPrecedence_Unit",
+          "TestManifestIndependentIdentityVector_Unit",
+          "TestPackSetIdentityIsContentOnlyAndRequiresBase_Unit",
+          "TestPortableCatalogReachableSetAndVersionLimits_Unit",
+          "TestPortableRetentionClosedShapeAndCatalogBinding_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.canonical_pack_profiles",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestAllDeclaredProfilesHaveCanonicalContentAndIndexes_Unit",
+          "TestContentCanonicalMemberBytesRemainUnmodified_Unit",
+          "TestContentRejectsMalformedStreamsAndSemanticAmbiguity_Unit",
+          "TestContentSchemasRejectOmissionNullAndUnknownMembers_Unit",
+          "TestEventAndSIDIdentitiesAndLookupBoundaries_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.canonical_pack_state",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packstate",
+        "tests": [
+          "TestDependencyFallbackPrunesToFixedPointAndRejectsCycles_Unit",
+          "TestPublicationRevisionComparisonIgnoresUnrelatedState_Unit",
+          "TestRefreshAdmissionFreezesExactSuccessfulCohort_Unit",
+          "TestVerificationTransitionsPreserveDisablementAndSuccessfulHistory_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.canonical_pack_trust",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestOfflineTUFCombinedFaultPrecedence_Unit",
+          "TestOfflineTUFCompleteSchemaDiagnostics_Unit",
+          "TestOfflineTUFDescriptorAdmission_Unit",
+          "TestOfflineTUFFailsClosedOnTamperingAndExpiry_Unit",
+          "TestOfflineTUFIndependentVectorsAndRootReplay_Unit",
+          "TestOfflineTUFRegistryProgramDiagnostics_Unit",
+          "TestOfflineTUFRequiresBothRootThresholdsAndRejectsExtraSignatures_Unit",
+          "TestOfflineTUFRootNestedAdmissionPrecedesCanonicalAndRotation_Unit",
+          "TestPreparedBoundAndSchemaReferenceConfinement_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.reference_data.unit.generated_open_api_and_error_registry_artifacts_0843af138f",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
@@ -553,6 +893,32 @@
         "package": "./internal/modules/reference_data",
         "tests": [
           "TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.operation_telemetry",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/referenceassembly",
+        "tests": [
+          "TestReferencePackObserverEmitsOnlyClosedTokens_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -629,7 +995,8 @@
         "package": "./internal/app/referenceassembly",
         "tests": [
           "TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit",
-          "TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit"
+          "TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit",
+          "TestReferencePackStreamingWorkspaceIsolationAndCleanup_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -653,7 +1020,11 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit"
+          "TestRetainedProvenanceClosedAndBoundToExactSet_Unit",
+          "TestSuccessfulEnvelopeClosedPersistence_Unit",
+          "TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit",
+          "TestVerifierCombinedFaultPrecedence_Unit",
+          "TestVerifierNeverTurnsOperationalReadsIntoContentVerdicts_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -678,6 +1049,34 @@
         "package": "./internal/modules/reference_data",
         "tests": [
           "TestVerifierRejectsArchiveLimits_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.unit.strict_canonical_json_admission_50c576f498",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/canonicaljson",
+        "tests": [
+          "TestRFC8785RejectsNonFiniteValues",
+          "TestRFC8785SerializationSample",
+          "TestRFC8785UsesUTF16PropertyOrdering",
+          "TestStrictAdmissionPreservesLexicalNumbersAndUnicode_Unit",
+          "TestStrictAdmissionRejectsLossyJSON_Unit"
         ]
       },
       "evidence_class": "unit",

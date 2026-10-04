@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_portable_destination",
+  "scenario": "portable_destination",
+  "owner_id": "module.incidentbundles",
+  "row_id": "module.incidentbundles.integration.incident_bundle_export_and_import_preserve_an_ac_02b4ecb4b8",
+  "test_name": "TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration"
+}

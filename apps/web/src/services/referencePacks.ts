@@ -4,6 +4,7 @@ import {
   type CancelJobRequest,
   type CancelJobResponse,
   type GetJobResponse,
+  type GetReferencePackValidationSummaryResponse,
   type GetReferencePackVersionResponse,
   type HTTPOperationID,
   type ImportReferencePackResponse,
@@ -17,10 +18,16 @@ import {
 } from "./browserApi";
 import { validatedPublicErrorReason } from "./publicErrorIdentity";
 
-export type ReferencePackAction = "activate" | "disable" | "reverify";
+export type ReferencePackAction =
+  | "activate"
+  | "disable"
+  | "reverify"
+  | "remove";
 export type ReferencePackVersion =
   ListReferencePacksResponse["data"]["pack_versions"][number];
 export type ReferencePackJobResource = GetJobResponse["data"];
+export type ReferencePackValidationSummary =
+  GetReferencePackValidationSummaryResponse["data"];
 export type ReferencePackPaging = NonNullable<
   ListReferencePacksResponse["meta"]["paging"]
 >;
@@ -28,14 +35,21 @@ export type ReferencePackQuery = {
   active: string;
   packVersionState: string;
   search: string;
-  verificationResult: string;
 };
 export type ReferencePackTarget = Readonly<{
   pack_key: string;
   pack_version: string;
 }>;
 export type ReferencePackCommand =
-  | { readonly kind: ReferencePackAction; readonly target: ReferencePackTarget }
+  | {
+      readonly kind: Exclude<ReferencePackAction, "remove">;
+      readonly target: ReferencePackTarget;
+    }
+  | {
+      readonly kind: "remove";
+      readonly target: ReferencePackTarget;
+      readonly reason: string;
+    }
   | { readonly kind: "refresh_all" }
   | { readonly kind: "refresh_selected"; readonly packKeys: readonly string[] }
   | { readonly kind: "import"; readonly filename: string };
@@ -51,6 +65,7 @@ export type ReferencePackProblem = {
     | "rejected"
     | "state_conflict"
     | "activation_rejected"
+    | "operation_rejected"
     | "verification_failed"
     | "transaction_conflict"
     | "unavailable";
@@ -119,10 +134,15 @@ export function captureReferencePackAttempt(
     throw new Error("An explicit refresh requires pack keys");
   if (command.kind === "import" && !file)
     throw new Error("An import requires a file");
+  if (command.kind === "remove" && !command.reason.trim())
+    throw new Error("Removal requires a reason");
   const hint = file?.type.split(";")[0]?.trim().toLowerCase() ?? "";
   return Object.freeze({
     command: capturedCommand,
-    request: Object.freeze({ client_txn_id: transactionId }),
+    request: Object.freeze({
+      client_txn_id: transactionId,
+      ...(command.kind === "remove" ? { reason: command.reason } : {}),
+    }),
     ...(file
       ? {
           file: mediaTypes.has(hint)
@@ -147,17 +167,19 @@ function problem(status: number, payload: unknown): ReferencePackProblem {
       ? validatedPublicErrorReason(code, reasonValue)
       : undefined;
   const kind =
-    code === "reference_pack_state_conflict"
-      ? "state_conflict"
-      : code === "reference_pack_activation_rejected"
-        ? "activation_rejected"
-        : code === "reference_pack_verification_failed"
-          ? "verification_failed"
-          : code === "client_txn_conflict"
-            ? "transaction_conflict"
-            : code === "job_not_found" || code === "reference_pack_not_found"
-              ? "unavailable"
-              : "rejected";
+    code === "reference_pack_operation_rejected"
+      ? "operation_rejected"
+      : code === "reference_pack_state_conflict"
+        ? "state_conflict"
+        : code === "reference_pack_activation_rejected"
+          ? "activation_rejected"
+          : code === "reference_pack_verification_failed"
+            ? "verification_failed"
+            : code === "client_txn_conflict"
+              ? "transaction_conflict"
+              : code === "job_not_found" || code === "reference_pack_not_found"
+                ? "unavailable"
+                : "rejected";
   return { kind, status, code, ...(reason === undefined ? {} : { reason }) };
 }
 export function referencePackJobProblem(
@@ -248,9 +270,6 @@ export async function listReferencePacks(options: {
         ...(options.query.packVersionState === ""
           ? {}
           : { pack_version_state: options.query.packVersionState }),
-        ...(options.query.verificationResult === ""
-          ? {}
-          : { verification_result: options.query.verificationResult }),
       },
     }),
   );
@@ -299,6 +318,65 @@ export async function readReferencePackVersion(
     pack.pack_version === target.pack_version
     ? { kind: "read", value: pack }
     : { kind: "failed", problem: referencePackContractProblem };
+}
+export function referencePackValidationRef(
+  job: ReferencePackJobResource,
+): string | null {
+  if (
+    job.status !== "failed" ||
+    job.error_summary?.code !== "reference_pack_verification_failed"
+  )
+    return null;
+  const ref = record(job.error_summary.details)?.validation_summary_ref;
+  return typeof ref === "string" && /^rpvs_[0-9a-f]{64}$/u.test(ref)
+    ? ref
+    : null;
+}
+export function referencePackValidationMatches(
+  job: ReferencePackJobResource,
+  summary: ReferencePackValidationSummary,
+) {
+  const details = record(job.error_summary?.details);
+  return (
+    referencePackValidationRef(job) !== null &&
+    summary.result === "failed" &&
+    summary.primary_issue_id === details?.primary_issue_id &&
+    summary.total_issue_count === details?.total_issue_count &&
+    summary.retained_issue_count === details?.retained_issue_count &&
+    summary.issues_truncated === details?.issues_truncated &&
+    summary.issues.every((issue) => issue.check_id === details?.check_id)
+  );
+}
+export async function readReferencePackValidationSummary(
+  reference: string,
+  signal: AbortSignal,
+): Promise<ReferencePackRead<ReferencePackValidationSummary>> {
+  if (!/^rpvs_[0-9a-f]{64}$/u.test(reference))
+    return { kind: "failed", problem: referencePackContractProblem };
+  const result = await receive(
+    "getReferencePackValidationSummary",
+    (onResponse) =>
+      fetchHTTPOperation<GetReferencePackValidationSummaryResponse>({
+        operationID: "getReferencePackValidationSummary",
+        pathParameters: { summary_id: reference },
+        init: { signal, cache: "no-store" },
+        onResponse,
+      }),
+  );
+  if (result.kind === "failure") return failure(result);
+  const summary = result.value.data;
+  const count = summary.issues.length;
+  if (
+    summary.result !== "failed" ||
+    count === 0 ||
+    summary.primary_issue_id !== summary.issues[0]?.issue_id ||
+    summary.retained_issue_count !== count ||
+    count !== Math.min(1000, summary.total_issue_count) ||
+    summary.issues_truncated !== summary.total_issue_count > count ||
+    new Set(summary.issues.map((issue) => issue.issue_id)).size !== count
+  )
+    return { kind: "failed", problem: referencePackContractProblem };
+  return { kind: "read", value: summary };
 }
 const terminal = (job: ReferencePackJobResource) =>
   ["succeeded", "failed", "canceled"].includes(job.status);
@@ -378,6 +456,7 @@ const operations = {
   activate: "activateReferencePackVersion",
   disable: "disableReferencePackVersion",
   reverify: "reverifyReferencePackVersion",
+  remove: "removeReferencePackVersion",
   refresh_all: "refreshReferencePacks",
   refresh_selected: "refreshReferencePacks",
   import: "importReferencePack",

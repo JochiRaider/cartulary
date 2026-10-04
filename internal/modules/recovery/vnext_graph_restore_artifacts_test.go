@@ -18,7 +18,7 @@ func TestVNextGraphRestoreV4ProjectionContract_Unit(t *testing.T) {
 	if len(contractrecovery.RecoveryGenerations) != 1 {
 		t.Fatalf("Recovery generations = %d, want one current generation", len(contractrecovery.RecoveryGenerations))
 	}
-	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "2a04b36c624970358a52fda65efd9b0f1ab1398cbb0a049b06e77ac9b7f84ac7"; got != want {
+	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "01a6b736bc33c211fb246bdf64fabc19b115cb431c0cc3f2c6902ee6f889a314"; got != want {
 		t.Fatalf("current Graph v4 binding digest = %s, want %s", got, want)
 	}
 	if got, want := contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256, "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634"; got != want {
@@ -54,7 +54,7 @@ func TestVNextGraphRestoreV4ProjectionContract_Unit(t *testing.T) {
 	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &binding); err != nil {
 		t.Fatalf("decode generated Graph restore v4 binding: %v", err)
 	}
-	if binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v4" ||
+	if binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v5" ||
 		binding["algorithm_id"] != "graphprojection.restore_rebuild.v4" ||
 		binding["historical_dispatch_algorithm_ids"] != nil {
 		t.Fatalf("current Graph restore implementation binding drifted: %#v", binding)

@@ -82,6 +82,7 @@ func newConfigurationPolicy(
 		return policy.registrations[i].ID < policy.registrations[j].ID
 	})
 
+	namespaces := map[string]string{}
 	for _, inactivePolicy := range inactivePolicies {
 		if _, known := policy.profileIDs[inactivePolicy.ProfileID]; !known {
 			return ConfigurationPolicy{}, fmt.Errorf("inactive configuration policy %q has no claimable profile", inactivePolicy.Key)
@@ -89,9 +90,13 @@ func newConfigurationPolicy(
 		if claimPaths[inactivePolicy.ClaimKey] != inactivePolicy.ProfileID {
 			return ConfigurationPolicy{}, fmt.Errorf("inactive configuration policy %q has stale claim path %q", inactivePolicy.Key, inactivePolicy.ClaimKey)
 		}
-		if !strings.HasPrefix(inactivePolicy.Key, inactivePolicy.ProfileID+".") || inactivePolicy.Key == inactivePolicy.ClaimKey {
+		if inactivePolicy.Namespace == "" || !strings.HasPrefix(inactivePolicy.Key, inactivePolicy.Namespace+".") || inactivePolicy.Key == inactivePolicy.ClaimKey {
 			return ConfigurationPolicy{}, fmt.Errorf("inactive configuration policy %q is outside profile namespace %q", inactivePolicy.Key, inactivePolicy.ProfileID)
 		}
+		if prior := namespaces[inactivePolicy.Namespace]; prior != "" && prior != inactivePolicy.ProfileID {
+			return ConfigurationPolicy{}, fmt.Errorf("configuration namespace has multiple profile owners")
+		}
+		namespaces[inactivePolicy.Namespace] = inactivePolicy.ProfileID
 	}
 
 	inactive, err := extensions.NewInactiveConfigurationCatalog(inactivePolicies)

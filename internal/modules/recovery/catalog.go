@@ -37,14 +37,10 @@ func NewBackupCatalog(
 	store backupRepository,
 	storage BackupStorage,
 	extensionBackups *ExtensionBackupCatalog,
-	stateCatalog ...*recoverystate.Catalog,
+	stateCatalog *recoverystate.Catalog,
 ) *BackupCatalog {
-	var state *recoverystate.Catalog
-	if len(stateCatalog) == 1 {
-		state = stateCatalog[0]
-	}
 	return &BackupCatalog{
-		store: store, storage: storage, extensionBackups: extensionBackups, stateCatalog: state,
+		store: store, storage: storage, extensionBackups: extensionBackups, stateCatalog: stateCatalog,
 	}
 }
 
@@ -108,76 +104,10 @@ func (catalog *BackupCatalog) VerifyBackupSetDurability(ctx context.Context, bac
 	if catalog == nil || catalog.storage == nil || catalog.extensionBackups == nil {
 		return fmt.Errorf("%w: backup catalog requires backup storage", ErrInvalidBackupMetadata)
 	}
-	if _, vNext := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); vNext {
-		return verifyVNextBackupSetDurability(
-			ctx,
-			catalog.storage,
-			catalog.stateCatalog,
-			backupSet,
-		)
+	if _, current := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); !current {
+		return fmt.Errorf("%w: retired backup representation", ErrInvalidBackupArtifact)
 	}
-	manifestProof := BackupArtifactProof{
-		Key:       backupSet.IntegrityManifestKey,
-		SHA256:    backupSet.IntegrityManifestSHA256,
-		SizeBytes: backupSet.IntegrityManifestSizeBytes,
-	}
-	manifestBody, err := VerifyArtifactProof(ctx, catalog.storage, manifestProof)
-	if err != nil {
-		return fmt.Errorf("verify backup integrity manifest: %w", err)
-	}
-	manifest, err := DecodeIntegrityManifest(manifestBody)
-	if err != nil {
-		return fmt.Errorf("%w: decode backup integrity manifest: %v", ErrInvalidBackupArtifact, err)
-	}
-	if err := validateSelectedRestoreManifest(backupSet, manifest); err != nil {
-		return err
-	}
-	postgresBody, err := VerifyArtifactProof(ctx, catalog.storage, manifest.PostgresArtifact)
-	if err != nil {
-		return fmt.Errorf("verify postgres backup artifact: %w", err)
-	}
-	postgresSnapshot, err := DecodePostgresSnapshotArtifact(postgresBody)
-	if err != nil {
-		return err
-	}
-	if err := validateExtensionBindingProofs(catalog.extensionBackups, manifest.ExtensionBindings, postgresSnapshot); err != nil {
-		return err
-	}
-	objectBody, err := VerifyArtifactProof(ctx, catalog.storage, manifest.ObjectStoreArtifact)
-	if err != nil {
-		return fmt.Errorf("verify object-store backup artifact: %w", err)
-	}
-	if manifest.ObjectStoreBackupManifestArtifact == nil {
-		return fmt.Errorf("%w: object-store backup manifest artifact is required", ErrInvalidBackupArtifact)
-	}
-	objectManifestBody, err := VerifyArtifactProof(ctx, catalog.storage, *manifest.ObjectStoreBackupManifestArtifact)
-	if err != nil {
-		return fmt.Errorf("verify object-store backup manifest artifact: %w", err)
-	}
-	objectManifest, err := DecodeObjectStoreBackupManifestArtifact(objectManifestBody)
-	if err != nil {
-		return err
-	}
-	if err := ValidateObjectStoreBackupManifestForBackup(backupSet, objectManifest); err != nil {
-		return err
-	}
-	objectSnapshot, err := DecodeObjectStoreSnapshotArtifact(objectBody)
-	if err != nil {
-		return err
-	}
-	if err := ValidateObjectStoreManifestAgainstSnapshot(objectManifest, objectSnapshot); err != nil {
-		return err
-	}
-	if manifest.ObjectStoreBackupSummaryArtifact != nil {
-		summaryBody, err := VerifyArtifactProof(ctx, catalog.storage, *manifest.ObjectStoreBackupSummaryArtifact)
-		if err != nil {
-			return fmt.Errorf("verify object-store backup summary artifact: %w", err)
-		}
-		if _, err := DecodeObjectStoreBackupSummaryArtifact(summaryBody); err != nil {
-			return err
-		}
-	}
-	return nil
+	return verifyVNextBackupSetDurability(ctx, catalog.storage, catalog.stateCatalog, backupSet)
 }
 
 func (catalog *BackupCatalog) RecoveryGenerationIdentity(

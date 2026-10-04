@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -20,11 +21,9 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 	if actorUserID == uuid.Nil {
 		return CreateResult{}, &IndicatorCreateValidationError{Field: "actor_user_id", ReasonCode: "missing_required_field"}
 	}
-	input, err := indicatorInputFromCreateCommand(command)
-	if err != nil {
+	if err := ValidateCreateCommand(command); err != nil {
 		return CreateResult{}, err
 	}
-	requestHash := normalizedIndicatorCreateHash(input)
 	scopeKey := incidentID.String() + ":" + ViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    indicatorCreateRouteKey,
@@ -42,8 +41,21 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, requestLock); err != nil {
 		return CreateResult{}, fmt.Errorf("lock indicator create request: %w", err)
 	}
+	assignment, err := s.registry.BeginTx(ctx, tx)
+	if err != nil {
+		return CreateResult{}, err
+	}
+	evaluate, err := identity.FromConsumer(ctx, assignment)
+	if err != nil {
+		return CreateResult{}, err
+	}
+	input, err := indicatorInputFromCreateCommand(evaluate, command)
+	if err != nil {
+		return CreateResult{}, err
+	}
+	requestHash := normalizedIndicatorCreateHash(input)
 	if existing, err := s.idempotency.GetRouteIdempotencyTx(ctx, tx, idempotencyKey); err == nil {
-		if !bytes.Equal(existing.RequestHash, requestHash) && !bytes.Equal(existing.RequestHash, createIndicatorRequestHash(command)) {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return CreateResult{}, authn.ErrClientTxnConflict
 		}
 		payload, err := decodeStoredResponse(existing.ResponseJSON)
@@ -81,13 +93,18 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 	if err := lockIndicatorDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey); err != nil {
 		return CreateResult{}, err
 	}
-	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, incidentID, command)
+	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, incidentID, input)
 	if err != nil {
 		return CreateResult{}, err
 	}
-	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, actorUserID, incidentID, command, now)
+	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, actorUserID, incidentID, input, now)
 	if err != nil {
 		return CreateResult{}, err
+	}
+	if beforeRow == nil {
+		if err := assignment.RecordUsage(ctx, "type_registry.indicator"); err != nil {
+			return CreateResult{}, err
+		}
 	}
 	afterSnapshot, err := s.revisions.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
 	if err != nil {
@@ -168,11 +185,7 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 	}, nil
 }
 
-func (s *Application) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, command CreateCommand) (*revisions.RecordSnapshot, error) {
-	input, err := indicatorInputFromCreateCommand(command)
-	if err != nil {
-		return nil, err
-	}
+func (s *Application) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, input indicatorUpsertInput) (*revisions.RecordSnapshot, error) {
 	current, matched, err := loadIndicatorByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
@@ -200,16 +213,29 @@ func (s *Application) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx
 	if command.OperationOccurred.IsZero() {
 		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "operation_occurred", ReasonCode: "missing_required_field"}
 	}
+
+	assignment, err := s.registry.BeginTx(ctx, tx)
+	if err != nil {
+		return IndicatorFindOrCreateParticipantResult{}, err
+	}
 	if err := s.incidentState.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return IndicatorFindOrCreateParticipantResult{}, err
 	}
 
-	record, _, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, command.ActorUserID, command.IncidentID, CreateCommand{
+	evaluate, err := identity.FromConsumer(ctx, assignment)
+	if err != nil {
+		return IndicatorFindOrCreateParticipantResult{}, err
+	}
+	input, err := indicatorInputFromCreateCommand(evaluate, CreateCommand{
 		IndicatorType:   command.IndicatorType,
 		ValueKind:       command.ValueKind,
 		DisplayValue:    command.DisplayValue,
 		NormalizedValue: command.NormalizedValue,
-	}, command.OperationOccurred.UTC())
+	})
+	if err != nil {
+		return IndicatorFindOrCreateParticipantResult{}, err
+	}
+	record, _, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, command.ActorUserID, command.IncidentID, input, command.OperationOccurred.UTC())
 	if err != nil {
 		return IndicatorFindOrCreateParticipantResult{}, err
 	}
@@ -218,20 +244,19 @@ func (s *Application) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx
 	}
 	status := "reused"
 	if operationKind == "create" {
+		if err := assignment.RecordUsage(ctx, "type_registry.indicator"); err != nil {
+			return IndicatorFindOrCreateParticipantResult{}, err
+		}
 		status = "created"
 	}
 	return IndicatorFindOrCreateParticipantResult{
-		SchemaID:  indicatorFindOrCreateParticipantV1,
+		SchemaID:  indicatorFindOrCreateParticipantV2,
 		Status:    status,
 		Indicator: referenceFromRecord(record),
 	}, nil
 }
 
-func (s *Application) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, command CreateCommand, now time.Time) (indicatorRecord, map[string]any, string, int, error) {
-	input, err := indicatorInputFromCreateCommand(command)
-	if err != nil {
-		return indicatorRecord{}, nil, "", 0, err
-	}
+func (s *Application) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, input indicatorUpsertInput, now time.Time) (indicatorRecord, map[string]any, string, int, error) {
 	if err := lockIndicatorDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey); err != nil {
 		return indicatorRecord{}, nil, "", 0, err
 	}

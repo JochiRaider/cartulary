@@ -1,0 +1,69 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_dependency_missing",
+  "fixture_version": 1,
+  "fixture_family": "dependency",
+  "input_refs": [
+    "contracts/reference-packs/fixtures/dependency/missing.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "dependencies",
+      "severity": "error",
+      "phase": "dependency_validation",
+      "code": "dependency_unsatisfied",
+      "path": "$.dependencies",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": "enrichment.lolbas",
+        "related_pack_version": "absent-a"
+      },
+      "issue_id": "rpi_16b3415a6b34e8060573568b3ed936fc039e67f6b30e38bb821a7a9ffc965b36",
+      "reason_code": "dependency_unsatisfied"
+    },
+    {
+      "check_id": "dependencies",
+      "severity": "error",
+      "phase": "dependency_validation",
+      "code": "dependency_unsatisfied",
+      "path": "$.dependencies",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": "enrichment.lolbas",
+        "related_pack_version": "absent-b"
+      },
+      "issue_id": "rpi_688803d8e6e9e78737db18b2d1e68e484e3b6827eecbfebe8b7e56f629529a1f",
+      "reason_code": "dependency_unsatisfied"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "dependency_unsatisfied"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

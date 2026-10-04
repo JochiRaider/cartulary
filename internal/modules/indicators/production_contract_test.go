@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 )
 
 func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
@@ -247,7 +248,7 @@ func TestIndicatorObservationTransitionStateMachine(t *testing.T) {
 
 func TestCreateCommandProjectsIdentityValidation(t *testing.T) {
 	t.Parallel()
-	_, err := indicatorInputFromCreateCommand(CreateCommand{
+	_, err := indicatorInputFromCreateCommand(referencefixture.EvaluateIndicator, CreateCommand{
 		IndicatorType: "domain",
 		ValueKind:     "atomic",
 		DisplayValue:  "example.test",
@@ -257,7 +258,7 @@ func TestCreateCommandProjectsIdentityValidation(t *testing.T) {
 		t.Fatalf("validation = %#v, want indicator.indicator_type/invalid_value", err)
 	}
 
-	_, err = indicatorInputFromCreateCommand(CreateCommand{
+	_, err = indicatorInputFromCreateCommand(referencefixture.EvaluateIndicator, CreateCommand{
 		IndicatorType: "sha256",
 		ValueKind:     "atomic",
 		DisplayValue:  strings.Repeat("a", 64),

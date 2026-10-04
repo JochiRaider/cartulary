@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 )
 
 type Example struct {
@@ -49,7 +50,7 @@ func CreatePayload(clientTxnID string) map[string]any {
 
 func CanonicalDedupeKey(t testing.TB, indicatorType string, valueKind string, displayValue string) string {
 	t.Helper()
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(referencefixture.EvaluateIndicator, identity.Input{
 		IndicatorType: indicatorType,
 		ValueKind:     valueKind,
 		DisplayValue:  displayValue,
@@ -73,7 +74,7 @@ func SeedRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUI
 // that deliberately control the Records envelope, such as portability fixtures.
 func SeedSubtype(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID, indicatorType string, valueKind string, displayValue string) {
 	t.Helper()
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(referencefixture.EvaluateIndicator, identity.Input{
 		IndicatorType: indicatorType,
 		ValueKind:     valueKind,
 		DisplayValue:  displayValue,

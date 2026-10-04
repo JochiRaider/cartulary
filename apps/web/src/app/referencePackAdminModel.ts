@@ -6,6 +6,7 @@ import type {
   ReferencePackPaging,
   ReferencePackProblem,
   ReferencePackQuery,
+  ReferencePackValidationSummary,
   ReferencePackVersion,
 } from "../services/referencePacks";
 import { resolvePublicErrorPresentation } from "../shared/publicErrorPresentation";
@@ -26,7 +27,6 @@ export const emptyReferencePackQuery: ReferencePackQuery = {
   active: "",
   packVersionState: "",
   search: "",
-  verificationResult: "",
 };
 export function normalizeReferencePackQuery(
   input: ReferencePackQuery,
@@ -45,8 +45,7 @@ export function sameReferencePackQuery(
   return (
     a.search === b.search &&
     a.active === b.active &&
-    a.packVersionState === b.packVersionState &&
-    a.verificationResult === b.verificationResult
+    a.packVersionState === b.packVersionState
   );
 }
 export function referencePackIdentity(pack: {
@@ -59,11 +58,16 @@ export function referencePackEligible(
   pack: ReferencePackVersion,
   action: ReferencePackAction,
 ) {
+  if (pack.removed || pack.pending_work) return false;
   if (action === "activate")
-    return pack.pack_version_state === "verified_available" && !pack.active;
+    return pack.health === "verified_available" && !pack.active;
+  if (pack.distribution_kind === "packaged_builtin") return false;
+  if (action === "remove") return !pack.active && !pack.reproducibility_pinned;
   if (action === "disable")
-    return pack.pack_version_state === "verified_available";
-  return pack.pack_version_state !== "staged";
+    return (
+      pack.health === "verified_available" && !pack.administratively_disabled
+    );
+  return pack.last_verified_at !== null;
 }
 export type ReferencePackOperation = {
   readonly id: string;
@@ -119,6 +123,18 @@ export type ReferencePackCatalog = {
   readonly problem: ReferencePackProblem | null;
   readonly dirty: boolean;
 };
+export type ReferencePackDiagnostics =
+  | { readonly reference: string; readonly phase: "loading" | "paused" }
+  | {
+      readonly reference: string;
+      readonly phase: "failed";
+      readonly problem: ReferencePackProblem;
+    }
+  | {
+      readonly reference: string;
+      readonly phase: "ready";
+      readonly summary: ReferencePackValidationSummary;
+    };
 export type ReferencePackAdminState = {
   readonly authority: ReferencePackAuthority | null;
   readonly active: boolean;
@@ -131,6 +147,7 @@ export type ReferencePackAdminState = {
   readonly file: File | null;
   readonly operation: ReferencePackOperation | null;
   readonly jobs: Readonly<Record<string, ReferencePackKnownJob>>;
+  readonly diagnostics: Readonly<Record<string, ReferencePackDiagnostics>>;
   readonly scrollTop: number;
   readonly announcement: { readonly serial: number; readonly text: string };
 };
@@ -156,6 +173,7 @@ export function initialReferencePackState(): ReferencePackAdminState {
     file: null,
     operation: null,
     jobs: {},
+    diagnostics: {},
     scrollTop: 0,
     announcement: { serial: 0, text: "" },
   };
@@ -199,11 +217,37 @@ export function referencePackCommandLabel(command: ReferencePackCommand) {
     case "refresh_selected":
       return `Refresh ${command.packKeys.length} selected pack ${command.packKeys.length === 1 ? "key" : "keys"}`;
     default:
-      return `${{ activate: "Activate", disable: "Disable", reverify: "Reverify" }[command.kind]} ${command.target.pack_key}@${command.target.pack_version}`;
+      return `${{ activate: "Activate", disable: "Disable", reverify: "Reverify", remove: "Remove" }[command.kind]} ${command.target.pack_key}@${command.target.pack_version}`;
   }
 }
 export function referencePackProblemText(problem: ReferencePackProblem) {
   switch (problem.kind) {
+    case "operation_rejected":
+      return (
+        (
+          {
+            verification_pending:
+              "A verification operation is pending for this pack key. Wait for its outcome before another action.",
+            no_successful_verification:
+              "This version has never passed verification. Import its container again explicitly.",
+            stale_admission_state:
+              "A relevant dependency changed during this operation. Review current state and submit a new request.",
+            clock_untrusted:
+              "The deployment has not asserted a trusted clock. Ask the deployment operator to configure it before verification or activation.",
+            pinned:
+              "Historical artifacts retain this version. It cannot be removed while those references exist.",
+            active:
+              "This version is active. Disable it or activate a replacement before removal.",
+            packaged_builtin:
+              "Release-provided Base registries cannot be disabled or removed.",
+            removed:
+              "This version has been removed. An explicit import is required to restore it.",
+            type_registry_incompatible:
+              "The replacement registry is incompatible with retained records or required Base entries.",
+          } as Record<string, string>
+        )[problem.reason ?? ""] ??
+        "The operation is not eligible in the current pack state. Reload the catalog and review its dependencies."
+      );
     case "state_conflict":
       return "The pack state changed. Review its current state before choosing another action.";
     case "activation_rejected":

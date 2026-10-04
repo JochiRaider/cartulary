@@ -125,6 +125,7 @@ type Metadata struct {
 
 type ReadSeekCloser interface {
 	io.Reader
+	io.ReaderAt
 	io.Seeker
 	io.Closer
 }
@@ -132,6 +133,13 @@ type ReadSeekCloser interface {
 type RegularEntry struct {
 	Reference Reference
 	Metadata  Metadata
+}
+
+// DirectoryEntry is one immediate child of an admitted directory. Only
+// ordinary single-link regular files and directories are enumerated.
+type DirectoryEntry struct {
+	Reference Reference
+	Directory bool
 }
 
 type WriteFunc func(io.Writer) error

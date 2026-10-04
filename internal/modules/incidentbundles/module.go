@@ -12,12 +12,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 )
 
 // ModuleDependencies is the complete Incident Bundles production composition
 // boundary. NewModule rejects every missing reference dependency before any
 // worker or route can be published.
 type ModuleDependencies struct {
+	ArtifactReferences      ArtifactReferenceSource
 	Postgres                *pgxpool.Pool
 	JobTransactions         JobTransactions
 	JobOperations           JobOperations
@@ -31,6 +33,7 @@ type ModuleDependencies struct {
 	ProjectionRebuilder     ImportProjectionRebuilder
 	SourceCatalog           *sourceport.Catalog
 	BlobPortability         BlobPortability
+	ReferencePacks          reference_data.IncidentReferences
 	Now                     func() time.Time
 }
 
@@ -79,6 +82,10 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		return nil, errors.New("incident bundle source catalog dependency is required")
 	case dependencies.BlobPortability == nil:
 		return nil, errors.New("incident bundle blob portability dependency is required")
+	case dependencies.ArtifactReferences == nil:
+		return nil, errors.New("incident bundle artifact reference source is required")
+	case dependencies.ReferencePacks == nil:
+		return nil, errors.New("incident bundle Reference Pack retention dependency is required")
 	}
 
 	now := dependencies.Now
@@ -87,11 +94,13 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	}
 	store := newStore(dependencies.Postgres, dependencies.JobTransactions)
 	importer := importer{
-		pool:              dependencies.Postgres,
-		blobPort:          dependencies.BlobPortability,
-		finalizer:         dependencies.ImportFinalizer,
-		projectionRebuild: dependencies.ProjectionRebuilder,
-		sourceCatalog:     dependencies.SourceCatalog,
+		artifactReferences: dependencies.ArtifactReferences,
+		pool:               dependencies.Postgres,
+		blobPort:           dependencies.BlobPortability,
+		finalizer:          dependencies.ImportFinalizer,
+		projectionRebuild:  dependencies.ProjectionRebuilder,
+		sourceCatalog:      dependencies.SourceCatalog,
+		referencePacks:     dependencies.ReferencePacks,
 	}
 	worker := newIncidentBundleWorker(
 		store,
@@ -106,6 +115,8 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		dependencies.ProjectionRebuilder,
 		dependencies.SourceCatalog,
 		dependencies.BlobPortability,
+		dependencies.ReferencePacks,
+		dependencies.ArtifactReferences,
 		dependencies.Limits,
 		now,
 	)

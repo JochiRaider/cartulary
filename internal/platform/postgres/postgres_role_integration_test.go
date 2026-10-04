@@ -113,6 +113,28 @@ func TestPostgresRolesOwnershipAndPrivileges_Integration(t *testing.T) {
 	assertExactObjectOwnership(t, migration)
 	assertPublicAndDefaultPrivileges(t, migration)
 	assertManifestPrivilegeParity(t, migration, runtime, recovery)
+	// Table-level append privileges do not imply blanket UPDATE. The pack
+	// finalizer owns exactly one separately granted publication-fact column.
+	var packUpdateColumns []string
+	rows, err := runtime.QueryContext(ctx, `SELECT attname::text FROM pg_catalog.pg_attribute
+ WHERE attrelid='public.reference_pack_attempt_members'::regclass AND attnum>0 AND NOT attisdropped
+ AND pg_catalog.has_column_privilege(current_user,attrelid,attname,'UPDATE') ORDER BY attname`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var column string
+		if err := rows.Scan(&column); err != nil {
+			rows.Close()
+			t.Fatal(err)
+		}
+		packUpdateColumns = append(packUpdateColumns, column)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil || len(packUpdateColumns) != 1 || packUpdateColumns[0] != "invalidated_content" {
+		t.Fatalf("Reference Pack column update grants = %v: %v", packUpdateColumns, err)
+	}
 	assertRuntimePrivilegeMatrix(t, runtime)
 	assertRecoveryPrivilegeMatrix(t, recovery)
 	assertFutureObjectDefaults(t, migration, runtime, recovery)

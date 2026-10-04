@@ -12,7 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 )
 
 func CrossOwnerDescriptors(contracts []extensions.ParticipantContract) []crossownertransaction.Descriptor {
@@ -63,11 +63,15 @@ func (m TransactionCapabilityMux) TransactionCapabilities(participantID string, 
 }
 
 type CrossOwnerBackend struct {
-	database postgres.DB
+	database TransactionBeginner
 	provider TransactionCapabilityProvider
 }
 
-func NewCrossOwnerBackend(database postgres.DB, provider TransactionCapabilityProvider) (*CrossOwnerBackend, error) {
+type TransactionBeginner interface {
+	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
+}
+
+func NewCrossOwnerBackend(database TransactionBeginner, provider TransactionCapabilityProvider) (*CrossOwnerBackend, error) {
 	if database == nil || provider == nil {
 		return nil, crossownertransaction.ErrUnavailable
 	}
@@ -88,10 +92,11 @@ func (b *CrossOwnerBackend) Begin(ctx context.Context, descriptors []crossownert
 }
 
 type crossOwnerTransaction struct {
-	tx          pgx.Tx
-	provider    TransactionCapabilityProvider
-	descriptors []crossownertransaction.Descriptor
-	closed      bool
+	tx              pgx.Tx
+	provider        TransactionCapabilityProvider
+	descriptors     []crossownertransaction.Descriptor
+	closed          bool
+	commitFinalized func(context.Context) (extensionstore.CommitOutcome, error)
 }
 
 func (t *crossOwnerTransaction) AcquireSerializationLock(ctx context.Context, key crossownertransaction.OrderedSerializationKey) error {
@@ -134,7 +139,7 @@ func (t *crossOwnerTransaction) FinalizationCapability() (crossownertransaction.
 	if t == nil || t.tx == nil || t.closed {
 		return nil, crossownertransaction.ErrUnavailable
 	}
-	return crossOwnerFinalization{tx: t.tx}, nil
+	return crossOwnerFinalization{transaction: t}, nil
 }
 
 func (t *crossOwnerTransaction) Commit(ctx context.Context) (crossownertransaction.CommitOutcome, error) {
@@ -142,6 +147,17 @@ func (t *crossOwnerTransaction) Commit(ctx context.Context) (crossownertransacti
 		return crossownertransaction.CommitUnknown, crossownertransaction.ErrUnavailable
 	}
 	t.closed = true
+	if t.commitFinalized != nil {
+		outcome, err := t.commitFinalized(ctx)
+		switch outcome {
+		case extensionstore.CommitProven:
+			return crossownertransaction.CommitProven, nil
+		case extensionstore.CommitAbsent:
+			return crossownertransaction.CommitAbsent, err
+		default:
+			return crossownertransaction.CommitUnknown, err
+		}
+	}
 	err := t.tx.Commit(ctx)
 	if err == nil {
 		return crossownertransaction.CommitProven, nil
@@ -168,7 +184,7 @@ func (t *crossOwnerTransaction) Rollback(ctx context.Context) (crossownertransac
 }
 
 type crossOwnerFinalization struct {
-	tx pgx.Tx
+	transaction *crossOwnerTransaction
 }
 
 func (crossOwnerFinalization) FinalizationScope() string { return "shared.finalization" }

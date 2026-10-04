@@ -336,7 +336,7 @@ Profiles: base
 Verified by: AC-124, AC-125, AC-127, AC-131, AC-135, AC-219, AC-220, AC-231, AC-506
 
 Layout/bundle coordinated-upgrade exception. REQ-01-143's closed layout.v2
-representation and REQ-01-635's bundle version 4 are the sole current accepted
+representation and REQ-01-635's bundle version 5 are the sole current accepted
 representations. Retirement of layout.v1 requests/storage reads and bundle version
 3 import is an intentional coordinated pre-production break on the existing
 routes, extending the earlier layout.v2 response transition. It requires a matched
@@ -1743,7 +1743,7 @@ deletion tuple. Indicator source persistence MUST NOT retain an authoritative
 or fallback copy of those fields. Portable Indicator rows retain the admitted
 source-major-`2` shape by joining Indicator subtype state to the Records
 envelope; neither storage contraction nor claim rebuild changes valid bundle
-version 4 bytes.
+version 5 source row shapes.
 
 `indicator_active_identities` is Indicator-owned rebuildable coordination
 state keyed by `(incident_id, indicator_type, dedupe_key)` and maps one active
@@ -2640,6 +2640,7 @@ Administrative audit read projections MUST use these current-profile `target_kin
 | `auth_binding_retired` | `auth_binding` | Retired `auth_binding_id`; non-null. |
 | `backup_created` | `backup_set` | Created `backup_set_id`; non-null. |
 | `restore_started`, `restore_completed`, `restore_failed`, `restore_verification_completed` | `restore_operation` | Recovery operation identifier; non-null. |
+| Registered `reference_pack_*` actions below | `reference_pack_operation` | Reference Data operation UUID; non-null. |
 | `membership_created`, `membership_role_changed`, `membership_deleted` | `incident_membership` | Affected member `user_id`; non-null because `scope_id` already carries the incident. |
 
 No other current-profile `target_kind` values are emitted by these routes. Future target kinds are additive read-side values only and do not alter the current server emission set.
@@ -2672,6 +2673,8 @@ Deployment-scope action codes are:
 - `restore_completed`,
 - `restore_failed`,
 - `restore_verification_completed`.
+
+Reference Pack deployment actions are `reference_pack_` followed by exactly one of: `import_admitted`, `reverify_admitted`, `refresh_admitted`, `verification_completed`, `import_verification`, `reverification`, `refresh_verification`, `activation`, `rollback_activation`, `safety_fallback`, `profile_reconciliation`, `dependency_invalidation`, `disablement`, `removal`, `exact_reimport`, `payload_invalidation`, `root_import`, `trust_root_update`, `trust_root_rejection`, or `sequence_rejection`. They use the same attributed operation UUID as their semantic transaction. Base reconciliation and integrity events remain available without claiming the administration profile. Their visible changes contain registered event/result tokens and an opaque logical-version reference, never user reasons, payload values, source URLs, signatures or storage locations. Route-idempotent replay creates no additional audit event.
 
 Incident-scope action codes are:
 
@@ -3814,6 +3817,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `release_not_found` | `404` | `false` | No visible release exists for the supplied `release_id`. |  |  |  |
 | `release_state_conflict` | `409` | `false` | The addressed release exists, but its current `release_state` does not allow the requested approve, publish, or invalidate action. `error.details.reason_code` MUST use the `release_state_conflict` registry in §3.3.6.2. |  |  |  |
 | `release_approval_rejected` | `409` | `false` | The addressed release exists, but the caller or current artifact tuple does not satisfy the approval requirements for the requested approval action. `error.details.reason_code` MUST use the `release_approval_rejected` registry in §3.3.6.2. |  |  |  |
+| `required_reference_pack_unavailable` | `409` | `false` | A pinned snapshot set cannot be reconstructed for a new render or re-derivation. No active or built-in substitution is allowed. | | | |
 | `release_render_failed` | `409` | `false` | A release render request reached the render phase but failed closed because the selected redaction profile, template contract, post-redaction model, or manifest encoding was invalid. `error.details.reason_code` MUST use the `release_render_failed` registry in §3.3.6.2. |  |  |  |
 | `invalid_reference_pack_request` | `400` | `false` | A reference-pack import, activation, disable, reverify, or refresh request is malformed, omits a required member, uses `null` where forbidden, includes an unknown top-level member, or fails the shared upload-envelope contract for `POST /api/v1/reference-packs/import`, including unsupported framing, missing or duplicate required parts, unexpected extra parts, invalid metadata encoding or JSON, or invalid part content type. |  |  |  |
 | `reference_pack_not_found` | `404` | `false` | No visible reference-pack version exists for the supplied `(pack_key, pack_version)` pair. |  |  |  |
@@ -4554,7 +4558,7 @@ job-resource responses. Initiating receipt reconciliation is transaction-bound
 and owner-specific: immutable owner admission receipts are validated without
 replacement; Core terminal-receipt behavior remains as declared by its route.
 
-- The canonical HTTP job resource returned by initiating routes that use the canonical job resource, `GET /api/v1/jobs/{job_id}`, and successful cancel responses MUST use the common success envelope from §3.3.6 with `data` equal to one job resource object. That object MUST include `job_id`, `scope`, `status_route`, `status`, `cancelable`, `submitted_by_user_id`, `submitted_at`, `updated_at`, `progress`, `started_at`, `finished_at`, `retained_until`, `result_summary`, and `error_summary`. `started_at`, `finished_at`, `retained_until`, `result_summary`, and `error_summary` are required-but-nullable. The resource MAY include optional `message` for short operator-visible status text.
+- The canonical HTTP job resource returned by initiating routes that use the canonical job resource, `GET /api/v1/jobs/{job_id}`, and successful cancel responses MUST use the common success envelope from §3.3.6 with `data` equal to one job resource object. That object MUST include `job_id`, `scope`, `status_route`, `status`, `cancelable`, `submitted_by_user_id`, `submitted_at`, `updated_at`, `progress`, `started_at`, `finished_at`, `retained_until`, `result_summary`, and `error_summary`. `submitted_by_user_id`, `started_at`, `finished_at`, `retained_until`, `result_summary`, and `error_summary` are required-but-nullable. The submitter is null only for a declared deployment-local operator job, whose immutable private identity retains the operator operation UUID; all authenticated HTTP admissions retain their actual human submitter. The resource MAY include optional `message` for short operator-visible status text.
 - `scope` is required and is the authorization and live-update boundary. In `/api/v1/`, the closed `scope.kind` vocabulary is `incident | deployment`. When `scope.kind = incident`, `scope.incident_id` is required. When `scope.kind = deployment`, `scope.incident_id` is forbidden.
 - The common job shell MUST preserve the initiating route family's authorization contract rather than replacing it with submitter-only access. Incident-scoped jobs admitted by a route that also requires `deployment_admin` MUST require current `deployment_admin` plus current membership in the job incident for job reads. Cancel for that policy MUST additionally require either the original submitter relationship or current incident role `admin`.
 - `status` is a closed six-token vocabulary: `queued`, `running`, `cancel_requested`, `succeeded`, `failed`, and `canceled`. The public job shell MUST NOT introduce `completed`, `done`, `warning`, or job-family-specific phase tokens as alternate `status` values.
@@ -7289,7 +7293,7 @@ Verified by: AC-033, AC-034, AC-035, AC-234
 ### 11.2 Minimum disconnected bundle
 
 **REQ-01-400**
-For the smallest supported flyaway or disconnected deployment that implements this profile, the deployment MUST preinstall and activate exactly the following three reference packs by default:
+Every Base Profile deployment, including connected deployments and deployments that do not claim Reference Pack administration, MUST verify and establish the following three application-release-bound registries before readiness:
 
 - `type_registry.host`
 - `type_registry.evidence`
@@ -7312,7 +7316,7 @@ Profiles: reference_pack
 Verified by: AC-092, AC-234
 
 **REQ-01-403**
-The smallest supported disconnected bundle MUST NOT require or preinstall enrichment packs. Current-profile enrichment add-on pack keys include:
+The smallest supported disconnected bundle MUST NOT require or preinstall enrichment packs. Current-profile enrichment add-on pack keys are exactly:
 
 - `enrichment.tor`
 - `enrichment.cisa_kev`
@@ -7328,7 +7332,7 @@ Profiles: reference_pack
 Verified by: AC-092, AC-234
 
 **REQ-01-404**
-Other enrichment or framework pack keys MAY exist. They MUST follow the same activation, verification, and degradation rules defined by this profile.
+The current pack-key and content-profile registries are closed to the sixteen families listed by the Reference Pack NLSpec. Other keys require a later adopted contract; current admission MUST reject them.
 Profiles: reference_pack
 Verified by: AC-092, AC-234
 
@@ -7338,11 +7342,11 @@ Profiles: reference_pack
 Verified by: AC-092, AC-234
 
 **REQ-01-406**
-Separately distributed `view_contract` packs MAY exist in larger deployments. They MUST NOT be required for the smallest disconnected bundle.
+Separately distributed `view_contract` packs are outside the current Reference Pack contract and MUST NOT be accepted through its import or consumer interfaces. View Contracts remain owned by their existing application-release boundary.
 Profiles: reference_pack
 Verified by: AC-092, AC-234
 
-Larger supported disconnected bundles MAY preinstall additional packs, but the minimum disconnected bundle is fixed by this subsection.
+Optional packs are separately supplied and explicitly activated. On restart, a claimed deployment preserves compatible imported replacements; an unclaimed deployment selects the current-release Base registries and retains imported versions inactive. Prior built-ins remain retained for historical pins. No optional dataset is implicitly distributed or activated by Base reconciliation.
 
 ### 11.3 Offline import, update, and activation flow
 
@@ -7357,47 +7361,26 @@ The import and update flow MUST satisfy all of the following:
 1. the operator supplies a pack bundle either by placing it in the configured reference-pack storage root or by submitting it through `POST /api/v1/reference-packs/import`,
 2. the system stages the bundle inside the configured temporary-work root,
 3. the system verifies the staged bundle before any extracted content becomes active,
-4. on successful verification, the system records the candidate version in durable condition `verified_available`; in storage this is realized by `reference_packs.status='available'`, `verification_result='passed'`, and the version not being the active version for its `pack_key`,
+4. on successful verification, the system retains immutable logical content and a successful verification envelope, sets health to `verified_available`, and preserves independent administrative disablement and existing activation,
 5. activation requires an explicit operator action that switches the active version pointer for the target `pack_key`.
 Profiles: reference_pack
 Verified by: AC-033, AC-093, AC-094, AC-096, AC-234
 
 #### 11.3.1 Linked reference-pack lifecycle machines
 
-For each imported reference-pack version, Cartulary defines two linked lifecycle machines:
-
-- a verification and availability machine authoritative on `reference_packs`,
-- an activation machine authoritative on `reference_pack_activation_state` and `reference_pack_attestations`.
+For each reference-pack version, Cartulary retains immutable logical content, individual execution attempts, successful envelope history, current health, independent administrative disablement, and removal history. Activation is membership in the current immutable pack set. Historical sets and their first-success provenance remain immutable. The Reference Pack NLSpec owns the exact transition and persistence contracts; no legacy table or mutable upsert defines lifecycle behavior.
 
 **REQ-01-409**
 These machines are linked but separate. Successful verification does not by itself activate a version, and activation MUST NOT bypass verification.
 Profiles: reference_pack
 Verified by: AC-033, AC-035, AC-093, AC-094, AC-095, AC-096, AC-234
 
-For the verification and availability machine, the authoritative pack-version conditions are:
+Health is exactly `staged`, `verified_available`, `failed`, or `missing`. The public condition is `disabled` only when health is `verified_available` and administrative disablement is true; otherwise it equals health. `active` is an independent Boolean and requires healthy, enabled, nonremoved content in the current set. Success-only fields on a never-successful candidate are explicitly null.
 
-- `staged`: `reference_packs.status='staged'` and `verification_result='pending'`,
-- `verified_available`: `reference_packs.status='available'` and `verification_result='passed'` and the version is not the active version for its `pack_key`,
-- `disabled`: `reference_packs.status='disabled'`,
-- `failed`: `reference_packs.status='failed'` or `verification_result='failed'`,
-- `missing`: `reference_packs.status='missing'`.
-
-For the activation machine, a pack version is `active` only when `reference_packs.status='available'`, `verification_result='passed'`, and `reference_pack_activation_state.active_version` for the same `pack_key` equals that `pack_version`.
-
-The allowed lifecycle transitions are:
-
-- `staged -> verified_available` only after successful verification,
-- `staged -> failed` on failed verification,
-- `staged -> missing` when the staged bundle or extracted payload is no longer available before successful verification completes,
-- `verified_available -> active` only through explicit activation,
-- `active -> verified_available` only when another verified version for the same `pack_key` is explicitly activated,
-- `verified_available -> disabled` or `active -> disabled` only through explicit administrative disablement,
-- `disabled -> verified_available` only after an explicit administrative re-enable that confirms existing verification metadata still applies or after re-verification succeeds,
-- `verified_available -> failed`, `active -> failed`, or `disabled -> failed` only when a later integrity, signature, or contract-compatibility check fails,
-- `verified_available -> missing`, `active -> missing`, or `disabled -> missing` only when required payload content is unavailable at use time.
+Initial import success establishes a successful envelope; content rejection or execution abort terminates the attempt without fabricating success. Failed renewal preserves the prior envelope, health, activation, disablement, and trust. Reverify and refresh require a previous successful envelope and preserve disablement on success. A never-successful candidate requires explicit reimport. A content-invalidity verdict from reverify, refresh, or first detection of payload loss changes health and publishes dependency pruning and mandatory-registry fallback atomically. Operational failure, cancellation, timeout, or stale admission does not condemn established content. Explicit successful activation may clear disablement. Administrative removal creates a tombstone and is rejected while active or pinned.
 
 **REQ-01-410**
-A `failed` or `missing` version MUST NOT become `active` without first returning through `staged` or `verified_available` by a new import or successful re-verification path. A `disabled`, `failed`, or `missing` version MUST NOT remain or become the active version pointer for its `pack_key`.
+A `failed` or `missing` version MUST NOT become active without successful verification and explicit activation. Verification alone MUST NOT clear administrative disablement. A disabled, failed, missing, or removed version MUST NOT remain in the effective current set. A healthy disabled version may be explicitly activated after the ordinary activation checks pass.
 Profiles: reference_pack
 Verified by: AC-033, AC-035, AC-093, AC-094, AC-095, AC-096, AC-234
 
@@ -7424,10 +7407,10 @@ Before a reference pack enters durable condition `verified_available` or becomes
 - `pack_key`,
 - `pack_kind`,
 - `pack_version`,
-- the source identifier, if available,
+- the required source identifier and source-profile binding,
 - `manifest_sha256`,
 - one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest,
-- signature or trusted-source metadata when available,
+- offline TUF 1.0.35 Ed25519 authentication for operator-imported content, or the exact trusted application-release binding for packaged built-ins,
 - reference-pack contract or schema compatibility with the running application,
 - safe-path validation for archive members before extraction,
 - a content allowlist that rejects executable active content at import time.
@@ -7440,28 +7423,12 @@ Profiles: reference_pack
 Verified by: AC-035, AC-094, AC-095, AC-234
 
 **REQ-01-416**
-If verification fails, the candidate pack version MUST remain inactive, and the previously active version, if any, MUST remain active.
+Initial import rejection MUST publish no usable content or trust advancement. Failed renewal MUST preserve established state. Reverify or refresh that proves established content invalid MUST atomically publish its health verdict and fallback/dependency consequences; mixed refresh publishes the complete cohort and terminates its Job as failed. Operational aborts publish no partial semantic delta. Incompatible root proposals abort the entire refresh without member outcomes. These operation-specific rules replace a blanket failure-preserves-activation rule.
 Profiles: reference_pack
 Verified by: AC-035, AC-094, AC-095, AC-234
 
 **REQ-01-417**
-The implementation MUST record structured, incident-external attestation metadata for pack import and pack activation. At minimum, the attestation metadata MUST persist:
-
-- `pack_key`,
-- `pack_kind`,
-- `pack_version`,
-- `manifest_sha256`,
-- `payload_sha256`,
-- `source_identifier`,
-- `verification_method`,
-- `signer_key_id` or trusted-source identifier,
-- `imported_by_user_id`,
-- `imported_at`,
-- `activated_by_user_id`,
-- `activated_at`,
-- `previous_active_version`,
-- `verification_result`,
-- optional operator note or change ticket.
+The implementation MUST record incident-external, append-only attestations using the closed `cartulary.reference_pack_attestation.v1` contract and event vocabulary in Reference Pack RP-REQ-249 through RP-REQ-252. Attribution and event publication MUST be idempotent by operation identity. Historical set provenance MUST retain its first-success envelope; current administrative verification MUST NOT rewrite it. User reasons, change tickets, payload values, and storage paths MUST NOT enter attestations or administrative audit projections.
 Profiles: reference_pack
 Verified by: AC-035, AC-094, AC-095, AC-234
 
@@ -7473,12 +7440,12 @@ Verified by: AC-035, AC-094, AC-095, AC-234
 ### 11.4.1 Activation safety and observability
 
 **REQ-01-419**
-Activation MUST read only from a `verified_available` candidate and MUST emit a structured activation attestation bound to the target `pack_key` and `pack_version`.
+Activation MUST read only healthy retained content with a successful envelope, perform freshness and compatibility checks, and emit the ordinary or rollback activation attestation required by Reference Pack RP-REQ-087. Explicit activation may re-enable a healthy disabled version.
 Profiles: reference_pack
 Verified by: AC-034, AC-035, AC-095, AC-234
 
 **REQ-01-420**
-If an active version is disabled, fails a later integrity or compatibility check, or becomes missing, the implementation MUST remove or replace the active pointer in `reference_pack_activation_state` before any pack-dependent operation can continue to treat that version as active.
+If an active version is disabled, fails a later integrity or compatibility check, or becomes missing, the implementation MUST atomically publish the resulting effective set, required Base fallback, dependency invalidations, and attestations before any pack-dependent operation can continue to treat that version as active. If no healthy selected version or current-release Base fallback can satisfy a required registry, definitive invalidation MUST instead clear the current selection, advance its revision, retain the loss and its null-result-set attestation, and make the deployment not ready. It MUST preserve historical sets. New current-set captures fail with `pack_unavailable`, and administrative operations reject `required_registry_gap` after prior request and eligibility checks until recovery and Base reconciliation restore a complete selection. An administrative disablement that would create this gap MUST be rejected without state mutation. Exact historical reads MUST fail explicitly if their retained content is unavailable; they MUST NOT substitute the new effective version.
 Profiles: reference_pack
 Verified by: AC-034, AC-035, AC-095, AC-234
 
@@ -7790,7 +7757,7 @@ Profiles: base
 Verified by: AC-399
 
 **REQ-01-578**
-A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a typed non-secret verification basis containing the mechanism identity, non-secret root-binding digests, recovery-state catalog digest, and codec-registry digest. Its canonical digest is the verification-basis digest. Open string maps and implementation wording MUST NOT participate. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
+A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, `roots.reference_pack_storage` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a typed non-secret verification basis containing the mechanism identity, non-secret root-binding digests, recovery-state catalog digest, and codec-registry digest. Its canonical digest is the verification-basis digest. Open string maps and implementation wording MUST NOT participate. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
 
 A manual one-shot restore-verification command MAY exist, but it is not sufficient by itself to satisfy the cadence requirement. The deployment-local implementation MUST provide an operator-runnable due-verification control that selects retained backups due by verification age or verification-basis change, runs verification in an isolated restore target, records each result, and fails closed before mutating any target that is not proven to be a restore-verification target.
 
@@ -7801,7 +7768,7 @@ query. Workbook validates the complete registry and executes the selected
 registration. Recovery selects the lexicographically lowest restored
 `incident_id` once, passes that exact identity to Workbook, and records the
 returned registration and view identity in
-`cartulary.restore_verification.v2`; Workbook MUST NOT reselect an incident.
+`cartulary.restore_verification.v3`; Workbook MUST NOT reselect an incident.
 Duplicate registration IDs, more than one Base default, or an unresolved view
 schema or executor MUST fail before verification execution.
 
@@ -7827,7 +7794,7 @@ after successful restore, rebuild, and invariant checks establish that the
 restored backup contains no incidents.
 
 For a current SeaweedFS S3 object-store realization, a
-`cartulary.restore_verification.v2` artifact is sufficient
+`cartulary.restore_verification.v3` artifact is sufficient
 restore-verification evidence only when it selects exactly one retained
 `backup_set`, binds the exact verification basis, catalog, codecs, selected
 incident, and executed workbook registration, restores Postgres and
@@ -8158,7 +8125,7 @@ Verified by: AC-164, AC-166, AC-236, AC-487, AC-490
 ```json
 {
   "bundle_format": "cartulary.incident_bundle",
-  "bundle_version": 4,
+  "bundle_version": 5,
   "bundle_id": "uuid",
   "incident_id": "uuid",
   "incident_key": "string",
@@ -8257,12 +8224,14 @@ Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
 **REQ-01-445**
-`reference_pack_refs.json` MUST list the reference-pack keys and versions referenced by imported saved views, overlays, or optional embedded sections. Missing referenced packs MUST degrade only the affected overlays or saved views. They MUST NOT block import of the core incident state.
+`reference_pack_refs.json` MUST list the reference-pack keys and versions referenced by imported saved views, overlays, or optional embedded sections. Missing optional referenced packs MUST degrade only the affected overlays or saved views. They MUST NOT block import of the core incident state. An explicitly required member follows the Reference Pack owner's exact resolution and rejection rules.
+
+Incident Portability MUST retain the exact admitted source reference catalog, including unavailable optional tuples, through the Reference Data retention interface in its final import transaction. Re-export preserves those references. Reusable local members receive destination-envelope pins without changing activation or administrative disablement; source metadata never supplies destination trust or replaces local provenance. A same-key/version digest collision is an identity failure, not optional absence. Reference Data owns revision guards, set and individual-version retention, and recovery linkage; Incident Portability MUST NOT inspect Reference Data tables or storage files. Required-artifact resolution and embedded-byte verification remain subject to the Reference Pack owner contract. Fresh embedded verification uses one Reference Data execution scope under the parent import Job. Its frozen cohort, verification-start instant, elapsed budget and cancellation observation remain effective through all remaining source preparation and the common finalizer. Reference Pack success, optional candidate verdicts, compatible trust updates, exact local pins and incident publication commit together. A required-member content rejection publishes only attributable rejection evidence with the failed parent Job; successful siblings, trust proposals, pins, catalogs and the incident remain unpublished. An operational abort publishes no content-verdict or successful semantic delta. Proven commit wins over a later cancellation or deadline; proven absence uses the adopted Extensions deadline policy. The parent Job exposes registered `reference_pack_operation_rejected` reasons and `reference_pack_verification_failed/verification_timeout` without rewriting them as source-content rejection.
 Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
 **REQ-01-446**
-If `reference_pack_mode='embedded'`, pack payloads MAY be embedded under `ext/reference_packs/**`. If `optional_sections` contains `snapshots`, immutable snapshot descriptors and rendered artifacts MAY be embedded under `ext/snapshots/**`. Unsupported or missing optional embedded sections MUST NOT block import of the core incident state. Capability tokens MUST NOT alter this rule.
+If `reference_pack_mode='embedded'`, pack payloads MAY be embedded under `ext/reference_packs/**`. The recognized format uses Reference Data's closed `reference_pack_content.v1` inventory at `ext/reference_packs/content.json`, deterministic container paths, and exact `(pack_set_id, pack_key)` requirements. This control manifest may be present in references-only mode without an optional-payload section token, so re-export cannot erase retained requirements. A missing optional container may degrade its references; an unresolved explicitly required member fails the `reference_pack_refs.degradation_bounded` invariant. Neither a capability token nor a source signature grants destination trust. If `optional_sections` contains `snapshots`, Reporting supplies immutable snapshot descriptors and rendered artifacts under `ext/snapshots/**` using Reporting REQ-RPT-046pa and its closed `cartulary.reporting_portable_artifacts.v1` catalog. A wholly absent optional section does not block core import. A present recognized section must satisfy its closed schema and exact inventory; malformed, unsupported-version or contradictory content fails before incident publication. Imported artifacts remain historical source evidence and never manufacture native reporting Jobs, approvals, destination trust or activation. Sensitive reveal maps are omitted only under the explicit Reporting omission inventory. Capability tokens MUST NOT alter these rules.
 Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
@@ -8284,6 +8253,8 @@ visible only through that transaction's one proven commit.
 Profiles: incident_portability
 Verified by: AC-165, AC-166, AC-167, AC-169, AC-236, AC-327, AC-328,
  AC-332, AC-442, AC-488, AC-500
+
+The admitted bundle input remains retained while its Job can execute or recover. Returning from a handler, losing its execution lease, process shutdown, cancellation request, or uncertain finalization is not permission to delete it. Cleanup requires an authoritative terminal Job outcome and MUST retain the input on observation failure or indeterminate mutation. Proven terminal completion may clean up the input even if the handler context was subsequently canceled.
 
 Each structured source family remains owned by its source-state owner under
 REQ-01-639 and REQ-01-640. The Incident Bundles coordinator owns catalog
@@ -8361,15 +8332,15 @@ projections and MUST NOT add, remove, or reinterpret a row in these registries.
 
 **REQ-01-635**
 Every newly generated Incident Bundle MUST use
-`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=4`.
-Only version `4` is admitted for import and export. Import MUST parse
+`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=5`.
+Only version `5` is admitted for import and export. Import MUST parse
 `manifest.bundle_version` before interpreting any source payload and MUST
 select exactly one codec only from that numeric value. Filename presence, file
 order, archive order, prior import history, and caller input MUST NOT select or
 override a codec. Omitted, JSON `null`, or non-integer
 `bundle_version` MUST fail before source preparation with
 `incident_bundle_import_rejected` and `reason_code='malformed_manifest'`.
-Every integer other than `4`, including retired numeric versions `1`, `2` and `3`, MUST fail
+Every integer other than `5`, including retired numeric versions `1`, `2`, `3` and `4`, MUST fail
 at the same boundary with `reason_code='unsupported_bundle_version'`. No
 fallback version exists.
 
@@ -8377,16 +8348,16 @@ The required Timeline path set is exactly:
 
 | Version | Export | Import | Exact Timeline paths |
 | --- | --- | --- | --- |
-| `4` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
+| `5` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
 
 A retired Timeline path, a mixed retired/current path set, or an incomplete
-current path set under version `4` MUST fail before source preparation with
+current path set under version `5` MUST fail before source preparation with
 `reason_code='malformed_manifest'`. The admitted version has the following
 closed required core path registry; a missing, duplicate, or unknown member
 under `data/` MUST fail closed and every required path MUST have exactly one
 declared consumer or validator:
 
-| Family or special consumer | Version `4` paths |
+| Family or special consumer | Version `5` paths |
 | --- | --- |
 | Incident | `data/incident.json` |
 | Actors | `data/actors.ndjson` |
@@ -8404,19 +8375,14 @@ declared consumer or validator:
 | Saved Views | `data/saved_views.ndjson` |
 | Reference Pack references | `data/reference_pack_refs.json` |
 
-Every participating source and special consumer MUST explicitly admit version 4
+Every participating source and special consumer MUST explicitly admit version 5
 only. Archive integrity MUST be verified against original bytes before source
 preparation. Version selection MUST never depend on row content. Legacy version 3
 archives fail before source preparation, target mutation or publication; no
 version-3 schema binding, reverse layout conversion or compatibility codec remains
 in the active catalog. Historical released schemas and archives remain unchanged
-as evidence, not acceptance paths. Previously completed export/import jobs and
-idempotency receipts MUST NOT be rewritten; normalized route-request hash inputs
-remain unchanged. Exact historical replay returns the original job/result without
-revalidating or importing its artifact. Every newly generated export, including
-an older queued job without an artifact, uses version 4. An admitted asynchronous
-legacy import may terminate with `unsupported_bundle_version`, `retryable=false`,
-without publishing source/target state or exposing hostile payload details.
+as evidence, not acceptance paths. The coordinated cutover MUST reject retained legacy jobs and historical bundle artifacts during preflight before schema mutation. The operator must preserve historical receipts, bundles, and full backups with their matching historical application before an explicit development reset. No legacy Job codec, automatic job rewrite, or compatibility bundle reader is admitted.
+
 
 Optional extensibility MUST use an owner-admitted `ext/**` path and MUST NOT add
 an implicit core-file fallback.
@@ -9056,7 +9022,7 @@ Verified by: AC-490, AC-499, AC-502, AC-503, AC-507, AC-525
 The adopted compatibility state, closed source catalog, and
 requirement-to-acceptance-to-verification mappings MUST have versioned typed
 machine projections. The source catalog projection is
-`cartulary.incident_bundle_source_catalog.v4`, declares contract major `2`, and
+`cartulary.incident_bundle_source_catalog.v5`, declares contract major `2`, and
 admits path version `4` for every required source and special consumer.
 Each version-4 logical path MUST have exactly one source and one admitted shape.
 Retired-version bindings, overlapping bindings, duplicate versions and inconsistent
@@ -9377,7 +9343,16 @@ decrease; a known `total` MUST never clear or decrease; the transition from an
 unknown total to one positive total is allowed; and an exact repeated progress
 update is a mutation-free and event-free success. Rejected progress and state
 updates MUST be mutation-free and event-free. Every accepted public-resource
-change and its incident-scoped `job_progress` intent MUST commit atomically.
+change and its incident-scoped `job_progress` intent MUST commit atomically. Terminal
+owner effects MUST participate in that same transaction for ordinary completion,
+handler-attempt exhaustion, and inactive-profile reconciliation. Application
+composition supplies the required narrow terminal-effects port; Jobs MUST NOT
+read or mutate source-owner tables. An effect failure rolls back the terminal
+transition, owner changes, and progress intent. Effects receive only the stable
+Job identity, terminal status, and completion instant. They MUST NOT perform
+external I/O or publish prepared content. An owner already finalized in the
+transaction is an idempotent no-op. A success transition without its required
+owner publication MUST fail closed.
 
 A handler panic, handler error, exhausted-attempt outcome, or nil handler return
 that leaves the job mutable MUST be reduced to an owner-declared closed safe
@@ -9406,11 +9381,11 @@ units:
 | --- | --- |
 | `import.discovery_v1` | `import.discovery.session.v1` |
 | `import.apply_v1` | `import.apply.import_unit.v1` |
-| `incident_portability.export_v1` | `incident_portability.export.request.v1` |
-| `incident_portability.import_v1` | `incident_portability.import.request.v1` |
-| `reference_pack.import_v1` | `reference_pack.import.request.v1` |
-| `reference_pack.refresh_v1` | `reference_pack.refresh.pack_key.v1` |
-| `reference_pack.reverify_v1` | `reference_pack.reverify.pack_version.v1` |
+| `incident_portability.export_v2` | `incident_portability.export.request.v2` |
+| `incident_portability.import_v2` | `incident_portability.import.request.v2` |
+| `reference_pack.import_v2` | `reference_pack.import.request.v1` |
+| `reference_pack.refresh_v2` | `reference_pack.refresh.pack_key.v1` |
+| `reference_pack.reverify_v2` | `reference_pack.reverify.pack_version.v1` |
 
 Profiles: base
 Verified by: AC-030, AC-033, AC-046, AC-129, AC-169, AC-231, AC-258, AC-260
@@ -10410,6 +10385,7 @@ The Reference Pack Extension Profile MUST expose exactly this minimum public rou
 - `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate`,
 - `POST /api/v1/reference-packs/{pack_key}/{pack_version}/disable`,
 - `POST /api/v1/reference-packs/{pack_key}/{pack_version}/reverify`,
+- `POST /api/v1/reference-packs/{pack_key}/{pack_version}/remove`,
 - `POST /api/v1/reference-packs/refresh`.
 Profiles: reference_pack
 Verified by: AC-270, AC-271, AC-427
@@ -10423,18 +10399,19 @@ When the `reference_pack` profile is claimed, every route in this family root an
 | `GET /api/v1/reference-packs` | List read under common paging with the search and exact filters in REQ-01-610 | `{ pack_versions[] }` plus `meta.paging` | No | `invalid_list_query`, `invalid_pagination_request`; `reference_pack_not_found` only when a concrete pack version is addressed elsewhere |
 | `GET /api/v1/reference-packs/{pack_key}/{pack_version}` | Singleton read | `reference_pack_version` resource | No | `reference_pack_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/reference-packs/import` | Shared upload envelope with required `client_txn_id`; optional `activation_policy` defaulting to `staged_only` and auto-activation forbidden | Common job resource; terminal success emits one `reference_pack_version` ref | Yes | `invalid_reference_pack_request`, `reference_pack_verification_failed` |
-| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate` | JSON object with required `client_txn_id` and optional `reason` | Either inline `200 OK` with `data.pack_version` or common job resource | Maybe | `reference_pack_activation_rejected`, `reference_pack_state_conflict` |
-| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/disable` | JSON object with required `client_txn_id` and optional `reason` | Either inline `200 OK` with `data.pack_version` or common job resource | Maybe | `reference_pack_state_conflict` |
-| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/reverify` | JSON object with required `client_txn_id` and optional `reason` | Common job resource | Yes | `reference_pack_state_conflict`, `reference_pack_verification_failed` |
+| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate` | JSON object with required `client_txn_id` and optional `reason` | Either inline `200 OK` with `data.pack_version` or common job resource | Maybe | `reference_pack_activation_rejected`, `reference_pack_operation_rejected` |
+| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/disable` | JSON object with required `client_txn_id` and optional `reason` | Either inline `200 OK` with `data.pack_version` or common job resource | Maybe | `reference_pack_operation_rejected` |
+| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/reverify` | JSON object with required `client_txn_id` and optional `reason` | Common job resource | Yes | `reference_pack_operation_rejected`, `reference_pack_verification_failed` |
 | `POST /api/v1/reference-packs/refresh` | JSON object with required `client_txn_id` and optional `pack_keys[]`; omitted `pack_keys[]` resolves once at admission to all imported pack keys visible to the authorized deployment-admin caller | Common job resource | Yes | `invalid_reference_pack_request`, `reference_pack_verification_failed` |
+| `POST /api/v1/reference-packs/{pack_key}/{pack_version}/remove` | JSON object with required `client_txn_id` and nonempty `reason` | Inline `200 OK` with `data.pack_version` | No | `reference_pack_operation_rejected` |
 
 **Table 17.4-B. `reference_pack_version` resource summary**
 
 | Member group | Requirement |
 | --- | --- |
 | Identity and type | `pack_key`, `pack_kind`, `pack_version` |
-| Integrity and provenance | `manifest_sha256`, canonical `payload_sha256`, `verification_method`, `verification_result`, `source_identifier`, `signer_key_id` |
-| Lifecycle state | `condition`, derived `active`, `previous_active_version` |
+| Successful verification | Nullable digests, profile and contract identifiers, method, verification instant, expiry, and complete signer set. Historical consumer provenance belongs to the immutable selected set. |
+| Lifecycle state | `health`, independent `administratively_disabled`, projected `pack_version_state`, derived `active`, removal and failure indicators, `previous_active_version` |
 | Attribution | `imported_by_user_id`, `imported_at`, `activated_by_user_id`, `activated_at` |
 | Current-profile durable condition vocabulary | Exactly `staged`, `verified_available`, `disabled`, `failed`, `missing`; `active` is derived from the activation pointer and is not an additional stored condition token |
 
@@ -10449,54 +10426,53 @@ When the `reference_pack` profile is claimed, every route in this family root an
 | Refresh success | `result_summary.code='reference_packs_refreshed'`; `resource_refs[]` may be empty or non-exhaustive `reference_pack_version` refs sorted by `route asc` |
 | Invalid request registry | `invalid_reference_pack_request` with shared upload-envelope reasons plus the request-shape and selector reasons in REQ-01-482 |
 | Verification failure registry | `reference_pack_verification_failed` with checksum, signature, integrity-metadata, contract, path, content, payload, and archive-limit reasons |
-| Activation rejection and state conflict registries | `reference_pack_activation_rejected` with `already_active` or `not_verified_available`; `reference_pack_state_conflict` with `already_disabled`, `not_disableable`, or `verification_pending` |
+| Operation eligibility | `reference_pack_operation_rejected` and `reference_pack_activation_rejected` under REQ-01-482. |
 
 
 **REQ-01-481**
 `GET /api/v1/reference-packs` MUST return the common success envelope with `data.pack_versions[]` plus `meta.paging` under §3.3.7. `GET /api/v1/reference-packs/{pack_key}/{pack_version}` MUST return `data = <reference_pack_version resource>`. Every item in `data.pack_versions[]` and every `data.pack_version` member returned by inline `200 OK` success from `activate` or `disable` MUST use the exact `reference_pack_version resource` shape defined here.
 
-The `reference_pack_version resource` MUST expose exactly:
+The `reference_pack_version resource` is closed. Every member below is required, including nullable members; omission is invalid. It contains exactly:
 
-- `pack_key`,
-- `pack_kind`,
-- `pack_version`,
-- `pack_version_state`,
-- `active`,
-- `source_identifier`,
-- `manifest_sha256`,
-- `payload_sha256`,
-- `pack_contract_version`,
-- `verification_method`,
-- `verification_result`,
-- `signer_key_id`,
-- `previous_active_version`,
-- `imported_by_user_id`,
-- `imported_at`,
-- `activated_by_user_id`,
-- `activated_at`.
+- `pack_key`, `pack_kind`, `pack_version`, `pack_version_state`, `health`, `administratively_disabled`, `distribution_kind`, `active`, `removed`, `missing_reason`, `last_failure_code`, `pending_work`, `reproducibility_pinned`, `fallback_from_version`, `dependencies`;
+- `source_identifier`, `manifest_sha256`, `payload_sha256`, `pack_contract_version`, `pack_release_sequence`, `content_profile_id`, `content_profile_version`, `source_profile_id`, `source_profile_sha256`, `source_version`, `source_as_of`, `license_expression`, `redistribution`, `trust_repository_id`, `verification_method`, `last_verified_at`, `trust_valid_until`, `verified_signer_key_ids`;
+- `previous_active_version`, `imported_by_user_id`, `imported_at`, `activated_by_user_id`, `activated_at`.
 
-For `reference_pack_version resource` serialization:
+`health` is exactly `staged`, `verified_available`, `failed`, or `missing`. `administratively_disabled` is an independent required boolean. `pack_version_state` equals `health`, except that healthy disabled content projects as `disabled`. Failure or missing health takes precedence in this projection without clearing disablement. `active` is derived from exact membership in the current immutable set. `removed` is an independent tombstone indicator. `distribution_kind` is exactly `packaged_builtin` or `operator_imported`.
 
-- `pack_version_state` MUST use exactly `staged`, `verified_available`, `disabled`, `failed`, and `missing`;
-- `verification_result` MUST use exactly `pending`, `passed`, and `failed`;
-- `active` MUST always be present and MUST be the derived activation-pointer boolean for `(pack_key, pack_version)` rather than an additional durable version-state token;
-- `pack_kind` MUST serialize as the exact stored metadata string and MUST NOT be narrowed to a closed v1 public enum;
-- `pack_version` MUST serialize as the exact version identifier and MUST NOT imply `latest`, `current`, semantic-version ordering, or other route-local interpretation;
-- `source_identifier`, `signer_key_id`, `previous_active_version`, `imported_by_user_id`, `activated_by_user_id`, and `activated_at` MUST always be present and MUST be JSON `null` when unset;
-- every other member above is required and non-null in the current profile;
-- `payload_sha256` is the canonical public digest field and MUST serialize as one canonical aggregate digest when storage retains more than one payload SHA-256 digest;
-- object-member order is not part of the wire contract; array order is;
-- the resource MUST NOT inline bundle bytes, extracted member lists, raw signatures, object-store paths, staging paths, or attestation-history arrays.
+`pending_work` and `reproducibility_pinned` are required non-null booleans derived in the same read snapshot as the version. `pending_work` means any nonterminal Reference Data operation holds the selected pack key, including an operation on another version. `reproducibility_pinned` means an exact-version pin or a pin on any retained set selects this version. The UI disables mutating version actions while work is pending, and disables removal while pinned. These observations do not reserve eligibility; the coordinator rechecks it transactionally before publication. Current verification metadata is labelled separately from the historical provenance retained by snapshots and reports.
+
+`fallback_from_version` is required and nullable. For a currently active packaged Base registry selected by safety fallback, it names the displaced version of the same pack key; every other resource emits `null`. Publication records this attribution atomically with the selection. Unchanged claimed-profile startup preserves it; selecting a different member or reconciling an unclaimed profile clears current attribution. It is administrative state, not immutable historical provenance. `dependencies` is a required nullable array: before any successful envelope it is `null`; otherwise it contains the exact verified manifest dependency tuples (`pack_key`, `pack_version`, `payload_sha256`), in manifest order, with the manifest's closed member rules and maximum of 64. An empty verified dependency list is `[]`, never `null`. The UI identifies Base safety fallback and the displaced version without claiming the fallback registry itself is unhealthy.
+
+The successful verification fields `source_identifier`, `manifest_sha256`, `payload_sha256`, `pack_contract_version`, `pack_release_sequence`, `content_profile_id`, `content_profile_version`, `source_profile_id`, `source_profile_sha256`, `source_version`, `source_as_of`, `license_expression`, `redistribution`, `trust_repository_id`, `verification_method`, `last_verified_at`, and `trust_valid_until` MUST be explicit nulls before the first successful envelope. `verified_signer_key_ids` is always a non-null array and is empty before first success. After success, manifest fields retain their exact values and bounds, including nullable `source_as_of` and built-in `trust_repository_id`. Successful built-ins have null expiry and an empty signer array; successful operator imports have the complete sorted targets signer set and effective metadata expiry. `last_verified_at` is the successful attempt's UTC verification-start instant. Failed renewal retains prior successful metadata. These live fields MUST NOT replace a retained set's immutable provenance anchor.
+
+`source_identifier`, `missing_reason`, `last_failure_code`, `previous_active_version`, `imported_by_user_id`, `activated_by_user_id`, and `activated_at` are required nullable fields. Other identity, state and import-time fields are non-null. `missing_reason` is non-null exactly for missing health. `last_failure_code` records the content rejection that established failed or missing health; an operationally aborted initial import has failed health with a null content failure code. An operational abort of an established version preserves its prior health and failure code. Successful verification clears both failure code and missing reason. The subsystem transition contract owns their closed values and clearing rules. `pack_version` is an exact identifier, with no latest-version or semantic-version interpretation. Object-member order is non-semantic; array order is normative. The resource MUST NOT inline container bytes, raw signatures, storage paths, or attestation-history arrays. Retired `verification_result` and `signer_key_id` members are invalid.
 
 `data.pack_versions[]` MUST be exhaustive over pack versions visible to the authorized deployment-admin caller for this route family and MUST sort by `pack_key asc`, then exact `pack_version asc`. The list-query contract for this route is defined by REQ-01-610.
 
 `POST /api/v1/reference-packs/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. It MAY include optional `activation_policy`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/reference-packs/import` in REQ-01-552. Those media-type values are envelope gates only; bundle integrity, content screening, and archive validation remain byte-based and continue to use the route's existing verification rules. Route-scoped normalized request comparison for idempotency MUST include normalized `activation_policy` and SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison.
 
-For the current Workbook Import profile, accepted sessions MUST stamp `parser_profile_id=cartulary.import.workbook.v1` and `parser_version=workbook_import_adapter_v1`. These identities describe the parser contract and remain part of persisted source provenance. The route MUST reject any supplied assistant profile other than `workbook_import_v1` with `unsupported_assistant_profile`, and a supplied JSON null with `field_not_nullable`, before creating an import session, discovery job, or idempotency commit. Omitted and explicitly supplied current assistant profiles MUST normalize identically. No alternate profile spelling is accepted. For this member, omission means `staged_only`, explicit JSON `null` is invalid, omission and explicit `staged_only` MUST compare equal for idempotency and replay, and the only accepted current-profile non-null token is `staged_only`. The current profile MUST reject any request that attempts auto-activation at import time. A non-null string token other than `staged_only` MUST fail with `400`, `error.code = invalid_reference_pack_request`, and `error.details.reason_code = auto_activation_not_supported`; any other malformed non-null form for `activation_policy` MUST fail with `reason_code = invalid_activation_policy`. `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate`, `disable`, and `reverify` MUST require an exact path `pack_version`; the current profile defines no implicit latest-version action route. Each of those action routes MUST accept only a JSON object with required `client_txn_id` and optional `reason`. If present, `reason` MUST be a JSON string or JSON `null` and MUST normalize under `string_contract_id=reason_note_v1`. For idempotency comparison, omission, explicit JSON `null`, and any `reason` value that normalizes to empty under `reason_note_v1` MUST compare equal. Unknown top-level members, a non-object body, missing `client_txn_id`, or `null` for a non-nullable member MUST fail with `400` and `error.code = invalid_reference_pack_request`. Route-scoped idempotency for these three action routes MUST be keyed by `(actor_user_id, pack_key, pack_version, action_route, client_txn_id)` and MUST compare the exact action route plus normalized `reason`. Exact replay of a previously committed success or accepted job MUST return the original committed result before any fresh state evaluation runs. Reuse of the same route-scoped key with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict`. `activate` is legal only when the addressed version is in durable condition `verified_available` and is not currently active for its `pack_key`. `disable` is legal only when the addressed version is in durable condition `verified_available`; the action remains legal whether or not that version is currently active through the activation pointer. `reverify` is legal only when the addressed version is in durable condition `verified_available`, `disabled`, `failed`, or `missing`; it is not legal while still `staged`. `POST /api/v1/reference-packs/refresh` MUST accept required `client_txn_id` and optional `pack_keys[]`. For this member, omission means all currently imported `pack_key` values visible to the authorized deployment-admin caller resolved once at refresh-job admission, explicit JSON `null` is invalid, explicit `[]` is invalid and MUST use `reason_code = empty_pack_keys`, and any supplied `pack_keys[]` value MUST be an array of exact visible `pack_key` strings. `pack_keys[]` is a set-like selector: caller order is non-semantic, duplicate members coalesce by exact token equality, and the canonical normalized form used for idempotency and replay is the unique exact-token set sorted by `pack_key asc`; omission MUST compare using the resolved admission-time set rather than later visibility state. If omitted `pack_keys[]` resolves to zero visible imported pack keys, refresh MUST still be admitted and MUST complete as a deterministic no-op background job rather than fail. Any non-string, unknown, or non-visible supplied `pack_key` MUST fail with `400`, `error.code = invalid_reference_pack_request`, and `reason_code = invalid_pack_keys`. Import, reverify, and refresh MUST enforce `limits.reference_packs.max_extracted_bytes`, `limits.archives.max_compression_ratio`, and `limits.archives.max_members` before a candidate version can remain or become `verified_available` or before refresh can keep or move the active pointer. A breach of any of those limits MUST fail closed using `reference_pack_verification_failed` and the exact corresponding archive-limit `reason_code`. Import, reverify, and refresh MUST run as background jobs. `activate` and `disable` MAY complete synchronously with `200 OK` using the common success envelope and `data.pack_version` equal to the post-commit durable `reference_pack_version resource`; if either action performs long-running work, it MUST return `202 Accepted` with the common job resource. `reverify` MUST always return `202 Accepted` with the common job resource. When a reverify job reaches a terminal state, its public result or error summary MUST use the same family-specific stable codes rather than ad hoc worker strings. The durable version conditions exposed to the public surface remain exactly `staged`, `verified_available`, `disabled`, `failed`, and `missing`. `active` MUST remain a derived boolean obtained from the activation pointer for `(pack_key, pack_version)`, not an additional stored version-state token.
+For `activation_policy`, omission means `staged_only`; explicit null is invalid. Omission and explicit `staged_only` compare equally for idempotency. Other strings fail with `auto_activation_not_supported`; other non-null types fail with `invalid_activation_policy`. No import activates content.
+
+Action routes require an exact path version. `activate`, `disable`, and `reverify` accept only required `client_txn_id` and optional nullable `reason`. `remove` requires both fields, with a non-null, nonempty reason. Reasons normalize under `reason_note_v1`, with at most 4096 Unicode scalar values after normalization. Omission, null, and normalized-empty optional reasons compare equally. Malformed nonempty reasons are rejected, never repaired to null. Administrative JSON bodies and upload metadata are each bounded to 65536 bytes inclusive before decoding; container limits apply separately. Duplicate JSON members, malformed Unicode, trailing values, and unknown members are rejected. Diagnostic fields identify only declared schema paths; an unknown member uses the fixed `request` sentinel and never its supplied name.
+
+Route idempotency is keyed by actor, exact pack key, exact version, action route, and client transaction ID, and binds the normalized reason. Exact replay returns the original committed result or admitted Job before fresh eligibility checks. Changed requests with the same key fail with `client_txn_conflict`. Import idempotency binds exact container bytes and the sole admitted activation policy. No advisory filename or MIME parameter affects identity.
+
+For new operations, pending work is checked at the selected pack-key boundary before successful-envelope eligibility. `activate` requires healthy, present content and compatibility with the effective set and referenced registry entries; it may clear administrative disablement. `disable` requires healthy operator content that is not already disabled. `reverify` requires a prior successful envelope and an unremoved operator version; it preserves disablement. Never-successful candidates require explicit reimport. `remove` rejects built-ins, active versions, pinned versions, and selected keys with nonterminal work; it retains attribution and immutable history. Exact reimport can restore availability without erasing removal history.
+
+Refresh accepts only required `client_txn_id` and optional `pack_keys`. Null and an explicit empty array are invalid. Explicit keys are a set: duplicates coalesce and ordering is canonical ascending. Omission freezes all eligible operator keys at admission. The exact cohort excludes built-ins, removal tombstones and never-successful candidates. Later imports do not join it. Selected keys with conflicting pending work fail before missing-envelope eligibility. A zero-member cohort is an admitted deterministic no-op and does not require a trusted clock. Other fresh TUF operations require the operator clock assertion. Refresh replay resolves its original admission, never the later catalog.
+
+Import, reverify and refresh use persisted v2 lifecycle Jobs and the subsystem verification/check registry. One UTC verification-start instant and one monotonic execution budget apply to the whole attempt, including a refresh cohort. A content failure and an execution abort are distinct outcomes. Initial content rejection retains attributable candidate/attempt evidence; failed renewal preserves prior successful state; invalidating reverify publishes health and fallback atomically. Mixed refresh publishes the entire cohort's results atomically with a failed terminal Job. Cancellation, timeout, stale state, indexing failure and absent publication preserve established content health. Proven commit remains authoritative after lost acknowledgement; indeterminate mutation follows Extensions' fatal integrity path.
+
+`activate` and `disable` may return an inline `200 OK` with `data.pack_version`; long-running implementations return the common Job. `remove` returns inline `200 OK` with `data.pack_version`. No request may publish a partial set, trust advancement or index change. Consumer behavior, fallback, dependency pruning, retained trust, exact sets and provenance follow the Reference Pack subsystem owner.
 
 For every `reference_pack_version` ref emitted by this family, `kind` MUST be `reference_pack_version` and both `id` and `route` MUST equal the canonical `/api/v1/reference-packs/{pack_key}/{pack_version}` path.
 
 For terminal common-job summaries produced by this family:
+
+Committed content-rejection Jobs include `error.details` with exactly `reason_code`, `check_id`, `failed_count`, `primary_issue_id`, `validation_summary_ref`, `total_issue_count`, `retained_issue_count`, and `issues_truncated`. Counts and the primary issue describe the winning check for the first failed member in the frozen cohort order; `failed_count` describes the cohort. Execution-abort Jobs do not fabricate these content-diagnostic members.
+
+`GET /api/v1/reference-packs/validation-summaries/{summary_id}` requires the claimed Reference Pack profile and current deployment-administrator authorization, and returns the common success envelope with the exact closed subsystem validation summary as `data`. The reference is `rpvs_` followed by lowercase SHA-256 of its canonical retained bytes. A syntactically invalid, unknown, uncommitted, or operationally aborted reference returns `reference_pack_not_found`. Authorization precedes route-specific query validation and lookup. The route accepts no query members and uses the shared singleton-read query errors. It never returns private preparation state or inlines diagnostics into the version collection. Attestations and Jobs refer to the same immutable object; later attempts cannot rewrite it.
 
 - `POST /api/v1/reference-packs/import` MUST use `result_summary.code='reference_pack_imported'` and MUST emit exactly one `reference_pack_version` ref.
 - A long-running `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate` MUST use `result_summary.code='reference_pack_activated'` and MUST emit exactly one `reference_pack_version` ref.
@@ -10509,7 +10485,9 @@ Profiles: reference_pack
 Verified by: AC-270, AC-271, AC-308, AC-309, AC-326, AC-369, AC-427, AC-443
 
 **REQ-01-482**
-The reference-pack route family MUST use only `invalid_reference_pack_request`, `reference_pack_not_found`, `reference_pack_state_conflict`, `reference_pack_verification_failed`, and `reference_pack_activation_rejected`. `invalid_reference_pack_request` MUST use only the shared upload-envelope reasons from REQ-01-553 plus `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_activation_policy`, `pack_version_required`, `auto_activation_not_supported`, `invalid_pack_keys`, and `empty_pack_keys`. `reference_pack_verification_failed` MUST use only `checksum_mismatch`, `signature_mismatch`, `missing_integrity_metadata`, `contract_incompatible`, `path_traversal`, `disallowed_content`, `payload_missing`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`. `reference_pack_activation_rejected` MUST use only `already_active` and `not_verified_available`, and it is reserved for `activate`. `reference_pack_state_conflict` MUST use only `already_disabled`, `not_disableable`, and `verification_pending`.
+The reference-pack family uses `invalid_reference_pack_request`, `reference_pack_not_found`, `reference_pack_operation_rejected`, `reference_pack_verification_failed`, and `reference_pack_activation_rejected`, in addition to shared authorization, pagination, idempotency and operational errors. Invalid requests use the shared upload reasons plus `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_activation_policy`, `pack_version_required`, `auto_activation_not_supported`, `invalid_pack_keys`, `empty_pack_keys`, `invalid_reason`, `reason_too_long`, and `request_too_large`.
+
+`reference_pack_verification_failed` uses the subsystem ordered check registry's public mappings, plus the operational `verification_timeout` outcome; timeout does not imply a content rejection. `reference_pack_activation_rejected` uses `already_active`, `not_verified_available`, and `metadata_expired`. `reference_pack_operation_rejected` uses exactly `verification_pending`, `no_successful_verification`, `stale_admission_state`, `clock_untrusted`, `packaged_builtin`, `removed`, `not_disableable`, `active`, `pinned`, `dependency_unsatisfied`, `dependency_cycle`, `pack_conflict`, `required_registry_gap`, `contract_incompatible`, and `type_registry_incompatible`. These operation rejections use HTTP 409 and never echo payload values. The retired state-conflict alias is not emitted by profile major 2.
 Profiles: reference_pack
 Verified by: AC-272, AC-310, AC-326
 
@@ -10520,7 +10498,6 @@ Verified by: AC-272, AC-310, AC-326
 - `cursor_token`,
 - `search`,
 - `pack_version_state`,
-- `verification_result`,
 - `active`.
 
 No other query member is valid on this route in the current profile.
@@ -10532,8 +10509,7 @@ When present, `search` MUST use `list_search_v1` from REQ-01-581 with exactly th
 - `pack_version`,
 - `source_identifier`,
 - `manifest_sha256`,
-- `payload_sha256`,
-- `signer_key_id`.
+- `payload_sha256`.
 
 Nullable source fields contribute no tokens when null. Omitted `search` and a present `search` value that normalizes to the empty string under `list_search_v1` mean no search predicate.
 
@@ -10542,21 +10518,20 @@ Exact filters MUST use this closed contract:
 | Member | Accepted values | Omission |
 | --- | --- | --- |
 | `pack_version_state` | `staged`, `verified_available`, `disabled`, `failed`, `missing` | No state predicate. |
-| `verification_result` | `pending`, `passed`, `failed` | No verification predicate. |
 | `active` | Exact decoded lowercase wire tokens `true` or `false` | No active predicate. |
 
 For each filter, an explicit JSON-style `null` spelling, empty value, repeated query member, comma list, array encoding, alternate spelling, or implicit truthy/falsy value is invalid and MUST fail with `400`, `error.code='invalid_list_query'`, and `error.details.reason_code='invalid_filter_value'`. Duplicate raw query members, unknown query members, malformed search values, and search token bound failures MUST use the shared `invalid_list_query` reason-code rules in REQ-01-581 through REQ-01-583. Pagination failures MUST use `400`, `error.code='invalid_pagination_request'`, and the relevant `invalid_pagination_request` reason code.
 
 Reference-pack authorization in §17.4 MUST run before route-specific query validation, search matching, filter matching, result counting, `has_more` calculation, `next_cursor` creation, or cursor continuation positioning. Search and filter predicates combine with logical AND, evaluate against the complete authorized reference-pack version collection before pagination, and preserve the route ordering `pack_key asc`, then exact `pack_version asc`. The route MUST NOT apply relevance ranking, fuzzy matching, locale-sensitive ordering, or implicit latest-version interpretation.
 
-The cursor-bound normalized list-query state MUST include the canonical search predicate, the canonical `pack_version_state` predicate or no-predicate sentinel, the canonical `verification_result` predicate or no-predicate sentinel, the canonical `active` predicate or no-predicate sentinel, the effective limit, the caller, and the route scope. Reusing a `cursor_token` with a different canonical search or filter state MUST fail with `400`, `error.code='invalid_pagination_request'`, and `error.details.reason_code='cursor_query_mismatch'`.
+The cursor-bound normalized list-query state MUST include the canonical search predicate, the canonical `pack_version_state` predicate or no-predicate sentinel, the canonical `active` predicate or no-predicate sentinel, the effective limit, the caller, and the route scope. Reusing a `cursor_token` with a different canonical search or filter state MUST fail with `400`, `error.code='invalid_pagination_request'`, and `error.details.reason_code='cursor_query_mismatch'`.
 Profiles: reference_pack
 Verified by: AC-443
 
 **REQ-01-610A**
 The browser controller for `GET /api/v1/reference-packs` MUST implement one request-generation state machine:
 
-1. Effective request state consists of normalized `search`, `pack_version_state`, `verification_result`, `active`, effective `limit`, and a `cursor_token` bound to that exact state.
+1. Effective request state consists of normalized `search`, `pack_version_state`, `active`, effective `limit`, and a `cursor_token` bound to that exact state.
 2. A material change to normalized search or any filter MUST discard the prior cursor and admit a first-page request. A paging request MAY carry a cursor only for the unchanged effective request state that produced it.
 3. Each admitted request MUST receive a monotonically newer local generation. Admission of a generation MUST set the semantic list status to `searching`; the accessible status exposed to the user MUST be `Searching reference packs` while that generation is pending.
 4. Rows from the last accepted generation MAY remain visible while a newer generation is pending only while the caller remains authorized to view them.
@@ -11545,6 +11520,29 @@ the route idempotency key; it is not a display path. `scope_kind` is
 `incident` and is `null` for `deployment`. The remaining identities use their
 existing Core scalar contracts.
 
+`cartulary.route_scoped_idempotency_identity.v2` adds required `actor_kind`
+and `operator_operation_id` to the six v1 members. No other members are
+accepted. `actor_kind` is `user` or `local_operator`. For `user`,
+`actor_user_id` is a nonzero canonical UUID and `operator_operation_id` is
+explicitly null. For `local_operator`, `actor_user_id` is explicitly null,
+`operator_operation_id` is a nonzero canonical UUID, scope is deployment
+with explicit null `scope_id`, and `client_txn_id` is exactly that operation
+UUID. All members are required and non-null except these declared nullable
+identities. Only job contracts explicitly naming v2 admit this shape; v1
+contracts continue to require their six-member human identity. Reference Pack
+import v2 names this schema for both HTTP and local operator admission. It
+rejects retained imports using the retired identity before cutover mutation.
+
+A local invocation allocates its operation UUID before reading its confined
+input. It atomically admits the common Job and owner operation once. Its Job
+is the durable replay and terminal outcome record; no human route receipt is
+created or synthesized. The existing Extensions finalizer atomically commits
+owner effects, proof and terminal Job, and validates the retained local identity
+under that job's declared contract. Local attribution does not bypass execution
+leases, cancellation, deadlines, proof rules, or deployment administrator
+protection of public Job reads. A later explicit command invocation receives a
+new UUID and performs fresh verification. Jobs retain a distinct `submitting_operator_operation_id` after private-request expiry; it is mutually exclusive with the human submitter and must match the local private identity while that identity is retained.
+
 `cartulary.common_job_resource_ref_id.v1` is the non-empty canonical public
 identifier string carried by one common-job resource reference. Its exact
 kind-specific interpretation remains the rule in §3.3.9.1.
@@ -11563,24 +11561,24 @@ resource state.
 The Core-owned profile job facts are the exact rows below. Every row uses
 required route-scoped idempotency, required proof on terminal success,
 precommit-observable cancellation,
-`cartulary.route_scoped_idempotency_identity.v1`, and
-`cartulary.common_job_terminal_success.v1`.
+`cartulary.route_scoped_idempotency_identity.v1` (except Reference Pack import,
+which uses v2), and `cartulary.common_job_terminal_success.v1`.
 
 | Profile | Job kind | Operation kind | Permitted resource-ref kinds |
 | --- | --- | --- | --- |
 | `import` | `import.discovery_v1` | `import.discovery` | `import_session` (maximum 1) |
 | `import` | `import.apply_v1` | `import.apply` | `import_session` (maximum 1), `network_flow_table` (maximum 1023) |
-| `incident_portability` | `incident_portability.export_v1` | `incident_portability.export` | `incident_bundle` (maximum 1) |
-| `incident_portability` | `incident_portability.import_v1` | `incident_portability.import` | `incident` (maximum 1) |
-| `reference_pack` | `reference_pack.import_v1` | `reference_pack.import` | `reference_pack_version` (maximum 1) |
-| `reference_pack` | `reference_pack.reverify_v1` | `reference_pack.reverify` | `reference_pack_version` (maximum 1) |
-| `reference_pack` | `reference_pack.refresh_v1` | `reference_pack.refresh` | `reference_pack_version` (maximum 1024) |
+| `incident_portability` | `incident_portability.export_v2` | `incident_portability.export` | `incident_bundle` (maximum 1) |
+| `incident_portability` | `incident_portability.import_v2` | `incident_portability.import` | `incident` (maximum 1) |
+| `reference_pack` | `reference_pack.import_v2` | `reference_pack.import` | `reference_pack_version` (maximum 1) |
+| `reference_pack` | `reference_pack.reverify_v2` | `reference_pack.reverify` | `reference_pack_version` (maximum 1) |
+| `reference_pack` | `reference_pack.refresh_v2` | `reference_pack.refresh` | `reference_pack_version` (maximum 1024) |
 
 Every resource-ref row above uses
 `cartulary.common_job_resource_ref_id.v1`. The exact Core-owned worker kinds
 are `import.discovery_worker_v1`, `import.apply_worker_v1`,
-`incident_portability.bundle_worker_v1`, and
-`reference_pack.lifecycle_worker_v1`. Core Import owns Network Flow import scheduling. Network Flow owns its
+`incident_portability.bundle_worker_v2`, and
+`reference_pack.lifecycle_worker_v2`. Core Import owns Network Flow import scheduling. Network Flow owns its
 saved-graph job kind `network_flow_activity.graph_view_materialize_v1`, worker
 kind `network_flow_activity.graph_view_worker_v1`, progress unit, terminal
 success code and maximum-one-worker assignment under NF-REQ-170c. These facts

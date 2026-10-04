@@ -9,11 +9,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -37,8 +41,8 @@ func TestRestoreProjectionRebuildReceivesStructuredRequest(t *testing.T) {
 		t.Fatalf("projection rebuilder request count got %d want 1", len(rebuilder.Requests))
 	}
 	request := rebuilder.Requests[0]
-	if request.RestoreOperationID == uuid.Nil {
-		t.Fatalf("restore operation id was not generated")
+	if request.RestoreOperationID != fixture.Target.RestoreOperationID {
+		t.Fatalf("restore operation id differs from the admitted identity")
 	}
 	if request.RebuildScope != restorecontract.ProjectionRebuildScopeAllActiveProviders {
 		t.Fatalf("rebuild scope got %q want %q", request.RebuildScope, restorecontract.ProjectionRebuildScopeAllActiveProviders)
@@ -94,6 +98,7 @@ func TestRestoreProjectionRebuildReadinessFailsClosed(t *testing.T) {
 
 type restoreProjectionContractFixture struct {
 	Runner        *recovery.RestoreRunner
+	Capture       *recovery.VNextCaptureService
 	Store         *recovery.Store
 	BackupStorage recovery.BackupStorage
 	BackupSet     recovery.BackupSet
@@ -138,49 +143,83 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 		_ = targetObjectStore.Close()
 	})
 
-	postgresBody, err := recovery.CapturePostgresSnapshotArtifact(ctx, sourcePool)
+	sourceTemporary, sourcePublished := t.TempDir(), t.TempDir()
+	sourceLive, err := referenceassembly.NewRootStorage(sourceTemporary, sourcePublished)
 	if err != nil {
-		t.Fatalf("capture postgres snapshot fixture: %v", err)
+		t.Fatal(err)
 	}
-	objectBody, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, sourceObjectStore, "")
+	t.Cleanup(sourceLive.Close)
+	if err := reference_data.ReconcileBaseRelease(ctx, sourcePool, sourceLive, reference_data.BaseReleaseOptions{Limits: reference_data.DefaultLimits()}, time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	sourcePacks, err := referenceassembly.NewRecoveryStorage(sourceTemporary, sourcePublished, reference_data.DefaultLimits())
 	if err != nil {
-		t.Fatalf("capture object-store snapshot fixture: %v", err)
+		t.Fatal(err)
 	}
-
+	t.Cleanup(sourcePacks.Close)
+	targetPacks, err := referenceassembly.NewRecoveryStorage(t.TempDir(), t.TempDir(), reference_data.DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(targetPacks.Close)
+	graph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(targetPool)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sourceStore := recovery.NewStore(sourcePool)
 	backupStorage := newEncryptedBackupStorage(t, t.TempDir())
-	capture := recovery.NewCaptureService(sourceStore, backupStorage, testExtensionBackupCatalog(t))
+	streaming, err := recovery.RequireStreamingBackupStorage(backupStorage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := currentStateCatalog(t)
+	inventory, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, state, inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
 	asOf := time.Date(2026, 7, 1, 14, 0, 0, 0, time.UTC)
-	backupSet, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+	captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{
 		BackupSetID:        backupSetID,
 		ConsistencyPointAt: asOf.Add(-time.Hour),
 		CreatedAt:          asOf,
 		RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
-		PostgresArtifact: recovery.BackupArtifact{
-			Body:        postgresBody,
-			ContentType: "application/json",
-		},
-		ObjectStoreArtifact: recovery.BackupArtifact{
-			Body:        objectBody,
-			ContentType: "application/json",
-		},
-	}))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	backupSet, err := sourceStore.PublishVNextCapturedBackup(ctx, captured)
 	if err != nil {
 		t.Fatalf("capture backup set fixture: %v", err)
 	}
 
 	return restoreProjectionContractFixture{
-		Runner:        recovery.NewRestoreRunner(sourceStore, backupStorage, testExtensionBackupCatalog(t)),
+		Runner:        recovery.NewVersionedRestoreRunner(sourceStore, backupStorage, testExtensionBackupCatalog(t), state),
+		Capture:       capture,
 		Store:         sourceStore,
 		BackupStorage: backupStorage,
 		BackupSet:     backupSet,
 		AsOf:          asOf,
 		Target: recovery.RestoreTarget{
+			RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
+			ReferencePacks: targetPacks, GraphProjection: graph,
 			Postgres:        targetPool,
 			ObjectStore:     targetObjectStore,
 			EvidenceObjects: evidence.NewRecoveryProvider(targetPool),
 		},
 	}
+}
+
+func currentStateCatalog(t testing.TB) *recoverystate.Catalog {
+	t.Helper()
+	catalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return catalog
 }
 
 type recordingProjectionRebuilder struct {

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_evaluate_indicator_value_request.v1",
+  "type": "object",
+  "properties": {
+    "pack_set_id": {
+      "type": "string",
+      "pattern": "^rpset_[0-9a-f]{64}$"
+    },
+    "indicator_type_id": {
+      "type": "string",
+      "minLength": 1,
+      "x-maxUtf8Bytes": 64
+    },
+    "value_kind": {
+      "type": "string",
+      "minLength": 1,
+      "x-maxUtf8Bytes": 64
+    },
+    "raw_value": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 8192
+    }
+  },
+  "required": [
+    "pack_set_id",
+    "indicator_type_id",
+    "value_kind",
+    "raw_value"
+  ],
+  "additionalProperties": false
+}

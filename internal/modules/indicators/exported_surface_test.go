@@ -48,6 +48,7 @@ var indicatorExportedSurfaceAllowlist = map[string]struct{}{
 	"NewProjectionContribution":                         {},
 	"NewRevisionContribution":                           {},
 	"NewApplication":                                    {},
+	"ReferencedIndicatorRegistryEntriesTx":              {},
 	"RecoveryStateContribution":                         {},
 	"RecordEnvelopePort":                                {},
 	"RevisionPort":                                      {},
@@ -89,7 +90,7 @@ var indicatorExportRoles = indicatorExportRoleInventory(map[string]string{
 	`,
 	"typed source-owner contribution consumed by application assembly": `
 		IncidentBundleContribution NewImportContribution NewIncidentBundleContribution
-		NewProjectionContribution NewRevisionContribution RecoveryStateContribution
+		NewProjectionContribution NewRevisionContribution RecoveryStateContribution ReferencedIndicatorRegistryEntriesTx
 	`,
 	"complete Indicators application construction and transaction participant capability": `
 		Application ApplicationDependencies NewApplication RecordEnvelopePort
@@ -118,8 +119,8 @@ func TestIndicatorExportedSurfaceReachabilityLock(t *testing.T) {
 	if len(missingRoles) != 0 || len(staleRoles) != 0 {
 		t.Fatalf("Indicator exported surface role inventory disagrees with allowlist: missing=%v stale=%v", missingRoles, staleRoles)
 	}
-	if len(actual) != 55 {
-		t.Fatalf("Indicator exported surface contains %d declarations, want reviewed surface of 55 including Core IP classification", len(actual))
+	if len(actual) != 56 {
+		t.Fatalf("Indicator exported surface contains %d declarations, want reviewed surface of 56 including registry usage and Core IP classification", len(actual))
 	}
 	for declaration, role := range indicatorExportRoles {
 		if strings.TrimSpace(role) == "" {
@@ -321,8 +322,8 @@ func indicatorParsedImportNames(t testing.TB, file *ast.File, relativePath strin
 func assertIndicatorOwnerLocalHelpersPrivate(t testing.TB) {
 	t.Helper()
 	assertFunctionInventory(t, filepath.Join("internal", "identity", "identity.go"),
-		[]string{"normalizeIndicatorType", "normalizeValueKind", "normalizeValue", "isIPType", "dedupeKey"},
-		[]string{"NormalizeIndicatorType", "NormalizeValueKind", "NormalizeValue", "IsIPType", "DedupeKey"},
+		[]string{"isIPType", "normalizeHashPair"},
+		[]string{"normalizeIndicatorType", "normalizeValueKind", "normalizeValue", "dedupeKey", "canonicalizeURL", "canonicalizeIPv4", "canonicalizeIPv6"},
 	)
 	assertFunctionInventory(t, filepath.Join("workbookprojection", "contribution.go"),
 		[]string{"descriptor", "surfaceIntent"},

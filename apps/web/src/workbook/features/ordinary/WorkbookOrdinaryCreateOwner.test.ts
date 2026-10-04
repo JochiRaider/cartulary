@@ -280,6 +280,14 @@ describe("ordinary workbook authoring", () => {
       "indicator.display_value": "192.0.2.1",
     };
     expect(prepare("indicators", indicator).request).not.toBeNull();
+    const rawText = "\uFEFFline\r\n\tending \uFEFF";
+    const text = prepare("indicators", {
+      "indicator.indicator_type": "text",
+      "indicator.value_kind": "atomic",
+      "indicator.display_value": rawText,
+    });
+    expect(text.errors).toEqual({});
+    expect(text.request).toMatchObject({ "indicator.display_value": rawText });
     expect(
       prepare("indicators", { ...indicator, "indicator.value_kind": "pattern" })
         .request,

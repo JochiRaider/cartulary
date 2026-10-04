@@ -24,10 +24,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
@@ -422,6 +424,15 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 
 	adminEmail := "backup_restore-e-10-01-canonical-restore@example.test"
 	seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
+	sourceDeployment := loadOperatorConfig(t, sourceConfig.path)
+	sourcePacks, err := referenceassembly.NewRootStorage(sourceDeployment.Roots.TemporaryWork.Path, sourceDeployment.Roots.ReferencePackStorage.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sourcePacks.Close()
+	if err := reference_data.ReconcileBaseRelease(ctx, mustOpenOperatorPool(t, sourceDB.DSN), sourcePacks, reference_data.BaseReleaseOptions{Limits: reference_data.DefaultLimits()}, time.Now().UTC()); err != nil {
+		t.Fatal("seed retained Base registries", err)
+	}
 	operatorBin := injectedOperatorBinary(t)
 	createStdout, createStderr, createExit := runOperatorBinaryWithTimeout(
 		t,
@@ -553,6 +564,19 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 	}
 	if restoredAdminCount != 1 {
 		t.Fatalf("operator restore did not copy authoritative source rows, restored admin count=%d", restoredAdminCount)
+	}
+	targetDeployment := loadOperatorConfig(t, targetConfig.path)
+	restoredPacks, err := referenceassembly.NewRootStorage(targetDeployment.Roots.TemporaryWork.Path, targetDeployment.Roots.ReferencePackStorage.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restoredPacks.Close()
+	if err := reference_data.ValidateRequiredState(ctx, mustOpenOperatorPool(t, targetDB.DSN), restoredPacks, reference_data.DefaultLimits()); err != nil {
+		t.Fatal("restored Reference Pack state not ready", err)
+	}
+	var restoredMembers int
+	if err := targetSQL.QueryRowContext(ctx, `SELECT count(*) FROM reference_pack_objects`).Scan(&restoredMembers); err != nil || restoredMembers < 9 {
+		t.Fatal("Reference Pack backup omitted Base members", restoredMembers, err)
 	}
 }
 
@@ -841,8 +865,23 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 	if err != nil {
 		t.Fatalf("construct current Recovery state catalog: %v", err)
 	}
+	deployment := configtest.LoadPath(t, cfg.path, nil).Deployment()
+	livePacks, err := referenceassembly.NewRootStorage(deployment.Roots.TemporaryWork.Path, deployment.Roots.ReferencePackStorage.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer livePacks.Close()
+	if err := reference_data.ReconcileBaseRelease(ctx, pool, livePacks, reference_data.BaseReleaseOptions{Limits: reference_data.DefaultLimits()}, consistencyPointAt.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	packs, err := referenceassembly.NewRecoveryStorage(deployment.Roots.TemporaryWork.Path, deployment.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer packs.Close()
 	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(
 		recoveryassembly.NewVNextObjectSource(sourceObjectStore),
+		packs,
 	)
 	if err != nil {
 		t.Fatalf("construct current Recovery object inventory: %v", err)
@@ -1519,6 +1558,7 @@ func writeRestoreTargetMarker(t testing.TB, cfg configassembly.Deployment, purpo
 	generationID := uuid.New()
 	now := time.Now().UTC()
 	digests := application.TargetBindingDigestsFor(application.Deployment{
+		ReferencePackStorage: application.RootBinding{BindingKind: cfg.Roots.ReferencePackStorage.BindingKind, Path: cfg.Roots.ReferencePackStorage.Path, ServiceRef: cfg.Roots.ReferencePackStorage.ServiceRef},
 		DatabaseStorage: application.RootBinding{
 			BindingKind: cfg.Roots.DatabaseStorage.BindingKind,
 			Path:        cfg.Roots.DatabaseStorage.Path,

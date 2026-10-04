@@ -366,6 +366,32 @@
       ],
       "activation_dependency_ids": [],
       "description": "Owner-backed ordinary reference identities and eligible target domains."
+    },
+    {
+      "family_id": "reference-packs",
+      "contract_root": "contracts/reference-packs",
+      "generation_status": "active",
+      "go_name": "ReferencePackArtifacts",
+      "output_order": 21,
+      "generated_outputs": [
+        "internal/gen/contractreferencepacks/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Reference Pack draft canonical schemas, profiles, limits, and interoperability fixtures. Does not confer adoption or conformance."
+    },
+    {
+      "family_id": "reporting",
+      "contract_root": "contracts/reporting",
+      "generation_status": "active",
+      "go_name": "ReportingArtifacts",
+      "output_order": 22,
+      "generated_outputs": [
+        "internal/gen/contractreporting/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Reporting historical artifact transport contracts."
     }
   ]
 }

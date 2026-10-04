@@ -44,6 +44,7 @@ SELECT
     ON r.record_id = i.record_id
  WHERE active_identity.incident_id = $1
    AND active_identity.indicator_type = $2
+   AND active_identity.dedupe_sha256 = public.digest($3::text, 'sha256')
    AND active_identity.dedupe_key = $3
    AND r.deleted_at IS NULL
  LIMIT 1

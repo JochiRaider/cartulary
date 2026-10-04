@@ -1,0 +1,31 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_lifecycle_reactivate",
+  "fixture_version": 1,
+  "fixture_family": "telemetry_privacy",
+  "input_refs": [
+    "contracts/reference-packs/builtins/release.v1.json",
+    "contracts/reference-packs/fixtures/lifecycle.v1.json",
+    "contracts/reference-packs/fixtures/signed-container.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": "6ea5d0df82ca56462258b50add81bf809fa44ffbd0f3bf345c7491ddf1c50162",
+  "expected_payload_sha256": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f",
+  "expected_pack_set_sha256": "76ecde2081cfec2c4f8a44b05822025959d9940f95b3350a8421cfa2622cd321",
+  "expected_condition": "verified_available",
+  "expected_issues": [],
+  "expected_public_error": null,
+  "expected_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "pack_set_published"
+  ],
+  "forbidden_side_effects": [
+    "candidate_created",
+    "job_admitted",
+    "network_request_attempted",
+    "payload_bytes_deleted",
+    "trust_state_changed"
+  ]
+}

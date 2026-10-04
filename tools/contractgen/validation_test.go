@@ -141,7 +141,7 @@ func TestValidateExtensionProfileFactClosureRejectsStaleConfigurationDigest(t *t
 	indexed := map[string]map[string]any{}
 	for _, profileID := range requiredExtensionProfiles {
 		contract := map[string]any{
-			"schema_id":                    "cartulary.extension_profile_configuration_contract.v3",
+			"schema_id":                    "cartulary.extension_profile_configuration_contract.v4",
 			"configuration_contract_id":    profileID + ".configuration.v1",
 			"profile_id":                   profileID,
 			"configuration_contract_major": json.Number("1"),
@@ -175,7 +175,7 @@ func TestValidateExtensionProfileFactClosureRejectsStaleConfigurationDigest(t *t
 
 func validExtensionConfigurationContract() map[string]any {
 	return map[string]any{
-		"schema_id":                    "cartulary.extension_profile_configuration_contract.v3",
+		"schema_id":                    "cartulary.extension_profile_configuration_contract.v4",
 		"configuration_contract_id":    "test.configuration.v1",
 		"profile_id":                   "test",
 		"configuration_contract_major": json.Number("1"),
@@ -255,8 +255,8 @@ func TestValidateExtensionParticipantSpecializationRejectsWrongSharedResult(t *t
 			"operation_kind":        "emit",
 			"result_schema_id":      "cartulary.obsolete_snapshot_reporting_result.v1",
 			"algorithm_id":          "snapshot_reporting.render_export_v1",
-			"output_schema_id":      "cartulary.reporting_export_model.v1",
-			"ordering_algorithm_id": "materialize_reporting_export_model_v1",
+			"output_schema_id":      "cartulary.reporting_export_model.v2",
+			"ordering_algorithm_id": "materialize_reporting_export_model_v2",
 			"state_family_ids":      []any{},
 			"max_input_bytes":       json.Number("67108864"),
 			"max_output_bytes":      json.Number("67108864"),
@@ -299,14 +299,14 @@ func TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree(t *testing.T) {
 		generatedExtensionPrefix + "implementation-bindings/network_flow_activity.json",
 		generatedExtensionPrefix + "job-contracts/import/import.apply_v1.json",
 		generatedExtensionPrefix + "job-contracts/import/import.discovery_v1.json",
-		generatedExtensionPrefix + "job-contracts/incident_portability/incident_portability.export_v1.json",
-		generatedExtensionPrefix + "job-contracts/incident_portability/incident_portability.import_v1.json",
+		generatedExtensionPrefix + "job-contracts/incident_portability/incident_portability.export_v2.json",
+		generatedExtensionPrefix + "job-contracts/incident_portability/incident_portability.import_v2.json",
 		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.import_v1.json",
 		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.refresh_v1.json",
 		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.reverify_v1.json",
-		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.composition_preview_v1.json",
-		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.release_create_v1.json",
-		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.snapshot_create_v1.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.composition_preview_v2.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.release_create_v2.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.snapshot_create_v2.json",
 	} {
 		if _, exists := seen[requiredPath]; !exists {
 			t.Fatalf("missing generated artifact %s", requiredPath)

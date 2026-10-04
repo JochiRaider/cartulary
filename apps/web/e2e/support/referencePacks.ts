@@ -1,5 +1,3 @@
-import { Buffer } from "node:buffer";
-import { createHash, randomUUID } from "node:crypto";
 import type {
   GetJobResponse,
   ListReferencePacksResponse,
@@ -9,11 +7,13 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../pages/deploymentAdministration";
 import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 
+export { referencePackBundle } from "./referencePackFixture.mjs";
+
 type Pack = ListReferencePacksResponse["data"]["pack_versions"][number];
 type Job = GetJobResponse["data"];
 const longPackKey = `type_registry.${"deployment_inventory_".repeat(4)}host`;
 const longPackVersion = `2026.09.07-${"offline_verified_".repeat(3)}candidate`;
-function referencePackBrowserPack(
+export function referencePackBrowserPack(
   key = longPackKey,
   version = longPackVersion,
 ): Pack {
@@ -21,15 +21,36 @@ function referencePackBrowserPack(
     pack_key: key,
     pack_version: version,
     pack_kind: "type_registry",
-    pack_contract_version: "cartulary.reference_pack.v1",
+    health: "verified_available",
+    administratively_disabled: false,
+    distribution_kind: "operator_imported",
+    removed: false,
+    missing_reason: null,
+    last_failure_code: null,
+    content_profile_id: "cartulary.reference_pack.type_registry.host.v1",
+    content_profile_version: "1",
+    pack_release_sequence: 1,
+    source_profile_id: "test.fixture.v1",
+    source_profile_sha256: "d".repeat(64),
+    source_version: "1",
+    source_as_of: null,
+    license_expression: "MIT",
+    redistribution: "allowed",
+    trust_repository_id: "test.repo",
+    last_verified_at: "2026-09-07T12:00:00Z",
+    trust_valid_until: "2027-09-07T12:00:00Z",
+    verified_signer_key_ids: ["c".repeat(64)],
+    pack_contract_version: "cartulary.reference_pack_contract.v1",
     pack_version_state: "verified_available",
     active: false,
+    pending_work: false,
+    reproducibility_pinned: false,
+    fallback_from_version: null,
+    dependencies: [],
     source_identifier: null,
     manifest_sha256: "a".repeat(64),
     payload_sha256: "b".repeat(64),
-    verification_method: "manifest_sha256_v1",
-    verification_result: "passed",
-    signer_key_id: null,
+    verification_method: "tuf_1_0_35_offline_bundle_v1",
     previous_active_version: null,
     imported_at: "2026-09-07T12:00:00Z",
     imported_by_user_id: null,
@@ -275,73 +296,6 @@ export async function installReferencePackPresentation(
     },
     gateAdmission: (value: Promise<void> | null) => {
       admissionGate = value;
-    },
-  };
-}
-
-/** Test-only uncompressed TAR using the existing Reference Pack manifest contract. */
-export function referencePackBundle() {
-  const key = `type_registry.browser_${randomUUID().replaceAll("-", "")}`;
-  const payload = Buffer.from('{"items":[{"key":"host","label":"Host"}]}');
-  const manifest = Buffer.from(
-    JSON.stringify({
-      pack_key: key,
-      pack_kind: "type_registry",
-      pack_version: "browser-1",
-      pack_contract_version: "cartulary.reference_pack.v1",
-      verification_method: "manifest_sha256_v1",
-      payloads: [
-        {
-          path: "payload/data.json",
-          sha256: createHash("sha256").update(payload).digest("hex"),
-        },
-      ],
-    }),
-  );
-  const chunks: Buffer[] = [];
-  for (const [name, bytes] of [
-    ["manifest.json", manifest],
-    ["payload/data.json", payload],
-  ] as const) {
-    const header = Buffer.alloc(512);
-    header.write(name, 0, 100);
-    const octal = (value: number, offset: number, width: number) =>
-      header.write(
-        `${value.toString(8).padStart(width - 1, "0")}\0`,
-        offset,
-        width,
-      );
-    octal(0o644, 100, 8);
-    octal(0, 108, 8);
-    octal(0, 116, 8);
-    octal(bytes.length, 124, 12);
-    octal(0, 136, 12);
-    header.fill(32, 148, 156);
-    header.write("0", 156);
-    header.write("ustar\0", 257);
-    header.write("00", 263);
-    header.write(
-      `${header
-        .reduce((sum, byte) => sum + byte, 0)
-        .toString(8)
-        .padStart(6, "0")}\0 `,
-      148,
-      8,
-    );
-    chunks.push(
-      header,
-      bytes,
-      Buffer.alloc((512 - (bytes.length % 512)) % 512),
-    );
-  }
-  chunks.push(Buffer.alloc(1024));
-  return {
-    key,
-    version: "browser-1",
-    upload: {
-      name: "Reference-pack.tar",
-      mimeType: "application/x-tar",
-      buffer: Buffer.concat(chunks),
     },
   };
 }

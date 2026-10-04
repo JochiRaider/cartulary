@@ -1833,10 +1833,12 @@
             "type": "string"
           },
           "indicator.display_value": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 8192
           },
           "indicator.normalized_value": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 8192
           },
           "indicator.defanged_value": {
             "type": "string"
@@ -1852,8 +1854,12 @@
           }
         },
         "required": [
-          "client_txn_id"
-        ]
+          "client_txn_id",
+          "indicator.indicator_type",
+          "indicator.value_kind",
+          "indicator.display_value"
+        ],
+        "description": "Identity values are admitted without transport normalization and evaluated by Reference Data against the effective registry. Type and value-kind tokens are exact. Text values may contain newlines and tabs; raw identity input is limited to 8192 Unicode scalars. Canonical-equivalent input reuses the same active incident identity."
       },
       "EvidenceCreateRequest": {
         "type": "object",

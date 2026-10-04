@@ -23,7 +23,9 @@
         "restore_operation_id": {
           "$ref": "common.v1.schema.json#/$defs/identifier"
         },
-        "backup_set_id": { "$ref": "common.v1.schema.json#/$defs/uuid" },
+        "backup_set_id": {
+          "$ref": "common.v1.schema.json#/$defs/uuid"
+        },
         "consistency_point_at": {
           "$ref": "common.v1.schema.json#/$defs/timestamp"
         },
@@ -64,15 +66,21 @@
         "schema_id": {
           "const": "cartulary.operator_recovery_journal_payload.v4"
         },
-        "record_kind": { "const": "admission" },
+        "record_kind": {
+          "const": "admission"
+        },
         "operation_id": {
           "$ref": "common.v1.schema.json#/$defs/identifier"
         },
-        "operation": { "$ref": "common.v1.schema.json#/$defs/operation" },
+        "operation": {
+          "$ref": "common.v1.schema.json#/$defs/operation"
+        },
         "attempt_id": {
           "$ref": "common.v1.schema.json#/$defs/nullable_identifier"
         },
-        "started_at": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+        "started_at": {
+          "$ref": "common.v1.schema.json#/$defs/timestamp"
+        },
         "backup_set_id": {
           "$ref": "common.v1.schema.json#/$defs/nullable_uuid"
         },
@@ -83,7 +91,9 @@
           "type": "array",
           "maxItems": 128,
           "uniqueItems": true,
-          "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+          "items": {
+            "$ref": "common.v1.schema.json#/$defs/identifier"
+          }
         }
       }
     },
@@ -104,25 +114,34 @@
         "artifact_counts",
         "error_code",
         "error_reason",
-        "graph_projection_completion"
+        "graph_projection_completion",
+        "target_binding_digests"
       ],
       "properties": {
         "schema_id": {
           "const": "cartulary.operator_recovery_journal_payload.v4"
         },
-        "record_kind": { "const": "completion" },
+        "record_kind": {
+          "const": "completion"
+        },
         "operation_id": {
           "$ref": "common.v1.schema.json#/$defs/identifier"
         },
-        "operation": { "$ref": "common.v1.schema.json#/$defs/operation" },
+        "operation": {
+          "$ref": "common.v1.schema.json#/$defs/operation"
+        },
         "attempt_id": {
           "$ref": "common.v1.schema.json#/$defs/nullable_identifier"
         },
-        "started_at": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+        "started_at": {
+          "$ref": "common.v1.schema.json#/$defs/timestamp"
+        },
         "completed_at": {
           "$ref": "common.v1.schema.json#/$defs/timestamp"
         },
-        "result": { "$ref": "common.v1.schema.json#/$defs/result" },
+        "result": {
+          "$ref": "common.v1.schema.json#/$defs/result"
+        },
         "backup_set_id": {
           "$ref": "common.v1.schema.json#/$defs/nullable_uuid"
         },
@@ -132,16 +151,34 @@
         "artifact_counts": {
           "type": "array",
           "maxItems": 128,
-          "items": { "$ref": "common.v1.schema.json#/$defs/artifact_count" }
+          "items": {
+            "$ref": "common.v1.schema.json#/$defs/artifact_count"
+          }
         },
-        "error_code": { "$ref": "common.v1.schema.json#/$defs/error_code" },
+        "error_code": {
+          "$ref": "common.v1.schema.json#/$defs/error_code"
+        },
         "error_reason": {
           "$ref": "common.v1.schema.json#/$defs/error_reason"
         },
         "graph_projection_completion": {
           "oneOf": [
-            { "$ref": "#/$defs/graph_completion" },
-            { "type": "null" }
+            {
+              "$ref": "#/$defs/graph_completion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_binding_digests": {
+          "oneOf": [
+            {
+              "$ref": "common.v1.schema.json#/$defs/binding_digests_v2"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       }

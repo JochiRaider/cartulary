@@ -31,7 +31,7 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 		t.Fatalf("generated implementation binding is not a closed canonical object: fields=%d err=%v", len(canonical), err)
 	}
 	if len(contractrecovery.RecoveryGenerations) != 1 ||
-		contractrecovery.RecoveryGenerations[0].GenerationID != "recovery.current.workbook_owned.graph_v4" ||
+		contractrecovery.RecoveryGenerations[0].GenerationID != "recovery.current.reference_pack_v2.graph_v4" ||
 		!contractrecovery.RecoveryGenerations[0].CaptureCurrent {
 		t.Fatalf("recovery must project exactly one current Graph v4 generation: %#v", contractrecovery.RecoveryGenerations)
 	}

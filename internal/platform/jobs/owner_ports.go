@@ -53,9 +53,27 @@ type ExtensionCancellationPort interface {
 	AppendExtensionCancellationObservationTx(context.Context, pgx.Tx, ExtensionCancellationObservation) error
 }
 
+// TerminalDisposition contains durable lifecycle facts only. It remains usable
+// after public Job expiry; retained owner evidence must not depend on a public
+// result summary or on the worker-private handler payload.
+type TerminalDisposition struct {
+	JobID      uuid.UUID
+	Status     string
+	FinishedAt time.Time
+}
+
+// TerminalEffects participates in every terminal transition, including Jobs
+// recovery exhaustion and inactive-profile reconciliation. Implementations
+// finish only already-admitted owner work in this transaction. They must not
+// start verification, publish prepared content, or perform external I/O.
+type TerminalEffects interface {
+	ApplyJobTerminalEffectsTx(context.Context, pgx.Tx, TerminalDisposition) error
+}
+
 // OwnerTransactionPorts contains the consumer-owned persistence participants
 // required by Jobs' cross-owner atomic operations.
 type OwnerTransactionPorts struct {
 	RouteIdempotency      RouteIdempotencyPort
 	ExtensionCancellation ExtensionCancellationPort
+	TerminalEffects       TerminalEffects
 }

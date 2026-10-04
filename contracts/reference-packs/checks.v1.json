@@ -1,0 +1,397 @@
+{
+  "schema_id": "cartulary.reference_pack_check_registry.v1",
+  "checks": [
+    {
+      "check_id": "retained_payload",
+      "rank": 1,
+      "phase": "container_admission",
+      "code": "payload_missing",
+      "severity": "error",
+      "applicability": "attempt_bytes"
+    },
+    {
+      "check_id": "container_format",
+      "rank": 2,
+      "phase": "container_admission",
+      "code": "unsupported_container_format",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "container_bytes",
+      "rank": 3,
+      "phase": "archive_preflight",
+      "code": "container_bytes_exceeded",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "archive_structure",
+      "rank": 4,
+      "phase": "archive_preflight",
+      "code": "archive_structure_invalid",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "archive_member_count",
+      "rank": 5,
+      "phase": "archive_preflight",
+      "code": "archive_member_count_exceeded",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "archive_extracted_bytes",
+      "rank": 6,
+      "phase": "archive_preflight",
+      "code": "archive_extracted_bytes_exceeded",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "archive_compression_ratio",
+      "rank": 7,
+      "phase": "archive_preflight",
+      "code": "archive_compression_ratio_exceeded",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "archive_path",
+      "rank": 8,
+      "phase": "archive_structure",
+      "code": "path_traversal",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "archive_collision",
+      "rank": 9,
+      "phase": "archive_structure",
+      "code": "path_collision",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "archive_member_type",
+      "rank": 10,
+      "phase": "archive_structure",
+      "code": "disallowed_member_type",
+      "severity": "error",
+      "applicability": "available_container"
+    },
+    {
+      "check_id": "bundle_shape",
+      "rank": 11,
+      "phase": "trust_selection",
+      "code": "bundle_hint_invalid",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "bundle_canonical",
+      "rank": 12,
+      "phase": "trust_selection",
+      "code": "bundle_hint_noncanonical",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "repository_selection",
+      "rank": 13,
+      "phase": "trust_selection",
+      "code": "tuf_root_untrusted",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "tuf_schema",
+      "rank": 14,
+      "phase": "tuf_metadata",
+      "code": "tuf_metadata_invalid",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "tuf_canonical",
+      "rank": 15,
+      "phase": "tuf_metadata",
+      "code": "metadata_noncanonical",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "root_trust",
+      "rank": 16,
+      "phase": "tuf_metadata",
+      "code": "tuf_root_untrusted",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "root_rotation",
+      "rank": 17,
+      "phase": "tuf_metadata",
+      "code": "tuf_root_rotation_invalid",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "role_signature",
+      "rank": 18,
+      "phase": "tuf_metadata",
+      "code": "signature_threshold_not_met",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "metadata_rollback",
+      "rank": 19,
+      "phase": "tuf_metadata",
+      "code": "metadata_rollback_detected",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "metadata_integrity",
+      "rank": 20,
+      "phase": "tuf_metadata",
+      "code": "missing_integrity_metadata",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "metadata_links",
+      "rank": 21,
+      "phase": "tuf_metadata",
+      "code": "metadata_mix_and_match_detected",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "metadata_expiry",
+      "rank": 22,
+      "phase": "tuf_metadata",
+      "code": "metadata_expired",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "metadata_expiry_policy",
+      "rank": 23,
+      "phase": "tuf_metadata",
+      "code": "metadata_expiry_policy_invalid",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "target_missing",
+      "rank": 24,
+      "phase": "target_inventory",
+      "code": "target_not_declared",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "target_extra",
+      "rank": 25,
+      "phase": "target_inventory",
+      "code": "unexpected_target",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "target_length",
+      "rank": 26,
+      "phase": "target_inventory",
+      "code": "target_length_mismatch",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "target_hash",
+      "rank": 27,
+      "phase": "target_inventory",
+      "code": "checksum_mismatch",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "manifest_encoding",
+      "rank": 28,
+      "phase": "manifest_schema",
+      "code": "manifest_encoding_invalid",
+      "severity": "error",
+      "applicability": "present_bounded_manifest"
+    },
+    {
+      "check_id": "manifest_json",
+      "rank": 29,
+      "phase": "manifest_schema",
+      "code": "manifest_json_invalid",
+      "severity": "error",
+      "applicability": "present_bounded_manifest"
+    },
+    {
+      "check_id": "manifest_duplicate",
+      "rank": 30,
+      "phase": "manifest_schema",
+      "code": "duplicate_object_member",
+      "severity": "error",
+      "applicability": "present_bounded_manifest"
+    },
+    {
+      "check_id": "manifest_schema",
+      "rank": 31,
+      "phase": "manifest_schema",
+      "code": "manifest_schema_invalid",
+      "severity": "error",
+      "applicability": "present_manifest"
+    },
+    {
+      "check_id": "manifest_canonical",
+      "rank": 32,
+      "phase": "manifest_schema",
+      "code": "manifest_noncanonical",
+      "severity": "error",
+      "applicability": "present_manifest"
+    },
+    {
+      "check_id": "contract",
+      "rank": 33,
+      "phase": "logical_identity",
+      "code": "contract_incompatible",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "sequence_rollback",
+      "rank": 34,
+      "phase": "logical_identity",
+      "code": "pack_release_sequence_rollback",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "sequence_collision",
+      "rank": 35,
+      "phase": "logical_identity",
+      "code": "pack_release_sequence_collision",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "member_missing",
+      "rank": 36,
+      "phase": "payload_integrity",
+      "code": "required_member_missing",
+      "severity": "error",
+      "applicability": "admitted_archive"
+    },
+    {
+      "check_id": "member_extra",
+      "rank": 37,
+      "phase": "payload_integrity",
+      "code": "undeclared_member",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "member_length",
+      "rank": 38,
+      "phase": "payload_integrity",
+      "code": "target_length_mismatch",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "member_hash",
+      "rank": 39,
+      "phase": "payload_integrity",
+      "code": "checksum_mismatch",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "logical_collision",
+      "rank": 40,
+      "phase": "payload_integrity",
+      "code": "pack_version_collision",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "target_binding",
+      "rank": 41,
+      "phase": "payload_integrity",
+      "code": "metadata_mix_and_match_detected",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "content_schema",
+      "rank": 42,
+      "phase": "content_schema",
+      "code": "content_schema_invalid",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "disallowed_content",
+      "rank": 43,
+      "phase": "content_schema",
+      "code": "disallowed_content",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "content_semantics",
+      "rank": 44,
+      "phase": "content_semantics",
+      "code": "content_semantic_invalid",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "runtime_compatibility",
+      "rank": 45,
+      "phase": "runtime_compatibility",
+      "code": "contract_incompatible",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "dependencies",
+      "rank": 46,
+      "phase": "dependency_validation",
+      "code": "dependency_unsatisfied",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "dependency_cycle",
+      "rank": 47,
+      "phase": "dependency_validation",
+      "code": "dependency_cycle",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "conflicts",
+      "rank": 48,
+      "phase": "dependency_validation",
+      "code": "pack_conflict",
+      "severity": "error",
+      "applicability": "admitted_manifest"
+    },
+    {
+      "check_id": "type_registry",
+      "rank": 49,
+      "phase": "type_registry_compatibility",
+      "code": "type_registry_incompatible",
+      "severity": "error",
+      "applicability": "admitted_type_registry"
+    }
+  ]
+}

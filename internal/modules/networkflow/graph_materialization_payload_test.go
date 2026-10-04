@@ -122,7 +122,8 @@ func assertStartupPayloadCorpus(t *testing.T, incident uuid.UUID, valid string, 
 		t.Fatal(err)
 	}
 	graph := graphViewDeclaration{IncidentID: incident, GraphViewID: payload.GraphViewID, MaterializationGeneration: payload.MaterializationGeneration, DesiredSourceSnapshotID: payload.SourceSnapshotID, LatestJobID: &jobID}
-	retained := jobs.RetainedExtensionJob{JobKind: definition.JobKind, HandlerName: definition.HandlerName, ProgressUnitID: definition.ProgressUnitID, OwnerProfileID: ProfileID, RouteKey: key.RouteKey, ScopeKey: key.ScopeKey, RequestSHA256: hex.EncodeToString(hash[:]), IdempotencyIdentity: identity, Resource: jobs.Resource{JobID: jobID.String(), Status: jobs.StatusQueued, AuthPolicy: jobs.AuthPolicyIncidentMembership, Scope: jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incident}, SubmittedByUserID: actor.String()}}
+	actorText := actor.String()
+	retained := jobs.RetainedExtensionJob{JobKind: definition.JobKind, HandlerName: definition.HandlerName, ProgressUnitID: definition.ProgressUnitID, OwnerProfileID: ProfileID, RouteKey: key.RouteKey, ScopeKey: key.ScopeKey, RequestSHA256: hex.EncodeToString(hash[:]), IdempotencyIdentity: identity, Resource: jobs.Resource{JobID: jobID.String(), Status: jobs.StatusQueued, AuthPolicy: jobs.AuthPolicyIncidentMembership, Scope: jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incident}, SubmittedByUserID: &actorText}}
 	reader := &payloadAdmissionReader{}
 	retained.Payload = json.RawMessage(valid)
 	if err := validateSavedGraphJobFacts(context.Background(), reader, definition, retained, key, hash[:], graph); err != nil || reader.reads != 1 {

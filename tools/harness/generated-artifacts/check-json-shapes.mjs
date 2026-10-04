@@ -1131,6 +1131,8 @@ function validateContractFamilyRegistryShape(file) {
     "parties",
     "string-contracts",
     "view-references",
+    "reference-packs",
+    "reporting",
   ];
   if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(

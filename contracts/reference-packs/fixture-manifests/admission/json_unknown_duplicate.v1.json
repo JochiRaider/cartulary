@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_admission_json_unknown_duplicate",
+  "fixture_version": 1,
+  "fixture_family": "json_admission",
+  "input_refs": [
+    "contracts/reference-packs/fixtures/admission/json_unknown_duplicate.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "manifest_duplicate",
+      "severity": "error",
+      "phase": "manifest_schema",
+      "code": "duplicate_object_member",
+      "path": "$[\"<unknown>\"]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_c7449b819ad5fc64f43fb2c09c1e54f17cbe3ef29ddb702be5d7b436e7651678",
+      "reason_code": "duplicate_object_member"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "duplicate_object_member"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

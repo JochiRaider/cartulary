@@ -38,6 +38,7 @@ var (
 )
 
 func prepareIndicatorImport(
+	evaluate identity.Evaluator,
 	bundle sourceport.Bundle,
 	importContext sourceport.ImportContext,
 ) (preparedIndicatorImport, error) {
@@ -47,7 +48,7 @@ func prepareIndicatorImport(
 	}}
 	if bundle == nil || importContext.OperationID == "" || importContext.IncidentID == uuid.Nil ||
 		importContext.ActorUserID == uuid.Nil ||
-		importContext.BundleVersion != 4 {
+		importContext.BundleVersion != 5 {
 		return preparedIndicatorImport{}, indicatorSourceFailure(representationInvariant)
 	}
 
@@ -63,7 +64,7 @@ func prepareIndicatorImport(
 	activeIdentitySeen := make(map[string]uuid.UUID, len(indicatorRows))
 	indicatorInputOrder := make([]string, 0, len(indicatorRows))
 	for _, raw := range indicatorRows {
-		row, rowFailures := preparePortableIndicatorRow(raw, importContext)
+		row, rowFailures := preparePortableIndicatorRow(evaluate, raw, importContext)
 		failures = append(failures, rowFailures...)
 		if len(rowFailures) > 0 && row.RecordID == uuid.Nil {
 			continue
@@ -94,7 +95,7 @@ func prepareIndicatorImport(
 	observationSeen := make(map[uuid.UUID]struct{}, len(observationRows))
 	observationInputOrder := make([]string, 0, len(observationRows))
 	for _, raw := range observationRows {
-		row, rowFailures := preparePortableObservationRow(raw, importContext)
+		row, rowFailures := preparePortableObservationRow(evaluate, raw, importContext)
 		failures = append(failures, rowFailures...)
 		if len(rowFailures) > 0 && row.ObservationID == uuid.Nil {
 			continue
@@ -165,6 +166,7 @@ func decodeIndicatorRows(
 }
 
 func preparePortableIndicatorRow(
+	evaluate identity.Evaluator,
 	raw map[string]any,
 	importContext sourceport.ImportContext,
 ) (portableIndicatorRow, []indicatorFailureCandidate) {
@@ -208,7 +210,7 @@ func preparePortableIndicatorRow(
 		return representationFailure()
 	}
 	dedupeKey, ok := portableText(raw["dedupe_key"], false)
-	if !ok || !portableDedupePattern.MatchString(dedupeKey) {
+	if !ok || len(dedupeKey) > 32784 {
 		return representationFailure()
 	}
 	defangedValue, ok := nullablePortableText(raw["defanged_value"], true)
@@ -268,7 +270,7 @@ func preparePortableIndicatorRow(
 		DeletedAt: deletedAt, PortableDeletedByID: deletedBy,
 		RuntimeDeletedByID: runtimeActorPointer(deletedBy, importContext.ActorUserID),
 	}
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(evaluate, identity.Input{
 		IndicatorType: indicatorType, ValueKind: valueKind, DisplayValue: displayValue,
 		NormalizedValue: normalizedValue, DefangedValue: defangedValue,
 		HashAlgorithm: hashAlgorithm, HashValue: hashValue, STIXPattern: stixPattern,
@@ -292,6 +294,7 @@ func preparePortableIndicatorRow(
 }
 
 func preparePortableObservationRow(
+	evaluate identity.Evaluator,
 	raw map[string]any,
 	importContext sourceport.ImportContext,
 ) (portableObservationRow, []indicatorFailureCandidate) {
@@ -404,7 +407,7 @@ func preparePortableObservationRow(
 	if parsedIndicatorType == nil && normalizedCandidate != nil {
 		failures = append(failures, indicatorFailure(observationCoherentInvariant, observationsBundlePath, identityText, raw))
 	} else if parsedIndicatorType != nil {
-		canonicalType, canonicalCandidate, err := identity.NormalizeObservationCandidate(parsedIndicatorType, normalizedCandidate, observedText)
+		canonicalType, canonicalCandidate, err := identity.NormalizeObservationCandidate(evaluate, parsedIndicatorType, normalizedCandidate, observedText)
 		if err != nil || !portableStringPointersEqual(canonicalType, parsedIndicatorType) ||
 			!portableStringPointersEqual(canonicalCandidate, normalizedCandidate) {
 			failures = append(failures, indicatorFailure(normalizationInvariant, observationsBundlePath, identityText, raw))

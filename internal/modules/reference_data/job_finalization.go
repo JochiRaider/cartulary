@@ -26,10 +26,23 @@ type JobFailureFinalization struct {
 	Mutate     JobSuccessMutation
 }
 
+type JobCancellationFinalization struct {
+	Execution  jobs.Execution
+	Completion jobs.CancellationCompletion
+	Mutate     JobSuccessMutation
+}
+
 // JobSuccessFinalizer is the Reference Pack-owned terminal-success port.
 // Application assembly adapts the shared proof store without exposing that
 // store or Extensions-owned persistence to the profile implementation.
+type ActionFinalizer interface {
+	FinalizeReferencePackAction(context.Context, pgx.Tx, func(context.Context) (bool, error)) error
+}
+
 type JobSuccessFinalizer interface {
+	ActionFinalizer
 	FinalizeReferencePackJobSuccess(context.Context, JobSuccessFinalization) (jobs.Resource, error)
 	FinalizeReferencePackJobFailure(context.Context, JobFailureFinalization) (jobs.Resource, error)
+	FinalizeReferencePackJobTimeout(context.Context, JobFailureFinalization) (jobs.Resource, error)
+	FinalizeReferencePackJobCancellation(context.Context, JobCancellationFinalization) (jobs.Resource, error)
 }

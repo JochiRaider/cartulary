@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_attestation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_attestation.v1"
+    },
+    "attestation_id": {
+      "type": "string",
+      "pattern": "^rpa_[0-9a-f]{64}$"
+    },
+    "event_kind": {
+      "enum": [
+        "import_verification",
+        "reverification",
+        "refresh_verification",
+        "activation",
+        "rollback_activation",
+        "safety_fallback",
+        "profile_reconciliation",
+        "dependency_invalidation",
+        "disablement",
+        "removal",
+        "exact_reimport",
+        "payload_invalidation",
+        "trust_root_update"
+      ]
+    },
+    "pack_key": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$"
+    },
+    "pack_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "distribution_kind": {
+      "enum": [
+        "operator_imported",
+        "packaged_builtin"
+      ]
+    },
+    "verification_method": {
+      "enum": [
+        "tuf_1_0_35_offline_bundle_v1",
+        "packaged_release_manifest_v1"
+      ]
+    },
+    "result": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "rejected"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor_kind": {
+      "enum": [
+        "user",
+        "local_operator",
+        "system",
+        "application_release"
+      ]
+    },
+    "actor_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "operator_operation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "container_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "manifest_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payload_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_profile_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "trust_repository_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "trusted_metadata_versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "targets": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "snapshot": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "timestamp": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "root",
+        "targets",
+        "snapshot",
+        "timestamp"
+      ]
+    },
+    "verified_signer_key_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "trust_valid_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "validation_summary_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "prior_active_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "resulting_pack_set_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^rpset_[0-9a-f]{64}$"
+    }
+  },
+  "required": [
+    "schema_id",
+    "attestation_id",
+    "event_kind",
+    "pack_key",
+    "pack_version",
+    "distribution_kind",
+    "verification_method",
+    "result",
+    "occurred_at",
+    "actor_kind",
+    "actor_user_id",
+    "operator_operation_id",
+    "container_sha256",
+    "manifest_sha256",
+    "payload_sha256",
+    "source_profile_id",
+    "source_profile_sha256",
+    "trust_repository_id",
+    "trusted_metadata_versions",
+    "verified_signer_key_ids",
+    "trust_valid_until",
+    "validation_summary_ref",
+    "prior_active_version",
+    "resulting_pack_set_id"
+  ]
+}

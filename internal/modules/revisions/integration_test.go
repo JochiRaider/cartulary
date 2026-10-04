@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -889,6 +890,7 @@ func startReusableServer(t testing.TB, prefix string) (*httptestx.Server, *sql.D
 	bucket := s3Harness.PreparePackageBucketT(t, prefix)
 
 	env := testDB.Env()
+	env["CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH"] = configtest.SetupTempRoots(t).Paths["CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH"]
 	for key, value := range s3Harness.Env(bucket) {
 		env[key] = value
 	}

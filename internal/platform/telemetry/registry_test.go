@@ -19,6 +19,7 @@ func TestSpanRegistryClosed(t *testing.T) {
 		"job_run",
 		"network_flow_graph_phase",
 		"network_flow_cleanup",
+		"reference_pack_operation",
 		"postgres_dependency",
 		"objectstore_dependency",
 	}
@@ -81,6 +82,7 @@ func TestMetricRegistryClosed(t *testing.T) {
 		NetworkFlowCleanupExaminedMetricName,
 		NetworkFlowCleanupContinuationMetricName,
 		NetworkFlowCleanupLastSuccessAgeMetricName,
+		"cartulary.reference_pack.operation.duration",
 		"cartulary.postgres.operation.duration",
 		"cartulary.objectstore.operation.duration",
 		"cartulary.objectstore.transfer.bytes",

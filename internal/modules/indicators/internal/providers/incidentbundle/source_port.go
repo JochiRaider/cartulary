@@ -6,29 +6,80 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 )
 
-func NewSourcePort(paths []sourceport.Path) sourceport.Port {
+func NewSourcePort(paths []sourceport.Path, consumer reference_data.Consumer, assignments reference_data.RegistryAssignments) sourceport.Port {
 	descriptor := indicatorSourceDescriptor(paths)
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor,
-		Export:     exportFiles,
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return prepareIndicatorImport(bundle, importContext)
+		Export: func(ctx context.Context, input sourceport.ExportContext) ([]incidentportability.File, error) {
+			evaluate, err := identity.FromConsumer(ctx, consumer)
+			if err != nil {
+				return nil, err
+			}
+			return exportFiles(evaluate, ctx, input)
+		},
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			evaluate, err := identity.FromConsumer(ctx, consumer)
+			if err != nil {
+				return nil, err
+			}
+			return prepareIndicatorImport(evaluate, bundle, importContext)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			prepared, ok := value.(preparedIndicatorImport)
 			if !ok {
 				return sourceport.ErrPreparedBinding
 			}
-			return applyPreparedIndicatorImportTx(ctx, tx, prepared, importContext)
+			if tx == nil || !prepared.binding.matches(importContext) {
+				return indicatorSourceFailure(representationInvariant)
+			}
+			if len(prepared.indicators) == 0 && len(prepared.observations) == 0 {
+				return applyPreparedIndicatorImportTx(ctx, tx, prepared, importContext)
+			}
+			assignment, err := assignments.BeginTx(ctx, tx)
+			if err != nil {
+				return err
+			}
+			evaluate, err := identity.FromConsumer(ctx, assignment)
+			if err != nil {
+				return err
+			}
+			for _, row := range prepared.indicators {
+				if err := validatePortableIndicatorForExport(evaluate, row, importContext.IncidentID); err != nil {
+					return indicatorSourceFailure(normalizationInvariant)
+				}
+			}
+			for _, row := range prepared.observations {
+				if err := validatePortableObservationForExport(evaluate, row, importContext.IncidentID); err != nil {
+					return indicatorSourceFailure(normalizationInvariant)
+				}
+			}
+			if err := applyPreparedIndicatorImportTx(ctx, tx, prepared, importContext); err != nil {
+				return err
+			}
+			return assignment.RecordUsage(ctx, "type_registry.indicator")
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			prepared, ok := value.(preparedIndicatorImport)
 			if !ok {
 				return sourceport.ErrPreparedBinding
 			}
-			return validatePreparedIndicatorImportTx(ctx, tx, prepared, importContext)
+			if tx == nil || !prepared.binding.matches(importContext) {
+				return indicatorSourceFailure(representationInvariant)
+			}
+			assignment, err := assignments.BeginTx(ctx, tx)
+			if err != nil {
+				return err
+			}
+			evaluate, err := identity.FromConsumer(ctx, assignment)
+			if err != nil {
+				return err
+			}
+			return validatePreparedIndicatorImportTx(evaluate, ctx, tx, prepared, importContext)
 		},
 	})
 }

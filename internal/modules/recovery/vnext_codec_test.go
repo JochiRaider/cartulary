@@ -129,7 +129,7 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	for _, proof := range captured.IntegrityManifest.Artifacts {
 		if proof.Kind == "graph_projection_restore_implementation_binding" || proof.Kind == "graph_projection_restore_source_registry" {
 			graphArtifactCounts[proof.Kind]++
-			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v4" {
+			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v5" {
 				t.Fatalf("fresh backup used non-current Graph implementation binding schema %q", proof.SchemaID)
 			}
 			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != "cartulary.graph_projection_restore_source_registry.v4" {
@@ -167,8 +167,8 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if target.stateCatalogSHA256 != captured.IntegrityManifest.RecoveryStateCatalogSHA256 {
 		t.Fatalf("restore target catalog = %s, want selected %s", target.stateCatalogSHA256, captured.IntegrityManifest.RecoveryStateCatalogSHA256)
 	}
-	if got := len(target.tables); got != 84 {
-		t.Fatalf("restored tables = %d, want 84", got)
+	if got := len(target.tables); got != 111 {
+		t.Fatalf("restored tables = %d, want 111", got)
 	}
 	firstTable := stateCatalog.RequiredTableNames()[0]
 	if got := string(target.rows[firstTable][0]); got != `{"a":"first","z":"last"}` {
@@ -184,6 +184,17 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	sort.Strings(target.algorithms)
 	if got, want := target.algorithms, algorithmIDs; !equalStrings(got, want) {
 		t.Fatalf("restore algorithms = %v, want %v", got, want)
+	}
+	for _, raw := range []json.RawMessage{
+		json.RawMessage(`{"a":"one","a":"two"}`),
+		json.RawMessage(`{"a":"\ud800"}`),
+		append(append([]byte(`{"a":"`), 0xff), []byte(`"}`)...),
+		json.RawMessage(`{"a":null} {}`),
+	} {
+		snapshots.rows[firstTable] = []json.RawMessage{raw}
+		if _, err := capture.Capture(ctx, recovery.VNextCaptureParams{BackupSetID: uuid.New(), ConsistencyPointAt: at, CreatedAt: at, RetainedUntil: at.Add(31 * 24 * time.Hour)}); err == nil {
+			t.Fatal("backup capture repaired lossy row JSON")
+		}
 	}
 }
 

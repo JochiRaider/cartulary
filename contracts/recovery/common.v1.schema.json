@@ -40,20 +40,32 @@
     },
     "nullable_uuid": {
       "oneOf": [
-        { "$ref": "#/$defs/uuid" },
-        { "type": "null" }
+        {
+          "$ref": "#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "nullable_timestamp": {
       "oneOf": [
-        { "$ref": "#/$defs/timestamp" },
-        { "type": "null" }
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "nullable_identifier": {
       "oneOf": [
-        { "$ref": "#/$defs/identifier" },
-        { "type": "null" }
+        {
+          "$ref": "#/$defs/identifier"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "operation": {
@@ -66,7 +78,11 @@
       ]
     },
     "result": {
-      "enum": ["succeeded", "no_op", "failed"]
+      "enum": [
+        "succeeded",
+        "no_op",
+        "failed"
+      ]
     },
     "error_code": {
       "oneOf": [
@@ -84,7 +100,9 @@
             "verification_failed"
           ]
         },
-        { "type": "null" }
+        {
+          "type": "null"
+        }
       ]
     },
     "error_reason": {
@@ -95,15 +113,22 @@
           "maxLength": 96,
           "pattern": "^[a-z][a-z0-9_]*$"
         },
-        { "type": "null" }
+        {
+          "type": "null"
+        }
       ]
     },
     "artifact_count": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "count"],
+      "required": [
+        "kind",
+        "count"
+      ],
       "properties": {
-        "kind": { "$ref": "#/$defs/identifier" },
+        "kind": {
+          "$ref": "#/$defs/identifier"
+        },
         "count": {
           "type": "integer",
           "minimum": 0,
@@ -125,27 +150,68 @@
         "envelope_sha256"
       ],
       "properties": {
-        "kind": { "$ref": "#/$defs/identifier" },
-        "schema_id": { "$ref": "#/$defs/schema_id" },
-        "logical_ref": { "$ref": "#/$defs/logical_ref" },
-        "content_type": { "$ref": "#/$defs/content_type" },
+        "kind": {
+          "$ref": "#/$defs/identifier"
+        },
+        "schema_id": {
+          "$ref": "#/$defs/schema_id"
+        },
+        "logical_ref": {
+          "$ref": "#/$defs/logical_ref"
+        },
+        "content_type": {
+          "$ref": "#/$defs/content_type"
+        },
         "plaintext_bytes": {
           "type": "integer",
           "minimum": 0,
           "maximum": 9223372036854775807
         },
-        "plaintext_sha256": { "$ref": "#/$defs/sha256" },
-        "envelope_ref": { "$ref": "#/$defs/logical_ref" },
-        "envelope_sha256": { "$ref": "#/$defs/sha256" }
+        "plaintext_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "envelope_ref": {
+          "$ref": "#/$defs/logical_ref"
+        },
+        "envelope_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
       }
     },
     "binding_digests": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["database_sha256", "object_store_sha256"],
+      "required": [
+        "database_sha256",
+        "object_store_sha256"
+      ],
       "properties": {
-        "database_sha256": { "$ref": "#/$defs/sha256" },
-        "object_store_sha256": { "$ref": "#/$defs/sha256" }
+        "database_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "object_store_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "binding_digests_v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "database_sha256",
+        "object_store_sha256",
+        "reference_pack_storage_sha256"
+      ],
+      "properties": {
+        "database_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "object_store_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "reference_pack_storage_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
       }
     }
   }

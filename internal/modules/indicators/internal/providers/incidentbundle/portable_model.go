@@ -36,7 +36,6 @@ const (
 var (
 	portableIntegerPattern   = regexp.MustCompile(`^(?:0|-?[1-9][0-9]*)$`)
 	portableTimestampPattern = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?\+00:00$`)
-	portableDedupePattern    = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
 type portableBinding struct {
@@ -136,7 +135,7 @@ func (binding portableBinding) matches(importContext sourceport.ImportContext) b
 		binding.incidentID != uuid.Nil &&
 		binding.incidentID == importContext.IncidentID &&
 		binding.bundleVersion == importContext.BundleVersion &&
-		binding.bundleVersion == 4 &&
+		binding.bundleVersion == 5 &&
 		binding.contractMajor == sourceport.ContractMajor
 }
 

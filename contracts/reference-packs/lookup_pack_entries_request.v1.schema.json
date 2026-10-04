@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_lookup_pack_entries_request.v1",
+  "type": "object",
+  "properties": {
+    "pack_set_id": {
+      "type": "string",
+      "pattern": "^rpset_[0-9a-f]{64}$"
+    },
+    "pack_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+      "maxLength": 128
+    },
+    "lookup_kind": {
+      "type": "string",
+      "minLength": 1,
+      "x-maxUtf8Bytes": 64
+    },
+    "lookup_value": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        {
+          "type": "object",
+          "properties": {
+            "provider_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "event_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "event_version": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "provider_name",
+            "event_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "algorithm",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "x-maxUtf8Bytes": 65536
+    }
+  },
+  "required": [
+    "pack_set_id",
+    "pack_key",
+    "lookup_kind",
+    "lookup_value"
+  ],
+  "additionalProperties": false
+}

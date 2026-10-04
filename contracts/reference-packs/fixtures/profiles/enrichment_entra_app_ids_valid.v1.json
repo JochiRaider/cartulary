@@ -1,0 +1,7 @@
+{
+  "pack_key": "enrichment.entra_app_ids",
+  "members": {
+    "payload/entries.ndjson": "{\"aliases\":[],\"app_id\":\"00000000-0000-0000-0000-000000000001\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"00000000-0000-0000-0000-000000000001\",\"extensions\":{},\"publisher\":null,\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.entra_app_ids.entry.v1\",\"service_principal_names\":[\"example.invalid\"],\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+  },
+  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+}

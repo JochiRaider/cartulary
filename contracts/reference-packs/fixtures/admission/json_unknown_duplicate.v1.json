@@ -1,0 +1,7 @@
+{
+  "schema_id": "cartulary.reference_pack_admission_fixture.v1",
+  "kind": "manifest",
+  "bytes_base64": "eyJob3N0aWxlLXByaXZhdGUtbWVtYmVyIjoxLCJob3N0aWxlLXByaXZhdGUtbWVtYmVyIjoyfQ==",
+  "expected_members": {},
+  "operator": true
+}

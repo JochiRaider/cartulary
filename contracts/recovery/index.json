@@ -5,7 +5,7 @@
   "current_schema_ids": [
     "cartulary.backup_artifact_envelope.v2",
     "cartulary.backup_integrity_manifest.v3",
-    "cartulary.graph_projection_restore_implementation_binding.v4",
+    "cartulary.graph_projection_restore_implementation_binding.v5",
     "cartulary.graph_projection_restore_rebuild_result.v4",
     "cartulary.graph_projection_restore_source_registry.v4",
     "cartulary.object_store_backup_manifest.v2",
@@ -15,10 +15,10 @@
     "cartulary.postgres_snapshot_artifact.v2",
     "cartulary.postgres_snapshot_unit.v1",
     "cartulary.recovery_generation_registry.v1",
-    "cartulary.recovery_state_catalog.v1",
+    "cartulary.recovery_state_catalog.v2",
     "cartulary.recovery_state_contribution.v1",
-    "cartulary.restore_target_marker.v2",
-    "cartulary.restore_verification.v2",
+    "cartulary.restore_target_marker.v3",
+    "cartulary.restore_verification.v3",
     "cartulary.restore_workbook_probe_registration.v1"
   ],
   "historical_reader_schema_ids": [
@@ -31,8 +31,8 @@
     "cartulary.restore_verification.v1"
   ],
   "limits": {
-    "authored_table_count": 115,
-    "required_table_count": 84,
+    "authored_table_count": 142,
+    "required_table_count": 111,
     "chunk_plaintext_bytes": 4194304,
     "envelope_salt_bytes": 32,
     "envelope_nonce_prefix_bytes": 8,
@@ -47,7 +47,7 @@
     "backup-artifact-envelope.v2.schema.json",
     "backup-integrity-manifest.v3.schema.json",
     "common.v1.schema.json",
-    "graph-projection-restore-implementation-binding.v4.schema.json",
+    "graph-projection-restore-implementation-binding.v5.schema.json",
     "graph-projection-restore-rebuild-result.v4.schema.json",
     "graph-projection-restore-source-registry.v4.schema.json",
     "object-store-backup-manifest.v2.schema.json",
@@ -57,16 +57,16 @@
     "postgres-snapshot-artifact.v2.schema.json",
     "postgres-snapshot-unit.v1.schema.json",
     "recovery-generation-registry.v1.schema.json",
-    "recovery-state-catalog.v1.schema.json",
+    "recovery-state-catalog.v2.schema.json",
     "recovery-state-contribution.v1.schema.json",
-    "restore-target-marker.v2.schema.json",
-    "restore-verification.v2.schema.json",
+    "restore-target-marker.v3.schema.json",
+    "restore-verification.v3.schema.json",
     "restore-workbook-probe-registration.v1.schema.json"
   ],
   "canonical_fixtures": [
     "fixtures/backup-artifact-envelope.v2.json",
     "fixtures/backup-integrity-manifest.v3.json",
-    "fixtures/graph-projection-restore-implementation-binding.v4.json",
+    "fixtures/graph-projection-restore-implementation-binding.v5.json",
     "fixtures/graph-projection-restore-rebuild-result.v4.json",
     "fixtures/graph-projection-restore-source-registry.v4.json",
     "fixtures/object-store-backup-manifest.v2.json",
@@ -76,10 +76,10 @@
     "fixtures/postgres-snapshot-artifact.v2.json",
     "fixtures/postgres-snapshot-unit.v1.json",
     "fixtures/recovery-generation-registry.v1.json",
-    "fixtures/recovery-state-catalog.v1.json",
+    "fixtures/recovery-state-catalog.v2.json",
     "fixtures/recovery-state-contribution.v1.json",
-    "fixtures/restore-target-marker.v2.json",
-    "fixtures/restore-verification.v2.json",
+    "fixtures/restore-target-marker.v3.json",
+    "fixtures/restore-verification.v3.json",
     "fixtures/restore-workbook-probe-registration.v1.json"
   ]
 }

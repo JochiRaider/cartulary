@@ -30,6 +30,8 @@ const (
 	defaultArchiveMaxCompressionRatio            int64 = 100
 	defaultArchiveMaxMembers                     int64 = 10000
 	defaultReferencePackMaxExtractedBytes        int64 = 536870912
+	defaultReferencePackMaxContainerBytes        int64 = 536870912
+	defaultReferencePackMaxVerificationSeconds   int64 = 1800
 	defaultIncidentBundleMaxExtractedBytes       int64 = 68719476736
 	defaultPreviewMaxPreviewablePayloadBytes     int64 = 33554432
 	defaultPreviewMaxTextInlineBytes             int64 = 1048576
@@ -156,7 +158,9 @@ type ArchiveLimits struct {
 }
 
 type ReferencePackLimits struct {
-	MaxExtractedBytes int64 `toml:"max_extracted_bytes"`
+	MaxExtractedBytes      int64 `toml:"max_extracted_bytes"`
+	MaxContainerBytes      int64 `toml:"max_container_bytes"`
+	MaxVerificationSeconds int64 `toml:"max_verification_seconds"`
 }
 
 type IncidentBundleLimits struct {
@@ -401,7 +405,7 @@ func discardUndecodedInactiveExtensionValues(
 		if _, typed := configFieldAtPath(cfg, key); !typed {
 			if value, present := rawValueAtPath(rawConfig, key); present {
 				consumedPaths[key] = struct{}{}
-				diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(policy.ValidateAndDiscard(map[string]any{key: value}))...)
+				diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(policy.ValidateAndDiscard(map[string]any{key: value}), claimKey, policy)...)
 			}
 		}
 		overlayName := overlayPrefix + strings.ToUpper(strings.ReplaceAll(key, ".", "__"))
@@ -416,38 +420,40 @@ func discardUndecodedInactiveExtensionValues(
 					Path:       key,
 					ReasonCode: "extension_validation_result_invalid",
 					Message:    "Extension configuration is present while the profile is inactive.",
-					Details:    inactiveDiagnosticDetails(key),
+					Details:    inactiveDiagnosticDetails(key, claimKey, policy),
 				})
 				continue
 			}
-			diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(policy.ValidateAndDiscard(map[string]any{key: value}))...)
+			diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(policy.ValidateAndDiscard(map[string]any{key: value}), claimKey, policy)...)
 		}
 	}
 	return consumedPaths, consumedOverlays, diagnostics
 }
 
-func inactiveFindingsToDiagnostics(findings [][2]string) []Diagnostic {
+func inactiveFindingsToDiagnostics(findings [][2]string, claimKey string, policy ExtensionPolicy) []Diagnostic {
 	diagnostics := make([]Diagnostic, len(findings))
 	for index, finding := range findings {
 		diagnostics[index] = Diagnostic{
 			Path:       finding[0],
 			ReasonCode: finding[1],
 			Message:    "Extension configuration is present while the profile is inactive.",
-			Details:    inactiveDiagnosticDetails(finding[0]),
+			Details:    inactiveDiagnosticDetails(finding[0], claimKey, policy),
 		}
 	}
 	return diagnostics
 }
 
-func inactiveDiagnosticDetails(path string) map[string]string {
-	profileID := path
-	if separator := strings.IndexByte(path, '.'); separator >= 0 {
-		profileID = path[:separator]
+func inactiveDiagnosticDetails(path, claimKey string, policy ExtensionPolicy) map[string]string {
+	// A configuration namespace need not equal its owning profile ID.
+	// Identity comes from the admitted claim registration, never path parsing.
+	details := map[string]string{"config_path": "$." + path}
+	for _, registration := range policy.ClaimRegistrations() {
+		if registration.Path == claimKey {
+			details["profile_id"] = registration.ID
+			break
+		}
 	}
-	return map[string]string{
-		"profile_id":  profileID,
-		"config_path": "$." + path,
-	}
+	return details
 }
 
 func pathIsConsumedInactive(path string, consumed map[string]struct{}) bool {

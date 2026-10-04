@@ -1,7 +1,5 @@
 package vocabulary
 
-import "strings"
-
 var (
 	indicatorTypes = [...]string{
 		"ipv4_addr",
@@ -60,18 +58,6 @@ func IsObservationStatus(value string) bool { return contains(observationStatusS
 
 // IsLifecycleState reports exact membership without canonicalizing the input.
 func IsLifecycleState(value string) bool { return contains(lifecycleStateSet, value) }
-
-// CanonicalIndicatorType admits the deliberately tolerant identity-creation form.
-func CanonicalIndicatorType(value string) (string, bool) {
-	canonical := strings.ToLower(strings.TrimSpace(value))
-	return canonical, IsIndicatorType(canonical)
-}
-
-// CanonicalValueKind admits the deliberately tolerant identity-creation form.
-func CanonicalValueKind(value string) (string, bool) {
-	canonical := strings.ToLower(strings.TrimSpace(value))
-	return canonical, IsValueKind(canonical)
-}
 
 func membership(values []string) map[string]struct{} {
 	result := make(map[string]struct{}, len(values))

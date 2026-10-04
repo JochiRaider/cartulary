@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_content_fixture.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "pack_key",
+    "members"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_content_fixture.v1"
+    },
+    "pack_key": {
+      "type": "string",
+      "enum": [
+        "type_registry.host",
+        "type_registry.evidence",
+        "type_registry.indicator",
+        "framework.attack",
+        "framework.d3fend",
+        "framework.veris",
+        "enrichment.tor",
+        "enrichment.cisa_kev",
+        "enrichment.ms_portals",
+        "enrichment.windows_event_ids",
+        "enrichment.entra_app_ids",
+        "enrichment.lolbas",
+        "enrichment.loldrivers",
+        "enrichment.lolesxi",
+        "enrichment.hijacklibs",
+        "enrichment.windows_sids"
+      ]
+    },
+    "members": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "payload/entries.ndjson"
+          ],
+          "properties": {
+            "payload/entries.ndjson": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "payload/objects.ndjson",
+            "payload/relationships.ndjson"
+          ],
+          "properties": {
+            "payload/objects.ndjson": {
+              "type": "string",
+              "maxLength": 1048576
+            },
+            "payload/relationships.ndjson": {
+              "type": "string",
+              "maxLength": 1048576
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/JochiRaider/cartulary/internal/app/server"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,8 +30,9 @@ var (
 )
 
 type Runtime struct {
-	Postgres *pgtest.Harness
-	S3       *s3test.Harness
+	Postgres          *pgtest.Harness
+	S3                *s3test.Harness
+	referencePackRoot string
 }
 
 type ServerHarness struct {
@@ -73,8 +76,9 @@ func startRuntime(t testing.TB, env map[string]string) (*Runtime, error) {
 		return nil, err
 	}
 	return &Runtime{
-		Postgres: startPostgresForRuntime(t),
-		S3:       startS3ForRuntime(t),
+		Postgres:          startPostgresForRuntime(t),
+		S3:                startS3ForRuntime(t),
+		referencePackRoot: t.TempDir(),
 	}, nil
 }
 
@@ -227,6 +231,14 @@ func (r *Runtime) startServer(
 		testDB = r.PrepareIsolatedDatabase(t, options.Prefix)
 	}
 	env := testDB.Env()
+	// A restarted deployment keeps its authoritative local bytes with its
+	// database. Allocate under the runtime's parent test, not a shorter-lived
+	// subtest that merely replaces one server or dependency adapter.
+	packRoot := filepath.Join(r.referencePackRoot, testDB.Name, "reference-packs")
+	if err := os.MkdirAll(packRoot, 0o700); err != nil {
+		t.Fatalf("create deployment Reference Pack root: %v", err)
+	}
+	env["CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH"] = packRoot
 	store := options.ObjectStore
 	if store == nil {
 		bucket := r.S3.PreparePackageBucketT(t, options.Prefix)

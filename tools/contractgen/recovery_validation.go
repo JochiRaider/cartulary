@@ -13,7 +13,7 @@ import (
 
 const (
 	recoveryRegistrySchemaID           = "cartulary.recovery_contract_registry.v1"
-	recoveryCatalogSchemaID            = "cartulary.recovery_state_catalog.v1"
+	recoveryCatalogSchemaID            = "cartulary.recovery_state_catalog.v2"
 	recoveryGenerationRegistrySchemaID = "cartulary.recovery_generation_registry.v1"
 )
 
@@ -32,7 +32,7 @@ var (
 		"backup-artifact-envelope.v2.schema.json":                        "cartulary.backup_artifact_envelope.v2",
 		"backup-integrity-manifest.v3.schema.json":                       "cartulary.backup_integrity_manifest.v3",
 		"common.v1.schema.json":                                          "cartulary.recovery_common.v1",
-		"graph-projection-restore-implementation-binding.v4.schema.json": "cartulary.graph_projection_restore_implementation_binding.v4",
+		"graph-projection-restore-implementation-binding.v5.schema.json": "cartulary.graph_projection_restore_implementation_binding.v5",
 		"graph-projection-restore-rebuild-result.v4.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v4",
 		"graph-projection-restore-source-registry.v4.schema.json":        "cartulary.graph_projection_restore_source_registry.v4",
 		"object-store-backup-manifest.v2.schema.json":                    "cartulary.object_store_backup_manifest.v2",
@@ -42,16 +42,16 @@ var (
 		"postgres-snapshot-artifact.v2.schema.json":                      "cartulary.postgres_snapshot_artifact.v2",
 		"postgres-snapshot-unit.v1.schema.json":                          "cartulary.postgres_snapshot_unit.v1",
 		"recovery-generation-registry.v1.schema.json":                    recoveryGenerationRegistrySchemaID,
-		"recovery-state-catalog.v1.schema.json":                          recoveryCatalogSchemaID,
+		"recovery-state-catalog.v2.schema.json":                          recoveryCatalogSchemaID,
 		"recovery-state-contribution.v1.schema.json":                     "cartulary.recovery_state_contribution.v1",
-		"restore-target-marker.v2.schema.json":                           "cartulary.restore_target_marker.v2",
-		"restore-verification.v2.schema.json":                            "cartulary.restore_verification.v2",
+		"restore-target-marker.v3.schema.json":                           "cartulary.restore_target_marker.v3",
+		"restore-verification.v3.schema.json":                            "cartulary.restore_verification.v3",
 		"restore-workbook-probe-registration.v1.schema.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	recoveryFixtureIDsByPath = map[string]string{
 		"fixtures/backup-artifact-envelope.v2.json":                        "cartulary.backup_artifact_envelope.v2",
 		"fixtures/backup-integrity-manifest.v3.json":                       "cartulary.backup_integrity_manifest.v3",
-		"fixtures/graph-projection-restore-implementation-binding.v4.json": "cartulary.graph_projection_restore_implementation_binding.v4",
+		"fixtures/graph-projection-restore-implementation-binding.v5.json": "cartulary.graph_projection_restore_implementation_binding.v5",
 		"fixtures/graph-projection-restore-rebuild-result.v4.json":         "cartulary.graph_projection_restore_rebuild_result.v4",
 		"fixtures/graph-projection-restore-source-registry.v4.json":        "cartulary.graph_projection_restore_source_registry.v4",
 		"fixtures/object-store-backup-manifest.v2.json":                    "cartulary.object_store_backup_manifest.v2",
@@ -61,10 +61,10 @@ var (
 		"fixtures/postgres-snapshot-artifact.v2.json":                      "cartulary.postgres_snapshot_artifact.v2",
 		"fixtures/postgres-snapshot-unit.v1.json":                          "cartulary.postgres_snapshot_unit.v1",
 		"fixtures/recovery-generation-registry.v1.json":                    recoveryGenerationRegistrySchemaID,
-		"fixtures/recovery-state-catalog.v1.json":                          recoveryCatalogSchemaID,
+		"fixtures/recovery-state-catalog.v2.json":                          recoveryCatalogSchemaID,
 		"fixtures/recovery-state-contribution.v1.json":                     "cartulary.recovery_state_contribution.v1",
-		"fixtures/restore-target-marker.v2.json":                           "cartulary.restore_target_marker.v2",
-		"fixtures/restore-verification.v2.json":                            "cartulary.restore_verification.v2",
+		"fixtures/restore-target-marker.v3.json":                           "cartulary.restore_target_marker.v3",
+		"fixtures/restore-verification.v3.json":                            "cartulary.restore_verification.v3",
 		"fixtures/restore-workbook-probe-registration.v1.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	createTablePattern = regexp.MustCompile(`(?i)\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
@@ -189,7 +189,7 @@ func validateRecoveryContractFamily(root string) error {
 	if err := validateRecoveryGenerationRegistry(base); err != nil {
 		return err
 	}
-	catalog, err := readRecoveryObject(base, "fixtures/recovery-state-catalog.v1.json")
+	catalog, err := readRecoveryObject(base, "fixtures/recovery-state-catalog.v2.json")
 	if err != nil {
 		return err
 	}
@@ -235,7 +235,7 @@ func validateRecoveryGenerationRegistry(base string) error {
 	if err != nil {
 		return err
 	}
-	if generationID != "recovery.current.workbook_owned.graph_v4" || !captureCurrent {
+	if generationID != "recovery.current.reference_pack_v2.graph_v4" || !captureCurrent {
 		return fmt.Errorf("%s is not the exact current generation", generationID)
 	}
 	catalog, err := asObject(generation["catalog"], label+".catalog")
@@ -245,7 +245,7 @@ func validateRecoveryGenerationRegistry(base string) error {
 	catalogDigest, err := validateRecoveryGenerationCatalogBinding(
 		base,
 		catalog,
-		"fixtures/recovery-state-catalog.v1.json",
+		"fixtures/recovery-state-catalog.v2.json",
 		label+".catalog",
 	)
 	if err != nil {
@@ -265,7 +265,7 @@ func validateRecoveryGenerationRegistry(base string) error {
 	if err := validateRecoveryGenerationGraphBinding(
 		base,
 		graph,
-		"fixtures/graph-projection-restore-implementation-binding.v4.json",
+		"fixtures/graph-projection-restore-implementation-binding.v5.json",
 		catalogDigest,
 		label+".graph",
 	); err != nil {
@@ -478,7 +478,7 @@ func validateGraphProjectionRestoreV4Contracts(base string) error {
 	registrySum := sha256.Sum256([]byte(registryJSON))
 	registrySHA256 := hex.EncodeToString(registrySum[:])
 
-	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v4.json")
+	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v5.json")
 	if err != nil {
 		return err
 	}
@@ -492,7 +492,7 @@ func validateGraphProjectionRestoreV4Contracts(base string) error {
 		return err
 	}
 	if len(binding) != len(bindingKeys) ||
-		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v4" ||
+		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v5" ||
 		binding["algorithm_id"] != "graphprojection.restore_rebuild.v4" ||
 		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v4" ||
 		binding["graph_projection_contract_id"] != "cartulary.graph_projection_nlspec.v2.2.0" ||
@@ -639,8 +639,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	if len(tables) != 115 {
-		return nil, fmt.Errorf("recovery catalog must classify exactly 115 authored tables, got %d", len(tables))
+	if len(tables) != 142 {
+		return nil, fmt.Errorf("recovery catalog must classify exactly 142 authored tables, got %d", len(tables))
 	}
 	catalogNames := make([]string, 0, len(tables))
 	requiredNames := []string{}
@@ -662,8 +662,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err := requireSortedUniqueStrings(catalogNames, "recovery catalog tables"); err != nil {
 		return nil, err
 	}
-	if len(requiredNames) != 84 {
-		return nil, fmt.Errorf("recovery catalog must contain exactly 84 authoritative_required tables, got %d", len(requiredNames))
+	if len(requiredNames) != 111 {
+		return nil, fmt.Errorf("recovery catalog must contain exactly 111 authoritative_required tables, got %d", len(requiredNames))
 	}
 	authoredNames, err := authoredMigrationTableNames(root)
 	if err != nil {
@@ -735,8 +735,8 @@ func validateRecoverySnapshotFixture(snapshot map[string]any, requiredTables []s
 	if err != nil {
 		return err
 	}
-	if len(units) != 84 {
-		return fmt.Errorf("postgres snapshot fixture must contain exactly 84 units, got %d", len(units))
+	if len(units) != 111 {
+		return fmt.Errorf("postgres snapshot fixture must contain exactly 111 units, got %d", len(units))
 	}
 	names := make([]string, 0, len(units))
 	for index, unit := range units {

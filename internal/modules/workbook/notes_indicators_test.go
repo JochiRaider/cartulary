@@ -27,6 +27,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -147,6 +148,7 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	timelineBundle, projections := newWorkbookTimelineComposition(t, harness.DB, appender, revisionComposition.Runtime.ConflictFieldResolver(), revisionComposition.RecordChanges)
 	workbookStore, _ := newCatalogBackedWorkbookCatalog(t, harness.DB, timelineBundle, projections, appender, revisionComposition.RecordChanges)
 	indicatorApplication, err := indicators.NewApplication(indicators.ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        harness.DB,
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(harness.DB)),
 		IncidentState:   admission.NewChecker(harness.DB),
@@ -581,6 +583,7 @@ func newCatalogBackedWorkbookCatalog(
 		t.Fatalf("compose Artifacts mutation contribution: %v", err)
 	}
 	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        pool,
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(pool)),
 		IncidentState:   admission.NewChecker(pool),

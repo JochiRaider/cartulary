@@ -77,7 +77,7 @@ type Resource struct {
 	Status            string         `json:"status"`
 	Cancelable        bool           `json:"cancelable"`
 	AuthPolicy        string         `json:"-"`
-	SubmittedByUserID string         `json:"submitted_by_user_id"`
+	SubmittedByUserID *string        `json:"submitted_by_user_id"`
 	SubmittedAt       time.Time      `json:"submitted_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
 	Progress          Progress       `json:"progress"`
@@ -90,15 +90,16 @@ type Resource struct {
 }
 
 type EnqueueParams struct {
-	JobKind           string
-	Scope             Scope
-	SubmittedByUserID uuid.UUID
-	AuthPolicy        string
-	Cancelable        bool
-	Progress          Progress
-	Message           *string
-	HandlerPayload    json.RawMessage
-	Extension         *ExtensionJobAdmission
+	OperatorOperationID uuid.UUID
+	JobKind             string
+	Scope               Scope
+	SubmittedByUserID   uuid.UUID
+	AuthPolicy          string
+	Cancelable          bool
+	Progress            Progress
+	Message             *string
+	HandlerPayload      json.RawMessage
+	Extension           *ExtensionJobAdmission
 }
 
 // Execution is an opaque lease-fenced handler attempt. Only Jobs can create a

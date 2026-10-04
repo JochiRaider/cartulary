@@ -44,30 +44,4 @@ func TestClosedVocabularyMembershipAndCanonicalization(t *testing.T) {
 		})
 	}
 
-	for input, want := range map[string]string{
-		"domain_name":   "domain_name",
-		" DOMAIN_NAME ": "domain_name",
-		"IPv4_ADDR":     "ipv4_addr",
-	} {
-		if got, ok := vocabulary.CanonicalIndicatorType(input); !ok || got != want {
-			t.Fatalf("canonical Indicator type %q = %q, %t, want %q", input, got, ok, want)
-		}
-	}
-	for input, want := range map[string]string{
-		"atomic":      "atomic",
-		" REFERENCE ": "reference",
-		"Pattern":     "pattern",
-	} {
-		if got, ok := vocabulary.CanonicalValueKind(input); !ok || got != want {
-			t.Fatalf("canonical value kind %q = %q, %t, want %q", input, got, ok, want)
-		}
-	}
-	for _, input := range []string{"domain", "ipv4", "literal", "scalar", "unknown"} {
-		if _, ok := vocabulary.CanonicalIndicatorType(input); ok {
-			t.Fatalf("Indicator type alias %q was canonicalized", input)
-		}
-		if _, ok := vocabulary.CanonicalValueKind(input); ok {
-			t.Fatalf("value-kind alias %q was canonicalized", input)
-		}
-	}
 }

@@ -336,7 +336,7 @@ func partyPortableImportContext(incidentID uuid.UUID, operationID string) source
 	return sourceport.ImportContext{
 		IncidentID:    incidentID,
 		ActorUserID:   uuid.MustParse("ffffffff-ffff-4fff-8fff-ffffffffffff"),
-		BundleVersion: 4,
+		BundleVersion: 5,
 		OperationID:   operationID,
 	}
 }

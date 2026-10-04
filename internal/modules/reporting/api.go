@@ -33,19 +33,18 @@ const (
 	RenderExportContextSchemaID           = "cartulary.extension_snapshot_reporting_participant_context.v1"
 	RenderExportResultSchemaID            = "cartulary.extension_snapshot_reporting_participant_result.v1"
 	RenderExportAlgorithmID               = "snapshot_reporting.render_export_v1"
-	RenderExportOrderingAlgorithmID       = "materialize_reporting_export_model_v1"
-	JobWorkerKind                         = "snapshot_reporting.job_worker_v1"
-	SnapshotCreateJobKind                 = "snapshot_reporting.snapshot_create_v1"
+	RenderExportOrderingAlgorithmID       = "materialize_reporting_export_model_v2"
+	JobWorkerKind                         = "snapshot_reporting.job_worker_v2"
+	SnapshotCreateJobKind                 = "snapshot_reporting.snapshot_create_v2"
 	SnapshotCreateOperationKind           = "snapshot_reporting.snapshot_create"
-	ReleaseCreateJobKind                  = "snapshot_reporting.release_create_v1"
+	ReleaseCreateJobKind                  = "snapshot_reporting.release_create_v2"
 	ReleaseCreateOperationKind            = "snapshot_reporting.release_create"
-	CompositionPreviewJobKind             = "snapshot_reporting.composition_preview_v1"
+	CompositionPreviewJobKind             = "snapshot_reporting.composition_preview_v2"
 	CompositionPreviewOperationKind       = "snapshot_reporting.composition_preview"
 
-	DerivationVersion         = "cartulary.reporting_derivation_profile.v1"
-	ExportModelSchemaID       = "cartulary.reporting_export_model.v1"
-	LegacyDerivationVersion   = "cartulary.snapshot_export_model.v3"
-	LegacyExportModelSchemaID = "cartulary.export_model.v3"
+	DerivationVersion   = "cartulary.reporting_derivation_profile.v2"
+	ExportModelSchemaID = "cartulary.reporting_export_model.v2"
+
 	OutputOptionsSchemaID     = "cartulary.reporting_render_request_options.v1"
 	SourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 
@@ -67,9 +66,10 @@ const (
 )
 
 var (
-	sha256HexPattern          = regexp.MustCompile(`^[a-f0-9]{64}$`)
-	compositionVersionPattern = regexp.MustCompile(`^v[1-9][0-9]*$`)
-	outputKindVocabulary      = []string{
+	ErrRequiredReferencePackUnavailable = errors.New("required_reference_pack_unavailable")
+	sha256HexPattern                    = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	compositionVersionPattern           = regexp.MustCompile(`^v[1-9][0-9]*$`)
+	outputKindVocabulary                = []string{
 		OutputKindSlidev,
 		OutputKindMermaid,
 	}
@@ -716,7 +716,7 @@ func validateCreateReleaseRequestSemantics(request CreateReleaseRequest) (Templa
 	return templateContract, nil
 }
 
-func validateCreateReleaseRecipientPartitions(request CreateReleaseRequest, model ExportModel) *httpapi.APIError {
+func validateCreateReleaseRecipientPartitions(request CreateReleaseRequest, model interface{ RedactionFields() []ExportField }) *httpapi.APIError {
 	if request.ReleaseScope != ReleaseScopeExternal {
 		return nil
 	}
@@ -832,6 +832,10 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIEr
 }
 
 func internalAPIError(err error) *httpapi.APIError {
+	if errors.Is(err, ErrRequiredReferencePackUnavailable) {
+		return &httpapi.APIError{Status: http.StatusConflict, Code: "required_reference_pack_unavailable", Details: map[string]any{}}
+	}
+
 	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",

@@ -30,9 +30,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -184,36 +186,37 @@ func run() error {
 
 	sourceStore := recovery.NewStore(sourcePool)
 	now := time.Now().UTC()
-	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, sourcePool)
+	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
 	if err != nil {
-		return fmt.Errorf("capture source postgres artifact: %w", err)
+		return err
 	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, evidence.NewRecoveryProvider(sourcePool))
+	sourcePacks, err := referenceassembly.NewRecoveryStorage(filepath.Join(sourceRoot, "temporary-work"), filepath.Join(sourceRoot, "reference-pack-storage"), reference_data.DefaultLimits())
 	if err != nil {
-		return fmt.Errorf("index source blob storage refs: %w", err)
+		return err
 	}
-	backupSetID := uuid.New()
-	objectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, sourceObjectStore, recovery.ObjectStoreBackupCaptureParams{
-		BackupSetID:               backupSetID,
-		ConsistencyPointAt:        now,
-		Bucket:                    "restore-browser-restore-source",
-		BlobObjectIDsByStorageRef: blobIndex,
-	})
+	defer sourcePacks.Close()
+	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks)
 	if err != nil {
-		return fmt.Errorf("capture source object artifact: %w", err)
+		return err
 	}
-	backupSet, err := recovery.NewCaptureService(sourceStore, backupStorage, extensionBackups).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
-		BackupSetID:                       backupSetID,
-		ConsistencyPointAt:                now,
-		CreatedAt:                         now,
-		RetainedUntil:                     now.Add(recovery.MinimumRetentionDuration),
-		PostgresArtifact:                  recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
-		ObjectStoreArtifact:               recovery.BackupArtifact{Body: objectArtifacts.SnapshotBody, ContentType: "application/json"},
-		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectArtifacts.ManifestBody, ContentType: "application/json"},
-		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectArtifacts.SummaryBody, ContentType: "application/json"},
+	streaming, err := recovery.RequireStreamingBackupStorage(backupStorage)
+	if err != nil {
+		return err
+	}
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, stateCatalog, inventories)
+	if err != nil {
+		return err
+	}
+	captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{
+		BackupSetID: uuid.New(), ConsistencyPointAt: now, CreatedAt: now,
+		RetainedUntil: now.Add(31 * 24 * time.Hour),
 	})
 	if err != nil {
 		return fmt.Errorf("capture retained backup set: %w", err)
+	}
+	backupSet, err := sourceStore.PublishVNextCapturedBackup(ctx, captured)
+	if err != nil {
+		return err
 	}
 
 	targetRoot := filepath.Join(runtimeRoot, "restore-browser-restore-target")
@@ -254,11 +257,24 @@ func run() error {
 		_ = targetObjectStore.Close()
 		return fmt.Errorf("compose restore projection services: %w", err)
 	}
-	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, extensionBackups).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		Postgres:        targetPool,
-		ObjectStore:     targetObjectStore,
+	targetPacks, err := referenceassembly.NewRecoveryStorage(filepath.Join(targetRoot, "temporary-work"), filepath.Join(targetRoot, "reference-pack-storage"), reference_data.DefaultLimits())
+	if err != nil {
+		targetPool.Close()
+		_ = targetObjectStore.Close()
+		return err
+	}
+	defer targetPacks.Close()
+	graph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(targetPool)
+	if err != nil {
+		targetPool.Close()
+		_ = targetObjectStore.Close()
+		return err
+	}
+	result, err := recovery.NewVersionedRestoreRunner(sourceStore, backupStorage, extensionBackups, stateCatalog).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+		RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
+		Postgres: targetPool, ObjectStore: targetObjectStore, ReferencePacks: targetPacks,
 		EvidenceObjects: evidence.NewRecoveryProvider(targetPool),
-		Projections:     projectionRebuilder,
+		GraphProjection: graph, Projections: projectionRebuilder,
 	}, now.Add(time.Second))
 	if err != nil {
 		targetPool.Close()
@@ -700,6 +716,7 @@ func targetConfig(root string, origin string, runtimeEnv map[string]string) (con
 		"CARTULARY__ROOTS__TEMPORARY_WORK__PATH":                      filepath.Join(root, "temporary-work"),
 		"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH":                      filepath.Join(root, "export-outputs"),
 		"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH":             filepath.Join(root, "bootstrap-admin.json"),
+		"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH":            fixtures.Path("reference-packs", "trust-bootstrap.json"),
 		"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": filepath.Join(root, "revisions-conflict-token-key-ring.json"),
 	}
 	for key, value := range runtimeEnv {

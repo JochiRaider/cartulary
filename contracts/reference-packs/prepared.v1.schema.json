@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_prepared.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_prepared.v1"
+    },
+    "manifest": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 1398104
+    },
+    "envelope": {
+      "$ref": "successful_envelope.v1.schema.json"
+    },
+    "objects": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 68,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "sha256",
+          "size",
+          "reference"
+        ]
+      }
+    },
+    "index_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "required": [
+    "schema_id",
+    "manifest",
+    "envelope",
+    "objects",
+    "index_id"
+  ]
+}

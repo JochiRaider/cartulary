@@ -21,6 +21,7 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 	t.Helper()
 
 	allowedSiblingImports := map[string]map[string]bool{
+		indicatorsRepoImportPrefix + "internal/modules/reference_data": {"application.go": true, "identity.go": true, "incident_bundle_contribution.go": true, "source_port.go": true, "provider.go": true, "revision_provider_contribution.go": true},
 		indicatorsRepoImportPrefix + "internal/modules/collaboration": {
 			"application.go":        true,
 			"child_coordination.go": true,
@@ -53,6 +54,7 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 			"portable_export.go":   true,
 			"portable_prepare.go":  true,
 			"portable_validate.go": true,
+			"source_port.go":       true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/projections/providercontract": {
 			"contribution.go": true,

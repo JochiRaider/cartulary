@@ -37,6 +37,7 @@ import {
   importJobID,
   jobEnvelope,
 } from "../testing/incidentImportTestSupport";
+import { referencePackFixture } from "../testing/referencePackTestSupport";
 
 vi.mock("../workbook/WorkbookShell", async () => {
   const React = await import("react");
@@ -1634,25 +1635,11 @@ describe("Incident landing", () => {
             jsonResponse({
               data: {
                 pack_versions: [
-                  {
-                    activated_at: "2026-05-24T00:00:01Z",
-                    activated_by_user_id: null,
+                  referencePackFixture({
                     active: true,
+                    activated_at: "2026-05-24T00:00:01Z",
                     imported_at: "2026-05-24T00:00:00Z",
-                    imported_by_user_id: null,
-                    manifest_sha256: "a".repeat(64),
-                    pack_contract_version: "1",
-                    pack_key: "type_registry.host",
-                    pack_kind: "type_registry",
-                    pack_version: "1",
-                    pack_version_state: "verified_available",
-                    payload_sha256: "b".repeat(64),
-                    previous_active_version: null,
-                    signer_key_id: null,
-                    source_identifier: null,
-                    verification_method: "sha256",
-                    verification_result: "passed",
-                  },
+                  }),
                 ],
               },
               meta: {

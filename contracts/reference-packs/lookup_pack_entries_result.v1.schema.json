@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_lookup_pack_entries_result.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "maxItems": 200,
+              "items": {
+                "$ref": "consumer_item.v1.schema.json"
+              }
+            },
+            "next_cursor": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 65536
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "provenance.v1.schema.json"
+            }
+          },
+          "required": [
+            "items",
+            "next_cursor",
+            "provenance"
+          ],
+          "additionalProperties": false
+        },
+        "error": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "value",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "null"
+        },
+        "error": {
+          "$ref": "consumer_error.v1.schema.json"
+        }
+      },
+      "required": [
+        "value",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

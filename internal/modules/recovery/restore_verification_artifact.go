@@ -14,19 +14,20 @@ import (
 )
 
 const (
-	RestoreVerificationArtifactSchemaID = "cartulary.restore_verification.v2"
+	RestoreVerificationArtifactSchemaID = "cartulary.restore_verification.v3"
 	VNextBackupMechanismID              = "logical_streaming_backup.v2"
 )
 
 var recoveryIdentifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$`)
 
 type RestoreVerificationBasis struct {
-	MechanismID                string `json:"mechanism_id"`
-	DatabaseBindingSHA256      string `json:"database_binding_sha256"`
-	ObjectStoreBindingSHA256   string `json:"object_store_binding_sha256"`
-	BackupStorageBindingSHA256 string `json:"backup_storage_binding_sha256"`
-	RecoveryStateCatalogSHA256 string `json:"recovery_state_catalog_sha256"`
-	CodecRegistrySHA256        string `json:"codec_registry_sha256"`
+	MechanismID                       string `json:"mechanism_id"`
+	DatabaseBindingSHA256             string `json:"database_binding_sha256"`
+	ObjectStoreBindingSHA256          string `json:"object_store_binding_sha256"`
+	ReferencePackStorageBindingSHA256 string `json:"reference_pack_storage_binding_sha256"`
+	BackupStorageBindingSHA256        string `json:"backup_storage_binding_sha256"`
+	RecoveryStateCatalogSHA256        string `json:"recovery_state_catalog_sha256"`
+	CodecRegistrySHA256               string `json:"codec_registry_sha256"`
 }
 
 func (basis RestoreVerificationBasis) SHA256() (string, error) {
@@ -46,11 +47,12 @@ func (basis RestoreVerificationBasis) Validate() error {
 		return fmt.Errorf("%w: mechanism_id is invalid", ErrInvalidVerificationBasis)
 	}
 	for name, value := range map[string]string{
-		"database_binding_sha256":       basis.DatabaseBindingSHA256,
-		"object_store_binding_sha256":   basis.ObjectStoreBindingSHA256,
-		"backup_storage_binding_sha256": basis.BackupStorageBindingSHA256,
-		"recovery_state_catalog_sha256": basis.RecoveryStateCatalogSHA256,
-		"codec_registry_sha256":         basis.CodecRegistrySHA256,
+		"database_binding_sha256":               basis.DatabaseBindingSHA256,
+		"object_store_binding_sha256":           basis.ObjectStoreBindingSHA256,
+		"reference_pack_storage_binding_sha256": basis.ReferencePackStorageBindingSHA256,
+		"backup_storage_binding_sha256":         basis.BackupStorageBindingSHA256,
+		"recovery_state_catalog_sha256":         basis.RecoveryStateCatalogSHA256,
+		"codec_registry_sha256":                 basis.CodecRegistrySHA256,
 	} {
 		if !validSHA256Hex(value) {
 			return fmt.Errorf("%w: %s is invalid", ErrInvalidVerificationBasis, name)
@@ -195,12 +197,13 @@ func canonicalRestoreVerificationArtifactV2Bytes(artifact RestoreVerificationArt
 		"backup_set_id":           artifact.BackupSetID,
 		"consistency_point_at":    artifact.ConsistencyPointAt,
 		"verification_basis": map[string]any{
-			"mechanism_id":                  artifact.VerificationBasis.MechanismID,
-			"database_binding_sha256":       artifact.VerificationBasis.DatabaseBindingSHA256,
-			"object_store_binding_sha256":   artifact.VerificationBasis.ObjectStoreBindingSHA256,
-			"backup_storage_binding_sha256": artifact.VerificationBasis.BackupStorageBindingSHA256,
-			"recovery_state_catalog_sha256": artifact.VerificationBasis.RecoveryStateCatalogSHA256,
-			"codec_registry_sha256":         artifact.VerificationBasis.CodecRegistrySHA256,
+			"mechanism_id":                          artifact.VerificationBasis.MechanismID,
+			"database_binding_sha256":               artifact.VerificationBasis.DatabaseBindingSHA256,
+			"object_store_binding_sha256":           artifact.VerificationBasis.ObjectStoreBindingSHA256,
+			"reference_pack_storage_binding_sha256": artifact.VerificationBasis.ReferencePackStorageBindingSHA256,
+			"backup_storage_binding_sha256":         artifact.VerificationBasis.BackupStorageBindingSHA256,
+			"recovery_state_catalog_sha256":         artifact.VerificationBasis.RecoveryStateCatalogSHA256,
+			"codec_registry_sha256":                 artifact.VerificationBasis.CodecRegistrySHA256,
 		},
 		"verification_basis_sha256":     artifact.VerificationBasisSHA256,
 		"recovery_state_catalog_sha256": artifact.RecoveryStateCatalogSHA256,

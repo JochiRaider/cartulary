@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -38,7 +39,7 @@ type Runtime struct {
 	incidentBundles sourceport.Port
 }
 
-func CurrentProviderContributions() ([]revisions.ProviderContribution, error) {
+func CurrentProviderContributions(assignments reference_data.RegistryAssignments) ([]revisions.ProviderContribution, error) {
 	artifactContribution, err := artifacts.NewRevisionContribution()
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: compose Artifacts contribution: %w", err)
@@ -52,7 +53,7 @@ func CurrentProviderContributions() ([]revisions.ProviderContribution, error) {
 		assessments.RevisionProviderContribution(),
 		entities.RevisionProviderContribution(),
 		evidence.RevisionProviderContribution(),
-		indicators.NewRevisionContribution(),
+		indicators.NewRevisionContribution(assignments),
 		links.RevisionProviderContribution(),
 		parties.NewRevisionContribution(),
 		tasksDecisionsContribution,
@@ -133,6 +134,7 @@ func (r *Runtime) IncidentBundleSourcePort() sourceport.Port {
 
 func (r *Runtime) NewCommandService(
 	db postgres.DB,
+	transactions revisions.TransactionRunner,
 	attributionResolver revisions.ImportedAttributionResolver,
 	projections revisions.ProjectionRebuilder,
 	liveRecords revisions.LiveRecordReader,
@@ -143,7 +145,7 @@ func (r *Runtime) NewCommandService(
 		return nil, errors.New("revision assembly: runtime is required")
 	}
 	return revisions.NewCommandService(revisions.CommandServiceDependencies{
-		Transactions:                transactionRunnerAdapter{database: db},
+		Transactions:                transactions,
 		Authorization:               commandAuthorizerAdapter{access: admission.NewChecker(db)},
 		Idempotency:                 commandIdempotencyAdapter{store: authn.NewStore(db)},
 		ImportedAttributionResolver: attributionResolver,

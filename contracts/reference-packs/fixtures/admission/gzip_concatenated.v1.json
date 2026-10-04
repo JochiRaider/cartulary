@@ -1,0 +1,7 @@
+{
+  "schema_id": "cartulary.reference_pack_admission_fixture.v1",
+  "kind": "archive",
+  "bytes_base64": "H4sIAAAAAAAC/+3OMQoCMRRF0SzFFchPJjP7mUJBwRHMWIl7N9paK4jnNBde9U7zctjv2ro9tvOSPiO6KeLVeG9XUh5zGYeh1ueeo04lbSJ9wbWt86VfSf/pdk8AAAAAAAAAAAD8oAfzhgZNACgAAB+LCAAAAAAAAv/tzjEKAjEURdEsxRXITyYz+5lCQcERzFiJezfaWiuI5zQXXvVO83LY79q6Pbbzkj4juini1XhvV1IecxmHodbnnqNOJW0ifcG1rfOlX0n/6XZPAAAAAAAAAAAA/KAH84YGTQAoAAA=",
+  "expected_members": {},
+  "operator": true
+}

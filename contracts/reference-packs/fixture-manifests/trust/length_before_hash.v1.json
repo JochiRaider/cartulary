@@ -1,0 +1,86 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_trust_length_before_hash",
+  "fixture_version": 1,
+  "fixture_family": "tuf_failure",
+  "input_refs": [
+    "contracts/reference-packs/fixtures/trust/length_before_hash.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "target_length",
+      "severity": "error",
+      "phase": "target_inventory",
+      "code": "target_length_mismatch",
+      "path": "$.metadata[1].signed.targets[0].length",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_ff91fd914888f4349f7a048dc3669af318a9532c21c230b4fde16121d4e3a0a5",
+      "reason_code": "target_length_mismatch"
+    },
+    {
+      "check_id": "target_length",
+      "severity": "error",
+      "phase": "target_inventory",
+      "code": "target_length_mismatch",
+      "path": "$.metadata[1].signed.targets[1].length",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_582c571e47adb71e3fbc32191f6d19ebf706e127756af5dfb498aa6c8c57396a",
+      "reason_code": "target_length_mismatch"
+    },
+    {
+      "check_id": "target_length",
+      "severity": "error",
+      "phase": "target_inventory",
+      "code": "target_length_mismatch",
+      "path": "$.metadata[1].signed.targets[2].length",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_6335c9c043ddc4a0fac4685b30265db8804859ebb6028330cf67daa22335fe00",
+      "reason_code": "target_length_mismatch"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "target_length_mismatch"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

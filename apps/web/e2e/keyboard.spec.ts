@@ -1245,9 +1245,27 @@ test("Timeline grid keyboard navigation, edit cancellation, and Esc restore sema
   );
   await inspectorDetails.press("Escape");
   await expect(inspectorDetails).toHaveCount(0);
+  const savedField = page.locator(
+    '[data-inspector-saved-field="timeline.raw_activity_text"]',
+  );
+  const resumeDraft = savedField.getByRole("button", {
+    name: "Resume draft for RAW Activity",
+    exact: true,
+  });
+  await expect(resumeDraft).toBeEnabled();
+  await expect(resumeDraft).toBeFocused();
   await expect(
-    page.locator('[data-inspector-saved-field="timeline.raw_activity_text"]'),
-  ).toContainText("Unfinished work retained");
+    savedField.getByRole("button", {
+      name: "Discard draft for RAW Activity",
+      exact: true,
+    }),
+  ).toBeEnabled();
+  await resumeDraft.press("Enter");
+  await expect(inspectorDetails).toHaveValue(
+    "browser.coordination-review.row-02 inspector dirty draft",
+  );
+  await inspectorDetails.press("Escape");
+  await expect(inspectorDetails).toHaveCount(0);
   await expect(editRaw).toBeFocused();
   await editRaw.press("Escape");
   await expect(alphaSummaryCell).toBeFocused();

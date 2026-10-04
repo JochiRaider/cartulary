@@ -1,0 +1,8 @@
+{
+  "pack_key": "framework.attack",
+  "members": {
+    "payload/objects.ndjson": "{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic framework object\",\"extensions\":{},\"external_refs\":[],\"object_id\":\"fixture:1\",\"object_type\":\"fixture\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.framework.attack.object.v1\",\"source_refs\":[{\"artifact_index\":1,\"locator\":\"fixture:1\"}]}\n{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic framework object\",\"extensions\":{},\"external_refs\":[],\"object_id\":\"fixture:2\",\"object_type\":\"fixture\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.framework.attack.object.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:2\"}]}\n",
+    "payload/relationships.ndjson": "{\"description\":null,\"extensions\":{},\"relationship_id\":\"rpr_9629715a6b23819767f3a8c5bce5f81cc4917f986df873e3c0c27c931cab5f91\",\"relationship_type\":\"related-to\",\"schema_id\":\"cartulary.reference_pack.framework.attack.relationship.v1\",\"source_object_id\":\"fixture:1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:edge\"}],\"target_object_id\":\"fixture:2\"}\n"
+  },
+  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+}

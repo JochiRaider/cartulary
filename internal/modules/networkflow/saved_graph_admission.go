@@ -217,7 +217,7 @@ func savedGraphRegistrationMatches(retained jobs.RetainedExtensionJob, definitio
 }
 
 func validateSavedGraphJobFacts(ctx context.Context, reader extensionstore.Querier, definition jobs.Definition, retained jobs.RetainedExtensionJob, key authn.RouteIdempotencyKey, hash []byte, graph graphViewDeclaration) error {
-	if !savedGraphRegistrationMatches(retained, definition) || retained.Resource.Scope.IncidentID == nil || *retained.Resource.Scope.IncidentID != graph.IncidentID || retained.Resource.Scope.Kind != jobs.ScopeKindIncident || retained.Resource.SubmittedByUserID != key.ActorUserID.String() {
+	if !savedGraphRegistrationMatches(retained, definition) || retained.Resource.Scope.IncidentID == nil || *retained.Resource.Scope.IncidentID != graph.IncidentID || retained.Resource.Scope.Kind != jobs.ScopeKindIncident || (retained.Resource.SubmittedByUserID == nil || *retained.Resource.SubmittedByUserID != key.ActorUserID.String()) {
 		return errSavedGraphCutoverIncompatible
 	}
 	id, err := uuid.Parse(retained.Resource.JobID)

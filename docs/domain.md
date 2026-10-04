@@ -881,7 +881,7 @@ Declared scope: every bounded context in §10. Completion rule: each bounded con
 | Links and Tags | `owner-only` | Domain text states relationship families; exact link-type tokens and field mappings remain owner-owned. | Core 02/Core 01 |
 | Revisions | `owner-only` | Domain text names incident-history concepts; rollback behavior remains owner-owned and administrative audit stays outside this context. | Core 02/Core 01 |
 | Projections and Search | `owner-only` | Domain text states derived-state boundary; sort/filter/group/cursor behavior remains owner-owned. | Core 01/Core 03 |
-| Reference Data | `extension-only` | Missing reference packs are not Base Profile defects. | Core 01/Core 04 |
+| Reference Data | `base-and-extension` | Release-bound host, evidence and indicator registries are Base readiness requirements. Optional imported enrichment remains an extension; its loss degrades only dependent consumers. | Reference Pack NLSpec §§9, 20, 23; Core 01/Core 04 |
 | Reporting and Snapshots | `extension-only` | Snapshot/report/release and report-composition terms are current only when the extension profile is claimed. | Core 01/Core 04; Report Composition NLSpec; Reporting Subsystem NLSpec |
 | Authentication and Administration | `owner-only` | Domain text distinguishes user, party, incident role, deployment admin, and administrative audit; security and audit behavior remain owner-owned. | Core 04/Core 01 |
 | Imports and Tabular Ingest | `extension-only` | File-based import concepts are current only when the Import Extension Profile is claimed; base clipboard semantics remain owner-owned. | Core 01/Core 03 |

@@ -11,16 +11,19 @@ import {
   referencePackReloadButtonTestId,
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
 import {
   type ReferencePackCommand,
+  type ReferencePackVersion,
   referencePackJobProblem,
   referencePackResultTarget,
+  referencePackValidationRef,
   referencePackVersionRoute,
 } from "../services/referencePacks";
 import type { ReferencePackAdminController } from "./referencePackAdminController";
 import {
   emptyReferencePackQuery,
+  type ReferencePackDiagnostics,
   type ReferencePackKnownJob,
   referencePackBusy,
   referencePackCommandLabel,
@@ -33,7 +36,7 @@ import {
 import { useReferencePackAdminPresentation } from "./useReferencePackAdmin";
 
 const referencePackStyles = `
-[data-reference-pack-admin] :is(button,input,select):focus-visible { outline: var(--ct-border-focus); outline-offset: var(--ct-component-focus-ring-offset); }
+[data-reference-pack-admin] :is(button,input,select,summary):focus-visible { outline: var(--ct-border-focus); outline-offset: var(--ct-component-focus-ring-offset); }
 [data-reference-pack-admin] button:is(:disabled,[aria-disabled="true"]) { color: var(--ct-colors-ink-subtle) !important; background: var(--ct-colors-surface-3) !important; cursor: not-allowed; }
 [data-reference-pack-admin] progress { appearance: none; box-sizing: border-box; height: var(--ct-spacing-sm); border: var(--ct-border-hairline); border-radius: var(--ct-rounded-pill); background: var(--ct-colors-surface-3); }
 [data-reference-pack-admin] progress:indeterminate { background: repeating-linear-gradient(135deg, var(--ct-colors-accent) 0, var(--ct-colors-accent) var(--ct-spacing-xs), var(--ct-colors-surface-3) var(--ct-spacing-xs), var(--ct-colors-surface-3) var(--ct-spacing-sm)); }
@@ -51,6 +54,90 @@ const referencePackStyles = `
   [data-reference-pack-admin] .rp-cell-label { display: block; font-weight: bold; margin-block-end: var(--ct-spacing-xs); }
 }
 `;
+
+function ValidationDetails({
+  diagnostic,
+  available,
+  inspect,
+}: {
+  readonly diagnostic: ReferencePackDiagnostics | undefined;
+  readonly available: boolean;
+  readonly inspect: (element: HTMLElement) => void;
+}) {
+  const reading = diagnostic?.phase === "loading";
+  const ready = diagnostic?.phase === "ready";
+  return (
+    <section aria-label="Validation details">
+      <button
+        type="button"
+        style={buttonStyle}
+        data-rp-recovery
+        aria-disabled={!available || reading || ready}
+        onClick={(event) => {
+          if (available && !reading && !ready) inspect(event.currentTarget);
+        }}
+      >
+        {diagnostic?.phase === "failed" || diagnostic?.phase === "paused"
+          ? "Retry validation details"
+          : "View validation details"}
+      </button>
+      {reading ? <p>Loading validation details.</p> : null}
+      {diagnostic?.phase === "paused" ? (
+        <p>Validation detail loading paused. Retry to inspect this outcome.</p>
+      ) : null}
+      {diagnostic?.phase === "failed" ? (
+        <p style={errorStyle}>
+          {referencePackProblemText(diagnostic.problem)} Retrying these details
+          does not submit another pack operation.
+        </p>
+      ) : null}
+      {diagnostic?.phase === "ready" ? (
+        <>
+          <p>
+            {diagnostic.summary.issues_truncated
+              ? `Showing the first ${diagnostic.summary.retained_issue_count} of ${diagnostic.summary.total_issue_count} issues.`
+              : `${diagnostic.summary.total_issue_count} validation ${diagnostic.summary.total_issue_count === 1 ? "issue" : "issues"}.`}
+          </p>
+          <p>
+            Check: <code>{diagnostic.summary.issues[0]?.check_id}</code>. Issues
+            are shown in verification order.
+          </p>
+          <ol style={listStyle}>
+            {diagnostic.summary.issues.map((issue) => (
+              <li key={issue.issue_id} style={{ overflowWrap: "anywhere" }}>
+                <code>{issue.path}</code>
+                {issue.entry_id === null ? null : (
+                  <span>
+                    {" "}
+                    · Entry <code>{issue.entry_id}</code>
+                  </span>
+                )}
+                {issue.safe_details.expected_token === null ? null : (
+                  <span> · Expected {issue.safe_details.expected_token}</span>
+                )}
+                {issue.safe_details.actual_token === null ? null : (
+                  <span> · Found {issue.safe_details.actual_token}</span>
+                )}
+                {issue.safe_details.limit_id === null ? null : (
+                  <span> · Limit {issue.safe_details.limit_id}</span>
+                )}
+                {issue.safe_details.related_pack_key === null ? null : (
+                  <span>
+                    {" "}
+                    · Related pack {issue.safe_details.related_pack_key}
+                    {issue.safe_details.related_pack_version === null
+                      ? ""
+                      : `@${issue.safe_details.related_pack_version}`}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : null}
+    </section>
+  );
+}
 
 export function ReferencePackAdminPanel({
   controller,
@@ -159,25 +246,6 @@ export function ReferencePackAdminPanel({
                     {label}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label style={fieldStyle}>
-              Verification
-              <select
-                aria-label="Reference pack verification result"
-                style={inputStyle}
-                value={state.input.verificationResult}
-                onChange={(event) =>
-                  controller.setQuery({
-                    ...state.input,
-                    verificationResult: event.currentTarget.value,
-                  })
-                }
-              >
-                <option value="">Any verification</option>
-                <option value="pending">Pending</option>
-                <option value="passed">Passed</option>
-                <option value="failed">Failed</option>
               </select>
             </label>
             <label style={fieldStyle}>
@@ -464,6 +532,17 @@ export function ReferencePackAdminPanel({
                       ) ? (
                         <p>{jobResultText(job)}</p>
                       ) : null}
+                      {referencePackValidationRef(job.snapshot) ? (
+                        <ValidationDetails
+                          diagnostic={state.diagnostics[id]}
+                          available={available}
+                          inspect={(element) =>
+                            binding.run(element, () =>
+                              controller.inspectValidation(id),
+                            )
+                          }
+                        />
+                      ) : null}
                       {job.problem ? (
                         <p style={errorStyle}>
                           {referencePackProblemText(job.problem)} The last
@@ -560,7 +639,7 @@ export function ReferencePackAdminPanel({
           ) : null}
           <div style={catalogStyle}>
             <table style={tableStyle}>
-              <caption style={captionStyle}>Imported pack versions</caption>
+              <caption style={captionStyle}>Reference pack versions</caption>
               <colgroup>
                 {["40%", "15%", "20%", "7%", "18%"].map((width) => (
                   <col key={width} style={{ width }} />
@@ -609,21 +688,44 @@ export function ReferencePackAdminPanel({
                           <small style={mutedStyle}> · {pack.pack_kind}</small>
                         </span>
                       </label>
+                      <VersionDetails pack={pack} />
                     </td>
                     <td style={cellStyle}>
                       <span className="rp-cell-label" aria-hidden="true">
                         Version state
                       </span>
                       {stateLabels[pack.pack_version_state]}
+                      <small style={{ ...mutedStyle, display: "block" }}>
+                        Health: {stateLabels[pack.health]}
+                      </small>
+                      {pack.pending_work ? (
+                        <small style={{ ...mutedStyle, display: "block" }}>
+                          Work pending for this pack key.
+                        </small>
+                      ) : null}
+                      {pack.fallback_from_version !== null ? (
+                        <small style={{ ...mutedStyle, display: "block" }}>
+                          Base safety fallback is active. It replaced version{" "}
+                          {pack.fallback_from_version}.
+                        </small>
+                      ) : null}
+                      {pack.administratively_disabled &&
+                      pack.pack_version_state !== "disabled"
+                        ? " · Administratively disabled"
+                        : null}
                     </td>
                     <td style={cellStyle}>
                       <span className="rp-cell-label" aria-hidden="true">
                         Verification
                       </span>
-                      {verificationLabels[pack.verification_result]}
+                      {pack.last_verified_at
+                        ? `Current verification: ${pack.last_verified_at}`
+                        : "Never successfully verified"}
                       <small style={mutedStyle}>
                         {" "}
-                        · {pack.verification_method}
+                        ·{" "}
+                        {pack.verification_method ??
+                          "No successful verification"}
                       </small>
                     </td>
                     <td style={cellStyle}>
@@ -661,12 +763,31 @@ export function ReferencePackAdminPanel({
                           ),
                         )}
                       </span>
+                      {pack.reproducibility_pinned ? (
+                        <p style={mutedStyle}>
+                          Retained by a snapshot, report, or imported incident.
+                          Removal is unavailable.
+                        </p>
+                      ) : null}
+                      {referencePackEligible(pack, "remove") ? (
+                        <RemovalForm
+                          key={referencePackIdentity(pack)}
+                          pack={pack}
+                          enabled={canStart}
+                          run={run}
+                        />
+                      ) : null}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <p style={mutedStyle}>
+            These verification details describe current administrative state.
+            Snapshots and reports retain the provenance captured with their
+            exact pack set.
+          </p>
           {state.catalog.paging.has_more ? (
             <button
               type="button"
@@ -690,22 +811,116 @@ export function ReferencePackAdminPanel({
     </section>
   );
 }
+
+function VersionDetails({ pack }: { readonly pack: ReferencePackVersion }) {
+  const values = [
+    ["Content profile", pack.content_profile_id],
+    ["Source version", pack.source_version],
+    ["Source as of", pack.source_as_of],
+    ["Manifest SHA-256", pack.manifest_sha256],
+    ["Payload SHA-256", pack.payload_sha256],
+    ["Source profile", pack.source_profile_id],
+    ["Source profile SHA-256", pack.source_profile_sha256],
+    ["Trust valid until", pack.trust_valid_until],
+    ["Previous active version", pack.previous_active_version],
+    ["Missing reason", pack.missing_reason],
+    ["Last verification failure", pack.last_failure_code],
+  ];
+  return (
+    <details style={{ marginBlockStart: "var(--ct-spacing-sm)" }}>
+      <summary>Version details</summary>
+      <dl style={{ overflowWrap: "anywhere" }}>
+        {values.map(([label, value]) => (
+          <div key={label} style={{ marginBlockEnd: "var(--ct-spacing-xs)" }}>
+            <dt>{label}</dt>
+            <dd style={{ marginInlineStart: "var(--ct-spacing-sm)" }}>
+              {value ?? "Not recorded"}
+            </dd>
+          </div>
+        ))}
+        <dt>Dependencies</dt>
+        <dd style={{ marginInlineStart: "var(--ct-spacing-sm)" }}>
+          {pack.dependencies === null ? (
+            "No successful verification"
+          ) : pack.dependencies.length === 0 ? (
+            "None"
+          ) : (
+            <ul>
+              {pack.dependencies.map((dependency) => (
+                <li key={dependency.pack_key}>
+                  {dependency.pack_key}@{dependency.pack_version}
+                  <small style={{ display: "block" }}>
+                    Payload SHA-256: {dependency.payload_sha256}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </dd>
+      </dl>
+    </details>
+  );
+}
 const actionLabels = {
   activate: "Activate",
   disable: "Disable",
   reverify: "Reverify",
 };
+function RemovalForm({
+  pack,
+  enabled,
+  run,
+}: {
+  readonly pack: ReferencePackVersion;
+  readonly enabled: boolean;
+  readonly run: (
+    element: HTMLElement,
+    command: ReferencePackCommand,
+  ) => unknown;
+}) {
+  const [reason, setReason] = useState("");
+  return (
+    <details>
+      <summary>Remove version</summary>
+      <p>
+        Removal makes this version unavailable. Historical pins and pending
+        operations can prevent removal.
+      </p>
+      <label>
+        Removal reason for {pack.pack_key}@{pack.pack_version}
+        <input
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          disabled={!enabled}
+        />
+      </label>
+      <button
+        type="button"
+        style={buttonStyle}
+        disabled={!enabled || !reason.trim()}
+        onClick={(event) => {
+          if (enabled && reason.trim())
+            run(event.currentTarget, {
+              kind: "remove",
+              target: {
+                pack_key: pack.pack_key,
+                pack_version: pack.pack_version,
+              },
+              reason,
+            });
+        }}
+      >
+        Remove this version
+      </button>
+    </details>
+  );
+}
 const stateLabels = {
   staged: "Staged",
   verified_available: "Verified, available",
   disabled: "Disabled",
   failed: "Failed",
   missing: "Missing",
-};
-const verificationLabels = {
-  pending: "Pending",
-  passed: "Passed",
-  failed: "Failed",
 };
 const phaseLabels = {
   checking: "Checking current state before submission.",
@@ -747,6 +962,7 @@ function jobResultText(job: ReferencePackKnownJob) {
     import: "reference_pack_imported",
     activate: "reference_pack_activated",
     disable: "reference_pack_disabled",
+    remove: "reference_pack_removed",
     reverify: "reference_pack_reverified",
     refresh_all: "reference_packs_refreshed",
     refresh_selected: "reference_packs_refreshed",

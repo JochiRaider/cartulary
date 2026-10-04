@@ -266,7 +266,7 @@ const value = {
       "capability_ids": [],
       "claim_config_key": "reference_pack.claimed",
       "claimable": true,
-      "contract_major": 1,
+      "contract_major": 2,
       "contributions": [
         {
           "contribution_id": "reference_pack.packs_route",
@@ -311,7 +311,7 @@ const value = {
         {
           "contribution_id": "snapshot_reporting.render_export",
           "kind": "snapshot_reporting_participant",
-          "participant_contract_sha256": "7111bf8628b3421b731ed498762c0418c3a207197db337c03a31e5400b3052ab",
+          "participant_contract_sha256": "a423f022c63f784c147626442411a7ed16db85b7bd24c65b3b7aa0b2343b110e",
           "participant_id": "snapshot_reporting.render_export_v1"
         },
         {

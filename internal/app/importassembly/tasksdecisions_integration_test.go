@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -223,6 +224,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		t.Fatalf("compose Timeline: %v", err)
 	}
 	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        storeHarness.DB,
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(storeHarness.DB)),
 		IncidentState:   admission.NewChecker(storeHarness.DB),

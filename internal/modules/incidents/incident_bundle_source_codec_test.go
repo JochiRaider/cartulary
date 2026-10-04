@@ -178,7 +178,7 @@ func TestIncidentSourcePrepareBindsPortOperationIncidentVersionAndContract_Unit(
 		})
 	}
 
-	for _, version := range []int{0, 1, 2, 3, 5} {
+	for _, version := range []int{0, 1, 2, 3, 4, 6} {
 		wrongVersion := importContext
 		wrongVersion.bundleVersion = version
 		if _, err := prepareIncidentBundleIncident(contract, validIncidentSourcePayload(t), wrongVersion); !errors.Is(err, errIncidentSourceCatalog) {
@@ -324,7 +324,7 @@ func newIncidentSourceImportContextForTest(t testing.TB, operationID string) inc
 	}
 	return incidentSourceImportContext{
 		incidentID: incidentSourceTestID, actorUserID: incidentSourceImportActor,
-		bundleVersion: 4, operationID: operationID,
+		bundleVersion: 5, operationID: operationID,
 		actorAdmitted: func(actorID string) bool {
 			_, admitted := actors[actorID]
 			return admitted

@@ -12,11 +12,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type Application struct {
+	registry        reference_data.RegistryAssignments
 	pool            postgres.DB
 	idempotency     IdempotencyPort
 	incidentState   IncidentStatePort
@@ -45,6 +47,7 @@ type IncidentStatePort interface {
 }
 
 type ApplicationDependencies struct {
+	ReferencePacks  reference_data.RegistryAssignments
 	Postgres        postgres.DB
 	Idempotency     IdempotencyPort
 	IncidentState   IncidentStatePort
@@ -62,6 +65,7 @@ func NewApplication(dependencies ApplicationDependencies) (*Application, error) 
 		value any
 	}{
 		{name: "Postgres", value: dependencies.Postgres},
+		{name: "ReferencePacks", value: dependencies.ReferencePacks},
 		{name: "Idempotency", value: dependencies.Idempotency},
 		{name: "IncidentState", value: dependencies.IncidentState},
 		{name: "Revisions", value: dependencies.Revisions},
@@ -78,6 +82,7 @@ func NewApplication(dependencies ApplicationDependencies) (*Application, error) 
 	}
 	return &Application{
 		pool:            dependencies.Postgres,
+		registry:        dependencies.ReferencePacks,
 		idempotency:     dependencies.Idempotency,
 		incidentState:   dependencies.IncidentState,
 		recordEnvelopes: dependencies.RecordEnvelopes,

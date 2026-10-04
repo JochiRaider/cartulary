@@ -1,0 +1,30 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_lifecycle_reconcile_claimed",
+  "fixture_version": 1,
+  "fixture_family": "builtin_reconciliation",
+  "input_refs": [
+    "contracts/reference-packs/builtins/release.v1.json",
+    "contracts/reference-packs/fixtures/lifecycle.v1.json",
+    "contracts/reference-packs/fixtures/signed-container.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": "d03e5b11dc6577abf9a8f9317ddb9d6dac21c9d0a710dc5a4ae25d912b77629d",
+  "expected_condition": null,
+  "expected_issues": [],
+  "expected_public_error": null,
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "trust_state_changed"
+  ]
+}

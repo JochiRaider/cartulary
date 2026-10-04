@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
@@ -97,7 +98,7 @@ func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 				}
 			}
 			importContext := scenario.importContext(t, recorder, "indicator-final-state-"+testCase.name)
-			contribution, err := indicators.NewIncidentBundleContribution()
+			contribution, err := indicators.NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
 			if err != nil {
 				t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
 			}
@@ -167,13 +168,13 @@ func (scenario portableIntegrationScenario) importContext(
 	}
 	return sourceport.ImportContext{
 		IncidentID: scenario.incidentID, ActorUserID: scenario.actorID,
-		BundleVersion: 4, OperationID: operationID, Attributions: recorder, Actors: actors,
+		BundleVersion: 5, OperationID: operationID, Attributions: recorder, Actors: actors,
 	}
 }
 
 func (scenario portableIntegrationScenario) bundle(t testing.TB) sourceport.MapBundle {
 	t.Helper()
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(referencefixture.EvaluateIndicator, identity.Input{
 		IndicatorType: "domain_name", ValueKind: "atomic", DisplayValue: "example.test",
 	})
 	if err != nil {
@@ -246,7 +247,7 @@ func seedPortableIndicatorEnvelopeAndRow(
 ) {
 	t.Helper()
 	seedPortableRecordEnvelope(t, tx, incidentID, recordID, "indicator", actorID, timestamp)
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(referencefixture.EvaluateIndicator, identity.Input{
 		IndicatorType: "domain_name", ValueKind: "atomic", DisplayValue: "foreign.example.test",
 	})
 	if err != nil {

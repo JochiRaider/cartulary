@@ -197,7 +197,9 @@
       "row_id": "app.operator.unit.operator_registry_eight_paths_and_collaboration_01217009b8",
       "owner_id": "app.operator",
       "family_id": "app.operator.unit",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.reference_data"
+      ],
       "verification_ids": [
         "app.operator.verification.behavior_contract"
       ],
@@ -205,9 +207,10 @@
       "selector": {
         "package": "./internal/app/operator",
         "tests": [
-          "TestOperatorCommandRegistryContainsExactlyEightCanonicalPaths",
+          "TestOperatorCommandRegistryContainsCanonicalPaths",
           "TestOperatorCommandRegistryRejectsDuplicateAndPrefixAmbiguousPaths",
-          "TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures"
+          "TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures",
+          "TestOperatorReferencePackClosedTransport_Unit"
         ]
       },
       "evidence_class": "unit",

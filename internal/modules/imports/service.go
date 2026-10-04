@@ -21,6 +21,7 @@ import (
 
 type service struct {
 	store                    *store
+	applyTransactions        ApplyTransactions
 	incidentAccess           *admission.Checker
 	authStore                *authn.Store
 	jobManager               importJobOperations
@@ -54,8 +55,15 @@ type importJobRunner interface {
 	Notify(uuid.UUID)
 }
 
+// ApplyTransactions opens a mutation transaction with participating owners'
+// shared guards acquired before Imports locks jobs, incidents, or records.
+type ApplyTransactions interface {
+	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
+}
+
 type ModuleDependencies struct {
 	Postgres                  postgres.DB
+	ApplyTransactions         ApplyTransactions
 	JobTransactions           importJobTransactions
 	JobOperations             importJobOperations
 	JobRunner                 importJobRunner
@@ -78,6 +86,9 @@ type Module struct {
 func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if nilInterface(dependencies.Postgres) {
 		return nil, fmt.Errorf("imports module requires PostgreSQL")
+	}
+	if nilInterface(dependencies.ApplyTransactions) {
+		return nil, fmt.Errorf("imports module requires apply transactions")
 	}
 	if nilInterface(dependencies.JobTransactions) {
 		return nil, fmt.Errorf("imports module requires Jobs transactions")
@@ -124,6 +135,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		return nil, err
 	}
 	service := &service{
+		applyTransactions: dependencies.ApplyTransactions,
 		store: newStore(
 			dependencies.Postgres,
 			dependencies.RevisionAppender,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 
 func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 	t.Parallel()
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(referencefixture.EvaluateIndicator, identity.Input{
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
 		DisplayValue:  "example.test",
@@ -57,7 +58,7 @@ func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 
 func mustIndicatorSourcePort(t testing.TB) sourceport.Port {
 	t.Helper()
-	contribution, err := NewIncidentBundleContribution()
+	contribution, err := NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
 	}
@@ -115,7 +116,7 @@ func portableImportContext(t testing.TB, operationID string) sourceport.ImportCo
 	}
 	return sourceport.ImportContext{
 		IncidentID: uuid.MustParse(portableIncidentID), ActorUserID: actorID,
-		BundleVersion: 4, OperationID: operationID, Actors: actors,
+		BundleVersion: 5, OperationID: operationID, Actors: actors,
 	}
 }
 

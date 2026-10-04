@@ -35,7 +35,7 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 	}
 	path := descriptor.Paths[0]
 	if path.LogicalPath != "data/incident.json" || path.ContentRole != "singleton_json" ||
-		!slices.Equal(path.Versions, []int{4}) || !slices.Equal(path.StableIdentity, []string{"id"}) ||
+		!slices.Equal(path.Versions, []int{5}) || !slices.Equal(path.StableIdentity, []string{"id"}) ||
 		path.StableIdentityInvariantID != "incident.source_identity_admitted" {
 		t.Fatalf("incident source path drifted: %#v", path)
 	}
@@ -72,7 +72,7 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 	prepared, err := port.PrepareImport(context.Background(), sourceport.MapBundle{
 		"data/incident.json": wantPayload,
 	}, sourceport.ImportContext{
-		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 4,
+		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 5,
 		OperationID: operationID, Actors: actors,
 	})
 	if err != nil {

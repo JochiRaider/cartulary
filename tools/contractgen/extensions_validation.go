@@ -4,9 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var extensionConfigurationNamespacePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 var requiredExtensionDependencies = []string{
 	"core00",
@@ -54,7 +57,7 @@ func validateExtensionArtifactShape(value any, relativePath string) error {
 		return validateExtensionDependencyDeclarations(object)
 	case "cartulary.extension_owner_fragment.v3":
 		return validateExtensionOwnerFragment(object, relativePath)
-	case "cartulary.extension_profile_configuration_contract.v3":
+	case "cartulary.extension_profile_configuration_contract.v4":
 		return validateExtensionConfigurationContract(object, relativePath)
 	case "cartulary.extension_validation_surface_declaration_set.v3":
 		return validateExtensionValidationDeclarations(object)
@@ -677,7 +680,7 @@ func validateExtensionJobKindContract(object map[string]any, profileID, label st
 		object["cancellation_policy"] != "precommit_observable" {
 		return fmt.Errorf("%s must use the canonical proof, idempotency, and cancellation policies", label)
 	}
-	if object["idempotency_identity_schema_id"] != "cartulary.route_scoped_idempotency_identity.v1" ||
+	if (object["idempotency_identity_schema_id"] != "cartulary.route_scoped_idempotency_identity.v1" && object["idempotency_identity_schema_id"] != "cartulary.route_scoped_idempotency_identity.v2") ||
 		object["terminal_result_schema_id"] != "cartulary.common_job_terminal_success.v1" {
 		return fmt.Errorf("%s must use the Core common-job schemas", label)
 	}
@@ -751,15 +754,19 @@ func validExtensionProgressUnitID(value string) bool {
 }
 
 func validateExtensionConfigurationContract(object map[string]any, relativePath string) error {
-	if err := requireExtensionExactKeys(object, stringSet("schema_id", "configuration_contract_id", "profile_id", "configuration_contract_major", "namespace_schema_id", "keys"), relativePath); err != nil {
+	if err := requireExtensionExactKeys(object, stringSet("schema_id", "configuration_contract_id", "profile_id", "configuration_contract_major", "configuration_namespace", "namespace_schema_id", "keys"), relativePath); err != nil {
 		return err
 	}
-	if object["schema_id"] != "cartulary.extension_profile_configuration_contract.v3" {
-		return fmt.Errorf("%s.schema_id must be cartulary.extension_profile_configuration_contract.v3", relativePath)
+	if object["schema_id"] != "cartulary.extension_profile_configuration_contract.v4" {
+		return fmt.Errorf("%s.schema_id must be cartulary.extension_profile_configuration_contract.v4", relativePath)
 	}
 	profileID, err := requiredString(object, "profile_id", relativePath)
 	if err != nil {
 		return err
+	}
+	namespace, err := requiredString(object, "configuration_namespace", relativePath)
+	if err != nil || !extensionConfigurationNamespacePattern.MatchString(namespace) {
+		return fmt.Errorf("%s.configuration_namespace must be a namespace token", relativePath)
 	}
 	major, err := positiveJSONInt(object["configuration_contract_major"], relativePath+".configuration_contract_major")
 	if err != nil {
@@ -789,7 +796,7 @@ func validateExtensionConfigurationContract(object map[string]any, relativePath 
 			return err
 		}
 		keyPath, err := requiredString(key, "key", label)
-		if err != nil || !strings.HasPrefix(keyPath, profileID+".") || keyPath == profileID+".claimed" {
+		if err != nil || !strings.HasPrefix(keyPath, namespace+".") || keyPath == profileID+".claimed" {
 			return fmt.Errorf("%s.key must be a non-claim key inside the profile namespace", label)
 		}
 		if previousKey != "" && previousKey >= keyPath {
@@ -1129,7 +1136,7 @@ func validateExtensionProfileFactClosure(indexed map[string]map[string]any) erro
 	}
 	for relativePath, object := range indexed {
 		schemaID, _ := object["schema_id"].(string)
-		if schemaID == "cartulary.extension_profile_configuration_contract.v3" {
+		if schemaID == "cartulary.extension_profile_configuration_contract.v4" {
 			profileID, _ := object["profile_id"].(string)
 			digest, err := extensionCanonicalDigest(object)
 			if err != nil {
@@ -1202,7 +1209,7 @@ func validateExtensionConfigurationReferences(indexed map[string]map[string]any)
 		}
 	}
 	for relativePath, object := range indexed {
-		if object["schema_id"] != "cartulary.extension_profile_configuration_contract.v3" {
+		if object["schema_id"] != "cartulary.extension_profile_configuration_contract.v4" {
 			continue
 		}
 		keys, _ := objectArrayAllowEmpty(object["keys"], relativePath+".keys")

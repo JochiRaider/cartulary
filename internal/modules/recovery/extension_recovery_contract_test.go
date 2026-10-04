@@ -127,7 +127,7 @@ INSERT INTO extension_state_metadata (
 			fixture.Target.Failure = failure
 			tc.mutate(t, &fixture.Target)
 			storage := &countingBackupStorage{Inner: fixture.BackupStorage}
-			_, err := recovery.NewRestoreRunner(fixture.Store, storage, testExtensionBackupCatalog(t)).
+			_, err := recovery.NewVersionedRestoreRunner(fixture.Store, storage, testExtensionBackupCatalog(t), currentStateCatalog(t)).
 				RestoreBackupSet(ctx, fixture.Target, fixture.BackupSet)
 			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("restore error got %v want %v", err, tc.wantErr)
@@ -146,65 +146,95 @@ func TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Int
 	ctx := context.Background()
 	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-i-10-06-extension-proof", uuid.MustParse("00000000-0000-0000-0000-000000104201"))
 	fixture.Target.Projections = &recordingProjectionRebuilder{}
-	original, err := fixture.BackupStorage.ReadArtifact(ctx, fixture.BackupSet.IntegrityManifestKey, fixture.BackupSet.IntegrityManifestSizeBytes)
-	if err != nil {
-		t.Fatalf("read fixture manifest: %v", err)
+	retired := fixture.BackupSet
+	retired.IntegrityManifestKey = "backup_sets/retired/integrity-manifest.json"
+	unread := &countingBackupStorage{Inner: fixture.BackupStorage}
+	if _, err := recovery.NewVersionedRestoreRunner(fixture.Store, unread, testExtensionBackupCatalog(t), currentStateCatalog(t)).RestoreBackupSet(ctx, fixture.Target, retired); !errors.Is(err, recovery.ErrInvalidBackupArtifact) {
+		t.Fatalf("retired restore representation: %v", err)
 	}
-	base, err := recovery.DecodeIntegrityManifest(original)
+	if err := recovery.NewBackupCatalog(fixture.Store, unread, testExtensionBackupCatalog(t), currentStateCatalog(t)).VerifyBackupSetDurability(ctx, retired); !errors.Is(err, recovery.ErrInvalidBackupArtifact) {
+		t.Fatalf("retired catalog representation: %v", err)
+	}
+	if unread.Reads != 0 {
+		t.Fatal("retired representation read storage")
+	}
+	streaming, err := recovery.RequireStreamingBackupStorage(fixture.BackupStorage)
 	if err != nil {
-		t.Fatalf("decode fixture manifest: %v", err)
+		t.Fatal(err)
+	}
+	proof, err := recovery.VNextProofFromMetadata(ctx, streaming, fixture.BackupSet.IntegrityManifestKey, "application/json", fixture.BackupSet.IntegrityManifestSizeBytes, fixture.BackupSet.IntegrityManifestSHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var original bytes.Buffer
+	if err := streaming.ReadArtifactStream(ctx, proof, &original); err != nil {
+		t.Fatal(err)
+	}
+	var base recovery.VNextBackupIntegrityManifest
+	if err := json.Unmarshal(original.Bytes(), &base); err != nil {
+		t.Fatal(err)
 	}
 	tests := []struct {
-		name    string
-		mutate  func(*recovery.BackupIntegrityManifest)
-		wantErr error
+		name   string
+		mutate func(*recovery.VNextBackupIntegrityManifest)
 	}{
 		{
 			name: "legacy v1 manifest",
-			mutate: func(manifest *recovery.BackupIntegrityManifest) {
+			mutate: func(manifest *recovery.VNextBackupIntegrityManifest) {
 				manifest.SchemaID = "cartulary.backup_integrity_manifest.v1"
 			},
-			wantErr: recovery.ErrInvalidBackupArtifact,
 		},
 		{
-			name: "missing extension proofs",
-			mutate: func(manifest *recovery.BackupIntegrityManifest) {
-				manifest.ExtensionBindings = nil
+			name: "missing owner catalog binding",
+			mutate: func(manifest *recovery.VNextBackupIntegrityManifest) {
+				manifest.RecoveryStateCatalogSHA256 = ""
 			},
-			wantErr: recovery.ErrExtensionBindingInvalid,
 		},
 		{
 			name: "unpackaged codec digest",
-			mutate: func(manifest *recovery.BackupIntegrityManifest) {
-				manifest.ExtensionBindings[0].CodecSHA256 = strings.Repeat("f", 64)
+			mutate: func(manifest *recovery.VNextBackupIntegrityManifest) {
+				manifest.CodecRegistrySHA256 = strings.Repeat("f", 64)
 			},
-			wantErr: recovery.ErrExtensionCodecUnsupported,
 		},
 		{
 			name: "implementation binding mismatch",
-			mutate: func(manifest *recovery.BackupIntegrityManifest) {
-				manifest.ExtensionBindings[0].ImplementationBindingSHA256 = strings.Repeat("e", 64)
+			mutate: func(manifest *recovery.VNextBackupIntegrityManifest) {
+				for index := range manifest.Artifacts {
+					if manifest.Artifacts[index].Kind == "graph_projection_restore_implementation_binding" {
+						manifest.Artifacts[index].PlaintextSHA256 = strings.Repeat("e", 64)
+						return
+					}
+				}
+				t.Fatal("missing implementation binding in producer fixture")
 			},
-			wantErr: recovery.ErrExtensionBindingInvalid,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			manifest := base
-			manifest.ExtensionBindings = append([]recovery.ExtensionBindingProof(nil), base.ExtensionBindings...)
+			manifest.Artifacts = append([]recovery.VNextArtifactProof(nil), base.Artifacts...)
 			tc.mutate(&manifest)
+			manifest.ManifestSHA256 = ""
+			preimage, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifest.ManifestSHA256 = digestHex(append([]byte("CARTULARY-BACKUP-INTEGRITY-MANIFEST-V3\n"), preimage...))
 			body, err := json.Marshal(manifest)
 			if err != nil {
 				t.Fatalf("encode rewritten manifest: %v", err)
 			}
 			backupSet := fixture.BackupSet
-			backupSet.IntegrityManifestSHA256 = digestHex(body)
-			backupSet.IntegrityManifestSizeBytes = int64(len(body))
-			storage := &replacementBackupStorage{
-				Inner: fixture.BackupStorage,
-				Key:   backupSet.IntegrityManifestKey,
-				Body:  body,
+			logical := "backup_sets/" + backupSet.BackupSetID.String() + "/tampered/" + uuid.NewString() + ".json"
+			// Give the modified manifest a valid encrypted storage envelope and
+			// self digest, so rejection proves semantic binding validation.
+			changed, err := streaming.WriteArtifactStream(ctx, recovery.BackupArtifactStreamWriteRequest{LogicalRef: logical, EnvelopeRef: logical + ".envelope.json", ContentType: "application/json", Plaintext: bytes.NewReader(body)})
+			if err != nil {
+				t.Fatal(err)
 			}
+			backupSet.IntegrityManifestKey = recovery.VNextMetadataArtifactKey(logical)
+			backupSet.IntegrityManifestSHA256 = changed.PlaintextSHA256
+			backupSet.IntegrityManifestSizeBytes = changed.PlaintextBytes
 			readiness := &recordingRestoreReadinessGate{}
 			failure := &recordingRestoreFailureGate{}
 			observer := &restoreStepRecorder{}
@@ -212,16 +242,16 @@ func TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Int
 			target.Readiness = readiness
 			target.Failure = failure
 			target.Observer = observer
-			_, err = recovery.NewRestoreRunner(fixture.Store, storage, testExtensionBackupCatalog(t)).
+			_, err = recovery.NewVersionedRestoreRunner(fixture.Store, fixture.BackupStorage, testExtensionBackupCatalog(t), currentStateCatalog(t)).
 				RestoreBackupSet(ctx, target, backupSet)
-			if !errors.Is(err, tc.wantErr) {
-				t.Fatalf("restore error got %v want %v", err, tc.wantErr)
+			if !errors.Is(err, recovery.ErrVNextBackup) {
+				t.Fatalf("restore error got %v want invalid catalog-driven backup", err)
 			}
 			if len(observer.Steps) != 0 || readiness.Calls != 0 {
 				t.Fatalf("invalid extension evidence mutated target: steps=%v readiness=%d", observer.Steps, readiness.Calls)
 			}
-			if len(failure.Causes) != 1 || !errors.Is(failure.Causes[0], tc.wantErr) {
-				t.Fatalf("failed target gate got %#v want one %v", failure.Causes, tc.wantErr)
+			if len(failure.Causes) != 1 || !errors.Is(failure.Causes[0], recovery.ErrVNextBackup) {
+				t.Fatalf("failed target gate got %#v want one invalid-backup failure", failure.Causes)
 			}
 		})
 	}
@@ -238,23 +268,6 @@ func (storage *countingBackupStorage) WriteArtifact(ctx context.Context, key str
 
 func (storage *countingBackupStorage) ReadArtifact(ctx context.Context, key string, maxBytes int64) ([]byte, error) {
 	storage.Reads++
-	return storage.Inner.ReadArtifact(ctx, key, maxBytes)
-}
-
-type replacementBackupStorage struct {
-	Inner recovery.BackupStorage
-	Key   string
-	Body  []byte
-}
-
-func (storage *replacementBackupStorage) WriteArtifact(ctx context.Context, key string, body []byte, contentType string) (recovery.BackupArtifactProof, error) {
-	return storage.Inner.WriteArtifact(ctx, key, body, contentType)
-}
-
-func (storage *replacementBackupStorage) ReadArtifact(ctx context.Context, key string, maxBytes int64) ([]byte, error) {
-	if key == storage.Key {
-		return append([]byte(nil), storage.Body...), nil
-	}
 	return storage.Inner.ReadArtifact(ctx, key, maxBytes)
 }
 

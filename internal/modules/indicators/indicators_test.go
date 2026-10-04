@@ -149,7 +149,7 @@ func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T
 	if err != nil {
 		t.Fatalf("first participant create: %v", err)
 	}
-	if first.SchemaID != "indicator_find_or_create_participant_v1" || first.Status != "created" {
+	if first.SchemaID != "indicator_find_or_create_participant_v2" || first.Status != "created" {
 		t.Fatalf("unexpected first participant result: %#v", first)
 	}
 	if first.Indicator.DisplayValue != "2001:db8::1" || first.Indicator.NormalizedValue == nil || *first.Indicator.NormalizedValue != "2001:db8::1" {

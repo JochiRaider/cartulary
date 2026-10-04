@@ -6666,12 +6666,15 @@ async function setWorkbookGridAnchor(
       shell.scrollTop = 0;
       shell.scrollLeft = 0;
       scrollport.scrollTop = expectedTop;
+      // The sticky evidence gutter is visible at every horizontal offset.
+      // Establish its declared left-edge framing before locating the anchor.
+      scrollport.scrollLeft = 0;
       const scrollTarget = byTestId(selectors.scrollTargetTestId);
       if (scrollTarget === null) {
         shell.scrollLeft = Math.max(0, shell.scrollWidth - shell.clientWidth);
         scrollport.scrollLeft = maxLeft;
       } else {
-        scrollTarget.scrollIntoView({ block: "nearest", inline: "center" });
+        scrollTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
       }
       shell.scrollTop = 0;
 

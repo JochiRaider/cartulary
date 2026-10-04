@@ -184,10 +184,10 @@
       "rationale": "Repair the ViewRow projection to honor Core 01's existing requirement that clients tolerate unknown additive row members."
     },
     {
-      "fingerprint": "5da6d865aad51954a7a1996c947ea21dc50162da18bc6d2e558cdd53f1441cb5",
+      "fingerprint": "623e940dd65982bf43c37813b888672ef1041cfe8d1abfb7b74b9d086c755a23",
       "classification": "breaking",
       "owner_id": "platform.audit",
-      "rationale": "Remove the migration-only legacy administrative-event value from the closed deployment audit query vocabulary."
+      "rationale": "Remove the migration-only legacy administrative-event value and publish Reference Pack operation actions and their target kind in the closed deployment audit query vocabulary."
     },
     {
       "fingerprint": "04cd5a827800cec6a42b2fa345f7b0d5a6a5dbef867224e2090f3fbb9035e425",
@@ -1072,12 +1072,6 @@
       "rationale": "Add the source-record observation collection and manual capture operations."
     },
     {
-      "fingerprint": "17119c157ba76e7d04698efa6746c720002c7e1c31337a25a237833f3a033b77",
-      "classification": "additive",
-      "owner_id": "module.reference_data",
-      "rationale": "Project Core 01's already-adopted closed Reference Pack list-query vocabulary so generated clients can encode the supported pagination, search, and filter members."
-    },
-    {
       "fingerprint": "48aaba05e54b3197b562f27c834dd636affc37760511f3f55f8f6a3ac71220ae",
       "classification": "additive",
       "owner_id": "module.reportcomposition",
@@ -1286,18 +1280,6 @@
       "classification": "additive",
       "owner_id": "module.auth",
       "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
-    },
-    {
-      "fingerprint": "95d541dab1b798ad3bb68f1263bd2cd1dce75df9de882a225a2eabb0aeb4199e",
-      "classification": "additive",
-      "owner_id": "module.reference_data",
-      "rationale": "Project the adopted optional asynchronous Activate/Disable response as a complete common job receipt without changing inline backend execution."
-    },
-    {
-      "fingerprint": "6237c68e2a3bd3effd41fb99496b91b4c6c73bddbaa88fdbfb1d499678b993b9",
-      "classification": "additive",
-      "owner_id": "module.reference_data",
-      "rationale": "Project the adopted optional asynchronous Activate/Disable response as a complete common job receipt without changing inline backend execution."
     },
     {
       "fingerprint": "d4b07c7652ba0f6fb0ee5518d9683ee2913f9e8ed8cc2fb04841ed20b3f9f11e",
@@ -1988,6 +1970,300 @@
       "classification": "additive",
       "owner_id": "module.entities",
       "rationale": "Publish Core 01 REQ-01-658 authorized entity-candidate search and its closed paged response; existing endpoints remain unchanged."
+    },
+    {
+      "fingerprint": "a305a3eeb6bb24a9e87ddf7ed29cca4210df29437f189a2ce183cbf07e551332",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "a80f184c632aff797257eceefe1bead9e65f7ff6da5586fd18b1e2e431cae1c1",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "ba3f2136fcd9c6914dd867201700a83a1d044bfa3a1d4e528c27b05b603ab568",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "cce8ccc60be769b17280a61cd3a81223df45840466e6aaf552527bea86085a4f",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "67d0de96d38cab432b71a1b1f13767bbab4cd21638f9dec12eb3b1f6b873a641",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "26a3d0858389a73305e09b581643f90ad5da3999ae0b8c5a9cab5cb5aa414716",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "472b781e98cb47fb730fbdfe2cf6ba4712d5efc0c89b8caa0f7a81e2f9f2ecb3",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "df44265e8f857abafb7d4a3b6fc5f74be80b8a60a6c18675bc5d2586ff0a73f5",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "c4b28cbb352271fe7003d8b994b991b987a336ac01c87680069a8fd0cf90fd3e",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "a123c93bd23f6d7fe58d1751af9ef5774282bb30e1e8106cfcbd5ca2f476d100",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "89b9422f4e50a6a2359a6bb5947aeaf72950fdf72cd6fc5b1ae2e955c03d3864",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "6d7f5c31205014d424834a5c1a39f37b7d6df2cbbc63702750827845d09bfff6",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "91686b52950ad16f5a68fa690ce38d800c14b3c1050d4d0f3979e784d26229aa",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "d73fa78410d9bd39fe1baa6863967444abe52816ef84298995de581435ea7013",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "61276de1ed1e44549aff9909dac9a18dabbab4cbc762b3eb4eb3b775bd9641f4",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "a78a5d647088a7029fcbbce97f363f42462b3339e83cd217a469c2a93c1d804d",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "3cfc23eb05d21abea565d2fae1c45e3fd93ae46d319a6bae38efe7e2dd10dcda",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "5e24e48421ade070f90098e42c7c604eba5be5268799c4e2784e76303b21ef84",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "6fdda09f660fa0d82c9ead09746d874a3727e39786944ecb682c38c462f9ce1a",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "b105000d8dbcfcf27c8bd6c19cc98fef7da73ef3214712e1952dcfbf59597d91",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "a960f88f739a60595b0b2389d28b3b42cca5ad4524b8a63af83923ef8612ab15",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "35e295d507b438cf588839c115ec983687e3b248acfb174c9d99c485277481f5",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "95d541dab1b798ad3bb68f1263bd2cd1dce75df9de882a225a2eabb0aeb4199e",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "6237c68e2a3bd3effd41fb99496b91b4c6c73bddbaa88fdbfb1d499678b993b9",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "98442ccd72f4b469e930f6cc88fbf38654f33cdc51169e6af5adfd85d19a40a4",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons."
+    },
+    {
+      "fingerprint": "e2e7fe6f7bdc55301bb34ffde7341dfee7be5d8829da084ae5c657fe7749974a",
+      "classification": "non_behavioral",
+      "owner_id": "module.reporting",
+      "rationale": "Document the required_reference_pack_unavailable conflict when an exact pinned Reference Pack set cannot be rendered; committed admission replay retains its original result."
+    },
+    {
+      "fingerprint": "55dc3eea551f72ff286507a2a152f355df35feb179b2f2a5d419cc6ddae1a049",
+      "classification": "non_behavioral",
+      "owner_id": "module.workbook",
+      "rationale": "Project the coordinated Reference Pack identity cutover: required Indicator identity inputs, exact registry tokens, shared normalization, and the existing 8192-scalar admission bound. New identities use the owner algorithm key; retained pre-cutover records require explicit reset."
+    },
+    {
+      "fingerprint": "473fd4dac01dcc5882057aee709ccb101e3af71cb80f069e567e54ee28fc0a79",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project the coordinated Reference Pack identity cutover: required Indicator identity inputs, exact registry tokens, shared normalization, and the existing 8192-scalar admission bound. New identities use the owner algorithm key; retained pre-cutover records require explicit reset."
+    },
+    {
+      "fingerprint": "abde94817d1fd94ab6e5a04b515fbb6361a2dccc8913fa33d57aa27c871b186c",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project the coordinated Reference Pack identity cutover: required Indicator identity inputs, exact registry tokens, shared normalization, and the existing 8192-scalar admission bound. New identities use the owner algorithm key; retained pre-cutover records require explicit reset."
+    },
+    {
+      "fingerprint": "de0d0056bdf5d75141c12a1040036c6a168a5d705bf9af5a67ee0179d45dbdc8",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Project the coordinated Reference Pack identity cutover: required Indicator identity inputs, exact registry tokens, shared normalization, and the existing 8192-scalar admission bound. New identities use the owner algorithm key; retained pre-cutover records require explicit reset."
+    },
+    {
+      "fingerprint": "edac51e113c6480705c7801bdd15194f3607a21cbf635d987506a37c229d8d13",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "cfb5a7d1db1d339957c9bd612d3e938abe283a5da47e35704b12f00a9aa7d12d",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "67a8e80201c54a0a361860ec6ba9825328bcbec05398894029aa215eea8fa27e",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "b7fda287e46dc9c69b86bff022185357d75fef7f937b75079fb10e34b0523493",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "7986be149566dcce0209ae6736746a1b24cf108997d395318b12b2a16b011640",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "b74935b5cf6d1ccda7e5b8b4f7b80535b4b09648819763606ab824bccc433875",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "3eab1ec9c82ecb2571be7ae8af9eae80297bf3363a9b80f796d323f581de3b65",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "20d941322cc1d0753e5c09ef0dac5908af1380b24b92050822214027fc7582d3",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "b241c95f2a583b1ad9018c644a595c4be55e87fac92c40d0287ff79956c5a6b3",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative metadata with manifest release, source, licensing and repository identity; require an empty signer array before successful verification and explicit nulls for success-only values."
+    },
+    {
+      "fingerprint": "f5104a16c82aa73828df912884c963adcbced091b954f41a7d8629f9f16b5d73",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Expose immutable committed validation summaries through an authenticated Reference Pack read operation, with closed issue schemas and content-derived identities."
+    },
+    {
+      "fingerprint": "8f18296e8647a5595fa7e43cb0d673bca87d9a4a2c5a29941bd86887e135112f",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Expose immutable committed validation summaries through an authenticated Reference Pack read operation, with closed issue schemas and content-derived identities."
+    },
+    {
+      "fingerprint": "cab0c7c6f4101fadd21a4860360d5ab8e20fd4fe4967db766201d9c8e810c7c4",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Expose immutable committed validation summaries through an authenticated Reference Pack read operation, with closed issue schemas and content-derived identities."
+    },
+    {
+      "fingerprint": "e704e26534248c8613ea6985c1456873eb0ef5f11d1713e1dc64eddc788ac423",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Expose immutable committed validation summaries through an authenticated Reference Pack read operation, with closed issue schemas and content-derived identities."
+    },
+    {
+      "fingerprint": "50b17acf0b7f19448bd0147ab12c5866bbf0fdc6b9a0beb177809c382f0133bf",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Keep the required common Job submitter member and admit explicit null for declared local operator jobs. Immutable private v2 attribution carries the operation UUID; HTTP jobs retain their real human submitter. No fake user is created."
+    },
+    {
+      "fingerprint": "c447edbd0f091d1df81d50124f5af5bc7290d97b9b415f956ef3676e1cc489ca",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative resource requirements, including explicit nullable success metadata and same-snapshot selected-key pending work and reproducibility pin blockers. Clients can disable ineligible actions; the coordinator rechecks eligibility transactionally."
+    },
+    {
+      "fingerprint": "bd2d8b941fea6c70adfeca0ca2e24a8baad48a8564e004655d90e508f085e088",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative resource requirements, including explicit nullable success metadata and same-snapshot selected-key pending work and reproducibility pin blockers. Clients can disable ineligible actions; the coordinator rechecks eligibility transactionally."
+    },
+    {
+      "fingerprint": "90962ec83de8f722d0db10932b6d9f1956b005748e12245fc96860d1298e86fe",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Complete profile-2 administrative resource requirements, including explicit nullable success metadata and same-snapshot selected-key pending work and reproducibility pin blockers. Clients can disable ineligible actions; the coordinator rechecks eligibility transactionally. Required nullable fallback attribution identifies the displaced version on the currently selected Base registry. Exact verified dependencies are required, nullable only before successful verification."
+    },
+    {
+      "fingerprint": "ccceae268deabd49816fbcf7d84eb54bc851855c85fa56e5369677f10c23b485",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Expose durable current Base fallback attribution separately from health and historical provenance; emit explicit null for every other administrative version."
+    },
+    {
+      "fingerprint": "05b29ead87846a1889ea535dc5037594d0870ed382bdb7185c9b7d46dfd8cc89",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Expose the exact verified manifest dependency tuples. Explicit null distinguishes absence of successful verification from a verified empty dependency list."
     }
   ]
 }

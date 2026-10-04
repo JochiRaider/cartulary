@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reference_pack_refs.v1",
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "reference_pack_refs.v1"
+    },
+    "sets": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "properties": {
+          "schema_id": {
+            "const": "cartulary.reference_pack_set.v1"
+          },
+          "pack_set_id": {
+            "type": "string",
+            "pattern": "^rpset_[0-9a-f]{64}$"
+          },
+          "pack_set_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "members": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "properties": {
+                "pack_key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+                  "maxLength": 128
+                },
+                "pack_version": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+                },
+                "manifest_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "payload_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "pack_contract_version": {
+                  "const": "cartulary.reference_pack_contract.v1"
+                },
+                "content_profile_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+                },
+                "content_profile_version": {
+                  "const": "1"
+                }
+              },
+              "required": [
+                "pack_key",
+                "pack_version",
+                "manifest_sha256",
+                "payload_sha256",
+                "pack_contract_version",
+                "content_profile_id",
+                "content_profile_version"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "schema_id",
+          "pack_set_id",
+          "pack_set_sha256",
+          "members"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "versions": {
+      "type": "array",
+      "maxItems": 16384,
+      "items": {
+        "type": "object",
+        "properties": {
+          "pack_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+            "maxLength": 128
+          },
+          "pack_version": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+          },
+          "manifest_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "payload_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "pack_contract_version": {
+            "const": "cartulary.reference_pack_contract.v1"
+          },
+          "content_profile_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+          },
+          "content_profile_version": {
+            "const": "1"
+          },
+          "distribution_kind": {
+            "enum": [
+              "operator_imported",
+              "packaged_builtin"
+            ]
+          },
+          "verification_method": {
+            "enum": [
+              "tuf_1_0_35_offline_bundle_v1",
+              "packaged_release_manifest_v1"
+            ]
+          },
+          "source_profile_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{1,192}$"
+          },
+          "source_profile_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "pack_key",
+          "pack_version",
+          "manifest_sha256",
+          "payload_sha256",
+          "pack_contract_version",
+          "content_profile_id",
+          "content_profile_version",
+          "distribution_kind",
+          "verification_method",
+          "source_profile_id",
+          "source_profile_sha256"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_id",
+    "sets",
+    "versions"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,19 @@
+{
+  "schema_id": "cartulary.reference_pack_dependency_fixture.v1",
+  "candidate": {
+    "pack_key": "enrichment.lolbas",
+    "pack_version": "root",
+    "dependencies": [],
+    "conflicts": [
+      {
+        "pack_key": "type_registry.host",
+        "pack_version": null
+      },
+      {
+        "pack_key": "enrichment.lolbas",
+        "pack_version": "root"
+      }
+    ]
+  },
+  "retained": []
+}

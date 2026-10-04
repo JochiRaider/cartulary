@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
@@ -302,6 +303,7 @@ func TestRevisionsRuntimeReusesAppenderForCommandService(t *testing.T) {
 	}
 	service, err := runtime.NewCommandService(
 		revisionsCompositionTestDB{},
+		revisionsCompositionTestDB{},
 		revisionsCompositionTestAttribution{},
 		revisionsCompositionTestProjection{},
 		revisionsCompositionTestProjection{},
@@ -378,7 +380,7 @@ func TestRevisionsRuntimeBuildsOwnerComposedConflictFieldResolver(t *testing.T) 
 
 func mustCurrentProviderContributions(t testing.TB) []revisions.ProviderContribution {
 	t.Helper()
-	contributions, err := CurrentProviderContributions()
+	contributions, err := CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("compose current Revisions provider contributions: %v", err)
 	}

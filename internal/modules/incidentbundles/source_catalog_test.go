@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -78,7 +79,7 @@ func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) 
 	assessmentPath := assessmentDescriptor.Paths[0]
 	if assessmentPath.LogicalPath != "data/compromise_assessments.ndjson" ||
 		assessmentPath.ContentRole != "source_rows" ||
-		!slices.Equal(assessmentPath.Versions, []int{4}) ||
+		!slices.Equal(assessmentPath.Versions, []int{5}) ||
 		!slices.Equal(assessmentPath.StableIdentity, []string{"record_id"}) ||
 		assessmentPath.StableIdentityInvariantID != "assessments.source_identity_admitted" {
 		t.Fatalf("assessment source path drifted: %#v", assessmentPath)
@@ -87,8 +88,8 @@ func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) 
 	assertRuntimeSourceCatalogProjection(t, catalog.Descriptors())
 	assertRevisionsCatalogProjection(t, catalog.Descriptors())
 	assertSavedViewsCatalogProjection(t, catalog.Descriptors())
-	if consumer, ok := catalog.ConsumerFor(4, "data/timeline_source_provenance.ndjson"); !ok || consumer != "timeline" {
-		t.Fatalf("Timeline v4 provenance consumer = %q, %v", consumer, ok)
+	if consumer, ok := catalog.ConsumerFor(5, "data/timeline_source_provenance.ndjson"); !ok || consumer != "timeline" {
+		t.Fatalf("Timeline v5 provenance consumer = %q, %v", consumer, ok)
 	}
 	if consumer, ok := catalog.ConsumerFor(3, "data/timeline_source_provenance.ndjson"); ok || consumer != "" {
 		t.Fatalf("retired bundle-version consumer = %q, %v", consumer, ok)
@@ -100,16 +101,16 @@ func TestSourcePortCatalogRejectsInvalidDescriptors_Unit(t *testing.T) {
 		Ports: []sourceport.Port{
 			sourceport.NewAdapter(sourceport.AdapterOptions{Descriptor: sourceport.Descriptor{
 				FamilyID: "duplicate", ContractMajor: sourceport.ContractMajor, OwnerID: "module.one",
-				OwnerRelationIDs: []string{"owner"}, Paths: []sourceport.Path{{LogicalPath: "data/value.ndjson", ContentRole: "source_rows", Versions: []int{4}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "duplicate.valid"}},
+				OwnerRelationIDs: []string{"owner"}, Paths: []sourceport.Path{{LogicalPath: "data/value.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "duplicate.valid"}},
 				InvariantIDs: []string{"duplicate.valid"},
 			}}),
 			sourceport.NewAdapter(sourceport.AdapterOptions{Descriptor: sourceport.Descriptor{
 				FamilyID: "duplicate", ContractMajor: sourceport.ContractMajor, OwnerID: "module.two",
-				OwnerRelationIDs: []string{"owner"}, Paths: []sourceport.Path{{LogicalPath: "data/other.ndjson", ContentRole: "source_rows", Versions: []int{4}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "duplicate.valid"}},
+				OwnerRelationIDs: []string{"owner"}, Paths: []sourceport.Path{{LogicalPath: "data/other.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "duplicate.valid"}},
 				InvariantIDs: []string{"duplicate.valid"},
 			}}),
 		},
-		RequiredPathsByVersion: map[int][]string{4: {"data/value.ndjson", "data/other.ndjson"}},
+		RequiredPathsByVersion: map[int][]string{5: {"data/value.ndjson", "data/other.ndjson"}},
 		AllowedRelationIDs:     map[string]struct{}{"owner": {}},
 	})
 	if err == nil {
@@ -126,10 +127,10 @@ func TestSourcePortCatalogRejectsInvalidDescriptors_Unit(t *testing.T) {
 				Ports: []sourceport.Port{sourceport.NewAdapter(sourceport.AdapterOptions{Descriptor: sourceport.Descriptor{
 					FamilyID: "fixture", ContractMajor: sourceport.ContractMajor, OwnerID: "module.fixture",
 					OwnerRelationIDs: []string{"owner"},
-					Paths:            []sourceport.Path{{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", Versions: []int{4}, StableIdentity: []string{"id"}, StableIdentityInvariantID: invariantID}},
+					Paths:            []sourceport.Path{{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"id"}, StableIdentityInvariantID: invariantID}},
 					InvariantIDs:     []string{"fixture.source_identity_admitted"},
 				}})},
-				RequiredPathsByVersion: map[int][]string{4: {"data/fixture.ndjson"}},
+				RequiredPathsByVersion: map[int][]string{5: {"data/fixture.ndjson"}},
 				AllowedRelationIDs:     map[string]struct{}{"owner": {}},
 			})
 			if !errors.Is(err, sourceport.ErrInvalidCatalog) {
@@ -138,10 +139,10 @@ func TestSourcePortCatalogRejectsInvalidDescriptors_Unit(t *testing.T) {
 		})
 	}
 	t.Run("version-disjoint path grammars", func(t *testing.T) {
-		path := sourceport.Path{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.fixture.row.v1", Versions: []int{4}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.source_identity_admitted"}
+		path := sourceport.Path{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.fixture.row.v1", Versions: []int{5}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.source_identity_admitted"}
 		current := path
 		current.SchemaID = "cartulary.fixture.row.v2"
-		current.Versions = []int{5}
+		current.Versions = []int{6}
 		for _, tc := range []struct {
 			name  string
 			paths []sourceport.Path
@@ -149,7 +150,7 @@ func TestSourcePortCatalogRejectsInvalidDescriptors_Unit(t *testing.T) {
 		}{
 			{"disjoint", []sourceport.Path{path, current}, true},
 			{"overlap", []sourceport.Path{path, path, current}, false},
-			{"duplicate version", []sourceport.Path{func() sourceport.Path { p := path; p.Versions = []int{4, 4, 5}; return p }()}, false},
+			{"duplicate version", []sourceport.Path{func() sourceport.Path { p := path; p.Versions = []int{5, 5, 6}; return p }()}, false},
 			{"changed identity", []sourceport.Path{path, func() sourceport.Path { p := current; p.StableIdentity = []string{"other"}; return p }()}, false},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
@@ -160,7 +161,7 @@ func TestSourcePortCatalogRejectsInvalidDescriptors_Unit(t *testing.T) {
 						Apply:    func(context.Context, pgx.Tx, any, sourceport.ImportContext) error { return nil },
 						Validate: func(context.Context, pgx.Tx, any, sourceport.ImportContext) error { return nil },
 					})},
-					RequiredPathsByVersion: map[int][]string{4: {path.LogicalPath}, 5: {path.LogicalPath}}, AllowedRelationIDs: map[string]struct{}{"owner": {}},
+					RequiredPathsByVersion: map[int][]string{5: {path.LogicalPath}, 6: {path.LogicalPath}}, AllowedRelationIDs: map[string]struct{}{"owner": {}},
 				})
 				if (err == nil) != tc.valid {
 					t.Fatalf("valid=%v error=%v", tc.valid, err)
@@ -184,7 +185,7 @@ func TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Uni
 
 	descriptor := sourceport.Descriptor{
 		FamilyID: "fixture", ContractMajor: sourceport.ContractMajor, OwnerID: "module.fixture",
-		Paths:        []sourceport.Path{{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", Versions: []int{4}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.identity"}},
+		Paths:        []sourceport.Path{{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.identity"}},
 		InvariantIDs: []string{"fixture.identity"},
 	}
 	prepareCalls := 0
@@ -203,13 +204,13 @@ func TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Uni
 			return nil
 		},
 	})
-	for _, version := range []int{0, 1, 2, 3, 5} {
+	for _, version := range []int{0, 1, 2, 3, 4, 6} {
 		_, err := port.PrepareImport(context.Background(), sourceport.MapBundle{}, sourceport.ImportContext{OperationID: "rejected", BundleVersion: version})
 		if !errors.Is(err, sourceport.ErrInvalidCatalog) || prepareCalls != 0 {
 			t.Fatalf("unsupported version %d reached source preparation: calls=%d error=%v", version, prepareCalls, err)
 		}
 	}
-	prepared, err := port.PrepareImport(context.Background(), sourceport.MapBundle{}, sourceport.ImportContext{OperationID: "operation-a", BundleVersion: 4})
+	prepared, err := port.PrepareImport(context.Background(), sourceport.MapBundle{}, sourceport.ImportContext{OperationID: "operation-a", BundleVersion: 5})
 	if err != nil {
 		t.Fatalf("prepare operation-bound source: %v", err)
 	}
@@ -231,7 +232,7 @@ func TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Uni
 func newSourcePortCatalog(t testing.TB) (*sourceport.Catalog, sourceport.Port) {
 	t.Helper()
 	revisionsPort := revisionsupport.MustRuntime(t).IncidentBundleSourcePort()
-	catalog, err := incidentportabilityassembly.NewCatalog(revisionsPort)
+	catalog, err := incidentportabilityassembly.NewCatalog(revisionsPort, referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("NewCatalog: %v", err)
 	}
@@ -245,7 +246,7 @@ func assertSourcePathIdentityFailuresAreOrderIndependentAndUnknownPathsFailClose
 	} {
 		descriptor := sourceport.Descriptor{
 			FamilyID: "fixture", ContractMajor: sourceport.ContractMajor, OwnerID: "module.fixture",
-			Paths:        []sourceport.Path{{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", Versions: []int{4}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.source_identity_admitted"}},
+			Paths:        []sourceport.Path{{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.source_identity_admitted"}},
 			InvariantIDs: invariants,
 		}
 		for name, payload := range map[string][]byte{
@@ -253,7 +254,7 @@ func assertSourcePathIdentityFailuresAreOrderIndependentAndUnknownPathsFailClose
 			"duplicate": []byte("{\"id\":\"same\"}\n{\"id\":\"same\"}\n"),
 		} {
 			t.Run(name, func(t *testing.T) {
-				_, err := sourceport.PrepareFiles(descriptor, sourceport.MapBundle{"data/fixture.ndjson": payload}, 4)
+				_, err := sourceport.PrepareFiles(descriptor, sourceport.MapBundle{"data/fixture.ndjson": payload}, 5)
 				var failure *sourceport.Failure
 				if !errors.As(err, &failure) || failure.FamilyID() != "fixture" || failure.InvariantID() != "fixture.source_identity_admitted" {
 					t.Fatalf("identity failure = %#v, %v", failure, err)
@@ -264,7 +265,7 @@ func assertSourcePathIdentityFailuresAreOrderIndependentAndUnknownPathsFailClose
 
 	descriptor := sourceport.Descriptor{
 		FamilyID: "fixture", ContractMajor: sourceport.ContractMajor, OwnerID: "module.fixture",
-		Paths:        []sourceport.Path{{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", Versions: []int{4}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.source_identity_admitted"}},
+		Paths:        []sourceport.Path{{LogicalPath: "data/fixture.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "fixture.source_identity_admitted"}},
 		InvariantIDs: []string{"fixture.source_identity_admitted"},
 	}
 	port := sourceport.NewAdapter(sourceport.AdapterOptions{
@@ -276,7 +277,7 @@ func assertSourcePathIdentityFailuresAreOrderIndependentAndUnknownPathsFailClose
 			return incidentportability.FixedImportFailure("data/unknown.ndjson")
 		},
 	})
-	importContext := sourceport.ImportContext{OperationID: "operation", BundleVersion: 4}
+	importContext := sourceport.ImportContext{OperationID: "operation", BundleVersion: 5}
 	prepared, err := port.PrepareImport(context.Background(), sourceport.MapBundle{}, importContext)
 	if err != nil {
 		t.Fatalf("prepare unknown-path fixture: %v", err)
@@ -348,7 +349,7 @@ func assertAuthoredSourceCatalogV4(t *testing.T) {
 	t.Helper()
 	var authored sourceCatalogProjection
 	readContractJSON(t, "source_catalog.json", &authored)
-	if authored.SchemaID != "cartulary.incident_bundle_source_catalog.v4" || authored.ContractMajor != sourceport.ContractMajor || len(authored.Families) != 13 {
+	if authored.SchemaID != "cartulary.incident_bundle_source_catalog.v5" || authored.ContractMajor != sourceport.ContractMajor || len(authored.Families) != 13 {
 		t.Fatalf("authored source catalog header = %q major %d families %d", authored.SchemaID, authored.ContractMajor, len(authored.Families))
 	}
 	for _, family := range authored.Families {
@@ -357,7 +358,7 @@ func assertAuthoredSourceCatalogV4(t *testing.T) {
 			t.Fatalf("authored family %q does not declare %q", family.FamilyID, invariantID)
 		}
 		for _, path := range family.Paths {
-			expectedVersions := []int{4}
+			expectedVersions := []int{5}
 			if family.FamilyID == "saved_views" && path.SchemaID != "cartulary.incident_bundle.saved_views.row.v2" {
 				t.Fatal("unknown saved view row schema")
 			}
@@ -374,8 +375,8 @@ func assertAuthoredSourceCatalogV4(t *testing.T) {
 		t.Fatalf("authored special consumers = %d, want 3", len(authored.SpecialConsumers))
 	}
 	for _, consumer := range authored.SpecialConsumers {
-		if !slices.Equal(consumer.Versions, []int{4}) {
-			t.Fatalf("authored special consumer %q versions = %#v, want [4]", consumer.FamilyID, consumer.Versions)
+		if !slices.Equal(consumer.Versions, []int{5}) {
+			t.Fatalf("authored special consumer %q versions = %#v, want [5]", consumer.FamilyID, consumer.Versions)
 		}
 	}
 }

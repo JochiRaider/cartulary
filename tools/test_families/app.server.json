@@ -213,6 +213,36 @@
       ]
     },
     {
+      "row_id": "app.server.integration.http_harness_restart_storage",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.reference_data"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/httptestx",
+        "tests": [
+          "TestHarnessBootsServerAndAssertsEnvelopes",
+          "TestStartServerHonorsTestRouteMode"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "app.server.integration.required_bootstrap_failures_for_missing_unreadab_4ca79573fd",
       "owner_id": "app.server",
       "family_id": "app.server.integration",

@@ -63,13 +63,13 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 		projection.RestoreAction != recoverystate.RebuildState {
 		t.Fatalf("assessment projection Recovery classification = %#v", projection)
 	}
-	if _, err := CurrentVNextObjectInventoryCatalog(nil); err != nil {
+	if _, err := CurrentVNextObjectInventoryCatalog(nil, nil); err != nil {
 		t.Fatalf("exact six-family vNext inventory registration: %v", err)
 	}
 	if catalog.DigestSHA256() == "" {
 		t.Fatal("catalog digest is empty")
 	}
-	if got, want := catalog.DigestSHA256(), "0cdb9b6a4f7299764085d5fde6263696314becd1be8f0947699d384dbeaef482"; got != want {
+	if got, want := catalog.DigestSHA256(), "ff769efe796c3ac9194cbe6e531e82084d39d3d48b181d63b43f07840f40264b"; got != want {
 		t.Fatalf("current catalog digest = %s, want compatibility identity %s", got, want)
 	}
 	if want := graphrestore.CurrentRestoreImplementationBinding().Binding.RecoveryStateCatalogSHA256; catalog.DigestSHA256() != want {

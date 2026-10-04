@@ -76,19 +76,19 @@
     },
     {
       "path": "profiles/enterprise_authentication/configuration.json",
-      "schema_id": "cartulary.extension_profile_configuration_contract.v3",
+      "schema_id": "cartulary.extension_profile_configuration_contract.v4",
       "owner_id": "core04",
       "artifact_class": "profile_contract"
     },
     {
       "path": "profiles/import/configuration.json",
-      "schema_id": "cartulary.extension_profile_configuration_contract.v3",
+      "schema_id": "cartulary.extension_profile_configuration_contract.v4",
       "owner_id": "core04",
       "artifact_class": "profile_contract"
     },
     {
       "path": "profiles/incident_portability/configuration.json",
-      "schema_id": "cartulary.extension_profile_configuration_contract.v3",
+      "schema_id": "cartulary.extension_profile_configuration_contract.v4",
       "owner_id": "core04",
       "artifact_class": "profile_contract"
     },
@@ -100,7 +100,7 @@
     },
     {
       "path": "profiles/network_flow_activity/configuration.json",
-      "schema_id": "cartulary.extension_profile_configuration_contract.v3",
+      "schema_id": "cartulary.extension_profile_configuration_contract.v4",
       "owner_id": "network_flow_activity",
       "artifact_class": "profile_contract"
     },
@@ -172,13 +172,13 @@
     },
     {
       "path": "profiles/reference_pack/configuration.json",
-      "schema_id": "cartulary.extension_profile_configuration_contract.v3",
+      "schema_id": "cartulary.extension_profile_configuration_contract.v4",
       "owner_id": "core04",
       "artifact_class": "profile_contract"
     },
     {
       "path": "profiles/snapshot_reporting/configuration.json",
-      "schema_id": "cartulary.extension_profile_configuration_contract.v3",
+      "schema_id": "cartulary.extension_profile_configuration_contract.v4",
       "owner_id": "core04",
       "artifact_class": "profile_contract"
     },
@@ -216,6 +216,12 @@
       "path": "specification/portability-results.json",
       "schema_id": "cartulary.extension_portability_result_contract_set.v1",
       "owner_id": "extensions",
+      "artifact_class": "specification_input"
+    },
+    {
+      "path": "specification/route-identity.v2.schema.json",
+      "schema_id": "cartulary.route_scoped_idempotency_identity_schema.v2",
+      "owner_id": "core01",
       "artifact_class": "specification_input"
     },
     {

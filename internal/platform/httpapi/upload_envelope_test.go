@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -24,6 +25,51 @@ var testUploadEnvelopeFileTypes = []string{
 
 func TestUploadEnvelopeAcceptsExactMetadataAndFileParts(t *testing.T) {
 	t.Parallel()
+	t.Run("streaming receiver and complete envelope admission", func(t *testing.T) {
+		metadata := uploadEnvelopeTestPart{Name: "metadata", ContentType: "application/json", Body: []byte(`{"client_txn_id":"stream"}`)}
+		file := uploadEnvelopeTestPart{Name: "file", ContentType: "application/octet-stream", Filename: "pack", Body: bytes.Repeat([]byte("payload"), 10000)}
+		for _, duplicate := range []bool{false, true} {
+			parts := []uploadEnvelopeTestPart{file, metadata}
+			if duplicate {
+				parts = append(parts, metadata)
+			}
+			request := uploadEnvelopeRequest(t, parts, "")
+			var consumed int64
+			envelope, shapeErr, receiveErr := ParseStreamingUploadEnvelope(request, UploadEnvelopePolicy{FileContentTypes: testUploadEnvelopeFileTypes}, int64(len(metadata.Body)), func(source io.Reader) (string, error) {
+				h := sha256.New()
+				var err error
+				consumed, err = io.Copy(h, source)
+				return hex.EncodeToString(h.Sum(nil)), err
+			})
+			if receiveErr != nil || consumed != int64(len(file.Body)) {
+				t.Fatalf("streaming receive: %d %v", consumed, receiveErr)
+			}
+			if duplicate {
+				if shapeErr == nil || shapeErr.ReasonCode != UploadEnvelopeReasonDuplicatePart {
+					t.Fatalf("late duplicate accepted: %v", shapeErr)
+				}
+				continue
+			}
+			if shapeErr != nil || len(envelope.File) != 0 {
+				t.Fatalf("streaming file buffered or shape rejected: %v", shapeErr)
+			}
+			h := sha256.Sum256(file.Body)
+			if envelope.FileSHA256Hex != hex.EncodeToString(h[:]) {
+				t.Fatal("streamed digest changed")
+			}
+		}
+		request := uploadEnvelopeRequest(t, []uploadEnvelopeTestPart{metadata, file}, "")
+		_, shapeErr, receiveErr := ParseStreamingUploadEnvelope(request, UploadEnvelopePolicy{FileContentTypes: testUploadEnvelopeFileTypes}, int64(len(metadata.Body)-1), func(io.Reader) (string, error) { t.Fatal("receiver ran after overlong metadata"); return "", nil })
+		if receiveErr != nil || shapeErr == nil || shapeErr.ReasonCode != UploadEnvelopeReasonMalformedMetadataJSON {
+			t.Fatalf("metadata boundary: %v %v", shapeErr, receiveErr)
+		}
+		failure := errors.New("receiver unavailable")
+		request = uploadEnvelopeRequest(t, []uploadEnvelopeTestPart{file, metadata}, "")
+		_, shapeErr, receiveErr = ParseStreamingUploadEnvelope(request, UploadEnvelopePolicy{FileContentTypes: testUploadEnvelopeFileTypes}, 64, func(io.Reader) (string, error) { return "", failure })
+		if shapeErr != nil || !errors.Is(receiveErr, failure) {
+			t.Fatalf("operational error became content rejection: %v %v", shapeErr, receiveErr)
+		}
+	})
 
 	fileBody := []byte("col\nvalue\n")
 	request := uploadEnvelopeRequest(t, []uploadEnvelopeTestPart{

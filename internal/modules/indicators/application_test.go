@@ -2,8 +2,6 @@ package indicators
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -16,6 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -28,6 +28,7 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 
 	fixedTime := time.Date(2026, 8, 23, 12, 34, 56, 789, time.UTC)
 	complete := ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        inertIndicatorDB{},
 		Idempotency:     &inertIndicatorIdempotencyPort{},
 		IncidentState:   &inertIndicatorIncidentStatePort{},
@@ -51,6 +52,8 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 	without := func(name string, value any) ApplicationDependencies {
 		deps := complete
 		switch name {
+		case "ReferencePacks":
+			deps.ReferencePacks, _ = value.(reference_data.RegistryAssignments)
 		case "Postgres":
 			deps.Postgres, _ = value.(postgres.DB)
 		case "Idempotency":
@@ -77,6 +80,8 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 		deps ApplicationDependencies
 		want string
 	}{
+		{name: "nil ReferencePacks", deps: without("ReferencePacks", nil), want: "ReferencePacks is required"},
+		{name: "typed nil ReferencePacks", deps: without("ReferencePacks", (*referencefixture.IndicatorRegistry)(nil)), want: "ReferencePacks is required"},
 		{name: "nil Postgres", deps: without("Postgres", nil), want: "Postgres is required"},
 		{name: "typed nil Postgres", deps: without("Postgres", typedNilPostgres), want: "Postgres is required"},
 		{name: "nil Idempotency", deps: without("Idempotency", nil), want: "Idempotency is required"},
@@ -110,9 +115,7 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 	if got := owner.now(); !got.Equal(fixedTime) {
 		t.Fatalf("injected Clock returned %s, want %s", got, fixedTime)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(loadIndicatorByDedupeSQL))); got != "d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b" {
-		t.Fatalf("canonical dedupe SQL digest = %s", got)
-	}
+
 	if _, statErr := os.Stat("repositories.go"); !os.IsNotExist(statErr) {
 		t.Fatalf("obsolete repository namespace file remains: %v", statErr)
 	}

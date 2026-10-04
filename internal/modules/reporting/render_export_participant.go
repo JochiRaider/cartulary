@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 )
 
@@ -81,7 +82,7 @@ func (BuiltInRenderExportParticipant) Emit(ctx context.Context, invocation Rende
 		!sha256HexPattern.MatchString(contextValue.RedactionProfileSHA256) {
 		return RenderExportResult{}, fmt.Errorf("%w: invalid context", ErrRenderExportParticipant)
 	}
-	if invocation.ImmutableModel.SchemaID != ExportModelSchemaID ||
+	if validateRenderModelIdentity(invocation.ImmutableModel) != nil || invocation.ImmutableModel.SchemaID != ExportModelSchemaID ||
 		invocation.ImmutableModel.DerivationVersion != DerivationVersion {
 		return RenderExportResult{}, fmt.Errorf("%w: invalid immutable model", ErrRenderExportParticipant)
 	}
@@ -93,7 +94,7 @@ func (BuiltInRenderExportParticipant) Emit(ctx context.Context, invocation Rende
 		return RenderExportResult{}, fmt.Errorf("%w: output bounds", ErrRenderExportParticipant)
 	}
 	digest := hashHex(output)
-	if digest != invocation.ImmutableModelSHA {
+	if reportingObjectDigest(invocation.ImmutableModel.SchemaID, output) != invocation.ImmutableModelSHA {
 		return RenderExportResult{}, fmt.Errorf("%w: immutable model digest", ErrRenderExportParticipant)
 	}
 	itemCount := renderExportItemCount(invocation.ImmutableModel)
@@ -116,6 +117,10 @@ func (BuiltInRenderExportParticipant) Emit(ctx context.Context, invocation Rende
 }
 
 func AdmitRenderExportResult(invocation RenderExportInvocation, result RenderExportResult) (ExportModel, string, error) {
+	frozen, err := canonicalJSON(invocation.ImmutableModel)
+	if err != nil || !bytes.Equal(frozen, result.Output) || reportingObjectDigest(invocation.ImmutableModel.SchemaID, frozen) != invocation.ImmutableModelSHA {
+		return ExportModel{}, "", fmt.Errorf("%w: altered frozen render input", ErrRenderExportParticipant)
+	}
 	if result.SchemaID != RenderExportResultSchemaID ||
 		result.Kind != "output" ||
 		result.OutputSchema != ExportModelSchemaID ||
@@ -138,10 +143,14 @@ func AdmitRenderExportResult(invocation RenderExportInvocation, result RenderExp
 	if err := requireJSONEOF(decoder); err != nil {
 		return ExportModel{}, "", fmt.Errorf("%w: trailing output", ErrRenderExportParticipant)
 	}
-	if model.SchemaID != ExportModelSchemaID ||
+	if validateRenderModelIdentity(model) != nil ||
+		!reflect.DeepEqual(model.RenderIdentity, invocation.ImmutableModel.RenderIdentity) ||
+		model.SnapshotModelID != invocation.ImmutableModel.SnapshotModelID ||
+		model.SchemaID != ExportModelSchemaID ||
 		model.DerivationVersion != DerivationVersion ||
 		model.SnapshotID != invocation.ImmutableModel.SnapshotID ||
 		model.IncidentID != invocation.ImmutableModel.IncidentID ||
+		!reflect.DeepEqual(model.ReferencePacks, invocation.ImmutableModel.ReferencePacks) ||
 		renderExportItemCount(model) != result.ItemCount {
 		return ExportModel{}, "", fmt.Errorf("%w: output binding", ErrRenderExportParticipant)
 	}
@@ -150,7 +159,7 @@ func AdmitRenderExportResult(invocation RenderExportInvocation, result RenderExp
 		return ExportModel{}, "", fmt.Errorf("%w: non-canonical output", ErrRenderExportParticipant)
 	}
 	model.Fields = model.RedactionFields()
-	return model, result.OutputSHA256, nil
+	return model, reportingObjectDigest(model.SchemaID, canonical), nil
 }
 
 func renderExportItemCount(model ExportModel) int {

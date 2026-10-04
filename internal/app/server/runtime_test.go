@@ -647,6 +647,14 @@ func loadRuntimeConfig(t testing.TB, overlays map[string]string) (configassembly
 		env[key] = value
 	}
 	env["CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH"] = conflictTokenManifestPath
+	trustPath := filepath.Join(roots.Base, "reference-pack-trust-bootstrap.json")
+	if err := os.WriteFile(trustPath, fixtures.MustRead("reference-packs", "trust-bootstrap.json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if overlays["CARTULARY__REFERENCE_PACK__CLAIMED"] != "false" {
+		env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"] = trustPath
+	}
+
 	for key, value := range overlays {
 		env[key] = value
 	}

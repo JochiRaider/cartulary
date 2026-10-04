@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reporting_portable_artifacts.v1",
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reporting_portable_artifacts.v1"
+    },
+    "incident_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "snapshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "export_model_path": {
+            "type": "string",
+            "pattern": "^ext/snapshots/[0-9a-f-]{36}/export-model\\.json$"
+          },
+          "export_model_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "export_model_path",
+          "export_model_sha256"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 1024
+    },
+    "releases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "release_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "manifest_path": {
+            "type": "string",
+            "pattern": "^ext/snapshots/releases/[0-9a-f-]{36}/manifest\\.json$"
+          },
+          "manifest_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "release_id",
+          "snapshot_id",
+          "manifest_path",
+          "manifest_sha256"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 4096
+    },
+    "omitted_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "release_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "reason": {
+            "const": "sensitive_reveal_map"
+          }
+        },
+        "required": [
+          "release_id",
+          "path",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "schema_id",
+    "incident_id",
+    "snapshots",
+    "releases",
+    "omitted_files"
+  ],
+  "additionalProperties": false
+}

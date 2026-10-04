@@ -4,6 +4,7 @@ import {
   type ReferencePackJobResource,
   type ReferencePackMutation,
   type ReferencePackRead,
+  type ReferencePackValidationSummary,
   referencePackTransportProblem,
 } from "../services/referencePacks";
 import { deferred } from "../testing/fetchMockTestSupport";
@@ -11,8 +12,11 @@ import {
   referencePackFixture,
   referencePackJobFixture,
   referencePackListFixture,
+  referencePackRejectedJobFixture,
   referencePackTestActor,
   referencePackTestJobId,
+  referencePackTestValidationRef,
+  referencePackValidationFixture,
 } from "../testing/referencePackTestSupport";
 import {
   ReferencePackAdminController,
@@ -51,6 +55,12 @@ function setup(overrides: Partial<ReferencePackAdminPorts> = {}) {
     version: vi
       .fn<ReferencePackAdminPorts["version"]>()
       .mockResolvedValue({ kind: "read", value: referencePackFixture() }),
+    validation: vi
+      .fn<ReferencePackAdminPorts["validation"]>()
+      .mockResolvedValue({
+        kind: "read",
+        value: referencePackValidationFixture(),
+      }),
     submit: vi
       .fn<ReferencePackAdminPorts["submit"]>()
       .mockResolvedValue({ kind: "accepted", job: job("queued") }),
@@ -96,6 +106,104 @@ afterEach(() => {
 });
 
 describe("Reference Pack execution", () => {
+  it("retries bounded diagnostic reads without resubmitting and clears protected details on access loss", async () => {
+    const { controller, ports } = setup();
+    await ready(controller);
+    ports.job.mockResolvedValue({
+      kind: "read",
+      value: referencePackRejectedJobFixture(),
+    });
+    await controller.run({ kind: "refresh_all" });
+    await observed(controller, "failed");
+    const pending =
+      deferred<ReferencePackRead<ReferencePackValidationSummary>>();
+    ports.validation.mockReturnValueOnce(pending.promise);
+    vi.useFakeTimers();
+    const reading = controller.inspectValidation(referencePackTestJobId);
+    await vi.advanceTimersByTimeAsync(referencePackTiming.read);
+    await reading;
+    expect(
+      controller.getSnapshot().diagnostics[referencePackTestJobId]?.phase,
+    ).toBe("failed");
+    await controller.inspectValidation(referencePackTestJobId);
+    expect(
+      controller.getSnapshot().diagnostics[referencePackTestJobId]?.phase,
+    ).toBe("ready");
+    pending.resolve({ kind: "access_failed", status: 403 });
+    await Promise.resolve();
+    expect(ports.authorizationFailed).not.toHaveBeenCalled();
+    expect(ports.validation.mock.calls[0]?.[0]).toBe(
+      referencePackTestValidationRef,
+    );
+    expect(ports.validation.mock.calls[0]?.[1].aborted).toBe(true);
+    expect(ports.submit).toHaveBeenCalledTimes(1);
+    controller.setAuthority(null);
+    expect(controller.getSnapshot().diagnostics).toEqual({});
+  });
+  it("fences concealed dismissed and retired diagnostic reads and rejects mismatched outcomes", async () => {
+    const { controller, ports } = setup();
+    await ready(controller);
+    ports.job.mockResolvedValue({
+      kind: "read",
+      value: referencePackRejectedJobFixture(),
+    });
+    await controller.run({ kind: "refresh_all" });
+    await observed(controller, "failed");
+    for (const retire of ["conceal", "dismiss", "access"] as const) {
+      const pending =
+        deferred<ReferencePackRead<ReferencePackValidationSummary>>();
+      ports.validation.mockReturnValueOnce(pending.promise);
+      const reading = controller.inspectValidation(referencePackTestJobId);
+      await waitFor(() =>
+        expect(
+          controller.getSnapshot().diagnostics[referencePackTestJobId]?.phase,
+        ).toBe("loading"),
+      );
+      if (retire === "conceal") controller.setActive(false);
+      else if (retire === "dismiss")
+        controller.dismissJob(referencePackTestJobId);
+      else controller.setAuthority(null);
+      pending.resolve({
+        kind: "read",
+        value: referencePackValidationFixture(),
+      });
+      await reading;
+      expect(
+        controller.getSnapshot().diagnostics[referencePackTestJobId]?.phase,
+      ).not.toBe("ready");
+      if (retire === "access") break;
+      controller.setActive(true);
+      await ready(controller);
+      if (retire === "dismiss") {
+        await controller.run({ kind: "refresh_all" });
+        await observed(controller, "failed");
+      }
+      ports.validation.mockResolvedValueOnce({
+        kind: "read",
+        value: { ...referencePackValidationFixture(), total_issue_count: 2 },
+      });
+      await controller.inspectValidation(referencePackTestJobId);
+      expect(
+        controller.getSnapshot().diagnostics[referencePackTestJobId],
+      ).toMatchObject({ phase: "failed", problem: { kind: "contract" } });
+    }
+  });
+  it("retires all protected state when a diagnostic read denies access", async () => {
+    const { controller, ports } = setup();
+    await ready(controller);
+    ports.job.mockResolvedValue({
+      kind: "read",
+      value: referencePackRejectedJobFixture(),
+    });
+    await controller.run({ kind: "refresh_all" });
+    await observed(controller, "failed");
+    ports.validation.mockResolvedValue({ kind: "access_failed", status: 403 });
+    await controller.inspectValidation(referencePackTestJobId);
+    expect(controller.getSnapshot().diagnostics).toEqual({});
+    expect(controller.getSnapshot().jobs).toEqual({});
+    expect(ports.authorizationFailed).toHaveBeenCalledWith(403);
+  });
+
   it("reconciles a terminal replay receipt after another known job finishes reading", async () => {
     const { controller, ports } = setup();
     await ready(controller);
@@ -247,7 +355,7 @@ describe("Reference Pack execution", () => {
     await ready(controller);
     ports.version.mockResolvedValue({
       kind: "read",
-      value: referencePackFixture({ pack_version_state: "disabled" }),
+      value: referencePackFixture({ pack_version_state: "failed" }),
     });
     const target = { pack_key: "type_registry.host", pack_version: "1" };
     await controller.run({ kind: "activate", target });

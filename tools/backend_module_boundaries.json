@@ -341,8 +341,11 @@
       "allowed_importers": [
         "internal/app/extensionassembly/**",
         "internal/app/recoveryassembly/state_catalog.go",
+        "internal/app/referenceassembly/operator_admission.go",
         "internal/app/server/**",
         "internal/modules/extensions/**",
+        "internal/modules/reference_data/coordinator_execution.go",
+        "internal/modules/reference_data/portable_execution.go",
         "internal/modules/stagedobjects/janitor.go"
       ]
     },
@@ -359,7 +362,6 @@
         "internal/app/server/module_settings.go",
         "internal/app/server/module_settings_test.go",
         "internal/app/server/runtime_assembly.go",
-        "internal/modules/incidentbundles/**",
         "internal/modules/artifacts/incident_bundle_source_port.go",
         "internal/modules/artifacts/source_state_manifest.go",
         "internal/modules/assessments/incident_bundle_source_port.go",
@@ -373,8 +375,9 @@
         "internal/modules/entities/incident_bundle_portable_validate.go",
         "internal/modules/entities/incident_bundle_source_port.go",
         "internal/modules/evidence/incident_bundle_source_port.go",
-        "internal/modules/incidents/incident_bundle_source_port.go",
+        "internal/modules/incidentbundles/**",
         "internal/modules/incidents/import_finalization.go",
+        "internal/modules/incidents/incident_bundle_source_port.go",
         "internal/modules/incidents/repository.go",
         "internal/modules/incidents/store_test.go",
         "internal/modules/indicators/identity_portability_test.go",
@@ -392,6 +395,9 @@
         "internal/modules/projections/adapters/adapters.go",
         "internal/modules/records/incident_bundle_source_port.go",
         "internal/modules/records/incident_bundle_source_port_test.go",
+        "internal/modules/reporting/portable_artifacts.go",
+        "internal/modules/reporting/portable_export.go",
+        "internal/modules/reporting/portable_recovery.go",
         "internal/modules/revisions/incident_bundle_apply.go",
         "internal/modules/revisions/incident_bundle_export.go",
         "internal/modules/revisions/incident_bundle_models.go",
@@ -401,10 +407,10 @@
         "internal/modules/revisions/incident_bundle_validation.go",
         "internal/modules/savedviews/incident_bundle_source_port.go",
         "internal/modules/tasksdecisions/incident_bundle_contribution.go",
+        "internal/modules/tasksdecisions/incident_bundle_source_port_test.go",
         "internal/modules/tasksdecisions/internal/providers/incidentbundle/import_prepare.go",
         "internal/modules/tasksdecisions/internal/providers/incidentbundle/portable_values.go",
         "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
-        "internal/modules/tasksdecisions/incident_bundle_source_port_test.go",
         "internal/modules/timeline/incident_bundle_source_port.go"
       ]
     },
@@ -412,25 +418,90 @@
       "id": "reference-data-facade-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data",
       "allowed_importers": [
+        "internal/app/configassembly/deployment.go",
+        "internal/app/configassembly/reference_pack.go",
         "internal/app/extensionassembly/reference_pack_jobs.go",
-        "internal/app/referenceassembly/**",
+        "internal/app/importassembly/owner_registry_test.go",
+        "internal/app/importassembly/tasksdecisions_integration_test.go",
+        "internal/app/incidentportabilityassembly/catalog.go",
+        "internal/app/incidentportabilityassembly/catalog_test.go",
+        "internal/app/migrate/migrate.go",
+        "internal/app/operator/operator_recovery.go",
+        "internal/app/operator/operator_reference_pack.go",
         "internal/app/recoveryassembly/state_catalog.go",
+        "internal/app/recoveryassembly/vnext.go",
+        "internal/app/referenceassembly/**",
+        "internal/app/revisionassembly/history_projection_test.go",
+        "internal/app/revisionassembly/revisions.go",
+        "internal/app/revisionassembly/revisions_test.go",
         "internal/app/server/module_settings.go",
         "internal/app/server/module_settings_test.go",
         "internal/app/server/runtime_assembly.go",
+        "internal/app/serverprocess/recovery_sentinel_test.go",
+        "internal/modules/incidentbundles/api_test.go",
+        "internal/modules/incidentbundles/bundle.go",
+        "internal/modules/incidentbundles/import_execution_failure.go",
+        "internal/modules/incidentbundles/module.go",
+        "internal/modules/incidentbundles/routes_reference_verification_integration_test.go",
+        "internal/modules/incidentbundles/routes_reporting_artifacts_integration_test.go",
+        "internal/modules/incidentbundles/routes_round_trip_integration_test.go",
         "internal/modules/incidentbundles/source.go",
-        "internal/modules/reference_data/**"
+        "internal/modules/incidentbundles/source_catalog_test.go",
+        "internal/modules/incidentbundles/worker_service.go",
+        "internal/modules/indicators/application.go",
+        "internal/modules/indicators/application_test.go",
+        "internal/modules/indicators/application_test_helpers_test.go",
+        "internal/modules/indicators/idempotency_hash_test.go",
+        "internal/modules/indicators/identity_portability_test.go",
+        "internal/modules/indicators/incident_bundle_contribution.go",
+        "internal/modules/indicators/internal/identity/identity.go",
+        "internal/modules/indicators/internal/identity/identity_test.go",
+        "internal/modules/indicators/internal/providers/incidentbundle/source_port.go",
+        "internal/modules/indicators/internal/providers/rollback/provider.go",
+        "internal/modules/indicators/portability_characterization_test.go",
+        "internal/modules/indicators/portability_final_state_test.go",
+        "internal/modules/indicators/portability_invariants_test.go",
+        "internal/modules/indicators/production_contract_test.go",
+        "internal/modules/indicators/provider_encapsulation_test.go",
+        "internal/modules/indicators/revision_provider_contribution.go",
+        "internal/modules/indicators/revision_provider_contribution_test.go",
+        "internal/modules/indicators/source_state_contract_test.go",
+        "internal/modules/indicators/testsupport/fixtures.go",
+        "internal/modules/indicators/transaction_atomicity_test.go",
+        "internal/modules/indicators/vocabulary_contract_test.go",
+        "internal/modules/networkflow/store_test.go",
+        "internal/modules/recovery/backup_metadata_integration_test.go",
+        "internal/modules/recovery/operatortest/operator_process_test.go",
+        "internal/modules/recovery/restore_projection_contract_test.go",
+        "internal/modules/reference_data/**",
+        "internal/modules/reporting/portable_artifacts.go",
+        "internal/modules/reporting/portable_export.go",
+        "internal/modules/reporting/portable_recovery.go",
+        "internal/modules/reporting/portable_references.go",
+        "internal/modules/reporting/redaction.go",
+        "internal/modules/reporting/reference_binding_integration_test.go",
+        "internal/modules/reporting/render_bundle.go",
+        "internal/modules/reporting/routes.go",
+        "internal/modules/reporting/store.go",
+        "internal/modules/revisions/delete_restore_test.go",
+        "internal/modules/revisions/history_source_paging_test.go",
+        "internal/modules/revisions/indicator_children_test.go",
+        "internal/modules/workbook/notes_indicators_test.go"
       ]
     },
     {
       "id": "assessment-private-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/providers/deleterestore",
-      "allowed_importers": ["internal/modules/assessments/**"]
+      "allowed_importers": [
+        "internal/modules/assessments/**"
+      ]
     },
     {
       "id": "assessment-private-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/providers/rollback",
-      "allowed_importers": ["internal/modules/assessments/**"]
+      "allowed_importers": [
+        "internal/modules/assessments/**"
+      ]
     },
     {
       "id": "assessment-private-incident-bundle-provider-import",
@@ -443,17 +514,23 @@
     {
       "id": "entity-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore",
-      "allowed_importers": ["internal/modules/entities/**"]
+      "allowed_importers": [
+        "internal/modules/entities/**"
+      ]
     },
     {
       "id": "entity-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/rollbackprovider",
-      "allowed_importers": ["internal/modules/entities/**"]
+      "allowed_importers": [
+        "internal/modules/entities/**"
+      ]
     },
     {
       "id": "entity-mention-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/rollbackprovider",
-      "allowed_importers": ["internal/modules/entities/**"]
+      "allowed_importers": [
+        "internal/modules/entities/**"
+      ]
     },
     {
       "id": "evidence-delete-restore-provider-import",
@@ -468,17 +545,23 @@
     {
       "id": "evidence-private-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/deleterestore",
-      "allowed_importers": ["internal/modules/evidence/revision_provider_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/evidence/revision_provider_contribution.go"
+      ]
     },
     {
       "id": "evidence-private-incident-bundle-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/incidentbundle",
-      "allowed_importers": ["internal/modules/evidence/incident_bundle_blob_portability.go"]
+      "allowed_importers": [
+        "internal/modules/evidence/incident_bundle_blob_portability.go"
+      ]
     },
     {
       "id": "evidence-private-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/projection",
-      "allowed_importers": ["internal/modules/evidence/projection_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/evidence/projection_contribution.go"
+      ]
     },
     {
       "id": "evidence-projection-contract-direct-consumers",
@@ -511,27 +594,37 @@
     {
       "id": "evidence-private-recovery-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/recovery",
-      "allowed_importers": ["internal/modules/evidence/recovery_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/evidence/recovery_contribution.go"
+      ]
     },
     {
       "id": "evidence-private-reporting-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/reporting",
-      "allowed_importers": ["internal/modules/evidence/reporting_contributions.go"]
+      "allowed_importers": [
+        "internal/modules/evidence/reporting_contributions.go"
+      ]
     },
     {
       "id": "evidence-private-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/rollback",
-      "allowed_importers": ["internal/modules/evidence/revision_provider_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/evidence/revision_provider_contribution.go"
+      ]
     },
     {
       "id": "indicator-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/deleterestore",
-      "allowed_importers": ["internal/modules/indicators/revision_provider_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/indicators/revision_provider_contribution.go"
+      ]
     },
     {
       "id": "indicator-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/rollback",
-      "allowed_importers": ["internal/modules/indicators/revision_provider_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/indicators/revision_provider_contribution.go"
+      ]
     },
     {
       "id": "indicator-projection-provider-import",
@@ -543,82 +636,114 @@
     {
       "id": "indicator-incident-bundle-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/incidentbundle",
-      "allowed_importers": ["internal/modules/indicators/incident_bundle_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/indicators/incident_bundle_contribution.go"
+      ]
     },
     {
       "id": "link-revision-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/links/internal/revisionprovider",
-      "allowed_importers": ["internal/modules/links/**"]
+      "allowed_importers": [
+        "internal/modules/links/**"
+      ]
     },
     {
       "id": "party-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/deleterestore",
-      "allowed_importers": ["internal/modules/parties/revision_provider_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/parties/revision_provider_contribution.go"
+      ]
     },
     {
       "id": "party-incident-bundle-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/incidentbundle",
-      "allowed_importers": ["internal/modules/parties/provider_contributions.go"]
+      "allowed_importers": [
+        "internal/modules/parties/provider_contributions.go"
+      ]
     },
     {
       "id": "party-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/projection",
-      "allowed_importers": ["internal/modules/parties/provider_contributions.go"]
+      "allowed_importers": [
+        "internal/modules/parties/provider_contributions.go"
+      ]
     },
     {
       "id": "party-reporting-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/reporting",
-      "allowed_importers": ["internal/modules/parties/provider_contributions.go"]
+      "allowed_importers": [
+        "internal/modules/parties/provider_contributions.go"
+      ]
     },
     {
       "id": "party-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/rollback",
-      "allowed_importers": ["internal/modules/parties/revision_provider_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/parties/revision_provider_contribution.go"
+      ]
     },
     {
       "id": "tasks-decisions-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore",
-      "allowed_importers": ["internal/modules/tasksdecisions/**"]
+      "allowed_importers": [
+        "internal/modules/tasksdecisions/**"
+      ]
     },
     {
       "id": "tasks-decisions-incident-bundle-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/incidentbundle",
-      "allowed_importers": ["internal/modules/tasksdecisions/incident_bundle_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/tasksdecisions/incident_bundle_contribution.go"
+      ]
     },
     {
       "id": "tasks-decisions-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/rollback",
-      "allowed_importers": ["internal/modules/tasksdecisions/**"]
+      "allowed_importers": [
+        "internal/modules/tasksdecisions/**"
+      ]
     },
     {
       "id": "tasks-decisions-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/projection",
-      "allowed_importers": ["internal/modules/tasksdecisions/projection_contribution.go"]
+      "allowed_importers": [
+        "internal/modules/tasksdecisions/projection_contribution.go"
+      ]
     },
     {
       "id": "tasks-decisions-reporting-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/reporting",
-      "allowed_importers": ["internal/modules/tasksdecisions/**"]
+      "allowed_importers": [
+        "internal/modules/tasksdecisions/**"
+      ]
     },
     {
       "id": "tasks-decisions-private-policy-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
-      "allowed_importers": ["internal/modules/tasksdecisions/**"]
+      "allowed_importers": [
+        "internal/modules/tasksdecisions/**"
+      ]
     },
     {
       "id": "tasks-decisions-private-source-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source",
-      "allowed_importers": ["internal/modules/tasksdecisions/**"]
+      "allowed_importers": [
+        "internal/modules/tasksdecisions/**"
+      ]
     },
     {
       "id": "timeline-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore",
-      "allowed_importers": ["internal/modules/timeline/**"]
+      "allowed_importers": [
+        "internal/modules/timeline/**"
+      ]
     },
     {
       "id": "timeline-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/timeline/rollbackprovider",
-      "allowed_importers": ["internal/modules/timeline/**"]
+      "allowed_importers": [
+        "internal/modules/timeline/**"
+      ]
     },
     {
       "id": "revisions-delete-restore-source-contract-import",
@@ -683,7 +808,8 @@
         "internal/app/incidentportabilityassembly/catalog.go",
         "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/revisionassembly/revisions.go",
-        "internal/app/server/runtime_assembly.go"
+        "internal/app/server/runtime_assembly.go",
+        "internal/app/referenceassembly/registry_usage.go"
       ],
       "production_only": true
     },
@@ -940,7 +1066,9 @@
         "github.com/jackc/pgx/v5",
         "github.com/jackc/pgx/v5/pgxpool"
       ],
-      "scan_paths": ["internal/app/server/publication_controller.go"],
+      "scan_paths": [
+        "internal/app/server/publication_controller.go"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1030,7 +1158,9 @@
         "github.com/JochiRaider/cartulary/internal/platform/authn",
         "github.com/JochiRaider/cartulary/internal/platform/httpapi"
       ],
-      "scan_paths": ["internal/modules/artifacts/**"],
+      "scan_paths": [
+        "internal/modules/artifacts/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1046,7 +1176,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
         "github.com/JochiRaider/cartulary/internal/modules/workbook"
       ],
-      "scan_paths": ["internal/modules/artifacts/**"],
+      "scan_paths": [
+        "internal/modules/artifacts/**"
+      ],
       "allowed_paths": [
         "internal/modules/artifacts/import_create.go",
         "internal/modules/artifacts/incident_bundle_source_port.go",
@@ -1083,7 +1215,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecatalog",
         "github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecontract"
       ],
-      "scan_paths": ["internal/**"],
+      "scan_paths": [
+        "internal/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -1098,7 +1232,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
         "github.com/JochiRaider/cartulary/internal/modules/workbook"
       ],
-      "scan_paths": ["internal/modules/records/**"],
+      "scan_paths": [
+        "internal/modules/records/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1115,7 +1251,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/records",
         "github.com/JochiRaider/cartulary/internal/modules/workbook"
       ],
-      "scan_paths": ["internal/modules/assessments/**"],
+      "scan_paths": [
+        "internal/modules/assessments/**"
+      ],
       "allowed_paths": [
         "internal/modules/assessments/incident_bundle_subtype_presence.go",
         "internal/modules/assessments/import_create.go",
@@ -1144,7 +1282,9 @@
         "github.com/JochiRaider/cartulary/internal/platform/authn",
         "github.com/JochiRaider/cartulary/internal/platform/extensionstore"
       ],
-      "scan_paths": ["internal/platform/jobs/**"],
+      "scan_paths": [
+        "internal/platform/jobs/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1163,7 +1303,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
         "github.com/JochiRaider/cartulary/internal/modules/workbook"
       ],
-      "scan_paths": ["internal/modules/imports/**"],
+      "scan_paths": [
+        "internal/modules/imports/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1250,7 +1392,9 @@
         "github.com/JochiRaider/cartulary/internal/platform/postgres",
         "github.com/jackc/pgx"
       ],
-      "scan_paths": ["internal/modules/extensions/**"],
+      "scan_paths": [
+        "internal/modules/extensions/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1268,7 +1412,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/reportcomposition",
         "github.com/JochiRaider/cartulary/internal/modules/reporting"
       ],
-      "scan_paths": ["internal/platform/**"],
+      "scan_paths": [
+        "internal/platform/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1321,7 +1467,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/reportcomposition",
         "github.com/JochiRaider/cartulary/internal/modules/reporting"
       ],
-      "scan_paths": ["internal/modules/extensions/**"],
+      "scan_paths": [
+        "internal/modules/extensions/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1365,8 +1513,12 @@
         "github.com/JochiRaider/cartulary/internal/platform/postgres",
         "github.com/jackc/pgx/v5/pgxpool"
       ],
-      "scan_paths": ["internal/modules/workbook/**"],
-      "allowed_paths": ["internal/modules/workbook/startup/postgres/**"],
+      "scan_paths": [
+        "internal/modules/workbook/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/workbook/startup/postgres/**"
+      ],
       "production_only": true
     },
     {
@@ -1376,7 +1528,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres",
         "github.com/JochiRaider/cartulary/internal/platform/ws"
       ],
-      "scan_paths": ["internal/modules/incidents/**"],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1386,7 +1540,9 @@
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
       ],
-      "scan_paths": ["internal/modules/incidents/**"],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1398,7 +1554,9 @@
         "github.com/JochiRaider/cartulary/internal/platform/httpapi",
         "github.com/JochiRaider/cartulary/internal/platform/httpauth"
       ],
-      "scan_paths": ["internal/modules/incidents/admission/**"],
+      "scan_paths": [
+        "internal/modules/incidents/admission/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1425,7 +1583,9 @@
         "github.com/tealeg/xlsx",
         "github.com/xuri/excelize"
       ],
-      "scan_paths": ["internal/modules/timeline/*.go"],
+      "scan_paths": [
+        "internal/modules/timeline/*.go"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1436,8 +1596,12 @@
         "github.com/JochiRaider/cartulary/internal/platform/harnessruntime",
         "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
       ],
-      "scan_paths": ["internal/app/**"],
-      "allowed_paths": ["internal/app/server/server_profile_harness.go"],
+      "scan_paths": [
+        "internal/app/**"
+      ],
+      "allowed_paths": [
+        "internal/app/server/server_profile_harness.go"
+      ],
       "production_only": true
     }
   ],
@@ -1445,7 +1609,9 @@
     {
       "id": "entities-timeline-contract-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/timeline",
-      "scan_paths": ["internal/modules/entities/**"],
+      "scan_paths": [
+        "internal/modules/entities/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1456,7 +1622,9 @@
     {
       "id": "entities-root-exact-internal-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/entities/*.go"],
+      "scan_paths": [
+        "internal/modules/entities/*.go"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1478,7 +1646,9 @@
     {
       "id": "platform-config-kernel-internal-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/platform/config/**"],
+      "scan_paths": [
+        "internal/platform/config/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": []
@@ -1486,7 +1656,9 @@
     {
       "id": "tasks-decisions-delete-restore-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/deleterestore/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/internal/providers/deleterestore/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1496,7 +1668,9 @@
     {
       "id": "tasks-decisions-incident-bundle-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/incidentbundle/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1511,7 +1685,9 @@
     {
       "id": "tasks-decisions-private-source-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/internal/source/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/internal/source/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1523,7 +1699,9 @@
     {
       "id": "tasks-decisions-rollback-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/rollback/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/internal/providers/rollback/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1534,52 +1712,70 @@
     {
       "id": "tasks-decisions-projection-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/projection/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/internal/providers/projection/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
-		"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
       ]
     },
     {
       "id": "tasks-decisions-reporting-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/reporting/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/internal/providers/reporting/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
-		"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider",
-		"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
+        "github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
       ]
     },
     {
       "id": "server-command-production-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["cmd/server/main.go"],
+      "scan_paths": [
+        "cmd/server/main.go"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
-      "allowed_imports": ["github.com/JochiRaider/cartulary/internal/app/server"]
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/app/server"
+      ]
     },
     {
       "id": "migrate-command-production-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["cmd/migrate/main.go"],
+      "scan_paths": [
+        "cmd/migrate/main.go"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
-      "allowed_imports": ["github.com/JochiRaider/cartulary/internal/app/migrate"]
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/app/migrate"
+      ]
     },
     {
       "id": "operator-command-production-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["cmd/operator/main.go"],
+      "scan_paths": [
+        "cmd/operator/main.go"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
-      "allowed_imports": ["github.com/JochiRaider/cartulary/internal/app/operator"]
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/app/operator"
+      ]
     },
     {
       "id": "revision-assembly-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/app/revisionassembly/**"],
+      "scan_paths": [
+        "internal/app/revisionassembly/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1589,12 +1785,13 @@
         "github.com/JochiRaider/cartulary/internal/modules/entities",
         "github.com/JochiRaider/cartulary/internal/modules/evidence",
         "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
-        "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
+        "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/parties",
         "github.com/JochiRaider/cartulary/internal/modules/records",
+        "github.com/JochiRaider/cartulary/internal/modules/reference_data",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
@@ -1607,7 +1804,9 @@
     {
       "id": "timeline-delete-restore-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/timeline/deleterestore/**"],
+      "scan_paths": [
+        "internal/modules/timeline/deleterestore/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1617,7 +1816,9 @@
     {
       "id": "timeline-reporting-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/timeline/reportingprovider/**"],
+      "scan_paths": [
+        "internal/modules/timeline/reportingprovider/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1627,7 +1828,9 @@
     {
       "id": "timeline-rollback-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/timeline/rollbackprovider/**"],
+      "scan_paths": [
+        "internal/modules/timeline/rollbackprovider/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -1637,7 +1840,9 @@
     {
       "id": "http-runtime-platform-only-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/platform/httpruntime/**"],
+      "scan_paths": [
+        "internal/platform/httpruntime/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [
         "github.com/JochiRaider/cartulary/internal/platform"
@@ -1647,7 +1852,9 @@
     {
       "id": "workbook-approved-owner-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/",
-      "scan_paths": ["internal/modules/workbook/**"],
+      "scan_paths": [
+        "internal/modules/workbook/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [
         "github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -1660,7 +1867,9 @@
     {
       "id": "timeline-approved-owner-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/",
-      "scan_paths": ["internal/modules/timeline/*.go"],
+      "scan_paths": [
+        "internal/modules/timeline/*.go"
+      ],
       "production_only": true,
       "allowed_prefixes": [
         "github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -1681,7 +1890,9 @@
     {
       "id": "timeline-admission-approved-owner-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/",
-      "scan_paths": ["internal/modules/timeline/admission/**"],
+      "scan_paths": [
+        "internal/modules/timeline/admission/**"
+      ],
       "production_only": true,
       "allowed_prefixes": [
         "github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -1697,19 +1908,22 @@
   "source_table_access": [
     {
       "id": "tasks-decisions-source-tables",
-      "tables": ["decisions", "task_requests"],
+      "tables": [
+        "decisions",
+        "task_requests"
+      ],
       "allowed_paths": [
         "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
         "internal/modules/tasksdecisions/internal/providers/incidentbundle/export.go",
         "internal/modules/tasksdecisions/internal/providers/incidentbundle/import_apply.go",
         "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
         "internal/modules/tasksdecisions/internal/providers/incidentbundle/subtype_presence.go",
-		"internal/modules/tasksdecisions/internal/providers/projection/task_source.go",
-		"internal/modules/tasksdecisions/internal/providers/projection/decision_source.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/task_source.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/decision_source.go",
         "internal/modules/tasksdecisions/internal/source/direct_updates.go",
         "internal/modules/tasksdecisions/internal/source/facts.go",
-		"internal/modules/tasksdecisions/internal/source/inserts.go",
-		"internal/modules/tasksdecisions/internal/source/lifecycle.go",
+        "internal/modules/tasksdecisions/internal/source/inserts.go",
+        "internal/modules/tasksdecisions/internal/source/lifecycle.go",
         "internal/modules/tasksdecisions/internal/providers/rollback/decision_provider.go",
         "internal/modules/tasksdecisions/internal/providers/rollback/task_provider.go",
         "internal/modules/parties/internal/providers/deleterestore/provider.go"
@@ -1717,7 +1931,10 @@
     },
     {
       "id": "links-source-tables",
-      "tables": ["record_links", "record_tags"],
+      "tables": [
+        "record_links",
+        "record_tags"
+      ],
       "allowed_paths": [
         "internal/modules/links/**"
       ]
@@ -1752,7 +1969,9 @@
         "timeline_events"
       ],
       "allowed_paths": [],
-      "scan_paths": ["internal/modules/revisions/**"]
+      "scan_paths": [
+        "internal/modules/revisions/**"
+      ]
     }
   ],
   "forbidden_source_mappings": [
@@ -1777,7 +1996,9 @@
         "task_request.",
         "timeline."
       ],
-      "scan_paths": ["internal/modules/revisions/**"]
+      "scan_paths": [
+        "internal/modules/revisions/**"
+      ]
     }
   ],
   "sql_table_allowlists": [
@@ -1791,7 +2012,9 @@
         "record_revisions",
         "source"
       ],
-      "scan_paths": ["internal/modules/revisions/**"]
+      "scan_paths": [
+        "internal/modules/revisions/**"
+      ]
     },
     {
       "id": "timeline-canonical-source-repository-tables-only",
@@ -1814,22 +2037,34 @@
         "records",
         "timeline_events"
       ],
-      "scan_paths": ["internal/modules/timeline/reportingprovider/**"]
+      "scan_paths": [
+        "internal/modules/timeline/reportingprovider/**"
+      ]
     }
   ],
   "sql_table_access": [
     {
       "id": "jobs-storage-owner-write-and-lock-access",
       "table": "jobs",
-      "scan_paths": ["internal/**"],
-      "read_allowed_paths": ["internal/**"],
-      "write_allowed_paths": ["internal/platform/jobs/**"],
-      "lock_allowed_paths": ["internal/platform/jobs/**"]
+      "scan_paths": [
+        "internal/**"
+      ],
+      "read_allowed_paths": [
+        "internal/**"
+      ],
+      "write_allowed_paths": [
+        "internal/platform/jobs/**"
+      ],
+      "lock_allowed_paths": [
+        "internal/platform/jobs/**"
+      ]
     },
     {
       "id": "jobs-no-auth-route-idempotency-storage-access",
       "table": "route_idempotency",
-      "scan_paths": ["internal/platform/jobs/**"],
+      "scan_paths": [
+        "internal/platform/jobs/**"
+      ],
       "read_allowed_paths": [],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -1837,7 +2072,9 @@
     {
       "id": "jobs-no-extension-cancellation-storage-access",
       "table": "extension_job_cancellation_observations",
-      "scan_paths": ["internal/platform/jobs/**"],
+      "scan_paths": [
+        "internal/platform/jobs/**"
+      ],
       "read_allowed_paths": [],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -1845,7 +2082,9 @@
     {
       "id": "jobs-no-collaboration-intent-storage-access",
       "table": "collaboration_event_intents",
-      "scan_paths": ["internal/platform/jobs/**"],
+      "scan_paths": [
+        "internal/platform/jobs/**"
+      ],
       "read_allowed_paths": [],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -1853,7 +2092,9 @@
     {
       "id": "jobs-no-collaboration-replay-storage-access",
       "table": "collaboration_replay_events",
-      "scan_paths": ["internal/platform/jobs/**"],
+      "scan_paths": [
+        "internal/platform/jobs/**"
+      ],
       "read_allowed_paths": [],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -1861,7 +2102,9 @@
     {
       "id": "jobs-no-collaboration-cursor-storage-access",
       "table": "collaboration_incident_stream_cursors",
-      "scan_paths": ["internal/platform/jobs/**"],
+      "scan_paths": [
+        "internal/platform/jobs/**"
+      ],
       "read_allowed_paths": [],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -1869,7 +2112,9 @@
     {
       "id": "jobs-no-collaboration-resume-storage-access",
       "table": "collaboration_resume_tokens",
-      "scan_paths": ["internal/platform/jobs/**"],
+      "scan_paths": [
+        "internal/platform/jobs/**"
+      ],
       "read_allowed_paths": [],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -1877,7 +2122,9 @@
     {
       "id": "timeline-projection-storage-access",
       "table": "timeline_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/timeline.go",
         "internal/modules/projections/internal/storage/timeline.go"
@@ -1896,7 +2143,9 @@
     {
       "id": "host-projection-storage-access",
       "table": "host_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/host.go",
         "internal/modules/projections/internal/storage/host.go"
@@ -1913,7 +2162,9 @@
     {
       "id": "identity-projection-storage-access",
       "table": "identity_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/identity.go",
         "internal/modules/projections/internal/storage/identity.go"
@@ -1930,7 +2181,9 @@
     {
       "id": "indicator-projection-storage-access",
       "table": "indicator_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/indicator.go",
         "internal/modules/projections/internal/storage/indicator.go"
@@ -1947,7 +2200,9 @@
     {
       "id": "assessment-projection-storage-access",
       "table": "assessment_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/assessment.go",
         "internal/modules/projections/internal/storage/assessment.go"
@@ -1966,7 +2221,9 @@
     {
       "id": "artifact-projection-storage-access",
       "table": "artifact_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/artifact.go",
         "internal/modules/projections/internal/storage/artifact.go"
@@ -1983,7 +2240,9 @@
     {
       "id": "evidence-projection-storage-access",
       "table": "evidence_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/evidence.go",
         "internal/modules/projections/internal/storage/evidence.go"
@@ -2000,7 +2259,9 @@
     {
       "id": "party-projection-storage-access",
       "table": "party_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/party.go",
         "internal/modules/projections/internal/storage/party.go"
@@ -2017,7 +2278,9 @@
     {
       "id": "task-request-projection-storage-access",
       "table": "task_request_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/task_request.go",
         "internal/modules/projections/internal/storage/task_request.go"
@@ -2034,7 +2297,9 @@
     {
       "id": "decision-projection-storage-access",
       "table": "decision_grid_projection",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
         "internal/modules/projections/internal/queryengine/decision.go",
         "internal/modules/projections/internal/storage/decision.go"
@@ -2051,15 +2316,17 @@
     {
       "id": "records-current-envelope-access",
       "table": "records",
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "read_allowed_paths": [
-		"internal/modules/artifacts/internal/providers/deleterestore/provider.go",
+        "internal/modules/artifacts/internal/providers/deleterestore/provider.go",
         "internal/modules/artifacts/incident_bundle_source_port.go",
-		"internal/modules/artifacts/internal/providers/projection/source.go",
+        "internal/modules/artifacts/internal/providers/projection/source.go",
         "internal/modules/assessments/internal/providers/incidentbundle/source_port.go",
         "internal/modules/assessments/internal/providers/deleterestore/provider.go",
         "internal/modules/assessments/internal/providers/projection/provider.go",
-		"internal/modules/projections/internal/queryengine/assessment.go",
+        "internal/modules/projections/internal/queryengine/assessment.go",
         "internal/modules/assessments/internal/providers/rollback/provider.go",
         "internal/modules/entities/candidates/reader.go",
         "internal/modules/entities/hostidentity/exact_match.go",
@@ -2070,7 +2337,7 @@
         "internal/modules/entities/hostidentity/rollbackprovider/collections.go",
         "internal/modules/entities/hostidentity/query.go",
         "internal/modules/entities/hostidentity/source_rows.go",
-		"internal/modules/entities/incident_bundle_portable_apply.go",
+        "internal/modules/entities/incident_bundle_portable_apply.go",
         "internal/modules/entities/incident_bundle_portability.go",
         "internal/modules/entities/incident_bundle_source_port.go",
         "internal/modules/entities/mentions/mention_lifecycle.go",
@@ -2080,12 +2347,12 @@
         "internal/modules/entities/merge/transaction.go",
         "internal/modules/evidence/access_repository.go",
         "internal/modules/evidence/incident_bundle_source_port.go",
-		"internal/modules/evidence/internal/providers/deleterestore/provider.go",
-		"internal/modules/evidence/internal/providers/projection/source.go",
-		"internal/modules/evidence/internal/providers/reporting/provider.go",
-		"internal/modules/evidence/blob_persistence.go",
-		"internal/modules/evidence/blob_projection_effects.go",
-		"internal/modules/evidence/blob_quarantine.go",
+        "internal/modules/evidence/internal/providers/deleterestore/provider.go",
+        "internal/modules/evidence/internal/providers/projection/source.go",
+        "internal/modules/evidence/internal/providers/reporting/provider.go",
+        "internal/modules/evidence/blob_persistence.go",
+        "internal/modules/evidence/blob_projection_effects.go",
+        "internal/modules/evidence/blob_quarantine.go",
         "internal/modules/evidence/timeline_port.go",
         "internal/modules/evidence/mutation_create.go",
         "internal/modules/evidence/mutation_patch.go",
@@ -2106,7 +2373,7 @@
         "internal/modules/parties/internal/providers/deleterestore/provider.go",
         "internal/modules/parties/internal/providers/incidentbundle/portability.go",
         "internal/modules/parties/internal/providers/incidentbundle/source_port.go",
-		"internal/modules/parties/internal/source/facts.go",
+        "internal/modules/parties/internal/source/facts.go",
         "internal/modules/parties/internal/providers/projection/source.go",
         "internal/modules/parties/internal/providers/reporting/provider.go",
         "internal/modules/projections/internal/queryengine/**",
@@ -2237,16 +2504,26 @@
   "forbidden_source_tokens": [
     {
       "id": "entities-no-package-init-registration",
-      "tokens": ["func init("],
-      "scan_paths": ["internal/modules/entities/**"],
+      "tokens": [
+        "func init("
+      ],
+      "scan_paths": [
+        "internal/modules/entities/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
     {
       "id": "artifact-mutation-idempotency-lookup-is-centralized",
-      "tokens": ["idempotency.Get("],
-      "scan_paths": ["internal/modules/artifacts/**"],
-      "allowed_paths": ["internal/modules/artifacts/mutation_idempotency.go"],
+      "tokens": [
+        "idempotency.Get("
+      ],
+      "scan_paths": [
+        "internal/modules/artifacts/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/artifacts/mutation_idempotency.go"
+      ],
       "production_only": true
     },
     {
@@ -2257,7 +2534,9 @@
         "FROM users",
         "JOIN users"
       ],
-      "scan_paths": ["internal/modules/artifacts/import_create.go"],
+      "scan_paths": [
+        "internal/modules/artifacts/import_create.go"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -2272,7 +2551,9 @@
         "reference_pack.claimed\"",
         "snapshot_reporting.claimed\""
       ],
-      "scan_paths": ["internal/platform/config/**"],
+      "scan_paths": [
+        "internal/platform/config/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -2288,35 +2569,54 @@
         "cloneConfig(",
         "cloneReflectValue("
       ],
-      "scan_paths": ["internal/platform/config/**"],
+      "scan_paths": [
+        "internal/platform/config/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
     {
       "id": "platform-config-no-in-memory-toml-snapshot-admission",
-      "tokens": ["LoadSnapshotFromTOML("],
-      "scan_paths": ["internal/**"],
+      "tokens": [
+        "LoadSnapshotFromTOML("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
     {
       "id": "configassembly-no-in-memory-admission-definition",
-      "tokens": ["func Admit("],
-      "scan_paths": ["internal/app/configassembly/**"],
+      "tokens": [
+        "func Admit("
+      ],
+      "scan_paths": [
+        "internal/app/configassembly/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
     {
       "id": "application-no-configassembly-in-memory-admission-callers",
-      "tokens": ["configassembly.Admit("],
-      "scan_paths": ["internal/**", "tools/**"],
+      "tokens": [
+        "configassembly.Admit("
+      ],
+      "scan_paths": [
+        "internal/**",
+        "tools/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
     {
       "id": "configassembly-deployment-no-wire-tags",
-      "tokens": ["toml:\""],
-      "scan_paths": ["internal/app/configassembly/deployment.go"],
+      "tokens": [
+        "toml:\""
+      ],
+      "scan_paths": [
+        "internal/app/configassembly/deployment.go"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -2539,7 +2839,9 @@
         "func NewStoreWithOptions(",
         "type StoreOptions struct"
       ],
-      "scan_paths": ["internal/modules/incidents/**"],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -2719,7 +3021,9 @@
         "AuthorizeMutationTx(",
         "EnsureOpenTx("
       ],
-      "scan_paths": ["internal/modules/incidents/**"],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -2863,14 +3167,22 @@
         "change_sets",
         "change_set_id DESC"
       ],
-      "scan_paths": ["internal/modules/incidents/**"],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
     {
       "id": "incident-create-commit-seam-not-in-production-assembly",
-      "tokens": ["IncidentCreateCommit"],
-      "scan_paths": ["cmd/**", "internal/app/**", "internal/platform/**"],
+      "tokens": [
+        "IncidentCreateCommit"
+      ],
+      "scan_paths": [
+        "cmd/**",
+        "internal/app/**",
+        "internal/platform/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -2880,7 +3192,9 @@
         "type Store struct",
         "func NewStore("
       ],
-      "scan_paths": ["internal/modules/assessments/**"],
+      "scan_paths": [
+        "internal/modules/assessments/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -2904,7 +3218,9 @@
         "func ExportIncidentBundleFiles(",
         "func ImportIncidentBundleFilesTx("
       ],
-      "scan_paths": ["internal/modules/assessments/*.go"],
+      "scan_paths": [
+        "internal/modules/assessments/*.go"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -2949,21 +3265,33 @@
         "os.Stat(",
         "os.WriteFile("
       ],
-      "scan_paths": ["internal/app/server/**"],
+      "scan_paths": [
+        "internal/app/server/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
     {
       "id": "app-server-claim-resolution-single-construction",
-      "tokens": ["extensions.NewGeneratedCoordinator("],
-      "scan_paths": ["internal/app/server/**"],
-      "allowed_paths": ["internal/app/server/runtime_assembly.go"],
+      "tokens": [
+        "extensions.NewGeneratedCoordinator("
+      ],
+      "scan_paths": [
+        "internal/app/server/**"
+      ],
+      "allowed_paths": [
+        "internal/app/server/runtime_assembly.go"
+      ],
       "production_only": true
     },
     {
       "id": "network-flow-no-deployment-admin-bypass",
-      "tokens": ["deployment_admin"],
-      "scan_paths": ["internal/modules/networkflow/**"],
+      "tokens": [
+        "deployment_admin"
+      ],
+      "scan_paths": [
+        "internal/modules/networkflow/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -2976,7 +3304,9 @@
         "net.Dial(",
         "grpc.Dial("
       ],
-      "scan_paths": ["internal/modules/networkflow/**"],
+      "scan_paths": [
+        "internal/modules/networkflow/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -2995,7 +3325,9 @@
         "NewStagedObjectJanitor",
         "ValidateInactiveConfiguration"
       ],
-      "scan_paths": ["internal/**"],
+      "scan_paths": [
+        "internal/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3011,7 +3343,9 @@
         "SetCurrentExtensionProfilesForTesting",
         "MatchReservedExtensionFamilyIn("
       ],
-      "scan_paths": ["internal/**"],
+      "scan_paths": [
+        "internal/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -3024,7 +3358,9 @@
         "\"reference_data.execute\"",
         "\"reporting.execute\""
       ],
-      "scan_paths": ["internal/**"],
+      "scan_paths": [
+        "internal/**"
+      ],
       "allowed_paths": [
         "internal/modules/imports/owner_apply.go",
         "internal/platform/jobs/lifecycle_persistence.go",
@@ -3041,7 +3377,9 @@
         "newOperatorRunnerForCLI",
         "migrateCommandFlag"
       ],
-      "scan_paths": ["internal/**"],
+      "scan_paths": [
+        "internal/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3050,14 +3388,22 @@
       "imports": [
         "github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
       ],
-      "scan_paths": ["cmd/**", "internal/**"],
+      "scan_paths": [
+        "cmd/**",
+        "internal/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
     {
       "id": "retired-recovery-top-level-token",
-      "tokens": ["backup-metadata"],
-      "scan_paths": ["internal/modules/recovery/**", "internal/app/**"],
+      "tokens": [
+        "backup-metadata"
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/**",
+        "internal/app/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3067,28 +3413,48 @@
         "github.com/JochiRaider/cartulary/internal/app/operator",
         "github.com/JochiRaider/cartulary/internal/app/operator/internal/recoverycli"
       ],
-      "scan_paths": ["internal/modules/recovery/application/**"],
+      "scan_paths": [
+        "internal/modules/recovery/application/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
     {
       "id": "recovery-application-no-error-text-routing",
-      "tokens": ["err.Error()", "strings.Contains(", "strings.ToLower("],
-      "scan_paths": ["internal/modules/recovery/application/**"],
+      "tokens": [
+        "err.Error()",
+        "strings.Contains(",
+        "strings.ToLower("
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/application/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
     {
       "id": "recovery-sqlc-confined-to-private-store-adapter",
-      "imports": ["github.com/JochiRaider/cartulary/internal/gen/sql"],
-      "scan_paths": ["internal/modules/recovery/**"],
-      "allowed_paths": ["internal/modules/recovery/store.go"],
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/gen/sql"
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/recovery/store.go"
+      ],
       "production_only": true
     },
     {
       "id": "recovery-no-raw-evidence-persistence-access",
-      "tokens": ["object_blobs", "FROM evidence", "JOIN evidence"],
-      "scan_paths": ["internal/modules/recovery/**"],
+      "tokens": [
+        "object_blobs",
+        "FROM evidence",
+        "JOIN evidence"
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3097,13 +3463,18 @@
       "imports": [
         "github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
       ],
-      "scan_paths": ["internal/modules/recovery/application/**"],
+      "scan_paths": [
+        "internal/modules/recovery/application/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
     {
       "id": "recovery-runtime-no-documentation-or-harness-inputs",
-      "tokens": ["docs/", "tools/"],
+      "tokens": [
+        "docs/",
+        "tools/"
+      ],
       "scan_paths": [
         "internal/modules/recovery/**",
         "internal/app/recoveryassembly/**",
@@ -3114,15 +3485,24 @@
     },
     {
       "id": "recovery-current-verification-no-timeline-view-constant",
-      "tokens": ["RestoreVerificationTimelineViewID"],
-      "scan_paths": ["internal/modules/recovery/**"],
+      "tokens": [
+        "RestoreVerificationTimelineViewID"
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
     {
       "id": "retired-browser-runtime-opt-in",
-      "tokens": ["CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"],
-      "scan_paths": ["internal/**", "cmd/**"],
+      "tokens": [
+        "CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
+      ],
+      "scan_paths": [
+        "internal/**",
+        "cmd/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3152,7 +3532,9 @@
         "ResolveTimelineConflict(",
         "Supersede(ctx context.Context, actor"
       ],
-      "scan_paths": ["internal/modules/timeline/facade.go"],
+      "scan_paths": [
+        "internal/modules/timeline/facade.go"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3166,7 +3548,9 @@
         "internal/modules/workbook/timelineadmission",
         "workbook.NewStore("
       ],
-      "scan_paths": ["internal/**"],
+      "scan_paths": [
+        "internal/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3259,14 +3643,20 @@
         "command.Admission",
         "preferredRequestHash("
       ],
-      "scan_paths": ["internal/app/workbookassembly/*_adapters.go"],
+      "scan_paths": [
+        "internal/app/workbookassembly/*_adapters.go"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
     {
       "id": "retired-workbook-route-test-hash-override",
-      "tokens": ["requestHash []byte"],
-      "scan_paths": ["internal/testutil/workbookroutetest/catalog.go"],
+      "tokens": [
+        "requestHash []byte"
+      ],
+      "scan_paths": [
+        "internal/testutil/workbookroutetest/catalog.go"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -3280,7 +3670,9 @@
         "s.unitOfWork == nil",
         "NewWorkspaceRegistryFromPublication(nil)"
       ],
-      "scan_paths": ["internal/modules/workbook/startup/store.go"],
+      "scan_paths": [
+        "internal/modules/workbook/startup/store.go"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -3289,7 +3681,9 @@
       "tokens": [
         "func NewStartupStore(db postgres.DB, workspaceResolver workbookstartup.WorkspaceResolver) *workbookstartup.Store"
       ],
-      "scan_paths": ["internal/app/workbookassembly/startup.go"],
+      "scan_paths": [
+        "internal/app/workbookassembly/startup.go"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -3298,7 +3692,9 @@
       "tokens": [
         "github.com/JochiRaider/cartulary/internal/modules/workbook"
       ],
-      "scan_paths": ["internal/modules/**"],
+      "scan_paths": [
+        "internal/modules/**"
+      ],
       "allowed_paths": [
         "internal/modules/incidents/application.go",
         "internal/modules/incidents/import_finalization.go",
@@ -3348,7 +3744,9 @@
         "links.NewStore(",
         "revisions.NewAppender("
       ],
-      "scan_paths": ["internal/modules/tasksdecisions/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3363,7 +3761,9 @@
         "IdempotencyOutcome",
         "payload any"
       ],
-      "scan_paths": ["internal/modules/tasksdecisions/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3374,7 +3774,9 @@
         "internal/platform/httpapi",
         "internal/platform/httpauth"
       ],
-      "scan_paths": ["internal/modules/tasksdecisions/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3387,7 +3789,9 @@
         "func NewWorkbookContribution(",
         "func NewSupersedeFacade("
       ],
-      "scan_paths": ["internal/modules/tasksdecisions/**"],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/**"
+      ],
       "allowed_paths": [],
       "production_only": false
     },
@@ -3418,7 +3822,9 @@
         "timeline.RowVersionConflictError",
         "timeline.SameFieldConflictError"
       ],
-      "scan_paths": ["internal/modules/workbook/routes.go"],
+      "scan_paths": [
+        "internal/modules/workbook/routes.go"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -3431,12 +3837,12 @@
         "fmt.Sprintf("
       ],
       "scan_paths": [
-		"internal/modules/artifacts/internal/providers/deleterestore/**",
-		"internal/modules/assessments/internal/providers/deleterestore/**",
+        "internal/modules/artifacts/internal/providers/deleterestore/**",
+        "internal/modules/assessments/internal/providers/deleterestore/**",
         "internal/modules/entities/hostidentity/deleterestore/**",
-		"internal/modules/evidence/internal/providers/deleterestore/**",
+        "internal/modules/evidence/internal/providers/deleterestore/**",
         "internal/modules/indicators/internal/providers/deleterestore/**",
-		"internal/modules/parties/internal/providers/deleterestore/**",
+        "internal/modules/parties/internal/providers/deleterestore/**",
         "internal/modules/tasksdecisions/internal/providers/deleterestore/**",
         "internal/modules/timeline/deleterestore/**"
       ],
@@ -3445,9 +3851,15 @@
     },
     {
       "id": "evidence-owner-runtime-only-server-constructed",
-      "tokens": ["evidence.NewOwnerRuntime("],
-      "scan_paths": ["internal/**"],
-      "allowed_paths": ["internal/app/server/runtime_assembly.go"],
+      "tokens": [
+        "evidence.NewOwnerRuntime("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [
+        "internal/app/server/runtime_assembly.go"
+      ],
       "production_only": true
     },
     {

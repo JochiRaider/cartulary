@@ -218,7 +218,7 @@
         {
           "surface_id": "core04.inactive_configuration",
           "schema_ids": [
-            "cartulary.extension_profile_configuration_contract.v3"
+            "cartulary.extension_profile_configuration_contract.v4"
           ],
           "conditions": [
             {

@@ -340,7 +340,7 @@ func TestManagerProgressIntentFailureRollsBackJobMutation_Integration(t *testing
 		t.Fatal(err)
 	}
 	transactions, err := jobs.NewTransactionService(rejectingProgressIntentAppender{err: intentFailure}, jobs.OwnerTransactionPorts{
-		RouteIdempotency: ownerPorts, ExtensionCancellation: ownerPorts,
+		RouteIdempotency: ownerPorts, ExtensionCancellation: ownerPorts, TerminalEffects: collaborationsupport.NoJobTerminalEffects{},
 	}, catalog, selection)
 	if err != nil {
 		t.Fatal(err)

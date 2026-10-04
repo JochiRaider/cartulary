@@ -5,6 +5,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -17,7 +18,7 @@ type Composition struct {
 
 func NewComposition() (Composition, error) {
 	recordChanges := collaborationsupport.NewRecordChangedAppender()
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		return Composition{}, err
 	}
@@ -71,7 +72,7 @@ func MustConflictFieldResolver(t testing.TB) conflicts.FieldResolver {
 
 func MustTargetSemanticsCatalog(t testing.TB) *revisions.TargetSemanticsCatalog {
 	t.Helper()
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("compose current Revisions provider contributions: %v", err)
 	}

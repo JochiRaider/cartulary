@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/historytest"
 	"github.com/google/uuid"
@@ -19,7 +20,7 @@ func TestHistorySourceFamilyPaging_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, "history-source-pages")
 	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident, _ := seedRecord(t, harness.DB, harness.Server, login, actor, "IR-HISTORY-SOURCES")
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatal(err)
 	}

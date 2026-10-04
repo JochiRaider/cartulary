@@ -84,7 +84,7 @@ func TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures(t *test
 	}
 }
 
-func TestOperatorCommandRegistryContainsExactlyEightCanonicalPaths(t *testing.T) {
+func TestOperatorCommandRegistryContainsCanonicalPaths(t *testing.T) {
 	registry, err := (operatorRunner{}).commandRegistry()
 	if err != nil {
 		t.Fatalf("build operator registry: %v", err)
@@ -97,6 +97,7 @@ func TestOperatorCommandRegistryContainsExactlyEightCanonicalPaths(t *testing.T)
 		"restore-verify due",
 		"migration-evidence capture",
 		"object-store init",
+		"reference-pack import",
 		"collaboration requeue",
 	}
 	if len(registry.commands) != len(want) {
@@ -109,7 +110,7 @@ func TestOperatorCommandRegistryContainsExactlyEightCanonicalPaths(t *testing.T)
 	}
 	usage := registry.usage()
 	if strings.Count(usage, "\n  operator ") != len(want) {
-		t.Fatalf("operator usage does not contain exactly eight command lines: %q", usage)
+		t.Fatalf("operator usage does not contain exactly the canonical command lines: %q", usage)
 	}
 	if !strings.Contains(usage, "\n  "+collaborationRequeueUsage) || strings.Contains(usage, "collaboration requeue --incident-id <uuid> [-config") {
 		t.Fatalf("operator usage does not expose only the strict Collaboration v2 grammar: %q", usage)

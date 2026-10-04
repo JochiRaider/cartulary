@@ -94,7 +94,9 @@
       "row_id": "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.integration",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.reference_data"
+      ],
       "verification_ids": [
         "module.reporting.verification.behavior_contract"
       ],
@@ -102,6 +104,8 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
+          "TestReportingIdentityCutoverDoesNotReconstructHistory_Integration",
+          "TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration",
           "TestSnapshotReplayAndReleaseProvenanceAreStable_Integration"
         ]
       },
@@ -186,8 +190,10 @@
         "package": "./internal/modules/reporting",
         "tests": [
           "TestRenderExportParticipantValidatesClosedOutputAndBounds",
+          "TestReportingAdmittedModelIdentityAndTime",
           "TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput",
-          "TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure"
+          "TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure",
+          "TestReportingTimestampPrecisionIsFixedAtAdmission"
         ]
       },
       "evidence_class": "unit",
@@ -251,6 +257,34 @@
         ]
       },
       "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.owner_boundaries",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [
+        "module.recovery",
+        "module.reference_data"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingProductionDoesNotReadOwnerTablesDirectly",
+          "TestReportingProductionImportBoundaries"
+        ]
+      },
+      "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -384,7 +418,10 @@
       "row_id": "module.reporting.unit.snapshot_reporting_route_decoders_reject_legacy_9d9f64130f",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.unit",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.reference_data"
+      ],
       "verification_ids": [
         "module.reporting.verification.behavior_contract"
       ],
@@ -392,7 +429,8 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestDecoderNormalizationAndRegisteredReasons_Unit"
+          "TestDecoderNormalizationAndRegisteredReasons_Unit",
+          "TestPortableArtifactCatalogClosure"
         ]
       },
       "evidence_class": "unit",

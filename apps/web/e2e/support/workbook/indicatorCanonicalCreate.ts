@@ -33,7 +33,7 @@ export async function createCanonicalObservationFixture(page: Page) {
 export async function openCanonicalProposal(
   page: Page,
   sourceId: string,
-  value = "NEW[.]EXAMPLE",
+  value = "NEW.EXAMPLE",
 ) {
   const editor = await openObservationEditor(page, sourceId);
   const item = editor.getByRole("article", {

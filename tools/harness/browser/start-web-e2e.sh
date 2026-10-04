@@ -1412,6 +1412,13 @@ start_backend_ready() {
     )
   fi
 
+  # The disposable browser deployment explicitly claims its tested profile,
+  # asserts its wall clock and trusts only fixture keys. No production configuration is changed.
+  local fixture_node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${fixture_node_bin}" ]]; then
+    fixture_node_bin="node"
+  fi
+  "${fixture_node_bin}" "${ROOT_DIR}/apps/web/e2e/support/referencePackFixture.mjs" "${RUNTIME_ROOT_BASE}/reference-pack-bootstrap.json"
   local backend_start_status=0
   if run_timing_span "server_startup" "browser-e2e start backend process" \
     start_process_group SERVER_PGID "${SERVER_LOG}" \
@@ -1422,6 +1429,9 @@ start_backend_ready() {
       CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
       CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
       CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH="${ROOT_DIR}/configs/dev/revisions-conflict-token-key-ring.json" \
+      CARTULARY__REFERENCE_PACK__CLAIMED=true \
+      CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH="${RUNTIME_ROOT_BASE}/reference-pack-bootstrap.json" \
+      CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED=true \
       CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
       CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}" \
       CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:?}" \

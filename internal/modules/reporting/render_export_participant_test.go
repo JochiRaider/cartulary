@@ -8,20 +8,22 @@ import (
 )
 
 func TestRenderExportParticipantValidatesClosedOutputAndBounds(t *testing.T) {
-	model := ExportModel{
-		SchemaID:          ExportModelSchemaID,
-		IncidentID:        "00000000-0000-0000-0000-000000000401",
-		SnapshotID:        "00000000-0000-0000-0000-000000000402",
-		DerivationVersion: DerivationVersion,
-		Sections:          []ReportingSection{},
-		Records:           []ReportingRecordSummary{},
-		Relationships:     []ReportingRelationshipSummary{},
-		TimelineEvents:    []ReportingTimelineEvent{},
-		Subjects:          []TokenizableSubject{},
-		Diagrams:          []ReportingDiagram{},
-		Assets:            []ReportingAssetDeclaration{},
-		SupportIndex:      []ReportingSupportRef{},
+	model := ExportModel{RenderIdentity: fixtureRenderIdentity(),
+		SchemaID: ExportModelSchemaID,
+		SnapshotContent: SnapshotContent{
+			IncidentID:        "00000000-0000-0000-0000-000000000401",
+			SnapshotID:        "00000000-0000-0000-0000-000000000402",
+			DerivationVersion: DerivationVersion,
+			Sections:          []ReportingSection{},
+			Records:           []ReportingRecordSummary{},
+			Relationships:     []ReportingRelationshipSummary{},
+			TimelineEvents:    []ReportingTimelineEvent{},
+			Subjects:          []TokenizableSubject{},
+			Diagrams:          []ReportingDiagram{},
+			Assets:            []ReportingAssetDeclaration{},
+			SupportIndex:      []ReportingSupportRef{}},
 	}
+	model = bindFixtureRenderModel(model.SnapshotContent)
 	modelJSON, err := canonicalJSON(model)
 	if err != nil {
 		t.Fatalf("canonical model: %v", err)
@@ -39,7 +41,7 @@ func TestRenderExportParticipantValidatesClosedOutputAndBounds(t *testing.T) {
 			TimeoutSeconds:          30,
 		},
 		ImmutableModel:    model,
-		ImmutableModelSHA: hashHex(modelJSON),
+		ImmutableModelSHA: reportingObjectDigest(ExportModelSchemaID, modelJSON),
 	}
 	result, err := (BuiltInRenderExportParticipant{}).Emit(context.Background(), invocation)
 	if err != nil {
@@ -53,8 +55,18 @@ func TestRenderExportParticipantValidatesClosedOutputAndBounds(t *testing.T) {
 		t.Fatalf("admitted output is not bound to immutable model: %#v %q", admitted, digest)
 	}
 
+	alteredModel := model
+	alteredModel.SourceChangeSetHighWatermark = "other-source"
+	altered := result
+	altered.Output, _ = canonicalJSON(alteredModel)
+	altered.OutputSHA256 = hashHex(altered.Output)
+	altered.OutputByteSize = int64(len(altered.Output))
+	altered.OutputRef = "snapshot:" + model.SnapshotID + "/reporting-export-model:" + altered.OutputSHA256
+	if _, _, err := AdmitRenderExportResult(invocation, altered); !errors.Is(err, ErrRenderExportParticipant) {
+		t.Fatal("participant rewrote frozen source", err)
+	}
 	malformed := result
-	malformed.OutputSchema = "cartulary.reporting_export_model.v2"
+	malformed.OutputSchema = "cartulary.reporting_export_model.v1"
 	if _, _, err := AdmitRenderExportResult(invocation, malformed); !errors.Is(err, ErrRenderExportParticipant) {
 		t.Fatalf("malformed schema err = %v", err)
 	}

@@ -11,7 +11,7 @@ func TestJobTelemetryVocabularyHelpers(t *testing.T) {
 	definition := Definition{
 		JobKind: "import.discovery_v1", ProgressUnitID: "import.discovery.session.v1",
 		HandlerName: "import.discovery_worker_v1",
-		Extension: &ExtensionPolicy{
+		Extension: &ExtensionPolicy{IdentitySchemaID: HumanRouteIdentitySchema,
 			OwnerProfileID: "import", OperationKind: "import.discovery",
 			ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 4096,
 		},

@@ -10,6 +10,8 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -36,8 +38,16 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 			return loaded, nil
 		},
 		openSQL: postgres.OpenSQL,
-		apply:   database_migrations.Apply,
-		source:  dbmigrations.Source,
+		apply: func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
+			if err := reference_data.PreflightCutover(ctx, db); err != nil {
+				return err
+			}
+			if err := reporting.PreflightCutover(ctx, db); err != nil {
+				return err
+			}
+			return database_migrations.Apply(ctx, db, source)
+		},
+		source: dbmigrations.Source,
 	}
 }
 

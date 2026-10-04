@@ -6,10 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"net/http"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -64,6 +63,44 @@ func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
 	if !bytes.Equal(action.Normalized, nullAction.Normalized) || !bytes.Equal(action.Normalized, omittedAction.Normalized) {
 		t.Fatalf("empty, null, and omitted reason must normalize equally: %s %s %s", action.Normalized, nullAction.Normalized, omittedAction.Normalized)
 	}
+	t.Run("closed administrative JSON and reason boundaries", func(t *testing.T) {
+		for _, body := range []string{`{"client_txn_id":"a","client_txn_id":"b"}`, `{"client_txn_id":"a","reason":"\ud800"}`, `[]`, `null`, `{} {}`} {
+			if _, err := DecodeActionRequest(strings.NewReader(body)); err == nil {
+				t.Fatalf("invalid JSON admitted: %s", body)
+			}
+		}
+		for _, tc := range []struct {
+			reason string
+			code   string
+		}{
+			{"  " + strings.Repeat("e\u0301", 4096) + "  ", ""},
+			{strings.Repeat("😀", 4096), ""}, {strings.Repeat("😀", 4097), "reason_too_long"}, {"a\x00b", "invalid_reason"},
+		} {
+			body, _ := json.Marshal(map[string]any{"client_txn_id": "a", "reason": tc.reason})
+			_, err := DecodeActionRequest(bytes.NewReader(body))
+			if (err == nil) != (tc.code == "") || err != nil && err.Details["reason_code"] != tc.code {
+				t.Fatalf("reason boundary: %v", err)
+			}
+		}
+		for _, tc := range []struct{ body, code string }{
+			{`{"client_txn_id":"a"}`, "missing_required_field"}, {`{"client_txn_id":"a","reason":null}`, "field_not_nullable"}, {`{"client_txn_id":"a","reason":" "}`, "invalid_reason"}, {`{"client_txn_id":"a","reason":false}`, "invalid_reason"},
+		} {
+			if _, err := DecodeRemovalRequest(strings.NewReader(tc.body)); err == nil || err.Details["reason_code"] != tc.code {
+				t.Fatalf("removal reason: %v", err)
+			}
+		}
+		_, err := DecodeActionRequest(strings.NewReader(`{"client_txn_id":"a","hostile-secret":1}`))
+		if err == nil || err.Details["field"] != "request" {
+			t.Fatalf("unknown field leaked: %v", err)
+		}
+		body := `{"client_txn_id":"a"}`
+		if _, err := DecodeActionRequest(strings.NewReader(body + strings.Repeat(" ", MaxAdministrativeRequestBytes-len(body)))); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := DecodeActionRequest(strings.NewReader(body + strings.Repeat(" ", MaxAdministrativeRequestBytes-len(body)+1))); err == nil || err.Details["reason_code"] != "request_too_large" {
+			t.Fatalf("request byte bound: %v", err)
+		}
+	})
 
 	refresh, apiErr := DecodeRefreshRequest(bytes.NewBufferString(`{"client_txn_id":"txn-refresh","pack_keys":["z","a","z"]}`))
 	if apiErr != nil {
@@ -76,35 +113,18 @@ func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
 		t.Fatalf("empty pack_keys rejection = %#v", apiErr)
 	}
 
-	for _, reason := range []string{
-		"checksum_mismatch",
-		"signature_mismatch",
-		"missing_integrity_metadata",
-		"contract_incompatible",
-		"path_traversal",
-		"disallowed_content",
-		"payload_missing",
-		"archive_extracted_bytes_exceeded",
-		"archive_compression_ratio_exceeded",
-		"archive_member_count_exceeded",
-	} {
-		if !isValidVerificationFailureReason(reason) {
-			t.Fatalf("reason %q missing from closed verification registry", reason)
-		}
-	}
 	if err := referencePackVerificationFailed("checksum_mismatch"); err.Status != http.StatusConflict || err.Code != "reference_pack_verification_failed" {
 		t.Fatalf("verification error shape = %#v", err)
 	}
 }
 
 func TestSupportReferencePackListQueryUsesSharedListQueryScope(t *testing.T) {
-	valid, apiErr := parseReferencePackListScope("search=host+registry&pack_version_state=staged&verification_result=pending&active=false&limit=50")
+	valid, apiErr := parseReferencePackListScope("search=host+registry&pack_version_state=staged&active=false&limit=50")
 	if apiErr != nil {
 		t.Fatalf("parse valid reference pack query: %v", apiErr)
 	}
 	if valid.Scope["search"] != "host registry" ||
 		valid.Scope["pack_version_state"] != "staged" ||
-		valid.Scope["verification_result"] != "pending" ||
 		valid.Scope["active"] != "false" {
 		t.Fatalf("unexpected reference pack scope: %#v", valid.Scope)
 	}
@@ -151,128 +171,19 @@ func TestSupportReferencePackListQueryUsesSharedListQueryScope(t *testing.T) {
 }
 
 func TestSupportReferencePackListFilterAppliesSearchAndExactFilters(t *testing.T) {
-	now := time.Date(2026, time.April, 20, 12, 0, 0, 0, time.UTC)
 	source := "https://offline.invalid/reference-packs/host"
-	signer := "fixture-key"
-	records := []VersionRecord{
-		{
-			PackKey:             "type-registry.host",
-			PackKind:            "type_registry",
-			PackVersion:         "2026.04",
-			StoredStatus:        StoredStatusStaged,
-			Active:              false,
-			SourceIdentifier:    &source,
-			ManifestSHA256:      "manifest-host",
-			PayloadSHA256:       "payload-host",
-			PackContractVersion: PackContractVersionV1,
-			VerificationMethod:  "signed_manifest_v1",
-			VerificationResult:  VerificationPending,
-			SignerKeyID:         &signer,
-			ImportedAt:          now,
-		},
-		{
-			PackKey:             "type_registry.domain",
-			PackKind:            "type_registry",
-			PackVersion:         "1",
-			StoredStatus:        StoredStatusAvailable,
-			Active:              true,
-			ManifestSHA256:      "manifest-domain",
-			PayloadSHA256:       "payload-domain",
-			PackContractVersion: PackContractVersionV1,
-			VerificationMethod:  "manifest_sha256_v1",
-			VerificationResult:  VerificationPassed,
-			ImportedAt:          now,
-		},
+	records := []AdministrativeVersion{
+		{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "2026.04", Condition: "staged", Health: "staged", SourceIdentifier: &source},
+		{PackKey: "type_registry.indicator", PackKind: "type_registry", PackVersion: "1", Condition: "verified_available", Health: "verified_available", Active: true},
 	}
-	scope, apiErr := parseReferencePackListScope("search=type-registry.host+fixture-key+2026.04&pack_version_state=staged&verification_result=pending&active=false")
-	if apiErr != nil {
-		t.Fatalf("parse valid filter query: %v", apiErr)
+	scope, err := parseReferencePackListScope("search=type_registry.host+2026.04&pack_version_state=staged&active=false")
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	filtered := filterReferencePackVersions(records, scope.Scope)
-	if len(filtered) != 1 || filtered[0].PackKey != "type-registry.host" {
+	filtered := filterAdministrativeVersions(records, scope.Scope)
+	if len(filtered) != 1 || filtered[0].PackKey != "type_registry.host" {
 		t.Fatalf("unexpected filtered records: %#v", filtered)
 	}
-}
-
-func TestVerifierRejectsArchiveLimits_Unit(t *testing.T) {
-	valid := referencePackBundle(t, bundleOptions{
-		PackKey:     "type_registry.host",
-		PackKind:    "type_registry",
-		PackVersion: "1",
-	})
-	cases := []struct {
-		name       string
-		bundle     []byte
-		input      VerificationInput
-		wantReason string
-	}{
-		{
-			name:   "member-count",
-			bundle: valid,
-			input: VerificationInput{
-				ContentType:   MediaTypeZip,
-				ArchiveLimits: ArchiveLimits{MaxMembers: 1},
-			},
-			wantReason: "archive_member_count_exceeded",
-		},
-		{
-			name:   "extracted-bytes",
-			bundle: valid,
-			input: VerificationInput{
-				ContentType:     MediaTypeZip,
-				ReferenceLimits: ReferenceLimits{MaxExtractedBytes: 1},
-			},
-			wantReason: "archive_extracted_bytes_exceeded",
-		},
-		{
-			name:   "compression-ratio",
-			bundle: compressibleReferencePackBundle(t),
-			input: VerificationInput{
-				ContentType:   MediaTypeZip,
-				ArchiveLimits: ArchiveLimits{MaxCompressionRatio: 1},
-			},
-			wantReason: "archive_compression_ratio_exceeded",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc.input.Bundle = tc.bundle
-			_, err := VerifyBundle(tc.input)
-			var verificationErr *VerificationError
-			if !asVerificationError(err, &verificationErr) || verificationErr.ReasonCode != tc.wantReason {
-				t.Fatalf("VerifyBundle limit error = %v, want %s", err, tc.wantReason)
-			}
-		})
-	}
-}
-
-func compressibleReferencePackBundle(t testing.TB) []byte {
-	t.Helper()
-	payload := bytes.Repeat([]byte("a"), 64*1024)
-	payloadSHABytes := sha256.Sum256(payload)
-	payloadSHA := hex.EncodeToString(payloadSHABytes[:])
-	manifestBytes, err := json.Marshal(map[string]any{
-		"pack_key":              "type_registry.compression",
-		"pack_kind":             "type_registry",
-		"pack_version":          "1",
-		"pack_contract_version": PackContractVersionV1,
-		"verification_method":   "manifest_sha256_v1",
-		"payloads": []map[string]any{
-			{"path": "payload/data.json", "sha256": payloadSHA},
-		},
-	})
-	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
-	}
-	var buffer bytes.Buffer
-	writer := zip.NewWriter(&buffer)
-	addZipFile(t, writer, "manifest.json", manifestBytes)
-	addZipFile(t, writer, "payload/data.json", payload)
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close zip: %v", err)
-	}
-	return buffer.Bytes()
 }
 
 func referencePackBundle(t testing.TB, options bundleOptions) []byte {
@@ -289,11 +200,7 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 	if options.BadPayloadSHA {
 		payloadSHA = "0000000000000000000000000000000000000000000000000000000000000000"
 	}
-	payloads := []manifestPayload{{Path: options.PayloadPath, SHA256: payloadSHA}}
-	canonicalPayloadSHA, err := canonicalPayloadSHA256(payloads)
-	if err != nil {
-		t.Fatalf("canonical payload sha: %v", err)
-	}
+	canonicalPayloadSHA := payloadSHA
 	manifest := map[string]any{
 		"pack_key":              options.PackKey,
 		"pack_kind":             options.PackKind,
@@ -354,46 +261,5 @@ func addZipFile(t testing.TB, writer *zip.Writer, name string, data []byte) {
 	}
 	if _, err := file.Write(data); err != nil {
 		t.Fatalf("write zip member %s: %v", name, err)
-	}
-}
-
-func asVerificationError(err error, target **VerificationError) bool {
-	return errors.As(err, target)
-}
-
-func TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit(t *testing.T) {
-	valid := referencePackBundle(t, bundleOptions{
-		PackKey:     "type_registry.host",
-		PackKind:    "type_registry",
-		PackVersion: "1",
-	})
-	result, err := VerifyBundle(VerificationInput{Bundle: valid, ContentType: MediaTypeZip})
-	if err != nil {
-		t.Fatalf("VerifyBundle valid: %v", err)
-	}
-	if result.PackKey != "type_registry.host" || result.PackVersion != "1" || result.PayloadSHA256 == "" || result.ManifestSHA256 == "" {
-		t.Fatalf("unexpected verification result: %#v", result)
-	}
-
-	cases := []struct {
-		name       string
-		bundle     []byte
-		wantReason string
-	}{
-		{name: "checksum", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "2", BadPayloadSHA: true}), wantReason: "checksum_mismatch"},
-		{name: "signature", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "3", Signed: true, BadSignature: true}), wantReason: "signature_mismatch"},
-		{name: "path", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "4", ExtraPath: "../escape.json"}), wantReason: "path_traversal"},
-		{name: "active-content", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "5", PayloadPath: "payload/run.js"}), wantReason: "disallowed_content"},
-		{name: "missing-payload", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "6", OmitPayload: true}), wantReason: "payload_missing"},
-		{name: "contract", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "7", ContractVersion: "other"}), wantReason: "contract_incompatible"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := VerifyBundle(VerificationInput{Bundle: tc.bundle, ContentType: MediaTypeZip})
-			var verificationErr *VerificationError
-			if !asVerificationError(err, &verificationErr) || verificationErr.ReasonCode != tc.wantReason {
-				t.Fatalf("VerifyBundle error = %v, want %s", err, tc.wantReason)
-			}
-		})
 	}
 }

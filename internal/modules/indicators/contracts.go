@@ -16,7 +16,7 @@ import (
 const (
 	ViewSchemaID = "cartulary.view.indicators.v1"
 
-	indicatorFindOrCreateParticipantV1 = "indicator_find_or_create_participant_v1"
+	indicatorFindOrCreateParticipantV2 = "indicator_find_or_create_participant_v2"
 
 	observationCreateSource  = "indicators.observations.capture"
 	observationResolveSource = "indicators.observations.resolve"
@@ -219,30 +219,20 @@ type IndicatorLifecycleMutationResult struct {
 type indicatorUpsertInput = identity.Canonical
 
 func ValidateCreateCommand(command CreateCommand) error {
-	_, err := indicatorInputFromCreateCommand(command)
-	return err
+	return identityValidationError(identity.ValidateShape(identityInput(command)))
 }
 
-func indicatorInputFromCreateCommand(command CreateCommand) (indicatorUpsertInput, error) {
-	input, err := identity.Canonicalize(identity.Input{
-		IndicatorType:   command.IndicatorType,
-		ValueKind:       command.ValueKind,
-		DisplayValue:    command.DisplayValue,
-		NormalizedValue: command.NormalizedValue,
-		DefangedValue:   command.DefangedValue,
-		HashAlgorithm:   command.HashAlgorithm,
-		HashValue:       command.HashValue,
-		STIXPattern:     command.STIXPattern,
-	})
-	if err == nil {
-		return input, nil
-	}
+func identityInput(command CreateCommand) identity.Input {
+	return identity.Input{IndicatorType: command.IndicatorType, ValueKind: command.ValueKind, DisplayValue: command.DisplayValue, NormalizedValue: command.NormalizedValue, DefangedValue: command.DefangedValue, HashAlgorithm: command.HashAlgorithm, HashValue: command.HashValue, STIXPattern: command.STIXPattern}
+}
+func indicatorInputFromCreateCommand(evaluate identity.Evaluator, command CreateCommand) (indicatorUpsertInput, error) {
+	input, err := identity.Canonicalize(evaluate, identityInput(command))
+	return input, identityValidationError(err)
+}
+func identityValidationError(err error) error {
 	var validationError *identity.ValidationError
 	if errors.As(err, &validationError) {
-		return indicatorUpsertInput{}, &IndicatorCreateValidationError{
-			Field:      "indicator." + validationError.Field,
-			ReasonCode: validationError.ReasonCode,
-		}
+		return &IndicatorCreateValidationError{Field: "indicator." + validationError.Field, ReasonCode: validationError.ReasonCode}
 	}
-	return indicatorUpsertInput{}, err
+	return err
 }

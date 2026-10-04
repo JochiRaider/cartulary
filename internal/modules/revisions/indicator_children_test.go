@@ -2,9 +2,7 @@ package revisions_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"reflect"
 	"slices"
@@ -19,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -32,6 +31,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
 	application, err := indicators.NewApplication(indicators.ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        harness.Pool,
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(harness.Pool)),
 		IncidentState:   admission.NewChecker(harness.Pool),
@@ -421,7 +421,7 @@ func indicatorChildLifecycleParams(incidentID uuid.UUID, indicatorID uuid.UUID, 
 func seedIndicatorChildRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, suffix string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	value := "history_revision-" + suffix + ".example.test"
+	value := "history-revision-" + suffix + ".example.test"
 	indicatortest.SeedRecord(t, db, incidentID, actorID, recordID, "domain_name", "atomic", value)
 	return recordID
 }
@@ -444,9 +444,10 @@ func refreshIndicatorRollbackDedupe(source map[string]any) {
 	)
 }
 
-func indicatorRollbackDedupe(indicatorType string, valueKind string, displayValue string, normalizedValue string, hashAlgorithm string, hashValue string) string {
-	sum := sha256.Sum256([]byte(strings.Join([]string{indicatorType, valueKind, displayValue, normalizedValue, hashAlgorithm, hashValue}, "\x1f")))
-	return hex.EncodeToString(sum[:])
+func indicatorRollbackDedupe(indicatorType string, _ string, _ string, normalizedValue string, _ string, _ string) string {
+	// These rollback vectors use canonical domain names. Ancillary source
+	// representations are intentionally excluded from the registry identity.
+	return indicatorType + ":" + normalizedValue
 }
 
 func nullableIndicatorRollbackText(value any) string {

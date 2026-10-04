@@ -471,8 +471,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.incident_bundle_source_catalog.v4",
-      "path": "tools/schemas/cartulary.incident_bundle_source_catalog.v4.schema.json",
+      "schema_id": "cartulary.incident_bundle_source_catalog.v5",
+      "path": "tools/schemas/cartulary.incident_bundle_source_catalog.v5.schema.json",
       "classification": "owner_input",
       "producer": "Incident Bundles source-port catalog owner",
       "validation": "json-shape-check"
@@ -748,6 +748,13 @@
       "path": "tools/schemas/cartulary.protocol_ts_http_operations.v2.schema.json",
       "classification": "owner_input",
       "producer": "protocol TypeScript package owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+      "path": "tools/schemas/cartulary.reference_pack_fixture_manifest.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Reference Data fixture owner",
       "validation": "json-shape-check"
     },
     {

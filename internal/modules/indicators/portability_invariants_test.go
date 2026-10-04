@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 )
 
 func TestIndicatorPortablePrepareInvariantPartition(t *testing.T) {
@@ -230,7 +231,7 @@ func TestIndicatorPortablePreparedValuesAreContextBound(t *testing.T) {
 
 func portableCanonicalIndicatorRow(t testing.TB) map[string]any {
 	t.Helper()
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(referencefixture.EvaluateIndicator, identity.Input{
 		IndicatorType: "domain_name", ValueKind: "atomic", DisplayValue: "example.test",
 	})
 	if err != nil {

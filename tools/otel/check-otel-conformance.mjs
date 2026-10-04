@@ -446,6 +446,7 @@ function validateCartularySignalRegistry(registry, checks) {
     "cartulary.network_flow.cleanup.examined",
     "cartulary.network_flow.cleanup.continuation",
     "cartulary.network_flow.cleanup.last_success.age",
+    "cartulary.reference_pack.operation.duration",
   ];
   assert(
     registry.schema_id === "cartulary.otel_signal_registry.v2" &&
@@ -457,9 +458,9 @@ function validateCartularySignalRegistry(registry, checks) {
   const scopes = new Map((registry.scopes ?? []).map((scope) => [scope.scope_name, scope]));
   const metricNames = [...scopes.values()].flatMap((scope) => (scope.metrics ?? []).map((metric) => metric.metric_name));
   assert(
-    scopes.size === 2 && scopes.has("cartulary.jobs") && scopes.has("cartulary.network_flow") &&
+    scopes.size === 3 && scopes.has("cartulary.jobs") && scopes.has("cartulary.network_flow") && scopes.has("cartulary.reference_pack") &&
       JSON.stringify(metricNames) === JSON.stringify(expectedMetrics),
-    "Jobs and Network Flow expose the complete ordered GP3 metric registry",
+    "Jobs, Network Flow and Reference Pack expose the complete ordered metric registry",
     checks,
     "signals.metric_registry",
   );

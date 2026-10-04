@@ -1,45 +1,129 @@
 package reference_data
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+)
 
 func TestIncidentBundleReferenceCatalogValidation_Unit(t *testing.T) {
-	valid := []byte(`[{
-		"pack_key":"baseline",
-		"pack_version":"2026.07",
-		"manifest_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"payload_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		"pack_contract_version":"1",
-		"content_profile_id":"baseline",
-		"content_profile_version":"1",
-		"distribution_kind":"builtin",
-		"verification_method":"sha256",
-		"source_profile_id":"reference_pack",
-		"source_profile_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-	}]`)
-	if err := ValidateIncidentBundleReferences(valid); err != nil {
-		t.Fatalf("valid reference catalog: %v", err)
+	valid, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-references.v1.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	for _, test := range []struct {
-		name          string
-		payload       string
-		wantInvariant string
-	}{
-		{name: "not an array", payload: `{}`, wantInvariant: IncidentBundleReferenceExactShapeInvariant},
-		{name: "unknown member", payload: `[{"pack_key":"baseline","unknown":"value"}]`, wantInvariant: IncidentBundleReferenceExactShapeInvariant},
-		{name: "empty identity", payload: `[{"pack_key":"","pack_version":"1","manifest_sha256":"a","payload_sha256":"b","pack_contract_version":"1","content_profile_id":"p","content_profile_version":"1","distribution_kind":"builtin","verification_method":"sha256","source_profile_id":"reference_pack","source_profile_sha256":"c"}]`, wantInvariant: IncidentBundleReferenceExactShapeInvariant},
-		{name: "duplicate identity", payload: `[
-			{"pack_key":"baseline","pack_version":"1","manifest_sha256":"a","payload_sha256":"b","pack_contract_version":"1","content_profile_id":"p","content_profile_version":"1","distribution_kind":"builtin","verification_method":"sha256","source_profile_id":"reference_pack","source_profile_sha256":"c"},
-			{"pack_key":"baseline","pack_version":"1","manifest_sha256":"d","payload_sha256":"e","pack_contract_version":"1","content_profile_id":"p","content_profile_version":"1","distribution_kind":"builtin","verification_method":"sha256","source_profile_id":"reference_pack","source_profile_sha256":"f"}
-		]`, wantInvariant: IncidentBundleReferenceIdentityInvariant},
-		{name: "trailing document", payload: `[] []`, wantInvariant: IncidentBundleReferenceExactShapeInvariant},
+	refs, err := DecodeIncidentBundleReferences(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := EncodeIncidentBundleReferences(refs.Sets, refs.Versions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateIncidentBundleReferences(encoded); err != nil {
+		t.Fatal(err)
+	}
+	empty, err := EncodeIncidentBundleReferences(nil, nil)
+	if err != nil || string(empty) != "{\"schema_id\":\"reference_pack_refs.v1\",\"sets\":[],\"versions\":[]}\n" {
+		t.Fatalf("empty catalog = %s, %v", empty, err)
+	}
+	for name, payload := range map[string]string{
+		"retired array": "[]", "omitted fields": "{}", "null collections": `{"schema_id":"reference_pack_refs.v1","sets":null,"versions":[]}`,
+		"duplicate key":     `{"schema_id":"reference_pack_refs.v1","sets":[],"sets":[],"versions":[]}`,
+		"malformed Unicode": `{"schema_id":"\ud800","sets":[],"versions":[]}`, "trailing JSON": string(empty) + `{}`,
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			err := ValidateIncidentBundleReferences([]byte(test.payload))
-			invariantID, ok := IncidentBundleReferenceInvariant(err)
-			if !ok || invariantID != test.wantInvariant {
-				t.Fatalf("validation error = %v, %q, %t; want %q", err, invariantID, ok, test.wantInvariant)
+		t.Run(name, func(t *testing.T) {
+			err := ValidateIncidentBundleReferences([]byte(payload))
+			if invariant, ok := IncidentBundleReferenceInvariant(err); !ok || invariant != IncidentBundleReferenceExactShapeInvariant {
+				t.Fatalf("error=%v", err)
 			}
+		})
+	}
+	var root map[string]any
+	if err := json.Unmarshal(valid, &root); err != nil {
+		t.Fatal(err)
+	}
+	assertInvalid := func(t *testing.T, value any) {
+		t.Helper()
+		data, err := canonicaljson.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateIncidentBundleReferences(data); err == nil {
+			t.Fatal("invalid reference graph admitted")
+		}
+	}
+	// Enumerate every nested object boundary from an independently authored
+	// fixture. No decoder may repair omitted or null signed identity members.
+	var visit func(any, string)
+	visit = func(value any, path string) {
+		switch v := value.(type) {
+		case map[string]any:
+			for key, original := range v {
+				for _, kind := range []string{"omitted", "null", "wrong type"} {
+					t.Run(path+"/"+key+"/"+kind, func(t *testing.T) {
+						if kind == "omitted" {
+							delete(v, key)
+						} else if kind == "null" {
+							v[key] = nil
+						} else {
+							v[key] = true
+						}
+						assertInvalid(t, root)
+						v[key] = original
+					})
+				}
+			}
+			t.Run(path+"/unknown", func(t *testing.T) {
+				v["hostile-private-payload"] = true
+				assertInvalid(t, root)
+				delete(v, "hostile-private-payload")
+			})
+			for key, child := range v {
+				visit(child, path+"/"+key)
+			}
+		case []any:
+			if len(v) > 0 {
+				visit(v[0], path+"/0")
+			}
+		}
+	}
+	visit(root, "catalog")
+	for _, tc := range []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{"wrong set digest", func(m map[string]any) {
+			m["sets"].([]any)[0].(map[string]any)["pack_set_sha256"] = strings.Repeat("0", 64)
+		}},
+		{"wrong set ID", func(m map[string]any) {
+			m["sets"].([]any)[0].(map[string]any)["pack_set_id"] = "rpset_" + strings.Repeat("0", 64)
+		}},
+		{"duplicate set", func(m map[string]any) { a := m["sets"].([]any); m["sets"] = append(a, a[0]) }},
+		{"missing version", func(m map[string]any) { m["versions"] = m["versions"].([]any)[1:] }},
+		{"unreferenced versions", func(m map[string]any) { m["sets"] = []any{} }},
+		{"duplicate version", func(m map[string]any) { a := m["versions"].([]any); m["versions"] = append(a, a[0]) }},
+		{"unsorted versions", func(m map[string]any) { a := m["versions"].([]any); a[0], a[1] = a[1], a[0] }},
+		{"unsorted members", func(m map[string]any) {
+			a := m["sets"].([]any)[0].(map[string]any)["members"].([]any)
+			a[0], a[1] = a[1], a[0]
+		}},
+		{"content substitution", func(m map[string]any) {
+			m["versions"].([]any)[0].(map[string]any)["payload_sha256"] = strings.Repeat("0", 64)
+		}},
+		{"incorrect method", func(m map[string]any) {
+			m["versions"].([]any)[0].(map[string]any)["verification_method"] = "packaged_release_manifest_v1"
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var m map[string]any
+			if err := json.Unmarshal(valid, &m); err != nil {
+				t.Fatal(err)
+			}
+			tc.mutate(m)
+			assertInvalid(t, m)
 		})
 	}
 }

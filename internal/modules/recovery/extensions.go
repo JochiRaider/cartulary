@@ -1,7 +1,6 @@
 package recovery
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -9,8 +8,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 var (
@@ -216,18 +213,6 @@ func validateExtensionBindingProofs(catalog *ExtensionBackupCatalog, proofs []Ex
 		}
 	}
 	return nil
-}
-
-func validateRestoredExtensionBindings(ctx context.Context, catalog *ExtensionBackupCatalog, proofs []ExtensionBindingProof, db postgres.DB) error {
-	body, err := CapturePostgresSnapshotArtifact(ctx, db)
-	if err != nil {
-		return err
-	}
-	snapshot, err := DecodePostgresSnapshotArtifact(body)
-	if err != nil {
-		return err
-	}
-	return validateExtensionBindingProofs(catalog, proofs, snapshot)
 }
 
 func extensionBindingSnapshotProof(snapshot PostgresSnapshotArtifact, binding ExtensionBackupBinding, codec ExtensionBackupCodec) (int, int64, string, error) {

@@ -38,7 +38,7 @@ Unless a narrower banner is stated for a subsection, this guide is written for t
 | Import (`import`)                                       | Off unless explicitly claimed              | File-based structured import, import assistant objects, import-session persistence, and workbook parser compatibility behavior. |
 | Snapshot and Reporting (`snapshot_reporting`)           | Off unless explicitly claimed              | Immutable snapshots, release records, report rendering, export redaction, and generated presentation artifacts.                 |
 | Incident Portability (`incident_portability`)           | Off unless explicitly claimed              | Whole-incident export and import, bundle verification, and portability staging.                                                 |
-| Reference Pack (`reference_pack`)                       | Off unless explicitly claimed              | Pack import, activation, refresh, attestation, and overlay behavior.                                                            |
+| Reference Pack (`reference_pack`)                       | Off unless explicitly claimed              | Pack import, activation, refresh, removal, and immutable verification history.                                                            |
 | Enterprise Authentication (`enterprise_authentication`) | Off unless explicitly claimed              | OIDC and SAML provider integration.                                                                                             |
 | Network Flow Activity (`network_flow_activity`)         | Adopted/current; deployment claim required | Network-flow analytical tables, graph analysis, and explicit indicator binding.                                                  |
 
@@ -1631,6 +1631,8 @@ activate a provider, route, worker, workspace, or participant that the installed
 plan did not admit. Production HTTP APIs require explicit serving-epoch
 projections and have no generated-registry default, nil-epoch fallback, or
 process-global profile mutation.
+
+The development example leaves Reference Packs unclaimed and initializes the required Base registries. To enable administration after profile adoption, follow the [Reference Pack cutover and offline trust procedure](reference-pack-development-cutover.md).
 
 For claimed Reference Pack deployments, every `/api/v1/reference-packs/*` endpoint is deployment-admin-only. Clients and integration tests SHOULD combine `GET /api/v1/extensions` with the session `is_deployment_admin` value rather than probing reference-pack routes; a claimed non-admin receives `403` with `error.code = authorization_denied`, while an unclaimed family returns `extension_profile_not_claimed` first.
 

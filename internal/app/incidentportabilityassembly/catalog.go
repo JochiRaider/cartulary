@@ -15,12 +15,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
-func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
+func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer, assignments reference_data.RegistryAssignments) (*sourceport.Catalog, error) {
 	if revisionsPort == nil {
 		return nil, fmt.Errorf("%w: Revisions source port is required", sourceport.ErrInvalidCatalog)
 	}
@@ -28,7 +29,7 @@ func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
 	if revisionsDescriptor.FamilyID != "revisions" || revisionsDescriptor.OwnerID != "module.revisions" {
 		return nil, fmt.Errorf("%w: invalid Revisions source port", sourceport.ErrInvalidCatalog)
 	}
-	indicatorContribution, err := indicators.NewIncidentBundleContribution()
+	indicatorContribution, err := indicators.NewIncidentBundleContribution(consumer, assignments)
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Indicators contribution: %w", err)
 	}
@@ -99,7 +100,7 @@ func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
 			revisionsPort,
 			savedviews.NewIncidentBundleSourcePort(),
 		},
-		RequiredPathsByVersion: map[int][]string{4: currentPaths},
+		RequiredPathsByVersion: map[int][]string{5: currentPaths},
 		AllowedRelationIDs: map[string]struct{}{
 			"incident-core": {}, "record-envelope": {}, "record-revisions": {},
 			"timeline-source": {},
@@ -108,7 +109,7 @@ func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
 			"evidence-source-and-handles": {}, "assessment-source": {},
 			"links-and-tags": {}, "savedviews": {},
 		},
-		SpecialConsumers: map[int]map[string]string{4: special},
+		SpecialConsumers: map[int]map[string]string{5: special},
 	})
 }
 

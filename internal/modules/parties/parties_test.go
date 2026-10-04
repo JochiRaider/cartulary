@@ -566,6 +566,7 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 	}
 	store, err := revisionRuntime.NewCommandService(
 		harness.DB,
+		harness.DB,
 		partyTestAttributionResolver{},
 		projections.RevisionRebuilder(),
 		projections.RevisionLiveRecords(),
@@ -598,6 +599,7 @@ func restorePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor authn
 		t.Fatalf("compose Projections: %v", err)
 	}
 	store, err := revisionComposition.Runtime.NewCommandService(
+		harness.DB,
 		harness.DB,
 		partyTestAttributionResolver{},
 		projections.RevisionRebuilder(),

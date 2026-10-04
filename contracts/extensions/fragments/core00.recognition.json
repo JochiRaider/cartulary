@@ -36,7 +36,7 @@
     },
     {
       "claimable": true,
-      "contract_major": 1,
+      "contract_major": 2,
       "fact_kind": "recognized_profile",
       "primary_owner_id": "core01",
       "profile_id": "reference_pack"

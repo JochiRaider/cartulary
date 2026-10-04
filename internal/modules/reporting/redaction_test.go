@@ -1,6 +1,7 @@
 package reporting
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -47,35 +48,36 @@ func TestRedactionProfilePrecedenceActionsAndManifest_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate profile: %v", err)
 	}
-	model := ExportModel{
-		SchemaID:                     ExportModelSchemaID,
-		IncidentID:                   "incident-1",
-		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
-		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("0", 64),
-		DerivationVersion:            DerivationVersion,
-		Fields: []ExportField{
-			{
-				Path:         "/incident/description",
-				ContentClass: ContentClassSourceEvidence,
-				Value:        "abcdefgh",
-			},
-			{
-				Path:         "/incident/raw_note",
-				ContentClass: ContentClassSourceEvidence,
-				Value:        "source value",
-			},
-			{
-				Path:         "/incident/internal_note",
-				ContentClass: ContentClassWorkingMaterial,
-				Value:        "internal value",
-			},
-		},
+	model := ExportModel{RenderIdentity: fixtureRenderIdentity(),
+		SchemaID: ExportModelSchemaID,
+		SnapshotContent: SnapshotContent{
+			IncidentID:                   "incident-1",
+			SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+			SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("0", 64),
+			DerivationVersion:            DerivationVersion,
+			Fields: []ExportField{
+				{
+					Path:         "/incident/description",
+					ContentClass: ContentClassSourceEvidence,
+					Value:        "abcdefgh",
+				},
+				{
+					Path:         "/incident/raw_note",
+					ContentClass: ContentClassSourceEvidence,
+					Value:        "source value",
+				},
+				{
+					Path:         "/incident/internal_note",
+					ContentClass: ContentClassWorkingMaterial,
+					Value:        "internal value",
+				},
+			}},
 	}
 	sourceBytes, err := canonicalJSON(model)
 	if err != nil {
 		t.Fatalf("source model json: %v", err)
 	}
-	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeInternalReview, nil)
+	result, err := RedactExportModel(model, profile, profileSHA, reportingObjectDigest(ExportModelSchemaID, sourceBytes), ReleaseScopeInternalReview, nil)
 	if err != nil {
 		t.Fatalf("redact model: %v", err)
 	}
@@ -114,7 +116,7 @@ func TestRedactionProfilePrecedenceActionsAndManifest_Unit(t *testing.T) {
 		t.Fatalf("manifest must record selected-rule trace objects, got %#v", result.Manifest.Entries)
 	}
 	assertRedactionUsesStructuredExportModelBlocks(t)
-	assertCanonicalExportModelGoldenHash(t)
+	assertCanonicalExportModelRoundTrip(t)
 	assertRedactionTokensRevealMapAndProfileViewAreCanonical(t)
 }
 
@@ -130,30 +132,31 @@ func assertRedactionTokensRevealMapAndProfileViewAreCanonical(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate profile: %v", err)
 	}
-	model := ExportModel{
-		SchemaID:                     ExportModelSchemaID,
-		IncidentID:                   "incident-1",
-		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
-		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("9", 64),
-		DerivationVersion:            DerivationVersion,
-		Fields: []ExportField{
-			{
-				Path:         "/parties/party_a",
-				ContentClass: ContentClassSourceEvidence,
-				SourceFamily: "party",
-				Value: map[string]any{
-					"display_name": "Alice Example",
-					"role":         "recipient",
+	model := ExportModel{RenderIdentity: fixtureRenderIdentity(),
+		SchemaID: ExportModelSchemaID,
+		SnapshotContent: SnapshotContent{
+			IncidentID:                   "incident-1",
+			SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+			SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("9", 64),
+			DerivationVersion:            DerivationVersion,
+			Fields: []ExportField{
+				{
+					Path:         "/parties/party_a",
+					ContentClass: ContentClassSourceEvidence,
+					SourceFamily: "party",
+					Value: map[string]any{
+						"display_name": "Alice Example",
+						"role":         "recipient",
+					},
+					DisclosurePartitionRefs: []string{"party:party_a"},
 				},
-				DisclosurePartitionRefs: []string{"party:party_a"},
-			},
-		},
+			}},
 	}
 	sourceBytes, err := canonicalJSON(model)
 	if err != nil {
 		t.Fatalf("source model json: %v", err)
 	}
-	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeInternalReview, nil)
+	result, err := RedactExportModel(model, profile, profileSHA, reportingObjectDigest(ExportModelSchemaID, sourceBytes), ReleaseScopeInternalReview, nil)
 	if err != nil {
 		t.Fatalf("redact model: %v", err)
 	}
@@ -190,7 +193,7 @@ func assertRedactionTokensRevealMapAndProfileViewAreCanonical(t *testing.T) {
 	if result.Manifest.Entries[0].Outcome != "tokenized" || result.Manifest.Entries[0].SelectedRuleTrace.SelectionKind != "profile_default" {
 		t.Fatalf("manifest must record tokenized outcome and rule trace, got %#v", result.Manifest.Entries[0])
 	}
-	repeated, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeInternalReview, nil)
+	repeated, err := RedactExportModel(model, profile, profileSHA, reportingObjectDigest(ExportModelSchemaID, sourceBytes), ReleaseScopeInternalReview, nil)
 	if err != nil {
 		t.Fatalf("redact model again: %v", err)
 	}
@@ -214,9 +217,9 @@ func assertRedactionUsesStructuredExportModelBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate profile: %v", err)
 	}
-	model, sourceSHA, err := buildStructuredExportModel(
+	model, sourceSHA, err := buildStructuredTestExportModel(
 		"incident-1",
-		"snapshot-1",
+		fixtureSnapshotID,
 		time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
 		SourceBoundaryTokenPrefix+strings.Repeat("a", 64),
 		ReleaseScopeInternalReview,
@@ -315,32 +318,33 @@ func TestExternalValidationRejectsOpaqueBytesAndWorkingMaterial_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("validate profile: %v", err)
 	}
-	model := ExportModel{
-		SchemaID:                     ExportModelSchemaID,
-		IncidentID:                   "incident-1",
-		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
-		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("1", 64),
-		DerivationVersion:            DerivationVersion,
-		Fields: []ExportField{
-			{
-				Path:          "/evidence/blob",
-				ContentClass:  ContentClassSourceEvidence,
-				Value:         "raw bytes",
-				RawBlobSource: true,
-				OpaqueBinary:  true,
-			},
-			{
-				Path:         "/incident/internal_note",
-				ContentClass: ContentClassWorkingMaterial,
-				Value:        "internal",
-			},
-		},
+	model := ExportModel{RenderIdentity: fixtureRenderIdentity(),
+		SchemaID: ExportModelSchemaID,
+		SnapshotContent: SnapshotContent{
+			IncidentID:                   "incident-1",
+			SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+			SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("1", 64),
+			DerivationVersion:            DerivationVersion,
+			Fields: []ExportField{
+				{
+					Path:          "/evidence/blob",
+					ContentClass:  ContentClassSourceEvidence,
+					Value:         "raw bytes",
+					RawBlobSource: true,
+					OpaqueBinary:  true,
+				},
+				{
+					Path:         "/incident/internal_note",
+					ContentClass: ContentClassWorkingMaterial,
+					Value:        "internal",
+				},
+			}},
 	}
 	sourceBytes, err := canonicalJSON(model)
 	if err != nil {
 		t.Fatalf("source model json: %v", err)
 	}
-	if _, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal, nil); !errors.Is(err, ErrRedactionValidation) {
+	if _, err := RedactExportModel(model, profile, profileSHA, reportingObjectDigest(ExportModelSchemaID, sourceBytes), ReleaseScopeExternal, nil); !errors.Is(err, ErrRedactionValidation) {
 		t.Fatalf("external release must reject raw bytes and working material, got %v", err)
 	}
 }
@@ -365,33 +369,34 @@ func TestDisclosurePartitionsAndCuratedSupportRefsFailClosed_Unit(t *testing.T) 
 	if err != nil {
 		t.Fatalf("validate profile: %v", err)
 	}
-	model := ExportModel{
-		SchemaID:                     ExportModelSchemaID,
-		IncidentID:                   "incident-1",
-		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
-		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("2", 64),
-		DerivationVersion:            DerivationVersion,
-		Fields: []ExportField{
-			{
-				Path:                    allowedPath,
-				ContentClass:            ContentClassCuratedNarrative,
-				Value:                   "supported public summary",
-				DisclosurePartitionRefs: []string{"public_summary"},
-				SupportRefs:             []string{"/incident/source"},
-			},
-			{
-				Path:                    restrictedPath,
-				ContentClass:            ContentClassDerivedAnalytic,
-				Value:                   "restricted analytic",
-				DisclosurePartitionRefs: []string{"legal_hold"},
-			},
-		},
+	model := ExportModel{RenderIdentity: fixtureRenderIdentity(),
+		SchemaID: ExportModelSchemaID,
+		SnapshotContent: SnapshotContent{
+			IncidentID:                   "incident-1",
+			SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+			SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("2", 64),
+			DerivationVersion:            DerivationVersion,
+			Fields: []ExportField{
+				{
+					Path:                    allowedPath,
+					ContentClass:            ContentClassCuratedNarrative,
+					Value:                   "supported public summary",
+					DisclosurePartitionRefs: []string{"public_summary"},
+					SupportRefs:             []string{"/incident/source"},
+				},
+				{
+					Path:                    restrictedPath,
+					ContentClass:            ContentClassDerivedAnalytic,
+					Value:                   "restricted analytic",
+					DisclosurePartitionRefs: []string{"legal_hold"},
+				},
+			}},
 	}
 	sourceBytes, err := canonicalJSON(model)
 	if err != nil {
 		t.Fatalf("source model json: %v", err)
 	}
-	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal, nil)
+	result, err := RedactExportModel(model, profile, profileSHA, reportingObjectDigest(ExportModelSchemaID, sourceBytes), ReleaseScopeExternal, nil)
 	if err != nil {
 		t.Fatalf("redact with partition filter: %v", err)
 	}
@@ -407,12 +412,13 @@ func TestDisclosurePartitionsAndCuratedSupportRefsFailClosed_Unit(t *testing.T) 
 	}
 
 	model.Fields[0].SupportRefs = nil
-	if _, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal, nil); !errors.Is(err, ErrRedactionValidation) {
+	if _, err := RedactExportModel(model, profile, profileSHA, reportingObjectDigest(ExportModelSchemaID, sourceBytes), ReleaseScopeExternal, nil); !errors.Is(err, ErrRedactionValidation) {
 		t.Fatalf("external curated narrative without support refs must fail closed, got %v", err)
 	}
 }
 
 func TestBuildExportModelUsesReportingOwnedMetadataSnapshotStableHash(t *testing.T) {
+	t.Run("canonical bytes and hash domains", testReportingCanonicalBytes)
 	description := "Stable public summary"
 	severity := "high"
 	tlp := "TLP:AMBER"
@@ -438,11 +444,11 @@ func TestBuildExportModelUsesReportingOwnedMetadataSnapshotStableHash(t *testing
 		},
 	}
 
-	first, firstSHA, err := BuildExportModel(incident, snapshotAt, watermark, append([]ExportField(nil), workbookFields...))
+	first, firstSHA, err := BuildSnapshotModel(incident, fixtureSnapshotID, snapshotAt, watermark, append([]ExportField(nil), workbookFields...))
 	if err != nil {
 		t.Fatalf("build first export model: %v", err)
 	}
-	second, secondSHA, err := BuildExportModel(incident, snapshotAt, watermark, append([]ExportField(nil), workbookFields...))
+	second, secondSHA, err := BuildSnapshotModel(incident, fixtureSnapshotID, snapshotAt, watermark, append([]ExportField(nil), workbookFields...))
 	if err != nil {
 		t.Fatalf("build second export model: %v", err)
 	}
@@ -454,7 +460,7 @@ func TestBuildExportModelUsesReportingOwnedMetadataSnapshotStableHash(t *testing
 	if err != nil {
 		t.Fatalf("second canonical json: %v", err)
 	}
-	if firstSHA != hashHex(firstJSON) {
+	if firstSHA != reportingObjectDigest(SnapshotModelSchemaID, firstJSON) {
 		t.Fatalf("export model sha must be derived from canonical reporting model json")
 	}
 	if firstSHA != secondSHA || string(firstJSON) != string(secondJSON) {
@@ -482,7 +488,7 @@ func TestBuildExportModelUsesReportingOwnedMetadataSnapshotStableHash(t *testing
 	}
 }
 
-func assertCanonicalExportModelGoldenHash(t *testing.T) {
+func assertCanonicalExportModelRoundTrip(t *testing.T) {
 	t.Helper()
 	description := "Golden summary"
 	incident := IncidentMetadataSnapshot{
@@ -492,8 +498,8 @@ func assertCanonicalExportModelGoldenHash(t *testing.T) {
 		Status:      "active",
 		Version:     7,
 	}
-	model, modelSHA, err := BuildExportModel(
-		incident,
+	model, modelSHA, err := BuildSnapshotModel(
+		incident, fixtureSnapshotID,
 		time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
 		SourceBoundaryTokenPrefix+strings.Repeat("7", 64),
 		[]ExportField{{
@@ -511,13 +517,21 @@ func assertCanonicalExportModelGoldenHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("canonical export model: %v", err)
 	}
-	if modelSHA != hashHex(canonical) {
-		t.Fatalf("model sha = %s, canonical hash = %s", modelSHA, hashHex(canonical))
+	if modelSHA != reportingObjectDigest(SnapshotModelSchemaID, canonical) {
+		t.Fatalf("model sha = %s, canonical hash = %s", modelSHA, reportingObjectDigest(SnapshotModelSchemaID, canonical))
 	}
-	const wantSHA = "90b89be2b42fc61a8a78690f9e4cfcba0f686568e3fdafd98c9e890aa94cf06a"
-	if modelSHA != wantSHA {
-		t.Fatalf("canonical export model golden hash = %s, want %s\n%s", modelSHA, wantSHA, canonical)
+	var restored SnapshotModel
+	if err := json.Unmarshal(canonical, &restored); err != nil {
+		t.Fatal(err)
 	}
+	reencoded, err := canonicalJSON(restored)
+	if err != nil || !bytes.Equal(reencoded, canonical) {
+		t.Fatal("complete model changed after JSON persistence", err)
+	}
+	// Canonical byte order, scalar admission and the schema hash domain have
+	// independent literal vectors in testReportingCanonicalBytes. The retired
+	// golden bound Go struct declaration order rather than the owner algorithm.
+
 }
 
 func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
@@ -697,10 +711,11 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 		t.Fatalf("internal recipient partitions must use closed rejection reason, got %#v", internalPartitions)
 	}
 
-	recipientModel := ExportModel{
-		Fields: []ExportField{
-			{Path: "/parties/party_a", SourceFamily: "party", DisclosurePartitionRefs: []string{"party:party_a"}},
-		},
+	recipientModel := ExportModel{RenderIdentity: fixtureRenderIdentity(),
+		SnapshotContent: SnapshotContent{
+			Fields: []ExportField{
+				{Path: "/parties/party_a", SourceFamily: "party", DisclosurePartitionRefs: []string{"party:party_a"}},
+			}},
 	}
 	recipientValidationCases := []struct {
 		name       string
@@ -779,16 +794,17 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 		OutputKind:              OutputKindSlidev,
 		ReleaseScope:            ReleaseScopeInternalDraft,
 	}
-	baseModel := ExportModel{
-		SchemaID:                     ExportModelSchemaID,
-		IncidentID:                   "00000000-0000-0000-0000-000000000001",
-		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
-		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("3", 64),
-		DerivationVersion:            DerivationVersion,
-		Fields: []ExportField{
-			{Path: "/incident/status", ContentClass: ContentClassDerivedAnalytic, Value: "open"},
-			{Path: "/incident/title", ContentClass: ContentClassCuratedNarrative, Value: "Renderable", SupportRefs: []string{"/incident/status"}},
-		},
+	baseModel := ExportModel{RenderIdentity: fixtureRenderIdentity(),
+		SchemaID: ExportModelSchemaID,
+		SnapshotContent: SnapshotContent{
+			IncidentID:                   "00000000-0000-0000-0000-000000000001",
+			SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+			SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("3", 64),
+			DerivationVersion:            DerivationVersion,
+			Fields: []ExportField{
+				{Path: "/incident/status", ContentClass: ContentClassDerivedAnalytic, Value: "open"},
+				{Path: "/incident/title", ContentClass: ContentClassCuratedNarrative, Value: "Renderable", SupportRefs: []string{"/incident/status"}},
+			}},
 	}
 	selfContainedCases := []struct {
 		name   string
@@ -1037,7 +1053,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("source json: %v", err)
 			}
-			_, reasonCode, err := renderReleaseCandidate(tc.request, tc.contract, tc.model, hashHex(source), tc.graphResults...)
+			_, reasonCode, err := renderReleaseCandidate(tc.request, tc.contract, tc.model, reportingObjectDigest(ExportModelSchemaID, source), tc.graphResults...)
 			if tc.want == "" {
 				if err != nil || reasonCode != "" {
 					t.Fatalf("render reason = %q, err=%v want success", reasonCode, err)
@@ -1060,7 +1076,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 					return nil, errors.New("forced manifest encoding failure")
 				}
 			}
-			return json.Marshal(value)
+			return original(value)
 		}
 		defer func() { encodeCanonicalJSON = original }()
 
@@ -1068,7 +1084,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("source json: %v", err)
 		}
-		_, reasonCode, err := renderReleaseCandidate(baseRequest, contract, baseModel, hashHex(source))
+		_, reasonCode, err := renderReleaseCandidate(baseRequest, contract, baseModel, reportingObjectDigest(ExportModelSchemaID, source))
 		if err == nil || reasonCode != "manifest_encoding_failed" {
 			t.Fatalf("manifest encoding reason = %q, err=%v", reasonCode, err)
 		}
@@ -1080,7 +1096,7 @@ func TestRenderBundleManifestBindsOutputHash(t *testing.T) {
 	if !ok {
 		t.Fatal("resolve template contract")
 	}
-	model := RedactedExportModel{
+	model := RedactedExportModel{RenderIdentity: fixtureRenderIdentity(),
 		SchemaID:          ExportModelSchemaID,
 		DerivationVersion: DerivationVersion,
 		Fields: []RedactedField{
@@ -1125,7 +1141,7 @@ func TestRenderBundleExternalReleaseRecordsDeterminismDigest(t *testing.T) {
 	if !ok {
 		t.Fatal("resolve template contract")
 	}
-	model := RedactedExportModel{
+	model := RedactedExportModel{RenderIdentity: fixtureRenderIdentity(),
 		SchemaID:          ExportModelSchemaID,
 		DerivationVersion: DerivationVersion,
 		Fields: []RedactedField{
@@ -1158,7 +1174,7 @@ func TestRenderBundleCarriesRedactionArtifactsWithSensitiveRevealRole(t *testing
 	if !ok {
 		t.Fatal("resolve template contract")
 	}
-	model := RedactedExportModel{
+	model := RedactedExportModel{RenderIdentity: fixtureRenderIdentity(),
 		SchemaID:          ExportModelSchemaID,
 		DerivationVersion: DerivationVersion,
 		Fields: []RedactedField{
@@ -1209,7 +1225,7 @@ func TestRenderBundleMermaidPipelineEmitsSourceSVGAndDeterministicManifest(t *te
 	if !ok {
 		t.Fatal("resolve template contract")
 	}
-	model := RedactedExportModel{
+	model := RedactedExportModel{RenderIdentity: fixtureRenderIdentity(),
 		SchemaID:          ExportModelSchemaID,
 		DerivationVersion: DerivationVersion,
 		Fields: []RedactedField{
@@ -1251,7 +1267,7 @@ func TestRenderBundleRejectsUnsafeSVGLabelInput(t *testing.T) {
 	if !ok {
 		t.Fatal("resolve template contract")
 	}
-	model := RedactedExportModel{
+	model := RedactedExportModel{RenderIdentity: fixtureRenderIdentity(),
 		SchemaID:          ExportModelSchemaID,
 		DerivationVersion: DerivationVersion,
 		Fields: []RedactedField{

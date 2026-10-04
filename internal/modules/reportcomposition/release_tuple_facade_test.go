@@ -241,9 +241,9 @@ func seedReportingReleaseForTuple(t testing.TB, ctx context.Context, db *pgtest.
 	releaseID := uuid.New()
 	if _, err := db.Exec(ctx, `
 INSERT INTO jobs (
-    job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id, submitted_at, updated_at, progress_completed
+    job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id, submitted_at, updated_at, progress_completed, auth_policy, handler_name, job_kind, progress_unit_id
 )
-VALUES ($1, 'incident', $2, 'queued', true, $3, $4, $4, 0)
+VALUES ($1, 'incident', $2, 'queued', true, $3, $4, $4, 0, 'incident_membership', 'snapshot_reporting.job_worker_v2', 'snapshot_reporting.snapshot_create_v2', 'snapshot_reporting.snapshot_create.materialization.v1')
 `, jobID, fixture.incidentID, fixture.userID, fixture.now); err != nil {
 		t.Fatalf("seed job: %v", err)
 	}
@@ -253,7 +253,7 @@ INSERT INTO reporting_snapshots (
     source_boundary_json, derivation_version, export_model_sha256, export_model_json, create_job_id, created_at
 )
 VALUES ($1, $2, $3, 'txn-snapshot', $4, 'cartulary.source_boundary.v1:test',
-        '{}'::jsonb, 'cartulary.snapshot_export_model.v3', $5, '{}'::jsonb, $6, $4)
+        '{}'::jsonb, 'cartulary.reporting_derivation_profile.v2', $5, jsonb_build_object('schema_id','cartulary.reporting_snapshot_model.v1','snapshot_id',$1::uuid::text,'snapshot_model_id','snapm_' || repeat('c',64)), $6, $4)
 `, snapshotID, fixture.incidentID, fixture.userID, fixture.now, strings.Repeat("c", 64), jobID); err != nil {
 		t.Fatalf("seed snapshot: %v", err)
 	}
@@ -267,7 +267,7 @@ INSERT INTO reporting_releases (
     render_admitted_at, created_at, updated_at
 )
 VALUES ($1, $2, $3, $4, 'txn-release', 'internal_draft', 'approved',
-        $5, 'cartulary.source_boundary.v1:test', 'cartulary.snapshot_export_model.v3', $6,
+        $5, 'cartulary.source_boundary.v1:test', 'cartulary.reporting_derivation_profile.v2', $6,
         'cartulary.report.default', '1', 'cartulary.redaction.internal', '1', $7,
         'slidev', 'text/html', $8, $9, '{}'::jsonb,
         'rendered', $10, '[]'::jsonb, '{}'::jsonb, '[]'::jsonb,

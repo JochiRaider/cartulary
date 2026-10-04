@@ -61,7 +61,7 @@ RETURNING *;
 
 -- name: CreateRenderFailedReportingRelease :one
 INSERT INTO reporting_releases (
-    incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
+    release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
     snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
     output_kind, output_options, graph_projection_refs, composition_id, composition_version,
@@ -70,12 +70,12 @@ INSERT INTO reporting_releases (
     create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
 )
 VALUES (
-    $1, $2, $3, $4, $5, 'render_failed',
-    $6, $7, $8, $9,
-    $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19,
-    $20, $21, NULL, NULL, NULL, NULL,
-    $22, $23, $24, $25, $25
+    $1, $2, $3, $4, $5, $6, 'render_failed',
+    $7, $8, $9, $10,
+    $11, $12, $13, $14, $15,
+    $16, $17, $18, $19, $20,
+    $21, $22, NULL, NULL, NULL, NULL,
+    $23, $24, $25, $26, $26
 )
 RETURNING *;
 

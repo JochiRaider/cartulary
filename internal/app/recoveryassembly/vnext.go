@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -28,6 +29,11 @@ func (repository *VNextSnapshotRepository) WithinRepeatableReadReadOnly(
 	if repository == nil || repository.db == nil || run == nil {
 		return fmt.Errorf("%w: snapshot repository dependencies are required", recovery.ErrVNextBackup)
 	}
+	lease, err := reference_data.AcquireBackupRetention(ctx, repository.db)
+	if err != nil {
+		return err
+	}
+	defer lease.Close()
 	tx, err := repository.db.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel:   pgx.RepeatableRead,
 		AccessMode: pgx.ReadOnly,

@@ -50,6 +50,9 @@ func newProcessEnv(t testing.TB, options processEnvOptions) map[string]string {
 		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = options.BootstrapPath
 	}
 	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
+	if _, ok := env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"]; !ok {
+		env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"] = fixtures.Path("reference-packs", "trust-bootstrap.json")
+	}
 	mergeProcessEnv(env, options.Overrides)
 	configtest.BindPostgresEnvToDatabaseRoot(t, env["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env, postgres.PurposeRuntime)
 	return env

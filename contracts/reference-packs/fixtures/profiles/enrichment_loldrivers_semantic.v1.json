@@ -1,0 +1,7 @@
+{
+  "pack_key": "enrichment.loldrivers",
+  "members": {
+    "payload/entries.ndjson": "{\"aliases\":[],\"categories\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"driver_id\":\"fixture\",\"entry_id\":\"fixture\",\"extensions\":{},\"filenames\":[\"fixture.sys\"],\"hashes\":[{\"algorithm\":\"sha256\",\"value\":\"0000000000000000000000000000000000000000000000000000000000000000\"}],\"references\":[\"https://example.invalid/\"],\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.loldrivers.entry.v1\",\"signer_names\":[],\"source_refs\":[{\"artifact_index\":1,\"locator\":\"fixture:1\"}]}\n"
+  },
+  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+}

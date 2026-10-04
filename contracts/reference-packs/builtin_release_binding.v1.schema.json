@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_builtin_release_binding.v1",
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_builtin_release_binding.v1"
+    },
+    "pack_key": {
+      "type": "string",
+      "enum": [
+        "type_registry.evidence",
+        "type_registry.host",
+        "type_registry.indicator"
+      ]
+    },
+    "pack_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    },
+    "pack_release_sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payload_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "content_profile_id": {
+      "type": "string",
+      "pattern": "^cartulary\\.reference_pack\\.type_registry\\.(evidence|host|indicator)\\.v1$"
+    },
+    "content_profile_version": {
+      "const": "1"
+    }
+  },
+  "required": [
+    "schema_id",
+    "pack_key",
+    "pack_version",
+    "pack_release_sequence",
+    "manifest_sha256",
+    "payload_sha256",
+    "content_profile_id",
+    "content_profile_version"
+  ],
+  "additionalProperties": false
+}

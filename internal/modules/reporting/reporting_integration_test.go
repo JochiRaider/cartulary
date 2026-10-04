@@ -1,7 +1,9 @@
 package reporting_test
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -68,6 +70,17 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	requireSnapshotBoundaryJSON(t, harness.DB, snapshotID, initialWatermark, incidentID)
 	exportModel := requireSnapshotExportModel(t, harness.DB, snapshotID)
 	requireExportModelCoverage(t, exportModel, fixture)
+	requireSnapshotSourceIdentities(t, exportModel, snapshotID)
+	binding, ok := exportModel["reference_packs"].(map[string]any)
+	if !ok {
+		t.Fatal("snapshot omitted Reference Pack binding")
+	}
+	if !strings.HasPrefix(binding["pack_set_id"].(string), "rpset_") || len(binding["pack_set_sha256"].(string)) != 64 || len(binding["provenance"].([]any)) != 3 {
+		t.Fatalf("invalid Reference Pack binding: %#v", binding)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM reference_pack_pins WHERE owner_kind='reporting_snapshot_job' AND owner_id=$1 AND pack_set_id=$2`, firstSnapshotJob["job_id"], binding["pack_set_id"]); got != 1 {
+		t.Fatal("snapshot admission did not pin its exact set")
+	}
 
 	scenariotest.PatchIncident(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"base_incident_version": 1,
@@ -137,8 +150,12 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		t.Fatalf("release must expose output and manifest hashes, got %#v", release)
 	}
 	bundleManifestSHA, bundleManifest := requireReleaseBundle(t, harness.DB, releaseID)
+	requireRenderAdmissionIdentities(t, harness.DB, release, bundleManifest)
 	if release["output_sha256"] != bundleManifestSHA || bundleManifest["schema_id"] != reporting.RenderBundleManifestSchemaID {
 		t.Fatalf("release output_sha256 must bind render bundle manifest: release=%#v bundle_sha=%q bundle=%#v", release, bundleManifestSHA, bundleManifest)
+	}
+	if !reflect.DeepEqual(bundleManifest["reference_packs"], binding) {
+		t.Fatal("release changed snapshot Reference Pack provenance")
 	}
 	rendered, manifest := requireReleaseArtifacts(t, harness.DB, releaseID)
 	if refs := release["recipient_partition_refs"].([]any); len(refs) != 1 || refs[0] != "party:"+fixture["party"] {
@@ -191,15 +208,17 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	if tokenizedRelease["output_sha256"] != tokenizedBundleSHA {
 		t.Fatalf("tokenized release output must bind bundle manifest: release=%#v bundle_sha=%q", tokenizedRelease["output_sha256"], tokenizedBundleSHA)
 	}
-	tokenManifestSHA, revealMapSHA, tokenManifest, revealMap := requireReleaseTokenArtifacts(t, harness.DB, tokenizedReleaseID)
+	tokenArtifact, revealArtifact := requireReleaseTokenArtifacts(t, harness.DB, tokenizedReleaseID)
+	tokenManifestSHA := tokenArtifact.objectSHA
+	tokenManifest, revealMap := tokenArtifact.object, revealArtifact.object
 	if tokenizedRedactionManifest["token_manifest_sha256"] != tokenManifestSHA {
 		t.Fatalf("redaction manifest must bind token manifest: manifest=%#v token_sha=%q", tokenizedRedactionManifest, tokenManifestSHA)
 	}
 	if tokenizedBundleManifest["token_manifest_sha256"] != tokenManifestSHA {
 		t.Fatalf("bundle manifest must bind token manifest: bundle=%#v token_sha=%q", tokenizedBundleManifest, tokenManifestSHA)
 	}
-	requireBundleManifestFile(t, tokenizedBundleManifest, "token_manifest", "validation/token-manifest.json", tokenManifestSHA, true)
-	requireBundleManifestFile(t, tokenizedBundleManifest, "sensitive_reveal_map", "internal/reveal-map.json", revealMapSHA, false)
+	requireBundleManifestFile(t, tokenizedBundleManifest, "token_manifest", "validation/token-manifest.json", tokenArtifact.fileSHA, true)
+	requireBundleManifestFile(t, tokenizedBundleManifest, "sensitive_reveal_map", "internal/reveal-map.json", revealArtifact.fileSHA, false)
 	requireTokenManifestEntry(t, tokenManifest, "party:"+fixture["party"])
 	if revealMap["schema_id"] != reporting.RedactionRevealMapSchemaID ||
 		revealMap["sensitivity"] != "internal_sensitive" ||
@@ -279,6 +298,26 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	liveNotesAfterPartitionedRelease := queryLiveWorkbookRowsJSON(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1")
 	if liveNotesAfterPartitionedRelease != liveNotesBeforePartitionedRelease {
 		t.Fatalf("recipient redaction must not change live workbook query results: before=%s after=%s", liveNotesBeforePartitionedRelease, liveNotesAfterPartitionedRelease)
+	}
+	// Loss of pinned content blocks new derivation without changing immutable
+	// output or preventing replay of a previously committed admission.
+	if _, err := harness.DB.Exec(`UPDATE reference_pack_objects SET available=false WHERE object_id IN (SELECT object_id FROM reference_pack_object_refs WHERE owner_kind='version' AND logical_path='notices/LICENSE.txt')`); err != nil {
+		t.Fatal(err)
+	}
+	releaseRequest := map[string]any{
+		"snapshot_id": snapshotID, "client_txn_id": "missing-reference-new-render",
+		"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
+		"redaction_profile_id": reporting.ExternalRedactionProfileID, "redaction_profile_version": "1",
+		"release_scope": "external_release", "output_kind": reporting.OutputKindSlidev, "recipient_partition_refs": []string{"party:" + fixture["party"]},
+	}
+	submit := func() *http.Response {
+		return httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases", releaseRequest, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}
+	httptestx.RequireErrorEnvelope(t, submit(), http.StatusConflict, "required_reference_pack_unavailable")
+	releaseRequest["client_txn_id"] = "txn-reporting-release-party-supersede"
+	replay := httptestx.RequireSuccessEnvelope(t, submit(), http.StatusAccepted)["data"].(map[string]any)
+	if replay["job_id"] != secondPartitionedJob["job_id"] {
+		t.Fatal("lost references changed committed admission replay")
 	}
 }
 
@@ -1455,12 +1494,12 @@ func queryLiveWorkbookRowsJSON(t testing.TB, harness *appsupport.ServerHarness, 
 
 func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[string]string) {
 	t.Helper()
-	if model["schema_id"] != reporting.ExportModelSchemaID || model["derivation_version"] != reporting.DerivationVersion {
-		t.Fatalf("snapshot export model must use current v1 identity, got %#v", model)
+	if model["schema_id"] != reporting.SnapshotModelSchemaID || model["derivation_version"] != reporting.DerivationVersion {
+		t.Fatalf("snapshot export model must use current v2 identity, got %#v", model)
 	}
 	for _, key := range []string{"sections", "records", "relationships", "timeline_events", "subjects", "diagrams", "assets", "support_index", "validation_summary"} {
 		if _, ok := model[key]; !ok {
-			t.Fatalf("snapshot export model missing v1 member %s: %#v", key, model)
+			t.Fatalf("snapshot export model missing v2 member %s: %#v", key, model)
 		}
 	}
 	if _, ok := model["fields"]; ok {
@@ -1901,7 +1940,12 @@ SELECT bundle_manifest_sha256, bundle_manifest_json, primary_bundle_path
 	return bundleSHA, manifest
 }
 
-func requireReleaseTokenArtifacts(t testing.TB, db *sql.DB, releaseID string) (string, string, map[string]any, map[string]any) {
+type retainedTokenArtifact struct {
+	fileSHA, objectSHA string
+	object             map[string]any
+}
+
+func requireReleaseTokenArtifacts(t testing.TB, db *sql.DB, releaseID string) (retainedTokenArtifact, retainedTokenArtifact) {
 	t.Helper()
 	rows, err := db.Query(`
 SELECT role, bundle_path, file_sha256, inline_bytes
@@ -1914,10 +1958,7 @@ SELECT role, bundle_path, file_sha256, inline_bytes
 		t.Fatalf("query token artifacts: %v", err)
 	}
 	defer func() { _ = rows.Close() }()
-	var tokenSHA string
-	var revealSHA string
-	var tokenManifest map[string]any
-	var revealMap map[string]any
+	var token, reveal retainedTokenArtifact
 	for rows.Next() {
 		var role string
 		var path string
@@ -1930,19 +1971,26 @@ SELECT role, bundle_path, file_sha256, inline_bytes
 		if err := json.Unmarshal(inlineBytes, &decoded); err != nil {
 			t.Fatalf("decode %s artifact at %s: %v", role, path, err)
 		}
+		fileSum := sha256.Sum256(inlineBytes)
+		if hex.EncodeToString(fileSum[:]) != fileSHA {
+			t.Fatal("retained file checksum mismatch")
+		}
+		objectSum := sha256.Sum256(append([]byte(decoded["schema_id"].(string)+"\n"), inlineBytes...))
+		artifact := retainedTokenArtifact{fileSHA, hex.EncodeToString(objectSum[:]), decoded}
+		if artifact.fileSHA == artifact.objectSHA {
+			t.Fatal("file and object hash domains conflated")
+		}
 		switch role {
 		case "token_manifest":
 			if path != "validation/token-manifest.json" || decoded["schema_id"] != reporting.RedactionTokenManifestSchemaID {
 				t.Fatalf("unexpected token manifest artifact: path=%q sha=%q decoded=%#v", path, fileSHA, decoded)
 			}
-			tokenSHA = fileSHA
-			tokenManifest = decoded
+			token = artifact
 		case "sensitive_reveal_map":
 			if path != "internal/reveal-map.json" || decoded["schema_id"] != reporting.RedactionRevealMapSchemaID {
 				t.Fatalf("unexpected reveal map artifact: path=%q sha=%q decoded=%#v", path, fileSHA, decoded)
 			}
-			revealSHA = fileSHA
-			revealMap = decoded
+			reveal = artifact
 		default:
 			t.Fatalf("unexpected token artifact role %q", role)
 		}
@@ -1950,10 +1998,10 @@ SELECT role, bundle_path, file_sha256, inline_bytes
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate token artifacts: %v", err)
 	}
-	if tokenSHA == "" || revealSHA == "" || tokenManifest == nil || revealMap == nil {
-		t.Fatalf("release token artifacts incomplete: token_sha=%q reveal_sha=%q token=%#v reveal=%#v", tokenSHA, revealSHA, tokenManifest, revealMap)
+	if token.fileSHA == "" || reveal.fileSHA == "" || token.object == nil || reveal.object == nil {
+		t.Fatal("release token artifacts incomplete")
 	}
-	return tokenSHA, revealSHA, tokenManifest, revealMap
+	return token, reveal
 }
 
 func requireBundleManifestFile(t testing.TB, manifest map[string]any, role string, path string, sha string, requiredForRelease bool) {
@@ -2010,4 +2058,83 @@ func manifestEntriesByPath(t testing.TB, manifest map[string]any) map[string]map
 		entries[entry["path"].(string)] = entry
 	}
 	return entries
+}
+
+func requireSnapshotSourceIdentities(t testing.TB, value any, snapshotID string) {
+	t.Helper()
+	count := 0
+	var visit func(any)
+	visit = func(v any) {
+		switch x := v.(type) {
+		case map[string]any:
+			for k, v := range x {
+				if k == "source_snapshot_id" {
+					count++
+					if v != snapshotID {
+						t.Fatalf("source reference escaped frozen snapshot: %v", v)
+					}
+				}
+				visit(v)
+			}
+		case []any:
+			for _, v := range x {
+				visit(v)
+			}
+		}
+	}
+	visit(value)
+	if count == 0 {
+		t.Fatal("snapshot fixture did not exercise source references")
+	}
+}
+
+func requireRenderAdmissionIdentities(t testing.TB, db *sql.DB, release, bundle map[string]any) {
+	t.Helper()
+	at, err := time.Parse(time.RFC3339Nano, release["render_admitted_at"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp := at.UTC().Format("2006-01-02T15:04:05.000000Z")
+	if bundle["release_id"] != release["release_id"] || bundle["snapshot_id"] != release["snapshot_id"] || bundle["preview_attempt_id"] != nil || bundle["bundle_created_at"] != stamp || bundle["render_admitted_at"] != stamp || bundle["export_model_sha256"] != release["export_model_sha256"] {
+		t.Fatal("render bundle lost admitted identity or time")
+	}
+	// Independent standard-library serialization of this ASCII-only literal tuple.
+	tuple := map[string]any{"schema_id": "cartulary.reporting_export_model_id.v1", "release_id": release["release_id"], "snapshot_id": release["snapshot_id"], "derivation_version": reporting.DerivationVersion, "render_admitted_at": stamp}
+	raw, _ := json.Marshal(tuple)
+	sum := sha256.Sum256(append([]byte("cartulary.reporting_export_model_id.v1\n"), raw...))
+	expected := "expm_" + hex.EncodeToString(sum[:])
+	if bundle["export_model_id"] != expected {
+		t.Fatal("render model used a different identity tuple")
+	}
+	rows, err := db.Query(`SELECT bundle_path,inline_bytes FROM reporting_render_bundle_files WHERE release_id=$1 AND role IN ('toolchain_snapshot','validation_summary','redaction_manifest','deck_model') ORDER BY bundle_path`, release["release_id"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	count := 0
+	for rows.Next() {
+		var path string
+		var raw []byte
+		if err := rows.Scan(&path, &raw); err != nil {
+			t.Fatal(err)
+		}
+		var artifact map[string]any
+		if err := json.Unmarshal(raw, &artifact); err != nil {
+			t.Fatal(err)
+		}
+		count++
+		if path == "intermediate/deck-model.json" {
+			if artifact["release_id"] != release["release_id"] || artifact["snapshot_id"] != release["snapshot_id"] || artifact["render_admitted_at"] != stamp || !strings.HasPrefix(artifact["deck_id"].(string), "deck_") {
+				t.Fatal("deck lost admitted identity")
+			}
+		} else if artifact["created_at"] != stamp {
+			t.Fatalf("%s has a different generated time", path)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if count != 4 {
+		t.Fatalf("generated artifact coverage=%d", count)
+	}
 }

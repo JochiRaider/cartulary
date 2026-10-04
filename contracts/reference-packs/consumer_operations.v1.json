@@ -1,0 +1,54 @@
+{
+  "schema_id": "cartulary.reference_pack_consumer_operations.v1",
+  "operations": [
+    {
+      "operation": "ResolveCurrentPackSet",
+      "request_schema": "resolve_current_pack_set_request.v1.schema.json",
+      "result_schema": "resolve_current_pack_set_result.v1.schema.json",
+      "field_order": []
+    },
+    {
+      "operation": "GetPackEntry",
+      "request_schema": "get_pack_entry_request.v1.schema.json",
+      "result_schema": "get_pack_entry_result.v1.schema.json",
+      "field_order": [
+        "pack_set_id",
+        "pack_key",
+        "entry_id"
+      ]
+    },
+    {
+      "operation": "LookupPackEntries",
+      "request_schema": "lookup_pack_entries_request.v1.schema.json",
+      "result_schema": "lookup_pack_entries_result.v1.schema.json",
+      "field_order": [
+        "pack_set_id",
+        "pack_key",
+        "lookup_kind",
+        "lookup_value",
+        "limit",
+        "cursor"
+      ]
+    },
+    {
+      "operation": "EvaluateIndicatorValue",
+      "request_schema": "evaluate_indicator_value_request.v1.schema.json",
+      "result_schema": "evaluate_indicator_value_result.v1.schema.json",
+      "field_order": [
+        "pack_set_id",
+        "indicator_type_id",
+        "value_kind",
+        "raw_value"
+      ]
+    },
+    {
+      "operation": "GetPackProvenance",
+      "request_schema": "get_pack_provenance_request.v1.schema.json",
+      "result_schema": "get_pack_provenance_result.v1.schema.json",
+      "field_order": [
+        "pack_set_id",
+        "pack_key"
+      ]
+    }
+  ]
+}

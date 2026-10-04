@@ -3,6 +3,7 @@ package recovery_test
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -290,36 +291,27 @@ func TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit(t *testi
 }
 
 func TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-durable-catalog")
-	store := recovery.NewStore(db)
-	backupStorage := newEncryptedBackupStorage(t, t.TempDir())
-	capture := recovery.NewCaptureService(store, backupStorage, testExtensionBackupCatalog(t))
 	ctx := context.Background()
-
-	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	older, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
-		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100111"),
-		ConsistencyPointAt: asOf.Add(-2 * time.Hour),
-		CreatedAt:          asOf.Add(-3 * time.Hour),
-		RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
-	}))
-	if err != nil {
-		t.Fatalf("capture older durable backup: %v", err)
-	}
-	newer, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-01-durable-catalog", uuid.MustParse("00000000-0000-0000-0000-000000100111"))
+	asOf := fixture.AsOf.Add(time.Hour)
+	older := fixture.BackupSet
+	captured, err := fixture.Capture.Capture(ctx, recovery.VNextCaptureParams{
 		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100112"),
-		ConsistencyPointAt: asOf.Add(-time.Hour),
-		CreatedAt:          asOf.Add(-90 * time.Minute),
+		ConsistencyPointAt: asOf.Add(-30 * time.Minute),
+		CreatedAt:          asOf,
 		RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
-	}))
+	})
 	if err != nil {
 		t.Fatalf("capture newer durable backup: %v", err)
 	}
-
-	catalog := recovery.NewBackupCatalog(store, tamperedBackupStorage{
-		Inner:   backupStorage,
+	newer, err := fixture.Store.PublishVNextCapturedBackup(ctx, captured)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := recovery.NewBackupCatalog(fixture.Store, tamperedBackupStorage{
+		Inner:   fixture.BackupStorage,
 		Missing: map[string]bool{newer.IntegrityManifestKey: true},
-	}, testExtensionBackupCatalog(t))
+	}, testExtensionBackupCatalog(t), currentStateCatalog(t))
 	selection, err := catalog.RestoreCandidateBackupSelection(ctx, asOf)
 	if err != nil {
 		t.Fatalf("select latest durable backup: %v", err)
@@ -418,6 +410,49 @@ func (storage tamperedBackupStorage) ReadArtifact(ctx context.Context, key strin
 		return replacement, nil
 	}
 	return storage.Inner.ReadArtifact(ctx, key, maxBytes)
+}
+
+func (storage tamperedBackupStorage) WriteArtifactStream(ctx context.Context, request recovery.BackupArtifactStreamWriteRequest) (recovery.BackupArtifactStreamProof, error) {
+	inner, err := recovery.RequireStreamingBackupStorage(storage.Inner)
+	if err != nil {
+		return recovery.BackupArtifactStreamProof{}, err
+	}
+	return inner.WriteArtifactStream(ctx, request)
+}
+
+func (storage tamperedBackupStorage) ReadArtifactStream(ctx context.Context, proof recovery.BackupArtifactStreamProof, destination io.Writer) error {
+	key := recovery.VNextMetadataArtifactKey(proof.LogicalRef)
+	if storage.Missing[key] {
+		return os.ErrNotExist
+	}
+	if replacement, ok := storage.Replacements[key]; ok {
+		// A corrupted plaintext cannot satisfy the retained digest, even if its
+		// surrounding storage adapter remains available.
+		if recovery.SHA256String(string(replacement)) != proof.PlaintextSHA256 {
+			return recovery.ErrInvalidBackupArtifact
+		}
+		_, err := destination.Write(replacement)
+		return err
+	}
+	inner, err := recovery.RequireStreamingBackupStorage(storage.Inner)
+	if err != nil {
+		return err
+	}
+	return inner.ReadArtifactStream(ctx, proof, destination)
+}
+
+func (storage tamperedBackupStorage) ResolveObjectProof(ctx context.Context, entry recovery.VNextObjectManifestEntry) (recovery.BackupArtifactStreamProof, error) {
+	if storage.Missing[entry.StorageKey] {
+		return recovery.BackupArtifactStreamProof{}, os.ErrNotExist
+	}
+	if body, ok := storage.Replacements[entry.StorageKey]; ok && recovery.SHA256String(string(body)) != entry.PlaintextSHA256 {
+		return recovery.BackupArtifactStreamProof{}, recovery.ErrInvalidBackupArtifact
+	}
+	resolver, ok := storage.Inner.(recovery.VNextObjectProofResolver)
+	if !ok {
+		return recovery.BackupArtifactStreamProof{}, recovery.ErrInvalidBackupArtifact
+	}
+	return resolver.ResolveObjectProof(ctx, entry)
 }
 
 func TestCaptureRequiresArtifactProofs_Unit(t *testing.T) {

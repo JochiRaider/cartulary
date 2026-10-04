@@ -30,7 +30,8 @@ import (
 func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	database := runtime.PrepareServerDatabase(t, "extension_profile-incident-bundle-export")
-	harness := runtime.StartServerWithDatabase(t, "extension_profile-incident-bundle-export", database)
+	retainedRoots := map[string]string{"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH": t.TempDir()}
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-export", Database: database, Env: retainedRoots, TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source",
@@ -150,12 +151,7 @@ SELECT status_code, response_json
 			uuid.MustParse(adminID),
 			uuid.MustParse(incidentID),
 			func() *appsupport.ServerHarness {
-				return runtime.StartServerWithDatabaseAndObjectStore(
-					t,
-					"incident-bundle-named-runner-recovery",
-					database,
-					harness.ObjectStore,
-				)
+				return runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident-bundle-named-runner-recovery", Database: database, ObjectStore: harness.ObjectStore, Env: retainedRoots, TestRouteMode: httptestx.TestRouteModeDisabled})
 			},
 		)
 	})
@@ -258,7 +254,7 @@ VALUES ($1, 'export', $2, $3, $4, $5, $5)
 		t.Fatal(readErr)
 	}
 	var manifest incidentBundleManifestMirror
-	if err := json.Unmarshal(zipMemberBytes(t, artifact, "manifest.json"), &manifest); err != nil || manifest.BundleVersion != 4 {
+	if err := json.Unmarshal(zipMemberBytes(t, artifact, "manifest.json"), &manifest); err != nil || manifest.BundleVersion != 5 {
 		t.Fatalf("previously queued export did not generate v4: version=%d err=%v", manifest.BundleVersion, err)
 	}
 }

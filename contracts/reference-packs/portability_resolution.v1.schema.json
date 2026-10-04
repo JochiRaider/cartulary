@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_portability_resolution.v1",
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_portability_resolution.v1"
+    },
+    "versions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "pack_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+            "maxLength": 128
+          },
+          "pack_version": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "reason_code": {
+            "enum": [
+              null,
+              "not_retained",
+              "removed",
+              "not_usable",
+              "content_unavailable"
+            ]
+          }
+        },
+        "required": [
+          "pack_key",
+          "pack_version",
+          "available",
+          "reason_code"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_id",
+    "versions"
+  ],
+  "additionalProperties": false
+}

@@ -13,13 +13,14 @@ func VNextRecoveryObjectInventory(
 	return recovery.NewVNextObjectInventoryProvider(
 		"module.reference_data",
 		"reference_packs.members",
-		"reference_data.snapshot_member_inventory.v1",
+		"reference_data.snapshot_member_inventory.v2",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
 			rows, err := snapshot.QueryRows(ctx, `
-SELECT pack_key, version, bundle_storage_ref, bundle_sha256
-  FROM reference_packs
- WHERE status IN ('staged', 'available', 'disabled')
- ORDER BY pack_key ASC, version ASC
+SELECT o.object_id::text, o.storage_ref, o.sha256, o.size_bytes
+  FROM reference_pack_objects o
+ WHERE EXISTS (SELECT 1 FROM reference_pack_object_refs r WHERE r.object_id=o.object_id)
+ OR EXISTS (SELECT 1 FROM reference_pack_envelopes e WHERE e.container_ref=o.storage_ref)
+ ORDER BY o.object_id
 `)
 			if err != nil {
 				return nil, fmt.Errorf("inventory Reference Pack members: %w", err)
@@ -27,17 +28,21 @@ SELECT pack_key, version, bundle_storage_ref, bundle_sha256
 			defer rows.Close()
 			var members []recovery.VNextObjectMember
 			for rows.Next() {
-				var packKey, version, storageKey, digest string
-				if err := rows.Scan(&packKey, &version, &storageKey, &digest); err != nil {
+				var objectID, storageKey, digest string
+				var size int64
+				if err := rows.Scan(&objectID, &storageKey, &digest, &size); err != nil {
 					return nil, fmt.Errorf("scan Reference Pack member: %w", err)
 				}
 				info, err := source.StatRecoveryObject(ctx, storageKey)
 				if err != nil {
-					return nil, fmt.Errorf("stat Reference Pack member %s/%s: %w", packKey, version, err)
+					return nil, fmt.Errorf("stat retained Reference Pack object: %w", err)
 				}
-				logicalID := recovery.VNextLogicalObjectID("reference-pack", packKey, version)
+				if info.PlaintextBytes != size {
+					return nil, fmt.Errorf("retained Reference Pack object size mismatch")
+				}
+				logicalID := recovery.VNextLogicalObjectID("reference-pack", objectID)
 				members = append(members, recovery.VNextStoredObjectMember(
-					source, logicalID, storageKey, "application/zip", info.PlaintextBytes, digest,
+					source, logicalID, storageKey, "application/octet-stream", size, digest,
 				))
 			}
 			if err := rows.Err(); err != nil {

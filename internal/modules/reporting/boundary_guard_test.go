@@ -13,11 +13,19 @@ const reportingRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestReportingProductionImportBoundaries(t *testing.T) {
 	allowedSiblingImports := map[string]map[string]bool{
+		reportingRepoImportPrefix + "internal/modules/incidentbundles/artifactport":   {"portable_artifacts.go": true, "portable_export.go": true, "portable_recovery.go": true},
+		reportingRepoImportPrefix + "internal/modules/graphprojection/postgresresult": {"graph_source.go": true},
+		reportingRepoImportPrefix + "internal/modules/reporting/graphsourcecontract":  {"graph_source.go": true, "render_bundle.go": true},
+		reportingRepoImportPrefix + "internal/modules/incidents/admission":            {"application_service.go": true, "routes.go": true},
+		reportingRepoImportPrefix + "internal/modules/reference_data": {
+			"portable_references.go": true, "portable_artifacts.go": true, "portable_export.go": true, "portable_recovery.go": true, "store.go": true, "redaction.go": true, "routes.go": true, "render_bundle.go": true,
+		},
+		reportingRepoImportPrefix + "internal/modules/recovery": {"recovery_inventory.go": true},
 		reportingRepoImportPrefix + "internal/modules/entities/mentions/reportingprovider": {
 			"export_materializer.go": true,
 		},
 		reportingRepoImportPrefix + "internal/modules/graphprojection": {
-			"store.go": true,
+			"store.go": true, "graph_source.go": true, "render_bundle.go": true,
 		},
 		reportingRepoImportPrefix + "internal/modules/incidents": {
 			"application_service.go": true,
@@ -75,10 +83,11 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 
 func TestReportingProductionDoesNotReadOwnerTablesDirectly(t *testing.T) {
 	forbiddenFragments := []string{
-		"graph_projection_runs",
-		"report_compositions",
-		"report_composition_versions",
-		"report_composition_release_bindings",
+		"FROM reference_pack_", "JOIN reference_pack_",
+		"FROM graph_projection_runs", "JOIN graph_projection_runs",
+		"FROM report_compositions", "JOIN report_compositions",
+		"FROM report_composition_versions", "JOIN report_composition_versions",
+		"FROM report_composition_release_bindings", "JOIN report_composition_release_bindings",
 		"FROM incidents",
 		"FROM change_sets",
 		"FROM records",

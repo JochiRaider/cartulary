@@ -1,8 +1,10 @@
 package incidentbundles_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -10,12 +12,79 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
+
+func TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	t.Run("historical reporting artifacts", func(t *testing.T) { testReportingArtifactRoundTrip(t, runtime) })
+	source := runtime.StartDefaultServer(t, "reference-catalog-source")
+	t.Run("embedded destination verification", func(t *testing.T) {
+		testEmbeddedReferenceDestinationVerification(t, runtime, startIsolatedIncidentBundleServer(t, runtime, "embedded-reference-source"))
+	})
+	target := startIsolatedIncidentBundleServer(t, runtime, "reference-catalog-target")
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, source.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, target.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "reference-catalog-incident", "incident_key": "REFERENCE-CATALOG", "title": "Portable reference history"})
+	id := incident["incident_id"].(string)
+	container := exportBundleBytes(t, source, sourceAdmin, id, "reference-catalog-export")
+	fixture, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-references.v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs, err := reference_data.DecodeIncidentBundleReferences(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := reference_data.EncodeIncidentBundleReferences(refs.Sets, refs.Versions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	container = replaceStructuredBundleMember(t, container, "data/reference_pack_refs.json", expected)
+	importBundleAndWait(t, target.Server, targetAdmin, container, "reference-catalog-import")
+	reexported := exportBundleBytes(t, target, targetAdmin, id, "reference-catalog-reexport")
+	if actual := zipMemberBytes(t, reexported, "data/reference_pack_refs.json"); !bytes.Equal(actual, expected) {
+		t.Fatalf("unavailable references changed after import/export: %s", actual)
+	}
+}
+
+func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	source := runtime.StartDefaultServer(t, "native-reference-source")
+	target := startIsolatedIncidentBundleServer(t, runtime, "native-reference-target")
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, source.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, target.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "native-reference-incident", "incident_key": "NATIVE-REFERENCES", "title": "Retained native snapshot references"})
+	id := incident["incident_id"].(string)
+	for _, txn := range []string{"snapshot-one", "snapshot-two"} {
+		response := httptestx.DoJSON(t, http.MethodPost, source.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": id, "client_txn_id": txn}, httptestx.WithCookies(sourceAdmin.SessionCookie, sourceAdmin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRFCookie.Value))
+		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
+		waitJob(t, source.Server, sourceAdmin, job["job_id"].(string))
+	}
+	container := exportBundleBytes(t, source, sourceAdmin, id, "native-reference-export")
+	exported := zipMemberBytes(t, container, "data/reference_pack_refs.json")
+	refs, err := reference_data.DecodeIncidentBundleReferences(exported)
+	if err != nil || len(refs.Sets) != 1 || len(refs.Versions) != 3 {
+		t.Fatal("native snapshot bindings absent or duplicated", string(exported), err)
+	}
+	var pinned string
+	if err := source.DB.QueryRow(`SELECT export_model_json->'reference_packs'->>'pack_set_id' FROM reporting_snapshots WHERE incident_id=$1 ORDER BY snapshot_id LIMIT 1`, id).Scan(&pinned); err != nil {
+		t.Fatal(err)
+	}
+	if refs.Sets[0].ID != pinned {
+		t.Fatal("native binding substituted")
+	}
+	importBundleAndWait(t, target.Server, targetAdmin, container, "native-reference-import")
+	roundTrip := exportBundleBytes(t, target, targetAdmin, id, "native-reference-reexport")
+	if !bytes.Equal(zipMemberBytes(t, roundTrip, "data/reference_pack_refs.json"), exported) {
+		t.Fatal("native references changed after import")
+	}
+}
 
 func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)

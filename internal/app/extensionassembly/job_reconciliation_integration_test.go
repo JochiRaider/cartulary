@@ -186,7 +186,7 @@ func reconciliationPlatformContract() jobs.Definition {
 		JobKind:        "test_profile.run_v1",
 		ProgressUnitID: "test_profile.run.attempt.v1",
 		HandlerName:    "test_profile.worker_v1",
-		Extension: &jobs.ExtensionPolicy{
+		Extension: &jobs.ExtensionPolicy{IdentitySchemaID: jobs.HumanRouteIdentitySchema,
 			OwnerProfileID: "test_profile", OperationKind: "test_profile.run",
 			ContractSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			ProofRequired:  true, MaxProofBytes: 4096,

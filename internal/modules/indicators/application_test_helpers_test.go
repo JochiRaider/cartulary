@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -27,6 +28,7 @@ func newIndicatorTestApplication(t testing.TB, db postgres.DB, appender *revisio
 		t.Fatalf("compose Projections: %v", err)
 	}
 	application, err := indicators.NewApplication(indicators.ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        db,
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(db)),
 		IncidentState:   admission.NewChecker(db),

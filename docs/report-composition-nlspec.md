@@ -1,13 +1,16 @@
 ---
 title: Cartulary Report Composition NLSpec
-status: adopted/current
+status: proposed-amendment
 document_class: nlspec
 profile: snapshot_reporting
-document_version: 1.2.0
+document_version: 1.3.0
+adopted_base_version: 1.2.0
 schema_id: cartulary.report_composition_nlspec.v1
 ---
 
 # 1. Status, Scope, And Authority
+
+This proposed 1.3.0 cutover amendment preserves the adopted 1.2.0 base until coordinated adoption. An authoritative preview supplies its existing immutable `preview_attempt_id` and microsecond admission instant to Reporting 1.4.0. Reporting derives preview-specific model, deck and token IDs; it must not allocate a synthetic release identity for a preview. The same admitted attempt replays with the same identity, time, exact snapshot and Reference Pack binding.
 
 This NLSpec defines the Cartulary Report Composition companion subsystem for the Snapshot and Reporting Extension Profile. It becomes implementation-conformance authority only after promotion to `status: adopted/current` and after the required Core and Reporting companion amendments named by this document are adopted.
 

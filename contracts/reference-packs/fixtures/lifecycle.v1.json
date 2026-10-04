@@ -1,0 +1,159 @@
+{
+  "schema_id": "cartulary.reference_pack_lifecycle_fixture.v1",
+  "steps": [
+    {
+      "fixture_id": "rpfx_lifecycle_reconcile_claimed",
+      "operation": "reconcile_claimed",
+      "client_txn_id": "reconcile_claimed",
+      "input_ref": null,
+      "expected_active": null,
+      "expected_disabled": null,
+      "expected_removed": null,
+      "expected_job_status": null,
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_import",
+      "operation": "import",
+      "client_txn_id": "canonical-import",
+      "input_ref": null,
+      "expected_active": false,
+      "expected_disabled": false,
+      "expected_removed": false,
+      "expected_job_status": "succeeded",
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_replay",
+      "operation": "import",
+      "client_txn_id": "canonical-import",
+      "input_ref": null,
+      "expected_active": false,
+      "expected_disabled": false,
+      "expected_removed": false,
+      "expected_job_status": "succeeded",
+      "expected_replayed": true
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_activate",
+      "operation": "activate",
+      "client_txn_id": "activate",
+      "input_ref": null,
+      "expected_active": true,
+      "expected_disabled": false,
+      "expected_removed": false,
+      "expected_job_status": null,
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_reverify_active",
+      "operation": "reverify",
+      "client_txn_id": "reverify_active",
+      "input_ref": null,
+      "expected_active": true,
+      "expected_disabled": false,
+      "expected_removed": false,
+      "expected_job_status": "succeeded",
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_disable",
+      "operation": "disable",
+      "client_txn_id": "disable",
+      "input_ref": null,
+      "expected_active": false,
+      "expected_disabled": true,
+      "expected_removed": false,
+      "expected_job_status": null,
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_renew",
+      "operation": "renew",
+      "client_txn_id": "renew",
+      "input_ref": "contracts/reference-packs/fixtures/admission/equivalent_tar.v1.json",
+      "expected_active": false,
+      "expected_disabled": true,
+      "expected_removed": false,
+      "expected_job_status": "succeeded",
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_refresh",
+      "operation": "refresh",
+      "client_txn_id": "refresh",
+      "input_ref": null,
+      "expected_active": false,
+      "expected_disabled": true,
+      "expected_removed": false,
+      "expected_job_status": "succeeded",
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_cancel",
+      "operation": "cancel_reverify",
+      "client_txn_id": "cancel",
+      "input_ref": null,
+      "expected_active": false,
+      "expected_disabled": true,
+      "expected_removed": false,
+      "expected_job_status": "canceled",
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_empty_refresh",
+      "operation": "empty_refresh",
+      "client_txn_id": "empty_refresh",
+      "input_ref": null,
+      "expected_active": false,
+      "expected_disabled": true,
+      "expected_removed": false,
+      "expected_job_status": "succeeded",
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_remove",
+      "operation": "remove",
+      "client_txn_id": "remove",
+      "input_ref": null,
+      "expected_active": false,
+      "expected_disabled": true,
+      "expected_removed": true,
+      "expected_job_status": null,
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_reimport",
+      "operation": "renew",
+      "client_txn_id": "reimport",
+      "input_ref": "contracts/reference-packs/fixtures/admission/equivalent_tar.v1.json",
+      "expected_active": false,
+      "expected_disabled": true,
+      "expected_removed": false,
+      "expected_job_status": "succeeded",
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_reactivate",
+      "operation": "activate",
+      "client_txn_id": "reactivate",
+      "input_ref": null,
+      "expected_active": true,
+      "expected_disabled": false,
+      "expected_removed": false,
+      "expected_job_status": null,
+      "expected_replayed": false
+    },
+    {
+      "fixture_id": "rpfx_lifecycle_reconcile_unclaimed",
+      "operation": "reconcile_unclaimed",
+      "client_txn_id": "reconcile_unclaimed",
+      "input_ref": null,
+      "expected_active": false,
+      "expected_disabled": false,
+      "expected_removed": false,
+      "expected_job_status": null,
+      "expected_replayed": false
+    }
+  ]
+}

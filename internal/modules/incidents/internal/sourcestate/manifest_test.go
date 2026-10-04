@@ -33,7 +33,7 @@ func TestManifestProjectsDefensiveSourceAndRecoveryFacts(t *testing.T) {
 	descriptor.Path.StableIdentity[0] = "changed"
 	descriptor.InvariantIDs[0] = "changed"
 	if projected := validated.descriptor(); projected.OwnerRelationIDs[0] != "incident-core" ||
-		projected.Path.Versions[0] != 4 || projected.Path.StableIdentity[0] != "id" ||
+		projected.Path.Versions[0] != 5 || projected.Path.StableIdentity[0] != "id" ||
 		projected.InvariantIDs[0] != expectedInvariants[0] {
 		t.Fatalf("descriptor accessor exposed catalog slices: %#v", projected)
 	}

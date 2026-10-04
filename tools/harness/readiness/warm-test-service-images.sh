@@ -3,19 +3,20 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 
-write_stamp() {
+write_stamp() (
   local stamp_file="$1"
   local bin_path="$2"
   local tmp_file
-  tmp_file="${stamp_file}.tmp"
   mkdir -p "$(dirname "$stamp_file")"
+  tmp_file="$(mktemp "${stamp_file}.XXXXXX")"
+  trap 'rm -f -- "$tmp_file"' EXIT
   {
     printf 'schema_id=cartulary.test_service_images_ready.v1\n'
     printf 'testservices_bin=%s\n' "$bin_path"
     printf 'created_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   } >"$tmp_file"
-  mv "$tmp_file" "$stamp_file"
-}
+  mv -- "$tmp_file" "$stamp_file"
+)
 
 if [[ "${1:-}" == "--write-stamp" ]]; then
   if [[ "$#" -ne 3 ]]; then

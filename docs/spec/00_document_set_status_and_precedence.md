@@ -106,7 +106,7 @@ An implementation MAY additionally claim any of the following extension profiles
 - **Import Extension Profile** for file-based structured import beyond clipboard paste, including bounded CSV and XLSX onboarding.
 - **Snapshot and Reporting Extension Profile** for immutable incident snapshots, report-composition authoring inputs, and self-contained report or presentation outputs.
 - **Incident Portability Extension Profile** for full-fidelity administrative whole-incident export/import between trusted Cartulary deployments.
-- **Reference Pack Extension Profile** for reference-pack activation, refresh, and overlay behavior.
+- **Reference Pack Extension Profile** for offline authenticated import, immutable pack selection, verification, refresh, removal, and exact-set enrichment. Required release-bound Base registries initialize independently of this optional administration profile.
 - **Enterprise Authentication Extension Profile** for OIDC and SAML provider integration.
 - **Network Flow Activity Extension Profile** for incident-scoped Network Analysis tables, flow-row query, graph composition, and explicit indicator-link initiation.
 
@@ -137,10 +137,12 @@ With `docs/extension-subsystem-nlspec.md` and every companion named by its coord
 | `import` | `true` | `1` | Import owner sections in Core 01 | `[]` |
 | `incident_portability` | `true` | `1` | Incident Portability owner sections in Core 01 | `[]` |
 | `network_flow_activity` | `true` | `7` | `docs/network-flow-activity-nlspec.md` version `7.0.0` | exactly `import@1` |
-| `reference_pack` | `true` | `1` | Reference Pack owner sections in Core 01 | `[]` |
+| `reference_pack` | `true` | `2` | Reference Pack owner sections in Core 01, specialized by the coordinated Reference Pack NLSpec 0.2.0 cutover | `[]` |
 | `snapshot_reporting` | `true` | `1` | adopted Reporting and Report Composition owner documents | `[]` |
 
-Each `recognized_profile` owner fact MUST carry a non-null `primary_owner_contract_ref` that resolves to the exact adopted primary owner above. Every dependency declaration MUST bind the exact owner document version, document digest, owner-manifest identity, and owner-manifest digest. Capability facts are prohibited in extension contract major `1`; every required capability array is present and empty, and attempted activation fails with `extension_capability_not_supported`. A structurally valid nonempty capability array is an activation attempt even when it contains an unknown future string; callers MUST NOT receive a token-specific classification or have any supplied token echoed. Structural array or member-type failures remain request or manifest validation failures. This requirement is current through the atomic Extensions companion adoption; no pre-adoption recognition or capability contract remains current.
+The Reference Pack major-2 row is the coordinated pre-production cutover amendment and matches `contracts/extensions/fragments/core00.recognition.json`. The subsystem boundary in `docs/reference-pack-subsystem-nlspec.md` owns format, trust, profiles, immutable sets and consumer semantics; Core retains recognition, public transport, common Jobs and the other outer owner boundaries. Its draft status permits implementation and development acceptance but does not establish a production profile-conformance claim. The promotion conditions remain explicit in that document. A second implementation or recreation/interchangeability report is not a pre-production acceptance prerequisite.
+
+Each `recognized_profile` owner fact MUST carry a non-null `primary_owner_contract_ref` that resolves to the exact adopted primary owner above. Every dependency declaration MUST bind the exact owner document version, document digest, owner-manifest identity, and owner-manifest digest. Capability facts are prohibited in Extensions contract major `2`; every required capability array is present and empty, and attempted activation fails with `extension_capability_not_supported`. A structurally valid nonempty capability array is an activation attempt even when it contains an unknown future string; callers MUST NOT receive a token-specific classification or have any supplied token echoed. Structural array or member-type failures remain request or manifest validation failures. This requirement is current through the atomic Extensions companion adoption; no pre-adoption recognition or capability contract remains current.
 Profiles: base
 Verified by: AC-231, EXT-AC-145, EXT-AC-146, EXT-AC-157
 

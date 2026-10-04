@@ -440,14 +440,14 @@ The deployment recovery-operation exclusion boundary is a deployment-local mutua
 Before `restore_latest`, `restore_verify_latest`, or any selected verification inside `restore_verify_due` mutates a target database or target object namespace, the implementation MUST prove all target preflight conditions below:
 
 1. source and target database bindings are distinct;
-2. source and target object-store bindings are distinct;
+2. source and target object-store bindings are distinct; source and target Reference Pack filesystem roots are distinct and do not overlap;
 3. the target database is fresh, meaning it contains no application-owned Cartulary data except schema or migration bookkeeping required to admit the operation;
-4. the target object namespace is fresh, meaning it contains no object members reachable through the target object-store binding;
+4. the target object namespace and Reference Pack root are fresh, meaning they contain no retained object members;
 5. the operator holds the target's exclusive serving lease, proving that no
    target application HTTP or WebSocket listener is serving and preventing a
    target application process from starting listeners during mutation;
-6. the target has a valid `cartulary.restore_target_marker.v2` whose purpose,
-   target-generation ID, database-binding digest, object-store-binding digest,
+6. the target has a valid `cartulary.restore_target_marker.v3` whose purpose,
+   target-generation ID, database-binding digest, object-store-binding digest, Reference Pack storage-binding digest,
    issuance time, and expiry bind it to this exact admitted target;
 7. required recovery keys, backup artifacts, and integrity proofs for the selected backup are available.
 
@@ -3542,6 +3542,8 @@ Verified by: AC-320, AC-321, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-
 | `limits.archives.max_compression_ratio` | `100` | Maximum allowed extracted-bytes to compressed-bytes multiplier for archive-backed workflows. |
 | `limits.archives.max_members` | `10000` | Maximum allowed extracted regular-file member count for archive-backed workflows. |
 | `limits.reference_packs.max_extracted_bytes` | `536870912` | Extracted-bytes ceiling for reference-pack import, reverify, and refresh. |
+| `limits.reference_packs.max_container_bytes` | `536870912` | Complete admitted container byte ceiling, integer in `1..9223372036854775807`. |
+| `limits.reference_packs.max_verification_seconds` | `1800` | One monotonic execution budget for an attempt or entire refresh cohort, integer in `60..86400`, inclusive. Queue time belongs to Jobs. |
 | `limits.incident_bundles.max_extracted_bytes` | `68719476736` | Extracted-bytes ceiling for whole-incident bundle import. |
 | `limits.previews.max_previewable_payload_bytes` | `33554432` | Maximum payload size eligible for any ordinary inline preview issuance. |
 | `limits.previews.max_text_inline_bytes` | `1048576` | Maximum payload size eligible for `text_inline` preview issuance. |
@@ -4078,3 +4080,12 @@ This does not change deployment configuration syntax or file resolution.
   enlarged text sizes, unobscured focus and retained source-owner lifetimes.
   Functional, accessibility and reviewed production-renderer visual evidence
   support Design §12.7; no measured usability claim is implied.
+
+
+## Reference Pack configuration revision 2
+
+Reference Pack configuration uses the closed `reference_packs` namespace; its claim remains `reference_pack.claimed`. Omitted `clock_trusted` is `false`. Explicit null, non-boolean values, unknown members, and namespace aliases are invalid. This value is an operator assertion and MUST NOT be inferred from network time services. False prevents fresh operator verification and activation without invalidating retained historical content. Base reconciliation and empty refresh cohorts remain usable.
+
+A claimed profile requires `reference_packs.trust_bootstrap_path`, an absolute canonical path to a regular non-symlink file containing at most 8,388,608 bytes. Read and admit the complete canonical `cartulary.reference_pack_trust_bootstrap.v1` object before workers start. Install roots only for previously unseen repository IDs. Existing IDs require exact bootstrap bytes in retained root history; changing the configuration file cannot rotate, replace, or roll back retained trust. Sequential authenticated root updates own advancement. Configuration diagnostics MUST NOT echo paths or trust-file contents.
+
+Verification freshness uses one captured UTC verification-start instant, including an entire refresh cohort. Expiry equality is expired. The monotonic execution budget includes verification, indexing, publication-lock waiting and commit classification. Queue time is excluded. Proven commit is authoritative; proven absence classifies cancellation or timeout; indeterminate mutation follows Extensions' fatal integrity boundary. Process-local monotonic timestamps MUST NOT be persisted.

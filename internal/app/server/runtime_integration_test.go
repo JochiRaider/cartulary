@@ -357,7 +357,7 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
-		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 
 		var userID string
@@ -597,7 +597,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
-			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 0)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 		})
 	}
@@ -661,10 +661,12 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 			},
 		}
 
+		packRoot := filepath.Join(t.TempDir(), "reference-packs")
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, configtest.Overlay(
 					"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", tc.manifestPath,
+					"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH", packRoot,
 				)), env)
 
 				runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
@@ -675,7 +677,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 
 				requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)
 				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
-				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 0)
 				requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 			})
 		}
@@ -714,7 +716,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
-		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 0)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 0)
 	})
@@ -799,6 +801,7 @@ SELECT COALESCE(actor_user_id::text, ''),
        created_at,
        after_json
   FROM deployment_admin_audit_events
+ WHERE event_kind = 'bootstrap_admin_created'
  ORDER BY created_at ASC
  LIMIT 1
 `).Scan(&actorUserID, &targetUserID, &eventSource, &eventKind, &requestID, &createdAt, &afterJSON); err != nil {
@@ -827,7 +830,7 @@ func requireNoBootstrapSideEffects(t testing.TB, db *sql.DB) {
 	t.Helper()
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 0)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
-	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE event_kind = 'bootstrap_admin_created'`, 0)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 }
 

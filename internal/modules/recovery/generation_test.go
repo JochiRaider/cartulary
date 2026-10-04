@@ -15,7 +15,7 @@ func TestRecoveryGenerationRegistryOwnsOneExactCurrentGeneration_Unit(t *testing
 	if err != nil {
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
-	wantIDs := []string{"recovery.current.workbook_owned.graph_v4"}
+	wantIDs := []string{"recovery.current.reference_pack_v2.graph_v4"}
 	gotIDs := make([]string, 0, len(contractrecovery.RecoveryGenerations))
 	for _, generation := range contractrecovery.RecoveryGenerations {
 		gotIDs = append(gotIDs, generation.GenerationID)
@@ -129,12 +129,13 @@ func TestRecoveryGenerationSelectionDrivesVerificationBasisAndCadence_Unit(t *te
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
 	base := RestoreVerificationBasis{
-		MechanismID:                VNextBackupMechanismID,
-		DatabaseBindingSHA256:      strings.Repeat("a", 64),
-		ObjectStoreBindingSHA256:   strings.Repeat("b", 64),
-		BackupStorageBindingSHA256: strings.Repeat("c", 64),
-		RecoveryStateCatalogSHA256: registry.current.stateCatalog.DigestSHA256(),
-		CodecRegistrySHA256:        registry.current.codecRegistrySHA256,
+		MechanismID:                       VNextBackupMechanismID,
+		DatabaseBindingSHA256:             strings.Repeat("a", 64),
+		ObjectStoreBindingSHA256:          strings.Repeat("b", 64),
+		ReferencePackStorageBindingSHA256: strings.Repeat("d", 64),
+		BackupStorageBindingSHA256:        strings.Repeat("c", 64),
+		RecoveryStateCatalogSHA256:        registry.current.stateCatalog.DigestSHA256(),
+		CodecRegistrySHA256:               registry.current.codecRegistrySHA256,
 	}
 	asOf := time.Date(2026, 8, 19, 7, 0, 0, 0, time.UTC)
 	recentlyVerifiedAt := asOf.Add(-24 * time.Hour)
@@ -198,7 +199,7 @@ func TestRecoveryGenerationRegistryRejectsMalformedAndNonCurrentEntries_Unit(t *
 			name: "malformed frozen catalog",
 			build: func() []contractrecovery.RecoveryGeneration {
 				values := cloneRecoveryGenerations(contractrecovery.RecoveryGenerations)
-				values[0].CatalogJSON = `{"schema_id":"cartulary.recovery_state_catalog.v1"}`
+				values[0].CatalogJSON = `{"schema_id":"cartulary.recovery_state_catalog.v2"}`
 				values[0].CatalogCanonicalSHA256 = digestBytes([]byte(values[0].CatalogJSON))
 				return values
 			},

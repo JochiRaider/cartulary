@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reporting_render_identity.v1",
+  "description": "Closed projection of required render-identity members embedded in Reporting models and artifacts. Preview identity is valid only for internal_draft; parsed UTC dates must exist.",
+  "type": "object",
+  "properties": {
+    "release_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "preview_attempt_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "render_admitted_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+    }
+  },
+  "required": [
+    "release_id",
+    "preview_attempt_id",
+    "render_admitted_at"
+  ],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "release_id": {
+          "type": "string"
+        },
+        "preview_attempt_id": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "release_id": {
+          "type": "null"
+        },
+        "preview_attempt_id": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

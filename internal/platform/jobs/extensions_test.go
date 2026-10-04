@@ -55,7 +55,7 @@ func TestCanonicalExtensionTerminalSuccessValidatesResourceContracts_Unit(t *tes
 	definition := jobs.Definition{
 		JobKind: "import.apply_v1", ProgressUnitID: "import.apply.import_unit.v1",
 		HandlerName: "import.apply_worker_v1",
-		Extension: &jobs.ExtensionPolicy{
+		Extension: &jobs.ExtensionPolicy{IdentitySchemaID: jobs.HumanRouteIdentitySchema,
 			OwnerProfileID: "import", OperationKind: "import.apply",
 			ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 4096,
 			ResourceRefs: []jobs.ExtensionResourceRefContract{

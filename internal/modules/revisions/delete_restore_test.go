@@ -6,6 +6,7 @@ import (
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
@@ -52,7 +53,7 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
 	}
-	_, err = runtime.NewCommandService(nil, nil, nil, nil, nil, nil)
+	_, err = runtime.NewCommandService(nil, nil, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
 	}
@@ -211,7 +212,7 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 
 func mustRevisionProviderContributions(t testing.TB) []revisions.ProviderContribution {
 	t.Helper()
-	contributions, err := revisionassembly.CurrentProviderContributions()
+	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("compose current Revisions provider contributions: %v", err)
 	}
@@ -555,7 +556,7 @@ VALUES ($1, $2, 'note', 'History Note', 'Patch-after-delete note body', $3)
 func seedIndicatorRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	indicatortest.SeedRecord(t, db, incidentID, actorUserID, recordID, "domain_name", "atomic", "history_revision.example.test")
+	indicatortest.SeedRecord(t, db, incidentID, actorUserID, recordID, "domain_name", "atomic", "history-revision.example.test")
 	return recordID
 }
 

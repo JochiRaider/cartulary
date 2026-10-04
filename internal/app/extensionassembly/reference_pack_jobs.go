@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
@@ -12,6 +13,16 @@ import (
 
 type referencePackJobSuccessFinalizer struct {
 	finalizer *extensionstore.OwnerFinalizer
+}
+
+// Base integrity mutations remain available when the administration profile
+// is unclaimed. They use Extensions' existing commit-proof rules without Jobs.
+func NewReferencePackMutationFinalizer(fatalSink func(error)) (reference_data.ActionFinalizer, error) {
+	finalizer, err := extensionstore.NewOwnerMutationFinalizer(fatalSink)
+	if err != nil {
+		return nil, err
+	}
+	return referencePackJobSuccessFinalizer{finalizer: finalizer}, nil
 }
 
 func NewReferencePackJobSuccessFinalizer(finalizer *extensionstore.OwnerFinalizer) reference_data.JobSuccessFinalizer {
@@ -50,4 +61,28 @@ func (adapter referencePackJobSuccessFinalizer) FinalizeReferencePackJobFailure(
 		return resource, fmt.Errorf("%w: %v", reference_data.ErrJobFinalizationIndeterminate, err)
 	}
 	return resource, err
+}
+
+func (adapter referencePackJobSuccessFinalizer) FinalizeReferencePackJobTimeout(ctx context.Context, request reference_data.JobFailureFinalization) (jobs.Resource, error) {
+	resource, err := adapter.finalizer.FinalizeTimeout(ctx, extensionstore.JobFailureFinalizationRequest{Execution: request.Execution, Completion: request.Completion, Mutate: extensionstore.OwnerMutation(request.Mutate)})
+	if errors.Is(err, extensionstore.ErrIndeterminateCommit) {
+		return resource, fmt.Errorf("%w: %v", reference_data.ErrJobFinalizationIndeterminate, err)
+	}
+	return resource, err
+}
+
+func (adapter referencePackJobSuccessFinalizer) FinalizeReferencePackJobCancellation(ctx context.Context, request reference_data.JobCancellationFinalization) (jobs.Resource, error) {
+	resource, err := adapter.finalizer.FinalizeCancellation(ctx, extensionstore.JobCancellationFinalizationRequest{Execution: request.Execution, Completion: request.Completion, Mutate: extensionstore.OwnerMutation(request.Mutate)})
+	if errors.Is(err, extensionstore.ErrIndeterminateCommit) {
+		return resource, fmt.Errorf("%w: %v", reference_data.ErrJobFinalizationIndeterminate, err)
+	}
+	return resource, err
+}
+
+func (adapter referencePackJobSuccessFinalizer) FinalizeReferencePackAction(ctx context.Context, tx pgx.Tx, proof func(context.Context) (bool, error)) error {
+	err := adapter.finalizer.CommitOwnerMutation(ctx, tx, proof)
+	if errors.Is(err, extensionstore.ErrIndeterminateCommit) {
+		return reference_data.ErrJobFinalizationIndeterminate
+	}
+	return err
 }

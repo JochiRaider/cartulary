@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"slices"
 	"strconv"
@@ -44,17 +43,9 @@ func Marshal(value any) ([]byte, error) {
 // Canonicalize validates one complete JSON document and returns its RFC-8785
 // representation.
 func Canonicalize(document []byte) ([]byte, error) {
-	decoder := json.NewDecoder(bytes.NewReader(document))
-	decoder.UseNumber()
-	var value any
-	if err := decoder.Decode(&value); err != nil {
-		return nil, fmt.Errorf("decode canonical JSON input: %w", err)
-	}
-	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		if err == nil {
-			err = ErrUnsupportedValue
-		}
-		return nil, fmt.Errorf("decode canonical JSON input: trailing value: %w", err)
+	value, err := DecodeStrict(document)
+	if err != nil {
+		return nil, err
 	}
 	var output bytes.Buffer
 	if err := appendValue(&output, value); err != nil {

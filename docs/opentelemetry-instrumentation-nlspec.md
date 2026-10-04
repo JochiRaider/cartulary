@@ -332,6 +332,7 @@ Each tracer, meter, or logger MUST be created with one of the following instrume
 | `cartulary.evidence` | Failed unattached Evidence cleanup | metrics, logs |
 | `cartulary.jobs` | Background-job enqueue and execution | traces, metrics, logs |
 | `cartulary.network_flow` | Network Flow graph materialization and result cleanup | traces, metrics, logs |
+| `cartulary.reference_pack` | Reference Pack admission, verification, lifecycle, reconciliation and exact-set consumption | traces, metrics |
 | `cartulary.postgres` | Postgres dependency spans and pool/dependency metrics | traces, metrics |
 | `cartulary.objectstore` | S3-compatible object storage abstraction | traces, metrics |
 | `cartulary.telemetry` | Telemetry self-metrics and bounded diagnostics | metrics, logs |
@@ -793,11 +794,11 @@ Every Core 01 §3.3.6.1 public `error.code` token MUST map to exactly one `cartu
 | `authorization` | `authorization_denied` |
 | `capability_unavailable` | `extension_profile_not_claimed`, `extension_capability_not_supported`, `auth_provider_not_found`, `auth_provider_disabled` |
 | `concurrency_conflict` | `client_txn_conflict`, `row_version_conflict`, `incident_key_conflict`, `incident_version_conflict`, `same_field_conflict`, `user_version_conflict`, `preferences_version_conflict`, `membership_version_conflict`, `auth_binding_conflict` |
-| `lifecycle_conflict` | `job_cancel_rejected`, `incident_closed`, `illegal_transition`, `record_deleted_use_restore`, `record_already_deleted`, `record_delete_blocked`, `record_not_deleted`, `record_locked`, `rollback_precondition_failed`, `last_deployment_admin`, `user_inactive`, `membership_exists_use_patch`, `last_incident_admin`, `merge_precondition_failed`, `import_state_conflict`, `import_apply_blocked`, `release_state_conflict`, `release_approval_rejected`, `reference_pack_state_conflict`, `reference_pack_activation_rejected` |
+| `lifecycle_conflict` | `job_cancel_rejected`, `incident_closed`, `illegal_transition`, `record_deleted_use_restore`, `record_already_deleted`, `record_delete_blocked`, `record_not_deleted`, `record_locked`, `rollback_precondition_failed`, `last_deployment_admin`, `user_inactive`, `membership_exists_use_patch`, `last_incident_admin`, `merge_precondition_failed`, `import_state_conflict`, `import_apply_blocked`, `release_state_conflict`, `release_approval_rejected`, `reference_pack_state_conflict`, `reference_pack_activation_rejected`, `reference_pack_operation_rejected` |
 | `not_found` | `incident_not_found`, `entity_mention_not_found`, `resolved_record_not_found`, `indicator_source_record_not_found`, `indicator_not_found`, `indicator_observation_not_found`, `resolved_indicator_not_found`, `rollback_target_not_found`, `evidence_record_not_found`, `handle_not_found_or_revoked`, `job_not_found`, `auth_binding_not_found`, `user_not_found`, `membership_not_found`, `import_session_not_found`, `import_unit_not_found`, `snapshot_not_found`, `release_not_found`, `reference_pack_not_found`, `incident_bundle_not_found` |
 | `expired_or_consumed` | `handle_expired`, `handle_consumed` |
 | `policy_rejected` | `blob_create_rejected`, `evidence_attach_rejected`, `import_source_unsupported`, `import_source_rejected`, `release_render_failed`, `reference_pack_verification_failed`, `incident_bundle_export_rejected`, `incident_bundle_import_rejected` |
-| `dependency_unavailable` | `evidence_access_unavailable`, `object_store_unavailable`, `object_store_access_rejected` |
+| `dependency_unavailable` | `evidence_access_unavailable`, `object_store_unavailable`, `object_store_access_rejected`, `required_reference_pack_unavailable` |
 | `invariant_violation` | `object_store_invalid_request` |
 
 **OTEL-REQ-143**
@@ -941,6 +942,37 @@ The implementation MUST emit spans for the following families when tracing is en
 | Network Flow cleanup sweep | `cartulary.network_flow.cleanup` | `cartulary.operation='cleanup_sweep'`, `cartulary.phase='cleanup_sweep'`, `cartulary.result`; optional `cartulary.error_class`. | Source owner, incident, declaration, result, lease, digest, SQL, or raw error. |
 | Postgres dependency | `cartulary.postgres.operation` | `db.system.name='postgresql'`, `cartulary.operation`, `cartulary.result`. | SQL text, query summary, bind values, table names, database name, server address, port. |
 | Object-store dependency | `cartulary.objectstore.operation` | `cartulary.operation`, `cartulary.result`. | Bucket, key, filename, object hash, upload ID, copy source, storage ref. |
+
+Reference Pack instrumentation uses exactly `reference_pack.import`,
+`reference_pack.verify`, `reference_pack.reverify`, `reference_pack.activate`,
+`reference_pack.disable`, `reference_pack.refresh`, `reference_pack.reconcile`,
+`reference_pack.remove`, `reference_pack.invalidate`, `reference_pack.collection`, and `reference_pack.lookup`
+as operation and span names. Each internal span inherits the current local
+context, has no links or events, and emits only `cartulary.operation` and
+`cartulary.result`. This family narrows the general error-attribute rule:
+non-success outcomes other than ordinary cancellation set status `Error` with
+an empty description and no error attributes. `success` and `canceled` leave
+status unset. Results are exactly `success`, `rejected`, `conflict`, `canceled`,
+`failed`, or `timeout`; unknown internal results map to `failed` without echoing
+the input. Unknown operation names emit no signal.
+
+Import spans cover bounded upload preparation through admission or rejection.
+Verification spans cover one container. Reverify and refresh spans cover the
+whole execution attempt, including atomic finalization; a committed mixed
+refresh reports `rejected` even when finalization itself succeeds. Lifecycle
+and reconciliation spans cover their owner operation. All five consumer
+operations use `reference_pack.lookup`; an admitted invalid indicator value
+is a successful evaluation, while an operation error is a rejected or failed
+lookup. Telemetry is execution observation, not idempotent audit evidence.
+
+The same boundaries emit `cartulary.reference_pack.operation.duration`, a
+cumulative explicit-bucket histogram in seconds using the standard duration
+buckets and only the two attributes above. Duration uses monotonic elapsed
+time. No pack, set, version, operation, user, or incident identifiers, payload
+values, lookup values, source URLs, storage paths, signatures, keys, raw errors,
+or exception events may reach this observer. Instrument creation or export
+failure never changes product results. Reference Pack events that need durable
+attribution belong to administrative audit and attestations.
 
 ### 9.4 HTTP server standard attribute allowlist
 

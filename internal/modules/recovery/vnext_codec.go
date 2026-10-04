@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
@@ -800,17 +801,13 @@ func validateVNextObjectMember(member VNextObjectMember) error {
 }
 
 func canonicalJSONObject(raw json.RawMessage) (json.RawMessage, error) {
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	var value map[string]any
-	if err := decoder.Decode(&value); err != nil {
+	decoded, err := canonicaljson.DecodeStrict(raw)
+	if err != nil {
 		return nil, err
 	}
-	if len(value) == 0 {
+	value, ok := decoded.(map[string]any)
+	if !ok || len(value) == 0 {
 		return nil, fmt.Errorf("row object is empty")
-	}
-	if decoder.Decode(&struct{}{}) != io.EOF {
-		return nil, fmt.Errorf("row has trailing data")
 	}
 	return json.Marshal(value)
 }
@@ -1451,6 +1448,9 @@ func (service *VNextRestoreService) validateObjectManifest(
 }
 
 func strictDecodeJSON(body []byte, destination any) error {
+	if _, err := canonicaljson.DecodeStrict(body); err != nil {
+		return fmt.Errorf("invalid JSON admission: %w", err)
+	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {

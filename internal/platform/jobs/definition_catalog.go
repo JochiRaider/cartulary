@@ -16,12 +16,13 @@ type ExtensionResourceRefContract struct {
 // remains on Definition so future non-extension owners do not need fake
 // extension metadata.
 type ExtensionPolicy struct {
-	OwnerProfileID string
-	OperationKind  string
-	ContractSHA256 string
-	ProofRequired  bool
-	MaxProofBytes  int
-	ResourceRefs   []ExtensionResourceRefContract
+	IdentitySchemaID string
+	OwnerProfileID   string
+	OperationKind    string
+	ContractSHA256   string
+	ProofRequired    bool
+	MaxProofBytes    int
+	ResourceRefs     []ExtensionResourceRefContract
 }
 
 // Definition is one immutable job-kind binding.
@@ -146,7 +147,7 @@ func cloneDefinition(definition Definition) (Definition, error) {
 		return clone, nil
 	}
 	policy := *definition.Extension
-	if policy.OwnerProfileID == "" || policy.OperationKind == "" ||
+	if policy.OwnerProfileID == "" || policy.OperationKind == "" || !validIdentitySchema(policy.IdentitySchemaID) ||
 		!lowerHexSHA256(policy.ContractSHA256) || !policy.ProofRequired ||
 		policy.MaxProofBytes < 1 || policy.MaxProofBytes > 1048576 {
 		return Definition{}, fmt.Errorf("%w: incomplete extension policy %q", ErrInvalidJobDefinition, definition.JobKind)

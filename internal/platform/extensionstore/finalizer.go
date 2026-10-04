@@ -1,11 +1,14 @@
 package extensionstore
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,14 +35,24 @@ type JobFailureFinalizationRequest struct {
 	Mutate     OwnerMutation
 }
 
+type JobCancellationFinalizationRequest struct {
+	Execution  jobs.Execution
+	Completion jobs.CancellationCompletion
+	Mutate     OwnerMutation
+}
+
 type FinalReceiptReconciliationPort interface {
 	ReconcileFinalIdempotencyOutcomeTx(context.Context, pgx.Tx, jobs.RouteIdempotencyKey, []byte, jobs.Resource) (bool, error)
 }
 
 type JobFinalizationPort interface {
 	ExtensionFinalizationContextTx(context.Context, pgx.Tx, jobs.Execution) (jobs.ExtensionFinalizationContext, error)
+	ExtensionCancellationContextTx(context.Context, pgx.Tx, jobs.Execution) (jobs.ExtensionFinalizationContext, error)
 	CompleteSucceededTx(context.Context, pgx.Tx, jobs.Execution, jobs.SuccessCompletion, time.Time) (jobs.Resource, error)
 	CompleteFailedTx(context.Context, pgx.Tx, jobs.Execution, jobs.FailureCompletion, time.Time) (jobs.Resource, error)
+	CompleteTimedOutTx(context.Context, pgx.Tx, jobs.Execution, jobs.FailureCompletion, time.Time) (jobs.Resource, error)
+	CompleteCanceledTx(context.Context, pgx.Tx, jobs.Execution, jobs.CancellationCompletion, time.Time) (jobs.Resource, error)
+	ReadTerminalResourceTx(context.Context, pgx.Tx, uuid.UUID) (jobs.Resource, error)
 }
 
 type OwnerFinalizer struct {
@@ -67,6 +80,18 @@ func NewOwnerFinalizer(store *Store, transactions JobFinalizationPort, idempoten
 	}, nil
 }
 
+// NewOwnerMutationFinalizer supplies the same commit-proof classification to
+// Base operations that have no Job or extension claim. It cannot finalize Jobs.
+func NewOwnerMutationFinalizer(fatalSink func(error)) (*OwnerFinalizer, error) {
+	if fatalSink == nil {
+		return nil, errors.New("owner mutation finalizer requires a fatal integrity sink")
+	}
+	return &OwnerFinalizer{
+		fatalSink: fatalSink,
+		commit:    func(ctx context.Context, tx pgx.Tx) error { return tx.Commit(ctx) },
+	}, nil
+}
+
 func (f *OwnerFinalizer) FinalizeSuccess(ctx context.Context, request JobFinalizationRequest) (jobs.Resource, error) {
 	if f == nil || f.store == nil || f.store.pool == nil {
 		return jobs.Resource{}, ErrInvalidTransition
@@ -80,11 +105,102 @@ func (f *OwnerFinalizer) FinalizeSuccess(ctx context.Context, request JobFinaliz
 	if err != nil {
 		return jobs.Resource{}, err
 	}
-	if err := f.commit(ctx, tx); err != nil {
+	outcome, err := f.CommitSuccessTx(ctx, tx, request, resource)
+	if outcome == CommitUnknown {
 		f.fatalSink(err)
 		return jobs.Resource{}, fmt.Errorf("%w: %v", ErrIndeterminateCommit, err)
 	}
+	if outcome != CommitProven {
+		return jobs.Resource{}, err
+	}
 	return resource, nil
+}
+
+// CommitSuccessTx commits a transaction already finalized by FinalizeSuccessTx.
+// It also serves cross-owner transactions, whose coordinator owns the fatal
+// integrity consequence. An absent proof cannot establish rollback after an
+// uncertain acknowledgement. Classification gets a bounded independent context
+// so cancellation after commit cannot hide an authoritative success.
+func (f *OwnerFinalizer) CommitSuccessTx(ctx context.Context, tx pgx.Tx, request JobFinalizationRequest, resource jobs.Resource) (CommitOutcome, error) {
+	if f == nil || f.store == nil || f.transactions == nil || tx == nil || request.Execution.JobID().String() != resource.JobID || resource.Status != jobs.StatusSucceeded {
+		return CommitUnknown, ErrInvalidTransition
+	}
+	return f.commitWithProof(ctx, tx, func(proofCtx context.Context) (bool, error) {
+		return f.provesSuccess(proofCtx, request, resource) && f.provesTerminalResource(proofCtx, resource), nil
+	})
+}
+
+// commitWithProof is the single physical final-commit classifier for owner
+// mutations. Its caller decides how to report a proven absence or invoke the
+// fatal integrity path; it never retries a transaction.
+func (f *OwnerFinalizer) commitWithProof(ctx context.Context, tx pgx.Tx, proveCommit func(context.Context) (bool, error)) (CommitOutcome, error) {
+	err := f.commit(ctx, tx)
+	if err == nil {
+		return CommitProven, nil
+	}
+	proofCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	if rollbackErr := tx.Rollback(proofCtx); rollbackErr == nil || provenAbsentCommitError(err) {
+		return CommitAbsent, err
+	}
+	committed, proofErr := proveCommit(proofCtx)
+	if proofErr == nil && committed {
+		return CommitProven, nil
+	}
+	return CommitUnknown, errors.Join(err, proofErr)
+}
+
+func provenAbsentCommitError(err error) bool {
+	if errors.Is(err, pgx.ErrTxCommitRollback) {
+		return true
+	}
+	var state interface{ SQLState() string }
+	if errors.As(err, &state) {
+		switch state.SQLState() {
+		case "40001", "40P01", "23505", "23503", "23514":
+			return true
+		}
+	}
+	return false
+}
+
+func (f *OwnerFinalizer) provesTerminalResource(ctx context.Context, expected jobs.Resource) bool {
+	tx, err := f.store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return false
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	id, err := uuid.Parse(expected.JobID)
+	if err != nil {
+		return false
+	}
+	retained, err := f.transactions.ReadTerminalResourceTx(ctx, tx, id)
+	if err != nil {
+		return false
+	}
+	a, err := json.Marshal(expected)
+	if err != nil {
+		return false
+	}
+	b, err := json.Marshal(retained)
+	return err == nil && bytes.Equal(a, b)
+}
+
+func (f *OwnerFinalizer) provesSuccess(ctx context.Context, request JobFinalizationRequest, resource jobs.Resource) bool {
+	proof, err := f.store.JobCommitProof(ctx, request.Execution.JobID())
+	if err != nil || proof == nil || resource.FinishedAt == nil || proof.FinalCommitID != request.FinalCommitID || !proof.CommittedAt.Equal(*resource.FinishedAt) {
+		return false
+	}
+	var retained jobs.ResultSummary
+	if json.Unmarshal(proof.TerminalResult, &retained) != nil || !reflect.DeepEqual(&retained, resource.ResultSummary) {
+		return false
+	}
+	encoded, err := json.Marshal(resource.ResultSummary)
+	if err != nil {
+		return false
+	}
+	digest := sha256.Sum256(encoded)
+	return proof.TerminalResultSHA256 == hex.EncodeToString(digest[:])
 }
 
 func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, request JobFinalizationRequest, committedAt time.Time) (jobs.Resource, error) {
@@ -141,6 +257,16 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 }
 
 func (f *OwnerFinalizer) FinalizeFailure(ctx context.Context, request JobFailureFinalizationRequest) (jobs.Resource, error) {
+	return f.finalizeFailure(ctx, request, false)
+}
+
+// FinalizeTimeout records an operational abort classified under the shared
+// deadline policy. Mutate records abort evidence without prepared content.
+func (f *OwnerFinalizer) FinalizeTimeout(ctx context.Context, request JobFailureFinalizationRequest) (jobs.Resource, error) {
+	return f.finalizeFailure(ctx, request, true)
+}
+
+func (f *OwnerFinalizer) finalizeFailure(ctx context.Context, request JobFailureFinalizationRequest, timedOut bool) (jobs.Resource, error) {
 	if f == nil || f.store == nil || f.store.pool == nil {
 		return jobs.Resource{}, ErrInvalidTransition
 	}
@@ -149,7 +275,12 @@ func (f *OwnerFinalizer) FinalizeFailure(ctx context.Context, request JobFailure
 		return jobs.Resource{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	metadata, err := f.transactions.ExtensionFinalizationContextTx(ctx, tx, request.Execution)
+	var metadata jobs.ExtensionFinalizationContext
+	if timedOut {
+		metadata, err = f.transactions.ExtensionCancellationContextTx(ctx, tx, request.Execution)
+	} else {
+		metadata, err = f.transactions.ExtensionFinalizationContextTx(ctx, tx, request.Execution)
+	}
 	if err != nil {
 		return jobs.Resource{}, err
 	}
@@ -158,18 +289,63 @@ func (f *OwnerFinalizer) FinalizeFailure(ctx context.Context, request JobFailure
 			return jobs.Resource{}, err
 		}
 	}
-	resource, err := f.transactions.CompleteFailedTx(ctx, tx, request.Execution, request.Completion, f.now().UTC())
+	var resource jobs.Resource
+	if timedOut {
+		resource, err = f.transactions.CompleteTimedOutTx(ctx, tx, request.Execution, request.Completion, f.now().UTC())
+	} else {
+		resource, err = f.transactions.CompleteFailedTx(ctx, tx, request.Execution, request.Completion, f.now().UTC())
+	}
 	if err != nil {
 		return jobs.Resource{}, err
 	}
 	if err := f.reconcileFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
 		return jobs.Resource{}, err
 	}
-	if err := f.commit(ctx, tx); err != nil {
+	return f.commitTerminalResource(ctx, tx, resource)
+}
+
+// FinalizeCancellation gives owner attempt evidence and cancellation the same
+// atomic boundary and idempotent receipt behavior as success and failure.
+func (f *OwnerFinalizer) FinalizeCancellation(ctx context.Context, request JobCancellationFinalizationRequest) (jobs.Resource, error) {
+	if f == nil || f.store == nil || f.store.pool == nil {
+		return jobs.Resource{}, ErrInvalidTransition
+	}
+	tx, err := f.store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	metadata, err := f.transactions.ExtensionCancellationContextTx(ctx, tx, request.Execution)
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	if request.Mutate != nil {
+		if err := request.Mutate(ctx, tx); err != nil {
+			return jobs.Resource{}, err
+		}
+	}
+	resource, err := f.transactions.CompleteCanceledTx(ctx, tx, request.Execution, request.Completion, f.now().UTC())
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	if err := f.reconcileFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
+		return jobs.Resource{}, err
+	}
+	return f.commitTerminalResource(ctx, tx, resource)
+}
+
+func (f *OwnerFinalizer) commitTerminalResource(ctx context.Context, tx pgx.Tx, resource jobs.Resource) (jobs.Resource, error) {
+	outcome, err := f.commitWithProof(ctx, tx, func(proofCtx context.Context) (bool, error) {
+		return f.provesTerminalResource(proofCtx, resource), nil
+	})
+	if outcome == CommitProven {
+		return resource, nil
+	}
+	if outcome == CommitUnknown {
 		f.fatalSink(err)
 		return jobs.Resource{}, fmt.Errorf("%w: %v", ErrIndeterminateCommit, err)
 	}
-	return resource, nil
+	return jobs.Resource{}, err
 }
 
 // ValidateJobCommitProofSize applies the same canonical bound at final commit and read-only admission.
@@ -199,6 +375,16 @@ func ValidateJobCommitProofSize(proof JobCommitProof, maxBytes int) error {
 }
 
 func (f *OwnerFinalizer) reconcileFinalIdempotencyOutcome(ctx context.Context, tx pgx.Tx, metadata jobs.ExtensionFinalizationContext, resource jobs.Resource) error {
+	if metadata.OperatorOperationID != uuid.Nil {
+		// Jobs has validated the declared v2 actor and lease under this
+		// transaction's row lock. The Job and its proof are the local
+		// invocation's durable outcome; there is no human route receipt.
+		if metadata.ActorUserID != uuid.Nil || resource.SubmittedByUserID != nil || metadata.Definition.Extension == nil || metadata.Definition.Extension.IdentitySchemaID != jobs.AttributedRouteIdentitySchema {
+			return ErrIntegrity
+		}
+		return nil
+	}
+
 	requestDigest, err := hex.DecodeString(metadata.NormalizedRequestSHA256)
 	if err != nil {
 		return ErrIntegrity
@@ -214,4 +400,20 @@ func (f *OwnerFinalizer) reconcileFinalIdempotencyOutcome(ctx context.Context, t
 		return ErrIntegrity
 	}
 	return nil
+}
+
+// CommitOwnerMutation classifies a synchronous owner's transaction using the
+// same commit rules as Jobs. The proof must identify the exact immutable owner
+// outcome and idempotency receipt written by this transaction. Absence alone
+// never proves rollback after an uncertain commit acknowledgement.
+func (f *OwnerFinalizer) CommitOwnerMutation(ctx context.Context, tx pgx.Tx, proveCommit func(context.Context) (bool, error)) error {
+	if f == nil || tx == nil || proveCommit == nil {
+		return ErrInvalidTransition
+	}
+	outcome, err := f.commitWithProof(ctx, tx, proveCommit)
+	if outcome == CommitUnknown {
+		f.fatalSink(err)
+		return ErrIndeterminateCommit
+	}
+	return err
 }

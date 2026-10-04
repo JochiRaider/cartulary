@@ -1,0 +1,7 @@
+{
+  "pack_key": "type_registry.host",
+  "members": {
+    "payload/entries.ndjson": "{\"aliases\":[],\"category\":\"general\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"unknown\",\"extensions\":{},\"icon_key\":\"unknown\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.host.entry.v1\"}\n"
+  },
+  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+}

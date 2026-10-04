@@ -2,30 +2,30 @@
   "schema_id": "cartulary.recovery_generation_registry.v1",
   "generations": [
     {
-      "generation_id": "recovery.current.workbook_owned.graph_v4",
+      "generation_id": "recovery.current.reference_pack_v2.graph_v4",
       "capture_current": true,
       "catalog": {
-        "artifact_path": "fixtures/recovery-state-catalog.v1.json",
-        "schema_id": "cartulary.recovery_state_catalog.v1",
-        "canonical_sha256": "63fe6d8545acadeb6dc380f1358cf7a5ed1613def88b91678062935d8b66c98c",
-        "catalog_digest_sha256": "0cdb9b6a4f7299764085d5fde6263696314becd1be8f0947699d384dbeaef482",
+        "artifact_path": "fixtures/recovery-state-catalog.v2.json",
+        "schema_id": "cartulary.recovery_state_catalog.v2",
+        "canonical_sha256": "7a8df5eebeaf7e1cdbcd826bd9d2e8183fa2fc5e035b81b2d63dbfa9667d2318",
+        "catalog_digest_sha256": "ff769efe796c3ac9194cbe6e531e82084d39d3d48b181d63b43f07840f40264b",
         "contribution_count": 30,
-        "authored_table_count": 115,
-        "required_table_count": 84,
+        "authored_table_count": 142,
+        "required_table_count": 111,
         "object_family_count": 6
       },
       "codec_registry": {
         "schema_ids": [
           "cartulary.backup_artifact_envelope.v2",
           "cartulary.backup_integrity_manifest.v3",
-          "cartulary.graph_projection_restore_implementation_binding.v4",
+          "cartulary.graph_projection_restore_implementation_binding.v5",
           "cartulary.graph_projection_restore_source_registry.v4",
           "cartulary.object_store_backup_manifest.v2",
           "cartulary.object_store_backup_summary.v2",
           "cartulary.postgres_snapshot_artifact.v2",
           "cartulary.postgres_snapshot_unit.v1"
         ],
-        "digest_sha256": "4aa3f6344be0ce85a0783fc45e5b3fdd41f1740586596a2574c5b42458a102b6"
+        "digest_sha256": "1e9f09c1dd444dc7c46359b0b980a07108dd2136e79c39f56f68c2e776aa7989"
       },
       "graph": {
         "algorithm_id": "graphprojection.restore_rebuild.v4",
@@ -35,9 +35,9 @@
           "canonical_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634"
         },
         "implementation_binding": {
-          "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v4.json",
-          "schema_id": "cartulary.graph_projection_restore_implementation_binding.v4",
-          "canonical_sha256": "2a04b36c624970358a52fda65efd9b0f1ab1398cbb0a049b06e77ac9b7f84ac7"
+          "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v5.json",
+          "schema_id": "cartulary.graph_projection_restore_implementation_binding.v5",
+          "canonical_sha256": "01a6b736bc33c211fb246bdf64fabc19b115cb431c0cc3f2c6902ee6f889a314"
         }
       }
     }

@@ -1,6 +1,8 @@
 package indicators
 
 import (
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+
 	"bytes"
 	"encoding/hex"
 	"testing"
@@ -15,11 +17,6 @@ func testIndicatorReplayHashCompatibility(t *testing.T) {
 	targetID := uuid.MustParse("00000000-0000-4000-8000-000000000222")
 	confidence := 80
 	rationale := "reviewed"
-	normalized := "203.0.113.7"
-	defanged := "203[.]0[.]113[.]7"
-	hashAlgorithm := "sha256"
-	hashValue := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	stixPattern := "[file:hashes.SHA-256 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']"
 	tests := []struct {
 		name     string
 		preimage []byte
@@ -27,36 +24,6 @@ func testIndicatorReplayHashCompatibility(t *testing.T) {
 		wantJSON string
 		wantHash string
 	}{
-		{
-			name: "create",
-			preimage: createIndicatorRequestPreimage(CreateCommand{
-				ClientTxnID: "txn-indicator", IndicatorType: "ipv4_addr",
-				ValueKind: "atomic", DisplayValue: "203[.]0[.]113[.]7",
-			}),
-			digest: createIndicatorRequestHash(CreateCommand{
-				ClientTxnID: "txn-indicator", IndicatorType: "ipv4_addr",
-				ValueKind: "atomic", DisplayValue: "203[.]0[.]113[.]7",
-			}),
-			wantJSON: `{"client_txn_id":"txn-indicator","indicator.display_value":"203[.]0[.]113[.]7","indicator.indicator_type":"ipv4_addr","indicator.value_kind":"atomic","view_schema_id":"cartulary.view.indicators.v1"}`,
-			wantHash: "49dd4b43356f985be78b671d6b57cfe912dcfc2782573acc9fb6c2cda8b5e6a6",
-		},
-		{
-			name: "create with every optional representation",
-			preimage: createIndicatorRequestPreimage(CreateCommand{
-				ClientTxnID: "txn-indicator-full", IndicatorType: "file_hash",
-				ValueKind: "hash", DisplayValue: "203.0.113.7", NormalizedValue: &normalized,
-				DefangedValue: &defanged, HashAlgorithm: &hashAlgorithm,
-				HashValue: &hashValue, STIXPattern: &stixPattern,
-			}),
-			digest: createIndicatorRequestHash(CreateCommand{
-				ClientTxnID: "txn-indicator-full", IndicatorType: "file_hash",
-				ValueKind: "hash", DisplayValue: "203.0.113.7", NormalizedValue: &normalized,
-				DefangedValue: &defanged, HashAlgorithm: &hashAlgorithm,
-				HashValue: &hashValue, STIXPattern: &stixPattern,
-			}),
-			wantJSON: `{"client_txn_id":"txn-indicator-full","indicator.defanged_value":"203[.]0[.]113[.]7","indicator.display_value":"203.0.113.7","indicator.hash_algorithm":"sha256","indicator.hash_value":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","indicator.indicator_type":"file_hash","indicator.normalized_value":"203.0.113.7","indicator.stix_pattern":"[file:hashes.SHA-256 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']","indicator.value_kind":"hash","view_schema_id":"cartulary.view.indicators.v1"}`,
-			wantHash: "df1a4a2a71c958e95e7ee7c75de14c4d52b3d95ffef1fb9c04406bde53679e75",
-		},
 		{
 			name: "observation create",
 			preimage: observationCreateRequestPreimage(IndicatorObservationCreateParams{
@@ -177,7 +144,7 @@ func testNormalizedIndicatorCreateHash(t *testing.T) {
 	base := CreateCommand{ClientTxnID: "one", IndicatorType: "ipv6_addr", ValueKind: "atomic", DisplayValue: "2001:db8::9"}
 	hash := func(command CreateCommand) []byte {
 		t.Helper()
-		input, err := indicatorInputFromCreateCommand(command)
+		input, err := indicatorInputFromCreateCommand(referencefixture.EvaluateIndicator, command)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -185,16 +152,11 @@ func testNormalizedIndicatorCreateHash(t *testing.T) {
 	}
 	variant := base
 	variant.ClientTxnID = "two"
-	variant.IndicatorType = " IPv6_ADDR "
-	variant.ValueKind = "ATOMIC"
 	variant.DisplayValue = "2001:0db8:0:0:0:0:0:9"
 	normalized := "2001:db8::9"
 	variant.NormalizedValue = &normalized
 	if !bytes.Equal(hash(base), hash(variant)) {
 		t.Fatal("normalized identity/default/transaction exclusion comparison differs")
-	}
-	if bytes.Equal(createIndicatorRequestHash(base), createIndicatorRequestHash(variant)) {
-		t.Fatal("legacy comparison unexpectedly canonicalized")
 	}
 	metadata := "original presentation"
 	variant.DefangedValue = &metadata

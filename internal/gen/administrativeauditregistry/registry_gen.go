@@ -5,48 +5,69 @@ package administrativeauditregistry
 const SchemaID = "cartulary.administrative_audit.v1"
 
 const (
-	ScopeDeployment                    = "deployment"
-	ScopeIncident                      = "incident"
-	ActorOperator                      = "operator"
-	ActorSystem                        = "system"
-	ActorUser                          = "user"
-	SourceApi                          = "api"
-	SourceOperator                     = "operator"
-	SourceStartup                      = "startup"
-	SourceSystem                       = "system"
-	SourceUi                           = "ui"
-	ValueRedacted                      = "redacted"
-	ValueVisible                       = "visible"
-	ActionAccountPreferencesUpdated    = "account_preferences_updated"
-	ActionAuthBindingCreated           = "auth_binding_created"
-	ActionAuthBindingRetired           = "auth_binding_retired"
-	ActionAuthBindingRotated           = "auth_binding_rotated"
-	ActionBackupCreated                = "backup_created"
-	ActionBootstrapAdminCreated        = "bootstrap_admin_created"
-	ActionDeploymentAdminGranted       = "deployment_admin_granted"
-	ActionDeploymentAdminRevoked       = "deployment_admin_revoked"
-	ActionMembershipCreated            = "membership_created"
-	ActionMembershipDeleted            = "membership_deleted"
-	ActionMembershipRoleChanged        = "membership_role_changed"
-	ActionPasswordChanged              = "password_changed"
-	ActionPasswordReset                = "password_reset"
-	ActionRestoreCompleted             = "restore_completed"
-	ActionRestoreFailed                = "restore_failed"
-	ActionRestoreStarted               = "restore_started"
-	ActionRestoreVerificationCompleted = "restore_verification_completed"
-	ActionSessionsRevoked              = "sessions_revoked"
-	ActionTotpEnrollmentBegun          = "totp_enrollment_begun"
-	ActionTotpEnrollmentCompleted      = "totp_enrollment_completed"
-	ActionTotpReset                    = "totp_reset"
-	ActionUserCreated                  = "user_created"
-	ActionUserProfileUpdated           = "user_profile_updated"
-	ActionUserStatusChanged            = "user_status_changed"
-	TargetAccountPreferences           = "account_preferences"
-	TargetAuthBinding                  = "auth_binding"
-	TargetBackupSet                    = "backup_set"
-	TargetIncidentMembership           = "incident_membership"
-	TargetRestoreOperation             = "restore_operation"
-	TargetUser                         = "user"
+	ScopeDeployment                           = "deployment"
+	ScopeIncident                             = "incident"
+	ActorOperator                             = "operator"
+	ActorSystem                               = "system"
+	ActorUser                                 = "user"
+	SourceApi                                 = "api"
+	SourceOperator                            = "operator"
+	SourceStartup                             = "startup"
+	SourceSystem                              = "system"
+	SourceUi                                  = "ui"
+	ValueRedacted                             = "redacted"
+	ValueVisible                              = "visible"
+	ActionAccountPreferencesUpdated           = "account_preferences_updated"
+	ActionAuthBindingCreated                  = "auth_binding_created"
+	ActionAuthBindingRetired                  = "auth_binding_retired"
+	ActionAuthBindingRotated                  = "auth_binding_rotated"
+	ActionBackupCreated                       = "backup_created"
+	ActionBootstrapAdminCreated               = "bootstrap_admin_created"
+	ActionDeploymentAdminGranted              = "deployment_admin_granted"
+	ActionDeploymentAdminRevoked              = "deployment_admin_revoked"
+	ActionMembershipCreated                   = "membership_created"
+	ActionMembershipDeleted                   = "membership_deleted"
+	ActionMembershipRoleChanged               = "membership_role_changed"
+	ActionPasswordChanged                     = "password_changed"
+	ActionPasswordReset                       = "password_reset"
+	ActionReferencePackActivation             = "reference_pack_activation"
+	ActionReferencePackDependencyInvalidation = "reference_pack_dependency_invalidation"
+	ActionReferencePackDisablement            = "reference_pack_disablement"
+	ActionReferencePackExactReimport          = "reference_pack_exact_reimport"
+	ActionReferencePackImportAdmitted         = "reference_pack_import_admitted"
+	ActionReferencePackImportVerification     = "reference_pack_import_verification"
+	ActionReferencePackPayloadInvalidation    = "reference_pack_payload_invalidation"
+	ActionReferencePackProfileReconciliation  = "reference_pack_profile_reconciliation"
+	ActionReferencePackRefreshAdmitted        = "reference_pack_refresh_admitted"
+	ActionReferencePackRefreshVerification    = "reference_pack_refresh_verification"
+	ActionReferencePackRemoval                = "reference_pack_removal"
+	ActionReferencePackReverification         = "reference_pack_reverification"
+	ActionReferencePackReverifyAdmitted       = "reference_pack_reverify_admitted"
+	ActionReferencePackRollbackActivation     = "reference_pack_rollback_activation"
+	ActionReferencePackRootImport             = "reference_pack_root_import"
+	ActionReferencePackSafetyFallback         = "reference_pack_safety_fallback"
+	ActionReferencePackSequenceRejection      = "reference_pack_sequence_rejection"
+	ActionReferencePackTrustRootRejection     = "reference_pack_trust_root_rejection"
+	ActionReferencePackTrustRootUpdate        = "reference_pack_trust_root_update"
+	ActionReferencePackVerificationCompleted  = "reference_pack_verification_completed"
+	ActionRestoreCompleted                    = "restore_completed"
+	ActionRestoreFailed                       = "restore_failed"
+	ActionRestoreStarted                      = "restore_started"
+	ActionRestoreVerificationCompleted        = "restore_verification_completed"
+	ActionSessionsRevoked                     = "sessions_revoked"
+	ActionTotpEnrollmentBegun                 = "totp_enrollment_begun"
+	ActionTotpEnrollmentCompleted             = "totp_enrollment_completed"
+	ActionTotpReset                           = "totp_reset"
+	ActionUserCreated                         = "user_created"
+	ActionUserProfileUpdated                  = "user_profile_updated"
+	ActionUserStatusChanged                   = "user_status_changed"
+	TargetAccountPreferences                  = "account_preferences"
+	TargetAuthBinding                         = "auth_binding"
+	TargetBackupSet                           = "backup_set"
+	TargetIncidentMembership                  = "incident_membership"
+	TargetReferencePackOperation              = "reference_pack_operation"
+	TargetRestoreOperation                    = "restore_operation"
+	TargetUser                                = "user"
 )
 
 type ActionBinding struct {
@@ -69,6 +90,26 @@ var ActionBindings = []ActionBinding{
 	{ActionCode: "membership_role_changed", ScopeKind: "incident", TargetKind: "incident_membership"},
 	{ActionCode: "password_changed", ScopeKind: "deployment", TargetKind: "user"},
 	{ActionCode: "password_reset", ScopeKind: "deployment", TargetKind: "user"},
+	{ActionCode: "reference_pack_activation", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_dependency_invalidation", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_disablement", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_exact_reimport", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_import_admitted", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_import_verification", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_payload_invalidation", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_profile_reconciliation", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_refresh_admitted", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_refresh_verification", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_removal", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_reverification", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_reverify_admitted", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_rollback_activation", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_root_import", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_safety_fallback", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_sequence_rejection", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_trust_root_rejection", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_trust_root_update", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
+	{ActionCode: "reference_pack_verification_completed", ScopeKind: "deployment", TargetKind: "reference_pack_operation"},
 	{ActionCode: "restore_completed", ScopeKind: "deployment", TargetKind: "restore_operation"},
 	{ActionCode: "restore_failed", ScopeKind: "deployment", TargetKind: "restore_operation"},
 	{ActionCode: "restore_started", ScopeKind: "deployment", TargetKind: "restore_operation"},

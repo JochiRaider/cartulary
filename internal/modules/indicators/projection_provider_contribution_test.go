@@ -44,6 +44,17 @@ func TestIndicatorImportContributionOwnsStableIdentity(t *testing.T) {
 	if binding.TargetViewSchemaID != ViewSchemaID || binding.FacadeID != "indicators.import_create" {
 		t.Fatalf("Indicator Import binding = %#v", binding)
 	}
+	for _, input := range []struct{ field, raw string }{
+		{"indicator.indicator_type", " domain_name "},
+		{"indicator.display_value", " A\r\nB\tC\rD "},
+		{"indicator.normalized_value", "Cafe\u0301.exe"},
+	} {
+		value, include, err := contribution.NormalizeImportField(input.field, input.raw, "omit_field")
+		text, ok := value.Text()
+		if err != nil || !include || !ok || text != input.raw {
+			t.Fatalf("import normalization changed registry input for %s: %v", input.field, err)
+		}
+	}
 	if contribution, err := NewImportContribution(nil); err == nil || contribution != nil {
 		t.Fatalf("nil application contribution = %#v, error=%v", contribution, err)
 	}

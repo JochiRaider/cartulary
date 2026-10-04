@@ -3,10 +3,11 @@ package indicators
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/deleterestore"
 	indicatorrollback "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/rollback"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-func NewRevisionContribution() revisions.ProviderContribution {
+func NewRevisionContribution(assignments reference_data.RegistryAssignments) revisions.ProviderContribution {
 	childProvider := indicatorrollback.NewChildProvider()
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerIndicators,
@@ -17,7 +18,7 @@ func NewRevisionContribution() revisions.ProviderContribution {
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.indicator.v1",
 			HistoryTargetKinds:  []string{"indicator"},
 			DeleteRestoreSource: deleterestore.NewSource(),
-			RowRollbackProvider: indicatorrollback.NewProvider(),
+			RowRollbackProvider: indicatorrollback.NewProvider(assignments),
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "indicators.indicators",
 				ViewSchemaIDs:  []string{ViewSchemaID},

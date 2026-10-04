@@ -61,3 +61,35 @@ func NewExtensionJobAdmission(ownerProfileID string, key RouteIdempotencyKey, sc
 		NormalizedRequestSHA256: fmt.Sprintf("%x", digest[:]),
 	}, nil
 }
+
+// NewAttributedExtensionJobAdmission constructs the v2 actor union. Exactly
+// one of actor and operatorOperation is nonzero. Local invocation identity is
+// its operation UUID, not a fabricated human or reusable HTTP transaction.
+func NewAttributedExtensionJobAdmission(ownerProfileID string, key RouteIdempotencyKey, scope Scope, operatorOperation uuid.UUID, normalizedRequest []byte) (*ExtensionJobAdmission, error) {
+	if ownerProfileID == "" || key.RouteKey == "" || key.ScopeKey == "" || key.ClientTxnID == "" || len(normalizedRequest) == 0 || validateScope(scope) != nil {
+		return nil, fmt.Errorf("%w: incomplete attributed job admission", ErrInvalidJobDefinition)
+	}
+	identity := attributedRouteIdentity{SchemaID: AttributedRouteIdentitySchema, ActorKind: "user", RouteIdentity: key.RouteKey + ":" + key.ScopeKey, ScopeKind: scope.Kind, ClientTxnID: key.ClientTxnID}
+	if scope.IncidentID != nil {
+		value := scope.IncidentID.String()
+		identity.ScopeID = &value
+	}
+	if key.ActorUserID != uuid.Nil {
+		value := key.ActorUserID.String()
+		identity.ActorUserID = &value
+	}
+	if operatorOperation != uuid.Nil {
+		value := operatorOperation.String()
+		identity.ActorKind = "local_operator"
+		identity.OperatorOperationID = &value
+	}
+	raw, err := json.Marshal(identity)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := decodeRouteIdentity(raw, AttributedRouteIdentitySchema); err != nil {
+		return nil, err
+	}
+	digest := sha256.Sum256(normalizedRequest)
+	return &ExtensionJobAdmission{OwnerProfileID: ownerProfileID, IdempotencyIdentity: raw, IdempotencyRouteKey: key.RouteKey, IdempotencyScopeKey: key.ScopeKey, NormalizedRequestSHA256: fmt.Sprintf("%x", digest[:])}, nil
+}

@@ -49,23 +49,27 @@ func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobSucces
 	request incidentbundles.JobSuccessFinalization,
 ) (jobs.Resource, error) {
 	finalization, ok := capability.(crossOwnerFinalization)
-	if !ok || finalization.tx == nil {
+	if !ok || finalization.transaction == nil || finalization.transaction.tx == nil || finalization.transaction.closed || finalization.transaction.commitFinalized != nil {
 		return jobs.Resource{}, fmt.Errorf(
 			"%w: incident bundle finalization capability",
 			crossownertransaction.ErrWrite,
 		)
 	}
+	finalRequest := extensionstore.JobFinalizationRequest{
+		Execution: request.Execution, Completion: request.Completion,
+		FinalCommitID: request.FinalCommitID, Mutate: extensionstore.OwnerMutation(request.Mutate),
+	}
 	resource, err := adapter.finalizer.FinalizeSuccessTx(
 		ctx,
-		finalization.tx,
-		extensionstore.JobFinalizationRequest{
-			Execution:     request.Execution,
-			Completion:    request.Completion,
-			FinalCommitID: request.FinalCommitID,
-			Mutate:        extensionstore.OwnerMutation(request.Mutate),
-		},
+		finalization.transaction.tx,
+		finalRequest,
 		adapter.now().UTC(),
 	)
+	if err == nil {
+		finalization.transaction.commitFinalized = func(commitCtx context.Context) (extensionstore.CommitOutcome, error) {
+			return adapter.finalizer.CommitSuccessTx(commitCtx, finalization.transaction.tx, finalRequest, resource)
+		}
+	}
 	return resource, mapIncidentBundleFinalizationError(err)
 }
 
@@ -78,6 +82,15 @@ func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobFailur
 		Completion: request.Completion,
 		Mutate:     extensionstore.OwnerMutation(request.Mutate),
 	})
+	return resource, mapIncidentBundleFinalizationError(err)
+}
+
+func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobTimeout(ctx context.Context, request incidentbundles.JobFailureFinalization) (jobs.Resource, error) {
+	resource, err := adapter.finalizer.FinalizeTimeout(ctx, extensionstore.JobFailureFinalizationRequest{Execution: request.Execution, Completion: request.Completion, Mutate: extensionstore.OwnerMutation(request.Mutate)})
+	return resource, mapIncidentBundleFinalizationError(err)
+}
+func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobCancellation(ctx context.Context, request incidentbundles.JobCancellationFinalization) (jobs.Resource, error) {
+	resource, err := adapter.finalizer.FinalizeCancellation(ctx, extensionstore.JobCancellationFinalizationRequest{Execution: request.Execution, Completion: request.Completion, Mutate: extensionstore.OwnerMutation(request.Mutate)})
 	return resource, mapIncidentBundleFinalizationError(err)
 }
 

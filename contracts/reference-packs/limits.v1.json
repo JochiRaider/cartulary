@@ -1,0 +1,72 @@
+{
+  "schema_id": "cartulary.reference_pack_limits.v1",
+  "defaults": {
+    "max_container_bytes": 536870912,
+    "max_extracted_bytes": 536870912,
+    "max_compression_ratio": 100,
+    "max_members": 10000,
+    "max_verification_seconds": 1800,
+    "clock_trusted": false,
+    "lookup_limit": 50
+  },
+  "fixed": {
+    "max_manifest_files": 66,
+    "max_bundle_json_bytes": 16384,
+    "max_manifest_json_bytes": 1048576,
+    "max_metadata_file_bytes": 2097152,
+    "max_metadata_total_bytes": 8388608,
+    "max_successful_envelope_bytes": 67108864,
+    "max_prepared_result_bytes": 71303168,
+    "max_portable_reference_bytes": 67108864,
+    "max_portable_sets": 1024,
+    "max_portable_versions": 16384,
+    "max_member_bytes": 268435456,
+    "max_path_bytes": 1024,
+    "max_segment_bytes": 255,
+    "max_root_keys": 64,
+    "max_signatures": 64,
+    "max_root_update_signatures": 128,
+    "max_entries": 2000000,
+    "max_objects": 2000000,
+    "max_relationships": 5000000,
+    "max_aliases": 64,
+    "max_source_refs": 64,
+    "max_profile_array": 64,
+    "max_set_members": 64,
+    "max_line_bytes": 1048576,
+    "max_issues": 1000,
+    "max_validation_summary_bytes": 16777216,
+    "max_get_entry_id_bytes": 512,
+    "max_event_entry_id_bytes": 266,
+    "max_cve_id_bytes": 192,
+    "max_sid_bytes": 184,
+    "max_sid_subauthorities": 15,
+    "max_directory_markers": 10000,
+    "max_tar_terminating_zero_blocks": 20,
+    "max_administrative_request_bytes": 65536,
+    "max_portable_content_bytes": 16777216,
+    "max_portable_containers": 16384,
+    "max_portable_required_members": 65536,
+    "max_portable_verification_context_bytes": 4096,
+    "max_attempt_result_bytes": 4096,
+    "max_json_nesting_depth": 10000,
+    "max_trust_bootstrap_bytes": 8388608,
+    "max_source_artifacts": 64,
+    "max_dependencies": 64,
+    "max_conflicts": 64
+  },
+  "ranges": {
+    "max_verification_seconds": [
+      60,
+      86400
+    ],
+    "lookup_limit": [
+      1,
+      200
+    ],
+    "max_compression_ratio": [
+      1,
+      1000
+    ]
+  }
+}

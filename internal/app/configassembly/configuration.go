@@ -77,6 +77,9 @@ func applicationCatalog() (config.Catalog, error) {
 	if err := registerNetworkFlowConfigurationContribution(builder); err != nil {
 		return config.Catalog{}, err
 	}
+	if err := registerReferencePackConfigurationContribution(builder); err != nil {
+		return config.Catalog{}, err
+	}
 	if err := registerRevisionsConfigurationContribution(builder); err != nil {
 		return config.Catalog{}, err
 	}

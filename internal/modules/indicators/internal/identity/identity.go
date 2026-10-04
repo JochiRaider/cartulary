@@ -1,20 +1,15 @@
 package identity
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"context"
+	"errors"
 	"fmt"
-	"net/netip"
-	neturl "net/url"
-	"regexp"
-	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 )
-
-var hashPattern = regexp.MustCompile(`^[A-Fa-f0-9]{64}$`)
 
 type Input struct {
 	IndicatorType   string
@@ -48,308 +43,170 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("invalid indicator identity: %s %s", e.Field, e.ReasonCode)
 }
 
-func Canonicalize(input Input) (Canonical, error) {
-	for _, required := range []struct {
-		field string
-		value string
-	}{
-		{field: "indicator_type", value: input.IndicatorType},
-		{field: "value_kind", value: input.ValueKind},
-		{field: "display_value", value: input.DisplayValue},
-	} {
+// Evaluator binds one exact registry set for an operation. Identity owns record
+// representation checks; Reference Data owns all value algorithms and dedupe.
+type Evaluator func(string, string, string) (reference_data.IndicatorEvaluation, error)
+
+type Consumer interface {
+	ResolveCurrentPackSet(context.Context) reference_data.ConsumerResult[reference_data.PackSet]
+	EvaluateIndicatorValue(context.Context, reference_data.EvaluateIndicatorRequest) reference_data.ConsumerResult[reference_data.IndicatorEvaluation]
+}
+
+func FromConsumer(ctx context.Context, consumer Consumer) (Evaluator, error) {
+	if consumer == nil {
+		return nil, errors.New("indicator evaluator unavailable")
+	}
+	set := consumer.ResolveCurrentPackSet(ctx)
+	if set.Error != nil {
+		return nil, set.Error
+	}
+	if set.Value == nil {
+		return nil, errors.New("indicator set unavailable")
+	}
+	return func(typ, kind, raw string) (reference_data.IndicatorEvaluation, error) {
+		result := consumer.EvaluateIndicatorValue(ctx, reference_data.EvaluateIndicatorRequest{PackSetID: set.Value.ID, IndicatorTypeID: typ, ValueKind: kind, RawValue: raw})
+		if result.Error != nil {
+			return reference_data.IndicatorEvaluation{}, result.Error
+		}
+		if result.Value == nil {
+			return reference_data.IndicatorEvaluation{}, errors.New("indicator evaluation unavailable")
+		}
+		return *result.Value, nil
+	}, nil
+}
+
+func ValidateShape(input Input) error {
+	for _, required := range []struct{ field, value string }{{"indicator_type", input.IndicatorType}, {"value_kind", input.ValueKind}, {"display_value", input.DisplayValue}} {
 		if strings.TrimSpace(required.value) == "" {
-			return Canonical{}, invalid(required.field, "missing_required_field")
+			return invalid(required.field, "missing_required_field")
 		}
 	}
-
-	indicatorType, err := normalizeIndicatorType(input.IndicatorType)
-	if err != nil {
-		return Canonical{}, invalid("indicator_type", "invalid_value")
+	if !vocabulary.IsIndicatorType(input.IndicatorType) {
+		return invalid("indicator_type", "invalid_value")
 	}
-	valueKind, err := normalizeValueKind(input.ValueKind)
-	if err != nil {
-		return Canonical{}, invalid("value_kind", "invalid_value")
+	if !vocabulary.IsValueKind(input.ValueKind) {
+		return invalid("value_kind", "invalid_value")
 	}
-	if isIPType(indicatorType) && valueKind != "atomic" {
-		return Canonical{}, invalid("value_kind", "invalid_value")
+	if !utf8.ValidString(input.DisplayValue) || utf8.RuneCountInString(input.DisplayValue) > 8192 {
+		return invalid("display_value", "invalid_value")
 	}
-	displayValue, normalizedValue, err := normalizeValue(indicatorType, input.DisplayValue, input.NormalizedValue)
-	if err != nil {
-		field := "display_value"
-		if strings.Contains(err.Error(), "normalized_value") {
-			field = "normalized_value"
-		}
-		return Canonical{}, invalid(field, "invalid_value")
+	if input.NormalizedValue != nil && (!utf8.ValidString(*input.NormalizedValue) || utf8.RuneCountInString(*input.NormalizedValue) > 8192) {
+		return invalid("normalized_value", "invalid_value")
 	}
-	hashAlgorithm, hashValue, err := normalizeHashPair(input.HashAlgorithm, input.HashValue)
-	if err != nil {
-		field := "hash_algorithm"
-		if strings.Contains(err.Error(), "hash_value") {
-			field = "hash_value"
-		}
-		return Canonical{}, invalid(field, "invalid_value")
-	}
-	if isIPType(indicatorType) && (hashAlgorithm != nil || hashValue != nil) {
-		return Canonical{}, invalid("hash_algorithm", "invalid_value")
-	}
-	canonical := Canonical{
-		IndicatorType:   indicatorType,
-		ValueKind:       valueKind,
-		DisplayValue:    displayValue,
-		NormalizedValue: cloneString(normalizedValue),
-		DefangedValue:   cloneString(input.DefangedValue),
-		HashAlgorithm:   cloneString(hashAlgorithm),
-		HashValue:       cloneString(hashValue),
-		STIXPattern:     cloneString(input.STIXPattern),
-	}
-	canonical.DedupeKey = dedupeKey(canonical)
-	return canonical, nil
+	return nil
 }
 
-func normalizeIndicatorType(raw string) (string, error) {
-	if normalized, ok := vocabulary.CanonicalIndicatorType(raw); ok {
-		return normalized, nil
+func Canonicalize(evaluate Evaluator, input Input) (Canonical, error) {
+	if err := ValidateShape(input); err != nil {
+		return Canonical{}, err
 	}
-	return "", fmt.Errorf("unsupported indicator_type")
-}
-
-func normalizeValueKind(raw string) (string, error) {
-	if normalized, ok := vocabulary.CanonicalValueKind(raw); ok {
-		return normalized, nil
+	if evaluate == nil {
+		return Canonical{}, errors.New("indicator evaluator unavailable")
 	}
-	return "", fmt.Errorf("unsupported value_kind")
-}
-
-func normalizeValue(indicatorType string, rawDisplay string, rawNormalized *string) (string, *string, error) {
-	displayValue := strings.TrimSpace(rawDisplay)
-	switch indicatorType {
-	case "ipv4_addr", "ipv6_addr":
-		value, err := canonicalizeIPValue(indicatorType, displayValue)
-		if err != nil {
-			return "", nil, fmt.Errorf("invalid %s display_value", indicatorType)
-		}
-		if rawNormalized != nil && strings.TrimSpace(*rawNormalized) != "" {
-			normalizedValue, err := canonicalizeIPValue(indicatorType, *rawNormalized)
-			if err != nil || normalizedValue != value {
-				return "", nil, fmt.Errorf("invalid normalized_value")
+	result, err := evaluate(input.IndicatorType, input.ValueKind, input.DisplayValue)
+	if err != nil {
+		var rejected *reference_data.ConsumerError
+		if errors.As(err, &rejected) {
+			switch rejected.Code {
+			case "indicator_type_unsupported":
+				return Canonical{}, invalid("indicator_type", "invalid_value")
+			case "indicator_value_kind_unsupported":
+				return Canonical{}, invalid("value_kind", "invalid_value")
 			}
 		}
-		return value, stringPointer(value), nil
-	case "domain_name":
-		value := strings.ToLower(strings.ReplaceAll(displayValue, "[.]", "."))
-		return value, stringPointer(value), nil
-	case "url":
-		value := canonicalizeURL(displayValue)
-		return value, stringPointer(value), nil
-	case "email_addr":
-		value := strings.ToLower(displayValue)
-		return value, stringPointer(value), nil
-	case "sha256":
-		value := strings.ToLower(displayValue)
-		if !hashPattern.MatchString(value) {
-			return "", nil, fmt.Errorf("invalid sha256 display_value")
-		}
-		return value, stringPointer(value), nil
-	default:
-		if rawNormalized == nil || strings.TrimSpace(*rawNormalized) == "" {
-			return displayValue, stringPointer(displayValue), nil
-		}
-		normalized, ok := fieldnorm.NormalizeLine(*rawNormalized)
-		if !ok {
-			return "", nil, fmt.Errorf("invalid normalized_value")
-		}
-		return displayValue, &normalized, nil
+		return Canonical{}, err
 	}
+	if !result.Valid || result.Display == nil || result.Normalized == nil || result.Defanged == nil || result.DedupeKey == nil {
+		return Canonical{}, invalid("display_value", "invalid_value")
+	}
+	if input.NormalizedValue != nil {
+		supplied, err := evaluate(input.IndicatorType, input.ValueKind, *input.NormalizedValue)
+		if err != nil {
+			return Canonical{}, err
+		}
+		if !supplied.Valid || supplied.Normalized == nil || *supplied.Normalized != *result.Normalized {
+			return Canonical{}, invalid("normalized_value", "invalid_value")
+		}
+	}
+	algorithm, hash, err := normalizeHashPair(input.HashAlgorithm, input.HashValue)
+	if err != nil {
+		return Canonical{}, err
+	}
+	if isIPType(input.IndicatorType) && (algorithm != nil || hash != nil) {
+		return Canonical{}, invalid("hash_algorithm", "invalid_value")
+	}
+	defanged := result.Defanged
+	if input.DefangedValue != nil {
+		defanged = input.DefangedValue
+	}
+	return Canonical{IndicatorType: result.Type, ValueKind: result.Kind, DisplayValue: *result.Display, NormalizedValue: cloneString(result.Normalized), DedupeKey: *result.DedupeKey, DefangedValue: cloneString(defanged), HashAlgorithm: algorithm, HashValue: hash, STIXPattern: cloneString(input.STIXPattern)}, nil
 }
 
-func NormalizeObservationCandidate(parsedType *string, normalizedCandidate *string, observedText string) (*string, *string, error) {
-	if parsedType != nil && strings.TrimSpace(*parsedType) != "" {
-		indicatorType, err := normalizeIndicatorType(*parsedType)
+func NormalizeObservationCandidate(evaluate Evaluator, parsedType *string, normalizedCandidate *string, observedText string) (*string, *string, error) {
+	if evaluate == nil {
+		return nil, nil, errors.New("indicator evaluator unavailable")
+	}
+	if parsedType != nil {
+		if !vocabulary.IsIndicatorType(*parsedType) {
+			return nil, nil, invalid("indicator_type", "invalid_value")
+		}
+		raw := observedText
+		if normalizedCandidate != nil {
+			raw = *normalizedCandidate
+		}
+		result, err := evaluate(*parsedType, "atomic", raw)
 		if err != nil {
 			return nil, nil, err
 		}
-		normalizedText := observedText
-		if normalizedCandidate != nil && strings.TrimSpace(*normalizedCandidate) != "" {
-			normalizedText = strings.TrimSpace(*normalizedCandidate)
+		if !result.Valid {
+			return nil, nil, invalid("normalized_candidate", "invalid_value")
 		}
-		switch indicatorType {
-		case "ipv4_addr", "ipv6_addr":
-			value, err := canonicalizeIPValue(indicatorType, normalizedText)
-			if err != nil {
-				return nil, nil, err
-			}
-			normalizedText = value
-		case "domain_name":
-			normalizedText = strings.ToLower(strings.ReplaceAll(normalizedText, "[.]", "."))
-		case "url":
-			normalizedText = canonicalizeURL(normalizedText)
-		case "sha256":
-			normalizedText = strings.ToLower(normalizedText)
-		}
-		return stringPointer(indicatorType), stringPointer(normalizedText), nil
+		return cloneString(parsedType), cloneString(result.Normalized), nil
 	}
+	if normalizedCandidate != nil {
+		return nil, nil, invalid("normalized_candidate", "invalid_value")
+	}
+	// Classification precedence is fixed. Every candidate is validated by the
+	// same registry algorithms used for explicit record creation.
+	for _, typ := range []string{"ipv4_addr", "ipv6_addr", "url", "sha256", "email_addr", "domain_name"} {
+		result, err := evaluate(typ, "atomic", observedText)
+		if err != nil {
+			return nil, nil, err
+		}
+		if result.Valid {
+			return stringPointer(typ), cloneString(result.Normalized), nil
+		}
+	}
+	return nil, nil, nil
+}
 
-	guessType, candidate := guessObservationCandidate(observedText)
-	if guessType == "" || candidate == "" {
+func normalizeHashPair(algorithm, value *string) (*string, *string, error) {
+	if algorithm == nil && value == nil {
 		return nil, nil, nil
 	}
-	return stringPointer(guessType), stringPointer(candidate), nil
-}
-
-func isIPType(indicatorType string) bool {
-	return indicatorType == "ipv4_addr" || indicatorType == "ipv6_addr"
-}
-
-func dedupeKey(input Canonical) string {
-	parts := []string{
-		input.IndicatorType,
-		input.ValueKind,
-		input.DisplayValue,
-		derefString(input.NormalizedValue),
-		derefString(input.HashAlgorithm),
-		derefString(input.HashValue),
+	if algorithm == nil || value == nil {
+		return nil, nil, invalid("hash_value", "invalid_value")
 	}
-	sum := sha256.Sum256([]byte(strings.Join(parts, "\x1f")))
-	return hex.EncodeToString(sum[:])
-}
-
-func invalid(field string, reasonCode string) *ValidationError {
-	return &ValidationError{Field: field, ReasonCode: reasonCode}
-}
-
-func normalizeHashPair(rawAlgorithm *string, rawValue *string) (*string, *string, error) {
-	switch {
-	case rawAlgorithm == nil && rawValue == nil:
-		return nil, nil, nil
-	case rawAlgorithm == nil:
-		return nil, nil, fmt.Errorf("missing hash_algorithm for hash_value")
-	case rawValue == nil:
-		return nil, nil, fmt.Errorf("missing hash_value for hash_algorithm")
+	a, v := strings.ToLower(strings.TrimSpace(*algorithm)), strings.ToLower(strings.TrimSpace(*value))
+	if a == "" || v == "" {
+		return nil, nil, invalid("hash_value", "invalid_value")
 	}
-	algorithm := strings.ToLower(strings.TrimSpace(*rawAlgorithm))
-	value := strings.ToLower(strings.TrimSpace(*rawValue))
-	if algorithm == "" || value == "" {
-		return nil, nil, fmt.Errorf("empty hash pair")
-	}
-	if !isHexString(value) {
-		return nil, nil, fmt.Errorf("invalid hash_value")
-	}
-	return &algorithm, &value, nil
-}
-
-func canonicalizeIPValue(indicatorType string, raw string) (string, error) {
-	switch indicatorType {
-	case "ipv4_addr":
-		return canonicalizeIPv4(raw)
-	case "ipv6_addr":
-		return canonicalizeIPv6(raw)
-	default:
-		return "", fmt.Errorf("unsupported ip indicator_type")
-	}
-}
-
-func canonicalizeIPv4(raw string) (string, error) {
-	candidate := strings.ReplaceAll(strings.TrimSpace(raw), "[.]", ".")
-	parts := strings.Split(candidate, ".")
-	if len(parts) != 4 {
-		return "", fmt.Errorf("invalid ipv4 literal")
-	}
-	var octets [4]byte
-	for index, part := range parts {
-		if part == "" || (len(part) > 1 && part[0] == '0') {
-			return "", fmt.Errorf("invalid ipv4 literal")
-		}
-		for _, r := range part {
-			if r < '0' || r > '9' {
-				return "", fmt.Errorf("invalid ipv4 literal")
-			}
-		}
-		value, err := strconv.Atoi(part)
-		if err != nil || value > 255 {
-			return "", fmt.Errorf("invalid ipv4 literal")
-		}
-		octets[index] = byte(value)
-	}
-	return netip.AddrFrom4(octets).String(), nil
-}
-
-func canonicalizeIPv6(raw string) (string, error) {
-	candidate := strings.TrimSpace(raw)
-	if strings.Contains(candidate, "%") || strings.Contains(candidate, ".") {
-		return "", fmt.Errorf("invalid ipv6 literal")
-	}
-	addr, err := netip.ParseAddr(candidate)
-	if err != nil || !addr.Is6() || addr.Is4In6() {
-		return "", fmt.Errorf("invalid ipv6 literal")
-	}
-	return addr.String(), nil
-}
-
-func canonicalizeURL(raw string) string {
-	candidate := strings.TrimSpace(raw)
-	candidate = strings.ReplaceAll(candidate, "hxxp://", "http://")
-	candidate = strings.ReplaceAll(candidate, "hxxps://", "https://")
-	candidate = strings.ReplaceAll(candidate, "[.]", ".")
-	parsed, err := neturl.Parse(candidate)
-	if err != nil {
-		return strings.ToLower(candidate)
-	}
-	parsed.Scheme = strings.ToLower(parsed.Scheme)
-	parsed.Host = strings.ToLower(parsed.Host)
-	return parsed.String()
-}
-
-func guessObservationCandidate(observedText string) (string, string) {
-	defanged := strings.ReplaceAll(observedText, "[.]", ".")
-	if value, err := canonicalizeIPValue("ipv4_addr", defanged); err == nil {
-		return "ipv4_addr", value
-	}
-	if value, err := canonicalizeIPValue("ipv6_addr", defanged); err == nil {
-		return "ipv6_addr", value
-	}
-	if strings.HasPrefix(strings.ToLower(defanged), "http://") || strings.HasPrefix(strings.ToLower(defanged), "https://") || strings.HasPrefix(strings.ToLower(defanged), "hxxp://") || strings.HasPrefix(strings.ToLower(defanged), "hxxps://") {
-		return "url", canonicalizeURL(defanged)
-	}
-	if hashPattern.MatchString(defanged) {
-		return "sha256", strings.ToLower(defanged)
-	}
-	if strings.Contains(defanged, ".") && !strings.Contains(defanged, " ") {
-		return "domain_name", strings.ToLower(defanged)
-	}
-	return "", ""
-}
-
-func isHexString(value string) bool {
-	if value == "" {
-		return false
-	}
-	for _, r := range value {
-		switch {
-		case r >= '0' && r <= '9':
-		case r >= 'a' && r <= 'f':
-		case r >= 'A' && r <= 'F':
-		default:
-			return false
+	for _, c := range v {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return nil, nil, invalid("hash_value", "invalid_value")
 		}
 	}
-	return true
+	return &a, &v, nil
 }
-
+func invalid(field, code string) *ValidationError {
+	return &ValidationError{Field: field, ReasonCode: code}
+}
+func isIPType(typ string) bool { return typ == "ipv4_addr" || typ == "ipv6_addr" }
 func cloneString(value *string) *string {
 	if value == nil {
 		return nil
 	}
-	cloned := *value
-	return &cloned
+	copy := *value
+	return &copy
 }
-
-func stringPointer(value string) *string {
-	return &value
-}
-
-func derefString(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
+func stringPointer(value string) *string { return &value }

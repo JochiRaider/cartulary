@@ -169,7 +169,7 @@ func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID 
 }
 
 func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, principal httpauth.Principal, cancel bool) *httpapi.APIError {
-	submittedByCurrentUser := resource.SubmittedByUserID == principal.User.ID.String()
+	submittedByCurrentUser := resource.SubmittedByUserID != nil && *resource.SubmittedByUserID == principal.User.ID.String()
 	switch resource.Scope.Kind {
 	case jobs.ScopeKindDeployment:
 		switch resource.AuthPolicy {

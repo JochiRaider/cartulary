@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
@@ -36,7 +37,7 @@ import (
 
 const (
 	incidentPortabilityProfileID = "incident_portability"
-	incidentBundleExportJobKind  = "incident_portability.export_v1"
+	incidentBundleExportJobKind  = "incident_portability.export_v2"
 	incidentBundleExportedCode   = "incident_bundle_exported"
 	incidentBundleImportedCode   = "incident_bundle_imported"
 	incidentBundleZIPMediaType   = "application/zip"
@@ -1181,6 +1182,10 @@ func startIsolatedIncidentBundleServer(t testing.TB, runtime *appsupport.Runtime
 }
 
 func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *appsupport.Runtime, prefix string, extraEnv map[string]string) *appsupport.ServerHarness {
+	return startIsolatedIncidentBundleServerConfigured(t, runtime, prefix, extraEnv, nil)
+}
+
+func startIsolatedIncidentBundleServerConfigured(t testing.TB, runtime *appsupport.Runtime, prefix string, extraEnv map[string]string, configure func(*server.Options)) *appsupport.ServerHarness {
 	t.Helper()
 	testDB := runtime.Postgres.PrepareIsolatedDatabaseT(t, prefix)
 	bucket := runtime.S3.BootstrapBucketT(t, prefix)
@@ -1203,11 +1208,12 @@ func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *appsupport.
 		_ = store.Close()
 	})
 	return runtime.StartServer(t, appsupport.ServerOptions{
-		Prefix:        prefix,
-		Database:      testDB,
-		Env:           env,
-		ObjectStore:   store,
-		TestRouteMode: httptestx.TestRouteModeDisabled,
+		ConfigureRuntime: configure,
+		Prefix:           prefix,
+		Database:         testDB,
+		Env:              env,
+		ObjectStore:      store,
+		TestRouteMode:    httptestx.TestRouteModeDisabled,
 	})
 }
 

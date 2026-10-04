@@ -25,7 +25,7 @@ func TestIndicatorEnvelopeHeadSchemaContract_Integration(t *testing.T) {
 		sourceID    = "57000000-0000-4000-8000-000000000004"
 		otherIncID  = "57000000-0000-4000-8000-000000000007"
 		otherSrcID  = "57000000-0000-4000-8000-000000000008"
-		dedupeKey   = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		dedupeKey   = "domain_name:contract.example"
 	)
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO users (id, email, display_name, password_hash)
@@ -112,10 +112,10 @@ VALUES (
 
 	expectIndicatorContractRejection(t, db, "indicators_indicator_type_ck", `
 INSERT INTO indicators (
-    record_id, incident_id, indicator_type, value_kind, display_value, dedupe_key
+    record_id, incident_id, indicator_type, value_kind, display_value, normalized_value, dedupe_key
 ) VALUES (
     '57000000-0000-4000-8000-000000000011', $1, 'legacy_domain', 'atomic',
-    'invalid.example', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    'invalid.example', 'invalid.example', 'legacy_domain:invalid.example'
 )
 `, incidentID)
 	expectIndicatorContractRejection(t, db, "indicator_state_intervals_lifecycle_state_ck", `

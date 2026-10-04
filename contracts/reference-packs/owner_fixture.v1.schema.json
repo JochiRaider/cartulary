@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_owner_fixture.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "fixture_id",
+    "scenario",
+    "owner_id",
+    "row_id",
+    "test_name"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_owner_fixture.v1"
+    },
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^rpfx_owner_[a-z_]+$"
+    },
+    "scenario": {
+      "enum": [
+        "snapshot_binding",
+        "portable_destination",
+        "historical_readiness"
+      ]
+    },
+    "owner_id": {
+      "enum": [
+        "module.reporting",
+        "module.incidentbundles",
+        "module.reference_data"
+      ]
+    },
+    "row_id": {
+      "type": "string",
+      "pattern": "^module\\.[a-z_]+\\.integration\\.[a-z0-9_]+$"
+    },
+    "test_name": {
+      "type": "string",
+      "pattern": "^Test[A-Za-z]+_Integration$"
+    }
+  }
+}

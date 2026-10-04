@@ -17,6 +17,7 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	wantFields := map[string]struct{}{
 		"handler":                      {},
 		"stagedJanitor":                {},
+		"referenceCollector":           {},
 		"jobRunner":                    {},
 		"collaborationRuntime":         {},
 		"evidenceCleanupDispatcher":    {},

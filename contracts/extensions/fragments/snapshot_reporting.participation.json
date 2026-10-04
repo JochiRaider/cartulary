@@ -42,7 +42,7 @@
         "kind": "snapshot_reporting_participant",
         "contribution_id": "snapshot_reporting.render_export",
         "participant_id": "snapshot_reporting.render_export_v1",
-        "participant_contract_sha256": "7111bf8628b3421b731ed498762c0418c3a207197db337c03a31e5400b3052ab"
+        "participant_contract_sha256": "a423f022c63f784c147626442411a7ed16db85b7bd24c65b3b7aa0b2343b110e"
       },
       "fact_kind": "contribution",
       "profile_id": "snapshot_reporting"
@@ -53,7 +53,7 @@
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v2",
         "profile_id": "snapshot_reporting",
-        "job_kind": "snapshot_reporting.composition_preview_v1",
+        "job_kind": "snapshot_reporting.composition_preview_v2",
         "progress_unit_id": "snapshot_reporting.composition_preview.render_attempt.v1",
         "operation_kind": "snapshot_reporting.composition_preview",
         "proof_policy": "required_on_terminal_success",
@@ -71,7 +71,7 @@
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v2",
         "profile_id": "snapshot_reporting",
-        "job_kind": "snapshot_reporting.release_create_v1",
+        "job_kind": "snapshot_reporting.release_create_v2",
         "progress_unit_id": "snapshot_reporting.release_create.render_attempt.v1",
         "operation_kind": "snapshot_reporting.release_create",
         "proof_policy": "required_on_terminal_success",
@@ -95,7 +95,7 @@
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v2",
         "profile_id": "snapshot_reporting",
-        "job_kind": "snapshot_reporting.snapshot_create_v1",
+        "job_kind": "snapshot_reporting.snapshot_create_v2",
         "progress_unit_id": "snapshot_reporting.snapshot_create.materialization.v1",
         "operation_kind": "snapshot_reporting.snapshot_create",
         "proof_policy": "required_on_terminal_success",
@@ -141,8 +141,12 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "snapshot_reporting",
-      "worker_kind": "snapshot_reporting.job_worker_v1",
-      "job_kinds": ["snapshot_reporting.composition_preview_v1", "snapshot_reporting.release_create_v1", "snapshot_reporting.snapshot_create_v1"],
+      "worker_kind": "snapshot_reporting.job_worker_v2",
+      "job_kinds": [
+        "snapshot_reporting.composition_preview_v2",
+        "snapshot_reporting.release_create_v2",
+        "snapshot_reporting.snapshot_create_v2"
+      ],
       "max_active_attempts_per_process": 8
     }
   ],

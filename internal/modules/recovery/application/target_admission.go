@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	RestoreTargetMarkerSchemaID         = "cartulary.restore_target_marker.v2"
+	RestoreTargetMarkerSchemaID         = "cartulary.restore_target_marker.v3"
 	RestoreTargetMarkerMaximumBytes     = int64(65536)
 	RestoreTargetGenerationMaximumBytes = int64(64)
 	RestoreTargetMarkerMaximumLifetime  = 24 * time.Hour
@@ -37,8 +37,9 @@ type TargetMarkerMaterial struct {
 type TargetMarkerReader func(bindingKind string, rootPath string) (TargetMarkerMaterial, error)
 
 type TargetBindingDigests struct {
-	DatabaseSHA256    string `json:"database_sha256"`
-	ObjectStoreSHA256 string `json:"object_store_sha256"`
+	DatabaseSHA256             string `json:"database_sha256"`
+	ObjectStoreSHA256          string `json:"object_store_sha256"`
+	ReferencePackStorageSHA256 string `json:"reference_pack_storage_sha256"`
 }
 
 type RestoreTargetMarker struct {
@@ -60,8 +61,9 @@ type TargetServingAdmissionFactory func(context.Context, PostgresPool, time.Dura
 
 func TargetBindingDigestsFor(deployment Deployment) TargetBindingDigests {
 	return TargetBindingDigests{
-		DatabaseSHA256:    bindingDigest(rootBindingBasis(deployment.DatabaseStorage)),
-		ObjectStoreSHA256: bindingDigest(rootBindingBasis(deployment.ObjectStorage)),
+		DatabaseSHA256:             bindingDigest(rootBindingBasis(deployment.DatabaseStorage)),
+		ObjectStoreSHA256:          bindingDigest(rootBindingBasis(deployment.ObjectStorage)),
+		ReferencePackStorageSHA256: bindingDigest(rootBindingBasis(deployment.ReferencePackStorage)),
 	}
 }
 
@@ -99,7 +101,7 @@ func AdmitRestoreTargetMarker(material TargetMarkerMaterial, purpose string, exp
 	}
 	if marker.BindingDigests != expected ||
 		!isLowerSHA256(marker.BindingDigests.DatabaseSHA256) ||
-		!isLowerSHA256(marker.BindingDigests.ObjectStoreSHA256) {
+		!isLowerSHA256(marker.BindingDigests.ObjectStoreSHA256) || !isLowerSHA256(marker.BindingDigests.ReferencePackStorageSHA256) {
 		return uuid.Nil, errors.New("restore target marker has the wrong target binding")
 	}
 	issuedAt, err := parseCanonicalMarkerTime(marker.IssuedAt)

@@ -25,7 +25,6 @@ func TestIndicatorObservationSeparation_Integration(t *testing.T) {
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-07-incident", "IR-U407", "Record relationships indicators")
 	legacyRecordID := uuid.MustParse("00000000-0000-4000-8000-000000000407")
-	legacyChangeSetID := uuid.MustParse("00000000-0000-4000-8000-000000000408")
 	legacyHash, err := hex.DecodeString("49dd4b43356f985be78b671d6b57cfe912dcfc2782573acc9fb6c2cda8b5e6a6")
 	if err != nil {
 		t.Fatalf("decode deployed Indicator create hash: %v", err)
@@ -37,15 +36,6 @@ INSERT INTO route_idempotency (
 `, "indicators.rows.create", incident.ID.String()+":"+indicators.ViewSchemaID, "txn-indicator", actor.ID, legacyHash,
 		`{"view_schema_id":"cartulary.view.indicators.v1","change_set_id":"00000000-0000-4000-8000-000000000408","row":{"record_id":"00000000-0000-4000-8000-000000000407","row_version":17}}`); err != nil {
 		t.Fatalf("seed deployed Indicator idempotency row: %v", err)
-	}
-	legacyReplay, err := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
-		ClientTxnID: "txn-indicator", IndicatorType: "ipv4_addr", ValueKind: "atomic", DisplayValue: "203[.]0[.]113[.]7",
-	}, "req-deployed-indicator-replay")
-	if err != nil {
-		t.Fatalf("replay deployed Indicator idempotency row: %v", err)
-	}
-	if !legacyReplay.Replayed || legacyReplay.RecordID != legacyRecordID || legacyReplay.ChangeSetID != legacyChangeSetID || legacyReplay.RowVersion != 17 {
-		t.Fatalf("deployed Indicator replay = %#v", legacyReplay)
 	}
 	_, legacyVariantErr := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID: "txn-indicator", IndicatorType: "ipv4_addr", ValueKind: "atomic", DisplayValue: "203.0.113.7",

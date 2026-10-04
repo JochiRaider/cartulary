@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_operator_result.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "operation_id",
+    "result",
+    "container_sha256",
+    "pack_key",
+    "pack_version",
+    "job_id",
+    "error_code",
+    "reason_code"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_operator_result.v1"
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "result": {
+      "enum": [
+        "succeeded",
+        "failed"
+      ]
+    },
+    "container_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "pack_key": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "pack_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "job_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "error_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reason_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "const": "succeeded"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "container_sha256": {
+            "type": "string"
+          },
+          "pack_key": {
+            "type": "string"
+          },
+          "pack_version": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "null"
+          },
+          "reason_code": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error_code": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "pack_key": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pack_version": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "pack_version": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

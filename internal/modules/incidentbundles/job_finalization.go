@@ -28,6 +28,12 @@ type JobFailureFinalization struct {
 	Mutate     JobSuccessMutation
 }
 
+type JobCancellationFinalization struct {
+	Execution  jobs.Execution
+	Completion jobs.CancellationCompletion
+	Mutate     JobSuccessMutation
+}
+
 // JobSuccessFinalizer is the Incident Bundles-owned terminal-success port.
 // Application assembly adapts the shared proof store while keeping physical
 // transaction access out of the module.
@@ -35,6 +41,8 @@ type JobSuccessFinalizer interface {
 	FinalizeIncidentBundleJobSuccess(context.Context, JobSuccessFinalization) (jobs.Resource, error)
 	FinalizeIncidentBundleJobSuccessTx(context.Context, crossownertransaction.FinalizationCapability, JobSuccessFinalization) (jobs.Resource, error)
 	FinalizeIncidentBundleJobFailure(context.Context, JobFailureFinalization) (jobs.Resource, error)
+	FinalizeIncidentBundleJobTimeout(context.Context, JobFailureFinalization) (jobs.Resource, error)
+	FinalizeIncidentBundleJobCancellation(context.Context, JobCancellationFinalization) (jobs.Resource, error)
 }
 
 type importJobTransactionFinalizer struct {

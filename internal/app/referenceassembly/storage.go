@@ -1,15 +1,12 @@
 package referenceassembly
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"regexp"
-
-	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
@@ -23,8 +20,6 @@ type RootStorage struct {
 	temporary *rootedfs.Root
 	published *rootedfs.Root
 }
-
-var _ reference_data.Storage = (*RootStorage)(nil)
 
 // NewRootStorage opens the temporary and published-pack root capabilities.
 // The caller owns the returned storage and must close it.
@@ -49,73 +44,6 @@ func (storage *RootStorage) Close() {
 	_ = storage.temporary.Close()
 }
 
-func (storage *RootStorage) Stage(ctx context.Context, fileSHA string, data []byte) (reference_data.StagingRef, error) {
-	if storage == nil || storage.temporary == nil {
-		return reference_data.StagingRef{}, errors.New("reference pack temporary storage is unavailable")
-	}
-	namePrefix := fileSHA
-	if !referencePackSHA256Pattern.MatchString(namePrefix) {
-		namePrefix = uuid.NewString()
-	}
-	reference, err := reference_data.ParseStagingRef(
-		"reference-packs/imports/" + namePrefix + "-" + uuid.NewString() + ".bundle",
-	)
-	if err != nil {
-		return reference_data.StagingRef{}, err
-	}
-	rootReference, err := rootedfs.ParseReference(reference.String())
-	if err != nil {
-		return reference_data.StagingRef{}, err
-	}
-	if err := storage.temporary.MakePrivateDir(rootedfs.MustParseReference("reference-packs/imports")); err != nil {
-		return reference_data.StagingRef{}, err
-	}
-	if err := storage.temporary.CreateExclusive(ctx, rootReference, referencePackBytesWriter(data)); err != nil {
-		return reference_data.StagingRef{}, err
-	}
-	return reference, nil
-}
-
-func (storage *RootStorage) Publish(ctx context.Context, bundleSHA string, data []byte) (reference_data.StorageRef, error) {
-	if storage == nil || storage.published == nil {
-		return reference_data.StorageRef{}, errors.New("reference pack published storage is unavailable")
-	}
-	if !referencePackSHA256Pattern.MatchString(bundleSHA) {
-		return reference_data.StorageRef{}, errors.New("reference pack bundle digest is invalid")
-	}
-	reference, err := reference_data.ParseStorageRef(
-		"reference-packs/bundles/" + bundleSHA + "-" + uuid.NewString() + ".bundle",
-	)
-	if err != nil {
-		return reference_data.StorageRef{}, err
-	}
-	rootReference, err := rootedfs.ParseReference(reference.String())
-	if err != nil {
-		return reference_data.StorageRef{}, err
-	}
-	if err := storage.published.MakePrivateDir(rootedfs.MustParseReference("reference-packs/bundles")); err != nil {
-		return reference_data.StorageRef{}, err
-	}
-	if err := storage.published.CreateExclusive(ctx, rootReference, referencePackBytesWriter(data)); err != nil {
-		return reference_data.StorageRef{}, err
-	}
-	return reference, nil
-}
-
-func (storage *RootStorage) ReadStaged(reference reference_data.StagingRef, maxBytes int64) ([]byte, error) {
-	if storage == nil || storage.temporary == nil {
-		return nil, errors.New("reference pack temporary storage is unavailable")
-	}
-	return readReferencePackRegular(storage.temporary, reference.String(), maxBytes)
-}
-
-func (storage *RootStorage) ReadPublished(reference reference_data.StorageRef, maxBytes int64) ([]byte, error) {
-	if storage == nil || storage.published == nil {
-		return nil, errors.New("reference pack published storage is unavailable")
-	}
-	return readReferencePackRegular(storage.published, reference.String(), maxBytes)
-}
-
 func (storage *RootStorage) RemoveStaged(reference reference_data.StagingRef) error {
 	if storage == nil || storage.temporary == nil {
 		return errors.New("reference pack temporary storage is unavailable")
@@ -130,15 +58,6 @@ func (storage *RootStorage) RemovePublished(reference reference_data.StorageRef)
 	return removeReferencePackRegular(storage.published, reference.String())
 }
 
-func readReferencePackRegular(root *rootedfs.Root, rawReference string, maxBytes int64) ([]byte, error) {
-	reference, err := rootedfs.ParseReference(rawReference)
-	if err != nil {
-		return nil, err
-	}
-	data, _, err := root.ReadRegular(reference, maxBytes)
-	return data, err
-}
-
 func removeReferencePackRegular(root *rootedfs.Root, rawReference string) error {
 	reference, err := rootedfs.ParseReference(rawReference)
 	if err != nil {
@@ -151,10 +70,20 @@ func removeReferencePackRegular(root *rootedfs.Root, rawReference string) error 
 	return err
 }
 
-func referencePackBytesWriter(data []byte) rootedfs.WriteFunc {
-	immutable := bytes.Clone(data)
-	return func(destination io.Writer) error {
-		_, err := io.Copy(destination, bytes.NewReader(immutable))
-		return err
+// OpenIncoming admits exactly one operator filename beneath the already
+// confined storage root. RootedFS rejects links and non-regular objects before
+// opening bytes; incoming names never become published object references.
+func (storage *RootStorage) OpenIncoming(ctx context.Context, name string) (io.ReadCloser, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
+	if storage == nil || storage.published == nil || !reference_data.ValidOperatorBundleName(name) {
+		return nil, reference_data.ErrInvalidReferencePackStorageReference
+	}
+	ref, err := rootedfs.ParseReference("incoming/" + name)
+	if err != nil {
+		return nil, err
+	}
+	file, _, err := storage.published.OpenRegular(ref)
+	return file, err
 }

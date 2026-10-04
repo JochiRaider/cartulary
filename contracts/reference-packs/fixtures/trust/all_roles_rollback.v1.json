@@ -1,0 +1,57 @@
+{
+  "case_id": "ordinary_3",
+  "bootstrap": "{\"signatures\":[{\"keyid\":\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\",\"sig\":\"03598c006f5da121a7dbc358bcd709b9e4815c358ad04890de5193b033a9f1196983a0e47bb668f7cb091ff890a03993bf09aa3bb89f3db66e49f7ff59067909\"},{\"keyid\":\"f4584ddf67f50b682fcbcb28a4a6c6dffa872e4075ad54071b24d66572cb16d3\",\"sig\":\"8e6dc3547c3b4d6b6d904f23aae80a7c2461d584fbd52d0fd8663d0321fcd877872ff03a4e67ad528218eaadc4dc8e8aaa91f09394b425073b389a5226e70c09\"},{\"keyid\":\"f6934b45551fe156fcf8296f519a1423b7ff5b88dca8880a23cb30a5b9bb1d30\",\"sig\":\"c5bbc923a7b3300f3838a6ea2316de4950f457e62231f58e29db37cc26d6c53a5502e53881587188eeb1416de232c5f38284409940380e771793dabfa87b2203\"}],\"signed\":{\"_type\":\"root\",\"cartulary\":{\"schema_id\":\"cartulary.reference_pack_tuf_root_binding.v1\",\"trust_repository_id\":\"test.repo\"},\"consistent_snapshot\":false,\"expires\":\"2027-10-01T00:00:00Z\",\"keys\":{\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"0259e324e857095a788647597cc653bbff42781bd84c4fcaeb5273039afab77b\"},\"scheme\":\"ed25519\"},\"f4584ddf67f50b682fcbcb28a4a6c6dffa872e4075ad54071b24d66572cb16d3\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"7f83838f1b025b0fb3ceaf705d5daa2fef122e195210d1959b5e85efad6524fe\"},\"scheme\":\"ed25519\"},\"f6934b45551fe156fcf8296f519a1423b7ff5b88dca8880a23cb30a5b9bb1d30\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"b042f4d74756da39dd07a8fc1fb43343720f4339a52c2bbc4b7d7c4e82b6da5f\"},\"scheme\":\"ed25519\"}},\"roles\":{\"root\":{\"keyids\":[\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\",\"f4584ddf67f50b682fcbcb28a4a6c6dffa872e4075ad54071b24d66572cb16d3\",\"f6934b45551fe156fcf8296f519a1423b7ff5b88dca8880a23cb30a5b9bb1d30\"],\"threshold\":2},\"snapshot\":{\"keyids\":[\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\"],\"threshold\":1},\"targets\":{\"keyids\":[\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\"],\"threshold\":1},\"timestamp\":{\"keyids\":[\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\"],\"threshold\":1}},\"spec_version\":\"1.0.35\",\"version\":1}}",
+  "metadata": {
+    "metadata/targets.json": "{\"signatures\":[{\"keyid\":\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\",\"sig\":\"3e23d4eb4d470e7cd7efef4a23e04781f21e4d67dcbf39479a1fc964b1617f49a3b1bca780bdf0637b8a3ace90f157e182fa9aa51cd46b7b23460caff615c106\"}],\"signed\":{\"_type\":\"targets\",\"cartulary\":{\"manifest_sha256\":\"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"pack_key\":\"enrichment.tor\",\"pack_release_sequence\":1,\"pack_version\":\"test-1\",\"payload_sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema_id\":\"cartulary.reference_pack_tuf_targets_binding.v1\",\"trust_repository_id\":\"test.repo\"},\"expires\":\"2026-12-01T00:00:00Z\",\"spec_version\":\"1.0.35\",\"targets\":{\"bundle.json\":{\"hashes\":{\"sha256\":\"523a35908cf68602592246fa92ce0ba54a28ad7ee3a2b57a24115422342b6339\"},\"length\":89},\"manifest.json\":{\"hashes\":{\"sha256\":\"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\"},\"length\":2},\"payload/entries.ndjson\":{\"hashes\":{\"sha256\":\"ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356\"},\"length\":3}},\"version\":1}}",
+    "metadata/snapshot.json": "{\"signatures\":[{\"keyid\":\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\",\"sig\":\"925ed2c37e2fd8092e9f8cce7325e928faea46befb9600f15252be0fa80eba2c9f27a612a718ce3f1dde67a9ba9c6923034dcf273ff0a532647674517e3cc600\"}],\"signed\":{\"_type\":\"snapshot\",\"expires\":\"2026-10-16T00:00:00Z\",\"meta\":{\"targets.json\":{\"hashes\":{\"sha256\":\"46ec0f91c2502201445d4f2a8565dac890381fdcbdbdbe0fd01c4a5fe09f8529\"},\"length\":1053,\"version\":1}},\"spec_version\":\"1.0.35\",\"version\":1}}",
+    "metadata/timestamp.json": "{\"signatures\":[{\"keyid\":\"bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288\",\"sig\":\"210e44e4095b9b671062dfab702baf46e6e3eee07248e001da1380654daa071622f7cbff1e2d075411e018a29d08e608b1883b3640157ebbb76192b6241df90f\"}],\"signed\":{\"_type\":\"timestamp\",\"expires\":\"2026-10-09T00:00:00Z\",\"meta\":{\"snapshot.json\":{\"hashes\":{\"sha256\":\"b19476f771a16fc4d4121b667a6d086bac427227c4051b8a9043064368e83aff\"},\"length\":468,\"version\":1}},\"spec_version\":\"1.0.35\",\"version\":1}}"
+  },
+  "inventory": {
+    "bundle.json": {
+      "Path": "bundle.json",
+      "Size": 89,
+      "SHA256": "523a35908cf68602592246fa92ce0ba54a28ad7ee3a2b57a24115422342b6339"
+    },
+    "manifest.json": {
+      "Path": "manifest.json",
+      "Size": 2,
+      "SHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "payload/entries.ndjson": {
+      "Path": "payload/entries.ndjson",
+      "Size": 3,
+      "SHA256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    }
+  },
+  "verification_time": "2026-10-02T00:00:00Z",
+  "expected_valid_until": "2026-10-09T00:00:00Z",
+  "expected_targets_signers": [
+    "bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288"
+  ],
+  "expected_root_version": 1,
+  "schema_id": "cartulary.reference_pack_trust_fixture.v1",
+  "retained_versions": {
+    "targets": 9007199254740991,
+    "snapshot": 9007199254740991,
+    "timestamp": 9007199254740991
+  },
+  "forget_root_history": false,
+  "consume_roots": false,
+  "expected_role_signers": {
+    "root": [
+      "bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288",
+      "f4584ddf67f50b682fcbcb28a4a6c6dffa872e4075ad54071b24d66572cb16d3",
+      "f6934b45551fe156fcf8296f519a1423b7ff5b88dca8880a23cb30a5b9bb1d30"
+    ],
+    "targets": [
+      "bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288"
+    ],
+    "snapshot": [
+      "bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288"
+    ],
+    "timestamp": [
+      "bbfe94b76ea3f2d945576ffc7b9acd23cbf377053e2a0dda8d4b55eb620e4288"
+    ]
+  },
+  "expected_root_transitions": []
+}

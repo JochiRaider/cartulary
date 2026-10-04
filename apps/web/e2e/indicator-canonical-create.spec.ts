@@ -179,7 +179,7 @@ test("Canonical reuse leaves metadata unchanged and retains its result after rej
   const { form, editor } = await openCanonicalProposal(
     page,
     fixture.source.record_id,
-    "ALPHA[.]EXAMPLE",
+    "ALPHA.EXAMPLE",
   );
   await form.getByText("Additional canonical details", { exact: true }).click();
   await form

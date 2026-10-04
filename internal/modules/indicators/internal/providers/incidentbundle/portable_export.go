@@ -18,14 +18,15 @@ import (
 )
 
 func exportFiles(
+	evaluate identity.Evaluator,
 	ctx context.Context,
 	exportContext sourceport.ExportContext,
 ) ([]incidentportability.File, error) {
-	indicators, err := loadPortableIndicators(ctx, exportContext)
+	indicators, err := loadPortableIndicators(ctx, evaluate, exportContext)
 	if err != nil {
 		return nil, err
 	}
-	observations, err := loadPortableObservations(ctx, exportContext)
+	observations, err := loadPortableObservations(ctx, evaluate, exportContext)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +55,7 @@ func exportFiles(
 
 func loadPortableIndicators(
 	ctx context.Context,
+	evaluate identity.Evaluator,
 	exportContext sourceport.ExportContext,
 ) ([]portableIndicatorRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
@@ -98,19 +100,25 @@ SELECT indicator.record_id, indicator.incident_id, indicator.indicator_type,
 		row.STIXPattern = textFromPG(stix)
 		row.DeletedAt = timeFromPG(deletedAt)
 		row.RuntimeDeletedByID = uuidFromPG(deletedBy)
-		if err := validatePortableIndicatorForExport(row, exportContext.IncidentID); err != nil {
-			return nil, err
-		}
 		result = append(result, row)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, errors.New("indicator portability export iteration failed")
+	}
+	rows.Close()
+	// The evaluator may query the same guarded transaction. Finish the source
+	// query before entering another owner; pgx permits only one live result set.
+	for _, row := range result {
+		if err := validatePortableIndicatorForExport(evaluate, row, exportContext.IncidentID); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }
 
 func loadPortableObservations(
 	ctx context.Context,
+	evaluate identity.Evaluator,
 	exportContext sourceport.ExportContext,
 ) ([]portableObservationRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
@@ -157,13 +165,16 @@ SELECT indicator_observation_id, incident_id, source_record_id, source_field_key
 		row.ResolutionMethod = textFromPG(resolutionMethod)
 		row.DeletedAt = timeFromPG(deletedAt)
 		row.RuntimeDeletedByID = uuidFromPG(deletedBy)
-		if err := validatePortableObservationForExport(row, exportContext.IncidentID); err != nil {
-			return nil, err
-		}
 		result = append(result, row)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, errors.New("indicator observation portability export iteration failed")
+	}
+	rows.Close()
+	for _, row := range result {
+		if err := validatePortableObservationForExport(evaluate, row, exportContext.IncidentID); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }
@@ -419,14 +430,14 @@ func appendPortableRow(payload *bytes.Buffer, row map[string]any) error {
 	return nil
 }
 
-func validatePortableIndicatorForExport(row portableIndicatorRow, incidentID uuid.UUID) error {
+func validatePortableIndicatorForExport(evaluate identity.Evaluator, row portableIndicatorRow, incidentID uuid.UUID) error {
 	if row.RecordID == uuid.Nil || row.IncidentID != incidentID || row.RowVersion < 1 ||
 		row.RuntimeCreatedByID == uuid.Nil || row.RuntimeUpdatedByID == uuid.Nil ||
 		row.UpdatedAt.Before(row.CreatedAt) ||
 		(row.DeletedAt == nil) != (row.RuntimeDeletedByID == nil) {
 		return errors.New("indicator portability export row is invalid")
 	}
-	canonical, err := identity.Canonicalize(identity.Input{
+	canonical, err := identity.Canonicalize(evaluate, identity.Input{
 		IndicatorType: row.IndicatorType, ValueKind: row.ValueKind,
 		DisplayValue: row.DisplayValue, NormalizedValue: row.NormalizedValue,
 		DefangedValue: row.DefangedValue, HashAlgorithm: row.HashAlgorithm,
@@ -445,7 +456,7 @@ func validatePortableIndicatorForExport(row portableIndicatorRow, incidentID uui
 	return nil
 }
 
-func validatePortableObservationForExport(row portableObservationRow, incidentID uuid.UUID) error {
+func validatePortableObservationForExport(evaluate identity.Evaluator, row portableObservationRow, incidentID uuid.UUID) error {
 	if row.ObservationID == uuid.Nil || row.IncidentID != incidentID || row.SourceRecordID == uuid.Nil ||
 		row.RowVersion < 1 || row.RuntimeCreatedByID == uuid.Nil ||
 		strings.TrimSpace(row.SourceFieldKey) == "" || strings.TrimSpace(row.OriginLocator) == "" ||
@@ -457,7 +468,7 @@ func validatePortableObservationForExport(row portableObservationRow, incidentID
 		return errors.New("indicator observation portability export candidate is invalid")
 	}
 	if row.ParsedIndicatorType != nil {
-		canonicalType, canonicalCandidate, err := identity.NormalizeObservationCandidate(
+		canonicalType, canonicalCandidate, err := identity.NormalizeObservationCandidate(evaluate,
 			row.ParsedIndicatorType, row.NormalizedCandidate, row.ObservedText,
 		)
 		if err != nil || !portableStringPointersEqual(canonicalType, row.ParsedIndicatorType) ||

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/sourceboundary"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -30,6 +31,7 @@ type SourceBoundaryResolver interface {
 }
 
 type RouteOptions struct {
+	ReferencePacks       reference_data.Retention
 	JobSuccessFinalizer  JobSuccessFinalizer
 	RenderExportInvoker  RenderExportInvoker
 	ExportFieldProviders []exportprovider.FieldProvider
@@ -78,6 +80,9 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if options.jobOperations != nil && options.jobAdmission == nil {
 		return nil, fmt.Errorf("reporting admitted route requires the Jobs transaction service")
 	}
+	if options.jobOperations != nil && options.ReferencePacks == nil {
+		return nil, fmt.Errorf("reporting admitted route requires Reference Pack retention")
+	}
 	exportMaterializer, err := newReportingExportMaterializer(options.SourceBoundary, options.SupportRefProvider, options.ExportFieldProviders...)
 	if err != nil {
 		return nil, fmt.Errorf("compose reporting export materializer: %w", err)
@@ -86,7 +91,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if err != nil {
 		return nil, fmt.Errorf("compose Reporting graph source registry: %w", err)
 	}
-	store := newStore(deps.Postgres, options.jobAdmission, exportMaterializer, graphSources)
+	store := newStore(deps.Postgres, options.jobAdmission, exportMaterializer, graphSources, options.ReferencePacks)
 	app, err := NewApplicationService(
 		store,
 		admission.NewChecker(deps.PostgresHandle()),

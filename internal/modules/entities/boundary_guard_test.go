@@ -132,7 +132,7 @@ const (
 var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition{
 	".": entitiesExportInventory(`
 		IncidentBundleSubtypeContribution NewIncidentBundleSourcePort RecoveryStateContribution
-		RegisterRoutes RevisionProviderContribution RouteOptions
+		ReferencedHostRegistryEntriesTx RegisterRoutes RevisionProviderContribution RouteOptions
 	`),
 	"candidates": entitiesExportInventory(`Candidate Position Request Page PageReader Reader NewReader Reader.Page`),
 	"entitycontract": entitiesExportInventory(`

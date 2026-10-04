@@ -7,14 +7,15 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
 )
 
 const (
-	RenderBundleManifestSchemaID = "cartulary.render_bundle_manifest.v1"
-	RenderBundleManifestVersion  = "1"
+	RenderBundleManifestSchemaID = "cartulary.render_bundle_manifest.v2"
+	RenderBundleManifestVersion  = "2"
 
-	renderBundleRendererID      = "cartulary.reporting.renderer.bundle_manifest_v1"
+	renderBundleRendererID      = "cartulary.reporting.renderer.bundle_manifest_v2"
 	renderBundleRendererVersion = "1"
 	renderBundleStorageInline   = "database_inline"
 
@@ -43,6 +44,12 @@ type RenderBundle struct {
 }
 
 type RenderBundleManifest struct {
+	ExportModelSHA256 string `json:"export_model_sha256"`
+	RenderIdentity
+	SnapshotID                string                     `json:"snapshot_id"`
+	ExportModelID             string                     `json:"export_model_id"`
+	BundleCreatedAt           string                     `json:"bundle_created_at"`
+	ReferencePacks            reference_data.SetBinding  `json:"reference_packs"`
 	SchemaID                  string                     `json:"schema_id"`
 	ManifestVersion           string                     `json:"manifest_version"`
 	RendererID                string                     `json:"renderer_id"`
@@ -129,6 +136,7 @@ func newRenderValidationError(failureCode string, reasonCode string) error {
 }
 
 type reportingToolchainSnapshot struct {
+	CreatedAt              string   `json:"created_at"`
 	SchemaID               string   `json:"schema_id"`
 	RendererID             string   `json:"renderer_id"`
 	RendererVersion        string   `json:"renderer_version"`
@@ -156,6 +164,7 @@ type reportingSandboxObservation struct {
 }
 
 type reportingRenderValidationSummary struct {
+	CreatedAt     string                           `json:"created_at"`
 	SchemaID      string                           `json:"schema_id"`
 	Result        string                           `json:"result"`
 	TerminalStage string                           `json:"terminal_stage"`
@@ -178,6 +187,11 @@ type reportingRenderValidationIssue struct {
 }
 
 type reportingDeckModel struct {
+	RenderIdentity
+	DeckID              string               `json:"deck_id"`
+	SnapshotID          string               `json:"snapshot_id"`
+	TemplateID          string               `json:"template_id"`
+	TemplateVersion     string               `json:"template_version"`
 	SchemaID            string               `json:"schema_id"`
 	DerivationAlgorithm string               `json:"derivation_algorithm"`
 	Title               string               `json:"title"`
@@ -264,7 +278,7 @@ func renderReportBundle(contract TemplateContract, kind string, model RedactedEx
 		}
 		pipeline.Metadata.ExternalDeterminismSHA256 = determinismSHA
 	}
-	return buildRenderBundle(contract, kind, releaseScope, pipeline.PrimaryPath, pipeline.PrimaryMedia, redactionManifestSHA256, pipeline.Files, pipeline.Metadata)
+	return buildRenderBundle(contract, kind, releaseScope, pipeline.PrimaryPath, pipeline.PrimaryMedia, redactionManifestSHA256, pipeline.Files, pipeline.Metadata, model)
 }
 
 func parseRenderOutputOptions(raw json.RawMessage, kind string, releaseScope string) (renderOutputOptions, error) {
@@ -293,13 +307,14 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 	if err != nil {
 		return renderPipelineResult{}, err
 	}
-	templateManifestSHA := hashHex(templateManifestJSON)
+	templateManifestSHA := reportingObjectDigest("cartulary.reporting_template_pack_manifest.v1", templateManifestJSON)
 	toolchain := defaultReportingToolchainSnapshot(kind, options)
+	toolchain.CreatedAt = model.RenderAdmittedAt
 	toolchainJSON, err := canonicalJSON(toolchain)
 	if err != nil {
 		return renderPipelineResult{}, err
 	}
-	toolchainSHA := hashHex(toolchainJSON)
+	toolchainSHA := reportingObjectDigest(toolchain.SchemaID, toolchainJSON)
 	sandbox := reportingSandboxObservation{
 		SchemaID:                "cartulary.render_sandbox_observation.v1",
 		PolicyID:                "cartulary.reporting.render_sandbox_policy.v1",
@@ -313,7 +328,7 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 	if err != nil {
 		return renderPipelineResult{}, err
 	}
-	sandboxSHA := hashHex(sandboxJSON)
+	sandboxSHA := reportingObjectDigest(sandbox.SchemaID, sandboxJSON)
 
 	files := []RenderBundleFile{
 		newBundleFile("validation/toolchain.json", renderBundleRoleToolchainSnapshot, "application/vnd.cartulary.reporting-toolchain+json", toolchainJSON, true),
@@ -377,6 +392,7 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 		return renderPipelineResult{}, fmt.Errorf("unsupported output kind %q", kind)
 	}
 	validationSummary := reportingRenderValidationSummary{
+		CreatedAt:     model.RenderAdmittedAt,
 		SchemaID:      "cartulary.reporting_render_validation_summary.v1",
 		Result:        "passed",
 		TerminalStage: "release_state",
@@ -397,7 +413,7 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 	if err != nil {
 		return renderPipelineResult{}, err
 	}
-	validationSHA := hashHex(validationJSON)
+	validationSHA := reportingObjectDigest(validationSummary.SchemaID, validationJSON)
 	files = append(files, newBundleFile("validation/summary.json", renderBundleRoleValidationSummary, "application/vnd.cartulary.reporting-validation+json", validationJSON, true))
 	sortBundleFiles(files)
 	return renderPipelineResult{
@@ -414,7 +430,7 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 	}, nil
 }
 
-func buildRenderBundle(contract TemplateContract, kind string, releaseScope string, primaryPath string, primaryMedia string, redactionManifestSHA256 string, files []RenderBundleFile, metadata renderBundleMetadata) (RenderBundle, error) {
+func buildRenderBundle(contract TemplateContract, kind string, releaseScope string, primaryPath string, primaryMedia string, redactionManifestSHA256 string, files []RenderBundleFile, metadata renderBundleMetadata, model RedactedExportModel) (RenderBundle, error) {
 	if primaryPath == "" || primaryMedia == "" {
 		return RenderBundle{}, fmt.Errorf("render bundle primary file is incomplete")
 	}
@@ -437,6 +453,9 @@ func buildRenderBundle(contract TemplateContract, kind string, releaseScope stri
 	toolchainSHA := metadata.ToolchainSnapshotSHA256
 	sandboxSHA := metadata.SandboxObservationSHA256
 	manifest := RenderBundleManifest{
+		ExportModelSHA256: model.ExportModelSHA256,
+		RenderIdentity:    model.RenderIdentity, SnapshotID: model.SnapshotID, ExportModelID: model.ExportModelID, BundleCreatedAt: model.RenderAdmittedAt,
+		ReferencePacks:            model.ReferencePacks,
 		SchemaID:                  RenderBundleManifestSchemaID,
 		ManifestVersion:           RenderBundleManifestVersion,
 		RendererID:                renderBundleRendererID,
@@ -466,7 +485,7 @@ func buildRenderBundle(contract TemplateContract, kind string, releaseScope stri
 	return RenderBundle{
 		Manifest:       manifest,
 		ManifestJSON:   manifestJSON,
-		ManifestSHA256: hashHex(manifestJSON),
+		ManifestSHA256: reportingObjectDigest(manifest.SchemaID, manifestJSON),
 		Files:          files,
 		PrimaryPath:    primaryPath,
 		PrimaryMedia:   primaryMedia,
@@ -523,7 +542,7 @@ func renderPipelineDeterminismDigest(result renderPipelineResult) (string, error
 	if err != nil {
 		return "", err
 	}
-	return hashHex(encoded), nil
+	return reportingObjectDigest("cartulary.reporting_render_determinism.v1", encoded), nil
 }
 
 func optionalRenderSHA(value string) *string {
@@ -615,8 +634,13 @@ func deriveDeckModel(contract TemplateContract, model RedactedExportModel, compo
 		slides[i].Ordinal = i + 1
 		slides[i].SlideID = fmt.Sprintf("sld-%04d", i+1)
 	}
+	deckID, err := model.RenderIdentity.generatedID("deck", "deck_", map[string]any{"template_id": contract.TemplateID, "template_version": contract.TemplateVersion, "export_model_id": model.ExportModelID})
+	if err != nil {
+		return reportingDeckModel{}, err
+	}
 	return reportingDeckModel{
-		SchemaID:            "cartulary.reporting_slide_deck.v1",
+		RenderIdentity: model.RenderIdentity, DeckID: deckID, SnapshotID: model.SnapshotID, TemplateID: contract.TemplateID, TemplateVersion: contract.TemplateVersion,
+		SchemaID:            "cartulary.reporting_slide_deck.v2",
 		DerivationAlgorithm: deckDerivationAlgorithm(composition != nil),
 		Title:               title,
 		Slides:              slides,

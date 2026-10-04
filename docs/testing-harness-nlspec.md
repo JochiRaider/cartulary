@@ -7045,6 +7045,10 @@ catalog routes fixture execution through the Network Flow behavior
 verification without copying specification identities into the fixture.
 Verified by: TH-HARNESS-AC-049
 
+The Reference Pack companion uses `cartulary.reference_pack_fixture_manifest.v1`, attached through `tools/harness_schema_attachments.json`, for the closed fixture inputs and expected outputs owned by Reference Pack §29. Its manifests MUST reject unknown fields, omitted nullable fields, unordered or duplicate input paths and side-effect tokens, contradictory required/forbidden effects, and symlinked input paths. Prose paths MUST be rejected before filesystem access. Fixture execution remains routed by `module.reference_data` and participating owner rows; the manifests do not define product semantics, adoption, or release status.
+
+The Reference Pack requirement and criterion inventories and inclusive range projection are authored machine inputs under `contracts/reference-packs/traceability.v1.json`. Their consistency check MUST verify exhaustiveness, non-overlap and referential integrity without reading or hashing specifications. Its zero-unmapped result proves projection consistency only. Human owner review establishes projection fidelity; executed acceptance evidence and actual adoption remain separate obligations. Missing fixture families or unexecuted obligations MUST remain open in the handoff and block a conformance claim.
+
 **TH-HARNESS-REQ-658**
 Network Flow fault controls are harness mechanics for exercising adopted
 product-owned commit, worker, cancellation, replay, and recovery behavior. A

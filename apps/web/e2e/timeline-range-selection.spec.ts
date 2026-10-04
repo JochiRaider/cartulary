@@ -65,6 +65,23 @@ const selected = (page: Page) =>
   grid(page).locator('[role="gridcell"][aria-selected="true"]');
 const preview = (page: Page) =>
   grid(page).locator(".cartulary-grid-cell-is-range-preview");
+
+async function advanceScrollFramesUntil(
+  page: Page,
+  reached: () => Promise<boolean>,
+) {
+  // Advance only the frames needed for this functional boundary. Running a
+  // fixed multi-second clock interval also executes unrelated idle frames and
+  // can exhaust the test's real-time budget after scrolling has already ended.
+  for (let frame = 0; frame < 500; frame += 1) {
+    if (await reached()) return;
+    await page.clock.runFor(16);
+  }
+  expect(await reached(), "Auto-scroll reaches its declared boundary").toBe(
+    true,
+  );
+}
+
 function required<T>(value: T | null | undefined): T {
   if (value == null) throw new Error("Missing fixture target");
   return value;
@@ -453,9 +470,13 @@ test("Timeline pointer cancellation preserves completed membership and stationar
 test("Timeline ranges scroll virtualized loaded cells without querying or scrolling the document", async ({
   page,
 }) => {
+  // This is functional scrolling evidence. Drive animation frames explicitly
+  // so host scheduling cannot turn the frame-work cap into a wall-clock claim.
+  await page.clock.install();
   const f = await seed(page, 405);
   const first = required(f.ids[0]);
   await reveal(page, first);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   const queries: string[] = [];
   page.on("request", (request) => {
     if (request.url().includes(`/views/${timelineViewSchemaId}/query`))
@@ -471,16 +492,15 @@ test("Timeline ranges scroll virtualized loaded cells without querying or scroll
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(start.x, root.y + root.height - 2, { steps: 6 });
-  await expect
-    .poll(() => port.evaluate((el) => el.scrollTop))
-    .toBeGreaterThan(900);
+  await advanceScrollFramesUntil(page, () =>
+    port.evaluate((el) => el.scrollTop > 900),
+  );
   await expect(cell(page, first)).toHaveCount(0);
-  await expect
-    .poll(() =>
-      port.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop),
-    )
-    .toBeLessThan(2);
+  await advanceScrollFramesUntil(page, () =>
+    port.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop < 2),
+  );
   await page.mouse.up();
+  await page.clock.resume();
   await expect(
     page.getByRole("status").filter({ hasText: /^Selected / }),
   ).toHaveText("Selected 100 rows by 1 columns.");
@@ -524,15 +544,15 @@ test("Timeline ranges scroll virtualized loaded cells without querying or scroll
   await reveal(page, first);
   const origin = await point(cell(page, first));
   const bounds = required(await port.boundingBox());
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.mouse.move(origin.x, origin.y);
   await page.mouse.down();
   await page.mouse.move(bounds.x + bounds.width - 2, origin.y, { steps: 6 });
-  await expect
-    .poll(() =>
-      port.evaluate((el) => el.scrollWidth - el.clientWidth - el.scrollLeft),
-    )
-    .toBeLessThan(2);
+  await advanceScrollFramesUntil(page, () =>
+    port.evaluate((el) => el.scrollWidth - el.clientWidth - el.scrollLeft < 2),
+  );
   await page.mouse.up();
+  await page.clock.resume();
   await expect(preview(page)).toHaveCount(0);
   await expect(
     page.getByRole("status").filter({ hasText: /^Selected / }),

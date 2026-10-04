@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -29,7 +30,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		ClientTxnID:   "txn-indicator-portability-create",
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
-		DisplayValue:  "PORTABLE[.]EXAMPLE.TEST",
+		DisplayValue:  "PORTABLE.EXAMPLE.TEST",
 	}, "req-indicator-portability-create")
 	if err != nil {
 		t.Fatalf("create indicator: %v", err)
@@ -46,7 +47,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("append interval: %v", err)
 	}
 
-	contribution, err := indicators.NewIncidentBundleContribution()
+	contribution, err := indicators.NewIncidentBundleContribution(referencefixture.IndicatorRegistry{}, referencefixture.IndicatorRegistry{})
 	if err != nil {
 		t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
 	}
@@ -122,7 +123,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("source-port paths = %#v", descriptor.Paths)
 	}
 	for _, path := range descriptor.Paths {
-		if !slices.Equal(path.Versions, []int{4}) {
+		if !slices.Equal(path.Versions, []int{5}) {
 			t.Fatalf("%s versions = %v, want [3 4]", path.LogicalPath, path.Versions)
 		}
 	}

@@ -18,6 +18,7 @@ import {
   installReferencePackPresentation,
   openReferencePacks,
   referencePackBarrier,
+  referencePackBrowserPack,
   referencePackBundle,
 } from "./support/referencePacks";
 
@@ -108,6 +109,17 @@ test("imports and replays real pack bytes then activates disables reverifies and
     referencePackRowTestId(bundle.key, bundle.version),
   );
   await expect(row).toContainText("Verified, available");
+  const versionDetails = row.getByText("Version details", { exact: true });
+  await versionDetails.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    row.getByText("Manifest SHA-256", { exact: true }),
+  ).toBeVisible();
+  await expect(row.getByText("Payload SHA-256", { exact: true })).toBeVisible();
+  await expect(row.getByText("Dependencies", { exact: true })).toBeVisible();
+  await expect(row.getByText("None", { exact: true })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(row.getByText("Manifest SHA-256", { exact: true })).toBeHidden();
   await expect(row.getByRole("cell").nth(3)).toHaveText("No", {
     useInnerText: true,
   });
@@ -140,7 +152,7 @@ test("imports and replays real pack bytes then activates disables reverifies and
     row.getByRole("button", { name: "Activate", exact: true }),
   ).toBeDisabled();
   await invoke("Disable", "Disabled");
-  await invoke("Reverify", "Verified, available");
+  await invoke("Reverify", "Disabled");
   const refreshes: Record<string, unknown>[] = [];
   await page.route("**/api/v1/reference-packs/refresh", async (route) => {
     refreshes.push(route.request().postDataJSON());
@@ -169,6 +181,46 @@ test("imports and replays real pack bytes then activates disables reverifies and
   ).toBeVisible({ timeout: 30_000 });
   expect(refreshes[1]).not.toHaveProperty("pack_keys");
   expect(actions.map(({ status }) => status)).toEqual([200, 200, 202]);
+  // A real signed container with a closed-schema failure exposes only the
+  // retained safe summary. Retrying its read must not replay the import.
+  let diagnosticReads = 0;
+  await page.route(
+    "**/api/v1/reference-packs/validation-summaries/*",
+    async (route) => {
+      diagnosticReads++;
+      if (diagnosticReads === 1) await route.abort("failed");
+      else await route.continue();
+    },
+  );
+  await file.setInputFiles(
+    referencePackBundle({ invalidManifest: true }).upload,
+  );
+  await start.click();
+  const details = panel.getByRole("region", { name: "Validation details" });
+  const inspect = details.getByRole("button", {
+    name: "View validation details",
+  });
+  await expect(inspect).toBeVisible({ timeout: 30_000 });
+  const admittedCount = admissions.length;
+  await inspect.focus();
+  await page.keyboard.press("Enter");
+  const retryDetails = details.getByRole("button", {
+    name: "Retry validation details",
+  });
+  await expect(retryDetails).toBeVisible();
+  await retryDetails.focus();
+  await page.keyboard.press("Enter");
+  await expect(details.getByText("1 validation issue.")).toBeVisible();
+  await expect(
+    details.getByText("manifest_schema", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    details.getByRole("button", { name: "View validation details" }),
+  ).toBeFocused();
+  await expect(details).not.toContainText("private_hostile_member");
+  await expect(details).not.toContainText("private diagnostic sentinel");
+  expect(diagnosticReads).toBe(2);
+  expect(admissions).toHaveLength(admittedCount);
   await testInfo.attach("reference-pack-real-lifecycle", {
     body: JSON.stringify({
       key: bundle.key,
@@ -489,25 +541,7 @@ function jobResource(
 }
 
 function packResource(packKey: string) {
-  return {
-    activated_at: null,
-    activated_by_user_id: null,
-    active: false,
-    imported_at: "2026-08-04T20:00:00Z",
-    imported_by_user_id: null,
-    manifest_sha256: "a".repeat(64),
-    pack_contract_version: "cartulary.reference_pack.v1",
-    pack_key: packKey,
-    pack_kind: "type_registry",
-    pack_version: "1",
-    pack_version_state: "verified_available",
-    payload_sha256: "b".repeat(64),
-    previous_active_version: null,
-    signer_key_id: null,
-    source_identifier: null,
-    verification_method: "manifest_sha256_v1",
-    verification_result: "passed",
-  };
+  return referencePackBrowserPack(packKey, "1");
 }
 
 async function fulfillPackList(

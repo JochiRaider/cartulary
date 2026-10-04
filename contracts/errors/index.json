@@ -517,29 +517,90 @@
       "code": "invalid_saved_view_read_request",
       "http_status": 400,
       "summary": "A saved-view read has malformed query encoding or an undeclared singleton query member."
+    },
+    {
+      "code": "reference_pack_operation_rejected",
+      "http_status": 409,
+      "summary": "The Reference Pack operation cannot proceed against the admitted state."
+    },
+    {
+      "code": "required_reference_pack_unavailable",
+      "http_status": 409,
+      "summary": "An exact Reference Pack set required by a retained artifact cannot be reconstructed; no substitute set is selected."
     }
   ],
   "reason_registries": [
     {
       "error_code": "invalid_view_query",
       "reason_codes": [
-        { "code": "unknown_filter_field", "summary": "The field is not filterable in the addressed view." },
-        { "code": "operator_not_allowed", "summary": "The operator is not allowed for the declared field class." },
-        { "code": "invalid_filter_operand", "summary": "The operand is malformed, empty, contradictory, or invalid for the operator." },
-        { "code": "empty_values_after_normalization", "summary": "The set-like operand has no remaining normalized values." },
-        { "code": "empty_full_text_after_tokenization", "summary": "The full-text query has no remaining normalized tokens." },
-        { "code": "duplicate_filter_field", "summary": "The normalized filter field occurs more than once." },
-        { "code": "filter_count_exceeded", "summary": "The raw filter array exceeds sixteen entries." },
-        { "code": "invalid_sort_entry", "summary": "The sort entry does not have the required field and direction shape." },
-        { "code": "duplicate_sort_field", "summary": "The normalized sort field occurs more than once." },
-        { "code": "sort_field_not_allowed", "summary": "The sort field is not declared by the addressed view." },
-        { "code": "sort_count_exceeded", "summary": "The raw authored sort array exceeds eight entries." },
-        { "code": "invalid_group_by", "summary": "The grouping value is null or malformed." },
-        { "code": "group_by_not_allowed", "summary": "The grouping field is not declared by the addressed view." },
-        { "code": "invalid_limit", "summary": "The query limit is malformed, outside one through five hundred, or uses an unsupported pagination alias." },
-        { "code": "invalid_cursor_token", "summary": "The Core workbook cursor is malformed, tampered, or not valid for the current route or actor." },
-        { "code": "cursor_query_mismatch", "summary": "The cursor does not match the normalized route query and effective limit." },
-        { "code": "cursor_snapshot_unavailable", "summary": "Reserved for future explicit snapshot routes; restart without a cursor if received." }
+        {
+          "code": "unknown_filter_field",
+          "summary": "The field is not filterable in the addressed view."
+        },
+        {
+          "code": "operator_not_allowed",
+          "summary": "The operator is not allowed for the declared field class."
+        },
+        {
+          "code": "invalid_filter_operand",
+          "summary": "The operand is malformed, empty, contradictory, or invalid for the operator."
+        },
+        {
+          "code": "empty_values_after_normalization",
+          "summary": "The set-like operand has no remaining normalized values."
+        },
+        {
+          "code": "empty_full_text_after_tokenization",
+          "summary": "The full-text query has no remaining normalized tokens."
+        },
+        {
+          "code": "duplicate_filter_field",
+          "summary": "The normalized filter field occurs more than once."
+        },
+        {
+          "code": "filter_count_exceeded",
+          "summary": "The raw filter array exceeds sixteen entries."
+        },
+        {
+          "code": "invalid_sort_entry",
+          "summary": "The sort entry does not have the required field and direction shape."
+        },
+        {
+          "code": "duplicate_sort_field",
+          "summary": "The normalized sort field occurs more than once."
+        },
+        {
+          "code": "sort_field_not_allowed",
+          "summary": "The sort field is not declared by the addressed view."
+        },
+        {
+          "code": "sort_count_exceeded",
+          "summary": "The raw authored sort array exceeds eight entries."
+        },
+        {
+          "code": "invalid_group_by",
+          "summary": "The grouping value is null or malformed."
+        },
+        {
+          "code": "group_by_not_allowed",
+          "summary": "The grouping field is not declared by the addressed view."
+        },
+        {
+          "code": "invalid_limit",
+          "summary": "The query limit is malformed, outside one through five hundred, or uses an unsupported pagination alias."
+        },
+        {
+          "code": "invalid_cursor_token",
+          "summary": "The Core workbook cursor is malformed, tampered, or not valid for the current route or actor."
+        },
+        {
+          "code": "cursor_query_mismatch",
+          "summary": "The cursor does not match the normalized route query and effective limit."
+        },
+        {
+          "code": "cursor_snapshot_unavailable",
+          "summary": "Reserved for future explicit snapshot routes; restart without a cursor if received."
+        }
       ]
     },
     {
@@ -1057,6 +1118,18 @@
         {
           "code": "empty_pack_keys",
           "summary": "The refresh pack_keys selector is explicitly empty."
+        },
+        {
+          "code": "invalid_reason",
+          "summary": "The reason is not valid reason_note_v1 text."
+        },
+        {
+          "code": "reason_too_long",
+          "summary": "The normalized reason exceeds 4096 Unicode scalar values."
+        },
+        {
+          "code": "request_too_large",
+          "summary": "The administrative JSON request exceeds 65536 bytes."
         }
       ]
     },
@@ -1064,44 +1137,184 @@
       "error_code": "reference_pack_verification_failed",
       "reason_codes": [
         {
-          "code": "checksum_mismatch",
-          "summary": "A declared payload checksum does not match the supplied bundle bytes."
-        },
-        {
-          "code": "signature_mismatch",
-          "summary": "The supplied signature or signed digest does not match the verified payload metadata."
-        },
-        {
-          "code": "missing_integrity_metadata",
-          "summary": "Required manifest, payload digest, or signature metadata is missing or malformed."
-        },
-        {
-          "code": "contract_incompatible",
-          "summary": "The pack_contract_version is not compatible with this implementation."
-        },
-        {
-          "code": "path_traversal",
-          "summary": "A bundle member path is absolute, escapes the archive root, or is otherwise unsafe."
-        },
-        {
-          "code": "disallowed_content",
-          "summary": "A bundle member contains active or non-allowlisted content."
-        },
-        {
-          "code": "payload_missing",
-          "summary": "A manifest-declared payload is missing or the archive cannot be read as a payload bundle."
+          "code": "archive_compression_ratio_exceeded",
+          "summary": "Reference Pack archive compression ratio exceeded."
         },
         {
           "code": "archive_extracted_bytes_exceeded",
-          "summary": "The bundle exceeds the configured extracted-byte limit."
-        },
-        {
-          "code": "archive_compression_ratio_exceeded",
-          "summary": "The bundle exceeds the configured compression-ratio limit."
+          "summary": "Reference Pack archive extracted bytes exceeded."
         },
         {
           "code": "archive_member_count_exceeded",
-          "summary": "The bundle exceeds the configured archive-member limit."
+          "summary": "Reference Pack archive member count exceeded."
+        },
+        {
+          "code": "archive_structure_invalid",
+          "summary": "Reference Pack archive structure invalid."
+        },
+        {
+          "code": "bundle_hint_invalid",
+          "summary": "Reference Pack bundle hint invalid."
+        },
+        {
+          "code": "bundle_hint_noncanonical",
+          "summary": "Reference Pack bundle hint noncanonical."
+        },
+        {
+          "code": "checksum_mismatch",
+          "summary": "Reference Pack checksum mismatch."
+        },
+        {
+          "code": "container_bytes_exceeded",
+          "summary": "Reference Pack container bytes exceeded."
+        },
+        {
+          "code": "content_schema_invalid",
+          "summary": "Reference Pack content schema invalid."
+        },
+        {
+          "code": "content_semantic_invalid",
+          "summary": "Reference Pack content semantic invalid."
+        },
+        {
+          "code": "contract_incompatible",
+          "summary": "Reference Pack contract incompatible."
+        },
+        {
+          "code": "dependency_cycle",
+          "summary": "Reference Pack dependency cycle."
+        },
+        {
+          "code": "dependency_unsatisfied",
+          "summary": "Reference Pack dependency unsatisfied."
+        },
+        {
+          "code": "disallowed_content",
+          "summary": "Reference Pack disallowed content."
+        },
+        {
+          "code": "disallowed_member_type",
+          "summary": "Reference Pack disallowed member type."
+        },
+        {
+          "code": "duplicate_object_member",
+          "summary": "Reference Pack duplicate object member."
+        },
+        {
+          "code": "manifest_encoding_invalid",
+          "summary": "Reference Pack manifest encoding invalid."
+        },
+        {
+          "code": "manifest_json_invalid",
+          "summary": "Reference Pack manifest json invalid."
+        },
+        {
+          "code": "manifest_noncanonical",
+          "summary": "Reference Pack manifest noncanonical."
+        },
+        {
+          "code": "manifest_schema_invalid",
+          "summary": "Reference Pack manifest schema invalid."
+        },
+        {
+          "code": "metadata_expired",
+          "summary": "Reference Pack metadata expired."
+        },
+        {
+          "code": "metadata_expiry_policy_invalid",
+          "summary": "Reference Pack metadata expiry policy invalid."
+        },
+        {
+          "code": "metadata_mix_and_match_detected",
+          "summary": "Reference Pack metadata mix and match detected."
+        },
+        {
+          "code": "metadata_noncanonical",
+          "summary": "Reference Pack metadata noncanonical."
+        },
+        {
+          "code": "metadata_rollback_detected",
+          "summary": "Reference Pack metadata rollback detected."
+        },
+        {
+          "code": "missing_integrity_metadata",
+          "summary": "Reference Pack missing integrity metadata."
+        },
+        {
+          "code": "pack_conflict",
+          "summary": "Reference Pack pack conflict."
+        },
+        {
+          "code": "pack_release_sequence_collision",
+          "summary": "Reference Pack pack release sequence collision."
+        },
+        {
+          "code": "pack_release_sequence_rollback",
+          "summary": "Reference Pack pack release sequence rollback."
+        },
+        {
+          "code": "pack_version_collision",
+          "summary": "Reference Pack pack version collision."
+        },
+        {
+          "code": "path_collision",
+          "summary": "Reference Pack path collision."
+        },
+        {
+          "code": "path_traversal",
+          "summary": "Reference Pack path traversal."
+        },
+        {
+          "code": "payload_missing",
+          "summary": "Reference Pack payload missing."
+        },
+        {
+          "code": "required_member_missing",
+          "summary": "Reference Pack required member missing."
+        },
+        {
+          "code": "signature_threshold_not_met",
+          "summary": "Reference Pack signature threshold not met."
+        },
+        {
+          "code": "target_length_mismatch",
+          "summary": "Reference Pack target length mismatch."
+        },
+        {
+          "code": "target_not_declared",
+          "summary": "Reference Pack target not declared."
+        },
+        {
+          "code": "tuf_metadata_invalid",
+          "summary": "Reference Pack tuf metadata invalid."
+        },
+        {
+          "code": "tuf_root_rotation_invalid",
+          "summary": "Reference Pack tuf root rotation invalid."
+        },
+        {
+          "code": "tuf_root_untrusted",
+          "summary": "Reference Pack tuf root untrusted."
+        },
+        {
+          "code": "type_registry_incompatible",
+          "summary": "Reference Pack type registry incompatible."
+        },
+        {
+          "code": "undeclared_member",
+          "summary": "Reference Pack undeclared member."
+        },
+        {
+          "code": "unexpected_target",
+          "summary": "Reference Pack unexpected target."
+        },
+        {
+          "code": "unsupported_container_format",
+          "summary": "Reference Pack unsupported container format."
+        },
+        {
+          "code": "verification_timeout",
+          "summary": "Reference Pack verification timeout."
         }
       ]
     },
@@ -1115,6 +1328,10 @@
         {
           "code": "not_verified_available",
           "summary": "The addressed version is not in verified_available condition."
+        },
+        {
+          "code": "metadata_expired",
+          "summary": "The retained successful envelope is no longer fresh for activation."
         }
       ]
     },
@@ -1940,6 +2157,71 @@
         {
           "code": "unknown_query_member",
           "summary": "The singleton saved-view read contains an undeclared non-pagination query member."
+        }
+      ]
+    },
+    {
+      "error_code": "reference_pack_operation_rejected",
+      "reason_codes": [
+        {
+          "code": "verification_pending",
+          "summary": "verification pending."
+        },
+        {
+          "code": "no_successful_verification",
+          "summary": "no successful verification."
+        },
+        {
+          "code": "stale_admission_state",
+          "summary": "stale admission state."
+        },
+        {
+          "code": "clock_untrusted",
+          "summary": "clock untrusted."
+        },
+        {
+          "code": "packaged_builtin",
+          "summary": "packaged builtin."
+        },
+        {
+          "code": "removed",
+          "summary": "removed."
+        },
+        {
+          "code": "not_disableable",
+          "summary": "not disableable."
+        },
+        {
+          "code": "active",
+          "summary": "active."
+        },
+        {
+          "code": "pinned",
+          "summary": "pinned."
+        },
+        {
+          "code": "dependency_unsatisfied",
+          "summary": "dependency unsatisfied."
+        },
+        {
+          "code": "dependency_cycle",
+          "summary": "dependency cycle."
+        },
+        {
+          "code": "pack_conflict",
+          "summary": "pack conflict."
+        },
+        {
+          "code": "required_registry_gap",
+          "summary": "required registry gap."
+        },
+        {
+          "code": "contract_incompatible",
+          "summary": "contract incompatible."
+        },
+        {
+          "code": "type_registry_incompatible",
+          "summary": "type registry incompatible."
         }
       ]
     }

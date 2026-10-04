@@ -16,6 +16,7 @@ import (
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	projectionfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/fixturewriter"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -42,6 +43,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	db := postgresHarness.BeginRollbackDBT(t, "indicator-repository-atomicity")
 	now := time.Date(2026, 8, 3, 19, 0, 0, 0, time.UTC)
 	owner, err := NewApplication(ApplicationDependencies{
+		ReferencePacks:  referencefixture.IndicatorRegistry{},
 		Postgres:        db,
 		Idempotency:     transactionTestIdempotencyPort{store: authn.NewStore(db)},
 		IncidentState:   admission.NewChecker(db),
@@ -104,12 +106,11 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	if err != nil {
 		t.Fatalf("begin baseline source transaction: %v", err)
 	}
-	created, _, _, _, err := owner.upsertIndicatorTx(ctx, tx, actor.ID, incidentID, CreateCommand{
-		ClientTxnID:   "txn-indicator-atomicity-source",
-		IndicatorType: "domain_name",
-		ValueKind:     "atomic",
-		DisplayValue:  "source.example",
-	}, now.Add(time.Minute))
+	input, err := indicatorInputFromCreateCommand(referencefixture.EvaluateIndicator, CreateCommand{ClientTxnID: "txn-indicator-atomicity-source", IndicatorType: "domain_name", ValueKind: "atomic", DisplayValue: "source.example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, _, _, _, err := owner.upsertIndicatorTx(ctx, tx, actor.ID, incidentID, input, now.Add(time.Minute))
 	if err != nil {
 		t.Fatalf("create baseline Indicator: %v", err)
 	}

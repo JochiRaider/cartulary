@@ -4,7 +4,18 @@ package rootedfs
 
 import (
 	"context"
+	"io"
 )
+
+func (*Root) TryLockDirectory(Reference) (io.Closer, bool, error) {
+	return nil, false, ErrUnsupportedPlatform
+}
+func (*Root) LockDirectory(context.Context, Reference) (io.Closer, error) {
+	return nil, ErrUnsupportedPlatform
+}
+func (*Root) VisitDirectory(context.Context, Reference, func(DirectoryEntry) error) error {
+	return ErrUnsupportedPlatform
+}
 
 type Root struct{}
 
@@ -57,5 +68,9 @@ func (*Root) RenameExclusive(Reference, Reference) error {
 }
 
 func (*Root) RemoveRegular(Reference) error {
+	return ErrUnsupportedPlatform
+}
+
+func (*Root) RemoveEmptyDir(Reference) error {
 	return ErrUnsupportedPlatform
 }
