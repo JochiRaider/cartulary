@@ -581,6 +581,33 @@ test("Timeline ranges scroll horizontal virtualized cells without querying or sc
   const f = await seed(page);
   const first = required(f.ids[0]);
   const port = grid(page);
+  // Require an overflowing non-frozen column. A boundary check alone also
+  // succeeds when all columns fit, without exercising horizontal auto-scroll.
+  await page
+    .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+    .click();
+  const columns = page.getByTestId(
+    workbookColumnsMenuTestId(timelineViewSchemaId),
+  );
+  await columns
+    .getByRole("button", {
+      name: `Width for ${requireViewContract(timelineViewSchemaId).fieldMap[source]?.label}`,
+      exact: true,
+    })
+    .click();
+  await columns
+    .getByRole("textbox", { name: "Width in CSS pixels" })
+    .fill("2400");
+  await columns
+    .getByRole("button", { name: "Apply width", exact: true })
+    .click();
+  await columns.getByRole("button", { name: "Cancel", exact: true }).click();
+  await columns
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  expect(
+    await port.evaluate((el) => el.scrollWidth - el.clientWidth),
+  ).toBeGreaterThan(500);
   const queries: string[] = [];
   page.on("request", (request) => {
     if (request.url().includes(`/views/${timelineViewSchemaId}/query`))
@@ -592,6 +619,8 @@ test("Timeline ranges scroll horizontal virtualized cells without querying or sc
   }));
   // Horizontal virtualization uses the same mounted semantic-cell registry.
   await reveal(page, first);
+  const initialLeft = await port.evaluate((el) => el.scrollLeft);
+  expect(initialLeft).toBe(0);
   const origin = await point(cell(page, first));
   const bounds = required(await port.boundingBox());
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
@@ -608,6 +637,9 @@ test("Timeline ranges scroll horizontal virtualized cells without querying or sc
   );
   await page.mouse.up();
   await page.clock.resume();
+  expect(await port.evaluate((el) => el.scrollLeft)).toBeGreaterThan(
+    initialLeft + 500,
+  );
   await expect(preview(page)).toHaveCount(0);
   await expect(
     page.getByRole("status").filter({ hasText: /^Selected / }),
