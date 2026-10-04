@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	reportingjson "github.com/JochiRaider/cartulary/internal/modules/reporting/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -364,6 +365,13 @@ func DecodePreviewRequest(reader io.Reader) (PreviewRequest, *httpapi.APIError) 
 func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	raw, err := httpapi.DecodeStrictJSONObject(reader)
 	if err == nil {
+		// Admit each original scalar before encoding/json can repair Unicode
+		// or normalize forbidden numeric spellings.
+		for field, value := range raw {
+			if _, err := reportingjson.Canonicalize(value); err != nil {
+				return nil, schemaFieldError(field, "invalid_value")
+			}
+		}
 		return raw, nil
 	}
 	reasonCode := "request_not_object"
@@ -447,9 +455,9 @@ func requiredArray(value json.RawMessage, field string) (json.RawMessage, *httpa
 	if err := json.Unmarshal(value, &parsed); err != nil {
 		return nil, schemaFieldError(field, "invalid_value")
 	}
-	canonical, err := canonicalJSON(parsed)
+	canonical, err := reportingjson.Canonicalize(value)
 	if err != nil {
-		return nil, internalAPIError(err)
+		return nil, schemaFieldError(field, "invalid_value")
 	}
 	return json.RawMessage(canonical), nil
 }
@@ -462,9 +470,9 @@ func requiredObject(value json.RawMessage, field string) (json.RawMessage, *http
 	if err := json.Unmarshal(value, &parsed); err != nil || parsed == nil {
 		return nil, schemaFieldError(field, "invalid_value")
 	}
-	canonical, err := canonicalJSON(parsed)
+	canonical, err := reportingjson.Canonicalize(value)
 	if err != nil {
-		return nil, internalAPIError(err)
+		return nil, schemaFieldError(field, "invalid_value")
 	}
 	return json.RawMessage(canonical), nil
 }
@@ -548,9 +556,8 @@ func optionalIntVersionForJSON(value *int64) any {
 }
 
 func rawJSONValue(raw json.RawMessage) any {
-	var value any
-	_ = json.Unmarshal(raw, &value)
-	return value
+	// Keep original tokens until the strict serializer admits them.
+	return raw
 }
 
 func optionalRawJSONValue(raw *json.RawMessage) any {

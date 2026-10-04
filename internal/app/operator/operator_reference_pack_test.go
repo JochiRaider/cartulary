@@ -5,10 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/google/uuid"
 )
 
@@ -19,6 +24,7 @@ func (f referencePackImportFunc) importAndObserve(ctx context.Context, id uuid.U
 }
 
 func TestOperatorReferencePackClosedTransport_Unit(t *testing.T) {
+	t.Run("typed staging rejection", testOperatorStagingRejection)
 	id := uuid.MustParse("60000000-0000-4000-8000-000000000001")
 	for _, tc := range []struct {
 		name  string
@@ -97,5 +103,40 @@ func TestOperatorReferencePackClosedTransport_Unit(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type referencePackAdmissionFunc func(context.Context, io.Reader) (*reference_data.PendingImport, error)
+
+func (f referencePackAdmissionFunc) PrepareImport(ctx context.Context, reader io.Reader) (*reference_data.PendingImport, error) {
+	return f(ctx, reader)
+}
+
+func testOperatorStagingRejection(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "incoming"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "incoming/pack.zip"), []byte("input"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	storage, err := referenceassembly.NewRootStorage(t.TempDir(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer storage.Close()
+	bound := &reference_data.ContentRejection{Code: "container_bytes_exceeded", CheckID: "container_bytes"}
+	for _, tc := range []struct {
+		err  error
+		code string
+	}{{bound, "reference_pack_verification_failed"}, {errors.New("storage unavailable"), "internal_error"}, {errors.Join(bound, errors.New("cleanup unavailable")), "internal_error"}} {
+		runtime := referencePackLocalRuntime{ctx: context.Background(), storage: storage, admission: referencePackAdmissionFunc(func(context.Context, io.Reader) (*reference_data.PendingImport, error) { return nil, tc.err })}
+		result := runtime.importAndObserve(context.Background(), uuid.New(), "pack.zip")
+		if result.ErrorCode == nil || *result.ErrorCode != tc.code || result.JobID != nil || result.ContainerSHA256 != nil || result.PackKey != nil {
+			t.Fatalf("admission result: %#v", result)
+		}
+		if tc.code == "reference_pack_verification_failed" && (result.ReasonCode == nil || *result.ReasonCode != "container_bytes_exceeded") {
+			t.Fatal(result)
+		}
 	}
 }

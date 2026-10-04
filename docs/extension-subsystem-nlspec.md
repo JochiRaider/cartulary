@@ -308,7 +308,7 @@ Verified by: EXT-AC-001, EXT-AC-040
 | `unclaimed profile` | A claimable profile whose claim key is omitted or false. |
 | `recognized unclaimable profile` | A recognized profile for which Core 00 reports `claimable=false`. |
 | `owner fragment` | Separately stored, closed `cartulary.extension_owner_fragment.v3` object explicitly adopted by one owner document and containing only facts allocated to that owner. |
-| `dependency snapshot` | Canonical digest-bound list of exact adopted owner documents, anchors, schemas, and algorithms imported by this NLSpec revision. |
+| `dependency snapshot` | Canonical digest-bound list of imported typed schemas, algorithms and operational artifacts with executable resolvers; human owner-adoption references are separate. |
 | `owner-input registry` | Canonical joined collection of the dependency snapshot and every adopted owner fragment used to derive descriptors. |
 | `descriptor source` | Generated intermediate object that permits omission only for explicitly defaultable members. |
 | `extension-profile descriptor` | Generated closed canonical object containing every materialized descriptor member for one recognized profile. |
@@ -821,14 +821,14 @@ Before claim resolution, runtime admission MUST:
 3. decode and validate the dependency snapshot, owner-input registry, canonical registry, registry-integrity object, and every implementation binding;
 4. reserialize each object and require byte identity with its packaged bytes;
 5. verify the build-bound integrity-object digest;
-6. verify the dependency-snapshot, owner-contract-manifest, owner-input, owner-fragment, descriptor, registry, binding, supporting-contract-artifact, and schema digest and exact packaged identity set;
-7. require no extra or missing recognized profile, descriptor, owner contract manifest, owner fragment, binding digest, supporting contract artifact, or generated-schema digest entry;
+6. verify the dependency-snapshot, owner-input, owner-fragment, descriptor, registry, binding, supporting-contract-artifact, and schema digest and exact packaged identity set;
+7. require no extra or missing recognized profile, descriptor, owner fragment, binding digest, supporting contract artifact, or generated-schema digest entry;
 8. execute all registry cross-field and collision validation;
 9. fail before claim-key processing, listener startup, worker startup, state mutation, or external egress on any discrepancy.
 
 Semantically equivalent but noncanonical JSON MUST fail. Runtime MUST NOT silently recanonicalize packaged bytes and continue. Runtime MUST validate each `generator_sources[]` row structurally, including its path grammar and digest grammar, but MUST NOT resolve the path, require the source bytes, or require a repository checkout. Generator sources are generation and drift provenance inputs, not runtime dependencies.
 
-A generated or built artifact set is stale if any owner-document version or digest, owner-contract-manifest identity or digest, imported anchor, imported schema, algorithm, or artifact ID, owner-fragment digest, dependency-snapshot digest, owner-input digest, descriptor digest, registry digest, binding digest, supporting-contract-artifact identity or digest, generator source set or digest, generated schema ID or digest, or build-bound integrity digest differs from the generation inputs. Runtime staleness is determined only from packaged artifact bytes, their exact packaged identity sets and digests, and the embedded root integrity-object digest.
+A generated or built artifact set is stale if any imported schema, algorithm, or artifact ID, owner-fragment digest, dependency-snapshot digest, owner-input digest, descriptor digest, registry digest, binding digest, supporting-contract-artifact identity or digest, generator source set or digest, generated schema ID or digest, or build-bound integrity digest differs from the generation inputs. Runtime staleness is determined only from packaged artifact bytes, their exact packaged identity sets and digests, and the embedded root integrity-object digest.
 
 Every failure in this requirement MUST use `extension_registry_invalid`, except a declared byte or count ceiling uses `extension_registry_limit_exceeded`.
 
@@ -997,7 +997,6 @@ Verified by: EXT-AC-082
 | Recognized profiles | `0..256` | `extension_registry_limit_exceeded` |
 | Owner fragments | `0..512` | `extension_registry_limit_exceeded` |
 | Normalized owner facts | `0..65536` | `extension_registry_limit_exceeded` |
-| Canonical owner contract manifest bytes | `1..1048576` | `extension_registry_limit_exceeded` |
 | Canonical owner fragment bytes | `1..1048576` | `extension_registry_limit_exceeded` |
 | Canonical profile configuration contract bytes | `1..1048576` | `extension_registry_limit_exceeded` |
 | Canonical client support registry bytes | `1..1048576` | `extension_registry_limit_exceeded` |
@@ -3778,11 +3777,11 @@ Profiles: base
 Verified by: EXT-AC-084, EXT-AC-119, EXT-AC-120
 
 **EXT-REQ-224**
-Every validation owner MUST author one closed `cartulary.extension_validation_surface_declaration.v1` containing exactly `schema_id`, `owner_contract_ref`, `schema_surfaces[]`, and `procedural_surfaces[]`. Every reachable invalid condition in a schema surface MUST carry one explicit condition annotation binding its schema location and constraint to a condition ID. Every procedural surface MUST provide a closed, exhaustive decision table whose mutually exclusive rows cover every outcome and bind every invalid row to one condition ID. Empty arrays are present; omission and explicit `null` are invalid. A declaration with a missing, duplicate, stale, extra, overlapping, or unreachable row is invalid.
+Every validation owner MUST author one closed `cartulary.extension_validation_surface_declaration.v3` containing exactly `schema_id`, `schema_surfaces[]`, and `procedural_surfaces[]`. Every reachable invalid condition in a schema surface MUST carry one explicit condition annotation binding its schema location and constraint to a condition ID. Every procedural surface MUST provide a closed, exhaustive decision table whose mutually exclusive rows cover every outcome and bind every invalid row to one condition ID. Empty arrays are present; omission and explicit `null` are invalid. A declaration with a missing, duplicate, stale, extra, overlapping, or unreachable row is invalid.
 
-Coordinated generation MUST produce one canonical `cartulary.extension_validation_condition_registry.v1` object solely from those declarations and the digest-bound owner inputs. It MUST contain exactly:
+Coordinated generation MUST produce one canonical `cartulary.extension_validation_condition_registry.v2` object solely from those declarations and the digest-bound owner inputs. It MUST contain exactly:
 
-- `schema_id`, exactly `cartulary.extension_validation_condition_registry.v1`;
+- `schema_id`, exactly `cartulary.extension_validation_condition_registry.v2`;
 - `conditions[]`, containing exactly one row for every invalid condition reachable through dependency and owner-input derivation, descriptor materialization, registry generation, startup admission, migration, participant validation, runtime contract validation.
 
 Each `conditions[]` row MUST contain exactly:
@@ -3795,10 +3794,9 @@ Each `conditions[]` row MUST contain exactly:
 - `expected_formatter_id`;
 - `actual_formatter_id`;
 - `multiplicity`;
-- `secret_policy`;
-- `owner_contract_ref`.
+- `secret_policy`.
 
-`condition_id` MUST satisfy `^[a-z][a-z0-9_]{0,127}$` and be globally unique. `phase` MUST use Table 26-A1. `condition_class` MUST use Table 26-C. `path_algorithm_id`, both formatter IDs, and `owner_contract_ref` MUST resolve through an adopted owner contract manifest. `multiplicity` MUST equal `single`, `one_per_occurrence`, `one_per_identity`, or `one_per_profile`. `secret_policy` MUST equal `safe_value` or `redacted`. A row with `secret_policy='redacted'` MUST use `actual_formatter_id='diagnostic_redacted_v1'`.
+`condition_id` MUST satisfy `^[a-z][a-z0-9_]{0,127}$` and be globally unique. `phase` MUST use Table 26-A1. `condition_class` MUST use Table 26-C. `path_algorithm_id` and both formatter IDs MUST resolve through the typed operational algorithm and formatter contracts admitted under §1.1. No owner-document manifest or document locator participates in that resolution. `multiplicity` MUST equal `single`, `one_per_occurrence`, `one_per_identity`, or `one_per_profile`. `secret_policy` MUST equal `safe_value` or `redacted`. A row with `secret_policy='redacted'` MUST use `actual_formatter_id='diagnostic_redacted_v1'`.
 
 Rows MUST sort by `phase`, then `condition_id`, using ascending UTF-8 bytes. The array MUST contain `1..16384` rows. The canonical object MUST contain `1..16777216` bytes and serialize under `extension_registry_canonical_json_v1`. `extension_validation_condition_registry_sha256_v1` is the lowercase SHA-256 digest of that canonical byte form.
 
@@ -3806,7 +3804,7 @@ The registry MUST include exact rows for transaction deadline expiry with proven
 
 An implementation MUST NOT infer a diagnostic path, reason code, expected value, actual value, multiplicity, or secret policy from local validation-library behavior. Every schema constraint and procedural decision row MUST resolve to exactly one registry condition, and every registry condition MUST be reachable from exactly one declared surface. A condition absent from the canonical registry is a specification or generator defect and MUST fail conformance rather than produce an implementation-selected diagnostic. A validator that attempts to emit an unregistered condition MUST terminate that validation surface with `extension_validation_result_invalid`; it MUST NOT expose the invented condition or library error.
 
-Every public error token named by an extension profile but owned elsewhere MUST resolve through `owner_contract_ref` to the exact owner contract for HTTP status or process outcome, `error.code`, reason-code vocabulary, retryability, and closed safe details. A locator that proves only the token spelling is insufficient.
+Every public error token named by an extension profile but owned elsewhere MUST resolve through the imported typed operational error contract to the exact owner-defined contract for HTTP status or process outcome, `error.code`, reason-code vocabulary, retryability, and closed safe details. A locator that proves only the token spelling is insufficient.
 
 Profiles: base
 Verified by: EXT-AC-119, EXT-AC-126, EXT-AC-147
@@ -4035,14 +4033,14 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-138` | Every new or reused scalar satisfies its exact grammar, bound, secrecy, derivation, owner-import, and replay rule. |
 | `EXT-AC-139` | Workbook startup carries no-store availability; stale responses cannot render; `client_instance_id` and every Base/transport identity remain stable through epoch rollover. |
 | `EXT-AC-140` | Every affected owner has compatible successful full-owner v2 evidence, all evidence-class gates pass, and one evidence audit closes every required owner/target/row partition without subset, broad-target, stale-root, or historical fallback. |
-| `EXT-AC-141` | The exact document passes repository Markdown lint and the updated normative-source linter with acceptance IDs through `EXT-AC-159`. |
+| `EXT-AC-141` | Human owner review confirms consistent requirements and acceptance criteria through `EXT-AC-159`; repository Markdown lint is documentation maintenance only and cannot participate in product conformance or release evidence. |
 | `EXT-AC-142` | Empty-state policy is required and exact; metadata never establishes state presence; every metadata/state/policy combination and empty initialization obeys `allowed` or `forbidden`, with Network Flow selecting `allowed`. |
 | `EXT-AC-143` | Validation results apply invocation, structural, overflow, remaining-schema, valid-findings, and valid-empty precedence exactly for counts `0`, `256`, `257`, `4096`, and `4097`. |
 | `EXT-AC-144` | Portability export and import use distinct result schemas; import preparation is side-effect free, uses only scoped staged output and the shared final transaction, and rejects per-participant or aggregate byte `67108865`. |
-| `EXT-AC-145` | The authored dependency declaration set requires present non-null arrays and exact manifest versions/digests; empty, omitted, null, duplicate, extra, stale, and mismatched declarations classify exactly, with no phase-shaped reader. |
-| `EXT-AC-146` | Every descriptor scalar and set member has one exact owner source through `primary_owner_contract_ref`; zero or multiple scalar sources, duplicate sets, stale refs, and code/prose inference fail generation. |
+| `EXT-AC-145` | The authored dependency declaration set requires present non-null arrays and exact imported typed artifact identities and digests; empty, omitted, null, duplicate, extra, stale, and mismatched declarations classify exactly, with no phase-shaped reader. |
+| `EXT-AC-146` | Every descriptor scalar and set member resolves to exactly one typed operational fact allocated to its owner; zero or multiple scalar sources, duplicate sets, invalid owner allocations and code/prose inference fail generation. Owner-document manifests are not executable inputs. |
 | `EXT-AC-147` | Every schema constraint and procedural decision maps exactly once through a complete validation-surface declaration, and missing, duplicate, stale, extra, incomplete, or emitted-unregistered conditions fail closed. |
-| `EXT-AC-148` | Every subject and contribution kind receives exactly its exhaustive closure categories; generated rows reject omission and owner-authored not-applicable, while fixed baseline rows admit only their enumerated reasons. |
+| `EXT-AC-148` | Behavioral tests and public verification targets validate each applicable subject and contribution boundary. Human review assesses requirement completeness; a generated closure catalog or static accounting row cannot establish it under §1.1. |
 | `EXT-AC-149` | Specification prose, formatting, headings, paths, and file arrangement do not alter Extensions generation, runtime admission, routing, or evidence identity. |
 | `EXT-AC-150` | `syntax_only` requires an inert non-null schema and never applies omission/default semantics, creates a view, retains a value, resolves a resource or secret, performs egress, or invokes profile code. |
 | `EXT-AC-151` | The application lease follows every declared acquisition, held, uncertainty, recovery, loss, release, crash, session-identity, deadline, and no-reacquisition branch with startup exit `2` and confirmed-loss exit `70`. |
@@ -4068,7 +4066,7 @@ Verified by: EXT-AC-001, EXT-AC-072, EXT-AC-075, EXT-AC-128
 
 | Gate ID | Required closure |
 | --- | --- |
-| `EXT-GATE-001` | Core 00 adopts this NLSpec for shared extension mechanics, associates every adopted owner document with one digest-bound owner contract manifest, sets every current profile major, sets `network_flow_activity@6`, and records `network_flow_activity -> import@1`. |
+| `EXT-GATE-001` | Core 00 adopts this NLSpec for shared extension mechanics, separates human owner adoption from typed operational dependencies under §1.1, sets every current profile major, sets `network_flow_activity@6`, and records `network_flow_activity -> import@1`. |
 | `EXT-GATE-002` | Core 01 adopts the strict seven-member discovery producer, tolerant decoder, Base route reservations, exact workbook-startup availability member and no-store behavior, reserved inactive routes, route overlap, and public dispatch precedence. |
 | `EXT-GATE-003` | Core 01 adopts the bounded transaction protocol and errors, staged-object access/cleanup and errors, backup codec selection/error, job proof/reconciliation, typed portability/reporting/backup participation, final-commit boundary, and recovery. |
 | `EXT-GATE-004` | Core 02 adopts or confirms the generic extension-resource boundary, authoritative/derived logical state-family ownership boundary, state-presence exclusion rules, and cross-owner authoritative-write prohibition. |

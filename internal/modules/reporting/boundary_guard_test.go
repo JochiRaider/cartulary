@@ -13,6 +13,7 @@ const reportingRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestReportingProductionImportBoundaries(t *testing.T) {
 	allowedSiblingImports := map[string]map[string]bool{
+		reportingRepoImportPrefix + "internal/modules/reporting/canonicaljson":        {"canonical_json.go": true},
 		reportingRepoImportPrefix + "internal/modules/incidentbundles/artifactport":   {"portable_artifacts.go": true, "portable_export.go": true, "portable_recovery.go": true},
 		reportingRepoImportPrefix + "internal/modules/graphprojection/postgresresult": {"graph_source.go": true},
 		reportingRepoImportPrefix + "internal/modules/reporting/graphsourcecontract":  {"graph_source.go": true, "render_bundle.go": true},

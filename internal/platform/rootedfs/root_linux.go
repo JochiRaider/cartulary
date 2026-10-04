@@ -335,7 +335,7 @@ func (root *Root) listRegularDirectory(directoryFD int, prefix string, result *[
 	return nil
 }
 
-func (root *Root) CreateExclusive(ctx context.Context, reference Reference, write WriteFunc) error {
+func (root *Root) CreateExclusive(ctx context.Context, reference Reference, write WriteFunc) (resultErr error) {
 	root.mu.RLock()
 	defer root.mu.RUnlock()
 	if write == nil {
@@ -372,7 +372,11 @@ func (root *Root) CreateExclusive(ctx context.Context, reference Reference, writ
 	tempExists := true
 	defer func() {
 		if tempExists {
-			_ = unix.Unlinkat(chain.lastFD(), tempName, 0)
+			if err := unix.Unlinkat(chain.lastFD(), tempName, 0); err != nil {
+				// A failed cleanup is operational; do not expose a writer's
+				// content rejection through wrapping or a joined error.
+				resultErr = operationError("create", reference, "temporary file cleanup failed", err)
+			}
 		}
 	}()
 	if err := writeAndSeal(ctx, tempFD, reference, write); err != nil {
@@ -842,8 +846,6 @@ func writeAndSeal(ctx context.Context, fd int, reference Reference, write WriteF
 	statErr := unix.Fstat(fd, &stat)
 	closeErr := file.Close()
 	switch {
-	case writeErr != nil:
-		return operationError("write", reference, "write callback failed", writeErr)
 	case contextErr != nil:
 		return operationError("write", reference, "operation canceled", contextErr)
 	case syncErr != nil:
@@ -854,6 +856,8 @@ func writeAndSeal(ctx context.Context, fd int, reference Reference, write WriteF
 		return operationError("write", reference, "created object is not an allowed regular file", fs.ErrInvalid)
 	case closeErr != nil:
 		return operationError("write", reference, "file close failed", closeErr)
+	case writeErr != nil:
+		return operationError("write", reference, "write callback failed", writeErr)
 	default:
 		return nil
 	}

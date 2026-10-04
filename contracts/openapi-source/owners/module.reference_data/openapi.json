@@ -201,11 +201,11 @@
             }
           },
           "409": {
-            "description": "Reference-pack verification failure or replay conflict",
+            "description": "Reference-pack rejection or replay conflict. A streamed container exceeding max_container_bytes is rejected before Job admission with reason_code container_bytes_exceeded, check_id container_bytes and one inline validation_summary; no durable admission is created.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "$ref": "#/components/schemas/ReferencePackImportConflictEnvelope"
                 }
               }
             }
@@ -1387,6 +1387,65 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "ReferencePackUploadLimitDetails": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason_code",
+          "check_id",
+          "validation_summary"
+        ],
+        "properties": {
+          "reason_code": {
+            "const": "container_bytes_exceeded"
+          },
+          "check_id": {
+            "const": "container_bytes"
+          },
+          "validation_summary": {
+            "$ref": "#/components/schemas/ReferencePackValidationSummary"
+          }
+        }
+      },
+      "ReferencePackImportConflictEnvelope": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ErrorEnvelope"
+          },
+          {
+            "if": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "reference_pack_verification_failed"
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "details": {
+                      "$ref": "#/components/schemas/ReferencePackUploadLimitDetails"
+                    }
+                  }
+                }
+              }
+            }
+          }
         ]
       }
     }

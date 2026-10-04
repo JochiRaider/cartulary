@@ -68,6 +68,7 @@ func fixtureManifest(f contentFixture) Manifest {
 }
 
 func TestAllDeclaredProfilesHaveCanonicalContentAndIndexes_Unit(t *testing.T) {
+	t.Run("external references derive unique keys", testFrameworkExternalLookupKeys)
 	t.Run("complete NDJSON and profile array boundaries", testCompleteContentLineBoundary)
 	fixtures := contentFixtures(t)
 	if len(fixtures) != 16 {

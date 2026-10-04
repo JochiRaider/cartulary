@@ -207,6 +207,23 @@ func TestRootedFSOperationContainment_Unit(t *testing.T) {
 }
 
 func TestRootedFSAtomicLifecycleAndRootIdentity_Unit(t *testing.T) {
+	t.Run("operational sealing failure overrides writer rejection", func(t *testing.T) {
+		root, err := OpenOrCreate(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer root.Close()
+		rejected := errors.New("content rejection")
+		err = root.CreateExclusive(context.Background(), MustParseReference("failed"), func(w io.Writer) error {
+			if err := w.(*os.File).Close(); err != nil {
+				t.Fatal(err)
+			}
+			return rejected
+		})
+		if err == nil || errors.Is(err, rejected) {
+			t.Fatal("sealing fault hidden by writer verdict", err)
+		}
+	})
 	parent := t.TempDir()
 	rootPath := filepath.Join(parent, "private", "nested", "storage")
 	root, err := OpenOrCreate(rootPath)

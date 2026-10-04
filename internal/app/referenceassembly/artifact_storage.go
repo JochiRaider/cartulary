@@ -17,6 +17,14 @@ var _ reference_data.ArtifactStorage = (*RootStorage)(nil)
 var errArtifactBound = errors.New("reference pack: artifact byte bound exceeded")
 var errArtifactIntegrity = errors.New("reference pack: artifact integrity mismatch")
 
+type artifactLimitError struct {
+	maximum  int64
+	observed uint64
+}
+
+func (*artifactLimitError) Error() string { return errArtifactBound.Error() }
+func (*artifactLimitError) Unwrap() error { return errArtifactBound }
+
 func (s *RootStorage) StageStream(ctx context.Context, source io.Reader, maximum int64) (reference_data.StagingRef, string, int64, error) {
 	if s == nil || s.temporary == nil || source == nil || maximum < 1 {
 		return reference_data.StagingRef{}, "", 0, errors.New("reference pack: invalid staging request")
@@ -34,6 +42,16 @@ func (s *RootStorage) StageStream(ctx context.Context, source io.Reader, maximum
 		return err
 	})
 	if err != nil {
+		if cause := ctx.Err(); cause != nil {
+			return reference_data.StagingRef{}, "", 0, cause
+		}
+		// RootedFS may wrap the writer's rejection. An aggregate with an
+		// independent operational failure must never become a content verdict.
+		for cause := err; cause != nil; cause = errors.Unwrap(cause) {
+			if bound, ok := cause.(*artifactLimitError); ok {
+				return reference_data.StagingRef{}, "", 0, &reference_data.StagingLimitError{Maximum: bound.maximum, Observed: bound.observed}
+			}
+		}
 		return reference_data.StagingRef{}, "", 0, err
 	}
 	staged, err := reference_data.ParseStagingRef(ref.String())
@@ -86,14 +104,14 @@ func copyArtifact(ctx context.Context, destination io.Writer, source io.Reader, 
 		if remaining == 0 {
 			var extra [1]byte
 			n, err := source.Read(extra[:])
+			if err != nil && !errors.Is(err, io.EOF) {
+				return written, err
+			}
 			if n != 0 {
-				return written, errArtifactBound
+				return written, &artifactLimitError{maximum: maximum, observed: uint64(written) + uint64(n)}
 			}
 			if errors.Is(err, io.EOF) {
 				return written, nil
-			}
-			if err != nil {
-				return written, err
 			}
 			continue
 		}

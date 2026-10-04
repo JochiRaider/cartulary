@@ -363,8 +363,12 @@ func removeDotSegments(path string) string {
 
 func NormalizeURL(raw string) (string, bool) {
 	v := TrimIndicatorInput(raw)
-	if !isASCII(v) {
-		return "", false
+	// Validate the enclosing URI before component helpers can trim a host.
+	// Percent escapes remain encoded here and are checked by each component.
+	for _, c := range []byte(v) {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("-._~:/?#[]@!$&'()*+,;=%", rune(c))) {
+			return "", false
+		}
 	}
 	scheme, rest, ok := strings.Cut(v, "://")
 	scheme = asciiLower(scheme)

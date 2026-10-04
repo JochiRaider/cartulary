@@ -2928,7 +2928,7 @@ Verified by: AC-231, AC-278
 
 ## 20. Coordinated extension-state ownership boundary
 
-For the adopted Extensions companion manifest, this owner document has `owner_document_schema_id='cartulary.core02.current.v1'` and `owner_document_version='extensions-adoption-1'`.
+Companion adoption is recorded by human owner review. Executable Extensions inputs contain only typed operational facts and dependencies under Extensions §1.1, without an owner-document manifest.
 
 **REQ-02-261**
 When the Extensions Subsystem is atomically adopted, an `extension_versioned` profile's state presence is derived only from members in its digest-bound authoritative database and object-reference family declarations. Generic extension metadata, state metadata, migration ledgers, jobs, caches, projections, audit rows, temporary files, staged or orphan objects, and every other coordination record are never authoritative family members and never make profile state present. `empty_state_policy='allowed'` permits committed metadata with no authoritative member while preserving `state_present=false`; `forbidden` requires at least one authoritative member before initialization metadata commits. Shared owners bind logical families to storage but cannot reclassify metadata, write another owner's authoritative family, or supply an executable presence callback. Network Flow Activity selects `allowed`.

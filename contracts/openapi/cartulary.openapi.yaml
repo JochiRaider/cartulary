@@ -6986,11 +6986,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "$ref": "#/components/schemas/ReferencePackImportConflictEnvelope"
                 }
               }
             },
-            "description": "Reference-pack verification failure or replay conflict"
+            "description": "Reference-pack rejection or replay conflict. A streamed container exceeding max_container_bytes is rejected before Job admission with reason_code container_bytes_exceeded, check_id container_bytes and one inline validation_summary; no durable admission is created."
           }
         },
         "security": [
@@ -17206,6 +17206,45 @@
         ],
         "type": "object"
       },
+      "ReferencePackImportConflictEnvelope": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ErrorEnvelope"
+          },
+          {
+            "if": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "const": "reference_pack_verification_failed"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "error"
+              ],
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "details": {
+                      "$ref": "#/components/schemas/ReferencePackUploadLimitDetails"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
       "ReferencePackImportMetadata": {
         "additionalProperties": false,
         "properties": {
@@ -17416,6 +17455,26 @@
         "required": [
           "client_txn_id",
           "reason"
+        ],
+        "type": "object"
+      },
+      "ReferencePackUploadLimitDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "check_id": {
+            "const": "container_bytes"
+          },
+          "reason_code": {
+            "const": "container_bytes_exceeded"
+          },
+          "validation_summary": {
+            "$ref": "#/components/schemas/ReferencePackValidationSummary"
+          }
+        },
+        "required": [
+          "reason_code",
+          "check_id",
+          "validation_summary"
         ],
         "type": "object"
       },

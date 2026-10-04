@@ -408,7 +408,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		return pending.SHA256(), nil
 	})
 	if receiveErr != nil {
-		writeAPIError(w, r, internalAPIError(receiveErr))
+		writeAPIError(w, r, coordinatorAPIError(receiveErr))
 		return
 	}
 	if envelopeErr != nil {

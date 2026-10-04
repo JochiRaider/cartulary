@@ -208,21 +208,21 @@ The dependencies in Table 4-B are exact. A newer upstream version MUST NOT be su
 
 **Table 4-C. Exact pre-production companion content revisions**
 
-These SHA-256 values bind the companion file bytes reviewed for the 2026-10-04 cutover. They are human-maintained revision references, not executable harness inputs and not assertions of production adoption. The corresponding authored machine projections are named in the owner inventory. A later companion edit requires an explicit renewed projection review and revision binding; tests and generators MUST NOT read or hash these Markdown files.
+These SHA-256 values bind the companion file bytes reviewed for the 2026-10-04 cutover and four-defect remediation follow-up. They are human-maintained revision references, not executable harness inputs and not assertions of production adoption. The corresponding authored machine projections are named in the owner inventory. A later companion edit requires an explicit renewed projection review and revision binding; tests and generators MUST NOT read or hash these Markdown files.
 
 | Companion owner | Exact content SHA-256 |
 | --- | --- |
-| Core 00 | `88513c57abb1af5d0cb99c53ef250bbadc71d467579f0ddef6e5541e1effaa13` |
-| Core 01, including portability and recovery | `071bd590a9e77aefe78fe15ed65850b6ae17fd73fc0db425cdd13b291fd464fb` |
-| Core 02 | `a805b9806beb33e3d3a568055b14275d9330ecdfd01a58c011b6e9cacdeacc32` |
-| Core 03 | `052968810977f63f8d2813c72ac152c71bbf4a8d6428881394d7d87d0c3fcf8e` |
-| Core 04, including recovery | `31add810ef0c1e16209aaea8689978a03a1da9478fef7a8c1ffbddf94bb1a497` |
-| Reporting 1.4.0 | `59cb7742e864445bb2a7d1c1d068b1b65a978164f9c060fa69ee45205ad1a800` |
-| Report Composition 1.3.0 | `71bbd82c1b789e4ab02867a245ccaba872c1d2b2e27a6bcf9fe3b7f6a838fa17` |
-| Extensions 0.12.0 | `46d91c6afd0ceeda36a097630eb765be81da5f576e522c91776779ee2e6801b9` |
+| Core 00 | `124d16f733d4b206a2c09be660239befaeaf9f328f02ca99ea6c004570251ec6` |
+| Core 01, including portability and recovery | `42a3cce61ab1def768b4f59e92c467dd1959718ac49776db6b35d756a109212f` |
+| Core 02 | `c00fcadf93d9df8ca13cecd4550da36c8fc2f001c33f18c6baa98f5f0ea44a11` |
+| Core 03 | `9b063d7558d5842adeb3a05fb6bdfab1edd4a7555c5c1d6a0f9faf55d468ee81` |
+| Core 04, including recovery | `119227053b748b03208af9b769ecdc70db48b08a417bfe7298941e7d267cf97a` |
+| Reporting 1.4.0 | `cd58af1d88002a317f600a729c4ef85dfa3e71e42d00dbe5c98fb9e197f09c24` |
+| Report Composition 1.3.0 | `0de47589948852466a928f62ba28eacdb7bc890f21f1a82eba9614c5213607dd` |
+| Extensions 0.12.0 | `30fa76dc8dbbdf8ec6c8a0b7f4c91f0a6323ba2802115b2e2acd1f0daeeceb86` |
 | OpenTelemetry | `fdf8f52131f9b21abcd8562f8a16f2e9d67e01af665d52c54791071a53ec43bf` |
 | Testing Harness | `204a9b172c938562cd7c512806278ad62df59c74ab6050a9ebfb12c558de39c7` |
-| Domain vocabulary | `7b80069924604fc85f2f2e73f03fa2e008ab2fe42b4c8e3d772d0f7728af8cdd` |
+| Domain vocabulary | `fb485d86c2ab0b14df30a47d435f0cb628fd0b279b3b9765e098cde4a92f643e` |
 
 **RP-REQ-021**
 An external dependency supplies only the interface imported in Table 4-B. This NLSpec MUST NOT import an upstream implementation library, repository layout, programming language, or network protocol implicitly.
@@ -1136,7 +1136,7 @@ Every framework object MUST be a closed object containing exactly:
 | `extensions` | object | No | Common extensions. |
 
 **RP-REQ-109**
-A framework `external_refs[]` item contains exactly `source_name`, `external_id`, and nullable `url`. `source_name` and `external_id` are non-empty single-line strings. `url` is either `null` or the canonical output of RP-REQ-124 with scheme `https`, no userinfo, and no fragment. Items sort by `source_name`, then `external_id`, then `url` with `null` first. Duplicates are invalid.
+A framework `external_refs[]` item contains exactly `source_name`, `external_id`, and nullable `url`. `source_name` and `external_id` are non-empty single-line strings. `url` is either `null` or the canonical output of RP-REQ-124 with scheme `https`, no userinfo, and no fragment. Items sort by `source_name`, then `external_id`, then `url` with `null` first. Duplicates are invalid. Reference uniqueness uses the complete tuple. Different references MAY share an external ID. Derived lookup keys form a set per object and exact `(lookup_kind, lookup_value)`; repeated keys coalesce in canonical first-occurrence order without changing canonical content or provenance. Lookup returns each matching object once, while different objects sharing an external ID remain separate results.
 
 **RP-REQ-110**
 Every framework relationship MUST be a closed object containing exactly:
@@ -1308,7 +1308,7 @@ Validation applies the same rules to canonical output.
 `cartulary.indicator.normalize.http_url.v1` MUST accept only absolute `http` or `https` URIs and MUST:
 
 1. apply `indicator_input_trim_v1`;
-2. require ASCII URI input and reject every raw space, control, or code point outside RFC 3986 URI syntax;
+2. before splitting or normalizing components, require ASCII URI input and reject every remaining raw space, C0 control, DEL, or code point outside RFC 3986 URI syntax; component parsing MUST NOT trim internal whitespace, including inside IPv6 brackets;
 3. reject userinfo;
 4. lowercase the scheme;
 5. canonicalize bracketed hosts as IPv6; otherwise remove exactly one trailing dot, classify four non-empty decimal labels as IPv4 (reject invalid octets rather than falling back to domain), and classify all other hosts as domains;
@@ -2605,7 +2605,7 @@ The default is `1800`; valid values are integer seconds in `60..86400`, inclusiv
 A limit MUST be checked at the earliest phase where it can be determined safely. A limit breach MUST stop further untrusted parsing that is not required to identify the failure and clean temporary state. It MUST publish no usable content or trust advancement. An attributable initial import still retains failed candidate and attempt evidence under the operation outcome matrix; an established version follows that matrix's renewal or reverify rules.
 
 **RP-REQ-247**
-Every limit breach MUST use the exact outcome in Table 26-C. When the outcome is a verification issue, `code` and `reason_code` equal the reason after `/`; `safe_details.limit_id` equals the Table 26-C token; and `expected_token` and `actual_token` contain the unsigned base-10 maximum and observed count or byte length. The compression-ratio guard compares allowed extracted bytes (complete admitted container bytes multiplied by the ratio) with observed extracted bytes. A streaming guard reports the first observed lower bound proving the breach, without reading further to count the final total. Original-JSON depth admission is an exception: it returns the enclosing document's malformed-JSON finding with null limit details, before a parsed object exists. Invalid declared manifest summary counts and file-size claims are manifest schema failures; the payload row and actual member guards use their Table 26-C outcomes. Timeout is the operational outcome in RP-REQ-098 and has no content-validation issue. A limit MUST NOT be remapped according to implementation phase or parser choice.
+Every limit breach MUST use the exact outcome in Table 26-C. When the outcome is a verification issue, `code` and `reason_code` equal the reason after `/`; `safe_details.limit_id` equals the Table 26-C token; and `expected_token` and `actual_token` contain the unsigned base-10 maximum and observed count or byte length. The compression-ratio guard compares allowed extracted bytes (complete admitted container bytes multiplied by the ratio) with observed extracted bytes. A streaming guard reports the first observed lower bound proving the breach, without reading further to count the final total. Original-JSON depth admission is an exception: it returns the enclosing document's malformed-JSON finding with null limit details, before a parsed object exists. Invalid declared manifest summary counts and file-size claims are manifest schema failures; the payload row and actual member guards use their Table 26-C outcomes. Timeout is the operational outcome in RP-REQ-098 and has no content-validation issue. A limit MUST NOT be remapped according to implementation phase or parser choice. The container streaming admission guard stops on the first byte proving excess and returns the Core 01 synchronous import rejection before Job admission. This guard cannot establish complete-container verification precedence: the ordered check registry still governs every fully admitted container. The early rejection has no safely attributed candidate, Job, attestation, persisted summary, trust update or published bytes. Its inline summary uses the existing `container_bytes` check and a single finding at `$`; its observed count is the first proven lower bound. Operational read, write, cancellation or cleanup failures remain operational errors.
 
 **RP-REQ-248**
 Before adoption, a valid canonical fixture for every current pack key MUST fit within every applicable limit. A fixture that exceeds a limit blocks adoption; implementations MUST NOT carry private wider limits.

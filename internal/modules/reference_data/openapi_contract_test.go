@@ -40,6 +40,13 @@ func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *test
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}", "get"), "200", "ReferencePackVersionEnvelope")
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/validation-summaries/{summary_id}", "get"), "200", "ReferencePackValidationSummaryEnvelope")
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/import", "post"), "202", "JobEnvelope")
+	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/import", "post"), "409", "ReferencePackImportConflictEnvelope")
+	uploadDetails := openAPIObjectAt(t, schemas, "ReferencePackUploadLimitDetails")
+	requireClosedObject(t, uploadDetails, "ReferencePackUploadLimitDetails")
+	requireRequired(t, uploadDetails, []string{"reason_code", "check_id", "validation_summary"})
+	if openAPIObjectAt(t, uploadDetails, "properties", "reason_code")["const"] != "container_bytes_exceeded" || openAPIObjectAt(t, uploadDetails, "properties", "check_id")["const"] != "container_bytes" || openAPIObjectAt(t, uploadDetails, "properties", "validation_summary")["$ref"] != "#/components/schemas/ReferencePackValidationSummary" {
+		t.Fatal("early admission diagnostics diverge from the owner contract")
+	}
 	for _, action := range []string{"activate", "disable"} {
 		requireRequestRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/"+action, "post"), "ReferencePackActionRequest")
 		requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/"+action, "post"), "200", "ReferencePackActionEnvelope")

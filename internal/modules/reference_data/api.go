@@ -412,6 +412,9 @@ func internalAPIError(err error) *httpapi.APIError {
 }
 
 func coordinatorAPIError(err error) *httpapi.APIError {
+	if rejection, ok := ImportContentRejection(err); ok && rejection.Summary != nil {
+		return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_verification_failed", Details: map[string]any{"reason_code": rejection.Code, "check_id": rejection.CheckID, "validation_summary": rejection.Summary}}
+	}
 	var rejected *OperationRejection
 	if errors.As(err, &rejected) {
 		return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_operation_rejected", Details: map[string]any{"reason_code": rejected.Reason}}

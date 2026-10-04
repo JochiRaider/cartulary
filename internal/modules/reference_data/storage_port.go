@@ -19,6 +19,16 @@ var ErrInvalidReferencePackStorageReference = errors.New("reference pack: invali
 // device, transport and root-capability failures remain operational errors.
 var ErrArtifactUnavailable = errors.New("reference pack: authoritative artifact unavailable")
 
+// StagingLimitError reports only a proven container streaming bound. Observed
+// is unsigned because the one-byte probe can exceed the largest int64 maximum.
+// Adapters must not return this error for operational I/O or cleanup failures.
+type StagingLimitError struct {
+	Maximum  int64
+	Observed uint64
+}
+
+func (*StagingLimitError) Error() string { return "reference pack: staging byte bound exceeded" }
+
 // StorageRef is an opaque logical reference to a published Reference Pack.
 // It deliberately carries no host filesystem root.
 type StorageRef struct {

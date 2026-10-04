@@ -156,7 +156,7 @@ The identifier `composition_version` MUST match `v[1-9][0-9]*`. The first immuta
 The identifier `composition_id` is opaque, server-assigned, and immutable. Clients MUST NOT parse it or derive incident, template, or version information from it.
 
 **REQ-RC-019a**
-Composition route requests, route responses, draft state, immutable composition documents, validation summaries, and preview-source descriptors MUST import the Reporting §8 JSON and scalar rules for UTF-8 decoding, duplicate JSON member rejection, explicit `null` handling, closed-object handling, canonical JSON serialization, `identifier`, `timestamp`, `sha256_hex`, `safe_string`, and `finite_integer` unless this NLSpec defines a narrower scalar in Table 4-C. A duplicate JSON object member at any depth MUST fail before route side effects with validation code `composition_schema_invalid`.
+Composition route requests, route responses, draft state, immutable composition documents, validation summaries, and preview-source descriptors MUST import the Reporting §§8 and 10 JSON and scalar rules for UTF-8 decoding, duplicate JSON member rejection, explicit `null` handling, closed-object handling, canonical JSON serialization, `identifier`, `timestamp`, `sha256_hex`, `safe_string`, and `finite_integer` unless this NLSpec defines a narrower scalar in Table 4-C. A duplicate JSON object member at any depth MUST fail before route side effects with validation code `composition_schema_invalid`.
 
 **Table 4-C. Composition scalar and grammar contracts**
 
@@ -463,7 +463,7 @@ The pairs in Table 7-B MUST be unique inside one canonical composition document.
 A reference from a composition operation to `authored_text_ref` MUST resolve to exactly one `authored_texts[].authored_text_id` in the same composition document. A reference from a composition operation to a composition-owned `diagram_anchor` MUST resolve to exactly one `diagram_decls[].decl_id` unless Reporting resolution targets a template-owned diagram declaration. Unresolved local references MUST fail with `composition_schema_invalid`.
 
 **REQ-RC-040**
-Canonical JSON serialization for composition bytes MUST use `reporting_canonical_json_v1` as imported from the Reporting Subsystem NLSpec until Core adopts a shared canonical JSON owner. A composition document MUST NOT contain floating-point numbers. Object members MUST be serialized in lexicographic order by exact code point sequence. No insignificant whitespace is permitted outside strings.
+Canonical JSON serialization for composition bytes MUST use `reporting_canonical_json_v1` as imported from the Reporting Subsystem NLSpec until Core adopts a shared canonical JSON owner. A composition document MUST NOT contain floating-point numbers. Object members MUST be serialized in lexicographic order by exact code point sequence. No insignificant whitespace is permitted outside strings. The imported profile emits `&`, `<`, `>`, U+2028 and U+2029 as literal UTF-8. Strict decoding MUST reject duplicate members, invalid Unicode and non-integer number tokens before any decoding or reserialization can discard that evidence. REQ-RC-041 and Table 6-J define plain SHA-256 over their specified canonical preimages, without Reporting-owned object domain prefixes.
 
 **REQ-RC-041**
 `composition_sha256` MUST be computed over the canonical JSON serialization of the composition document after deleting the `composition_sha256` member and leaving every other member unchanged. The stored digest MUST be exactly 64 lowercase hexadecimal characters.

@@ -778,8 +778,9 @@ func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, jobID uuid.
 
 		return compositionPreviewJobPayload{}, err
 	}
-	if source.RenderAttemptID != jobID ||
-		previewSourceDigest(source.PreviewSourceJSON) != source.PreviewSourceSHA256 ||
+	digest, digestErr := reportcomposition.PreviewSourceDigest(source.PreviewSourceJSON)
+	if digestErr != nil || source.RenderAttemptID != jobID ||
+		digest != source.PreviewSourceSHA256 ||
 		source.DerivationVersion != DerivationVersion {
 		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview source binding is invalid")
 	}
@@ -950,19 +951,6 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, $8, $9)
 		}
 	}
 	return nil
-}
-
-func previewSourceDigest(raw json.RawMessage) string {
-	var source map[string]any
-	if err := json.Unmarshal(raw, &source); err != nil {
-		return ""
-	}
-	delete(source, "preview_source_sha256")
-	canonical, err := canonicalJSON(source)
-	if err != nil {
-		return ""
-	}
-	return hashHex(canonical)
 }
 
 func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, releaseID uuid.UUID, rendered RenderedRelease, now time.Time) error {

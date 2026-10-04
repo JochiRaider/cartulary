@@ -1,5 +1,8 @@
 # Reference Pack obligation evidence index
 
+The earlier cutover totals below are historical. The four-defect follow-up, current candidate evidence and remaining adoption dispositions are recorded in the [remediation ledger](reference-pack-remediation.md#four-defect-remediation-follow-up--2026-10-04). They supersede earlier completeness claims for the affected boundaries.
+
+
 This index separates implemented behavior, executable evidence, human projection review and adoption. It is not a conformance certificate. The candidate owner is Reference Pack NLSpec 0.2.0 / profile 2; companion versions and unrecorded approvals are listed in the [owner inventory](reference-pack-owner-inventory.md). The [implementation ledger](reference-pack-remediation.md) records exact run roots, failures and superseding runs. No test, generator or release tool reads this document.
 
 All paths below are repository-relative. `format/` means `internal/modules/reference_data/internal/packformat/`; `state/` means its sibling `packstate/`; `reference/` means `internal/modules/reference_data/`. Projection names without a prefix belong to `contracts/reference-packs/`. A test listed here establishes only the assertions it executes. A registered fixture family does not establish every required case within that family.

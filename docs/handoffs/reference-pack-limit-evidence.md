@@ -1,5 +1,8 @@
 # Reference Pack limit evidence
 
+The earlier cutover totals below are historical. The four-defect follow-up, current candidate evidence and remaining adoption dispositions are recorded in the [remediation ledger](reference-pack-remediation.md#four-defect-remediation-follow-up--2026-10-04). They supersede earlier completeness claims for the affected boundaries.
+
+
 This is a human review index for candidate NLSpec 0.2.0, profile 2, and its typed `contracts/reference-packs/limits.v1.json` projection. It is not consumed by tests or generators. Execution results and superseding failures are in the [implementation ledger](reference-pack-remediation.md). The [obligation index](reference-pack-obligation-evidence.md) gives public Make routes. A component fixture establishes that component's admission boundary; it does not establish destination trust, persistence or adoption by itself.
 
 `format/` below means `internal/modules/reference_data/internal/packformat/`. “Complete” means all required data at the named boundary is present. A complete content row is not represented as a separately signed container. Cross-language identity/signature expectations remain the independently authored checked-in vectors; the compact boundary recipes do not replace them.

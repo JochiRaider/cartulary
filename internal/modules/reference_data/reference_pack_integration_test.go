@@ -374,6 +374,7 @@ func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
 }
 
 func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integration(t *testing.T) {
+	t.Run("streamed container limit", testOversizedUploadAdmission)
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-envelope-and-authz")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)

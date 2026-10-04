@@ -345,6 +345,9 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 	if kind == "object" {
 		previous := ""
 		row.Keys = append(row.Keys, LookupKey{"object_id", id, id})
+		// Reference tuples preserve source provenance. The external-ID index
+		// is a set per object, independently of source name and source URL.
+		externalKeys := make(map[string]struct{})
 		for i, value := range m["external_refs"].([]any) {
 			ref := value.(map[string]any)
 			source, externalID := ref["source_name"].(string), ref["external_id"].(string)
@@ -359,7 +362,10 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 			order := source + "\x00" + externalID + "\x00" + url
 			c.require(order > previous, path)
 			previous = order
-			row.Keys = append(row.Keys, LookupKey{"external_id", externalID, id})
+			if _, exists := externalKeys[externalID]; !exists {
+				row.Keys = append(row.Keys, LookupKey{"external_id", externalID, id})
+				externalKeys[externalID] = struct{}{}
+			}
 		}
 		return row, c.finish("content_semantic_invalid")
 	}

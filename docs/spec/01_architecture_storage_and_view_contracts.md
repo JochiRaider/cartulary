@@ -10468,6 +10468,8 @@ Import, reverify and refresh use persisted v2 lifecycle Jobs and the subsystem v
 
 For every `reference_pack_version` ref emitted by this family, `kind` MUST be `reference_pack_version` and both `id` and `route` MUST equal the canonical `/api/v1/reference-packs/{pack_key}/{pack_version}` path.
 
+An import exceeding the configured `max_container_bytes` while streaming MUST stop before Job admission and return HTTP `409`, `error.code=reference_pack_verification_failed`, and closed details `{reason_code, check_id, validation_summary}`. The reason is `container_bytes_exceeded`; the check is `container_bytes`; the inline Reference Pack validation summary contains exactly one issue at `$` with `safe_details.limit_id=max_container_bytes`, the decimal configured maximum, and the first observed lower bound proving excess. It creates no Job, candidate, attestation, persistent summary resource, trust update or published pack bytes; temporary input is discarded. This immediate transport-admission outcome does not reorder verification of fully admitted containers. Operational I/O, cancellation and cleanup errors retain their operational classification. Local operator admission preserves the same error code and reason in its existing result, with unknown identities and Job ID null.
+
 For terminal common-job summaries produced by this family:
 
 Committed content-rejection Jobs include `error.details` with exactly `reason_code`, `check_id`, `failed_count`, `primary_issue_id`, `validation_summary_ref`, `total_issue_count`, `retained_issue_count`, and `issues_truncated`. Counts and the primary issue describe the winning check for the first failed member in the frozen cohort order; `failed_count` describes the cohort. Execution-abort Jobs do not fabricate these content-diagnostic members.
@@ -11479,7 +11481,7 @@ Verified by: AC-349, AC-350, AC-351, AC-352
 
 This section is active through the same atomic adoption as `docs/extension-subsystem-nlspec.md`. It supersedes the narrower prior rule; no compatibility producer or partial contract remains current.
 
-For the adopted Extensions companion manifest, this owner document has `owner_document_schema_id='cartulary.core01.current.v1'` and `owner_document_version='extensions-adoption-1'`.
+Companion adoption is recorded by human owner review. Executable Extensions inputs contain only typed operational facts and dependencies under Extensions §1.1, without an owner-document manifest.
 
 **REQ-01-629**
 Every extension operation that commits state owned by more than one owner MUST use the typed transaction-participant protocol owned by the Extensions NLSpec. The resolved participant set contains `1..16384` participants in ascending `participant_id` order. Each participant input and their aggregate are bounded to `67108864` canonical bytes; aggregate prepare-result bytes are bounded to `67108864`. Input construction, side-effect-free prepare, result validation, serialization-lock acquisition, in-transaction validation, write, shared proof/outbox/result publication, and one commit execute in the declared order. Validation stops at the first invalid participant in participant order. Cancellation and the effective inherited-minimum monotonic deadline are sampled before and after every step and invocation. A proven commit returns success or replay; proven absent commit returns the owner-selected cancellation, timeout, or conflict; indeterminate outcome is fatal. Automatic retry is forbidden.

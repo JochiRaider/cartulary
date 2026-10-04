@@ -428,6 +428,7 @@
         "internal/app/migrate/migrate.go",
         "internal/app/operator/operator_recovery.go",
         "internal/app/operator/operator_reference_pack.go",
+        "internal/app/operator/operator_reference_pack_test.go",
         "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/recoveryassembly/vnext.go",
         "internal/app/referenceassembly/**",

@@ -14,6 +14,7 @@ import (
 )
 
 func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
+	t.Run("staging rejection classification", testStagingRejectionClassification)
 	envelope := httpapi.UploadEnvelope{
 		Metadata: map[string]json.RawMessage{
 			"client_txn_id": json.RawMessage(`"txn-import"`),

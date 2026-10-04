@@ -2,6 +2,7 @@ package reportcomposition
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -32,8 +33,11 @@ func TestResolveReleaseTupleTxReasonMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve valid tuple: %v", err)
 	}
-	if resolved.VersionNumber != 2 || string(resolved.CanonicalComposition) != `{"schema_id":"fixture"}` {
+	if resolved.VersionNumber != 2 || string(resolved.CanonicalComposition) != string(fixture.canonical) {
 		t.Fatalf("resolved tuple = %#v", resolved)
+	}
+	if digest, err := CompositionDigest(resolved.CanonicalComposition); err != nil || digest != resolved.CompositionSHA256 {
+		t.Fatal("release tuple and created composition disagree", digest, err)
 	}
 
 	cases := []struct {
@@ -177,6 +181,7 @@ type releaseTupleFixture struct {
 	otherIncidentID uuid.UUID
 	compositionID   uuid.UUID
 	digest          string
+	canonical       json.RawMessage
 }
 
 func seedReleaseTupleFixture(t testing.TB, ctx context.Context, db *pgtest.RollbackDB) releaseTupleFixture {
@@ -186,7 +191,15 @@ func seedReleaseTupleFixture(t testing.TB, ctx context.Context, db *pgtest.Rollb
 	incidentID := uuid.New()
 	otherIncidentID := uuid.New()
 	compositionID := uuid.New()
-	digest := strings.Repeat("a", 64)
+	canonical, digest, err := canonicalComposition(ResourceRecord{
+		CompositionID: compositionID, IncidentID: incidentID,
+		TemplateID: "cartulary.report.default", TemplateVersion: "1",
+		DeckOps: json.RawMessage(`[]`), DiagramDecls: json.RawMessage(`[]`),
+		AuthoredTexts: json.RawMessage("[{\"authored_text_id\":\"text\",\"text_role\":\"authored_text\",\"body\":\"R&D <review>\u2028\u2029\",\"disclosure_partition_ref\":\"internal\"}]"),
+	}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(ctx, `
 INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, created_at, updated_at)
 VALUES ($1, 'tuple-owner@example.test', 'Tuple Owner', 'hash', false, true, false, $2, $2)
@@ -220,8 +233,8 @@ VALUES ($1, $2, $3, 'txn-tuple', 'cartulary.report.default', '1', 1, '[]'::jsonb
 INSERT INTO report_composition_versions (
     composition_id, composition_version, composition_sha256, canonical_composition, canonical_composition_bytes, created_by_user_id, created_at
 )
-VALUES ($1, 2, $2, '{"schema_id":"fixture"}'::jsonb, $3, $4, $5)
-`, compositionID, digest, []byte(`{"schema_id":"fixture"}`), userID, now); err != nil {
+VALUES ($1, 2, $2, $3::jsonb, $4, $5, $6)
+`, compositionID, digest, string(canonical), []byte(canonical), userID, now); err != nil {
 		t.Fatalf("seed composition version: %v", err)
 	}
 	return releaseTupleFixture{
@@ -231,6 +244,7 @@ VALUES ($1, 2, $2, '{"schema_id":"fixture"}'::jsonb, $3, $4, $5)
 		otherIncidentID: otherIncidentID,
 		compositionID:   compositionID,
 		digest:          digest,
+		canonical:       canonical,
 	}
 }
 

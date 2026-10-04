@@ -10,6 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	reportingjson "github.com/JochiRaider/cartulary/internal/modules/reporting/canonicaljson"
+	strictjson "github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 var (
@@ -18,7 +21,7 @@ var (
 )
 
 func canonicalJSON(value any) ([]byte, error) {
-	return json.Marshal(value)
+	return reportingjson.Marshal(value)
 }
 
 func hashHex(data []byte) string {
@@ -65,7 +68,7 @@ func canonicalComposition(record ResourceRecord, compositionVersion int64) (json
 	if err != nil {
 		return nil, "", err
 	}
-	if recomputed, err := digestFromCompositionBytes(canonicalBytes); err != nil || recomputed != digest {
+	if recomputed, err := CompositionDigest(canonicalBytes); err != nil || recomputed != digest {
 		if err != nil {
 			return nil, "", err
 		}
@@ -74,17 +77,44 @@ func canonicalComposition(record ResourceRecord, compositionVersion int64) (json
 	return json.RawMessage(canonicalBytes), digest, nil
 }
 
-func digestFromCompositionBytes(data []byte) (string, error) {
-	var decoded map[string]any
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return "", err
+// CompositionDigest returns the companion-owned digest after excluding only
+// the top-level composition digest member. Shape validation remains separate.
+func CompositionDigest(data []byte) (string, error) {
+	return compositionDocumentDigest(data, "composition_sha256")
+}
+
+// PreviewSourceDigest hashes the immutable preview descriptor, not a release.
+func PreviewSourceDigest(data []byte) (string, error) {
+	return compositionDocumentDigest(data, "preview_source_sha256")
+}
+
+func decodeCompositionObject(data []byte) (map[string]any, error) {
+	canonical, err := reportingjson.Canonicalize(data)
+	if err != nil {
+		return nil, err
 	}
-	delete(decoded, "composition_sha256")
-	digestBytes, err := canonicalJSON(decoded)
+	value, err := strictjson.DecodeStrict(canonical)
+	if err != nil {
+		return nil, err
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("composition document must be an object")
+	}
+	return object, nil
+}
+
+func compositionDocumentDigest(data []byte, member string) (string, error) {
+	decoded, err := decodeCompositionObject(data)
 	if err != nil {
 		return "", err
 	}
-	return hashHex(digestBytes), nil
+	delete(decoded, member)
+	canonical, err := canonicalJSON(decoded)
+	if err != nil {
+		return "", err
+	}
+	return hashHex(canonical), nil
 }
 
 func previewSource(resource ResourceRecord, version *VersionRecord, request PreviewRequest) (json.RawMessage, string, *int64, *string, error) {
@@ -102,8 +132,8 @@ func previewSource(resource ResourceRecord, version *VersionRecord, request Prev
 		compositionVersion = nil
 		compositionSHA = nil
 	} else {
-		var decoded map[string]any
-		if err := json.Unmarshal(version.CanonicalComposition, &decoded); err != nil {
+		decoded, err := decodeCompositionObject(version.CanonicalComposition)
+		if err != nil {
 			return nil, "", nil, nil, err
 		}
 		authoredAgainst = stringPtrFromAny(decoded["authored_against_snapshot_id"])
@@ -151,7 +181,7 @@ func validateDraft(deckOps json.RawMessage, diagramDecls json.RawMessage, author
 	issues = append(issues, validateDiagramDecls(diagramDecls, diagramIDs)...)
 	issues = append(issues, validateCompositionOps(deckOps, authoredRoles, diagramIDs)...)
 	if version != nil {
-		if digest, err := digestFromCompositionBytes(version.CanonicalComposition); err != nil || digest != version.CompositionSHA256 {
+		if digest, err := CompositionDigest(version.CanonicalComposition); err != nil || digest != version.CompositionSHA256 {
 			issues = append(issues, issue("composition_digest_mismatch", map[string]any{
 				"composition_id":      version.CompositionID.String(),
 				"composition_version": formatCompositionVersion(version.CompositionVersion),

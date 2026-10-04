@@ -3707,7 +3707,7 @@ Verified by: AC-231, AC-278, AC-279
 
 ## 21. Coordinated extension-availability lifecycle
 
-For the adopted Extensions companion manifest, this owner document has `owner_document_schema_id='cartulary.core03.current.v1'` and `owner_document_version='extensions-adoption-1'`.
+Companion adoption is recorded by human owner review. Executable Extensions inputs contain only typed operational facts and dependencies under Extensions §1.1, without an owner-document manifest.
 
 **REQ-03-303**
 For each `(client_instance_id, incident_id)`, the client MUST maintain a cryptographically random 256-bit `extension_availability_epoch_id` and an unsigned 64-bit generation. One linearizable local operation reserves each next generation before workbook startup, before an extension route request, and upon current-authorization invalidation; concurrent reservations return distinct strictly increasing generations. Only a response tagged with the exact current epoch/generation may affect extension state. On a reservation at maximum generation, that same atomic operation creates a new epoch, resets to `1`, and clears only incident-local extension state. Unknown or capability-bearing facts are never executed.

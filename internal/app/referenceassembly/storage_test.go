@@ -270,6 +270,7 @@ func TestReferencePackStreamingWorkspaceIsolationAndCleanup_Unit(t *testing.T) {
 }
 
 func TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing.T) {
+	t.Run("bounded streaming and failure classification", testStagingBounds)
 	temporaryRoot := filepath.Join(t.TempDir(), "temporary")
 	publishedRoot := filepath.Join(t.TempDir(), "reference-packs")
 	storage, err := referenceassembly.NewRootStorage(temporaryRoot, publishedRoot)

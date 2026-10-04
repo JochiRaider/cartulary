@@ -1157,7 +1157,7 @@ Imported artifacts are immutable historical source evidence owned by Reporting. 
 `reporting_canonical_json_v1` MUST be used for every Reporting-owned canonical object that participates in a hash. It MUST reject non-JSON values, duplicate object members, numbers outside `finite_integer`, NaN, infinities, binary blobs, and host-language object values.
 
 **REQ-RPT-048**
-Canonical object members MUST be serialized in bytewise ascending UTF-8 order of member names. Arrays MUST preserve the owner-defined order from the relevant schema or algorithm. Strings MUST serialize using JSON string escaping with shortest valid escapes for quotation mark, reverse solidus, and required control escapes. No insignificant whitespace is emitted.
+Canonical object members MUST be serialized in bytewise ascending UTF-8 order of member names. Arrays MUST preserve the owner-defined order from the relevant schema or algorithm. Strings MUST serialize using JSON string escaping with shortest valid escapes for quotation mark, reverse solidus, and required control escapes. No insignificant whitespace is emitted. In particular, `&`, `<`, `>`, U+2028 and U+2029 serialize as their literal UTF-8 bytes, without HTML or JavaScript escaping. Report Composition imports this serialization profile; its composition and preview-source digests retain their companion-owned self-member exclusion and do not acquire the schema-domain prefix in REQ-RPT-049.
 
 **REQ-RPT-049**
 The hash input for a canonical object MUST be:

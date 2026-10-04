@@ -50,7 +50,23 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 	}
 	for _, fixture := range fixtures.Cases {
 		t.Run(fixture.Key, func(t *testing.T) {
-			uploaded := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, fmt.Sprintf(`{"client_txn_id":"all-import-%s"}`, fixture.Key), referencePackBundle(t, bundleOptions{PackKey: fixture.Key, PackVersion: "1"}), "fixture.zip", reference_data.MediaTypeZip)
+			options := bundleOptions{PackKey: fixture.Key, PackVersion: "1"}
+			if strings.HasPrefix(fixture.Key, "framework.") {
+				options.ObjectsTransform = func(raw []byte) []byte {
+					lines := strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n")
+					for i, line := range lines {
+						var row map[string]any
+						if err := json.Unmarshal([]byte(line), &row); err != nil {
+							t.Fatal(err)
+						}
+						row["external_refs"] = []any{map[string]any{"source_name": "a", "external_id": "shared", "url": nil}, map[string]any{"source_name": "a", "external_id": "shared", "url": "https://example.com/"}, map[string]any{"source_name": "b", "external_id": "shared", "url": nil}}
+						lines[i] = string(integrationCanonical(t, row))
+					}
+					return []byte(strings.Join(lines, "\n") + "\n")
+				}
+				fixture.Members["payload/objects.ndjson"] = string(options.ObjectsTransform([]byte(fixture.Members["payload/objects.ndjson"])))
+			}
+			uploaded := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, fmt.Sprintf(`{"client_txn_id":"all-import-%s"}`, fixture.Key), referencePackBundle(t, options), "fixture.zip", reference_data.MediaTypeZip)
 			job := requireSuccessEnvelope(t, uploaded, http.StatusAccepted)["data"].(map[string]any)
 			if terminal := requireJob(t, harness, admin, job["job_id"].(string)); terminal["status"] != "succeeded" {
 				t.Fatalf("profile import: %#v", terminal)
@@ -89,6 +105,9 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 				if returned[idField] != id || got.Value.Provenance.PackSetID != set.Value.ID || got.Value.Provenance.PackVersion != "1" {
 					t.Fatal("entry identity/provenance mismatch")
 				}
+				if strings.HasPrefix(fixture.Key, "framework.") && string(got.Value.Item) != line {
+					t.Fatal("framework reference provenance changed")
+				}
 				kind := idField
 				var value any = id
 				switch fixture.Key {
@@ -120,6 +139,50 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 				}
 				if page.Error != nil || page.Value == nil || len(page.Value.Items) != expectedCount {
 					t.Fatalf("lookup %s %s: %#v", fixture.Key, kind, page)
+				}
+			}
+			if strings.HasPrefix(fixture.Key, "framework.") {
+				limit := 1
+				request := reference_data.LookupPackEntriesRequest{PackSetID: set.Value.ID, PackKey: fixture.Key, LookupKind: "external_id", LookupValue: "shared", Limit: &limit}
+				for _, want := range []string{"fixture:1", "fixture:2"} {
+					page := consumer.LookupPackEntries(ctx, request)
+					if page.Error != nil || page.Value == nil || len(page.Value.Items) != 1 {
+						t.Fatalf("external ID page: %#v", page)
+					}
+					var item map[string]any
+					if err := json.Unmarshal(page.Value.Items[0], &item); err != nil {
+						t.Fatal(err)
+					}
+					if item["object_id"] != want || len(item["external_refs"].([]any)) != 3 {
+						t.Fatal("lookup duplicated object or lost references", item)
+					}
+					request.Cursor = page.Value.NextCursor
+					if (want == "fixture:2") != (request.Cursor == nil) {
+						t.Fatal("incorrect final page")
+					}
+				}
+				if got := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_lookup_keys k JOIN reference_pack_candidates c ON c.current_index_id=k.index_id WHERE c.pack_key=$1 AND k.lookup_kind='external_id'`, fixture.Key); got != 2 {
+					t.Fatalf("persisted external keys=%d", got)
+				}
+				invalid := bundleOptions{PackKey: fixture.Key, PackVersion: "2", ObjectsTransform: func(raw []byte) []byte {
+					lines := strings.Split(strings.TrimSuffix(string(options.ObjectsTransform(raw)), "\n"), "\n")
+					var row map[string]any
+					if err := json.Unmarshal([]byte(lines[0]), &row); err != nil {
+						t.Fatal(err)
+					}
+					refs := row["external_refs"].([]any)
+					row["external_refs"] = append([]any{refs[0]}, refs...)
+					lines[0] = string(integrationCanonical(t, row))
+					return []byte(strings.Join(lines, "\n") + "\n")
+				}}
+				rejected := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, fmt.Sprintf(`{"client_txn_id":"duplicate-ref-%s"}`, fixture.Key), referencePackBundle(t, invalid), "duplicate.zip", reference_data.MediaTypeZip)
+				rejectedJob := requireSuccessEnvelope(t, rejected, http.StatusAccepted)["data"].(map[string]any)
+				terminal := requireJob(t, harness, admin, rejectedJob["job_id"].(string))
+				if terminal["status"] != "failed" || terminal["error_summary"].(map[string]any)["details"].(map[string]any)["reason_code"] != "content_semantic_invalid" {
+					t.Fatalf("exact duplicate reference accepted: %#v", terminal)
+				}
+				if got := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_index_generations WHERE pack_key=$1 AND pack_version='2'`, fixture.Key); got != 0 {
+					t.Fatal("failed import published a partial index")
 				}
 			}
 		})

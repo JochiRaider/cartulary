@@ -82,6 +82,12 @@ func consumerFixture(t *testing.T) (*consumerMemory, Consumer, *time.Time) {
 func TestCanonicalBaseReleaseBindingsAndConsumerEvaluation_Unit(t *testing.T) {
 	t.Run("machine contracts", testConsumerMachineContracts)
 	m, c, _ := consumerFixture(t)
+	for _, raw := range []string{"http://[ ::1 ]/", "http://[\t::1]/", "http://[::1\n]/", "http://[\x00::1]/", "http://[::1\x7f]/"} {
+		got := c.EvaluateIndicatorValue(context.Background(), EvaluateIndicatorRequest{PackSetID: m.set.ID, IndicatorTypeID: "url", ValueKind: "atomic", RawValue: raw})
+		if got.Error != nil || got.Value == nil || got.Value.Valid || got.Value.Code == nil || *got.Value.Code != "invalid_http_url" || got.Value.Display != nil || got.Value.Normalized != nil || got.Value.Defanged != nil || got.Value.DedupeKey != nil {
+			t.Fatalf("invalid URL consumer result: %#v", got)
+		}
+	}
 	if len(m.set.Members) != 3 || len(m.items) != 9 {
 		t.Fatal("incomplete release-bound Base vocabulary")
 	}

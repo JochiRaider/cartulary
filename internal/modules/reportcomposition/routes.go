@@ -481,8 +481,8 @@ func parsePathCompositionVersion(w http.ResponseWriter, r *http.Request) (int64,
 }
 
 func validateInlineComposition(record ResourceRecord, raw json.RawMessage) map[string]any {
-	var decoded map[string]any
-	if err := json.Unmarshal(raw, &decoded); err != nil {
+	decoded, err := decodeCompositionObject(raw)
+	if err != nil {
 		return invalidInlineSummary(record, "composition_schema_invalid")
 	}
 	if decoded["incident_id"] != record.IncidentID.String() {
@@ -495,7 +495,7 @@ func validateInlineComposition(record ResourceRecord, raw json.RawMessage) map[s
 		return invalidInlineSummary(record, "composition_template_mismatch")
 	}
 	sha, _ := decoded["composition_sha256"].(string)
-	digest, err := digestFromCompositionBytes(raw)
+	digest, err := CompositionDigest(raw)
 	if err != nil || digest != sha {
 		return invalidInlineSummary(record, "composition_digest_mismatch")
 	}

@@ -188,7 +188,7 @@ func (p *PendingImport) accept(ctx context.Context, actor, operatorOperation uui
 func (c *Coordinator) prepareImportInput(ctx context.Context, source io.Reader) (identity importIdentity, input preparedObject, resultErr error) {
 	ref, digest, size, err := c.storage.StageStream(ctx, source, c.limits.ReferencePacks.MaxContainerBytes)
 	if err != nil {
-		return identity, input, err
+		return identity, input, importStagingError(ctx, err)
 	}
 	defer func() {
 		cleanupErr := c.storage.RemoveStaged(ref)

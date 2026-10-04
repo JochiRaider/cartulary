@@ -169,19 +169,26 @@ func (r *referencePackLocalRuntime) importAndObserve(_ context.Context, id uuid.
 	}
 	pending, err := r.admission.PrepareImport(r.ctx, reader)
 	closeErr := reader.Close()
-	if err != nil {
+	if pending != nil {
+		defer pending.Close()
+	}
+	if closeErr != nil {
 		return result
 	}
-	defer pending.Close()
+	if err != nil {
+		if rejected, ok := reference_data.ImportContentRejection(err); ok {
+			code := "reference_pack_verification_failed"
+			result.ErrorCode = &code
+			result.ReasonCode = &rejected.Code
+		}
+		return result
+	}
 	digest := pending.SHA256()
 	result.ContainerSHA256 = &digest
 	key, version := pending.Identity()
 	if key != "" {
 		result.PackKey = &key
 		result.PackVersion = &version
-	}
-	if closeErr != nil {
-		return result
 	}
 	accepted, err := pending.AcceptLocalOperator(r.ctx, id)
 	if err != nil {

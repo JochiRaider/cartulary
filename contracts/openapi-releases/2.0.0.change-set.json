@@ -2264,6 +2264,30 @@
       "classification": "additive",
       "owner_id": "module.reference_data",
       "rationale": "Expose the exact verified manifest dependency tuples. Explicit null distinguishes absence of successful verification from a verified empty dependency list."
+    },
+    {
+      "fingerprint": "200281ccba7327ab0c74a99d536926c655158a3e4f07a6fbd273a97580eb132a",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Specify the synchronous container-byte admission rejection with an inline bounded validation summary; retain HTTP 409 and the existing verification-failure code, without creating a Job or changing other conflict responses."
+    },
+    {
+      "fingerprint": "0ffb59e8d7d089b2a326a28e4eaf62565d8bf5d8fc91fe59bc03fd092e52bd70",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Specify the synchronous container-byte admission rejection with an inline bounded validation summary; retain HTTP 409 and the existing verification-failure code, without creating a Job or changing other conflict responses."
+    },
+    {
+      "fingerprint": "35e55cda1c3fa5a9f9544073f20d5af1c227e836f5cef30c12e0c53e53c4a0e3",
+      "classification": "breaking",
+      "owner_id": "module.reference_data",
+      "rationale": "Specify the synchronous container-byte admission rejection with an inline bounded validation summary; retain HTTP 409 and the existing verification-failure code, without creating a Job or changing other conflict responses."
+    },
+    {
+      "fingerprint": "7ada89892e5ddf18b4b390435bf357a239eb92a2248d99154c5317211d8e4fa4",
+      "classification": "non_behavioral",
+      "owner_id": "module.reference_data",
+      "rationale": "Specify the synchronous container-byte admission rejection with an inline bounded validation summary; retain HTTP 409 and the existing verification-failure code, without creating a Job or changing other conflict responses."
     }
   ]
 }

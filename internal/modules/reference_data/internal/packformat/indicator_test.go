@@ -59,6 +59,21 @@ func TestIndicatorAlgorithmsCanonicalVectors_Unit(t *testing.T) {
 }
 
 func TestURLNormalizationPreservesDelimitersAndIsIdempotent_Unit(t *testing.T) {
+	t.Run("raw characters rejected before components", func(t *testing.T) {
+		for _, forbidden := range []string{" ", "\t", "\r", "\n", "\x00", "\x7f", "é", "\\", "<", ">", "\"", "`", "{", "}", "|", "^"} {
+			for _, raw := range []string{"http://[" + forbidden + "::1]/", "http://[::1" + forbidden + "]/", "http://exa" + forbidden + "mple.com/", "http://example.com/a" + forbidden + "b", "http://example.com/?a" + forbidden + "b", "http://example.com/#a" + forbidden + "b"} {
+				if got, ok := NormalizeURL(raw); ok {
+					t.Errorf("forbidden raw URL %q normalized to %q", raw, got)
+				}
+			}
+		}
+		if got, ok := NormalizeURL(" \t\u00a0https://[::1]:0443/a%20b?x=%09#%0A\r\n"); !ok || got != "https://[::1]/a%20b?x=%09#%0A" {
+			t.Fatal("outer trim or encoded characters changed", got, ok)
+		}
+		if httpsReference("https://[ ::1 ]/") || !httpsReference("https://[::1]/") || httpsReference("http://[::1]/") {
+			t.Fatal("framework URL boundary changed")
+		}
+	})
 	vectors := map[string]string{
 		"http://EXAMPLE.com":                          "http://example.com/",
 		"http://example.com?#":                        "http://example.com/?#",

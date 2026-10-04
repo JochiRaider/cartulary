@@ -46,7 +46,7 @@ func TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integrati
 			"template_version": reporting.DefaultTemplateVersion,
 			"deck_ops":         []any{},
 			"diagram_decls":    []any{},
-			"authored_texts":   []any{},
+			"authored_texts":   []any{map[string]any{"authored_text_id": "ordinary-text", "text_role": "authored_text", "body": "R&D <review> \u2028 separator \u2029", "disclosure_partition_ref": "internal"}},
 		},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -110,6 +110,20 @@ SELECT COUNT(*)
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM reporting_releases WHERE create_job_id::text = $1`, draftJobID); got != 0 {
 		t.Fatalf("preview must not create a release, got %d rows", got)
 	}
+	retainedBinding := func(jobID string) string {
+		t.Helper()
+		var binding string
+		if err := harness.DB.QueryRow(`
+SELECT jsonb_build_object('attempt', to_jsonb(a), 'bundle', o.bundle_manifest_json)::text
+  FROM report_composition_preview_attempts a
+  JOIN reporting_composition_preview_outputs o USING (preview_attempt_id)
+ WHERE a.render_attempt_id::text = $1
+`, jobID).Scan(&binding); err != nil {
+			t.Fatal(err)
+		}
+		return binding
+	}
+	draftBinding := retainedBinding(draftJobID)
 	replayedDraft := createPreview("txn-preview-draft", "draft", nil)
 	replayedJobID := replayedDraft["render_attempt_id"]
 	if replayedJobID == nil {
@@ -117,6 +131,9 @@ SELECT COUNT(*)
 	}
 	if replayedJobID != draftJobID {
 		t.Fatalf("preview replay changed job identity: first=%#v replay=%#v", draftPreview, replayedDraft)
+	}
+	if retainedBinding(draftJobID) != draftBinding {
+		t.Fatal("preview replay changed admitted identity, time or snapshot binding")
 	}
 
 	version := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
@@ -141,6 +158,23 @@ SELECT COUNT(*)
 	for _, jobID := range []string{draftJobID, versionJobID} {
 		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM extension_job_commit_proofs WHERE job_id::text = $1`, jobID); got != 1 {
 			t.Fatalf("preview job %s proof rows = %d want 1", jobID, got)
+		}
+		if got := dbassert.CountSQL(t, harness.DB, `
+SELECT count(*)
+  FROM report_composition_preview_attempts a
+  JOIN reporting_composition_preview_outputs o USING (preview_attempt_id)
+  JOIN reporting_snapshots s ON s.snapshot_id::text = a.snapshot_id
+ WHERE a.render_attempt_id::text = $1
+   AND o.bundle_manifest_json->>'preview_attempt_id' = a.preview_attempt_id::text
+   AND o.bundle_manifest_json->>'release_id' IS NULL
+   AND (o.bundle_manifest_json->>'render_admitted_at')::timestamptz = a.created_at
+   AND o.bundle_manifest_json->>'snapshot_id' = a.snapshot_id
+   AND o.bundle_manifest_json->'reference_packs' = s.export_model_json->'reference_packs'
+`, jobID); got != 1 {
+			t.Fatal("preview lost admitted render or pack-set binding", jobID)
+		}
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM reporting_releases WHERE create_job_id::text = $1`, jobID); got != 0 {
+			t.Fatal("preview created a release or approval", jobID)
 		}
 	}
 }

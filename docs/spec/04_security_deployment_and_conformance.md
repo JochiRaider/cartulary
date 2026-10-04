@@ -3994,7 +3994,7 @@ Verified by: AC-298, AC-433, AC-434, AC-435, AC-526
 
 This section is active through the atomic adoption of the Extensions NLSpec and all companion owners. Core 04 remains the sole configuration-container, authorization, application-process lifecycle, readiness, and exit-code owner.
 
-For the adopted Extensions companion manifest, this owner document has `owner_document_schema_id='cartulary.core04.current.v1'` and `owner_document_version='extensions-adoption-1'`.
+Companion adoption is recorded by human owner review. Executable Extensions inputs contain only typed operational facts and dependencies under Extensions §1.1, without an owner-document manifest.
 
 **REQ-04-143**
 Every recognized profile uses the Boolean startup-only key `<profile_id>.claimed`, omitted as `false` and rejecting explicit `null` or non-Boolean values. Claim-key recognition MUST derive from the digest-validated current Extensions descriptor and configuration catalog; a separately maintained profile switch or path list is invalid. Each profile-local configuration row MUST declare `inactive_policy` and `inactive_value_schema_id`; the schema ID is non-null exactly for `syntax_only`. An unclaimed `syntax_only` value is checked only for the closed inert structural vocabulary in EXT-REQ-207. Core 04 applies no required/default omission policy, creates no configuration view, retains no accepted value, resolves no secret/file/trust/reference, performs no DNS or egress, and invokes no profile code. An omitted key is accepted without defaulting; an accepted explicit value is discarded before the next phase.
