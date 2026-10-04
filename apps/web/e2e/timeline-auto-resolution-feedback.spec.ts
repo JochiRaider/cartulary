@@ -41,7 +41,10 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { createTimelineFillers } from "./support/timeline/fixtures";
+import {
+  createTimelineFillers,
+  timelineFixtureOccurredAt,
+} from "./support/timeline/fixtures";
 import { holdBrowserRequest } from "./support/transport/requestInterception";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import { createViewRow } from "./support/workbook/query";
@@ -421,6 +424,7 @@ test("Timeline Review read failure retries at the original source mention", asyn
 });
 
 async function prepareUndoContinuity(page: Page, fillerCount = 24) {
+  // Distinct timestamps keep the source first and the newer editor last.
   const incident = await createIncident(
     page,
     uniqueIncidentKey("ARF-UNDO-CONTINUITY"),
@@ -434,6 +438,7 @@ async function prepareUndoContinuity(page: Page, fillerCount = 24) {
   });
   const source = await createViewRow(page, incident, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("arf-undo-source"),
+    "timeline.activity_utc_text": timelineFixtureOccurredAt(0),
     "timeline.activity_synopsis_text": "Undo continuity source",
   });
   await createTimelineFillers(
@@ -441,9 +446,11 @@ async function prepareUndoContinuity(page: Page, fillerCount = 24) {
     incident,
     "undo continuity filler",
     fillerCount,
+    { occurredAtStart: timelineFixtureOccurredAt(1) },
   );
   const editing = await createViewRow(page, incident, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("arf-undo-editing"),
+    "timeline.activity_utc_text": timelineFixtureOccurredAt(fillerCount + 1),
     "timeline.activity_synopsis_text": "Continue after Undo",
     "timeline.tags": {
       kind: "collection_actions_v1",
@@ -732,7 +739,7 @@ test("Timeline auto-resolution feedback undo late acceptance preserves same-row 
 
 test("Timeline auto-resolution feedback undo late acceptance preserves native scalar editing", async ({
   page,
-}) => {
+}, testInfo) => {
   test.setTimeout(180_000);
   const { notice, editing } = await prepareUndoContinuity(page, 48);
   const held = await holdBrowserRequest(page, {
@@ -767,13 +774,40 @@ test("Timeline auto-resolution feedback undo late acceptance preserves native sc
     );
     const original = await input.elementHandle();
     const grid = page.locator(gridScrollportSelector());
-    const newerScroll = await grid.evaluate((element) => element.scrollTop);
+    // Exercise the browser's lower scroll boundary while the newer editor owns
+    // focus. Removing the disclosure enlarges the scrollport, so the previous
+    // maximum cannot remain a valid scroll offset.
+    await grid.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const readScroll = (element: HTMLElement) => ({
+      top: element.scrollTop,
+      left: element.scrollLeft,
+      height: element.scrollHeight,
+      viewport: element.clientHeight,
+      maximum: element.scrollHeight - element.clientHeight,
+    });
+    const beforeScroll = await grid.evaluate(readScroll);
+    expect(beforeScroll.top).toBeGreaterThan(0);
+    expect(beforeScroll.top).toBe(beforeScroll.maximum);
     held.release();
     await expect(notice).toHaveCount(0);
     await expect(input).toBeFocused();
-    expect(await grid.evaluate((element) => element.scrollTop)).toBe(
-      newerScroll,
+    const settledScroll = await grid.evaluate(readScroll);
+    testInfo.annotations.push({
+      type: "undo_scroll_bounds",
+      description: JSON.stringify({
+        before: beforeScroll,
+        after: settledScroll,
+      }),
+    });
+    expect(settledScroll.height).toBe(beforeScroll.height);
+    expect(settledScroll.viewport).toBeGreaterThan(beforeScroll.viewport);
+    expect(settledScroll.maximum).toBeLessThan(beforeScroll.maximum);
+    expect(settledScroll.top).toBe(
+      Math.min(beforeScroll.top, settledScroll.maximum),
     );
+    expect(settledScroll.left).toBe(beforeScroll.left);
     expect(
       await original?.evaluate((element: HTMLInputElement) => ({
         connected: element.isConnected,
