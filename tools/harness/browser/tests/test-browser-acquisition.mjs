@@ -6,10 +6,11 @@ import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionPort, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
+import { createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionPort, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
 import { preparationOwnership, recoverReviewPreparation, withReviewResources } from "../review-preparation.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
+import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { CommandFailure, createCommandFailureContext, publishCommandFailure } from "../../runtime/command-failure.mjs";
 import { productionFixtureProviders } from "../../scheduler/fixture-broker/providers.mjs";
@@ -111,7 +112,7 @@ test("borrowed runtime controller records do not hide or block preparation depen
 
 test("producer exit cleanup cannot publish release before the external owner reaps it", async (t) => {
   const f = fixture(t);
-  recordAcquisitionProcess(f.file, "producer");
+  recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "producer"));
   const stopped = [];
   const stop = async (proof) => { stopped.push(proof.pid); };
   const pending = await settleBrowserAcquisition({ ...f, root, producerActive: true, stop });
@@ -138,7 +139,7 @@ test("pre-lease partial acquisition reaps real processes and exact ports before 
   const closed = once(child, "close");
   const proof = ownedProcess(child.pid);
   f.cleanup.push(async () => { await stopOwnedProcess(proof); await closed; });
-  recordAcquisitionProcess(f.file, "backend", child.pid);
+  recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "backend"), child.pid);
   const ports = path.join(f.scratch, "ports"); mkdirSync(ports, { mode: 0o700 });
   const directory = path.join(ports, "port-19001"); mkdirSync(directory, { mode: 0o700 });
   recordAcquisitionPort(f.file, directory);
@@ -152,7 +153,7 @@ test("pre-lease partial acquisition reaps real processes and exact ports before 
 
 test("failed process cleanup retains acquisition and suite proof for explicit recovery", async (t) => {
   const f = fixture(t);
-  recordAcquisitionProcess(f.file, "backend");
+  recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "backend"));
   const primary = new CommandFailure("startup sentinel", { failure_class: "infra", failure_reason: "service_start_error" });
   let caught;
   try {
@@ -173,7 +174,7 @@ test("wrong runtime or changed suite proof is rejected before destructive recove
   const f = fixture(t);
   let stopped = false;
   const stop = async () => { stopped = true; };
-  recordAcquisitionProcess(f.file, "backend");
+  recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "backend"));
   await assert.rejects(settleBrowserAcquisition({ ...f, root, runtime: { ...f.runtime, runID: "wrong" }, stop }), (e) => e.failure_reason === "artifact_error");
   writeFileSync(f.suiteLease, "{}", { mode: 0o600 });
   await assert.rejects(settleBrowserAcquisition({ ...f, root, stop }), (e) => e.failure_reason === "artifact_error");
@@ -209,7 +210,7 @@ test("acquisition CLI preserves classified startup proof failures and prior diag
       const childEnvironment = { ...environment, ...context.environment };
       if (prior) publishCommandFailure(root, prior, childEnvironment);
       const child = spawnSync(process.execPath, ["--", path.join(root, "tools/harness/browser/browser-acquisition.mjs"),
-        "launch", f.file, "producer", process.execPath, "-e", "process.exit(77)"],
+        "launch", f.file, "00000000-0000-4000-8000-000000000000", process.execPath, "-e", "process.exit(77)"],
       { env: childEnvironment, timeout: 10000, killSignal: "SIGKILL", stdio: "ignore" });
       assert.equal(child.error, undefined);
       assert.equal(child.status, 11);
@@ -247,12 +248,12 @@ test("port reservation is idempotent and collision cannot retire an earlier owne
 
 test("producer death before ready publication leaves exact service process identity", async (t) => {
   const f = fixture(t);
-  const child = spawn(process.execPath, ["--", path.join(root, "tools/harness/browser/browser-acquisition.mjs"), "launch", f.file, "producer",
+  const child = spawn(process.execPath, ["--", path.join(root, "tools/harness/browser/browser-acquisition.mjs"), "launch", f.file, createAcquisitionLaunch(f.file, "producer"),
     process.execPath, "-e", "setInterval(()=>{},1000)"], { detached: true, stdio: "ignore" });
   const closed = once(child, "close");
   const proof = ownedProcess(child.pid); f.cleanup.push(async () => { await stopOwnedProcess(proof); await closed; });
   const deadline = Date.now() + 10000;
-  while (!readdirSync(path.dirname(f.file)).some((name) => name.startsWith("process-producer-"))) {
+  while (!readdirSync(path.dirname(f.file)).some((name) => name.startsWith("process-"))) {
     assert.ok(Date.now() < deadline, "producer publishes ownership before work");
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -263,7 +264,7 @@ test("producer death before ready publication leaves exact service process ident
 
 test("concurrent settlement is shared and late acquisition cannot publish after cancellation", async (t) => {
   const f = fixture(t);
-  recordAcquisitionProcess(f.file, "backend");
+  recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "backend"));
   const stopped = Promise.withResolvers();
   let count = 0;
   const options = { ...f, root, stop: async () => { count++; await stopped.promise; } };
@@ -273,7 +274,7 @@ test("concurrent settlement is shared and late acquisition cannot publish after 
   stopped.resolve();
   await Promise.all([first, second]);
   assert.equal(count, 1);
-  assert.throws(() => recordAcquisitionProcess(f.file, "frontend"), (error) => error.failure_reason === "artifact_error");
+  assert.throws(() => recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "frontend")), (error) => error.failure_reason === "artifact_error");
   assert.equal(existsSync(path.join(f.sessionRoot, "stack.lease")), false);
 });
 
@@ -333,4 +334,57 @@ for (const boundary of ["registration", "before-ready", "cancelled"]) test(`prod
     socket.on("connect", () => { socket.destroy(); resolve(true); });
     socket.on("error", () => resolve(false));
   }), false, "partial acquisition left no listener");
+});
+
+
+test("recovery reaps a producer paused before its module can publish ownership", async (t) => {
+  const f = fixture(t);
+  f.ownership.record({ kind: "browser_stack", target: f.file, state: "released" });
+  const ready = path.join(f.scratch, "preloader-ready");
+  const preload = path.join(f.scratch, "pause.mjs");
+  writeFileSync(preload, `import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(ready)}, "ready"); await new Promise(() => setInterval(() => {}, 1000));`, { mode: 0o600 });
+  const controller = new AbortController();
+  let allocation, proof;
+  const provider = productionFixtureProviders({ root: f.scratch, suiteRuntime: f.runtime,
+    signal: controller.signal,
+    suiteController: { ensure: () => ({ environment: {}, leaseFile: f.suiteLease }) },
+    runtimeEnvironment: { NODE_OPTIONS: `--import=${preload}` },
+    onOwnedResource: (record) => { f.ownership.record(record); if (record.state === "pending") allocation = record.target; },
+    onChildProcess: (pid) => { proof = ownedProcess(pid); return () => stopOwnedProcess(proof); },
+  }).browser_stack;
+  const acquisition = provider.acquire({ affinityKey: "paused-producer", browserStage: "webserver-backed" }).catch((error) => error);
+  f.cleanup.push(async () => { controller.abort(new Error("fixture teardown")); if (proof) await stopOwnedProcess(proof); await acquisition; });
+  const deadline = Date.now() + 10000;
+  while (!existsSync(ready)) {
+    assert.ok(Date.now() < deadline, "producer reaches pre-module pause");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  await settleBrowserAcquisition({ file: allocation, runtime: f.runtime, root: f.scratch });
+  assert.equal(processIdentityAlive(proof), false, "terminal settlement must reap the pre-module producer");
+});
+
+
+test("unbound launch intent cannot settle until its creator proves no child remains", async (t) => {
+  const f = fixture(t);
+  const launchID = createAcquisitionLaunch(f.file, "backend");
+  await assert.rejects(settleBrowserAcquisition({ ...f, root }), (error) => error.settlement?.state === "recovery_required");
+  assert.equal(existsSync(path.join(path.dirname(f.file), "settlement.json")), false);
+  assert.throws(() => createAcquisitionLaunch(f.file, "frontend"));
+  closeAcquisitionLaunch(f.file, launchID);
+  assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
+});
+
+test("a late launcher journals after stopping without starting its payload", async (t) => {
+  const f = fixture(t);
+  const launchID = createAcquisitionLaunch(f.file, "backend");
+  await assert.rejects(settleBrowserAcquisition({ ...f, root }));
+  const payload = path.join(f.scratch, "payload-started");
+  const result = spawnSync(process.execPath, ["--", path.join(root, "tools/harness/browser/browser-acquisition.mjs"),
+    "launch", f.file, launchID, process.execPath, "-e", `require("node:fs").writeFileSync(${JSON.stringify(payload)}, "started")`],
+  { timeout: 10000, killSignal: "SIGKILL", stdio: "ignore" });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0);
+  assert.equal(existsSync(payload), false);
+  assert.equal(readdirSync(path.dirname(f.file)).filter((name) => name.startsWith("process-")).length, 1);
+  assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
 });

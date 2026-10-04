@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
+import { createSecureWriteStream, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { CommandFailure, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
@@ -71,9 +71,9 @@ function receipt(file) {
   } catch (error) { if (error.code === "ENOENT") return null; throw error; }
 }
 
-function writeResource(file, name, resource) {
+function writeResource(file, name, resource, { duringStop = false } = {}) {
   const owner = readBrowserAcquisition(file);
-  if (receipt(file)) throw invalid();
+  if (receipt(file) || (!duringStop && stopping(file))) throw invalid();
   const value = { attempt_id: owner.attempt_id, ...resource };
   try { atomicLocalFile(resourceFile(file, name), bytes(value)); }
   catch (error) {
@@ -81,10 +81,42 @@ function writeResource(file, name, resource) {
   }
 }
 
-export function recordAcquisitionProcess(file, role, pid = process.pid) {
-  if (!["producer", "backend", "frontend", "monitor"].includes(role)) throw invalid();
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const roles = ["producer", "backend", "frontend"];
+function stopping(file) {
+  try {
+    const value = read(resourceFile(file, "stopping.json"));
+    if (Object.keys(value).join(",") !== "attempt_id" || value.attempt_id !== readBrowserAcquisition(file).attempt_id) throw invalid();
+    return true;
+  } catch (error) { if (error.code === "ENOENT") return false; throw error; }
+}
+function launchRecord(file, launchID) {
+  try {
+    const owner = readBrowserAcquisition(file);
+    if (!uuid.test(launchID)) throw invalid();
+    const value = read(resourceFile(file, `launch-${launchID}.json`));
+    if (Object.keys(value).sort().join(",") !== "attempt_id,launch_id,role" ||
+        value.attempt_id !== owner.attempt_id || value.launch_id !== launchID || !roles.includes(value.role)) throw invalid();
+    return value;
+  } catch (cause) { throw invalid(cause); }
+}
+export function createAcquisitionLaunch(file, role) {
+  if (!roles.includes(role)) throw invalid();
+  const launchID = randomUUID();
+  writeResource(file, `launch-${launchID}.json`, { launch_id: launchID, role });
+  return launchID;
+}
+// Only the creator calls this after proving no child was created or reaping
+// its exact process group. Recovery never infers it from an absent PID journal.
+export function closeAcquisitionLaunch(file, launchID) {
+  launchRecord(file, launchID);
+  if (receipt(file)) return;
+  writeResource(file, `closed-${launchID}.json`, { launch_id: launchID }, { duringStop: true });
+}
+export function recordAcquisitionProcess(file, launchID, pid = process.pid) {
+  const { role } = launchRecord(file, launchID);
   const proof = ownedProcess(pid);
-  writeResource(file, `process-${role}-${pid}.json`, { role, proof });
+  writeResource(file, `process-${launchID}-${pid}.json`, { launch_id: launchID, role, proof }, { duringStop: true });
   return proof;
 }
 
@@ -124,16 +156,24 @@ function resources(file) {
   const owner = readBrowserAcquisition(file);
   const names = readdirSync(path.dirname(file));
   if (names.length > 256) throw invalid();
-  const result = { processes: [], ports: [] };
+  const result = { launches: [], closed: new Set(), processes: [], ports: [] };
   for (const name of names) {
-    if (name === "owner.json" || name === "settlement.json" || name.startsWith(".publishing-")) continue;
+    if (name === "owner.json" || name === "settlement.json" || name === "stopping.json" || name.startsWith(".publishing-")) continue;
     const value = read(resourceFile(file, name));
     if (value.attempt_id !== owner.attempt_id) throw invalid();
-    if (name.startsWith("process-")) {
+    if (name.startsWith("launch-")) {
+      const launch = launchRecord(file, value.launch_id);
+      if (name !== `launch-${launch.launch_id}.json`) throw invalid();
+      result.launches.push(launch);
+    } else if (name.startsWith("closed-")) {
+      launchRecord(file, value.launch_id);
+      if (Object.keys(value).sort().join(",") !== "attempt_id,launch_id" || name !== `closed-${value.launch_id}.json`) throw invalid();
+      result.closed.add(value.launch_id);
+    } else if (name.startsWith("process-")) {
       const p = value.proof;
-      if (Object.keys(value).sort().join(",") !== "attempt_id,proof,role" || !["producer", "backend", "frontend", "monitor"].includes(value.role) ||
+      if (Object.keys(value).sort().join(",") !== "attempt_id,launch_id,proof,role" || launchRecord(file, value.launch_id).role !== value.role ||
           !p || Object.keys(p).sort().join(",") !== "boot,group,pid,start" || !Number.isSafeInteger(p.pid) || p.pid < 2 ||
-          typeof p.boot !== "string" || typeof p.group !== "boolean" || !/^\d+$/u.test(p.start) || name !== `process-${value.role}-${p.pid}.json`) throw invalid();
+          typeof p.boot !== "string" || typeof p.group !== "boolean" || !/^\d+$/u.test(p.start) || name !== `process-${value.launch_id}-${p.pid}.json`) throw invalid();
       result.processes.push(value);
     } else if (name.startsWith("port-")) {
       if (Object.keys(value).sort().join(",") !== "attempt_id,directory" || typeof value.directory !== "string" ||
@@ -141,22 +181,34 @@ function resources(file) {
       result.ports.push(value);
     } else throw invalid();
   }
+  if (new Set(result.processes.map((entry) => entry.launch_id)).size !== result.processes.length) throw invalid();
   return result;
 }
 
 export async function stopAcquisitionProcesses(file, { producerActive = false, stop = stopOwnedProcess } = {}) {
-  const failures = [];
-  const records = resources(file).processes;
-  // Reap acquisition before inspecting service processes: it cannot add a late
-  // resource after the recovery snapshot. The live producer uses its exit trap.
-  if (!producerActive) for (const entry of records.filter((p) => p.role === "producer")) {
-    try { await stop(entry.proof); } catch (error) { failures.push(error); }
+  const stopped = new Set();
+  // Stopping fences new launches. First stop the producer, then rescan because
+  // a child can publish its exact identity while its creator is being reaped.
+  for (let pass = 0; pass < 4; pass++) {
+    const records = resources(file);
+    const pending = records.processes.filter((entry) => !(producerActive && entry.role === "producer") &&
+      !stopped.has(`${entry.launch_id}:${entry.proof.pid}`)).sort((a, b) => Number(b.role === "producer") - Number(a.role === "producer"));
+    if (pending.length) {
+      const failures = [];
+      for (const entry of pending) {
+        try { await stop(entry.proof); stopped.add(`${entry.launch_id}:${entry.proof.pid}`); }
+        catch (error) { failures.push(error); }
+      }
+      if (failures.length) throw new AggregateError(failures, "browser process cleanup failed");
+      continue;
+    }
+    if (records.launches.some((entry) => !records.closed.has(entry.launch_id) &&
+        !records.processes.some((p) => p.launch_id === entry.launch_id))) {
+      throw new CommandFailure("browser process launch has unresolved ownership", { failure_class: "harness", failure_reason: "cleanup_error" });
+    }
+    return;
   }
-  if (failures.length) throw new AggregateError(failures, "browser producer cleanup failed");
-  for (const entry of resources(file).processes.filter((p) => p.role !== "producer")) {
-    try { await stop(entry.proof); } catch (error) { failures.push(error); }
-  }
-  if (failures.length) throw new AggregateError(failures, "browser process cleanup failed");
+  throw new CommandFailure("browser processes did not settle", { failure_class: "harness", failure_reason: "cleanup_error" });
 }
 
 export function releaseAcquisitionPorts(file) {
@@ -195,6 +247,7 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
   if (digest(suiteBytes) !== owner.suite_digest) throw invalid();
   const suite = suiteProof(suiteBytes, owner.run_id);
   if (suite.suite_id !== owner.suite_id) throw invalid();
+  writeResource(file, "stopping.json", {}, { duringStop: true });
   await stopAcquisitionProcesses(file, { producerActive, stop });
   releaseAcquisitionPorts(file);
   const metadata = path.join(owner.session_root, "runtime-root", "test-services-web-e2e.json");
@@ -240,8 +293,9 @@ export function settleBrowserAcquisition(options) {
   return settlements.get(key);
 }
 
-async function launch(file, role, command, args) {
-  recordAcquisitionProcess(file, role);
+async function launch(file, launchID, command, args) {
+  recordAcquisitionProcess(file, launchID);
+  if (stopping(file)) return;
   // Install before spawning. A group signal reaches the command as well; keep
   // its supervisor alive to await the command's exit trap and reap it.
   const signals = new Map(["SIGINT", "SIGTERM"].map((name) => [name, () => {}]));
@@ -253,6 +307,43 @@ async function launch(file, role, command, args) {
   for (const [name, listener] of signals) process.removeListener(name, listener);
 }
 
+// The service launcher lives in the producer group until it has published the
+// detached child's exact identity. Its ticket survives interruption before that
+// publication; the detached wrapper also journals before starting any payload.
+async function spawnService(file, role, logFile, command, args) {
+  const launchID = createAcquisitionLaunch(file, role);
+  let output, child, proof, primary;
+  try {
+    output = createSecureWriteStream(logFile);
+    if (stopping(file)) throw invalid();
+    child = spawn(process.execPath, ["--", fileURLToPath(import.meta.url), "launch", file, launchID, command, ...args], {
+      detached: true, stdio: ["ignore", output.fd, output.fd], env: process.env,
+    });
+    // Attach before returning to the event loop, including failed exec/spawn.
+    const spawned = new Promise((resolve, reject) => { child.once("spawn", resolve); child.once("error", reject); });
+    spawned.catch(() => {});
+    if (child.pid) {
+      proof = ownedProcess(child.pid);
+      recordAcquisitionProcess(file, launchID, child.pid);
+    }
+    await spawned;
+    if (stopping(file)) throw invalid();
+    process.stdout.write(`${child.pid}\n`);
+    child.unref();
+  } catch (error) {
+    primary = error;
+    try {
+      if (proof) await stopOwnedProcess(proof);
+      if (!child?.pid || proof) closeAcquisitionLaunch(file, launchID);
+    } catch (cleanupError) { (primary.cleanupFailures ??= []).push(cleanupError); }
+  } finally {
+    if (output) try {
+      await new Promise((resolve, reject) => { output.once("error", reject); output.once("close", resolve); output.end(); });
+    } catch (error) { if (primary) (primary.cleanupFailures ??= []).push(error); else primary = error; }
+  }
+  if (primary) throw primary;
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [operation, file, ...args] = process.argv.slice(2);
   const root = path.resolve(import.meta.dirname, "../../..");
@@ -260,7 +351,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (operation === "launch") await launch(file, args[0], args[1], args.slice(2));
     else if (operation === "port") recordAcquisitionPort(file, args[0]);
     else if (operation === "reserve-port") process.exitCode = reserveAcquisitionPort(file, args[0], Number(args[1])) ? 0 : 1;
-    else if (operation === "process") recordAcquisitionProcess(file, args[0], Number(args[1]));
+    else if (operation === "spawn") await spawnService(file, args[0], args[1], args[2], args.slice(3));
     else if (operation === "settle") await settleBrowserAcquisition({ file, root, environment: process.env, producerActive: args[0] === "producer-active" });
     else throw invalid();
   } catch (error) {

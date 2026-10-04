@@ -185,7 +185,12 @@ not prove resource clearance. Exact process and port records bind the attempt
 to its runtime and managed suite. Stop settles browser resources before closing
 that suite; failed settlement preserves the required suite proof even when the
 runtime directory is borrowed. Unrelated controller records do not create a
-suite dependency.
+suite dependency. Each process has a launch ticket before spawn, creator-side
+identity proof and child-side registration before dependent work. An interrupted
+launch without identity or positive creator settlement remains unresolved; keep
+its suite dependency. Stopping prevents new launches, and late launchers record
+their identity and exit without starting payloads. Managed browser services use
+this owner protocol directly, without detached PID-only parent monitors.
 
 Drain sessions using their running version before upgrading or rolling back
 this acquisition protocol. Replace producer, provider and recovery reader

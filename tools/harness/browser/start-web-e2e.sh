@@ -1313,20 +1313,16 @@ browser_wait_frontend_ready() {
 }
 
 start_browser_process_group() {
-  local outvar="$1" log_file="$2" role="backend" monitor_pid=""
+  local outvar="$1" log_file="$2" role="backend" group_id=""
   shift 2
   if [[ -z "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
     start_process_group "${outvar}" "${log_file}" "$@"
     return $?
   fi
   if [[ "${outvar}" == "VITE_PGID" ]]; then role="frontend"; fi
-  start_process_group "${outvar}" "${log_file}" "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -- \
-    "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" launch "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${role}" "$@" || return $?
-  monitor_pid="${CARTULARY_LIFECYCLE_GROUP_MONITORS[${!outvar}]:-}"
-  if [[ -n "${monitor_pid}" ]]; then
-    "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
-      process "${CARTULARY_BROWSER_ACQUISITION_FILE}" monitor "${monitor_pid}" || return $?
-  fi
+  group_id="$("${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -- \
+    "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" spawn "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${role}" "${log_file}" "$@")" || return $?
+  printf -v "${outvar}" '%s' "${group_id}"
 }
 
 start_frontend_preview_process() {

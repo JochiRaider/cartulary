@@ -6,7 +6,7 @@ import path from "node:path";
 import { createCommandFailureContext, CommandFailure } from "../../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { atomicLocalFile, readLocalFile, removePrivateFile } from "../../runtime/secure-local-files.mjs";
-import { createBrowserAcquisition, settleBrowserAcquisition } from "../../browser/browser-acquisition.mjs";
+import { createAcquisitionLaunch, closeAcquisitionLaunch, recordAcquisitionProcess, createBrowserAcquisition, settleBrowserAcquisition } from "../../browser/browser-acquisition.mjs";
 
 import {
   normalizeFailureClass,
@@ -53,33 +53,40 @@ function run(command, args, { cwd, environment, timeoutMS }) {
   }
 }
 
-function acquireProcess(command, args, { cwd, environment, signal, onChildProcess = () => () => {} }) {
-  return new Promise((resolve, reject) => {
+async function acquireProcess(command, args, { cwd, environment, signal, onChildProcess = () => () => {}, onReaped = () => {} }) {
+  let child, proof, diagnostic, released = () => {}, primary, killDeadline;
+  const abort = () => {
+    try { if (child?.pid) process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") primary ??= error; }
+    killDeadline ??= setTimeout(() => { try { if (child?.pid) process.kill(-child.pid, "SIGKILL"); } catch (error) { if (error.code !== "ESRCH") primary ??= error; } }, 2000);
+  };
+  try {
     signal?.throwIfAborted();
-    const diagnostic = ["ensure", "installed_only"].includes(environment.CARTULARY_PREPARATION_POLICY) ? createCommandFailureContext({ repoRoot: cwd, environment, unitID: "review:browser_stack", commandID: environment.CARTULARY_PREPARATION_POLICY === "installed_only" ? "cartulary.harness.command.ui_review.v1" : "cartulary.harness.command.browser_design_review.v1" }) : null;
-    const child = spawn(command, args, { cwd, env: { ...process.env, ...environment, ...diagnostic?.environment }, stdio: "ignore", detached: true });
-    let released = () => {}, spawnError, killDeadline;
-    try { if (child.pid) released = onChildProcess(child.pid); }
-    catch (error) { spawnError = error; child.kill("SIGKILL"); }
-    const abort = () => {
-      try { if (child.pid) process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") spawnError ??= error; }
-      killDeadline ??= setTimeout(() => { try { if (child.pid) process.kill(-child.pid, "SIGKILL"); } catch (error) { if (error.code !== "ESRCH") spawnError ??= error; } }, 2000);
-    };
+    diagnostic = ["ensure", "installed_only"].includes(environment.CARTULARY_PREPARATION_POLICY) ? createCommandFailureContext({ repoRoot: cwd, environment, unitID: "review:browser_stack", commandID: environment.CARTULARY_PREPARATION_POLICY === "installed_only" ? "cartulary.harness.command.ui_review.v1" : "cartulary.harness.command.browser_design_review.v1" }) : null;
+    child = spawn(command, args, { cwd, env: { ...process.env, ...environment, ...diagnostic?.environment }, stdio: "ignore", detached: true });
+    const closed = new Promise((resolve) => {
+      child.once("error", (error) => { primary ??= error; });
+      child.once("close", resolve);
+    });
+    try {
+      if (child.pid) { proof = ownedProcess(child.pid); released = onChildProcess(child.pid); }
+    } catch (error) { primary = error; abort(); }
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
-    child.once("error", (error) => { spawnError = error; });
-    child.once("close", async (status) => {
-      clearTimeout(killDeadline);
-      signal?.removeEventListener("abort", abort);
-      let failure;
-      try { failure = diagnostic?.read(); } catch (error) { spawnError ??= error; }
-      let primary = signal?.aborted ? signal.reason : failure ? new CommandFailure("browser acquisition failed", status === 0 ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" } : failure) : spawnError ?? (status === 0 ? null : new Error("unclassified browser acquisition failure"));
-      for (const cleanup of [released, () => diagnostic?.close()]) {
-        try { await cleanup(); } catch (error) { primary ??= new CommandFailure("acquisition cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error" }); (primary.cleanupFailures ??= []).push(error); }
-      }
-      if (primary) reject(primary); else resolve();
-    });
-  });
+    const status = await closed;
+    const failure = diagnostic?.read();
+    primary = signal?.aborted ? signal.reason : primary ?? (failure ? new CommandFailure("browser acquisition failed", status === 0 ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" } : failure) : status === 0 ? null : new Error("unclassified browser acquisition failure"));
+  } catch (error) { primary ??= error; }
+  finally {
+    clearTimeout(killDeadline);
+    signal?.removeEventListener("abort", abort);
+    for (const cleanup of [async () => {
+      if (proof) await stopOwnedProcess(proof);
+      if (!child?.pid || proof) onReaped();
+    }, released, () => diagnostic?.close()]) {
+      try { await cleanup(); } catch (error) { primary ??= new CommandFailure("acquisition cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error" }); (primary.cleanupFailures ??= []).push(error); }
+    }
+  }
+  if (primary) throw primary;
 }
 
 function readEnvironmentFile(file) {
@@ -625,8 +632,12 @@ export function productionFixtureProviders({
         })();
         try {
           onOwnedResource({ kind: "browser_stack", target: acquisitionFile, state: "pending" });
-          await acquireProcess(process.execPath, ["--", new URL("../../browser/browser-acquisition.mjs", import.meta.url).pathname, "launch", acquisitionFile, "producer", lifecycle,
-            "--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal, onChildProcess });
+          const launchID = createAcquisitionLaunch(acquisitionFile, "producer");
+          await acquireProcess(process.execPath, ["--", new URL("../../browser/browser-acquisition.mjs", import.meta.url).pathname, "launch", acquisitionFile, launchID, lifecycle,
+            "--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal,
+              onChildProcess: (pid) => { recordAcquisitionProcess(acquisitionFile, launchID, pid); return onChildProcess?.(pid) ?? (() => {}); },
+              onReaped: () => closeAcquisitionLaunch(acquisitionFile, launchID),
+            });
           signal?.throwIfAborted();
         } catch (error) {
           try { await close(); }
