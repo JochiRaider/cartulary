@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # shellcheck source=tools/harness/browser/browser-lifecycle-adapter.sh
 source "${ROOT_DIR}/tools/harness/browser/browser-lifecycle-adapter.sh"
 
 GO_BIN="${GO:-go}"
-NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
+NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/${CARTULARY_LAYOUT_NODE_RUNTIME}}"
 SERVER_HARNESS_BIN="${CARTULARY_SERVER_HARNESS_BIN:-}"
 TEST_SERVICES_BIN="${CARTULARY_TEST_SERVICES_BIN:-}"
 TEST_SERVICE_FRONTEND_PORT_START=19000

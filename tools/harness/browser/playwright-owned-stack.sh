@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 resolve_playwright_owned_stack_env() {
   local root_dir="$1"
 
@@ -14,7 +17,7 @@ resolve_playwright_owned_stack_env() {
   fi
 
   local expected_profile_id="${CARTULARY_BROWSER_RUNTIME_PROFILE_ID:-default}"
-  PLAYWRIGHT_OWNED_STACK_NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$root_dir/tmp/node-runtime}"
+  PLAYWRIGHT_OWNED_STACK_NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$root_dir/${CARTULARY_LAYOUT_NODE_RUNTIME}}"
   PLAYWRIGHT_OWNED_STACK_PNPM_BIN="${PNPM:-${PLAYWRIGHT_OWNED_STACK_NODE_RUNTIME_DIR}/bin/pnpm}"
   PLAYWRIGHT_OWNED_STACK_NODE_BIN="${NODE_BIN:-}"
 

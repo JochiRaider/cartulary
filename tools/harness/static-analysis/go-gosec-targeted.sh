@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 # Profile metadata is retained security evidence. This scanner process never
 # generates source, so all files it creates may safely inherit owner-only modes.
 umask 077
@@ -10,7 +13,7 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
-GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/tmp/toolbin/gosec-v2.26.1}"
+GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/gosec-v2.26.1}"
 NODE_BIN="${NODE_BIN:-node}"
 SUPPORT_PROFILE_SCRIPT="$ROOT_DIR/tools/harness/static-analysis/support-inventory-profiles.mjs"
 TEST_SUPPORT_INVENTORY="${TEST_SUPPORT_INVENTORY:-${CARTULARY_TEST_SUPPORT_INVENTORY:-$ROOT_DIR/tools/test_support_inventory.json}}"

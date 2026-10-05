@@ -25,20 +25,6 @@ go_tmp_dir="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 
 mkdir -p "$asset_dir" "$(dirname "$asset_stamp")" "$(dirname "$asset_ready_stamp")"
 
-legacy_entry="$(
-  find "$asset_dir" -mindepth 1 -maxdepth 1 \
-    ! -name '.keep' \
-    ! -name "$(basename "$asset_archive")" \
-    ! -name "$(basename "$asset_manifest")" \
-    ! -name "$(basename "$client_support_registry")" \
-    -print -quit
-)"
-if [[ -n "$legacy_entry" ]]; then
-  printf 'embedded web asset directory contains legacy loose assets: %s\n' "$legacy_entry" >&2
-  printf 'run make clean before rebuilding embedded web assets\n' >&2
-  exit 2
-fi
-
 env GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" \
   "$go_bin" run ./tools/embedwebassets \
   --source-dir "$(dirname "$source_index")" \

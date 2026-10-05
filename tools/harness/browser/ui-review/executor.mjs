@@ -1,4 +1,4 @@
-import { fork } from "node:child_process";
+import { fork } from "../../workspace/child-process.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { readFileSync, readdirSync } from "node:fs";

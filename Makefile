@@ -1,5 +1,8 @@
 SHELL := /bin/bash
+include tools/harness/workspace/admission.mk
+ifeq ($(workspace_admitted),yes)
 .DEFAULT_GOAL := help
+include tools/workspace_layout.generated.mk
 
 .SECONDEXPANSION:
 
@@ -25,14 +28,14 @@ PLAYWRIGHT_WORKERS ?= 3
 VITEST_MAX_WORKERS ?= 4
 FIXTURE_THRESHOLD_MS ?= 30000
 FIXTURE_TOP ?= 5
-NODE_RUNTIME_DIR ?= $(CURDIR)/tmp/node-runtime
+NODE_RUNTIME_DIR ?= $(CURDIR)/$(LAYOUT_NODE_RUNTIME)
 NODE_BIN ?= $(NODE_RUNTIME_DIR)/bin/node
 PNPM ?= $(NODE_RUNTIME_DIR)/bin/pnpm
-SERVER_BIN ?= $(CURDIR)/server
-SERVER_HARNESS_BIN ?= $(CURDIR)/server-harness
-MIGRATE_BIN ?= $(CURDIR)/migrate
-OPERATOR_BIN ?= $(CURDIR)/operator
-TOOLBIN_DIR ?= $(CURDIR)/tmp/toolbin
+SERVER_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/server
+SERVER_HARNESS_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/server-harness
+MIGRATE_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/migrate
+OPERATOR_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/operator
+TOOLBIN_DIR ?= $(CURDIR)/$(LAYOUT_TOOLBIN)
 SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.8.0-rc.1
@@ -42,7 +45,7 @@ CYCLONEDX_GOMOD_BIN ?= $(TOOLBIN_DIR)/cyclonedx-gomod-v1.10.0
 SYFT_BIN ?= $(TOOLBIN_DIR)/syft-v1.44.0
 SHELLCHECK_VERSION ?= 0.11.0
 SHELLCHECK_BIN ?= $(TOOLBIN_DIR)/shellcheck-v$(SHELLCHECK_VERSION)
-SHELLCHECK_ARCHIVE_DIR ?= $(CURDIR)/tmp/shellcheck-archives
+SHELLCHECK_ARCHIVE_DIR ?= $(CURDIR)/$(LAYOUT_SHELLCHECK_ARCHIVES)
 GOVULNCHECK_FLAGS ?= -test
 GOVULNCHECK_PATTERNS ?= ./cmd/... ./internal/... ./db/... ./tools/...
 GOVULNCHECK_DB ?=
@@ -62,12 +65,11 @@ TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SCHEDULER_MANIFEST ?= $(CURDIR)/tools/scheduler_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
 OBJECT_STORE_BUCKET ?= cartulary
-FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
-PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/tmp/playwright/chromium.stamp
-FRONTEND_TOOLCHAIN_STAMP ?= $(CURDIR)/tmp/frontend-toolchain/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
-CARTULARY_READINESS_CACHE_DIR ?= $(CURDIR)/.cache/cartulary/readiness
-CARTULARY_BUILD_CACHE_DIR ?= $(CURDIR)/.cache/cartulary/build-artifacts
-FRONTEND_NODE_MODULES_DIRS ?= $(CURDIR)/node_modules $(CURDIR)/apps/web/node_modules $(CURDIR)/packages/*/node_modules
+FRONTEND_INSTALL_STAMP ?= $(CURDIR)/$(LAYOUT_FRONTEND_INSTALL)/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
+PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/$(LAYOUT_PLAYWRIGHT)/chromium.stamp
+FRONTEND_TOOLCHAIN_STAMP ?= $(CURDIR)/$(LAYOUT_FRONTEND_TOOLCHAIN)/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
+CARTULARY_READINESS_CACHE_DIR ?= $(CURDIR)/$(LAYOUT_READINESS)
+CARTULARY_BUILD_CACHE_DIR ?= $(CURDIR)/$(LAYOUT_BUILD_ARTIFACTS)
 PNPM_RUN_ENV := PATH=$(NODE_RUNTIME_DIR)/bin:$$PATH COREPACK_HOME=$(NODE_RUNTIME_DIR)/corepack
 GO_ENV := env $(GO_RUN_ENV)
 PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack"
@@ -96,13 +98,12 @@ HARNESS_CONTRACT_CLI := $(CURDIR)/tools/harness/contract/harness-contract-cli.mj
 FOUNDATION_SCHEMA_VALIDATORS := $(CURDIR)/tools/harness/contract/generated/foundation-schema-validators.cjs
 RUN_STEP = $(Q)$(RUN_STEP_SCRIPT)
 RUN_HARNESS_PREFLIGHT = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) preflight
-RUN_HARNESS_CLEANUP = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) cleanup
 
-DEFAULT_CARTULARY_TEST_RESULTS_DIR := $(CURDIR)/.cartulary/test-results
+DEFAULT_CARTULARY_TEST_RESULTS_DIR := $(CURDIR)/$(LAYOUT_TEST_RESULTS)
 CARTULARY_OUTPUT_MODE ?=
 CARTULARY_TEST_RESULTS_DIR ?= $(DEFAULT_CARTULARY_TEST_RESULTS_DIR)
 CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
-RELEASE_ARTIFACT_DIR ?= $(CURDIR)/.cartulary/release-artifacts
+RELEASE_ARTIFACT_DIR ?= $(CURDIR)/$(LAYOUT_RELEASE_ARTIFACTS)
 LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
 SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cyclonedx.json
 BENCHMARK_MANIFEST ?= $(CURDIR)/.cartulary/benchmark/benchmark_manifest.json
@@ -150,16 +151,14 @@ MIGRATE_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/migrate in
 OPERATOR_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/operator internal/app internal/modules internal/platform contracts db/migrations tools/migration_history_manifest.json)
 WEB_BUILD_INPUTS = package.json pnpm-lock.yaml pnpm-workspace.yaml $(call discover_build_inputs,apps/web packages)
 TEST_SERVICES_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/testservices internal db/migrations)
-WEB_DIST_INDEX := $(CURDIR)/apps/web/dist/index.html
-EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
+WEB_DIST_INDEX := $(CURDIR)/$(LAYOUT_WEB_DIST)/index.html
+EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/$(LAYOUT_EMBEDDED_ASSETS)
 EMBEDDED_WEB_ASSET_ARCHIVE := $(EMBEDDED_WEB_ASSET_DIR)/web-assets.zip
 EMBEDDED_CLIENT_ASSET_MANIFEST := $(EMBEDDED_WEB_ASSET_DIR)/client-asset-set-manifest.json
 EMBEDDED_CLIENT_SUPPORT_REGISTRY := $(EMBEDDED_WEB_ASSET_DIR)/client-extension-support-registry.json
 EXTENSION_CLIENT_SUPPORT_SOURCE := $(CURDIR)/contracts/extensions/build/client-support.json
-EMBEDDED_WEB_ASSET_READY_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.ready
-EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
-CLEAN_PATHS := $(SERVER_BIN) $(SERVER_HARNESS_BIN) $(MIGRATE_BIN) $(OPERATOR_BIN) $(CURDIR)/apps/web/dist $(CURDIR)/apps/web/dist-measurement $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_READY_STAMP) $(DEFAULT_CARTULARY_TEST_RESULTS_DIR) $(RELEASE_ARTIFACT_DIR) $(CURDIR)/test-results $(CURDIR)/apps/web/test-results $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage $(CURDIR)/.vite $(CURDIR)/apps/web/.vite $(CURDIR)/node_modules/.vite* $(CURDIR)/apps/web/node_modules/.vite* $(CURDIR)/packages/*/node_modules/.vite*
-DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(CURDIR)/tmp/node-archives $(TOOLBIN_DIR) $(SHELLCHECK_ARCHIVE_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache/cartulary $(FRONTEND_NODE_MODULES_DIRS) $(CURDIR)/.pnpm-store
+EMBEDDED_WEB_ASSET_READY_STAMP := $(CURDIR)/$(LAYOUT_SCRATCH)/frontend-embed/web-assets.ready
+EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/$(LAYOUT_SCRATCH)/frontend-embed/web-assets.stamp
 
 FORCE:
 
@@ -182,7 +181,7 @@ $(FRONTEND_TOOLCHAIN_STAMP): FORCE $(NODE_BIN) Makefile tools/harness/readiness/
 	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs frontend; else $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile frontend-toolchain --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/frontend-toolchain.sh --input $(FRONTEND_TOOLCHAIN_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(FRONTEND_TOOLCHAIN_STAMP)" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "node_bin=$(NODE_BIN)" --key "pnpm=$(PNPM)" -- env NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" FRONTEND_TOOLCHAIN_STAMP="$(FRONTEND_TOOLCHAIN_STAMP)" ./tools/harness/readiness/frontend-toolchain.sh; fi
 
 $(FRONTEND_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN_STAMP) tools/harness/readiness/frontend-install.sh $(FRONTEND_INSTALL_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs frontend; else CARTULARY_TEST_TARGET="frontend-install" $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile frontend-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL $(foreach input,$(FRONTEND_INSTALL_INPUTS),--input "$(input)") --input .npmrc --input tools/harness/readiness/installed-readiness.mjs --input tools/harness/readiness/frontend-install.sh --input $(FRONTEND_INSTALL_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(FRONTEND_INSTALL_STAMP)" --output "$(CURDIR)/tmp/frontend-install/proof/installed.v1.json" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "pnpm_install_flags=$(PNPM_INSTALL_FLAGS)" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" CI=true FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" PNPM="$(PNPM)" PNPM_INSTALL_FLAGS="$(PNPM_INSTALL_FLAGS)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" bash ./tools/harness/readiness/frontend-install.sh; fi
+	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then "$(NODE_BIN)" tools/harness/readiness/installed-readiness.mjs frontend; else CARTULARY_TEST_TARGET="frontend-install" $(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile frontend-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL $(foreach input,$(FRONTEND_INSTALL_INPUTS),--input "$(input)") --input .npmrc --input tools/harness/readiness/installed-readiness.mjs --input tools/harness/readiness/frontend-install.sh --input $(FRONTEND_INSTALL_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(FRONTEND_INSTALL_STAMP)" --output "$(CURDIR)/$(LAYOUT_FRONTEND_INSTALL)/proof/installed.v1.json" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "pnpm_install_flags=$(PNPM_INSTALL_FLAGS)" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" CI=true FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" PNPM="$(PNPM)" PNPM_INSTALL_FLAGS="$(PNPM_INSTALL_FLAGS)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" bash ./tools/harness/readiness/frontend-install.sh; fi
 
 $(SQLC_BIN): FORCE go-toolchain-readiness Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
 	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-sqlc --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(SQLC_BIN)" --key "tool=$(SQLC_TOOL)" --key "binary=sqlc" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(SQLC_BIN)" TOOL_MODULE="$(SQLC_TOOL)" TOOL_BINARY_NAME="sqlc" TOOL_LABEL="bootstrap sqlc tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
@@ -244,3 +243,5 @@ $(WEB_DIST_INDEX): FORCE $$(WEB_BUILD_INPUTS) $(FRONTEND_INSTALL_STAMP) tools/ha
 
 $(CURDIR)/apps/web/dist-measurement/index.html: FORCE $$(WEB_BUILD_INPUTS) $(FRONTEND_INSTALL_STAMP) tools/harness/readiness/build-web-artifact.sh $(BUILD_WEB_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) | $(NODE_BIN)
 	$(Q)env RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" VITE_BUILD_FLAGS="$(VITE_BUILD_FLAGS) --mode measurement" CARTULARY_TEST_TARGET="build-web-measurement" ./tools/harness/readiness/build-web-artifact.sh
+
+endif # workspace admission

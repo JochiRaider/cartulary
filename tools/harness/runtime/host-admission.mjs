@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn } from "../workspace/child-process.mjs";
 import { randomBytes } from "node:crypto";
 import { closeSync, constants, openSync, readFileSync } from "node:fs";
 import os from "node:os";

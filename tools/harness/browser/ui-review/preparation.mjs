@@ -1,4 +1,4 @@
-import { fork } from "node:child_process";
+import { fork } from "../../workspace/child-process.mjs";
 import { fileURLToPath } from "node:url";
 import { borrowSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { privateDirectory } from "../../runtime/secure-local-files.mjs";

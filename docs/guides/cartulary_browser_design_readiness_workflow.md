@@ -384,7 +384,7 @@ make explain-test-owner OWNER=module.auth
 
 The current graph runner launches `node` by name. If the pinned runtime is installed
 but `node` is absent from the shell's PATH, prefix these verification commands with
-`PATH="$PWD/tmp/node-runtime/bin:$PATH"`. The review helper itself uses the pinned
+`PATH="$PWD/.cache/cartulary/node-runtime/bin:$PATH"`. The review helper itself uses the pinned
 runtime directly. Record this environment adjustment with the run.
 
 Choose exact current row IDs from that output and use

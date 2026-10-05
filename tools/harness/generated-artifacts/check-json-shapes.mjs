@@ -66,8 +66,11 @@ import { validateTimelineRecipe } from "../fixtures/timeline-investigation/index
 import { validateFrontendVisualGoldenManifest } from "../browser/frontend-visual-golden-manifest.mjs";
 
 
+import { generateLayout } from "../workspace/layout.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+generateLayout(repoRoot, { check: true });
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
 const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v5";

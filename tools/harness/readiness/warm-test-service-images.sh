@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 
 write_stamp() (
@@ -42,9 +45,9 @@ if [[ "$#" -gt 1 ]]; then
   exit 2
 fi
 
-testservices_bin="${1:-${CARTULARY_TEST_SERVICES_BIN:-$ROOT_DIR/tmp/toolbin/cartulary-test-services}}"
-stamp="${CARTULARY_TEST_SERVICE_IMAGES_STAMP:-$ROOT_DIR/tmp/test-service-images/warm.stamp}"
-cache_dir="${CARTULARY_READINESS_CACHE_DIR:-$ROOT_DIR/.cache/cartulary/readiness}"
+testservices_bin="${1:-${CARTULARY_TEST_SERVICES_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/cartulary-test-services}}"
+stamp="${CARTULARY_TEST_SERVICE_IMAGES_STAMP:-$ROOT_DIR/${CARTULARY_LAYOUT_TEST_SERVICE_IMAGES}/warm.stamp}"
+cache_dir="${CARTULARY_READINESS_CACHE_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_READINESS}}"
 
 images_present() {
   local image

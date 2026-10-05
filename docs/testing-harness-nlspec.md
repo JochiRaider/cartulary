@@ -1903,8 +1903,8 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `build-migrate` | `cartulary.harness.command.build_migrate.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for migration and service-backed work, not release deployable-shape evidence. |
 | `build-operator` | `cartulary.harness.command.build_operator.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Selected through `build`, CI, release-shaped gates, and scheduler-visible operator runtime-binary readiness. Default local `check` builds the operator only when selected runtime-binary work declares it. |
 | `build-web` | `cartulary.harness.command.build_web.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for browser preview work, not release deployable-shape evidence. |
-| `clean` | `cartulary.harness.command.clean.v1` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
-| `distclean` | `cartulary.harness.command.distclean.v1` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
+| `clean` | `cartulary.harness.command.clean.v2` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
+| `distclean` | `cartulary.harness.command.distclean.v2` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
 
 **TH-HARNESS-REQ-059**
 Every public target MUST declare one or more side-effect classes in the public target registry source. The declaration MUST be represented as `side_effects[]`, where each entry is an object with `class`, `owner_section`, and the class-specific details required by the table below. A target that performs an undeclared side effect is non-conformant. `none` is mutually exclusive with every other side-effect class.
@@ -2019,9 +2019,11 @@ A target MAY skip a step only when its output class or target row explicitly dec
 
 Every public Make wrapper whose lifecycle invokes repo-owned Node tooling,
 including the shared public preflight, MUST make pinned repo-local Node readiness
-an explicit generated precondition before semantic behavior begins. The sole
-exception is `bootstrap-node-runtime`, which MUST install or validate that
-runtime before invoking any repo-owned Node module. If the pinned Node runtime
+an explicit generated precondition before semantic behavior begins.
+`bootstrap-node-runtime` MUST install or validate that runtime before invoking
+any repo-owned Node module. `clean` and `distclean` are the shell-only exception:
+they MUST neither invoke nor install Node, Go, Python, or frontend dependencies;
+they validate their limited public contract without shared Node preflight. If the pinned Node runtime
 cannot be resolved, installed, downloaded, verified, or executed, the wrapper
 MUST fail before semantic work with `failure_class=config`,
 `failure_reason=configuration_error`, and public exit code `2`; it MUST NOT
@@ -2442,11 +2444,11 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 | `GO`, `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, `GO_TMP_DIR`                                         | toolchain               | executable path for `GO`; absolute external filesystem paths for the three state directories                          | Go launcher auto-discovered; `<machine-cache>/go/build`, `<machine-cache>/go/mod`, and `<machine-cache>/go/tmp` | Make variable, env, default | invalid for paths, omitted for executable | realpath-aware path normalization; state directories must be outside the repository and pairwise non-overlapping | `configuration_error`, exit `2` | launcher and normalized state paths unless redacted |
 | `GOCACHE`, `GOMODCACHE`, `GOTMPDIR`                                                            | toolchain child env     | exact projections of the resolved Cartulary path variables                                                            | resolved `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, and `GO_TMP_DIR` | internal child environment only | invalid | no caller alias translation or fallback | caller Make override is `usage_error`, exit `2`; inherited values are stripped or overwritten | omitted |
 | `GO_TOOLCHAIN`, `GOTOOLCHAIN`                                                                  | toolchain               | exact reviewed Go toolchain token                                                                                     | `go1.27.1`, projected from `tools/toolchain_pins.json` and `go.mod`                       | internal Make projection only                  | invalid                                                 | exact token; `GOTOOLCHAIN` is forced to the repository pin for Make-owned Go work                            | `configuration_error`, exit `2`                                                    | launcher version, exact effective version, and source |
-| `NODE_VERSION`, `PNPM_VERSION`, `NODE_RUNTIME_DIR`, `NODE_BIN`, `PNPM`, `COREPACK_HOME`, `PATH` | toolchain               | version token or filesystem path                                                                                      | Node `24.15.0`, pnpm `10.33.0`, repo-local `tmp/node-runtime`                             | Make variable, env, default                     | invalid for paths/versions unless row-specific optional | exact version token; path normalization                                                                       | `configuration_error`, exit `2`                                                    | version and runtime path                           |
+| `NODE_VERSION`, `PNPM_VERSION`, `NODE_RUNTIME_DIR`, `NODE_BIN`, `PNPM`, `COREPACK_HOME`, `PATH` | toolchain               | version token or filesystem path                                                                                      | Node `24.15.0`, pnpm `10.33.0`, repo-local `.cache/cartulary/node-runtime`                             | Make variable, env, default                     | invalid for paths/versions unless row-specific optional | exact version token; path normalization                                                                       | `configuration_error`, exit `2`                                                    | version and runtime path                           |
 | `CARTULARY_READINESS_CACHE_DIR`, `CARTULARY_READINESS_DISABLE_CACHE`, `CARTULARY_FORCE_REINSTALL` | harness cache           | repo-local path for cache dir; exact `1` for disable or force reinstall                                                | `.cache/cartulary/readiness`; false; false                                                 | Make variable, env, default                     | invalid for path; false for boolean flags                | path normalization; exact string compare for flags                                                           | invalid path is `configuration_error`; non-`1` flags are false                     | cache state and record path only                   |
 | `CARTULARY_BUILD_CACHE_DIR`, `CARTULARY_BUILD_CACHE_DISABLE`, `CARTULARY_FORCE_REBUILD`          | harness cache           | repo-local path for cache dir; exact `1` for disable or force rebuild                                                  | `.cache/cartulary/build-artifacts`; false; false                                           | Make variable, env, default                     | invalid for path; false for boolean flags                | path normalization; exact string compare for flags                                                           | invalid path is `configuration_error`; non-`1` flags are false                     | cache state and record path only                   |
 | `CONFIG_FILE`, `CARTULARY_CONFIG_FILE`                                                          | app runtime             | config file path                                                                                                      | `configs/dev/config.toml` for local/dev/browser targets                                   | Make variable, env, config binding, default     | omitted                                                 | path normalization; `CARTULARY_CONFIG_FILE` wins only inside application runtime when both are passed through | harness invalid path: `configuration_error`; app invalid config: target failure    | path, not file contents                            |
-| `TEST_SERVICES_BIN`, `CARTULARY_TEST_SERVICES_BIN`                                              | service suite           | executable path                                                                                                       | `tmp/toolbin/cartulary-test-services`                                                     | Make variable, env, default                     | invalid                                                 | path normalization                                                                                            | `configuration_error`, exit `2`                                                    | normalized path                                    |
+| `TEST_SERVICES_BIN`, `CARTULARY_TEST_SERVICES_BIN`                                              | service suite           | executable path                                                                                                       | `.cache/cartulary/toolbin/cartulary-test-services`                                                     | Make variable, env, default                     | invalid                                                 | path normalization                                                                                            | `configuration_error`, exit `2`                                                    | normalized path                                    |
 | `CARTULARY_OPERATOR_BIN`                                                                         | runtime binary          | scheduler-owned executable path for operator scenario Go tests                                                        | produced by `build-operator` from `OPERATOR_BIN`; current default `operator`              | scheduler/runtime wiring only; not public Make command line | invalid for canonical scheduler-selected operator scenario work | path normalization; existing regular executable file; symlinks rejected | missing, empty, non-regular, non-executable, or caller command-line override is `configuration_error`, exit `2`; build-artifact digest/provenance mismatch is `artifact_error`, exit `11` | source, normalized path, producer target, file digest, build-artifact reference |
 | `CARTULARY_TEST_SERVICES_MODE`                                                                  | service suite           | exact `owned` or `attach`                                                                                            | `owned`                                                                                   | env, Make variable, default                     | invalid                                                 | exact token                                                                                                   | `usage_error`, exit `2`                                                             | mode only                                          |
 | `CARTULARY_TEST_SERVICES_SESSION_FILE`                                                          | service suite           | absolute external regular-file path reached without symlink traversal; accepted only with mode `attach`             | `${CARTULARY_MACHINE_CACHE_DIR}/test-services/session.json`                              | env, Make variable, default                     | invalid outside attach mode                              | owner, mode, containment, and no-follow validation                                                               | `configuration_error`, exit `2`                                                    | normalized path; contents redacted                |
@@ -6391,79 +6393,104 @@ and Make processes have stopped. Normal checksum-verified Go download into an
 absent cache is readiness/bootstrap population, not repair authority.
 Verified by: TH-HARNESS-AC-092
 
-`make clean` and `make distclean` are repo-local cleanup commands. They MUST NOT remove caller-supplied external result roots and MUST NOT stop local Compose services. Local service teardown belongs to `make services-down`, not to repo-local cleanup.
-Frontend dependency install state is a coupled repo-local artifact set. `make clean` MUST preserve installed dependency roots for local loop speed, while `make distclean` MUST remove the repo-local pnpm store, frontend install stamps, and root/workspace `node_modules` directories together so stale package-manager metadata cannot survive without its store.
-Harness cache state is repo-local acceleration state. `make clean` MUST preserve
-default `.cache/cartulary/*` roots so ordinary cleanup does not erase valid warm
-state. `make distclean` MUST remove the default graph and tool cache roots under
-`.cache/cartulary/`. Neither cleanup target may remove caller-supplied cache
-directories outside the repository.
-Fallow configs, rule packs, schemas, and any future reviewed baselines under repository source/tool roots are harness inputs, not cleanup-owned artifacts. Fallow run-root outputs are ordinary retained artifacts and may be removed only through result-root cleanup predicates.
+`make clean` and `make distclean` are repo-local directory cleanup commands.
+Their command identities are `cartulary.harness.command.clean.v2` and
+`cartulary.harness.command.distclean.v2`. Cleanup MUST NOT tear down services,
+prune Git registrations, migrate data, or remove external caches. There is no
+force option or caller-supplied deletion list.
 
-### 13.1 Path Algorithm
+### 13.1 Directory Ownership And Planning
 
-```text
-normalize_cleanup_candidate(path):
-  reject empty string
-  reject NUL
-  reject "/"
-  reject "."
-  reject ".."
-  reject any caller-supplied segment equal to ".."
-  reject backslash on POSIX conformance hosts
-  resolve relative paths against repository root
-  reject absolute paths outside repository root
-  reject protected repository roots named in the table below when they are named as cleanup candidates
-  lstat path
-  if path is symlink:
-    unlink symlink object only
-    MUST NOT follow target
-  if path is directory:
-    remove directory tree only after every traversed entry remains under the candidate root by lexical path and lstat traversal
-```
+**TH-HARNESS-REQ-503**
+One authored workspace-layout projection under `tools` MUST declare stable
+directory IDs, repository-relative paths, cleanup tiers, current/legacy state,
+and producer associations. It permits exact directory paths and the bounded
+`packages/*/node_modules` family with explicit Vite cache children. It MUST NOT
+permit arbitrary patterns, traversal, unsafe ancestors, duplicate IDs or paths,
+or undeclared overlaps. Nested registrations MUST identify their owning parent.
+Legacy entries are deletion-only and MUST have no producer or fallback reader.
+Verified by: TH-HARNESS-AC-009, TH-HARNESS-AC-010
 
-The protected repository root set is closed in the current profile:
+Quoted Bash, Make, and JavaScript projections MUST be generated from that owner,
+registered in generated-artifact policy, and checked for drift. Cleanup MUST
+consume the committed Bash projection and verify the digests of its machine
+inputs without regeneration. Missing prerequisites or missing/stale projections
+are `configuration_error` (2). These checks MUST NOT read Markdown.
 
-| Protected root | Protection rule |
-| --- | --- |
-| `.git` | Reject when named directly as a cleanup candidate. |
-| `docs` | Reject when named directly as a cleanup candidate. |
-| `cmd` | Reject when named directly as a cleanup candidate. |
-| `internal` | Reject when named directly as a cleanup candidate. |
-| `apps` | Reject when named directly as a cleanup candidate. |
-| `packages` | Reject when named directly as a cleanup candidate. |
-| `contracts` | Reject when named directly as a cleanup candidate. |
-| `db/migrations` | Reject when named directly as a cleanup candidate. |
-| `db/queries` | Reject when named directly as a cleanup candidate. |
-| `configs` | Reject when named directly as a cleanup candidate. |
-| `scripts` | Reject when named directly as a cleanup candidate. |
-| `tools` | Reject when named directly as a cleanup candidate. |
-| `go.mod` | Reject when named directly as a cleanup candidate. |
-| `go.sum` | Reject when named directly as a cleanup candidate. |
-| `package.json` | Reject when named directly as a cleanup candidate. |
-| `pnpm-lock.yaml` | Reject when named directly as a cleanup candidate. |
-| `pnpm-workspace.yaml` | Reject when named directly as a cleanup candidate. |
+**TH-HARNESS-REQ-504**
+Cleanup MUST construct and validate the entire deletion plan before changing
+any candidate or its permissions. It MUST fail closed on unsafe ancestry,
+source overlap, a wrong object type, unreadable traversal, enumeration failure,
+mount boundaries, missing ownership proof, any registered worktree (including a
+locked worktree), or nested Git metadata. A plan rejection is `cleanup_error`
+(12), including during preview, and leaves all candidates byte- and
+permission-identical. Missing owned directories are successful no-ops.
+Verified by: TH-HARNESS-AC-009, TH-HARNESS-AC-010
 
-A child path under a protected root MAY be removed only when Section 13.2 or another adopted cleanup table explicitly lists that exact path or path family as cleanup-owned. Missing cleanup-owned paths are successful no-ops. A path that is both protected and cleanup-owned MUST use the narrower cleanup-owned row; broad ancestor deletion remains rejected.
+Git and filesystem enumeration MUST be NUL-safe. Candidate ancestry MUST contain
+no symlinks. An owned directory path that is itself a symlink may be unlinked
+only; its target MUST NOT be followed. Descendant symlinks MUST NOT be followed.
+Directories must be inspectable before permissions can be repaired. After full
+validation, cleanup MAY add owner permissions to inspected directories only.
+It MUST recheck identities before destructive operations, stop on execution
+failure, and report completed and remaining work with `cleanup_error` (12).
+Filesystem deletion is not transactional and MUST NOT claim rollback. Admission
+excludes cooperating writers; cleanup is not a sandbox for a hostile process
+mutating the filesystem outside managed admission.
 
-### 13.2 Cleanup Scope
+### 13.2 Cleanup Scope And Admission
 
-| Command               |      Removes default result root? | Removes custom `CARTULARY_TEST_RESULTS_DIR`? | Removes default `.cache/cartulary` cache roots? | Removes external Go caches? | Stops Docker/Compose globally? |
-| --------------------- | --------------------------------: | -------------------------------------------: | ---------------------------------------------: | --------------------------: | -----------------------------: |
-| `make clean`          | yes, only default registered path |                                           no |                                             no |                          no |                             no |
-| `make distclean`      | yes, only default registered path |                                           no |                                            yes |                          no |                             no |
-| `make services-down`  |                                no |                                           no |                                             no |                          no | no; stops only this repo's local Compose services and preserves named volumes |
-| Service-suite cleanup |        only suite-owned artifacts |                                           no |                                             no |                          no |                             no |
-| Stale janitor         |        proof-gated resources only |                                           no |                                             no |                          no |                             no |
+**TH-HARNESS-REQ-505**
+Directory retention boundaries are closed by the following dispositions.
+Unregistered directories remain preserved. Environment overrides MUST NOT
+expand cleanup ownership. Selecting a custom result/cache/output location inside
+an explicitly disposable directory does not override that directory's tier.
+Verified by: TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-092
 
-`make distclean` owns removal of `.pnpm-store`, the repository-root `node_modules` directory, workspace package `node_modules` directories under `apps/web` and `packages/*`, and default repo-local cache roots under `.cache/cartulary/`. It MUST NOT name `.cache` itself as a cleanup candidate. Missing workspace dependency roots or cache roots are not cleanup failures.
+| Directory class | `clean` | `distclean` |
+| --- | --- | --- |
+| Whole `tmp`, `build/bin`, web `dist` and `dist-measurement` | remove | remove |
+| Default test/release results; registered coverage, Playwright and Vite output directories | remove | remove |
+| Adopted `apps/web/.cartulary/test-results` legacy manual results | remove | remove |
+| `webassets/assets/generated` and legacy `webassets/dist` | remove | remove |
+| `.cache/cartulary` | preserve | remove |
+| Root and workspace `node_modules`, `.pnpm-store` | preserve installs; remove registered Vite children | remove |
+| Legacy `.cartulary/go-build`, `go-cache`, `go-mod`, `go-mod-cache`, `cache`, `tmp`, and `.fallow` | preserve | remove |
+| `temp`, `.cartulary/retained-work`, runtime roots, browser leases, external caches, and other custom roots | preserve | preserve |
 
-After a candidate has passed the Section 13.1 containment and symlink checks,
-cleanup MAY add owner read, write, and search permission to traversed real
-directories inside that candidate when required to remove read-only generated
-or downloaded descendants. It MUST NOT follow a symlink, change a symlink
-target, change a preserved child, or change permissions outside the validated
-candidate tree.
+The source path prefix for `webassets` above is
+`internal/platform/httpapi/webassets`. Preservation MUST operate on directory
+boundaries; there are no retained placeholder filenames. Committed fallback
+assets belong in `assets/fallback`; generated archives/manifests belong in
+`assets/generated`. The common `assets` tree MUST support embedding from an
+unbuilt checkout. TypeScript build metadata MUST have distinct workspace/config
+paths below `.cache/cartulary/typescript`, including the separate web E2E config.
+
+Persistent Node runtime/archives, tool binaries, ShellCheck archives, frontend
+install/toolchain proofs, Playwright readiness, and service-image readiness MUST
+live below `.cache/cartulary`, using generated layout defaults. The four default
+Go binaries are `build/bin/server`, `server-harness`, `migrate`, and `operator`.
+Custom supported binary destinations remain caller-owned unless inside another
+registered disposable root. `clean` preserves usable installations; `distclean`
+removes dependency roots, stores, and installation proofs together.
+
+**TH-HARNESS-REQ-506**
+Managed Make invocations MUST acquire shared worktree admission before any
+preparation, prerequisite, scheduler execution, or write. Admission is a kernel
+filesystem lock in that worktree's Git administrative storage, outside cleanup
+candidates and independent of host-capacity accounting. Real cleanup MUST acquire
+nonblocking exclusive admission and fail immediately with `resource_conflict`
+(4) when managed work or another cleanup is active. Cleanup MUST NOT wait for or
+kill holders. Managed recursive and long-lived children MUST retain admission
+through parent termination; only a validated inherited lock descriptor can
+reuse admission. An environment assertion is never proof. The kernel releases
+admission when its last holder exits.
+Verified by: TH-HARNESS-AC-009, TH-HARNESS-AC-092
+
+Preview may inspect and lock an existing admission inode but MUST NOT create it.
+It reports active-work conflicts without mutation. Cleanup and managed work
+MUST NOT be combined in one Make invocation. During cutover, operators must stop
+old managed sessions that predate admission before enabling expanded ownership.
 
 ### 13.2.1 Local Service And Data Reset Scope
 
@@ -6502,8 +6529,19 @@ For container cleanup, an already-deleting Docker resource is treated as deferre
 
 | Setting                                        | Behavior                                                                                                                    |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `CARTULARY_CLEANUP_DRY_RUN` omitted or not `1` | Cleanup or reset may delete resources satisfying predicates and confirmation rules.                                         |
-| `CARTULARY_CLEANUP_DRY_RUN=1`                  | Cleanup MUST emit deletion candidates and reasons and MUST NOT start services, stop services, delete files, delete DBs, delete bucket objects, delete buckets, delete containers, or delete browser fixtures. |
+| `CARTULARY_CLEANUP_DRY_RUN` omitted or empty after trimming | Cleanup or reset may delete resources satisfying predicates and confirmation rules.                                         |
+| `CARTULARY_CLEANUP_DRY_RUN=1` after trimming | Cleanup MUST emit deletion candidates and reasons and MUST NOT start services, stop services, delete files, delete DBs, delete bucket objects, delete buckets, delete containers, or delete browser fixtures. |
+
+**TH-HARNESS-REQ-507**
+The shell entrypoint MUST normalize cleanup input once: trim whitespace; omitted
+or empty means execution; `1` means preview; every other nonempty value is
+`usage_error` (2). Make command-line values take precedence over inherited
+values. Undeclared command-line inputs and machine output are usage errors;
+undeclared inherited variables do not expand scope. The resolved boolean MUST
+be used throughout planning and execution without rereading the environment.
+Preview MUST create no files, lock inodes, reports, downloads, installations,
+permission changes, or service actions. A rejected plan MUST return failure.
+Verified by: TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-092
 
 Dry-run output MUST include normalized path or resource identity, proof predicate, action that would be taken, and rejection reason for retained candidates. For human destructive targets, the dry-run line format is:
 
@@ -7342,7 +7380,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-006 | Section 10         | Scheduler determinism and contract-test lifetime | Controlled manifest with simultaneous child completions, browser groups, inert helper imports and named child diagnostic/deadline cases | Run scheduler fixture twice; validate generated browser worker-admin slots; run contract import, lifetime and direct/aggregate claim checks | `0`                                                            | Bounded summary or machine object                      | Empty on success                                             | Byte-identical scheduler events after allowed timestamp normalization; explicit non-overlapping browser slots; one contract file worker with bounded child fanout; named failures and awaited finalization | Event ordering differs; slots overlap; imports execute work; asynchronous work outlives its case; direct/aggregate worker bounds or claims differ | finalizers reap children and remove settled private captures |
 | TH-HARNESS-AC-007 | Section 11         | Service modes and eager resource lifetime | Owned and attach fixtures, object-store mutation-probe faults, dedicated and migration database finalizers, active-connection and drop-failure injection, interruption, stale recovery, and package-scoped object-store reuse | Owned service target; attach target missing one required var; controlled owner slice before/after; focused normal-drop, forced-fallback, cleanup-failure, interruption, stale-recovery, bucket, and prefix fixtures | owned success; attach failure `2`; readiness expiry `3`; zero successful per-test databases at suite teardown; peak live databases reduced by at least 75%; comparable wall time no more than 5% slower | Bounded normalized stage, cause, attempt, timeout, cleanup, lane-state, peak-live, and exact success/failure count summary | Empty on owned success; config, readiness, ownership, or cleanup diagnostic | Owned lease before child work; ordinary exact-owner deletion before bounded connection termination; failed cleanup remains in the private ledger; same-lane object probe succeeds with zero residue; package bucket reuse remains active | Attach mode deletes unrelated resources, successful per-test resources survive to terminal sweep, forced cleanup runs without exact ownership or an ordinary attempt, capability rejection polls, readiness expiry replaces lane, raw service data is retained, or package-scoped object-store reuse is removed | owner finalizers close runtimes, jobs, pools, handles, buckets, and prefixes before eager deletion; suite teardown and stale recovery remain idempotent fallback |
 | TH-HARNESS-AC-008 | Section 12         | Test-only harness routes         | Browser test runtime with test route token and saved-view fixture inputs     | Runtime identity, retired reset-path not-found, saved-view fixture success, auth rejection, and origin/host rejection fixtures | Expected HTTP statuses from Section 12 | HTTP JSON response | n/a | Identity validates schema; reset path is absent; saved-view response is a normal system-scoped resource; no permissive CORS | Default runtime exposes a test route, reset endpoint exists, wrong host/origin reaches mutation, product auth bypasses token, saved-view accepts owned fields, or wildcard CORS appears | owned backend terminated on fixture completion |
-| TH-HARNESS-AC-009 | Section 13         | Cleanup and destructive reset guard | Synthetic registry with safe and unsafe paths; fake Compose, database, migration, and object-store commands | Cleanup guard unit; `CARTULARY_CLEANUP_DRY_RUN=1 make clean`; dry-run and missing-confirmation invocations for `services-down`, `db-reset`, and `object-store-reset` | `0` for safe dry-run; nonzero for unsafe synthetic path or missing destructive confirmation | Dry-run lines match format                             | Bounded guard or confirmation diagnostic before mutation      | Candidate list, guard evidence, and command-shape evidence for confirmed local resets                              | Empty path, `/`, `.`, `..`, traversal, protected root, outside-repo path, symlink-following, inherited-env-only destructive confirmation, object-store reset touching another bucket, or `services-down` removing volumes accepted | no deletion, service start, or service stop in dry-run  |
+| TH-HARNESS-AC-009 | Section 13         | Cleanup and destructive reset guard | Disposable Git checkouts with complete directory inventory, absent runtimes, active lock holders, symlinks, unreadable trees, injected enumeration/I/O failure; fake service commands | Public shell cleanup fixtures through `make test-slice OWNER=harness.command_surface`; exact/whitespace/invalid preview inputs; dry-run and missing-confirmation invocations for `services-down`, `db-reset`, and `object-store-reset` | `0` for safe dry-run; nonzero for unsafe synthetic path or missing destructive confirmation | Dry-run lines match format                             | Bounded guard or confirmation diagnostic before mutation      | Candidate list, guard evidence, and command-shape evidence for confirmed local resets                              | Empty path, `/`, `.`, `..`, traversal, protected root, outside-repo path, symlink-following, inherited-env-only destructive confirmation, object-store reset touching another bucket, or `services-down` removing volumes accepted | zero content/permission/installation/report writes in preview or validation rejection; live descendants block deletion; repeated cleanup is idempotent  |
 | TH-HARNESS-AC-010 | Section 13         | Stale janitor proof gates        | Fake DB, bucket, container, and browser fixtures with/without proof          | Focused stale-janitor tests                                                               | `0`                                                            | Bounded summary                                        | Empty on success                                             | Evidence that unproven resources retained and proven stale fixtures deleted only outside dry-run   | Resource lacking generated name/proof deleted                                | unproven resources retained                             |
 | TH-HARNESS-AC-011 | Section 15         | Redaction and secret-free retention | Fake DSN, object-store secret, token, header, cookie, CLI arg, nested JSON, structural session fields, private key, forbidden filename, symlink, injected-value, early-delete, permission, process-crash, concurrent capture, partial acquisition, tail-read, and cleanup-failure fixtures | Redaction unit, real subprocess capture boundary, wrapper capture, private-runtime lifecycle, and terminal retained-root scan | `0`; capture/redaction/write/scan failure exits `11`; cleanup-only failure exits `12`; Section 9.1 preserves an earlier primary failure | No unredacted secret in machine JSON                   | No unredacted secret in captured stderr                      | Summaries and bounded tails contain required redaction tokens; retained roots contain no secret-capable filename, symlink, or injected value; private files and roots are removed after cleanup | Any runtime file is retained, any injected value or secret syntax survives, required structural fields are redacted, cleanup removes an unproven root, or a retained file is group/world-readable | exact private files and directories removed; no physical-media sanitization claim |
 | TH-HARNESS-AC-012 | Section 14         | Platform matrix                  | Platform claim checker fixture                                               | Platform matrix checker                                                                   | `0` for allowed profiles; nonzero for unsupported claim        | Bounded summary                                        | Diagnostic on unsupported claim                              | Matrix report                                                                                      | macOS/Windows-native/Podman claimed as current conformance                   | none                                                    |
@@ -7425,7 +7463,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-089 | Section 2.1 | Aggregate and cache closure | Five aggregate graphs plus hit, miss, cold, off, mutation, corruption, and stale-security fixtures | Aggregate graph/cache validation | No phase barrier or nested scheduler remains; units deduplicate and reuse only closed work | Bounded aggregate/cache summary | Cache or graph diagnostic | Current-run unit and target evidence | Stateful reuse, stale finding, or duplicate unit passes | cache scratch proof-gated |
 | TH-HARNESS-AC-090 | Section 2.1 | Canonical retained artifacts | Direct and aggregate runs plus old, malformed, overlapping, and unattributed fixtures | Schema and event-projection validation | Event unions close material wall time once and all projections agree | Bounded evidence summary | Artifact/accounting diagnostic | V3 run manifest, events, run summary, and target summaries | Old reader, dual write, dispatch timing, or duplicate attribution passes | retained v3 artifacts follow cleanup policy |
 | TH-HARNESS-AC-091 | Section 2.1 | Atomic v3 cutover | Current tree plus old target, variable, schema, reader, writer, alias, and wrapper fixtures | Task-surface, source-reference, schema, generation, focused, aggregate, and release gates | Public names remain, removed internal surfaces are absent, changed IDs version once, and no compatibility path survives | Existing bounded summaries | Exact compatibility diagnostic | V3 owner/projection and validation ledger | Partial cutover, alias, dual reader/writer, or fixed global timing gate passes | generated outputs refreshed through Make |
-| TH-HARNESS-AC-092 | Sections 4.1A, 4.5, 5, 13, 14 | Exact bootstrap and durable machine-state readiness | Clean checkout without Node or frontend dependencies; controlled `HOME`/`XDG_CACHE_HOME`; exact or older Go launcher; valid, absent, overlapping, repo-contained, read-only, capacity-exhausted, and legacy `/tmp` cache fixtures; failed and successful tool installs; read-only cleanup trees and external symlinks; scheduler children with Node-free or competing-Node `PATH` and missing or non-executable `NODE_BIN` | Scratch-only public-wrapper, cleanup, fake Go, isolated cache/install, foundational-schema, pin-drift, and scheduler launch validation | Public preflight obtains pinned Node first; logical graph `node` launches use selected `NODE_BIN`, managed-suite and graph-child `PATH` selects it for descendants, invalid runtime fails as configuration before service startup; Node bootstrap summary validates without `node_modules`; defaults resolve outside `/tmp` and the repository; diagnose is read-only; ensure passes exact `GOCACHE`, `GOMODCACHE`, and `GOTMPDIR`; cleanup removes only owned paths and handles read-only descendants; exact pin selection and failure-atomic install hold | Bounded readiness or cleanup summary | Bounded configuration or resource-conflict diagnostic with exact path, filesystem capacity, or repair scope | Global-input projection, generated validator drift, pin projection, normalized paths, isolated filesystem observations, and scheduler child invocation evidence | Bootstrap depends on frontend AJV, global inputs are implementation-only, literal `/tmp` fallback survives, paths overlap or enter the repo, doctor mutates, symlink target changes, unrelated `.cache` content is removed, `ENOSPC` is unknown, corruption reaches child work, failed install removes the old executable, or graph launch falls back to `PATH` | isolated scratch removed; borrowed machine state and symlink targets unchanged |
+| TH-HARNESS-AC-092 | Sections 4.1A, 4.5, 5, 13, 14 | Exact bootstrap and durable machine-state readiness | Clean checkout without Node or frontend dependencies; controlled `HOME`/`XDG_CACHE_HOME`; exact or older Go launcher; valid, absent, overlapping, repo-contained, read-only, capacity-exhausted, and legacy `/tmp` cache fixtures; failed and successful tool installs; read-only cleanup trees and external symlinks; scheduler children with Node-free or competing-Node `PATH` and missing or non-executable `NODE_BIN` | Scratch-only public-wrapper, cleanup, fake Go, isolated cache/install, foundational-schema, pin-drift, and scheduler launch validation | Public Node-backed preflight obtains pinned Node first; cleanup runs with Bash/Git/Linux utilities alone and inert previews; logical graph `node` launches use selected `NODE_BIN`, managed-suite and graph-child `PATH` selects it for descendants, invalid runtime fails as configuration before service startup; Node bootstrap summary validates without `node_modules`; defaults resolve outside `/tmp` and the repository; diagnose is read-only; ensure passes exact `GOCACHE`, `GOMODCACHE`, and `GOTMPDIR`; cleanup removes only owned paths and handles read-only descendants; exact pin selection and failure-atomic install hold | Bounded readiness or cleanup summary | Bounded configuration or resource-conflict diagnostic with exact path, filesystem capacity, or repair scope | Global-input projection, generated validator drift, pin projection, normalized paths, isolated filesystem observations, and scheduler child invocation evidence | Bootstrap depends on frontend AJV, global inputs are implementation-only, literal `/tmp` fallback survives, paths overlap or enter the repo, doctor mutates, symlink target changes, unrelated `.cache` content is removed, `ENOSPC` is unknown, corruption reaches child work, failed install removes the old executable, or graph launch falls back to `PATH` | isolated scratch removed; borrowed machine state and symlink targets unchanged |
 | TH-HARNESS-AC-093 | Sections 4, 5 | Negative-fixture determinism | Prewarmed successful graph-cache entry followed by a fake failing tool; empty and valid artifact fixtures behind ordinary and phony producer prerequisites; repeated and reordered invocations | Owner-controlled lint-shell and release-task-surface smoke fixtures | Success only when the nested failing tool executes with cache reuse disabled at its public invocation, every injected artifact reaches validation byte-identically without producer execution, and warm or reordered execution cannot change the fixture verdict | Existing bounded smoke summary | Exact fake-tool, cache-mode, artifact-mutation, or validation diagnostic | Fake-tool invocation log, nested run manifest, seeded artifact bytes, and ordinary target summaries | Cached success bypasses the fake tool, producer regeneration replaces an injected artifact, parent-only cache control is treated as sufficient, prerequisite enumeration substitutes for artifact isolation, or repeated execution changes the verdict | isolated scratch removed; shared production cache and generated artifacts unchanged |
 | TH-HARNESS-AC-094 | Sections 2.1, 9 | Disposable targeted migration capability | Harness-issued migration scratch databases; arbitrary database/source construction attempts; apply targets `-1`, `0`, and positive versions; rollback targets `-1`, `0`, and positive versions; preparation success/failure/cleanup | pgtest capability unit and service-backed fixtures plus affected source-owner slices | Only the opaque harness-issued capability performs canonical-source targeted execution; invalid targets fail before source/database access; preparation events exactly describe the outcome | Existing bounded row and lease summaries | Exact capability, target-validation, fixture, or cleanup diagnostic | Migration lease identity, preparation lifecycle events, and selected row outcomes | A free production helper survives, an arbitrary handle/source is accepted, invalid input touches source/database state, duplicate status conflicts with events, or borrowed state is closed | owned scratch database destroyed; borrowed database unchanged |
 | TH-HARNESS-AC-095 | Sections 2.1, 9 | Production DDL Rebaseline v2 isolation and residue | Pristine, contaminated, prerequisite, lineage, purpose, role, ACL/default, recycled-connection, profile-claim, stale-volume, and rollback-through-zero exact PostgreSQL 18.6 fixtures | Database Migrations, PostgreSQL, Recovery, pgtest, testservices, dev-stack, and owner-routed unit/service-backed slices | Versions 1..40 apply with immutable boundary 29; incompatible engine, checksums-off, stale PostgreSQL 16 state, or incompatible database state fails before v2 DDL; exact roles and purpose credentials are isolated; runtime and Recovery positive/negative operations match the object manifest; rollback residue is exact; physical extension state does not claim a profile | Existing bounded row, run, and lease summaries | Closed engine, checksum, migration, binding, role, ACL, prerequisite, claim-state, or residue diagnostic | Exact engine/checksum identity, manifest parity, PostgreSQL catalog facts, role identity, allow/deny/default matrices, remediation object, and cleanup evidence | PostgreSQL 16 default, legacy SQL, compatibility credential, wrong extension, contamination, mixed role, excess privilege, incomplete Recovery, claimed-by-table profile, or undeclared rollback residue passes | owned scratch database destroyed; borrowed database unchanged |

@@ -7,7 +7,7 @@ RESET_SCRIPT="$ROOT_DIR/tools/harness/browser/reset-web-e2e-stack.sh"
 ATTACH_SCRIPT="$ROOT_DIR/tools/harness/browser/playwright-owned-stack.sh"
 EVIDENCE_HELPER="$ROOT_DIR/tools/harness/browser/browser-session-evidence.mjs"
 PLAYWRIGHT_CONFIG="$ROOT_DIR/apps/web/playwright.shared.config.ts"
-NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}"
+NODE_BIN="${NODE_BIN:-$ROOT_DIR/.cache/cartulary/node-runtime/bin/node}"
 cleanup_pids=()
 
 fail() {

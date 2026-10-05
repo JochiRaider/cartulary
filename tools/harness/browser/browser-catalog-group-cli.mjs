@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -177,7 +178,7 @@ function groupRows(catalog, group) {
 }
 
 function commandForGroup(rows, group, artifactRoot) {
-  const pnpm = process.env.PNPM || path.join(root, "tmp/node-runtime/bin/pnpm");
+  const pnpm = process.env.PNPM || path.join(root, `${workspaceLayout.node_runtime}/bin/pnpm`);
   const titles = [...new Set(rows.flatMap((row) => row.selector.titles))].sort();
   const projectIDs = [...new Set(rows.map((row) => row.selector.project_id))].sort();
   if (projectIDs.length !== 1) {

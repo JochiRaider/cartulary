@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../workspace/child-process.mjs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 

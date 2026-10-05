@@ -75,6 +75,27 @@
         ".json"
       ],
       "required_marker": "^\\{\\n  \\\"schema_id\\\": \\\"cartulary\\.performance_fixture_snapshot_key_vectors\\.v1\\\""
+    },
+    {
+      "path": "tools/workspace_layout.generated.sh",
+      "allowed_extensions": [
+        ".sh"
+      ],
+      "required_marker": "^# Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/workspace_layout.generated.mk",
+      "allowed_extensions": [
+        ".mk"
+      ],
+      "required_marker": "^# Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/workspace_layout.generated.mjs",
+      "allowed_extensions": [
+        ".mjs"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "lint_scope_checks": {

@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../workspace_layout.generated.sh"
+
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../.." && pwd)"
 ALLOWED_RUNTIME_DIRS=("server" "migrate" "operator")
-EMBEDDED_WEB_DIR="internal/platform/httpapi/webassets/dist"
+EMBEDDED_WEB_DIR="${CARTULARY_LAYOUT_EMBEDDED_ASSETS}"
 EMBEDDED_WEB_ARCHIVE="${EMBEDDED_WEB_DIR}/web-assets.zip"
 
 cd "$ROOT_DIR"
@@ -44,16 +47,16 @@ for main_file in "${MAIN_ENTRYPOINTS[@]}"; do
   esac
 done
 
-if [[ ! -f "server" ]]; then
-  fail "backend build artifact './server' was not produced"
+if [[ ! -f "${CARTULARY_LAYOUT_BINARIES}/server" ]]; then
+  fail "backend build artifact './${CARTULARY_LAYOUT_BINARIES}/server' was not produced"
 fi
 
-if [[ ! -f "migrate" ]]; then
-  fail "migration build artifact './migrate' was not produced"
+if [[ ! -f "${CARTULARY_LAYOUT_BINARIES}/migrate" ]]; then
+  fail "migration build artifact './${CARTULARY_LAYOUT_BINARIES}/migrate' was not produced"
 fi
 
-if [[ ! -f "operator" ]]; then
-  fail "operator build artifact './operator' was not produced"
+if [[ ! -f "${CARTULARY_LAYOUT_BINARIES}/operator" ]]; then
+  fail "operator build artifact './${CARTULARY_LAYOUT_BINARIES}/operator' was not produced"
 fi
 
 if [[ ! -f "${EMBEDDED_WEB_ARCHIVE}" ]]; then
@@ -101,11 +104,11 @@ if ! printf '%s\n' "$zip_listing" | grep -Fxq "$first_embedded_asset"; then
 fi
 
 embedded_asset_name="$(basename "${first_embedded_asset}")"
-if ! grep -aFq '<div id="root"></div>' "server"; then
-  fail "backend build artifact './server' does not appear to embed the frontend root shell"
+if ! grep -aFq '<div id="root"></div>' "${CARTULARY_LAYOUT_BINARIES}/server"; then
+  fail "backend build artifact './${CARTULARY_LAYOUT_BINARIES}/server' does not appear to embed the frontend root shell"
 fi
-if ! grep -aFq "${embedded_asset_name}" "server"; then
-  fail "backend build artifact './server' does not appear to embed frontend asset '${embedded_asset_name}'"
+if ! grep -aFq "${embedded_asset_name}" "${CARTULARY_LAYOUT_BINARIES}/server"; then
+  fail "backend build artifact './${CARTULARY_LAYOUT_BINARIES}/server' does not appear to embed frontend asset '${embedded_asset_name}'"
 fi
 
 echo "deployable-shape verified: cmd/server remains the single runtime application unit, cmd/migrate and cmd/operator remain operational tooling, and the built server binary embeds the frontend archive."

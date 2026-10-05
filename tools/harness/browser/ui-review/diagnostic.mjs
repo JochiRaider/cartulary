@@ -1,5 +1,5 @@
 import { openSync, closeSync, constants, readFileSync, readdirSync, lstatSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn } from "../../workspace/child-process.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { chromium } from "playwright";

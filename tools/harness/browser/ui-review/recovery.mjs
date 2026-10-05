@@ -1,7 +1,7 @@
 import { stopDiagnosticProcesses } from "./diagnostic-processes.mjs";
 import path from "node:path";
 import { closeSync, constants, existsSync, openSync, readdirSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn } from "../../workspace/child-process.mjs";
 import { fileURLToPath } from "node:url";
 import { borrowSuiteRuntime, closeSuiteRuntimeRoot, scanRetainedRoot } from "../../runtime/suite-runtime.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";

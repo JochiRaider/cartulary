@@ -196,6 +196,14 @@ function renderMakeRecipe(recipe, manifest) {
       `\t$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ${inputs.join(" ")} CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ${recipe.target}`,
     ];
   }
+  if (recipe.type === "cleanup") {
+    return [
+      `${recipe.target}: override export CARTULARY_CLEANUP_DRY_RUN := $(value CARTULARY_CLEANUP_DRY_RUN)`,
+      `${recipe.target}: override export CARTULARY_OUTPUT_MODE := $(value CARTULARY_OUTPUT_MODE)`,
+      `${recipe.target}:`,
+      `\t$(Q)CARTULARY_MAKE_COMMAND_LINE_INPUTS="$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)" bash ./tools/harness/workspace/cleanup.sh ${recipe.scope}`,
+    ];
+  }
   const nodeReadinessPrelude = renderNodeReadinessPrelude(recipe, entry);
   const prerequisitePrelude = renderPrerequisitePrelude(
     recipe,
@@ -230,22 +238,6 @@ function renderMakeRecipe(recipe, manifest) {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
     return lines;
-  }
-  if (recipe.type === "cleanup") {
-    if (recipe.scope === "distclean") {
-      return [
-        ...prefix,
-        ...header,
-        ...publicPrelude,
-        "\t$(Q)$(RUN_HARNESS_CLEANUP) distclean $(DISTCLEAN_PATHS)",
-      ];
-    }
-    return [
-      ...prefix,
-      ...header,
-      ...publicPrelude,
-      "\t$(Q)$(RUN_HARNESS_CLEANUP) clean $(CLEAN_PATHS)",
-    ];
   }
   if (recipe.type === "print_help") {
     const variable =

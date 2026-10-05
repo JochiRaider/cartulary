@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../../workspace_layout.generated.sh"
 # shellcheck shell=bash
 # shellcheck disable=SC2154
 
@@ -62,7 +65,7 @@ web_e2e_reset_stack() {
   local backend_ready_marker_file
   local taint_marker_file
   local lease_file="${CARTULARY_WEB_E2E_SESSION_LEASE_FILE:-}"
-  local node_bin="${NODE_BIN:-${root_dir}/tmp/node-runtime/bin/node}"
+  local node_bin="${NODE_BIN:-${root_dir}/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}"
   local generation_before
   local started_ms
   local finished_ms

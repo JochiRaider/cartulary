@@ -49,7 +49,7 @@ describe('left', () => { test('same name', () => expect(1).toBe(1)); });
 describe('right', () => { test('same name', () => expect(2).toBe(2)); });
 `);
   const command = [path.join(root, "tools/harness/execution/vitest-invocation-cli.mjs"), reportFile, detailsFile, "--",
-    process.env.PNPM || path.join(root, "tmp/node-runtime/bin/pnpm"), "--dir", "apps/web", "exec", "vitest", "run", `--config=${configFile}`, "--maxWorkers=1"];
+    process.env.PNPM || path.join(root, ".cache/cartulary/node-runtime/bin/pnpm"), "--dir", "apps/web", "exec", "vitest", "run", `--config=${configFile}`, "--maxWorkers=1"];
   const result = spawnSync(process.execPath, command, { cwd: root, env: fixtureEnvironment, encoding: "utf8", timeout: 30000 });
   assert.ok(existsSync(detailsFile), `real collector did not retain diagnostics: ${result.stderr}`);
   const details = readVitestJSON(detailsFile);

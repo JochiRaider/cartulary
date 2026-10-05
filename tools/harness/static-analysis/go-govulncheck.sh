@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 # Raw scanner output and its parsed findings are retained security evidence. Keep
 # their creation private even when this wrapper is invoked below an ambient 022
 # umask; source generation does not occur in this process.
@@ -11,7 +14,7 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
-GOVULNCHECK_BIN="${GOVULNCHECK_BIN:-$ROOT_DIR/tmp/toolbin/govulncheck-v1.3.0}"
+GOVULNCHECK_BIN="${GOVULNCHECK_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/govulncheck-v1.3.0}"
 GOVULNCHECK_FLAGS="${GOVULNCHECK_FLAGS:--test -json}"
 GOVULNCHECK_PATTERNS="${GOVULNCHECK_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
 GOVULNCHECK_DB="${GOVULNCHECK_DB:-}"
@@ -26,8 +29,8 @@ resolve_node_bin() {
     printf '%s\n' "$NODE_BIN"
     return 0
   fi
-  if [[ -x "$ROOT_DIR/tmp/node-runtime/bin/node" ]]; then
-    printf '%s\n' "$ROOT_DIR/tmp/node-runtime/bin/node"
+  if [[ -x "$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node" ]]; then
+    printf '%s\n' "$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node"
     return 0
   fi
   if command -v node >/dev/null 2>&1; then

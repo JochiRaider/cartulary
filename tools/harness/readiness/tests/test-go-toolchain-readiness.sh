@@ -310,5 +310,5 @@ if find "$concurrent_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '.fake-t
 fi
 
 printf 'go toolchain readiness checks passed\n'
-"${ROOT_DIR}/tmp/node-runtime/bin/node" \
+"${ROOT_DIR}/.cache/cartulary/node-runtime/bin/node" \
   "${ROOT_DIR}/tools/harness/contract/tests/test-machine-state-config.mjs"

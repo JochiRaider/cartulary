@@ -3,6 +3,14 @@
   "owner_id": "harness.command_surface",
   "verifications": [
     {
+      "verification_id": "harness.command_surface.verification.embedded_asset_layout",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
       "verification_id": "harness.command_surface.verification.public_registry_parity",
       "behavior_class": "harness",
       "profile": "support",

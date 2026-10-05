@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 DEFAULT_ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 ROOT_DIR="${CARTULARY_SHELLCHECK_ROOT:-$DEFAULT_ROOT_DIR}"
-SHELLCHECK_BIN="${SHELLCHECK_BIN:-${ROOT_DIR}/tmp/toolbin/shellcheck-v0.11.0}"
+SHELLCHECK_BIN="${SHELLCHECK_BIN:-${ROOT_DIR}/${CARTULARY_LAYOUT_TOOLBIN}/shellcheck-v0.11.0}"
 LINT_SHELL_STRICT="${LINT_SHELL_STRICT:-0}"
 CACHE_ARTIFACT_SCRIPT="$DEFAULT_ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
 CACHE_DIR="${CARTULARY_STATIC_ANALYSIS_CACHE_DIR:-$ROOT_DIR/.cache/cartulary/static-analysis}"

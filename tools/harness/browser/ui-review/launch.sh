@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../../workspace_layout.generated.sh"
 unset NODE_OPTIONS NODE_PATH DEBUG PWDEBUG
 for review_env_name in ${!OTEL_@}; do unset "$review_env_name"; done
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-node="$root/tmp/node-runtime/bin/node"
+node="$root/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node"
 condition=missing
 expected_version="$(sed -nE 's/^[[:space:]]*"node_version": *"([0-9]+\.[0-9]+\.[0-9]+)",?$/\1/p' "$root/tools/toolchain_pins.json")"
 installed_version=""

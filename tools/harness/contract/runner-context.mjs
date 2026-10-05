@@ -1,3 +1,4 @@
+import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,7 +28,7 @@ function resolveNodeBin(repoRoot) {
   if (configured && configured.trim() !== "") {
     return configured;
   }
-  const repoNode = path.join(repoRoot, "tmp", "node-runtime", "bin", "node");
+  const repoNode = path.join(repoRoot, workspaceLayout.node_runtime, "bin", "node");
   if (existsSync(repoNode)) {
     return repoNode;
   }
@@ -36,7 +37,7 @@ function resolveNodeBin(repoRoot) {
 
 export function createRunnerContext(options = {}) {
   const repoRoot = options.repoRoot ? path.resolve(options.repoRoot) : defaultRepoRoot;
-  const nodeRuntimeDir = envPath("NODE_RUNTIME_DIR", "tmp/node-runtime", repoRoot);
+  const nodeRuntimeDir = envPath("NODE_RUNTIME_DIR", workspaceLayout.node_runtime, repoRoot);
   const nodeBin = resolveNodeBin(repoRoot);
   const machineState = resolveMachineStatePaths(process.env, { root: repoRoot });
 

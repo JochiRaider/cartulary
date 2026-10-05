@@ -256,3 +256,53 @@ Bootstrap is complete when:
 From that state, feature work proceeds by owner and semantic evidence obligation.
 New capabilities extend the catalog and generic scheduler rather than creating a
 new execution model.
+
+## Workspace Cleanup And Layout Cutover
+
+`make clean CARTULARY_CLEANUP_DRY_RUN=1` previews the directory plan without
+installing tools or writing reports. Whitespace around `1` is accepted; other
+nonempty values are errors. `make clean` removes build and result directories,
+including all of `tmp`. `make distclean` additionally removes repository-local
+installations, proofs, and caches. Both fail immediately while managed work is
+active. Stop that work and retry; cleanup never kills it.
+
+The machine directory inventory is `tools/workspace_layout.json`; the behavioral
+owner is Testing Harness NLSpec Section 13. Update the owner, producers, and
+projections together through `make generate`. See `make help` for the maintained
+command surface. Never add filename-preservation exceptions to cleanup.
+
+For the layout cutover, stop all old builds, tests, dev servers, review sessions,
+and installers before using the new cleanup targets. Move anything retained
+from `tmp` to `.cartulary/retained-work` or another unregistered directory. Move
+wanted manual runs out of `apps/web/.cartulary/test-results`; that entire legacy
+directory is now disposable. External caches and custom roots outside the
+inventory are preserved. A custom root inside `tmp` is still disposable.
+
+Rebuild tooling and installation proofs at the new defaults with `make
+bootstrap`; do not copy path-sensitive package-manager state or create old-path
+symlinks. Binaries now live in `build/bin`; persistent tooling and TypeScript
+metadata live under `.cache/cartulary`. After confirming consumers use the new
+paths, explicitly retire old root `server`, `server-harness`, `migrate`, and
+`operator` binaries and old workspace `tsconfig.tsbuildinfo` / web
+`tsconfig.e2e.tsbuildinfo` files. This is a one-time operator migration, not a
+permanent cleanup filename sweep. Installing the change never runs real cleanup
+on the primary checkout.
+
+Retire the tracked `internal/platform/httpapi/webassets/dist/.keep` placeholder
+as part of the same source change. An unstaged deletion remains tracked in Git's
+index, so cleanup's source-overlap check will reject that legacy directory until
+the removal is recorded in the index. Keep that protection in place.
+
+Qualification uses the `harness.command_surface` owner route and disposable
+Git repositories. It covers input/preview parity, directory tiers, rejected
+plans, worktrees, symlinks, I/O failure, admission, and projection drift. Build,
+frontend typecheck, generated-policy, schema, shell/script lint, harness, and
+release-shape checks complete the integration evidence. Consult `make
+task-guide ROLE=module-author OWNER=harness.command_surface` before selecting
+verification.
+
+Rollback restores the implementation, authored owner, generated projections,
+producer paths, and embedding configuration together. Stop managed sessions
+first and rebuild disposable outputs and install proofs afterward. Rollback
+cannot recover results already deleted by cleanup; preserve wanted results
+before executing either destructive target.

@@ -1,4 +1,5 @@
-import { spawn, spawnSync } from "node:child_process";
+import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
+import { spawn, spawnSync } from "../../workspace/child-process.mjs";
 import { randomUUID } from "node:crypto";
 import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
@@ -343,7 +344,7 @@ export function startManagedSuite({
   const executable = configuredExecutable ||
     process.env.TEST_SERVICES_BIN ||
     process.env.CARTULARY_TEST_SERVICES_BIN ||
-    path.join(root, "tmp/toolbin/cartulary-test-services");
+    path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`);
   const suiteID = `work-graph-${target}`.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
   const startEnvironment = {
     ...environment,

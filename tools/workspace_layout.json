@@ -1,0 +1,418 @@
+{
+  "schema_id": "cartulary.workspace_layout.v1",
+  "directories": [
+    {
+      "id": "scratch",
+      "path": "tmp",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "harness scratch"
+      ]
+    },
+    {
+      "id": "binaries",
+      "path": "build/bin",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "Go binary builds"
+      ]
+    },
+    {
+      "id": "web_dist",
+      "path": "apps/web/dist",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "web build"
+      ]
+    },
+    {
+      "id": "web_measurement",
+      "path": "apps/web/dist-measurement",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "measurement web build"
+      ]
+    },
+    {
+      "id": "test_results",
+      "path": ".cartulary/test-results",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "harness evidence"
+      ]
+    },
+    {
+      "id": "release_artifacts",
+      "path": ".cartulary/release-artifacts",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "release evidence"
+      ]
+    },
+    {
+      "id": "legacy_web_results",
+      "path": "apps/web/.cartulary/test-results",
+      "tier": "clean",
+      "state": "legacy",
+      "producers": []
+    },
+    {
+      "id": "root_test_results",
+      "path": "test-results",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "frontend verification"
+      ]
+    },
+    {
+      "id": "root_playwright_report",
+      "path": "playwright-report",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "frontend verification"
+      ]
+    },
+    {
+      "id": "root_coverage",
+      "path": "coverage",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "frontend verification"
+      ]
+    },
+    {
+      "id": "root_vite",
+      "path": ".vite",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "frontend verification"
+      ]
+    },
+    {
+      "id": "web_test_results",
+      "path": "apps/web/test-results",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "frontend verification"
+      ]
+    },
+    {
+      "id": "web_playwright_report",
+      "path": "apps/web/playwright-report",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "frontend verification"
+      ]
+    },
+    {
+      "id": "web_coverage",
+      "path": "apps/web/coverage",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "frontend verification"
+      ]
+    },
+    {
+      "id": "web_vite",
+      "path": "apps/web/.vite",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "frontend verification"
+      ]
+    },
+    {
+      "id": "cache",
+      "path": ".cache/cartulary",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness caches"
+      ]
+    },
+    {
+      "id": "node_runtime",
+      "path": ".cache/cartulary/node-runtime",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "node_archives",
+      "path": ".cache/cartulary/node-archives",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "toolbin",
+      "path": ".cache/cartulary/toolbin",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "shellcheck_archives",
+      "path": ".cache/cartulary/shellcheck-archives",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "frontend_install",
+      "path": ".cache/cartulary/frontend-install",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "frontend_toolchain",
+      "path": ".cache/cartulary/frontend-toolchain",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "playwright",
+      "path": ".cache/cartulary/playwright",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "test_service_images",
+      "path": ".cache/cartulary/test-service-images",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "typescript",
+      "path": ".cache/cartulary/typescript",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "TypeScript compiler"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "readiness",
+      "path": ".cache/cartulary/readiness",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "build_artifacts",
+      "path": ".cache/cartulary/build-artifacts",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "harness readiness"
+      ],
+      "parent": "cache"
+    },
+    {
+      "id": "root_dependencies",
+      "path": "node_modules",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "pnpm"
+      ]
+    },
+    {
+      "id": "root_vite_dependencies",
+      "path": "node_modules/.vite",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "Vite"
+      ],
+      "parent": "root_dependencies"
+    },
+    {
+      "id": "root_vite_temp_dependencies",
+      "path": "node_modules/.vite-temp",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "Vite"
+      ],
+      "parent": "root_dependencies"
+    },
+    {
+      "id": "web_dependencies",
+      "path": "apps/web/node_modules",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "pnpm"
+      ]
+    },
+    {
+      "id": "web_vite_dependencies",
+      "path": "apps/web/node_modules/.vite",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "Vite"
+      ],
+      "parent": "web_dependencies"
+    },
+    {
+      "id": "web_vite_temp_dependencies",
+      "path": "apps/web/node_modules/.vite-temp",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "Vite"
+      ],
+      "parent": "web_dependencies"
+    },
+    {
+      "id": "package_dependencies",
+      "path": "packages/*/node_modules",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "pnpm"
+      ]
+    },
+    {
+      "id": "package_vite_dependencies",
+      "path": "packages/*/node_modules/.vite",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "Vite"
+      ],
+      "parent": "package_dependencies"
+    },
+    {
+      "id": "package_vite_temp_dependencies",
+      "path": "packages/*/node_modules/.vite-temp",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "Vite"
+      ],
+      "parent": "package_dependencies"
+    },
+    {
+      "id": "pnpm_store",
+      "path": ".pnpm-store",
+      "tier": "distclean",
+      "state": "current",
+      "producers": [
+        "pnpm"
+      ]
+    },
+    {
+      "id": "legacy_go_build",
+      "path": ".cartulary/go-build",
+      "tier": "distclean",
+      "state": "legacy",
+      "producers": []
+    },
+    {
+      "id": "legacy_go_cache",
+      "path": ".cartulary/go-cache",
+      "tier": "distclean",
+      "state": "legacy",
+      "producers": []
+    },
+    {
+      "id": "legacy_go_mod",
+      "path": ".cartulary/go-mod",
+      "tier": "distclean",
+      "state": "legacy",
+      "producers": []
+    },
+    {
+      "id": "legacy_go_mod_cache",
+      "path": ".cartulary/go-mod-cache",
+      "tier": "distclean",
+      "state": "legacy",
+      "producers": []
+    },
+    {
+      "id": "legacy_cache",
+      "path": ".cartulary/cache",
+      "tier": "distclean",
+      "state": "legacy",
+      "producers": []
+    },
+    {
+      "id": "legacy_tmp",
+      "path": ".cartulary/tmp",
+      "tier": "distclean",
+      "state": "legacy",
+      "producers": []
+    },
+    {
+      "id": "legacy_fallow",
+      "path": ".fallow",
+      "tier": "distclean",
+      "state": "legacy",
+      "producers": []
+    },
+    {
+      "id": "embedded_assets",
+      "path": "internal/platform/httpapi/webassets/assets/generated",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "embedded web build"
+      ]
+    },
+    {
+      "id": "legacy_embedded_assets",
+      "path": "internal/platform/httpapi/webassets/dist",
+      "tier": "clean",
+      "state": "legacy",
+      "producers": []
+    }
+  ]
+}

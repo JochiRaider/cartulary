@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 RUN_STEP="${ROOT_DIR}/tools/harness/execution/run-step.sh"
 TEST_OUTPUT="${ROOT_DIR}/tools/harness/output/test-output.sh"
-NODE_BIN="${NODE_BIN:-${ROOT_DIR}/tmp/node-runtime/bin/node}"
+NODE_BIN="${NODE_BIN:-${ROOT_DIR}/.cache/cartulary/node-runtime/bin/node}"
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
 

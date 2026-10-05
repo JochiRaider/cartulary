@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 
 SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-0.11.0}"
-TOOLBIN_DIR="${TOOLBIN_DIR:-${ROOT_DIR}/tmp/toolbin}"
+TOOLBIN_DIR="${TOOLBIN_DIR:-${ROOT_DIR}/${CARTULARY_LAYOUT_TOOLBIN}}"
 SHELLCHECK_BIN="${SHELLCHECK_BIN:-${TOOLBIN_DIR}/shellcheck-v${SHELLCHECK_VERSION}}"
-ARCHIVE_DIR="${CARTULARY_SHELLCHECK_ARCHIVE_DIR:-${ROOT_DIR}/tmp/shellcheck-archives}"
+ARCHIVE_DIR="${CARTULARY_SHELLCHECK_ARCHIVE_DIR:-${ROOT_DIR}/${CARTULARY_LAYOUT_SHELLCHECK_ARCHIVES}}"
 PLATFORM_OVERRIDE="${CARTULARY_BOOTSTRAP_SHELLCHECK_PLATFORM:-}"
 
 detect_platform() {

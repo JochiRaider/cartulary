@@ -8,8 +8,8 @@ if [[ -n "${NODE_CANDIDATE}" && -x "${NODE_CANDIDATE}" ]]; then
   exec "${NODE_CANDIDATE}" "${SCRIPT_DIR}/test-output.mjs" "$@"
 fi
 
-if [[ -x "${SCRIPT_DIR}/../../../tmp/node-runtime/bin/node" ]]; then
-  exec "${SCRIPT_DIR}/../../../tmp/node-runtime/bin/node" "${SCRIPT_DIR}/test-output.mjs" "$@"
+if [[ -x "${SCRIPT_DIR}/../../../.cache/cartulary/node-runtime/bin/node" ]]; then
+  exec "${SCRIPT_DIR}/../../../.cache/cartulary/node-runtime/bin/node" "${SCRIPT_DIR}/test-output.mjs" "$@"
 fi
 
 if command -v node >/dev/null 2>&1; then

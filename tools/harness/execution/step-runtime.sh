@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
 
 STEP_RUNTIME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_STEP_REPO_ROOT="$(cd "${STEP_RUNTIME_DIR}/../../.." && pwd)"
@@ -17,8 +19,8 @@ step_now_utc() {
     return
   fi
 
-  if [[ -x "${RUN_STEP_REPO_ROOT}/tmp/node-runtime/bin/node" ]]; then
-    "${RUN_STEP_REPO_ROOT}/tmp/node-runtime/bin/node" -e 'process.stdout.write(new Date().toISOString() + "\n")'
+  if [[ -x "${RUN_STEP_REPO_ROOT}/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node" ]]; then
+    "${RUN_STEP_REPO_ROOT}/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node" -e 'process.stdout.write(new Date().toISOString() + "\n")'
     return
   fi
 
@@ -416,8 +418,8 @@ resolve_harness_node() {
     printf '%s\n' "${NODE_BIN}"
     return
   fi
-  if [[ -x "${RUN_STEP_REPO_ROOT}/tmp/node-runtime/bin/node" ]]; then
-    printf '%s\n' "${RUN_STEP_REPO_ROOT}/tmp/node-runtime/bin/node"
+  if [[ -x "${RUN_STEP_REPO_ROOT}/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node" ]]; then
+    printf '%s\n' "${RUN_STEP_REPO_ROOT}/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node"
     return
   fi
   printf '%s\n' "node"

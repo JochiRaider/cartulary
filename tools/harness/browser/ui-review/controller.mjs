@@ -1,5 +1,5 @@
 import { preparationFailure } from "./failure.mjs";
-import { fork } from "node:child_process";
+import { fork } from "../../workspace/child-process.mjs";
 import { chmodSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";

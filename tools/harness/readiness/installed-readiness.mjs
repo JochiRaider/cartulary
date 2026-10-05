@@ -1,4 +1,5 @@
-import { spawnSync } from "node:child_process";
+import { workspaceLayout } from "../../workspace_layout.generated.mjs";
+import { spawnSync } from "../workspace/child-process.mjs";
 import { createHash } from "node:crypto";
 import { accessSync, constants, readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -13,7 +14,7 @@ import { resolvePlaywrightPackages } from "./playwright-packages.mjs";
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const json = (file) => JSON.parse(readFileSync(file, "utf8"));
-const receiptFile = (root) => path.join(root, "tmp/frontend-install/proof/installed.v1.json");
+const receiptFile = (root) => path.join(root, `${workspaceLayout.frontend_install}/proof/installed.v1.json`);
 export function readinessFailure(subject_id, condition, recovery_id, cause) {
   return new CommandFailure("installed prerequisite unavailable", { failure_class: "config", failure_reason: "configuration_error", phase: "prerequisites", subject_id, condition, recovery_id }, { cause });
 }
@@ -65,9 +66,9 @@ export function validateFrontendInstallation(root = repoRoot) {
 export function coreReadiness(root = repoRoot, { runner = spawnSync, environment = process.env } = {}) {
   const pins = nodeReadiness(root);
   probe("pnpm", "frontend_toolchain", () => {
-    const version = execute(path.join(root, "tmp/node-runtime/bin/pnpm"), ["--version"], { ...environment,
-      PATH: `${path.join(root, "tmp/node-runtime/bin")}:${environment.PATH ?? "/usr/bin:/bin"}`,
-      COREPACK_HOME: path.join(root, "tmp/node-runtime/corepack"), COREPACK_ENABLE_NETWORK: "0" }, runner);
+    const version = execute(path.join(root, `${workspaceLayout.node_runtime}/bin/pnpm`), ["--version"], { ...environment,
+      PATH: `${path.join(root, `${workspaceLayout.node_runtime}/bin`)}:${environment.PATH ?? "/usr/bin:/bin"}`,
+      COREPACK_HOME: path.join(root, `${workspaceLayout.node_runtime}/corepack`), COREPACK_ENABLE_NETWORK: "0" }, runner);
     if (version !== pins.pnpm_version) throw new Error("pnpm pin mismatch");
   });
   validateFrontendInstallation(root);
@@ -124,7 +125,7 @@ export function dockerReadiness(environment, runner = spawnSync) {
 }
 export function serviceImageReadiness(environment, root = repoRoot, runner = spawnSync) {
   dockerReadiness(environment, runner);
-  const images = probe("test_service_images", "test_service_images", () => execute(path.join(root, "tmp/toolbin/cartulary-test-services"), ["images"], environment, runner).split("\n").filter(Boolean));
+  const images = probe("test_service_images", "test_service_images", () => execute(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["images"], environment, runner).split("\n").filter(Boolean));
   if (!images.length) throw readinessFailure("test_service_images", "incompatible", "test_service_images");
   for (const image of images) {
     try { execute("docker", ["image", "inspect", image], environment, runner); }

@@ -39,7 +39,10 @@
     "tools/schema_object_ownership_manifest.json",
     "tools/task_surface.generated.mk",
     "tools/task_surface.runtime.generated.mk",
-    "tools/task_surface_manifest.json"
+    "tools/task_surface_manifest.json",
+    "tools/workspace_layout.generated.sh",
+    "tools/workspace_layout.generated.mk",
+    "tools/workspace_layout.generated.mjs"
   ],
   "copy_paths": [
     "apps/web/e2e/workbook.visual.spec.ts-snapshots",
@@ -111,7 +114,11 @@
     "internal/platform/openapicompat",
     "packages/protocol-ts/src/generated",
     "packages/view-contracts/src/generated",
-    "packages/ui-contracts/src/generated"
+    "packages/ui-contracts/src/generated",
+    "tools/workspace_layout.json",
+    "tools/workspace_layout.generated.sh",
+    "tools/workspace_layout.generated.mk",
+    "tools/workspace_layout.generated.mjs"
   ],
   "placeholder_dirs": [
     "apps/web",

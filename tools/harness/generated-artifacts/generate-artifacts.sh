@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"${NODE_BIN:?NODE_BIN is required}" ./tools/harness/workspace/layout.mjs
+
 mkdir -p "${GO_CACHE_DIR:?GO_CACHE_DIR is required}" "${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" "${GO_TMP_DIR:?GO_TMP_DIR is required}" internal/gen/sql
 find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
 "${NODE_BIN:?NODE_BIN is required}" \

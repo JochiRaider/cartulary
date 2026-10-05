@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../workspace/child-process.mjs";
 import { resolveFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 import { CommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
 import { publicExitCodeForFailure } from "../contract/index.mjs";

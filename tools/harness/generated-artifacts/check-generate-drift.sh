@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 SCRATCH_INPUT_MANIFEST="${GENERATE_DRIFT_SCRATCH_INPUT_MANIFEST:-tools/generate_drift_scratch_inputs.json}"
 mode="check"
@@ -23,7 +26,7 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-sqlc_bin="${SQLC_BIN:-$ROOT_DIR/tmp/toolbin/sqlc-v1.30.0}"
+sqlc_bin="${SQLC_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/sqlc-v1.30.0}"
 if [[ "$sqlc_bin" != /* ]]; then
   sqlc_bin="$ROOT_DIR/$sqlc_bin"
 fi
@@ -61,7 +64,7 @@ copy_path() {
 
 manifest_values() {
   local key="$1"
-  local node_bin="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}"
+  local node_bin="${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}"
   "$node_bin" - "$ROOT_DIR/$SCRATCH_INPUT_MANIFEST" "$key" <<'NODE'
 const fs = require("node:fs");
 const [manifestPath, key] = process.argv.slice(2);
@@ -84,7 +87,7 @@ NODE
 }
 
 catalog_selector_inputs() {
-  local node_bin="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}"
+  local node_bin="${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}"
   "$node_bin" - "$ROOT_DIR" <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
@@ -149,7 +152,7 @@ NODE
 }
 
 task_surface_backing_inputs() {
-  local node_bin="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}"
+  local node_bin="${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}"
   "$node_bin" - "$ROOT_DIR" <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
@@ -225,6 +228,8 @@ for placeholder_dir in "${scratch_placeholder_dirs[@]}"; do
   mkdir -p "$scratch/$placeholder_dir"
 done
 
+git -C "$scratch" init --quiet
+
 make -C "$scratch" --no-print-directory generate-artifacts \
 	CARTULARY_TEST_TARGET=generate-artifacts \
 	SQLC_BIN="$sqlc_bin" \
@@ -232,12 +237,12 @@ make -C "$scratch" --no-print-directory generate-artifacts \
 	GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
 	GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
 	GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
-	NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/tmp/node-runtime}" \
-	CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/tmp/node-archives}" \
-	NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
-	PNPM="${PNPM:-$ROOT_DIR/tmp/node-runtime/bin/pnpm}"
+	NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}}" \
+	CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_ARCHIVES}}" \
+	NODE_BIN="${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}" \
+	PNPM="${PNPM:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/pnpm}"
 
-"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
+"${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}" \
   "$ROOT_DIR/tools/harness/generated-artifacts/generated-transaction.mjs" \
   --repo "$ROOT_DIR" \
   --rendered "$scratch" \

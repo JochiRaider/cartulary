@@ -35,7 +35,6 @@ export {
   repoRoot,
   resolveRetainedArtifactIdentity,
   resolveOutputMode,
-  runCleanup,
   targetPolicy,
   testRouteTokenValid,
   validatePreparedArtifactIdentity,

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../workspace/child-process.mjs";
 import {
   existsSync,
   mkdirSync,

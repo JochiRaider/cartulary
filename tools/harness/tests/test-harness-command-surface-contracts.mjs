@@ -1,3 +1,4 @@
+import "../contract/tests/test-cleanup.mjs";
 import "../browser/tests/test-ui-review-contract.mjs";
 import { runContractSuite } from "./contract-suite-support.mjs";
 import { registerFrontendProducerGraphTests } from "./test-frontend-producer-graph.mjs";

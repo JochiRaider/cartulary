@@ -16,12 +16,12 @@ import (
 	"strings"
 )
 
-//go:embed fallback/index.html all:dist
+//go:embed all:assets
 var embeddedFiles embed.FS
 
-const distArchivePath = "dist/web-assets.zip"
-const clientAssetManifestPath = "dist/client-asset-set-manifest.json"
-const clientSupportRegistryPath = "dist/client-extension-support-registry.json"
+const distArchivePath = "assets/generated/web-assets.zip"
+const clientAssetManifestPath = "assets/generated/client-asset-set-manifest.json"
+const clientSupportRegistryPath = "assets/generated/client-extension-support-registry.json"
 
 type clientAssetManifest struct {
 	Assets   []clientAssetManifestRow `json:"assets"`
@@ -82,7 +82,7 @@ func readIndexHTML(files fs.FS) ([]byte, error) {
 	if ok {
 		return fs.ReadFile(archive, "index.html")
 	}
-	return fs.ReadFile(files, "fallback/index.html")
+	return fs.ReadFile(files, "assets/fallback/index.html")
 }
 
 func staticFS(files fs.FS) (fs.FS, error) {
@@ -93,7 +93,7 @@ func staticFS(files fs.FS) (fs.FS, error) {
 	if ok {
 		return archive, nil
 	}
-	return fs.Sub(files, "fallback")
+	return fs.Sub(files, "assets/fallback")
 }
 
 func readBrowserRootHTML(files fs.FS) ([]byte, error) {

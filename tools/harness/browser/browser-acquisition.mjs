@@ -1,4 +1,5 @@
-import { spawn, spawnSync } from "node:child_process";
+import { workspaceLayout } from "../../workspace_layout.generated.mjs";
+import { spawn, spawnSync } from "../workspace/child-process.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -260,7 +261,7 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
       ? path.join(owner.runtime_root, "lifecycle", `browser-recovery-${randomUUID()}`)
       : suite.result_root;
     if (recovery) privateDirectory(path.join(resultsRoot, owner.run_id));
-    const result = run(path.join(root, "tmp/toolbin/cartulary-test-services"), ["cleanup-web-e2e", "--metadata-file", metadata], {
+    const result = run(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["cleanup-web-e2e", "--metadata-file", metadata], {
       cwd: root, env: { ...environment, CARTULARY_TEST_SUITE_ID: owner.suite_id, CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
         CARTULARY_TEST_RESULTS_DIR: resultsRoot, CARTULARY_TEST_RUN_ID: owner.run_id, CARTULARY_TEST_TARGET: suite.target,
         CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,

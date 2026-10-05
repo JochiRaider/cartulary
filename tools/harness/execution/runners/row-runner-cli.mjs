@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -106,7 +107,7 @@ function invocationsForRows(rows) {
     };
   }
   if (runner === "vitest") {
-    const command = process.env.PNPM || path.join(root, "tmp/node-runtime/bin/pnpm");
+    const command = process.env.PNPM || path.join(root, `${workspaceLayout.node_runtime}/bin/pnpm`);
     return {
       invocations: buildVitestInvocations(root, rows, workers, command, runRoot()),
       adapt: adaptVitestInvocationFile,

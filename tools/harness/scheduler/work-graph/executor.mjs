@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn } from "../../workspace/child-process.mjs";
 import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 

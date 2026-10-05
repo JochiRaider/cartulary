@@ -22,6 +22,34 @@
       "fixture_capability": "none",
       "minimum_tier": "standard",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.command_surface.unit.embedded_asset_layout",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.embedded_asset_layout"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi/webassets",
+        "tests": [
+          "TestReadBrowserRootHTMLRejectsStaticMappingMismatch",
+          "TestReadBrowserRootHTMLValidatesAndInjectsBuildBoundSupport",
+          "TestReadIndexHTMLFallsBackWithoutArchive",
+          "TestReadIndexHTMLUsesArchiveWhenPresent",
+          "TestStaticFSUsesArchiveWhenPresent"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

@@ -321,8 +321,8 @@ assert_contains "$(cat "$make_strict_manifest")" '"cache_mode": "off"' "public M
 real_shellcheck=""
 if [[ -n "${SHELLCHECK_BIN:-}" && -x "${SHELLCHECK_BIN}" ]]; then
   real_shellcheck="$SHELLCHECK_BIN"
-elif [[ -x "$ROOT_DIR/tmp/toolbin/shellcheck-v0.11.0" ]]; then
-  real_shellcheck="$ROOT_DIR/tmp/toolbin/shellcheck-v0.11.0"
+elif [[ -x "$ROOT_DIR/.cache/cartulary/toolbin/shellcheck-v0.11.0" ]]; then
+  real_shellcheck="$ROOT_DIR/.cache/cartulary/toolbin/shellcheck-v0.11.0"
 elif command -v shellcheck >/dev/null 2>&1; then
   real_shellcheck="$(command -v shellcheck)"
 fi

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:net";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../workspace/child-process.mjs";
 import { pathToFileURL } from "node:url";
 
 import { resolvePlaywrightPackages } from "../readiness/playwright-packages.mjs";

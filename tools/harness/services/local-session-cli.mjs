@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -24,7 +25,7 @@ export function runLocalSessionCLI(args = process.argv.slice(2), environment = p
   }
   assertNoCallerServiceState(environment);
   const binary = path.resolve(
-    String(environment.TEST_SERVICES_BIN || environment.CARTULARY_TEST_SERVICES_BIN || path.join(root, "tmp/toolbin/cartulary-test-services")),
+    String(environment.TEST_SERVICES_BIN || environment.CARTULARY_TEST_SERVICES_BIN || path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`)),
   );
   const sessionFile = resolveLocalSessionFile(environment);
   const operation = args[0];

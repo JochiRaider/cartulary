@@ -1668,15 +1668,15 @@ build-web:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target build-web
 endif
 
+clean: override export CARTULARY_CLEANUP_DRY_RUN := $(value CARTULARY_CLEANUP_DRY_RUN)
+clean: override export CARTULARY_OUTPUT_MODE := $(value CARTULARY_OUTPUT_MODE)
 clean:
-	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,clean)
-	$(Q)$(RUN_HARNESS_CLEANUP) clean $(CLEAN_PATHS)
+	$(Q)CARTULARY_MAKE_COMMAND_LINE_INPUTS="$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)" bash ./tools/harness/workspace/cleanup.sh clean
 
+distclean: override export CARTULARY_CLEANUP_DRY_RUN := $(value CARTULARY_CLEANUP_DRY_RUN)
+distclean: override export CARTULARY_OUTPUT_MODE := $(value CARTULARY_OUTPUT_MODE)
 distclean:
-	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,distclean)
-	$(Q)$(RUN_HARNESS_CLEANUP) distclean $(DISTCLEAN_PATHS)
+	$(Q)CARTULARY_MAKE_COMMAND_LINE_INPUTS="$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)" bash ./tools/harness/workspace/cleanup.sh distclean
 
 browser-e2e-a11y: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-a11y: export CARTULARY_TEST_TARGET ?= browser-e2e-a11y

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn } from "../workspace/child-process.mjs";
 import { CommandFailure, createCommandFailureContext } from "../runtime/command-failure.mjs";
 
 // Parent-owned cancellation and exact private diagnostic identity survive Make.

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 source "${ROOT_DIR}/tools/harness/readiness/process-lifecycle.sh"
 
@@ -9,7 +12,7 @@ CONFIG_FILE="${CONFIG_FILE:-${ROOT_DIR}/configs/dev/config.toml}"
 GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
-NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
+NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/${CARTULARY_LAYOUT_NODE_RUNTIME}}"
 PNPM_BIN="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
 DEV_ARTIFACT_DIR="${CARTULARY_DEV_STACK_ARTIFACT_DIR:-${ROOT_DIR}/tmp/dev-stack}"
 SERVER_LOG="${CARTULARY_DEV_STACK_SERVER_LOG:-${DEV_ARTIFACT_DIR}/server.log}"

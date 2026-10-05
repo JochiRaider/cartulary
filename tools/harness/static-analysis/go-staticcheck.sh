@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
-STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/tmp/toolbin/staticcheck-v0.8.0-rc.1}"
+STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_TOOLBIN}/staticcheck-v0.8.0-rc.1}"
 STATICCHECK_CHECKS="${STATICCHECK_CHECKS:-}"
 
 # shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh

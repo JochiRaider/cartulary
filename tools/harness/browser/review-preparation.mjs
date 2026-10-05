@@ -1,4 +1,5 @@
-import { execFileSync } from "node:child_process";
+import { workspaceLayout } from "../../workspace_layout.generated.mjs";
+import { execFileSync } from "../workspace/child-process.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -124,12 +125,12 @@ export async function runPreparedReview({ environment = process.env, signal, onR
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID,
-    CARTULARY_SERVER_HARNESS_BIN: path.join(root, "server-harness"),
-    CARTULARY_MIGRATE_BIN: path.join(root, "migrate"),
-    CARTULARY_TEST_SERVICES_BIN: path.join(root, "tmp/toolbin/cartulary-test-services"),
-    NODE_RUNTIME_DIR: path.join(root, "tmp/node-runtime"),
+    CARTULARY_SERVER_HARNESS_BIN: path.join(root, workspaceLayout.binaries, "server-harness"),
+    CARTULARY_MIGRATE_BIN: path.join(root, workspaceLayout.binaries, "migrate"),
+    CARTULARY_TEST_SERVICES_BIN: path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`),
+    NODE_RUNTIME_DIR: path.join(root, workspaceLayout.node_runtime),
     NODE_BIN: process.execPath,
-    PNPM: path.join(root, "tmp/node-runtime/bin/pnpm"),
+    PNPM: path.join(root, `${workspaceLayout.node_runtime}/bin/pnpm`),
     CARTULARY_BROWSER_RUNTIME_PROFILE_ID: profile,
     CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
     CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED: "false",
@@ -301,7 +302,7 @@ export async function recoverReviewPreparation({ runtime, resources, onReleased 
     if (blocked.has(resource.target)) continue;
     try {
       if (!existsSync(resource.target)) throw new Error("missing resource-owner recovery proof");
-      terminateManagedSuiteLease({ root, leaseFile: resource.target, executable: path.join(root, "tmp/toolbin/cartulary-test-services"), environment: base });
+      terminateManagedSuiteLease({ root, leaseFile: resource.target, executable: path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), environment: base });
       onReleased(resource);
     } catch (error) { failures.push(error); }
   }

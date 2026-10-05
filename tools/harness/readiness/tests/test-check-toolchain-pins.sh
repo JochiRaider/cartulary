@@ -76,6 +76,8 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/go.mod" "${dest}/go.mod"
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface.runtime.generated.mk" "${dest}/tools/task_surface.runtime.generated.mk"
+  cp "${ROOT_DIR}/tools/workspace_layout.json" "${dest}/tools/workspace_layout.json"
+  cp "${ROOT_DIR}"/tools/workspace_layout.generated.* "${dest}/tools/"
   cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
   cp "${ROOT_DIR}/tools/scheduler_manifest.json" "${dest}/tools/scheduler_manifest.json"
   cp "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" "${dest}/tools/browser_e2e_batch_manifest.json"

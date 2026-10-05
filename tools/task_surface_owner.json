@@ -3530,8 +3530,8 @@
           "class": "tool_install",
           "owner_section": "Section 5",
           "install_roots": [
-            "tmp/toolbin",
-            "tmp/node-runtime",
+            ".cache/cartulary/toolbin",
+            ".cache/cartulary/node-runtime",
             "node_modules",
             "browser cache",
             "configured external GOMODCACHE exact automatic-toolchain module when absent"
@@ -3599,7 +3599,7 @@
           "owner_section": "Section 5",
           "install_roots": [
             "tmp/toolchain",
-            "tmp/node-runtime",
+            ".cache/cartulary/node-runtime",
             "node_modules",
             "browser cache"
           ],
@@ -3718,7 +3718,7 @@
           "owner_section": "Section 5",
           "install_roots": [
             "tmp/toolchain",
-            "tmp/node-runtime",
+            ".cache/cartulary/node-runtime",
             "node_modules",
             ".pnpm-store",
             "browser cache"
@@ -3844,7 +3844,7 @@
           "owner_section": "Section 5",
           "install_roots": [
             "tmp/toolchain",
-            "tmp/node-runtime",
+            ".cache/cartulary/node-runtime",
             "node_modules",
             "browser cache"
           ],
@@ -5065,7 +5065,8 @@
         "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs",
         "tools/harness/browser/frontend-visual-golden-manifest.mjs",
         "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
-        "tools/protocol-ts/generate-protocol-types.mjs"
+        "tools/protocol-ts/generate-protocol-types.mjs",
+        "tools/harness/workspace/layout.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -5883,7 +5884,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin"
+            "build/bin"
           ]
         },
         {
@@ -6019,7 +6020,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin"
+            "build/bin"
           ]
         },
         {
@@ -13656,7 +13657,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin",
+            "build/bin",
             "apps/web/dist"
           ]
         }
@@ -13762,7 +13763,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin",
+            "build/bin",
             "apps/web/dist"
           ]
         }
@@ -13828,7 +13829,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin",
+            "build/bin",
             "apps/web/dist"
           ]
         }
@@ -13847,7 +13848,7 @@
             ],
             "required": false,
             "type": "path",
-            "default": "$(CURDIR)/server-harness",
+            "default": "$(CURDIR)/build/bin/server-harness",
             "empty_string": "invalid",
             "normalization": "path_token",
             "invalid_reason": "configuration_error",
@@ -13923,7 +13924,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin",
+            "build/bin",
             "apps/web/dist"
           ]
         }
@@ -13987,7 +13988,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin",
+            "build/bin",
             "apps/web/dist"
           ]
         }
@@ -14006,7 +14007,7 @@
             ],
             "required": false,
             "type": "path",
-            "default": "$(CURDIR)/operator",
+            "default": "$(CURDIR)/build/bin/operator",
             "empty_string": "invalid",
             "normalization": "path_token",
             "invalid_reason": "configuration_error",
@@ -14069,7 +14070,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin",
+            "build/bin",
             "apps/web/dist"
           ]
         }
@@ -14133,7 +14134,7 @@
           "owner_section": "Section 8",
           "output_roots": [
             "dist",
-            "bin",
+            "build/bin",
             "apps/web/dist"
           ]
         }
@@ -14164,7 +14165,7 @@
         "raw_stream_policy": "human_visible_actions",
         "summary_schema": null
       },
-      "command_id": "cartulary.harness.command.clean.v1",
+      "command_id": "cartulary.harness.command.clean.v2",
       "semantic_behaviors": [
         {
           "behavior": "destructive_safety",
@@ -14210,7 +14211,11 @@
             "child_forwarding": "runtime_env"
           }
         ]
-      }
+      },
+      "backing_scripts": [
+        "tools/harness/workspace/cleanup.sh",
+        "tools/harness/workspace/admission.sh"
+      ]
     },
     {
       "name": "distclean",
@@ -14232,7 +14237,7 @@
         "raw_stream_policy": "human_visible_actions",
         "summary_schema": null
       },
-      "command_id": "cartulary.harness.command.distclean.v1",
+      "command_id": "cartulary.harness.command.distclean.v2",
       "semantic_behaviors": [
         {
           "behavior": "destructive_safety",
@@ -14278,7 +14283,11 @@
             "child_forwarding": "runtime_env"
           }
         ]
-      }
+      },
+      "backing_scripts": [
+        "tools/harness/workspace/cleanup.sh",
+        "tools/harness/workspace/admission.sh"
+      ]
     },
     {
       "name": "canonical-evidence-drift-suite",

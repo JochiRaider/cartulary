@@ -101,9 +101,7 @@ configs/dev/bootstrap-admin*.json
 /server
 /migrate
 !internal/platform/httpapi/webassets/
-!internal/platform/httpapi/webassets/dist/
-internal/platform/httpapi/webassets/dist/*
-!internal/platform/httpapi/webassets/dist/.keep
+internal/platform/httpapi/webassets/assets/generated/
 /operator
 
 

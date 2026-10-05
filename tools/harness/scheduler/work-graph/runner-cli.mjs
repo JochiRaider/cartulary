@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync } from "../../workspace/child-process.mjs";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -187,11 +188,11 @@ function resolvedRuntimeEnvironment(compiler) {
     root,
     process.env.CARTULARY_TEST_SERVICES_BIN ||
       process.env.TEST_SERVICES_BIN ||
-      "tmp/toolbin/cartulary-test-services",
+      `${workspaceLayout.toolbin}/cartulary-test-services`,
   );
   environment.NODE_RUNTIME_DIR = path.resolve(
     root,
-    process.env.NODE_RUNTIME_DIR || "tmp/node-runtime",
+    process.env.NODE_RUNTIME_DIR || workspaceLayout.node_runtime,
   );
   environment.NODE_BIN = resolveGraphNodeBinary({
     cwd: root,

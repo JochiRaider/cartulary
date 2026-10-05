@@ -25,10 +25,10 @@ func TestReadBrowserRootHTMLValidatesAndInjectsBuildBoundSupport(t *testing.T) {
 		"index.html":    "<html><head></head><body></body></html>",
 	})
 	files := fstest.MapFS{
-		"fallback/index.html":     {Data: []byte("fallback")},
-		distArchivePath:           {Data: archive},
-		clientAssetManifestPath:   {Data: manifest},
-		clientSupportRegistryPath: {Data: support},
+		"assets/fallback/index.html": {Data: []byte("fallback")},
+		distArchivePath:              {Data: archive},
+		clientAssetManifestPath:      {Data: manifest},
+		clientSupportRegistryPath:    {Data: support},
 	}
 
 	root, err := readBrowserRootHTML(files)
@@ -45,10 +45,10 @@ func TestReadBrowserRootHTMLRejectsStaticMappingMismatch(t *testing.T) {
 
 	manifest, support := testClientContracts(t, map[string]string{"index.html": "<html><head></head></html>"})
 	files := fstest.MapFS{
-		"fallback/index.html":     {Data: []byte("fallback")},
-		distArchivePath:           {Data: testArchive(t, map[string]string{"index.html": "<html><head></head></html>", "assets/extra.js": "extra"})},
-		clientAssetManifestPath:   {Data: manifest},
-		clientSupportRegistryPath: {Data: support},
+		"assets/fallback/index.html": {Data: []byte("fallback")},
+		distArchivePath:              {Data: testArchive(t, map[string]string{"index.html": "<html><head></head></html>", "assets/extra.js": "extra"})},
+		clientAssetManifestPath:      {Data: manifest},
+		clientSupportRegistryPath:    {Data: support},
 	}
 	if _, err := readBrowserRootHTML(files); err == nil || !strings.Contains(err.Error(), "omits") {
 		t.Fatalf("expected extra static asset rejection, got %v", err)
@@ -59,8 +59,8 @@ func TestReadIndexHTMLUsesArchiveWhenPresent(t *testing.T) {
 	t.Parallel()
 
 	files := fstest.MapFS{
-		"fallback/index.html": {Data: []byte("fallback")},
-		distArchivePath:       {Data: testArchive(t, map[string]string{"index.html": "dist"})},
+		"assets/fallback/index.html": {Data: []byte("fallback")},
+		distArchivePath:              {Data: testArchive(t, map[string]string{"index.html": "dist"})},
 	}
 
 	got, err := readIndexHTML(files)
@@ -76,7 +76,7 @@ func TestStaticFSUsesArchiveWhenPresent(t *testing.T) {
 	t.Parallel()
 
 	files := fstest.MapFS{
-		"fallback/index.html": {Data: []byte("fallback")},
+		"assets/fallback/index.html": {Data: []byte("fallback")},
 		distArchivePath: {
 			Data: testArchive(t, map[string]string{
 				"index.html":    "dist",
@@ -102,8 +102,8 @@ func TestReadIndexHTMLFallsBackWithoutArchive(t *testing.T) {
 	t.Parallel()
 
 	files := fstest.MapFS{
-		"fallback/index.html": {Data: []byte("fallback")},
-		"dist/index.html":     {Data: []byte("legacy loose dist is ignored")},
+		"assets/fallback/index.html":  {Data: []byte("fallback")},
+		"assets/generated/index.html": {Data: []byte("legacy loose dist is ignored")},
 	}
 
 	got, err := readIndexHTML(files)

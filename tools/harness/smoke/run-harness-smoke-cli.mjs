@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from "node:child_process";
+import { spawn } from "../workspace/child-process.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {

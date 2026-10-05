@@ -1170,6 +1170,13 @@
       "classification": "public_contract",
       "producer": "browser session cleanup evidence",
       "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.workspace_layout.v1",
+      "path": "tools/schemas/cartulary.workspace_layout.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "workspace layout owner",
+      "validation": "json-shape-check"
     }
   ]
 }
