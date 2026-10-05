@@ -20,7 +20,7 @@ type executionObservation struct {
 	done         chan struct{}
 }
 
-func (c *Coordinator) observeDuringPreparation(ctx context.Context, execution jobs.Execution, started time.Time, cancel context.CancelCauseFunc) *executionObservation {
+func (c *verificationService) observeDuringPreparation(ctx context.Context, execution jobs.Execution, started time.Time, cancel context.CancelCauseFunc) *executionObservation {
 	watchCtx, stop := context.WithCancel(ctx)
 	o := &executionObservation{stop: stop, done: make(chan struct{})}
 	go func() {

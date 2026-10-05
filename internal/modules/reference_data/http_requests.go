@@ -1,7 +1,6 @@
 package reference_data
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,91 +14,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
-
-const (
-	ProfileID = "reference_pack"
-
-	PacksRouteContributionID = "reference_pack.packs_route"
-	LifecycleWorkerKind      = "reference_pack.lifecycle_worker_v2"
-
-	ImportJobKind     = "reference_pack.import_v2"
-	ReverifyJobKind   = "reference_pack.reverify_v2"
-	RefreshJobKind    = "reference_pack.refresh_v2"
-	ImportOperation   = "reference_pack.import"
-	ReverifyOperation = "reference_pack.reverify"
-	RefreshOperation  = "reference_pack.refresh"
-
-	PackContractVersionV1 = "cartulary.reference_pack.v1"
-
-	MediaTypeZip         = "application/zip"
-	MediaTypeTar         = "application/x-tar"
-	MediaTypeGzip        = "application/gzip"
-	MediaTypeXGzip       = "application/x-gzip"
-	MediaTypeOctetStream = "application/octet-stream"
-
-	ConditionStaged            = "staged"
-	ConditionVerifiedAvailable = "verified_available"
-	ConditionDisabled          = "disabled"
-	ConditionFailed            = "failed"
-	ConditionMissing           = "missing"
-
-	ResultReferencePackImported   = "reference_pack_imported"
-	ResultReferencePackReverified = "reference_pack_reverified"
-	ResultReferencePacksRefreshed = "reference_packs_refreshed"
-)
-
-var ReferencePackFileContentTypes = []string{
-	MediaTypeZip,
-	MediaTypeTar,
-	MediaTypeGzip,
-	MediaTypeXGzip,
-	MediaTypeOctetStream,
-}
-
-type ImportMetadataRequest struct {
-	ClientTxnID      string
-	ActivationPolicy string
-	Normalized       []byte
-}
-
-type ActionRequest struct {
-	ClientTxnID string
-	Reason      *string
-	Normalized  []byte
-}
-
-type RefreshRequest struct {
-	ClientTxnID      string
-	PackKeysProvided bool
-	PackKeys         []string
-	ResolvedPackKeys []string
-	Normalized       []byte
-}
-
-type apiError struct {
-	apiErr *httpapi.APIError
-}
-
-func (e apiError) Error() string {
-	if e.apiErr == nil {
-		return "reference pack api error"
-	}
-	return e.apiErr.Code
-}
-
-func wrapAPIError(apiErr *httpapi.APIError) error {
-	if apiErr == nil {
-		return nil
-	}
-	return apiError{apiErr: apiErr}
-}
-
-func optionalString(value *string) any {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
 
 func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataRequest, *httpapi.APIError) {
 	if len(envelope.MetadataRaw) != 0 {
@@ -257,36 +171,6 @@ func DecodeRefreshRequest(reader io.Reader) (RefreshRequest, *httpapi.APIError) 
 	return request, nil
 }
 
-func NormalizeRefreshRequest(request RefreshRequest, resolved []string) (RefreshRequest, error) {
-	request.ResolvedPackKeys = append([]string(nil), resolved...)
-	sort.Strings(request.ResolvedPackKeys)
-	normalized, err := json.Marshal(map[string]any{
-		"client_txn_id":      request.ClientTxnID,
-		"resolved_pack_keys": request.ResolvedPackKeys,
-	})
-	if err != nil {
-		return RefreshRequest{}, err
-	}
-	request.Normalized = normalized
-	return request, nil
-}
-
-func ValidateRefreshPackKeys(request RefreshRequest, visible []string) ([]string, *httpapi.APIError) {
-	visibleSet := map[string]struct{}{}
-	for _, packKey := range visible {
-		visibleSet[packKey] = struct{}{}
-	}
-	if !request.PackKeysProvided {
-		return append([]string(nil), visible...), nil
-	}
-	for _, packKey := range request.PackKeys {
-		if _, ok := visibleSet[packKey]; !ok {
-			return nil, invalidReferencePackRequest("pack_keys", "invalid_pack_keys")
-		}
-	}
-	return append([]string(nil), request.PackKeys...), nil
-}
-
 func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	data, err := io.ReadAll(io.LimitReader(reader, MaxAdministrativeRequestBytes+1))
 	if err != nil {
@@ -364,10 +248,6 @@ func referencePackActivationRejected(reasonCode string) *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_activation_rejected", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func referencePackVerificationFailed(reasonCode string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_verification_failed", Details: map[string]any{"reason_code": reasonCode}}
-}
-
 func clientTxnConflict(clientTxnID string) *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
 }
@@ -419,22 +299,17 @@ func coordinatorAPIError(err error) *httpapi.APIError {
 	if errors.As(err, &rejected) {
 		return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_operation_rejected", Details: map[string]any{"reason_code": rejected.Reason}}
 	}
-	var wrapped apiError
-	if errors.As(err, &wrapped) {
-		return wrapped.apiErr
+	var request *RequestRejection
+	if errors.As(err, &request) {
+		return invalidReferencePackRequest(request.Field, request.Reason)
+	}
+	var activation *ActivationRejection
+	if errors.As(err, &activation) {
+		return referencePackActivationRejected(activation.Reason)
 	}
 	return internalAPIError(err)
 }
 
 func bytesEqualJSONNull(value json.RawMessage) bool {
 	return strings.TrimSpace(string(value)) == "null"
-}
-
-func hashBytes(data []byte) []byte {
-	sum := sha256.Sum256(data)
-	return sum[:]
-}
-
-func referencePackRoute(packKey string, packVersion string) string {
-	return "/api/v1/reference-packs/" + packKey + "/" + packVersion
 }

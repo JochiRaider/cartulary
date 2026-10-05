@@ -13,11 +13,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
-type PackSet = packformat.Set
-type PackSetMember = packformat.SetMember
-type PackLicense = packformat.License
-type PackSourceArtifact = packformat.SourceArtifact
-
 type PackProvenance struct {
 	PackSetID             string               `json:"pack_set_id"`
 	PackKey               string               `json:"pack_key"`
@@ -106,7 +101,7 @@ type PackEntryPage struct {
 	Provenance PackProvenance    `json:"provenance"`
 }
 type IndicatorEvaluation struct {
-	packformat.Evaluation
+	Evaluation
 	Provenance PackProvenance `json:"provenance"`
 }
 
@@ -222,7 +217,7 @@ func (c *packConsumer) EvaluateIndicatorValue(ctx context.Context, request Evalu
 	if err != nil {
 		return consumerFailure[IndicatorEvaluation](err)
 	}
-	return consumerSuccess(IndicatorEvaluation{Evaluation: evaluation, Provenance: provenance})
+	return consumerSuccess(IndicatorEvaluation{Evaluation: Evaluation(evaluation), Provenance: provenance})
 }
 func (c *packConsumer) LookupPackEntries(ctx context.Context, request LookupPackEntriesRequest) ConsumerResult[PackEntryPage] {
 	now := c.now().UTC()

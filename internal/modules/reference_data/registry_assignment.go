@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var mandatoryRegistryKeys = []string{"type_registry.evidence", "type_registry.host", "type_registry.indicator"}
@@ -36,7 +36,7 @@ type registryAssignments struct {
 	storage   ArtifactStorage
 	codec     *pagination.Codec
 	now       func() time.Time
-	integrity *Coordinator
+	integrity *integrityService
 }
 
 type registryAssignment struct {
@@ -45,11 +45,11 @@ type registryAssignment struct {
 	recorded map[string]bool
 }
 
-func NewRegistryAssignments(pool *pgxpool.Pool, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (RegistryAssignments, error) {
+func NewRegistryAssignments(pool postgres.DB, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (RegistryAssignments, error) {
 	if storage == nil || codec == nil || now == nil {
 		return nil, errors.New("reference pack: incomplete registry assignment dependencies")
 	}
-	coordinator, err := newIntegrityCoordinator(pool, storage, now, integrity)
+	coordinator, err := newIntegrityService(pool, storage, now, integrity)
 	if err != nil {
 		return nil, err
 	}

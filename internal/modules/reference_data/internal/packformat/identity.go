@@ -36,14 +36,6 @@ func ValidateInventoryHashes(manifest Manifest, inventory Inventory) error {
 	return runCheckRange(context.Background(), "member_hash", "member_hash", nil, inventoryProgram(manifest, inventory, false, "member_hash"), false)
 }
 
-func ValidateTrustBinding(manifest Manifest, manifestSHA, payloadSHA string, proposal TrustProposal) error {
-	return runCheckRange(context.Background(), "target_binding", "target_binding", nil, map[string]CheckFunc{
-		"target_binding": func(_ context.Context, emit FindingSink) error {
-			return TrustBindingFindings(manifest, manifestSHA, payloadSHA, proposal, emit)
-		},
-	}, false)
-}
-
 type SetMember struct {
 	Key            string `json:"pack_key"`
 	Version        string `json:"pack_version"`

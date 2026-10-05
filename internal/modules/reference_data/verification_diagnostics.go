@@ -33,7 +33,7 @@ func emitRetainedFindings(err error, check string, emit packformat.FindingSink) 
 		if issue.CheckID != check {
 			return errors.New("reference pack: inconsistent retained inventory check")
 		}
-		if err := emit(packformat.Finding{Path: issue.Path, EntryID: issue.EntryID, Details: issue.Details}); err != nil {
+		if err := emit(packformat.Finding{Path: issue.Path, EntryID: issue.EntryID, Details: packformat.SafeDetails(issue.Details)}); err != nil {
 			return err
 		}
 	}

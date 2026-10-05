@@ -61,7 +61,7 @@ func PortableCohortFixture(t testing.TB, now time.Time, inputVector, referenceVe
 			refs.Versions = append(refs.Versions, v)
 		}
 	}
-	slices.SortFunc(refs.Sets, func(a, b packformat.Set) int { return strings.Compare(a.ID, b.ID) })
+	slices.SortFunc(refs.Sets, func(a, b reference_data.PackSet) int { return strings.Compare(a.ID, b.ID) })
 	slices.SortFunc(refs.Versions, func(a, b reference_data.IncidentBundleVersionReference) int {
 		if c := strings.Compare(a.Key, b.Key); c != 0 {
 			return c
@@ -90,7 +90,7 @@ func PortableCohortFixture(t testing.TB, now time.Time, inputVector, referenceVe
 		}
 		return strings.Compare(a.Key, b.Key)
 	})
-	encoded, err := packformat.EncodePortableContent(content, refs)
+	encoded, err := packformat.EncodePortableContent(content, fixtureFormatReferences(t, refs))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,10 +251,17 @@ func portableFixture(t testing.TB, now time.Time, inputVector, referenceVector [
 	}
 	for index := range refs.Sets[0].Members {
 		if refs.Sets[0].Members[index].Key == reference.Key {
-			refs.Sets[0].Members[index] = reference.SetMember
+			refs.Sets[0].Members[index] = reference.PackSetMember
 		}
 	}
-	refs.Sets[0], err = packformat.BuildSet(refs.Sets[0].Members)
+	set, err := packformat.BuildSet(fixtureFormatMembers(refs.Sets[0].Members))
+	if err == nil {
+		encodedSet, marshalErr := json.Marshal(set)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		err = json.Unmarshal(encodedSet, &refs.Sets[0])
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +272,7 @@ func portableFixture(t testing.TB, now time.Time, inputVector, referenceVector [
 	content := packformat.EmptyPortableContent()
 	content.Containers = []packformat.PortableContainer{{ManifestSHA256: reference.ManifestSHA256, ContainerSHA256: digest(out.Bytes()), SizeBytes: int64(out.Len())}}
 	content.RequiredMembers = []packformat.PortableRequiredMember{{SetID: refs.Sets[0].ID, Key: reference.Key}}
-	encoded, err := packformat.EncodePortableContent(content, refs)
+	encoded, err := packformat.EncodePortableContent(content, fixtureFormatReferences(t, refs))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,4 +282,26 @@ func portableFixture(t testing.TB, now time.Time, inputVector, referenceVector [
 	}
 	bootstrap := canonical(map[string]any{"schema_id": "cartulary.reference_pack_trust_bootstrap.v1", "repositories": []any{map[string]any{"repository_id": "fixture.repo", "trusted_root": json.RawMessage(root), "trusted_root_sha256": digest(root)}}})
 	return PortablePackFixture{Bootstrap: bootstrap, Container: out.Bytes(), References: references, Content: encoded, Path: path, Key: reference.Key, Version: reference.Version}
+}
+
+// Fixture producers use private format algorithms while exposing owner DTOs.
+func fixtureFormatReferences(t testing.TB, refs reference_data.IncidentBundleReferences) packformat.PortableReferences {
+	t.Helper()
+	data, err := reference_data.EncodeIncidentBundleReferences(refs.Sets, refs.Versions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := packformat.DecodePortableReferences(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func fixtureFormatMembers(members []reference_data.PackSetMember) []packformat.SetMember {
+	result := make([]packformat.SetMember, len(members))
+	for i, member := range members {
+		result[i] = packformat.SetMember(member)
+	}
+	return result
 }

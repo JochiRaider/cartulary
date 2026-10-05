@@ -1,12 +1,12 @@
 # Reference Pack cutover owner and artifact inventory
 
-This inventories the pre-production amendments and the four-defect remediation based on `54f42195572c04b2bc9bb9003f2338eef0ba37db`. The earlier cutover was recorded on a dirty tree based on `78a4effc23aac4b46ca414e11b91e17892f790c7`; its runs are historical evidence only. It is not an adoption record. The Reference Pack owner is draft version **0.2.0**, profile major **2**. Companion edits in this working tree require coordinated owner review; an existing document's adopted header does not establish adoption of these edits. Exact companion file revisions are recorded in Reference Pack Table 4-C. These references identify this reviewed pre-production amendment set; they do not assert separate approving authorities or production adoption. The project owner explicitly excluded independent recreation and interchangeability reports from pre-production acceptance on 2026-10-04. Tests and release tooling must not consume this document or derive facts from Markdown.
+This inventories the S01–S08 pre-production remediation on baseline `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`. The [controlling tracker](reference-pack-remediation.md) owns execution status and final S10 acceptance. The Reference Pack owner remains **draft 0.2.0**, profile major **2**. Existing adopted headers do not adopt the coordinated candidate amendments. Human content references are separate from executable contracts; no test, generator, runtime or release evidence may read this document. Formal adoption, validated cryptographic build, target security approval and deployment rehearsal remain production gates.
 
 ## Owner revisions and projections
 
-The current Reference Pack 0.2.0 source has editorial SHA-256 `d146b189dbd0eb6a258204a1a26d46167c626d2d6ebddcb6a47614a17fd0bd3a`. Its eleven exact companion content revisions are in Table 4-C. These are editorial revision references; runtime, generation and test evidence remain derived exclusively from authored machine contracts.
+The S08 Reference Pack 0.2.0 source has editorial SHA-256 `68e16e49d820662796af41054bf2cab221b024a4de9c0e753076f491941874d8`. Its eleven exact companion content revisions are in Table 4-C. These are editorial revision references; runtime, generation and test evidence remain derived exclusively from authored machine contracts.
 
-The earlier cutover passed the complete release gate, 1259/1259 units, at `.cartulary/test-results/20261004T063630Z-p80139`. The run manifest records source digest `sha256:a0078d33960af5195218b0d56d7e856c5fe739e7034126596b2e24330efc2785`. Equivalence of that dirty source to `54f4219` was not established. The scoped follow-up in the [implementation ledger](reference-pack-remediation.md) records fresh validation and a disposition for all sixteen gates; the statuses below continue to distinguish content revision identity from formal production adoption.
+The historical cutover record reports a complete release gate, 1259/1259 units, at `.cartulary/test-results/20261004T063630Z-p80139`. The run manifest records source digest `sha256:a0078d33960af5195218b0d56d7e856c5fe739e7034126596b2e24330efc2785`. Equivalence of that dirty source to `54f4219` was not established. S06 freshly passed all 23 Reference Data execution units at `20261005T024203Z-p93991`; S10 qualified the final candidate with release-check 1261/1261 at `20261005T030730Z-p45700` and test-fast 739/739 at `20261005T030116Z-p50484`, both on source `sha256:b5d0f1c25905104352a03faae5c571510902d31ac89b4b16d1632dabe671d6ae`. The [implementation ledger](reference-pack-remediation.md) records superseding results; the statuses below continue to distinguish content revision identity from formal production adoption.
 
 | Owner / gate | Candidate amendment | Authored machine projection | Adoption disposition |
 | --- | --- | --- | --- |
@@ -25,6 +25,31 @@ The earlier cutover passed the complete release gate, 1259/1259 units, at `.cart
 | Domain / RP-GATE-009 | Candidate, envelope, logical version, set, pin and immutable provenance vocabulary | No runtime projection is derived from vocabulary prose | Vocabulary reviewed for consistent candidate/envelope/set/pin distinctions; exact revision in Table 4-C. |
 | Security / RP-GATE-010 | Ed25519-only offline profile under TUF 1.0.35 | TUF role/signature schemas, check registry and independent signed vectors | Implementing-agent review exists; target production compliance approval is not asserted. Pre-production verification does not claim FIPS validation. |
 | Licensing / RP-GATE-011 | Original Base assets and synthetic optional fixtures only | `contracts/reference-packs/builtins/release.v1.json`; `builtins/source-profile.v1.json`; synthetic profile fixtures | Distribution inventory below; no external dataset redistribution approval is inferred. |
+
+## S08 gate dispositions and responsible authorities
+
+“Reviewed” below means candidate text, typed projection and the behavioral evidence index agree within the stated scope. It is not an approving authority signature. S10 supplies passing integrated execution acceptance; it cannot close production adoption.
+
+| Gate | Candidate disposition | Responsible authority and remaining production action |
+| --- | --- | --- |
+| RP-GATE-001 | Reviewed bounded Core recognition; no executable document provenance. | Core 00 owner coordinates formal recognition/adoption. |
+| RP-GATE-002 | Reviewed Base, import/renewal, disablement, fallback and immutable sets. | Core 01 lifecycle owner adopts coordinated semantics. |
+| RP-GATE-003 | Reviewed routes, complete signer sets, closed errors and removal. Stale generic/error and acceptance copies corrected in S08. | Core 01 transport owner approves the existing major-2 contract. |
+| RP-GATE-004 | Reviewed immutable envelopes, attempts, sets, pins and no mutable overrides. | Core 02 persistence owner adopts minima; applied migrations remain unchanged. |
+| RP-GATE-005 | Reviewed roots, limits, trusted-clock assertion, no-egress and historical restore. | Core 04 owner adopts policy/configuration; deployment protects storage. |
+| RP-GATE-006 | Reviewed exact snapshot/set binding and distinct release/preview identity, bytes and admission times. | Reporting and Composition owners adopt proposed 1.4.0/1.3.0 together. |
+| RP-GATE-007 | Reviewed eleven operations, closed result classes, span/histogram shape and privacy. | OpenTelemetry owner adopts companion registration. |
+| RP-GATE-008 | Reviewed machine-only generation, 27 fixture families, routing and executable evidence separation. | Harness owner adopts companion obligations; S10 records the fresh release. |
+| RP-GATE-009 | Reviewed every Reference Data vocabulary occurrence, mandatory Base, optional administration and Reporting-owned templates. | Domain owner accepts editorial vocabulary navigation. |
+| RP-GATE-010 | Implementer review refreshed; ordinary strict Ed25519 supported, FIPS unsupported. | Target security authority selects permitted posture. S07 remains DEFERRED. |
+| RP-GATE-011 | Current distribution is three original Apache-2.0 Base packs; optional profile data is synthetic test material. | Distribution/licensing authority approves any future external corpus and target packaging. |
+| RP-GATE-012 | All 264 requirement bodies and 54 criteria reviewed, including sub-obligations and unreachable-limit arguments; machine counts alone are insufficient. | Reference Pack/corpus owner approves candidate fidelity; S10 integrated evidence passed; production adoption remains distinct. |
+| RP-GATE-013 | Reviewed profile major 2, configuration namespace, empty capability arrays and common finality. | Extensions owner adopts coordinated amendment over its retained authority. |
+| RP-GATE-014 | Reviewed format 5 exact catalogs, independent destination trust, optional/required outcomes and pins. | Core 01 portability owner adopts format and degradation rules. |
+| RP-GATE-015 | Reviewed retained history, successful-time verification, independent roots and restore readiness. | Core 01/Core 04 recovery owners approve catalog and deployment rehearsal prerequisites. |
+| RP-GATE-016 | Reviewed typed local operator actor, shared Jobs admission/worker, no listener or second executor. | Core Jobs/Extensions owners approve attribution and operator contract. |
+
+S08 clarifies producer-only cross-version framework/enrichment continuity: runtime never certifies source subject meaning or infers a global subject registry. Type-registry replacement remains enforced. Exact version-bound objects, generic unknown framework types and pinned history preserve safe consumer behavior. No executable identifier, canonical bytes, database schema or public response changes follow from this clarification.
 
 ## Version changes
 
@@ -59,3 +84,11 @@ Appended migrations 46–63 add immutable Reference Data state, snapshot binding
 Follow the [development cutover procedure](../guides/reference-pack-development-cutover.md). Preflight inventories incompatible retained packs, Jobs, incident identities and historical artifacts before mutation and reports category counts. There is no trust reconstruction, snapshot backfill or identity rewrite. The procedure was rehearsed twice only in the isolated tmpfs-backed database recorded in the [implementation ledger](reference-pack-remediation.md); migration head 63 and cleanup were verified. Preserve incompatible backups with their matching historical application. Resetting does not convert them.
 
 Retired behavior includes the checksum-labelled signature verifier, legacy pack reader, mutable version upserts, empty built-in generation, independent indicator canonicalizers, unversioned portability references, retired lifecycle codecs and render-time reconstruction of snapshot/release identity. None is promised compatibility by this prerelease cutover.
+
+## Resuming the deferred production slices
+
+S07 requires a named target deployment and a recorded security-authority decision about validated cryptography. Keep the current unsupported-FIPS posture until that decision exists. If it requires a different posture, coordinate the Reference Pack and Core 04 amendment, select the exact verification-method identity and pinned module/build, test the actual verifier and whole process, and enforce the selected posture at startup. Record the target authority's disposition and its environment limits. Ordinary Ed25519 tests and this implementer review cannot substitute for that decision.
+
+S09 requires the coordinated owner adoptions, deployment security and distribution approvals, and an identified disposable target with explicit authorization for destructive initialization. Preserve any incompatible retained deployment with its matching application and backup; preflight must reject it without mutation. Record immutable image/build/configuration identities, admitted root capabilities and explicit operator trust/clock inputs before rehearsal. Exercise fresh initialization, explicit import and activation, restart, root rotation, exact snapshot/report binding, destination-trusted portability, historical restore and collection. Confirm source roots remain untouched and account for all target cleanup. The deployment owner and recovery/security authorities accept that environment-specific evidence; a passing local release run does not prove it.
+
+Resume each slice by changing its own controlling-tracker row from DEFERRED to IN_PROGRESS only after those prerequisites are supplied. Record concrete commands, identities, outcomes, unresolved findings and approval references. Do not infer historical trust, rewrite canonical identities, add a converter or introduce dual writers as a shortcut to either gate.

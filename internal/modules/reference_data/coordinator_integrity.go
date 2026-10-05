@@ -21,7 +21,7 @@ type retainedContentQuery interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func (c *Coordinator) checkRetainedMembers(ctx context.Context, m frozenMember) error {
+func (c *referenceDependencies) checkRetainedMembers(ctx context.Context, m frozenMember) error {
 	return checkRetainedVersion(ctx, c.pool, c.storage, m.Key, m.Version)
 }
 func checkRetainedVersion(ctx context.Context, db retainedContentQuery, storage VerificationStorage, key, version string) error {
@@ -163,7 +163,7 @@ func inspectRetainedVersion(ctx context.Context, db retainedContentQuery, storag
 		if err != nil {
 			return err
 		}
-		return &ContentRejection{Code: summary.Issues[0].Code, CheckID: id, CandidateKey: key, CandidateVersion: version, Summary: summary}
+		return &ContentRejection{Code: summary.Issues[0].Code, CheckID: id, CandidateKey: key, CandidateVersion: version, Summary: summaryFromFormat(summary)}
 	}
 	return nil
 }

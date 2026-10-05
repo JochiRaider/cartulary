@@ -1,10 +1,7 @@
 package reference_data
 
 import (
-	"archive/zip"
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -14,6 +11,22 @@ import (
 )
 
 func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
+	t.Run("semantic rejection projection", func(t *testing.T) {
+		for _, tc := range []struct {
+			err    error
+			code   string
+			status int
+		}{
+			{&RequestRejection{Field: "reason", Reason: "missing_required_field"}, "invalid_reference_pack_request", http.StatusBadRequest},
+			{&ActivationRejection{Reason: "already_active"}, "reference_pack_activation_rejected", http.StatusConflict},
+			{&OperationRejection{Reason: "stale_admission_state"}, "reference_pack_operation_rejected", http.StatusConflict},
+		} {
+			got := coordinatorAPIError(tc.err)
+			if got.Code != tc.code || got.Status != tc.status {
+				t.Fatalf("semantic projection: %#v", got)
+			}
+		}
+	})
 	t.Run("staging rejection classification", testStagingRejectionClassification)
 	envelope := httpapi.UploadEnvelope{
 		Metadata: map[string]json.RawMessage{
@@ -114,9 +127,6 @@ func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
 		t.Fatalf("empty pack_keys rejection = %#v", apiErr)
 	}
 
-	if err := referencePackVerificationFailed("checksum_mismatch"); err.Status != http.StatusConflict || err.Code != "reference_pack_verification_failed" {
-		t.Fatalf("verification error shape = %#v", err)
-	}
 }
 
 func TestSupportReferencePackListQueryUsesSharedListQueryScope(t *testing.T) {
@@ -184,83 +194,5 @@ func TestSupportReferencePackListFilterAppliesSearchAndExactFilters(t *testing.T
 	filtered := filterAdministrativeVersions(records, scope.Scope)
 	if len(filtered) != 1 || filtered[0].PackKey != "type_registry.host" {
 		t.Fatalf("unexpected filtered records: %#v", filtered)
-	}
-}
-
-func referencePackBundle(t testing.TB, options bundleOptions) []byte {
-	t.Helper()
-	if options.ContractVersion == "" {
-		options.ContractVersion = PackContractVersionV1
-	}
-	if options.PayloadPath == "" {
-		options.PayloadPath = "payload/data.json"
-	}
-	payload := []byte(`{"items":[{"key":"host","label":"Host"}]}`)
-	payloadSHABytes := sha256.Sum256(payload)
-	payloadSHA := hex.EncodeToString(payloadSHABytes[:])
-	if options.BadPayloadSHA {
-		payloadSHA = "0000000000000000000000000000000000000000000000000000000000000000"
-	}
-	canonicalPayloadSHA := payloadSHA
-	manifest := map[string]any{
-		"pack_key":              options.PackKey,
-		"pack_kind":             options.PackKind,
-		"pack_version":          options.PackVersion,
-		"pack_contract_version": options.ContractVersion,
-		"source_identifier":     "https://offline.invalid/reference-packs/" + options.PackKey,
-		"verification_method":   "manifest_sha256_v1",
-		"payloads": []map[string]any{
-			{"path": options.PayloadPath, "sha256": payloadSHA},
-		},
-	}
-	if options.Signed {
-		signatureSHA := canonicalPayloadSHA
-		if options.BadSignature {
-			signatureSHA = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-		}
-		manifest["verification_method"] = "signed_manifest_v1"
-		manifest["signer_key_id"] = "fixture-key"
-		manifest["signature"] = map[string]any{"payload_sha256": signatureSHA}
-	}
-	manifestBytes, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
-	}
-	var buffer bytes.Buffer
-	writer := zip.NewWriter(&buffer)
-	addZipFile(t, writer, "manifest.json", manifestBytes)
-	if !options.OmitPayload {
-		addZipFile(t, writer, options.PayloadPath, payload)
-	}
-	if options.ExtraPath != "" {
-		addZipFile(t, writer, options.ExtraPath, []byte("{}"))
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close zip: %v", err)
-	}
-	return buffer.Bytes()
-}
-
-type bundleOptions struct {
-	PackKey         string
-	PackKind        string
-	PackVersion     string
-	ContractVersion string
-	PayloadPath     string
-	BadPayloadSHA   bool
-	Signed          bool
-	BadSignature    bool
-	ExtraPath       string
-	OmitPayload     bool
-}
-
-func addZipFile(t testing.TB, writer *zip.Writer, name string, data []byte) {
-	t.Helper()
-	file, err := writer.Create(name)
-	if err != nil {
-		t.Fatalf("create zip member %s: %v", name, err)
-	}
-	if _, err := file.Write(data); err != nil {
-		t.Fatalf("write zip member %s: %v", name, err)
 	}
 }

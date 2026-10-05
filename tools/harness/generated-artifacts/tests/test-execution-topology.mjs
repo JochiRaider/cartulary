@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
+import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 import { WorkGraphCompiler } from "../../scheduler/work-graph/index.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
@@ -12,6 +13,12 @@ const topology = JSON.parse(readFileSync(path.join(root, "tools/execution_topolo
 const scheduler = JSON.parse(readFileSync(path.join(root, "tools/scheduler_manifest.json"), "utf8"));
 const browser = JSON.parse(readFileSync(path.join(root, "tools/browser_e2e_batch_manifest.json"), "utf8"));
 validateSchemaSync(topology.schema_id, topology);
+// Owner-selected execution has no exported Make binary overrides. Its registry
+// must resolve the same output directory used by the public build producers.
+for (const binary of topology.runtime_binaries) {
+  assert.equal(binary.default_output_path, path.posix.join(workspaceLayout.binaries, binary.id),
+    `${binary.id} scheduler fallback must follow the workspace binary layout`);
+}
 validateSchemaSync(scheduler.schema_id, scheduler);
 validateSchemaSync(browser.schema_id, browser);
 const quietGroups = browser.stages.flatMap((stage) => stage.groups)

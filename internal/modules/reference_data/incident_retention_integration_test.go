@@ -94,7 +94,7 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 	}
 	contentManifest := packformat.EmptyPortableContent()
 	contentManifest.RequiredMembers = []packformat.PortableRequiredMember{{SetID: catalogRefs.Sets[0].ID, Key: catalogRefs.Sets[0].Members[0].Key}}
-	contentBytes, err := packformat.EncodePortableContent(contentManifest, catalogRefs)
+	contentBytes, err := packformat.EncodePortableContent(contentManifest, catalogRefs.format())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 	}
 	refs.Versions[0].Version = "unavailable.source.version"
 	refs.Sets[0].Members[0].Version = refs.Versions[0].Version
-	refs.Sets[0], err = packformat.BuildSet(refs.Sets[0].Members)
+	refs.Sets[0], err = buildPackSet(refs.Sets[0].Members)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 	partialIncident := createIncident()
 	requiredPartial := packformat.EmptyPortableContent()
 	requiredPartial.RequiredMembers = []packformat.PortableRequiredMember{{SetID: refs.Sets[0].ID, Key: refs.Versions[0].Key}}
-	requiredBytes, err := packformat.EncodePortableContent(requiredPartial, refs)
+	requiredBytes, err := packformat.EncodePortableContent(requiredPartial, refs.format())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 	}
 	refs.Versions[0].PayloadSHA256 = strings.Repeat("f", 64)
 	refs.Sets[0].Members[0].PayloadSHA256 = refs.Versions[0].PayloadSHA256
-	refs.Sets[0], err = packformat.BuildSet(refs.Sets[0].Members)
+	refs.Sets[0], err = buildPackSet(refs.Sets[0].Members)
 	if err != nil {
 		t.Fatal(err)
 	}

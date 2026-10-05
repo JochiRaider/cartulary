@@ -52,10 +52,10 @@ func TestCanonicalCoordinatorLeasedJobsAndTerminalReplay_Integration(t *testing.
 	catalog, transactions, definitions := f.catalog, f.transactions, f.definitions
 	vector, container, clock := f.vector, f.container, f.now
 	t.Run("retained terminal Job startup repair", func(t *testing.T) {
-		testRetainedTerminalJobRepair(t, c, catalog, transactions, definitions, actor, container)
+		testRetainedTerminalJobRepair(t, c, pool, catalog, transactions, definitions, actor, container)
 	})
 	t.Run("initial Job recovery", func(t *testing.T) {
-		testJobTerminalOwnerRecovery(t, c, catalog, transactions, definitions, actor, container, false)
+		testJobTerminalOwnerRecovery(t, c, pool, catalog, transactions, definitions, actor, container, false)
 	})
 	initial, err := c.Import(ctx, actor, "initial-canceled", bytes.NewReader(container))
 	if err != nil {
@@ -114,7 +114,7 @@ func TestCanonicalCoordinatorLeasedJobsAndTerminalReplay_Integration(t *testing.
 	}
 	params := ActionParams{ActorUserID: actor, PackKey: "type_registry.host", PackVersion: "signed-fixture.1", Request: action, Now: *clock}
 	disabled, err := c.Disable(ctx, params)
-	if err != nil || disabled.Payload["pack_version"].(map[string]any)["pack_version_state"] != "disabled" || disabled.Payload["pack_version"].(map[string]any)["health"] != "verified_available" {
+	if err != nil || disabled.Version.Condition != "disabled" || disabled.Version.Health != "verified_available" {
 		t.Fatal("disable did not preserve verification health", disabled, err)
 	}
 	again, err := c.Disable(ctx, params)
@@ -122,7 +122,7 @@ func TestCanonicalCoordinatorLeasedJobsAndTerminalReplay_Integration(t *testing.
 		t.Fatal("disable replay re-executed state conflict", again, err)
 	}
 	t.Run("established Job recovery", func(t *testing.T) {
-		testJobTerminalOwnerRecovery(t, c, catalog, transactions, definitions, actor, container, true)
+		testJobTerminalOwnerRecovery(t, c, pool, catalog, transactions, definitions, actor, container, true)
 	})
 	t.Run("retained attempt integrity", func(t *testing.T) { testHistoricalAttemptCorruption(t, c) })
 	t.Run("local operator import shares verification finalization and preserves disablement", func(t *testing.T) {
@@ -208,7 +208,11 @@ AND convert_from(e.canonical_attestation,'UTF8')::jsonb->>'operator_operation_id
 		if err := pool.QueryRow(ctx, `SELECT pack_set_id=$1 AND revision=$2 FROM reference_pack_current_set WHERE singleton`, current.ID, revision).Scan(&unchanged); err != nil || !unchanged {
 			t.Fatal("retaining historical set changed activation", err)
 		}
-		retained := &retention{repository: &repository, integrity: c}
+		integrity, err := newIntegrityService(c.pool, c.storage, c.now, IntegrityOptions{Finalizer: c.actionFinalizer, Limits: c.limits})
+		if err != nil {
+			t.Fatal(err)
+		}
+		retained := &retention{repository: &repository, integrity: integrity}
 		tx, err = pool.Begin(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -347,7 +351,7 @@ AND convert_from(e.canonical_attestation,'UTF8')::jsonb->>'operator_operation_id
 		t.Fatal("refresh cleared administrative disablement", version, err)
 	}
 	removed, err := c.Remove(ctx, params)
-	if err != nil || removed.Payload["pack_version"].(map[string]any)["missing_reason"] != "administrative_removal" || removed.Payload["pack_version"].(map[string]any)["manifest_sha256"] == nil {
+	if err != nil || (removed.Version.MissingReason == nil || *removed.Version.MissingReason != "administrative_removal") || removed.Version.ManifestSHA256 == nil {
 		t.Fatal("removal lost history or failed", removed, err)
 	}
 	if _, err := c.VerifyRetained(ctx, VerificationRequest{Kind: "reverify", ActorUserID: actor, ClientTxnID: "removed-reverify", PackKeys: []string{"type_registry.host"}, KeysProvided: true, PackVersion: "signed-fixture.1"}); err == nil {
@@ -495,7 +499,7 @@ func newCanonicalCoordinatorFixture(t *testing.T, name string) canonicalCoordina
 		t.Fatal(err)
 	}
 	now := vector.At
-	c, err := NewCoordinator(CoordinatorOptions{Postgres: pool, Storage: storage, Configuration: Configuration{ClockTrusted: true}, Limits: DefaultLimits(), JobAdmission: transactions, JobExecutionGuard: transactions, JobOperations: manager, JobFinalizer: coordinatorTestFinalizer{owner: finalizer}, Now: func() time.Time { return now }})
+	c, err := NewCoordinator(CoordinatorOptions{RegistryUsage: lifecycleFixtureUsage{}, Postgres: pool, Storage: storage, Configuration: Configuration{ClockTrusted: true}, Limits: DefaultLimits(), JobAdmission: transactions, JobExecutionGuard: transactions, JobOperations: manager, JobFinalizer: coordinatorTestFinalizer{owner: finalizer}, Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}

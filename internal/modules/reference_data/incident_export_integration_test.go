@@ -49,7 +49,7 @@ func testPortableContainerExport(t *testing.T, ctx context.Context, pool *pgxpoo
 	if err != nil {
 		t.Fatal(err)
 	}
-	content, err := packformat.DecodePortableContent(manifest, decoded)
+	content, err := packformat.DecodePortableContent(manifest, decoded.format())
 	if err != nil || len(content.Containers) != 1 || len(writes) != 1 {
 		t.Fatal("exact container inventory", err)
 	}

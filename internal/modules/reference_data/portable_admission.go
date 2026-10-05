@@ -108,7 +108,7 @@ func (r *incidentReferences) admitPortablePreparation(ctx context.Context, reque
 	if len(inputs) == 0 || request.Execution.JobID() != p.operation {
 		return nil, errors.New("reference pack: portable verification requires its parent execution")
 	}
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func (r *incidentReferences) loadPortablePreparation(ctx context.Context, reques
 	if err != nil {
 		return nil, true, err
 	}
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, true, err
 	}

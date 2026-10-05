@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (c *Coordinator) GetValidationSummary(ctx context.Context, id string) (*packformat.ValidationSummary, error) {
+func (c *Coordinator) GetValidationSummary(ctx context.Context, id string) (*ValidationSummary, error) {
 	if len(id) != 69 || !strings.HasPrefix(id, "rpvs_") {
 		return nil, ErrNotFound
 	}
@@ -32,7 +32,8 @@ AND a.outcome='content_rejected' ORDER BY m.attempt_id,m.ordinal LIMIT 1`, id).S
 	if "rpvs_"+packformat.Digest(data) != id {
 		return nil, errHistoricalIntegrity
 	}
-	return packformat.DecodeValidationSummary(data)
+	summary, err := packformat.DecodeValidationSummary(data)
+	return summaryFromFormat(summary), err
 }
 
 func validateHistoricalDiagnostics(ctx context.Context, db interface {

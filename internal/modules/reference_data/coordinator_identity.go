@@ -13,7 +13,7 @@ import (
 // verify the exact established logical content; the retained container is not
 // permission to repair a missing or altered published member.
 type operationVerificationIdentity struct {
-	*Coordinator
+	*referenceDependencies
 	retained    *frozenMember
 	operationID uuid.UUID
 }
@@ -42,7 +42,7 @@ func (i operationVerificationIdentity) checkRetainedIntegrity(ctx context.Contex
 // Verification classifies immutable-identity failures before proposing any
 // publication. Captured key revisions protect this read until finalization;
 // publication repeats its constraints and rejects stale admission first.
-func (c *Coordinator) checkReleaseSequence(ctx context.Context, m packformat.Manifest, manifestSHA, payloadSHA string) error {
+func (c *referenceDependencies) checkReleaseSequence(ctx context.Context, m packformat.Manifest, manifestSHA, payloadSHA string) error {
 	var highest int64
 	var exactSequence, conflictingSequence bool
 	if err := c.pool.QueryRow(ctx, `SELECT coalesce(max(pack_release_sequence),0),coalesce(bool_or(pack_release_sequence=$3 AND manifest_sha256=$4 AND payload_sha256=$5),false),coalesce(bool_or(pack_release_sequence=$3 AND (manifest_sha256<>$4 OR payload_sha256<>$5)),false) FROM reference_pack_versions WHERE repository_id IS NOT DISTINCT FROM $1 AND pack_key=$2`, m.Repository, m.Key, m.Sequence, manifestSHA, payloadSHA).Scan(&highest, &exactSequence, &conflictingSequence); err != nil {
@@ -57,7 +57,7 @@ func (c *Coordinator) checkReleaseSequence(ctx context.Context, m packformat.Man
 	return nil
 }
 
-func (c *Coordinator) checkLogicalVersion(ctx context.Context, m packformat.Manifest, manifestSHA, payloadSHA string) error {
+func (c *referenceDependencies) checkLogicalVersion(ctx context.Context, m packformat.Manifest, manifestSHA, payloadSHA string) error {
 	var distribution string
 	err := c.pool.QueryRow(ctx, `SELECT distribution_kind FROM reference_pack_candidates WHERE pack_key=$1 AND pack_version=$2`, m.Key, m.Version).Scan(&distribution)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {

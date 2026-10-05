@@ -14,9 +14,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packstate"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type builtinRelease struct {
@@ -142,7 +142,7 @@ func loadBuiltinRelease(ctx context.Context) (builtinRelease, []preparedVersion,
 		if len(rows) == 0 {
 			return release, nil, errors.New("reference pack: empty Base registry")
 		}
-		prepared = append(prepared, preparedVersion{Content: &VerifiedContent{Manifest: manifest, ManifestBytes: manifestBytes, ManifestSHA256: binding.ManifestSHA256, PayloadSHA256: binding.PayloadSHA256, Inventory: inventory}, Rows: rows})
+		prepared = append(prepared, preparedVersion{Content: &verifiedContent{Manifest: manifest, ManifestBytes: manifestBytes, ManifestSHA256: binding.ManifestSHA256, PayloadSHA256: binding.PayloadSHA256, Inventory: inventory}, Rows: rows})
 	}
 	return release, prepared, nil
 }
@@ -156,7 +156,7 @@ type BaseReleaseOptions struct {
 	Limits         Limits
 }
 
-func ReconcileBaseRelease(ctx context.Context, pool *pgxpool.Pool, storage ArtifactStorage, options BaseReleaseOptions, at time.Time) (resultErr error) {
+func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage ArtifactStorage, options BaseReleaseOptions, at time.Time) (resultErr error) {
 	ctx, end := observeReferenceOperation(ctx, options.Observer, "reference_pack.reconcile")
 	defer func() { end(referenceOutcome(resultErr)) }()
 	if pool == nil || storage == nil || at.IsZero() {
@@ -247,7 +247,7 @@ func ReconcileBaseRelease(ctx context.Context, pool *pgxpool.Pool, storage Artif
 	}
 	// Objects survive an uncertain commit. Unreferenced objects are reclaimed
 	// only by owner collection after checking all retained reference families.
-	tx, err := pool.Begin(ctx)
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ func ReconcileBaseRelease(ctx context.Context, pool *pgxpool.Pool, storage Artif
 			}
 		}
 		m := p.Content.Manifest
-		base = append(base, packstate.Version{Member: memberFor(p.Content), Manifest: m, Health: packstate.Available, Builtin: true, Envelope: &packstate.Envelope{ID: *previous, VerifiedAt: at}})
+		base = append(base, packstate.Version{Member: packformat.SetMember(memberFor(p.Content)), Manifest: m, Health: packstate.Available, Builtin: true, Envelope: &packstate.Envelope{ID: *previous, VerifiedAt: at}})
 		binding, err := canonicaljson.Marshal(release.Packs[i].Binding)
 		if err != nil {
 			return err
@@ -346,7 +346,7 @@ func ReconcileBaseRelease(ctx context.Context, pool *pgxpool.Pool, storage Artif
 	}
 	members := make([]PackSetMember, 0, len(effective))
 	for _, version := range effective {
-		members = append(members, version.Member)
+		members = append(members, PackSetMember(version.Member))
 	}
 	set, err := publishSetTx(ctx, tx, members, operationID)
 	if err != nil {
@@ -398,7 +398,7 @@ func ReconcileBaseRelease(ctx context.Context, pool *pgxpool.Pool, storage Artif
 	return nil
 }
 
-func memberFor(content *VerifiedContent) PackSetMember {
+func memberFor(content *verifiedContent) PackSetMember {
 	m := content.Manifest
 	return PackSetMember{Key: m.Key, Version: m.Version, ManifestSHA256: content.ManifestSHA256, PayloadSHA256: content.PayloadSHA256, Contract: m.Contract, ProfileID: m.ProfileID, ProfileVersion: m.ProfileVersion}
 }

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // IntegrityOptions makes consumer-detected loss an application operation even
@@ -18,17 +18,22 @@ type IntegrityOptions struct {
 	Limits    Limits
 }
 
-func newIntegrityCoordinator(pool *pgxpool.Pool, storage ArtifactStorage, now func() time.Time, options IntegrityOptions) (*Coordinator, error) {
+type integrityService struct {
+	*referenceDependencies
+	actionFinalizer ActionFinalizer
+}
+
+func newIntegrityService(pool postgres.DB, storage ArtifactStorage, now func() time.Time, options IntegrityOptions) (*integrityService, error) {
 	if pool == nil || storage == nil || now == nil || options.Finalizer == nil || options.Limits.ReferencePacks.MaxVerificationSeconds < 60 || options.Limits.ReferencePacks.MaxVerificationSeconds > 86400 {
 		return nil, errors.New("reference pack: incomplete integrity dependencies")
 	}
-	return &Coordinator{observer: options.Observer, pool: pool, storage: storage, now: now, limits: options.Limits, actionFinalizer: options.Finalizer}, nil
+	return &integrityService{referenceDependencies: &referenceDependencies{observer: options.Observer, pool: pool, storage: storage, now: now, limits: options.Limits}, actionFinalizer: options.Finalizer}, nil
 }
 
 // InvalidateUnavailablePack rechecks physical content outside publication
 // locks. A stale observation cannot condemn a version restored concurrently.
 // The first committed detection owns the attestation; later reads are no-ops.
-func (c *Coordinator) InvalidateUnavailablePack(ctx context.Context, key, version string) (resultErr error) {
+func (c *integrityService) InvalidateUnavailablePack(ctx context.Context, key, version string) (resultErr error) {
 	ctx, end := observeReferenceOperation(ctx, c.observer, "reference_pack.invalidate")
 	defer func() { end(referenceOutcome(resultErr)) }()
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(c.limits.ReferencePacks.MaxVerificationSeconds)*time.Second)
@@ -60,7 +65,7 @@ func (c *Coordinator) InvalidateUnavailablePack(ctx context.Context, key, versio
 	}
 	at := c.now().UTC()
 	operation := uuid.New()
-	tx, err := c.pool.Begin(ctx)
+	tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
@@ -114,7 +119,7 @@ func (c *Coordinator) InvalidateUnavailablePack(ctx context.Context, key, versio
 // transaction before the independent integrity mutation can acquire its guards.
 // Definitive content loss aborts the source operation; it cannot commit after
 // the consumer returns failure. No source-owner changes are committed here.
-func (c *Coordinator) invalidateAfterRollback(tx pgx.Tx) func(context.Context, string, string) error {
+func (c *integrityService) invalidateAfterRollback(tx pgx.Tx) func(context.Context, string, string) error {
 	return func(ctx context.Context, key, version string) error {
 		if err := tx.Rollback(context.WithoutCancel(ctx)); err != nil {
 			return err

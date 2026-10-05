@@ -9,14 +9,14 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ReconcileTrustBootstrap installs previously unseen repositories only. A
 // changed deployment file cannot replace retained trust or lower counters.
-func ReconcileTrustBootstrap(ctx context.Context, pool *pgxpool.Pool, bootstrap TrustBootstrap, at time.Time) error {
+func ReconcileTrustBootstrap(ctx context.Context, pool postgres.DB, bootstrap TrustBootstrap, at time.Time) error {
 	if pool == nil || len(bootstrap.repositories) == 0 || at.IsZero() {
 		return errors.New("reference pack: admitted trust bootstrap required")
 	}
@@ -25,7 +25,7 @@ func ReconcileTrustBootstrap(ctx context.Context, pool *pgxpool.Pool, bootstrap 
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
-	tx, err := pool.Begin(ctx)
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}

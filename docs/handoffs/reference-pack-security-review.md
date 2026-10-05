@@ -1,6 +1,29 @@
 # Reference Pack security review disposition
 
-Status: pre-production implementation review and final release validation completed for the boundaries below, with no unresolved implementation finding identified in this review. Target-production security-authority disposition and formal adoption are unclaimed. This is a review by the implementing agent, not an independent audit or a compliance certification. It does not authorize a Reference Pack conformance claim. The reviewed working tree is based on repository commit `78a4effc23aac4b46ca414e11b91e17892f790c7` with the uncommitted remediation described in the implementation ledger. Review dates: 2026-10-03 through 2026-10-04.
+Status: S08 implementer review refreshed for the structural-remediation working tree based on `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`; S10 integrated validation passed on that exact source. No unresolved implementation security finding was identified in the reviewed changed boundaries. This is not an independent audit, target security approval, FIPS validation or conformance claim. Formal adoption and deployment security disposition remain deferred production gates. Earlier review/run records below retain their original source identities.
+
+## S08 changed-boundary review
+
+| Boundary | Assessment and retained evidence |
+| --- | --- |
+| Construction and privileges | Full administration requires Jobs, finalizer, storage, trust and registry usage; dedicated admission and integrity components carry only needed dependencies. Assembly registers one worker before HTTP. Operator still admits to the shared worker without a listener. Missing-dependency and duplicate-registration tests pass. Base remains independent of optional administration. |
+| Owner representations | Private verification inputs/results no longer escape the owner. Explicit DTO conversion preserves exact canonical identity, ordering, nil/empty semantics and closed result arms; independent vectors and provenance/portable round trips pass. No new trust or algorithm path was introduced. |
+| Transport and receipts | Private HTTP adapter retains auth-before-query/operation checks, bounded decoding and safe error projection. The narrow Core receipt bridge writes through the same caller transaction and preserves persisted statuses and payloads; exact hash/payload/outcome commit proofs remain required. No receipt was moved outside publication. |
+| Persistence and indexing | Existing postgres.DB port replaces pool coupling; owner transaction order/isolation remains explicit. Normal index batches use an explicit transaction matching the old implicit batch atomicity; historical rebuild uses its caller's transaction. Publication, usage and retention guards remain unchanged. |
+| Scheduling and isolation | No process-global worker hook remains. Test composition intercepts one instance's database preparation query after admission. Two independent servers prove that a blocked attempt cannot pause the other; barriers honor context cancellation. |
+| Regression obligations | Composition bytes/IDs, real signed framework lookup deduplication, early bounded content rejection versus operational failure, and preparse URL character rejection remain required. No retired format acceptance or compatibility alias was added. |
+| Harness repair | Runtime binary defaults now match Make's build/bin outputs; generator regression and real owner browser execution pass. This corrects scheduler input, with no downloaded execution source or change to verification/authorization. |
+| Candidate review | Stale scalar-signer/error/lifecycle descriptions were reconciled with the current closed public projection. Producer subject continuity is explicitly separate from runtime authentication and immutable version identity. Runtime acceptance cannot certify source truth or distribution rights. |
+
+Evidence: full Reference Data owner 23/23 at `20261005T024203Z-p93991`; independent finality 3/3 at `20261005T023148Z-p9478`; backend boundaries 3/3 at `20261005T023122Z-p7510`; harness-contract 2/2 at `20261005T024026Z-p42893`. Final vulnerability/static-analysis and complete release results belong to S10. No encryption-at-rest deployment or target trust rehearsal occurred.
+
+## S10 security validation
+
+The final complete release passed 1261/1261 at `.cartulary/test-results/20261005T030730Z-p45700`, source `sha256:b5d0f1c25905104352a03faae5c571510902d31ac89b4b16d1632dabe671d6ae`. Go lint, vulnerability checking, targeted security analysis and the audit target all passed within that run. The full Reference Data, Extensions finality, destination trust, retention/recovery and browser boundaries passed without changing production source after the S08 review. All 708 release cleanup actions completed; no source root or real deployment was reset. Final edits are handoff documentation only. This evidence closes the requested implementer review, not target compliance or formal adoption.
+
+## Historical review record
+
+The following review began from `78a4effc23aac4b46ca414e11b91e17892f790c7` on 2026-10-03/04. Its final-release claims apply to that historical dirty source only.
 
 ## Review boundary and standards
 

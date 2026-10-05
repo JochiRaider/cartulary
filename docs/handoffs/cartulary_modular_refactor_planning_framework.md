@@ -61,7 +61,7 @@ Use this table as the default target-module registry. A local plan may split a r
 | `links` | Typed relationships, tags, analyst-work coordination links. | Relationship validation, confidence, link projection. |
 | `revisions` | Change sets, row revisions, rollback, restore. | Mutation grouping, rollback safety, destructive contention. |
 | `projections` | Grid projections, search, sort/filter/group materialization. | Caches, tokenization, disposable derived tables, cursor behavior. |
-| `reference_data` | Reference packs and type registries. | Activation, verification, disconnected packs, optional overlays. |
+| `reference_data` | Required release-bound Base registries and optional immutable imported reference packs. | Offline verification, activation, exact pack sets, consumer provenance and retention; Reporting templates and workbook surfaces remain with their owners. |
 | `reporting` | Snapshots, export model, render/release when claimed. | Immutable snapshot derivation, redaction, release binding. |
 | `collaboration` | WebSocket subscriptions, presence, live row updates. | Event ordering, authorization recheck, pending queue interaction. |
 | `savedviews` | Core saved-view resource lifecycle and portable query/layout configuration. | Saved-view validation, version conflicts and persistence; Workbook startup and browser presentation remain separate owners. |

@@ -85,7 +85,11 @@ type networkFlowComposition interface {
 	WrapImportFacade(imports.ExtensionImportFacade) imports.ExtensionImportFacade
 }
 
+// referenceDataComposition decorates this runtime's owner database before construction.
+type referenceDataComposition interface{ WrapDatabase(postgres.DB) postgres.DB }
+
 type Options struct {
+	ReferenceDataComposition  referenceDataComposition
 	NetworkFlowComposition    networkFlowComposition
 	Env                       map[string]string
 	HTTP                      httpapi.Options
@@ -679,6 +683,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if options.NetworkFlowComposition != nil {
 		postgresHandle = options.NetworkFlowComposition.WrapDatabase(postgresHandle)
 	}
+	referenceDatabase := postgresHandle
+	if options.ReferenceDataComposition != nil {
+		referenceDatabase = options.ReferenceDataComposition.WrapDatabase(referenceDatabase)
+		if referenceDatabase == nil {
+			runtime.Close()
+			return nil, errors.New("reference pack: database decorator returned nil")
+		}
+	}
 	if err := dependencies.runBootstrap(ctx, configassembly.BootstrapSettings(normalizedCfg), postgresPool); err != nil {
 		runtime.Close()
 		return nil, err
@@ -704,13 +716,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 	}
 	if referencePackRouteAdmitted {
-		if err := reference_data.ReconcileTrustBootstrap(ctx, postgresPool, referencePackBootstrap, now()); err != nil {
+		if err := reference_data.ReconcileTrustBootstrap(ctx, referenceDatabase, referencePackBootstrap, now()); err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("reconcile Reference Pack trust bootstrap: %w", err)
 		}
 	}
 	referenceObserver := referenceassembly.NewOperationObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
-	if err := reference_data.ReconcileBaseRelease(ctx, postgresPool, rootReferencePackStorage, reference_data.BaseReleaseOptions{Observer: referenceObserver, ProfileClaimed: referencePackRouteAdmitted, ClockTrusted: normalizedCfg.ReferencePacks.ClockTrusted, Limits: settingsProjection.ReferenceData()}, now()); err != nil {
+	if err := reference_data.ReconcileBaseRelease(ctx, referenceDatabase, rootReferencePackStorage, reference_data.BaseReleaseOptions{Observer: referenceObserver, ProfileClaimed: referencePackRouteAdmitted, ClockTrusted: normalizedCfg.ReferencePacks.ClockTrusted, Limits: settingsProjection.ReferenceData()}, now()); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("reconcile Base reference registries: %w", err)
 	}
@@ -731,12 +743,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, err
 	}
 	referenceIntegrity := reference_data.IntegrityOptions{Observer: referenceObserver, Finalizer: referenceMutationFinalizer, Limits: settingsProjection.ReferenceData()}
-	referenceConsumer, err := reference_data.NewConsumer(postgresPool, rootReferencePackStorage, cursorCodec, now, referenceIntegrity)
+	referenceConsumer, err := reference_data.NewConsumer(referenceDatabase, rootReferencePackStorage, cursorCodec, now, referenceIntegrity)
 	if err != nil {
 		runtime.Close()
 		return nil, err
 	}
-	referenceAssignments, err := reference_data.NewRegistryAssignments(postgresPool, rootReferencePackStorage, cursorCodec, now, referenceIntegrity)
+	referenceAssignments, err := reference_data.NewRegistryAssignments(referenceDatabase, rootReferencePackStorage, cursorCodec, now, referenceIntegrity)
 	if err != nil {
 		runtime.Close()
 		return nil, err
@@ -872,11 +884,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("reconcile inactive extension jobs: %w", reconciliationErr)
 		}
 	}
-	if err := reference_data.ReconcileTerminalJobs(ctx, postgresPool, jobTransactions, referenceMutationFinalizer); err != nil {
+	if err := reference_data.ReconcileTerminalJobs(ctx, referenceDatabase, jobTransactions, referenceMutationFinalizer); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("reconcile terminal Reference Pack jobs: %w", err)
 	}
-	collector, err := reference_data.NewObjectCollector(postgresPool, rootReferencePackStorage, referenceObserver)
+	collector, err := reference_data.NewObjectCollector(referenceDatabase, rootReferencePackStorage, referenceObserver)
 	if err != nil {
 		runtime.Close()
 		return nil, err
@@ -1123,7 +1135,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability source catalog: %w", err)
 	}
-	incidentReferences, err := reference_data.NewIncidentReferences(reference_data.IncidentReferenceOptions{Postgres: postgresPool, Storage: rootReferencePackStorage, Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(), JobExecutions: jobTransactions, JobOperations: jobManager, Observer: referenceObserver, Now: now})
+	incidentReferences, err := reference_data.NewIncidentReferences(reference_data.IncidentReferenceOptions{Postgres: referenceDatabase, Storage: rootReferencePackStorage, Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(), JobExecutions: jobTransactions, JobOperations: jobManager, Observer: referenceObserver, Now: now})
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability reference retention: %w", err)
@@ -1279,17 +1291,21 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 	}
 	importRoutes := importModule.RegisterRoutes()
-	referencePackRoutes := reference_data.RegisterRoutes(
-		reference_data.WithOperationObserver(referenceObserver),
-		reference_data.WithRegistryUsage(referenceassembly.RegistryUsage{}),
-		reference_data.WithConfiguration(normalizedCfg.ReferencePacks),
-		reference_data.WithJobs(jobTransactions, jobManager, runtime.jobRunner),
-		reference_data.WithStorage(referencePackStorage),
-		reference_data.WithLimits(settingsProjection.ReferenceData()),
-		reference_data.WithJobSuccessFinalizer(
-			extensionassembly.NewReferencePackJobSuccessFinalizer(extensionJobFinalizer),
-		),
-	)
+	var referenceAdministration reference_data.AdministrativeApplication
+	if referencePackRouteAdmitted {
+		referenceAdministration, err = referenceassembly.NewAdministration(reference_data.CoordinatorOptions{
+			Observer: referenceObserver, Postgres: referenceDatabase, Storage: referencePackStorage,
+			Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(),
+			JobAdmission: jobTransactions, JobOperations: jobManager, JobExecutionGuard: jobTransactions,
+			JobFinalizer:  extensionassembly.NewReferencePackJobSuccessFinalizer(extensionJobFinalizer),
+			RegistryUsage: referenceassembly.RegistryUsage{}, Now: now,
+		}, runtime.jobRunner)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Reference Pack administration: %w", err)
+		}
+	}
+	referencePackRoutes := reference_data.RegisterRoutes(referenceAdministration, runtime.jobRunner)
 	var renderExportInvoker reporting.RenderExportInvoker
 	if snapshotReportingParticipantAdmitted {
 		renderExportInvoker, err = extensionassembly.NewAdmittedRenderExportInvoker(
@@ -1322,7 +1338,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
-	referenceRetention, err := reference_data.NewRetention(postgresPool, rootReferencePackStorage, now, referenceIntegrity)
+	referenceRetention, err := reference_data.NewRetention(referenceDatabase, rootReferencePackStorage, now, referenceIntegrity)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Reference Pack retention: %w", err)

@@ -10,7 +10,7 @@ import (
 func testPortableVerificationOrder(t *testing.T) {
 	versions := make([]importedReferenceVersion, 5)
 	for i, key := range []string{"a", "b", "c", "d", "e"} {
-		versions[i].reference = IncidentBundleVersionReference{SetMember: PackSetMember{Key: key, Version: "1", PayloadSHA256: "digest"}}
+		versions[i].reference = IncidentBundleVersionReference{PackSetMember: PackSetMember{Key: key, Version: "1", PayloadSHA256: "digest"}}
 	}
 	for _, test := range []struct {
 		name  string

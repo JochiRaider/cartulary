@@ -31,7 +31,7 @@ func validatePortableCatalogs(ctx context.Context, db interface {
 			return err
 		}
 		refs, err := DecodeIncidentBundleReferences(data)
-		if err != nil || kind != "portable_retention" || !terminal || packformat.Digest(data) != digest || !bytes.Equal(resolution, outcome) || packformat.ValidatePortabilityRetention(input, resolution, refs) != nil {
+		if err != nil || kind != "portable_retention" || !terminal || packformat.Digest(data) != digest || !bytes.Equal(resolution, outcome) || packformat.ValidatePortabilityRetention(input, resolution, refs.format()) != nil {
 			return errHistoricalIntegrity
 		}
 		var identity struct {

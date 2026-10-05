@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
@@ -45,7 +46,6 @@ type bundleOptions struct {
 	ContractVersion   string
 	PayloadPath       string
 	BadPayloadSHA     bool
-	Signed            bool
 	BadSignature      bool
 	ExtraPath         string
 	OmitPayload       bool
@@ -108,7 +108,15 @@ func integrationRoot(t testing.TB) []byte {
 func startReferencePackServer(t *testing.T, runtime *appsupport.Runtime, prefix string) *appsupport.ServerHarness {
 	return startReferencePackServerWithEnv(t, runtime, prefix, nil)
 }
-func startReferencePackServerWithEnv(t *testing.T, runtime *appsupport.Runtime, prefix string, env map[string]string) *appsupport.ServerHarness {
+func startReferencePackServerWithEnv(t *testing.T, runtime *appsupport.Runtime, prefix string, env map[string]string, barriers ...*appsupport.ReferencePackVerificationBarrier) *appsupport.ServerHarness {
+	return startReferencePackServerConfigured(t, runtime, appsupport.ServerOptions{Prefix: prefix, TestRouteMode: httptestx.TestRouteModeDisabled, Env: env, ConfigureRuntime: func(o *server.Options) {
+		if len(barriers) > 0 {
+			o.ReferenceDataComposition = barriers[0]
+		}
+	}})
+}
+func startReferencePackServerConfigured(t *testing.T, runtime *appsupport.Runtime, options appsupport.ServerOptions) *appsupport.ServerHarness {
+	env := options.Env
 	root := filepath.Join(t.TempDir(), "bootstrap.json")
 	b := integrationCanonical(t, map[string]any{"schema_id": "cartulary.reference_pack_trust_bootstrap.v1", "repositories": []any{map[string]any{"repository_id": "integration.repo", "trusted_root": json.RawMessage(integrationRoot(t)), "trusted_root_sha256": integrationDigest(integrationRoot(t))}}})
 	if err := os.WriteFile(root, b, 0600); err != nil {
@@ -119,7 +127,8 @@ func startReferencePackServerWithEnv(t *testing.T, runtime *appsupport.Runtime, 
 	}
 	env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"] = root
 	env["CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED"] = "true"
-	return runtime.StartServer(t, appsupport.ServerOptions{Prefix: prefix, TestRouteMode: httptestx.TestRouteModeDisabled, Env: env})
+	options.Env = env
+	return runtime.StartServer(t, options)
 }
 func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 	t.Helper()

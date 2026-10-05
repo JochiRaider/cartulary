@@ -68,7 +68,7 @@ func testPortableInputAdmission(t *testing.T) {
 	}
 	body := decode(fixture.Allowed)
 	memory := &coordinatorMemoryStorage{objects: map[string][]byte{}}
-	c := &Coordinator{storage: memory, limits: DefaultLimits()}
+	c := &verificationService{referenceDependencies: &referenceDependencies{storage: memory, limits: DefaultLimits()}}
 	r := &incidentReferences{storage: memory, verifier: c}
 	request := func(data []byte) IncidentReferenceImportRequest {
 		return IncidentReferenceImportRequest{OpenContainer: func(_ context.Context, path string) (io.ReadCloser, error) {

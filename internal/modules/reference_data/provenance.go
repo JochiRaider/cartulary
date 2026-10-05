@@ -7,7 +7,7 @@ import (
 )
 
 func decodeRetainedProvenance(data []byte, set PackSet) ([]PackProvenance, error) {
-	if err := packformat.ValidateProvenance(data, set); err != nil {
+	if err := packformat.ValidateProvenance(data, set.format()); err != nil {
 		return nil, consumerError("pack_unavailable")
 	}
 	var anchors []PackProvenance

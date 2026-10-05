@@ -88,7 +88,7 @@ func decodePrepared(data []byte) (preparedVersion, error) {
 	if packformat.Digest(r.Manifest) != r.Envelope.ManifestSHA256 || payload != r.Envelope.PayloadSHA256 || m.Key != r.Envelope.PackKey || m.Version != r.Envelope.PackVersion {
 		return preparedVersion{}, errors.New("reference pack: prepared identity mismatch")
 	}
-	p := preparedVersion{IndexID: r.IndexID, Envelope: r.Envelope, Content: &VerifiedContent{Manifest: m, ManifestBytes: r.Manifest, ManifestSHA256: r.Envelope.ManifestSHA256, PayloadSHA256: payload, VerifiedAt: r.Envelope.VerifiedAt, Trust: *r.Envelope.TrustProposal}}
+	p := preparedVersion{IndexID: r.IndexID, Envelope: r.Envelope, Content: &verifiedContent{Manifest: m, ManifestBytes: r.Manifest, ManifestSHA256: r.Envelope.ManifestSHA256, PayloadSHA256: payload, VerifiedAt: r.Envelope.VerifiedAt, Trust: *r.Envelope.TrustProposal}}
 	for _, o := range r.Objects {
 		ref, err := ParseStorageRef(o.Reference)
 		if err != nil {
@@ -100,7 +100,7 @@ func decodePrepared(data []byte) (preparedVersion, error) {
 }
 
 func (c *Coordinator) beginAttempt(ctx context.Context, execution jobs.Execution, operationID uuid.UUID, start time.Time) (executionAttempt, error) {
-	tx, err := c.pool.Begin(ctx)
+	tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return executionAttempt{}, err
 	}
@@ -155,86 +155,12 @@ func retainAttemptStartTx(ctx context.Context, tx pgx.Tx, a executionAttempt) er
 	return nil
 }
 
-func (c *Coordinator) frozenMember(ctx context.Context, a executionAttempt, ordinal int64) (frozenMember, error) {
-	m := frozenMember{Ordinal: ordinal}
-	var envelope []byte
-	err := c.pool.QueryRow(ctx, `SELECT m.pack_key,m.pack_version,e.canonical_envelope FROM reference_pack_operation_members m LEFT JOIN reference_pack_envelopes e ON e.envelope_id=m.envelope_id WHERE m.operation_id=$1 AND m.ordinal=$2`, a.OperationID, ordinal).Scan(&m.Key, &m.Version, &envelope)
-	if errors.Is(err, pgx.ErrNoRows) && a.Frozen.Kind == "import" && ordinal == 1 {
-		return m, nil
-	}
-	if err != nil {
-		return m, err
-	}
-	if envelope != nil {
-		decoded, err := decodeSuccessfulEnvelope(envelope)
-		if err != nil {
-			return m, err
-		}
-		m.Envelope = &decoded
-	}
-	return m, nil
-}
-
-// Resolve only historical roots actually carried by this container, plus the
-// exact root captured at admission. Trust history may grow without making
-// verification allocation proportional to the repository's lifetime.
-func (c *Coordinator) frozenTrust(ctx context.Context, a executionAttempt, m frozenMember, id string, versions []int64) (packformat.TrustSnapshot, bool, error) {
-	s := packformat.TrustSnapshot{RootHistory: map[int64][]byte{}, Highest: map[string]packformat.RetainedMetadata{}}
-	var current int64
-	err := c.pool.QueryRow(ctx, `SELECT root_version FROM reference_pack_operation_repositories WHERE operation_id=$1 AND repository_id=$2`, a.OperationID, id).Scan(&current)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return s, false, nil
-	}
-	if err != nil {
-		return s, false, err
-	}
-	versions = append(versions, current)
-	var retainedBytes int64
-	if err := c.pool.QueryRow(ctx, `SELECT coalesce(sum(octet_length(canonical_bytes)),0)::bigint FROM reference_pack_roots WHERE repository_id=$1 AND root_version <= $2 AND root_version=ANY($3)`, id, current, versions).Scan(&retainedBytes); err != nil {
-		return s, false, err
-	}
-	// Exact historical replay cannot reference more bytes than the admitted
-	// metadata inventory, plus the current root. Tiny hostile root members must
-	// not cause materialization of arbitrarily large retained trust history.
-	if retainedBytes > 8388608+2097152 {
-		return s, false, &ContentRejection{Code: "tuf_metadata_invalid", CheckID: "tuf_schema", CandidateKey: m.Key, CandidateVersion: m.Version}
-	}
-	rows, err := c.pool.Query(ctx, `SELECT root_version,canonical_bytes FROM reference_pack_roots WHERE repository_id=$1 AND root_version <= $2 AND root_version=ANY($3) ORDER BY root_version`, id, current, versions)
-	if err != nil {
-		return s, false, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var v int64
-		var data []byte
-		if err := rows.Scan(&v, &data); err != nil {
-			return s, false, err
-		}
-		s.RootHistory[v] = data
-		if v == current {
-			s.Root = data
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return s, false, err
-	}
-	if len(s.Root) == 0 {
-		return s, false, errors.New("reference pack: frozen root lost")
-	}
-	if m.Envelope != nil && m.Envelope.TrustProposal != nil {
-		for role, metadata := range m.Envelope.TrustProposal.Metadata {
-			s.Highest[role] = metadata
-		}
-	}
-	return s, true, nil
-}
-
-func (c *Coordinator) prepareMember(ctx context.Context, a executionAttempt, m frozenMember) error {
-	identity := operationVerificationIdentity{Coordinator: c, operationID: a.OperationID}
+func (c *verificationService) prepareMember(ctx context.Context, a executionAttempt, m frozenMember) error {
+	identity := operationVerificationIdentity{referenceDependencies: c.referenceDependencies, operationID: a.OperationID}
 	if a.Frozen.Kind != "import" {
 		identity.retained = &m
 	}
-	input := VerificationAttempt{Observer: c.observer, Start: a.Start, ClockTrusted: a.Frozen.ClockTrusted, Limits: c.limits.verificationArchiveLimits(), Identity: identity}
+	input := verificationAttempt{Observer: c.observer, Start: a.Start, ClockTrusted: a.Frozen.ClockTrusted, Limits: c.limits.verificationArchiveLimits(), Identity: identity}
 	input.ResolveTrust = func(ctx context.Context, id string, versions []int64) (packformat.TrustSnapshot, bool, error) {
 		return c.frozenTrust(ctx, a, m, id, versions)
 	}
@@ -268,9 +194,9 @@ func (c *Coordinator) prepareMember(ctx context.Context, a executionAttempt, m f
 // The coordinator owns the one verification/index/artifact preparation path.
 // Lifecycle Jobs and destination cohorts supply their frozen input bindings;
 // neither transport can publish these private results.
-func (c *Coordinator) prepareVerificationMember(ctx context.Context, a executionAttempt, m frozenMember, input VerificationAttempt) error {
+func (c *verificationService) prepareVerificationMember(ctx context.Context, a executionAttempt, m frozenMember, input verificationAttempt) error {
 	var index *indexBuilder
-	content, err := VerifyCanonicalContainer(ctx, c.storage, input, func(ctx context.Context, manifest packformat.Manifest, manifestSHA, payloadSHA string) (packformat.ContentSink, error) {
+	content, err := verifyCanonicalContainer(ctx, c.storage, input, func(ctx context.Context, manifest packformat.Manifest, manifestSHA, payloadSHA string) (packformat.ContentSink, error) {
 		var err error
 		index, err = newIndexBuilder(ctx, c.pool, a.OperationID, manifest, manifestSHA, payloadSHA)
 		return index, err
@@ -299,17 +225,18 @@ func (c *Coordinator) prepareVerificationMember(ctx context.Context, a execution
 	return err
 }
 
-func (c *Coordinator) retainMemberFailure(ctx context.Context, a executionAttempt, m frozenMember, err error) error {
+func (c *verificationService) retainMemberFailure(ctx context.Context, a executionAttempt, m frozenMember, err error) error {
 	var rejection *ContentRejection
 	if !errors.As(err, &rejection) {
 		return err
 	}
 	summary := rejection.Summary
 	if summary == nil {
-		summary, err = packformat.CheckSummary(ctx, rejection.CheckID, nil, func(_ context.Context, emit packformat.FindingSink) error { return emit(packformat.Finding{Path: "$"}) })
+		rawSummary, err := packformat.CheckSummary(ctx, rejection.CheckID, nil, func(_ context.Context, emit packformat.FindingSink) error { return emit(packformat.Finding{Path: "$"}) })
 		if err != nil {
 			return err
 		}
+		summary = summaryFromFormat(rawSummary)
 	}
 	encoded, err := canonicaljson.Marshal(summary)
 	if err != nil {

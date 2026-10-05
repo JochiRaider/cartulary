@@ -17,7 +17,8 @@ import (
 
 func TestMixedRefreshCommitsCohortFallbackAndReplay_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-mixed-refresh")
+	barrier := &appsupport.ReferencePackVerificationBarrier{}
+	harness := startReferencePackServerWithEnv(t, runtime, "extension_profile-reference-pack-mixed-refresh", nil, barrier)
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	capture := testsupport.StartCapture()
 	defer capture.Close(context.Background())
@@ -45,13 +46,7 @@ func TestMixedRefreshCommitsCohortFallbackAndReplay_Integration(t *testing.T) {
 
 	started, release := make(chan struct{}), make(chan struct{})
 	released := false
-	restoreHook := reference_data.SetReferencePackWorkerStartHookForTesting(func(kind string) {
-		if kind == "refresh" {
-			close(started)
-			<-release
-		}
-	})
-	defer restoreHook()
+	barrier.BlockNext(started, release)
 	defer func() {
 		if !released {
 			close(release)

@@ -134,12 +134,12 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 	}
 	storage := &engineStorage{container: container}
 	ref, _ := ParseStagingRef("staged/fixture.zip")
-	attempt := VerificationAttempt{Staged: &ref, ContainerSHA256: v.ContainerSHA, Start: v.At, ClockTrusted: true, Identity: emptyIdentityHistory{}, Limits: packformat.DefaultArchiveLimits(), Repositories: map[string]packformat.TrustSnapshot{v.Repository: trust}}
+	attempt := verificationAttempt{Staged: &ref, ContainerSHA256: v.ContainerSHA, Start: v.At, ClockTrusted: true, Identity: emptyIdentityHistory{}, Limits: packformat.DefaultArchiveLimits(), Repositories: map[string]packformat.TrustSnapshot{v.Repository: trust}}
 	var rows builtinRows
 	factory := func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 		return &rows, nil
 	}
-	content, err := VerifyCanonicalContainer(context.Background(), storage, attempt, factory)
+	content, err := verifyCanonicalContainer(context.Background(), storage, attempt, factory)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 		})
 	}
 	attempt.Start = v.Expiry
-	if _, err := VerifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
+	if _, err := verifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
 		t.Fatal("queue-expired envelope admitted")
 	} else {
 		var rejected *ContentRejection
@@ -200,7 +200,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 		}
 	}
 	attempt.ClockTrusted = false
-	if _, err := VerifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
+	if _, err := verifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
 		t.Fatal("untrusted clock admitted")
 	} else {
 		var rejected *OperationRejection
@@ -211,12 +211,12 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 	attempt.ClockTrusted = true
 	attempt.Start = v.At
 	storage.container = nil
-	if _, err := VerifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
+	if _, err := verifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
 		t.Fatal("missing bytes admitted")
 	}
 }
 
-func canonicalEngineFixture(t *testing.T) (*engineStorage, VerificationAttempt) {
+func canonicalEngineFixture(t *testing.T) (*engineStorage, verificationAttempt) {
 	t.Helper()
 	var v struct {
 		Bootstrap  string    `json:"bootstrap"`
@@ -240,10 +240,10 @@ func canonicalEngineFixture(t *testing.T) (*engineStorage, VerificationAttempt) 
 		t.Fatal(err)
 	}
 	ref, _ := ParseStagingRef("staged/fixture.zip")
-	return &engineStorage{container: container}, VerificationAttempt{Staged: &ref, Start: v.At, ClockTrusted: true, Identity: emptyIdentityHistory{}, Limits: packformat.DefaultArchiveLimits(), Repositories: map[string]packformat.TrustSnapshot{v.Repository: trust}}
+	return &engineStorage{container: container}, verificationAttempt{Staged: &ref, Start: v.At, ClockTrusted: true, Identity: emptyIdentityHistory{}, Limits: packformat.DefaultArchiveLimits(), Repositories: map[string]packformat.TrustSnapshot{v.Repository: trust}}
 }
-func verifyEngineFixture(storage VerificationStorage, attempt VerificationAttempt) (*VerifiedContent, error) {
-	return VerifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+func verifyEngineFixture(storage VerificationStorage, attempt verificationAttempt) (*verifiedContent, error) {
+	return verifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 		return new(builtinRows), nil
 	})
 }
@@ -299,7 +299,7 @@ func TestRetainedContentChecksFollowVerificationPrecedence_Unit(t *testing.T) {
 				fault := errors.New("cleanup failed")
 				storage.container, storage.closeFaultAt, storage.closeFault = test.data, test.workspace, fault
 				indexed := false
-				result, err := VerifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+				result, err := verifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 					indexed = true
 					return new(builtinRows), nil
 				})
@@ -341,7 +341,7 @@ func TestRetainedContentChecksFollowVerificationPrecedence_Unit(t *testing.T) {
 				attempt.Start = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 			}
 			indexed := false
-			_, err := VerifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+			_, err := verifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 				indexed = true
 				return new(builtinRows), nil
 			})
@@ -479,7 +479,7 @@ func TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, signed := range []bool{false, true} {
-		storage.container = referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "1", Signed: signed})
+		storage.container = retiredReferencePackBundle(t, retiredBundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "1", Signed: signed})
 		_, err := verifyEngineFixture(storage, attempt)
 		var rejected *ContentRejection
 		if !errors.As(err, &rejected) || rejected.Code != "bundle_hint_invalid" {
@@ -529,21 +529,21 @@ func TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit(t *testing.T) {
 func TestVerifierCombinedFaultPrecedence_Unit(t *testing.T) {
 	for _, test := range []struct {
 		name, code, check string
-		change            func(map[string][]byte, *VerificationAttempt)
+		change            func(map[string][]byte, *verificationAttempt)
 	}{
-		{"missing manifest and invalid hint", "bundle_hint_invalid", "bundle_shape", func(files map[string][]byte, _ *VerificationAttempt) {
+		{"missing manifest and invalid hint", "bundle_hint_invalid", "bundle_shape", func(files map[string][]byte, _ *verificationAttempt) {
 			delete(files, "manifest.json")
 			files["bundle.json"] = []byte("{}")
 		}},
-		{"oversized manifest and invalid hint", "bundle_hint_invalid", "bundle_shape", func(files map[string][]byte, _ *VerificationAttempt) {
+		{"oversized manifest and invalid hint", "bundle_hint_invalid", "bundle_shape", func(files map[string][]byte, _ *verificationAttempt) {
 			files["manifest.json"] = bytes.Repeat([]byte(" "), 1048577)
 			files["bundle.json"] = []byte("{}")
 		}},
-		{"unknown repository and oversized metadata", "tuf_root_untrusted", "repository_selection", func(files map[string][]byte, attempt *VerificationAttempt) {
+		{"unknown repository and oversized metadata", "tuf_root_untrusted", "repository_selection", func(files map[string][]byte, attempt *verificationAttempt) {
 			files["metadata/targets.json"] = bytes.Repeat([]byte(" "), 2097153)
 			attempt.Repositories = nil
 		}},
-		{"missing role and invalid signature", "tuf_metadata_invalid", "tuf_schema", func(files map[string][]byte, _ *VerificationAttempt) {
+		{"missing role and invalid signature", "tuf_metadata_invalid", "tuf_schema", func(files map[string][]byte, _ *verificationAttempt) {
 			delete(files, "metadata/snapshot.json")
 			var envelope map[string]any
 			if err := json.Unmarshal(files["metadata/targets.json"], &envelope); err != nil {

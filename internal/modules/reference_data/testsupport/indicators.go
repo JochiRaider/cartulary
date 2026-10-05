@@ -24,7 +24,7 @@ func EvaluateIndicator(typ, kind, raw string) (reference_data.IndicatorEvaluatio
 				}
 				return reference_data.IndicatorEvaluation{}, err
 			}
-			return reference_data.IndicatorEvaluation{Evaluation: value}, nil
+			return reference_data.IndicatorEvaluation{Evaluation: reference_data.Evaluation(value)}, nil
 		}
 	}
 	return reference_data.IndicatorEvaluation{}, &reference_data.ConsumerError{Code: "indicator_type_unsupported"}

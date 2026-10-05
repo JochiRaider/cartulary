@@ -472,7 +472,8 @@
           "TestLiveVerificationResolvesExactDependenciesBeforeIndexing_Integration",
           "TestMixedRefreshCommitsCohortFallbackAndReplay_Integration",
           "TestRequiredBaseLossClearsSelectionAndBlocksReadiness_Integration",
-          "TestUnavailableBasePreservesHealthyReplacement_Integration"
+          "TestUnavailableBasePreservesHealthyReplacement_Integration",
+          "TestWorkerDatabaseBarriersAreInstanceScoped_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -623,6 +624,33 @@
         "object_store",
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.reference_data.unit.application_construction",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [
+        "app.server",
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/referenceassembly",
+        "tests": [
+          "TestReferencePackAdministrationConstruction_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.reference_data.unit.canonical_consumers",

@@ -29,7 +29,7 @@ func importStagingError(ctx context.Context, err error) error {
 		if buildErr != nil {
 			return buildErr
 		}
-		return &ContentRejection{Code: "container_bytes_exceeded", CheckID: "container_bytes", Summary: summary}
+		return &ContentRejection{Code: "container_bytes_exceeded", CheckID: "container_bytes", Summary: summaryFromFormat(summary)}
 	}
 	return err
 }

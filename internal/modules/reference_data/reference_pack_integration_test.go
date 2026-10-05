@@ -202,7 +202,7 @@ func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
 		wantReason string
 	}{
 		{name: "checksum", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "bad-checksum", BadPayloadSHA: true}), wantReason: "target_length_mismatch"},
-		{name: "signature", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "bad-signature", Signed: true, BadSignature: true}), wantReason: "signature_threshold_not_met"},
+		{name: "signature", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "bad-signature", BadSignature: true}), wantReason: "signature_threshold_not_met"},
 		{name: "path", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "bad-path", ExtraPath: "../escape.json"}), wantReason: "path_traversal"},
 		{name: "active-content", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "bad-content", PayloadPath: "payload/run.js"}), wantReason: "target_not_declared"},
 		{name: "missing-payload", bundle: referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "bad-missing", OmitPayload: true}), wantReason: "unexpected_target"},
@@ -234,17 +234,11 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 		}
 	}()
 	workerStarted := make(chan struct{})
-	restoreHook := reference_data.SetReferencePackWorkerStartHookForTesting(func(jobKind string) {
-		if jobKind != "import" {
-			return
-		}
-		close(workerStarted)
-		<-releaseWorker
-	})
-	defer restoreHook()
+	barrier := &appsupport.ReferencePackVerificationBarrier{}
+	barrier.BlockNext(workerStarted, releaseWorker)
 
 	runtime := appsupport.StartRuntime(t)
-	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-async-admission")
+	harness := startReferencePackServerWithEnv(t, runtime, "extension_profile-reference-pack-async-admission", nil, barrier)
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-queued-import"}`, referencePackBundle(t, bundleOptions{
@@ -520,17 +514,11 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 		}
 	}()
 	workerStarted := make(chan struct{})
-	restoreHook := reference_data.SetReferencePackWorkerStartHookForTesting(func(jobKind string) {
-		if jobKind != "import" {
-			return
-		}
-		close(workerStarted)
-		<-releaseWorker
-	})
-	defer restoreHook()
+	barrier := &appsupport.ReferencePackVerificationBarrier{}
+	barrier.BlockNext(workerStarted, releaseWorker)
 
 	runtime := appsupport.StartRuntime(t)
-	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-job-authz")
+	harness := startReferencePackServerWithEnv(t, runtime, "extension_profile-reference-pack-job-authz", nil, barrier)
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-job-auth-import"}`, referencePackBundle(t, bundleOptions{

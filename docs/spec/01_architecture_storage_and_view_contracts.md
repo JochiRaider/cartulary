@@ -3821,9 +3821,9 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `release_render_failed` | `409` | `false` | A release render request reached the render phase but failed closed because the selected redaction profile, template contract, post-redaction model, or manifest encoding was invalid. `error.details.reason_code` MUST use the `release_render_failed` registry in §3.3.6.2. |  |  |  |
 | `invalid_reference_pack_request` | `400` | `false` | A reference-pack import, activation, disable, reverify, or refresh request is malformed, omits a required member, uses `null` where forbidden, includes an unknown top-level member, or fails the shared upload-envelope contract for `POST /api/v1/reference-packs/import`, including unsupported framing, missing or duplicate required parts, unexpected extra parts, invalid metadata encoding or JSON, or invalid part content type. |  |  |  |
 | `reference_pack_not_found` | `404` | `false` | No visible reference-pack version exists for the supplied `(pack_key, pack_version)` pair. |  |  |  |
-| `reference_pack_state_conflict` | `409` | `false` | The addressed reference-pack version exists, but its current durable state does not allow the requested disable or reverify action. `error.details.reason_code` MUST use the `reference_pack_state_conflict` registry in §3.3.6.2. |  |  |  |
-| `reference_pack_verification_failed` | `409` | `false` | Reference-pack import, refresh, or reverify failed closed because integrity, compatibility, or content-screening checks did not pass. `error.details.reason_code` MUST use the `reference_pack_verification_failed` registry in §3.3.6.2. |  |  |  |
-| `reference_pack_activation_rejected` | `409` | `false` | Activation was rejected because the addressed version is already active or is not in a verified-available condition. `error.details.reason_code` MUST use the `reference_pack_activation_rejected` registry in §3.3.6.2. |  |  |  |
+| `reference_pack_operation_rejected` | `409` | `false` | Reference Pack admission, lifecycle or compatibility rejection under the closed registry in REQ-01-482. It does not establish content invalidity. |  |  |  |
+| `reference_pack_verification_failed` | `409` | `false` | Reference Pack content verification failed under the subsystem ordered registry, or the execution budget expired under its distinct timeout rule. REQ-01-481 owns early bounded-upload rejection and diagnostic shapes; REQ-01-482 imports the closed reason registry. |  |  |  |
+| `reference_pack_activation_rejected` | `409` | `false` | Activation was rejected because the version is already active, lacks healthy verified content, or has expired metadata. REQ-01-482 owns the closed reasons; disablement alone does not make healthy content ineligible. |  |  |  |
 | `invalid_incident_bundle_request` | `400` | `false` | An incident-bundle export or import request is malformed, omits a required member, uses `null` where forbidden, requests unsupported partial-history or partial-blob modes, includes an unknown top-level member, or fails the shared upload-envelope contract for `POST /api/v1/incident-bundles/import`, including unsupported framing, missing or duplicate required parts, unexpected extra parts, invalid metadata encoding or JSON, or invalid part content type. |  |  |  |
 | `incident_bundle_not_found` | `404` | `false` | No visible export descriptor exists for the supplied `bundle_id`. |  |  |  |
 | `incident_bundle_export_rejected` | `409` | `false` | Whole-incident export could not materialize a conformant bundle because required structured files or required blobs were unavailable, or because retained authoritative extension state was not portable. `error.details.reason_code` MUST use the `incident_bundle_export_rejected` registry in §3.3.6.2. |  |  |  |
@@ -4262,56 +4262,7 @@ Boundary values that are syntactically valid but do not equal the current commit
 | `actor_lacks_approval_role` | The actor is not a reviewer or incident admin for the addressed release. |
 | `reviewer_approval_required` | The current release scope requires a reviewer approval. |
 
-`invalid_reference_pack_request` `error.details.reason_code` values:
-
-| `reason_code` | Canonical meaning |
-| --- | --- |
-| `request_not_object` | The request metadata is not a JSON object. |
-| `missing_required_field` | A required reference-pack route field is absent. |
-| `field_not_nullable` | The request supplies `null` for a non-nullable reference-pack route field. |
-| `unknown_field` | The request includes a top-level member not declared by the reference-pack route contract. |
-| `unsupported_upload_envelope` | The request is not `multipart/form-data` with a required `boundary`, or otherwise uses an unsupported upload envelope. |
-| `missing_required_part` | One of the required multipart parts `metadata` or `file` is absent. |
-| `duplicate_part` | The multipart envelope contains more than one `metadata` part or more than one `file` part. |
-| `unexpected_part` | The multipart envelope contains a part name outside the closed two-part contract. |
-| `invalid_part_content_type` | The addressed multipart part has a content type outside the allowed set for that part and route. |
-| `invalid_metadata_encoding` | The `metadata` part is not valid UTF-8, includes a BOM, or declares an unsupported JSON charset. |
-| `malformed_metadata_json` | The `metadata` part cannot be parsed as JSON or contains duplicate object member names. |
-| `invalid_activation_policy` | `activation_policy` is present but is not the exact current-profile scalar request form. |
-| `pack_version_required` | The requested action requires an exact `pack_version` rather than implicit latest-version selection. |
-| `auto_activation_not_supported` | The request attempted auto-activation instead of the staged-only current-profile import contract. |
-| `invalid_pack_keys` | `pack_keys[]` is not an array of exact visible `pack_key` strings, or it contains one or more unknown, non-visible, or non-string members. |
-| `empty_pack_keys` | `pack_keys[]` is present and empty. |
-
-`reference_pack_verification_failed` `error.details.reason_code` values:
-
-| `reason_code` | Canonical meaning |
-| --- | --- |
-| `checksum_mismatch` | One or more declared checksums did not match the supplied bundle or extracted content. |
-| `signature_mismatch` | Signature verification failed for the supplied bundle. |
-| `missing_integrity_metadata` | Required integrity metadata is absent from the supplied bundle. |
-| `contract_incompatible` | The pack contract or schema version is not compatible with the running application. |
-| `path_traversal` | One or more archive members attempt to escape the staging root. |
-| `disallowed_content` | The bundle contains active or otherwise disallowed content. |
-| `payload_missing` | Required pack payload content is missing at verification time. |
-| `archive_extracted_bytes_exceeded` | The extracted regular-file byte total exceeds `limits.reference_packs.max_extracted_bytes`. |
-| `archive_compression_ratio_exceeded` | The extracted regular-file byte total exceeds `compressed_bytes * limits.archives.max_compression_ratio`. |
-| `archive_member_count_exceeded` | The extracted regular-file member count exceeds `limits.archives.max_members`. |
-
-`reference_pack_activation_rejected` `error.details.reason_code` values:
-
-| `reason_code` | Canonical meaning |
-| --- | --- |
-| `already_active` | The addressed pack version is already the active version for its `pack_key`. |
-| `not_verified_available` | The addressed pack version is not currently in `verified_available` condition. |
-
-`reference_pack_state_conflict` `error.details.reason_code` values:
-
-| `reason_code` | Canonical meaning |
-| --- | --- |
-| `already_disabled` | The requested disable action targeted a version already in `disabled` condition. |
-| `not_disableable` | The requested disable action targeted a version whose current durable condition does not allow disable. |
-| `verification_pending` | The requested reverify action targeted a version still in `staged` condition and awaiting initial verification. |
+Reference Pack request, operation and activation reason registries are defined exactly once in REQ-01-482, with admission order and response shapes in REQ-01-481. Verification reasons and their ordered checks are imported from Reference Pack RP-REQ-092 and RP-REQ-216; `verification_timeout` is the separate operational outcome defined there. The retired `reference_pack_state_conflict` and Reference Pack `signature_mismatch` aliases are invalid in profile major 2. This does not change the separate incident-bundle signature error below.
 
 `invalid_incident_bundle_request` `error.details.reason_code` values:
 

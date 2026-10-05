@@ -44,7 +44,7 @@ func (i portableVerificationIdentity) resolveDependency(ctx context.Context, d p
 }
 
 func (i portableVerificationIdentity) checkReleaseSequence(ctx context.Context, m packformat.Manifest, manifestSHA, payloadSHA string) error {
-	if err := i.Coordinator.checkReleaseSequence(ctx, m, manifestSHA, payloadSHA); err != nil {
+	if err := i.referenceDependencies.checkReleaseSequence(ctx, m, manifestSHA, payloadSHA); err != nil {
 		return err
 	}
 	// The frozen repository high-water mark applies to the whole cohort. Earlier
@@ -65,7 +65,7 @@ func (i portableVerificationIdentity) checkReleaseSequence(ctx context.Context, 
 
 func (r *incidentReferences) verifyPortablePreparation(ctx context.Context, request IncidentReferenceImportRequest, p *PreparedReferenceImport, cohort *portableVerificationCohort) (executionAttempt, error) {
 	a := executionAttempt{ID: uuid.New(), OperationID: cohort.operation, Actor: &p.actor, Start: r.verifier.now().UTC(), Count: int64(len(cohort.order)), Frozen: frozenOperation{Kind: "import", ClockTrusted: cohort.context.ClockTrusted, TimeoutSeconds: cohort.context.TimeoutSeconds, ConfigurationSHA256: cohort.context.ConfigurationSHA256}}
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return a, err
 	}
@@ -93,14 +93,14 @@ func (r *incidentReferences) verifyPortablePreparation(ctx context.Context, requ
 	if configuration != cohort.context.ConfigurationSHA256 {
 		return a, &OperationRejection{Reason: "stale_admission_state"}
 	}
-	identity := portableVerificationIdentity{operationVerificationIdentity: operationVerificationIdentity{Coordinator: r.verifier, operationID: a.OperationID}, attempt: a.ID}
+	identity := portableVerificationIdentity{operationVerificationIdentity: operationVerificationIdentity{referenceDependencies: r.verifier.referenceDependencies, operationID: a.OperationID}, attempt: a.ID}
 	for index, sourceIndex := range cohort.order {
 		m, err := r.verifier.frozenMember(ctx, a, int64(index+1))
 		if err != nil {
 			return a, err
 		}
 		source := cohort.inputs[sourceIndex]
-		input := VerificationAttempt{Observer: r.verifier.observer, Start: a.Start, ClockTrusted: cohort.context.ClockTrusted, Limits: r.verifier.limits.verificationArchiveLimits(), Identity: identity, Retained: &source.object.Reference, ContainerSHA256: source.object.Digest}
+		input := verificationAttempt{Observer: r.verifier.observer, Start: a.Start, ClockTrusted: cohort.context.ClockTrusted, Limits: r.verifier.limits.verificationArchiveLimits(), Identity: identity, Retained: &source.object.Reference, ContainerSHA256: source.object.Digest}
 		input.ResolveTrust = func(ctx context.Context, id string, versions []int64) (packformat.TrustSnapshot, bool, error) {
 			return r.verifier.frozenTrust(ctx, a, m, id, versions)
 		}

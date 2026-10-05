@@ -67,7 +67,7 @@ func consumerFixture(t *testing.T) (*consumerMemory, Consumer, *time.Time) {
 			}
 		}
 	}
-	m.set, err = packformat.BuildSet(members)
+	m.set, err = buildPackSet(members)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,6 +80,7 @@ func consumerFixture(t *testing.T) (*consumerMemory, Consumer, *time.Time) {
 }
 
 func TestCanonicalBaseReleaseBindingsAndConsumerEvaluation_Unit(t *testing.T) {
+	t.Run("owner DTO canonical round trips", testOwnerDTOCanonicalRoundTrips)
 	t.Run("machine contracts", testConsumerMachineContracts)
 	m, c, _ := consumerFixture(t)
 	for _, raw := range []string{"http://[ ::1 ]/", "http://[\t::1]/", "http://[::1\n]/", "http://[\x00::1]/", "http://[::1\x7f]/"} {

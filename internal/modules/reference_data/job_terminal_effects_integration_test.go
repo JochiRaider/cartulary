@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type failingTerminalEffects struct{ err error }
@@ -22,13 +23,13 @@ func (f failingTerminalEffects) ApplyJobTerminalEffectsTx(ctx context.Context, t
 	return f.err
 }
 
-func testJobTerminalOwnerRecovery(t *testing.T, c *Coordinator, catalog *jobs.Catalog, transactions *jobs.TransactionService, definitions []jobs.Definition, actor uuid.UUID, container []byte, established bool) {
+func testJobTerminalOwnerRecovery(t *testing.T, c *Coordinator, pool *pgxpool.Pool, catalog *jobs.Catalog, transactions *jobs.TransactionService, definitions []jobs.Definition, actor uuid.UUID, container []byte, established bool) {
 	t.Helper()
 	ctx := context.Background()
 	policy := jobs.ProductionRuntimePolicy()
 	policy.MaximumFailures = 1
 	policy.RetryDelays = nil
-	manager, err := jobs.NewManager(jobs.ManagerOptions{Postgres: c.pool, Transactions: transactions, Catalog: catalog, Policy: policy, Now: func() time.Time { return time.Now().UTC() }})
+	manager, err := jobs.NewManager(jobs.ManagerOptions{Postgres: pool, Transactions: transactions, Catalog: catalog, Policy: policy, Now: func() time.Time { return time.Now().UTC() }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +62,7 @@ func testJobTerminalOwnerRecovery(t *testing.T, c *Coordinator, catalog *jobs.Ca
 			expectedAttempts := 0
 			if name == "queued inactive cancellation" {
 				expectedOutcome = "canceled"
-				tx, err := c.pool.Begin(ctx)
+				tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -102,7 +103,7 @@ func testJobTerminalOwnerRecovery(t *testing.T, c *Coordinator, catalog *jobs.Ca
 				// the durable exhaustion count. The same lease can then finish normally.
 				sentinel := errors.New("terminal participant unavailable")
 				faultyTransactions := collaborationsupport.NewJobTransactionsWithTerminalEffects(catalog, failingTerminalEffects{sentinel}, collaborationsupport.TestWorkerRuntimeContracts(definitions))
-				faulty, err := jobs.NewManager(jobs.ManagerOptions{Postgres: c.pool, Transactions: faultyTransactions, Catalog: catalog, Policy: policy, Now: func() time.Time { return time.Now().UTC() }})
+				faulty, err := jobs.NewManager(jobs.ManagerOptions{Postgres: pool, Transactions: faultyTransactions, Catalog: catalog, Policy: policy, Now: func() time.Time { return time.Now().UTC() }})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -155,7 +156,7 @@ func testJobTerminalOwnerRecovery(t *testing.T, c *Coordinator, catalog *jobs.Ca
 			if err != nil {
 				t.Fatal(err)
 			}
-			tx, err := c.pool.Begin(ctx)
+			tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -176,7 +177,7 @@ func testJobTerminalOwnerRecovery(t *testing.T, c *Coordinator, catalog *jobs.Ca
 
 // Simulate retained work written by a previous process without the terminal
 // participant, then repair through the same composition used before readiness.
-func testRetainedTerminalJobRepair(t *testing.T, c *Coordinator, catalog *jobs.Catalog, transactions *jobs.TransactionService, definitions []jobs.Definition, actor uuid.UUID, container []byte) {
+func testRetainedTerminalJobRepair(t *testing.T, c *Coordinator, pool *pgxpool.Pool, catalog *jobs.Catalog, transactions *jobs.TransactionService, definitions []jobs.Definition, actor uuid.UUID, container []byte) {
 	t.Helper()
 	ctx := context.Background()
 	oldTransactions := collaborationsupport.NewJobTransactionsForCatalog(catalog, collaborationsupport.TestWorkerRuntimeContracts(definitions))
@@ -184,7 +185,7 @@ func testRetainedTerminalJobRepair(t *testing.T, c *Coordinator, catalog *jobs.C
 	policy.MaximumFailures = 1
 	policy.RetryDelays = nil
 	now := time.Now().UTC()
-	old, err := jobs.NewManager(jobs.ManagerOptions{Postgres: c.pool, Transactions: oldTransactions, Catalog: catalog, Policy: policy, Now: func() time.Time { return now }})
+	old, err := jobs.NewManager(jobs.ManagerOptions{Postgres: pool, Transactions: oldTransactions, Catalog: catalog, Policy: policy, Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +227,7 @@ func testRetainedTerminalJobRepair(t *testing.T, c *Coordinator, catalog *jobs.C
 	if err := c.pool.QueryRow(ctx, `SELECT terminal_at IS NOT NULL FROM reference_pack_operations WHERE job_id=$1`, pendingID).Scan(&terminal); err != nil || terminal {
 		t.Fatal("startup condemned queued work", terminal, err)
 	}
-	tx, err := c.pool.Begin(ctx)
+	tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +254,7 @@ func testHistoricalAttemptCorruption(t *testing.T, c *Coordinator) {
 		`UPDATE reference_pack_operations SET frozen_input=convert_to('{}','UTF8') WHERE kind='import'`,
 	}
 	for _, statement := range cases {
-		tx, err := c.pool.Begin(ctx)
+		tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}

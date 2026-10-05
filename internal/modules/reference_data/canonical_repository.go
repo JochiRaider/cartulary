@@ -14,9 +14,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // canonicalRepository is private owner persistence behind consumer and
@@ -27,11 +27,11 @@ type canonicalRepository struct {
 	invalidate func(context.Context, string, string) error
 }
 
-func NewConsumer(pool *pgxpool.Pool, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (Consumer, error) {
+func NewConsumer(pool postgres.DB, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (Consumer, error) {
 	if pool == nil || storage == nil || codec == nil || now == nil {
 		return nil, errors.New("reference pack: incomplete consumer dependencies")
 	}
-	coordinator, err := newIntegrityCoordinator(pool, storage, now, integrity)
+	coordinator, err := newIntegrityService(pool, storage, now, integrity)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func decodeRetainedSet(data []byte) (PackSet, error) {
 	if err := json.Unmarshal(data, &set); err != nil {
 		return PackSet{}, err
 	}
-	expected, err := packformat.BuildSet(set.Members)
+	expected, err := buildPackSet(set.Members)
 	if err != nil || expected.ID != set.ID || expected.SHA256 != set.SHA256 || expected.SchemaID != set.SchemaID || !slices.Equal(expected.Members, set.Members) {
 		return PackSet{}, consumerError("pack_unavailable")
 	}

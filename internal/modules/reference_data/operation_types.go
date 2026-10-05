@@ -36,7 +36,7 @@ type ActionParams struct {
 }
 
 type ActionResult struct {
-	Payload  map[string]any
+	Version  AdministrativeVersion
 	Replayed bool
 }
 

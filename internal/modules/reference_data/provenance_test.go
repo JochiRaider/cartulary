@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
@@ -22,7 +21,7 @@ func TestRetainedProvenanceClosedAndBoundToExactSet_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer operator.Close()
-	contents := map[string]*VerifiedContent{}
+	contents := map[string]*verifiedContent{}
 	members := []PackSetMember{}
 	for _, builtin := range builtins {
 		content := builtin.Content
@@ -32,7 +31,7 @@ func TestRetainedProvenanceClosedAndBoundToExactSet_Unit(t *testing.T) {
 		contents[content.Manifest.Key] = content
 		members = append(members, memberFor(content))
 	}
-	set, err := packformat.BuildSet(members)
+	set, err := buildPackSet(members)
 	if err != nil {
 		t.Fatal(err)
 	}

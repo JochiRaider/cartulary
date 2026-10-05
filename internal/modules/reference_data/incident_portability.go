@@ -36,8 +36,6 @@ func IncidentBundleReferenceInvariant(err error) (string, bool) {
 
 // ValidateIncidentBundleReferences is the Reference Pack owner's closed,
 // non-mutating validator for the Incident Bundle reference catalog.
-type IncidentBundleReferences = packformat.PortableReferences
-type IncidentBundleVersionReference = packformat.PortableVersion
 
 func DecodeIncidentBundleReferences(payload []byte) (IncidentBundleReferences, error) {
 	refs, err := packformat.DecodePortableReferences(payload)
@@ -48,7 +46,7 @@ func DecodeIncidentBundleReferences(payload []byte) (IncidentBundleReferences, e
 		}
 		return IncidentBundleReferences{}, err
 	}
-	return refs, nil
+	return portableReferencesFromFormat(refs), nil
 }
 
 func ValidateIncidentBundleReferences(payload []byte) error {
@@ -57,7 +55,8 @@ func ValidateIncidentBundleReferences(payload []byte) error {
 }
 
 func EncodeIncidentBundleReferences(sets []PackSet, versions []IncidentBundleVersionReference) ([]byte, error) {
-	return packformat.EncodePortableReferences(sets, versions)
+	refs := (IncidentBundleReferences{Sets: sets, Versions: versions}).format()
+	return packformat.EncodePortableReferences(refs.Sets, refs.Versions)
 }
 
 // ExportReferencesTx materializes the exact reference graph selected by the
@@ -99,7 +98,7 @@ func (r *retention) ExportReferencesTx(ctx context.Context, tx pgx.Tx, setIDs []
 			if anchor.VerificationMethod == "packaged_release_manifest_v1" {
 				distribution = "packaged_builtin"
 			}
-			versions = append(versions, IncidentBundleVersionReference{SetMember: member, DistributionKind: distribution, VerificationMethod: anchor.VerificationMethod, SourceProfileID: anchor.SourceProfileID, SourceProfileSHA256: anchor.SourceProfileSHA256})
+			versions = append(versions, IncidentBundleVersionReference{PackSetMember: member, DistributionKind: distribution, VerificationMethod: anchor.VerificationMethod, SourceProfileID: anchor.SourceProfileID, SourceProfileSHA256: anchor.SourceProfileSHA256})
 			seen[identity] = true
 		}
 	}
@@ -119,7 +118,7 @@ func ValidatePortableBinding(refs IncidentBundleReferences, binding SetBinding) 
 			return invalid
 		}
 		data, err := canonicaljson.Marshal(binding.Provenance)
-		if err != nil || packformat.ValidateProvenance(data, set) != nil {
+		if err != nil || packformat.ValidateProvenance(data, set.format()) != nil {
 			return invalid
 		}
 		versions := make(map[string]IncidentBundleVersionReference, len(refs.Versions))

@@ -1,13 +1,12 @@
 # Reference Pack obligation evidence index
 
-The earlier cutover totals below are historical. The four-defect follow-up, current candidate evidence and remaining adoption dispositions are recorded in the [remediation ledger](reference-pack-remediation.md#four-defect-remediation-follow-up--2026-10-04). They supersede earlier completeness claims for the affected boundaries.
-
+S08 reviewed all 264 requirement bodies and all 54 acceptance criteria on the structural-remediation candidate based on `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`. The [controlling tracker](reference-pack-remediation.md) owns current status. Historical run identities below remain attributable to their original sources; they do not qualify the new candidate. S10 is the final integrated acceptance slice.
 
 This index separates implemented behavior, executable evidence, human projection review and adoption. It is not a conformance certificate. The candidate owner is Reference Pack NLSpec 0.2.0 / profile 2; companion versions and unrecorded approvals are listed in the [owner inventory](reference-pack-owner-inventory.md). The [implementation ledger](reference-pack-remediation.md) records exact run roots, failures and superseding runs. No test, generator or release tool reads this document.
 
 All paths below are repository-relative. `format/` means `internal/modules/reference_data/internal/packformat/`; `state/` means its sibling `packstate/`; `reference/` means `internal/modules/reference_data/`. Projection names without a prefix belong to `contracts/reference-packs/`. A test listed here establishes only the assertions it executes. A registered fixture family does not establish every required case within that family.
 
-## Execution routes and retained results
+## Execution routes and historical retained results
 
 Use public Make routing; do not invoke package runners directly. `R` denotes `make test-slice OWNER=module.reference_data`; `RI` denotes `make service-backed-test-slice OWNER=module.reference_data`; `P` denotes `make service-backed-test-slice OWNER=module.reporting`; `IB` denotes `make service-backed-test-slice OWNER=module.incidentbundles`. Add the exact `ROWS` selector below to narrow a command. Omitting `ROWS` selects the complete routed owner slice.
 
@@ -29,6 +28,50 @@ Use public Make routing; do not invoke package runners directly. `R` denotes `ma
 | VISUAL | `make browser-e2e-visual`, followed by the visual target within RELEASE | `20261004T055013Z-p41727` and RELEASE both passed with identical renderer and promoted golden manifest; 255 active captures, 29 registered fixtures, no unresolved mapping. |
 
 Run roots are under `.cartulary/test-results/`. Graph runs retain `run-summary.json`, `target-summaries/`, row results and bounded unit logs. The ledger records generation, schema, migration, frontend, Markdown and full-release results separately. `RESULTS_DIR` is unset; successful retained-run maintenance is therefore skipped, not silently assumed.
+
+## S08 requirement and sub-obligation review
+
+Each inclusive range below was reviewed against its full body and referenced tables, then the behavioral matrix below. The ranges account for all 264 IDs exactly once; all 54 criteria are represented in the matrix. This human assessment includes nullability, order, failure precedence, transaction effects and future-only omissions, not just identifier coverage. Authored projections retain existing IDs because observable meaning is unchanged. Formal approval is still pending under the owner inventory's sixteen separate gate dispositions.
+
+| Requirements | Sub-obligations checked and evidence boundary | Disposition |
+| --- | --- | --- |
+| 001–005 | Bounded owners; mandatory Base independent of optional Jobs/admin/trust; no workbook surface or automatic mutation. Construction, Base and boundary rows. | Reviewed; adoption separate. |
+| 006–013 | Closed shapes, original bytes, unknown/null/omitted members, materialized defaults, exact tokens and order. Canonical/schema and consumer admission rows. | Reviewed; acceptance cannot add requirements. |
+| 014–016 | Background administration, advisory results and optional-absence hot path. UI/consumer and optional-surface rows. | Reviewed. |
+| 017–021 | Separate document/profile/contract versions; exact external baseline; human companion references only. Table 4-C and owner inventory. | Reviewed; content SHA refreshed for Core 01, Core 04 and Domain; production adoption pending. |
+| 022–028 | Immutable tuple and digest; numeric sequence versus opaque version; scoped rollback/replay. Manifest/trust and lifecycle rows. | Reviewed. |
+| 029–038 | Strict UTF-8/JCS/integer/depth admission, LF framing, closed extensions, source refs, paths and directory exception. Canonical JSON/archive/profile rows. | Reviewed; no parser repair. |
+| 039–047 | ZIP/TAR/GZIP structure, exact inventory, directory/terminator counts and bounded extraction. Archive and signed equivalent-container cases. | Reviewed; component versus signed-container evidence distinguished. |
+| 048–052 | Bundle hint, manifest fields/counts/order, license/notice/source binding. Manifest/profile/licensing fixtures. | Reviewed. |
+| 053–057 | Explicit producer inputs/time, logical hash domains, constant-time checks and canonical identity. Independent fixed vectors. | Reviewed; runtime cannot certify an external producer's source workflow. |
+| 058–076 | Release-bound built-ins; local bootstrap; strict Ed25519 and all supplied signatures; double-threshold rotation; exact historical roots; scoped rollback; fixed-time freshness/clock exceptions. Trust, live renewal and startup rows. | Reviewed; removed stale scalar-signer compatibility wording in RP-REQ-073; FIPS deferred. |
+| 077–088 | Required Base/retained history; claimed/unclaimed reconciliation; independent health/disablement; deterministic fallback/pruning; no overrides. State and persistence scenarios. | Reviewed. |
+| 089–098 | All 49 ordered checks/applicability; winning-check complete safe enumeration; issue identities, sorting/truncation/scratch abort; initial/renewal/reverify/mixed outcomes; inclusive deadline and proven commit. Diagnostic, lifecycle and Extensions rows. | Reviewed; operational abort never fabricated as invalid content. |
+| 099–111 | All sixteen profiles; cross-file/count/order/alias rules; distinct canonical external refs versus deduplicated lookup keys. Forty-eight profile fixtures and real signed all-profile Get/lookup imports. | Reviewed; framework indexing regression retained. |
+| 112–131 | Nine exact algorithms, raw-character URL rejection before parser normalization, invalid output nulls, behavior digests. Independent vectors and caller integration. | Reviewed; URL regression retained. |
+| 132–137 | Generic framework types, endpoints, source-stable subject IDs, exact/alias lookup and advisory authority. Profile and consumer rows. | Clarified producer continuity scope in RP-REQ-135/Table 18-A; exact version-bound consumer identity stays enforced. |
+| 138–148 | Profile-specific enrichment identity, scalar/array bounds, canonical sort and nulls. Profile/schema/identity vectors and live consumer round trips. | Reviewed; no automatic incident mutation. |
+| 149–155 | Opaque source-profile ID/digest; no runtime fetching/execution; SPDX expression versus legal approval; restricted embedding and retained backups. Source/license/portability rows and distribution inventory. | Reviewed; future external distribution approval remains explicit. |
+| 156–162 | Exact graph resolution/cycles/conflicts; stable-set pruning; registry compatibility and transaction-bound usage; unchanged algorithm digests. State/usage/pin races. | Reviewed; custom Host/Evidence assignment unreachable in current source schemas, with explicit future-owner obligations. |
+| 163–173 | Closed sorted set, independent digest/ID, old/new readers, immutable first-success provenance and retained decoders. Set/DTO/persistence/Reporting tests. | Reviewed; representation conversion preserves null/empty collections and bytes. |
+| 174–203 | Admission/frozen inputs, repo→key→set→usage lock order; operator attribution; renewal, exact reverify, mixed refresh; explicit activation/disable/removal; collector/backup leases; invalidation and progress. Lifecycle/finality/retention/recovery rows. | Reviewed; S04–S06 preserve transaction ownership and independent integrity handling. |
+| 204–213 | Five closed consumer operations, shape/set/profile/semantic error precedence, null result arms, exact lookup order, confidential 900-second cursors and provenance. Consumer vectors/live all-profile/DTO round trips. | Reviewed; no private format representations in supported owner DTOs. |
+| 214–220 | Core transport binding, required nulls, closed public reasons, action/removal precedence and no runtime adoption alias. API/OpenAPI/live authorization/replay tests. | Corrected stale Core generic error registry and Core 04 acceptance copies; route owner and typed/public behavior unchanged. |
+| 221–231 | Snapshot pin/release/preview identities; complete exact portable catalog, source preservation, destination trust, required/optional outcomes, frozen cohort/budget, shared parent transaction; historical restore and independent roots. Reporting, portability and recovery rows. | Reviewed; strict composition identity regression retained; no source trust inference. |
+| 232–235 | Closed successful envelope/prepared/result wrappers, object ownership/linkage, immutable digests, append-only audit, index rebuild. Persistence/portable/history tests. | Reviewed; private schema shape is not proof of trust. |
+| 236–242 | No egress or executable content; root confinement; inode leases/close-on-exec; cleanup; safe public state. Archive/storage/privacy/architecture review. | Reviewed; deployment at-rest protection remains target responsibility. |
+| 243–248 | Earliest bounded guards, equality/one-over and exact error mapping, safe observed lower bounds, no mutation on early upload; complete versus unreachable limits. Limit index and live HTTP/operator tests. | Corrected RP-REQ-244's retired activation error family; 64-member guard is unreachable under sixteen keys. No limits widened. |
+| 249–250 | Closed event-specific attestations, typed actors/nulls, complete signer sets, digest identity and replay. Attestation/DB/portable tests. | Reviewed. |
+| 251 | Administrative audit attribution, operation identity and no replay duplicates. Lifecycle/portable rows. | Reviewed independently from telemetry. |
+| 252–253 | Eleven operations, closed results, two-attribute spans/histogram and no sensitive content. Observer tests and OpenTelemetry owner. | Reviewed; observability never changes semantic results. |
+| 254 | All durable/derived UI states, disabled health, fallback attribution, pins/pending blockers, mixed/uncertain/replay results. Frontend and real browser owner rows. | Reviewed; S06 full owner includes browser behavior. |
+| 255 | Coordinated Core/Extensions/Reporting/Composition/portability/recovery/telemetry/harness/Domain amendments. | Candidate review complete; sixteen authority dispositions remain separate from adoption. |
+| 256–260 | Closed rooted fixture manifests, expected side effects, all 27 families, three cases per profile, machine-only traceability and no performance claim. Fixture manifest/harness rows. | Reviewed; 264/54 identifier consistency alone is not semantic completeness. |
+| 261–264 | Ed25519 unsupported-FIPS posture, explicit clock false exceptions, external-source distribution gates and closed future omissions. | Reviewed; S07/S09 deferred and no production conformance claim. |
+
+S08 found no additional runtime correction after the structural slices. The producer-continuity clarification avoids a deployment-dependent historical subject registry that could not certify upstream meaning and would make valid first import depend on unrelated retained history. It preserves the stronger runtime guarantees: immutable logical versions, exact source provenance, generic advisory consumers and enforced registry replacement. Existing schema/type/lookup and pin-history cases validate those guarantees; source publishers remain responsible for continuity before distribution.
+
+Fresh focused baseline: S06 full Reference Data `test-slice` passed **23/23** at `.cartulary/test-results/20261005T024203Z-p93991`, including all canonical rows, persistence, HTTP lifecycle, frontend and browser rows. Extensions finality passed **3/3** at `20261005T023148Z-p9478`. The S10 record supersedes these for final acceptance across participating owners. Historical failures and missing-run limitations remain in the controlling tracker.
 
 ## Behavior and projection matrix
 
@@ -99,8 +142,16 @@ Every row identifies an independently assessable boundary. Related sub-obligatio
 | Telemetry / AC-053 | OpenTelemetry operation/result registry and injected observer | `module.reference_data.unit.operation_telemetry` validates signals and closed attributes; lifecycle observer is supplementary evidence. |
 | Administration / AC-054 | Existing controller/model, generated client and HTTP projections | UI rows cover disabled health, provenance, fallback, removal blockers, mixed refresh, uncertain mutation and replay. RELEASE and VISUAL pass the final browser/frontend and reviewed rendering boundary. |
 
-## Release disposition
+## S10 final candidate validation
 
-Pre-production implementation and validation are complete. `make test-fast` passed 737/737 at `20261004T044530Z-p34338`; `make check` passed 990/990 at `20261004T045139Z-p26860`; RELEASE passed 1259/1259 on the final source and browser fixtures after `make agent-finalize` at `20261004T063610Z-p76079`. The release manifest records source digest `sha256:a0078d33960af5195218b0d56d7e856c5fe739e7034126596b2e24330efc2785`. Final handoff edits are documentation only.
+The complete `make release-check` passed **1261/1261** at `.cartulary/test-results/20261005T030730Z-p45700` on baseline commit `c9f5b366fe0d295057a30aaf6e488af9c587fdcb` plus this remediation working tree. Its machine-source digest is `sha256:b5d0f1c25905104352a03faae5c571510902d31ac89b4b16d1632dabe671d6ae`; source state is `dirty`. `make test-fast` passed **739/739** at `20261005T030116Z-p50484` with the same digest. Both runs have zero failed, skipped or canceled units. The release's 708 cleanup actions and test-fast's 731 actions all completed without failures. Every final summary artifact reference resolves locally.
+
+The release includes the current Reference Data (38 rows), Reporting (16), Composition (2), Incident Bundles (26), Recovery (27) and server (37) semantic rows, all passed, together with boundaries, OpenAPI, frontend, browser, accessibility/visual, generation/schema/migration, vulnerability and security checks. Normal harness caching remained enabled (724 hits, 120 misses, 417 bypasses); this is one complete run on the exact candidate, not an aggregate of retries or historical releases.
+
+`make agent-finalize` passed at `20261005T030036Z-p46135` before broader verification and changed no generated outputs. Retained-run evidence/performance maintenance was skipped because `RESULTS_DIR` was unset. Public target-plan comparison confirmed all 1404 check rows and every non-runner check unit are included in release-check; no duplicate standalone check was run. Plans are retained under `.cartulary/reference-pack-remediation/`. The controlling tracker records final documentation checks and is completed last. Formal adoption, FIPS build, deployment security approval and S09 rehearsal remain unclaimed.
+
+## Historical cutover release disposition
+
+The earlier cutover record reported pre-production implementation and validation complete. `make test-fast` passed 737/737 at `20261004T044530Z-p34338`; `make check` passed 990/990 at `20261004T045139Z-p26860`; RELEASE passed 1259/1259 on the final source and browser fixtures after `make agent-finalize` at `20261004T063610Z-p76079`. The release manifest records source digest `sha256:a0078d33960af5195218b0d56d7e856c5fe739e7034126596b2e24330efc2785`. Final handoff edits are documentation only.
 
 Exact companion revisions are recorded; formal production owner adoption and deployment-specific cryptographic compliance approval are not claimed. The project owner removed separate recreation and interchangeability reports from this pre-production scope. The 163-manifest inventory represents all 27 families; it is not a claim that a single scenario exhausts any family. The amendments and implementation remain reviewable in the working tree. No real deployment reset, historical converter or trust reconstruction was performed. `RESULTS_DIR` is unset, so retained-run maintenance was skipped; no execution unit was skipped in the successful release run.

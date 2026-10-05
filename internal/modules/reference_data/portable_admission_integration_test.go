@@ -35,7 +35,7 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &incidentReferences{pool: pool, storage: storage, executions: transactions, verifier: &Coordinator{pool: pool, storage: storage, configuration: Configuration{ClockTrusted: true}, limits: DefaultLimits(), now: time.Now, operations: manager}}
+	r := &incidentReferences{pool: pool, storage: storage, executions: transactions, verifier: &verificationService{referenceDependencies: &referenceDependencies{pool: pool, storage: storage, configuration: Configuration{ClockTrusted: true}, limits: DefaultLimits(), now: time.Now}, operations: manager}}
 	raw, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-input.v1.json")
 	if err != nil {
 		t.Fatal(err)
@@ -95,10 +95,10 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 	}
 	for index := range refs.Sets[0].Members {
 		if refs.Sets[0].Members[index].Key == vector.Reference.Key {
-			refs.Sets[0].Members[index] = vector.Reference.SetMember
+			refs.Sets[0].Members[index] = vector.Reference.PackSetMember
 		}
 	}
-	refs.Sets[0], err = packformat.BuildSet(refs.Sets[0].Members)
+	refs.Sets[0], err = buildPackSet(refs.Sets[0].Members)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 		content.Containers = []packformat.PortableContainer{{ManifestSHA256: vector.Descriptor.ManifestSHA256, ContainerSHA256: packformat.Digest(body), SizeBytes: int64(len(body))}}
 		content.RequiredMembers = []packformat.PortableRequiredMember{{SetID: refs.Sets[0].ID, Key: vector.Reference.Key}}
 		request, _, _ := newRequest()
-		encoded, err := packformat.EncodePortableContent(content, refs)
+		encoded, err := packformat.EncodePortableContent(content, refs.format())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -383,7 +383,7 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 		}
 	})
 	request, _, _ = newRequest()
-	contentBytes, err := packformat.EncodePortableContent(content, refs)
+	contentBytes, err := packformat.EncodePortableContent(content, refs.format())
 	if err != nil {
 		t.Fatal(err)
 	}

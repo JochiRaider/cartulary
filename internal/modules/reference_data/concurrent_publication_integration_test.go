@@ -3,7 +3,6 @@ package reference_data_test
 import (
 	"context"
 	"net/http"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,18 +15,12 @@ import (
 
 func TestConcurrentRootPublicationRejectsFrozenOtherKey_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := startReferencePackServer(t, runtime, "reference-pack-shared-root-race")
+	barrier := &appsupport.ReferencePackVerificationBarrier{}
+	harness := startReferencePackServerWithEnv(t, runtime, "reference-pack-shared-root-race", nil, barrier)
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	started, release := make(chan struct{}), make(chan struct{})
-	var imports atomic.Int32
 	released := false
-	restore := reference_data.SetReferencePackWorkerStartHookForTesting(func(kind string) {
-		if kind == "import" && imports.Add(1) == 1 {
-			close(started)
-			<-release
-		}
-	})
-	defer restore()
+	barrier.BlockNext(started, release)
 	defer func() {
 		if !released {
 			close(release)

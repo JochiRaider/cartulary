@@ -217,28 +217,28 @@
       "producer_target": "build-server",
       "output_make_variable": "SERVER_BIN",
       "consumer_env": "CARTULARY_SERVER_BIN",
-      "default_output_path": "server"
+      "default_output_path": "build/bin/server"
     },
     {
       "id": "server-harness",
       "producer_target": "build-server-harness",
       "output_make_variable": "SERVER_HARNESS_BIN",
       "consumer_env": "CARTULARY_SERVER_HARNESS_BIN",
-      "default_output_path": "server-harness"
+      "default_output_path": "build/bin/server-harness"
     },
     {
       "id": "migrate",
       "producer_target": "build-migrate",
       "output_make_variable": "MIGRATE_BIN",
       "consumer_env": "CARTULARY_MIGRATE_BIN",
-      "default_output_path": "migrate"
+      "default_output_path": "build/bin/migrate"
     },
     {
       "id": "operator",
       "producer_target": "build-operator",
       "output_make_variable": "OPERATOR_BIN",
       "consumer_env": "CARTULARY_OPERATOR_BIN",
-      "default_output_path": "operator"
+      "default_output_path": "build/bin/operator"
     }
   ],
   "execution_dependencies": [

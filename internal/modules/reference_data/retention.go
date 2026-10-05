@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // SetBinding is retained with a consumer artifact. Provenance is the immutable
@@ -31,14 +31,14 @@ type Retention interface {
 
 type retention struct {
 	repository *canonicalRepository
-	integrity  *Coordinator
+	integrity  *integrityService
 }
 
-func NewRetention(pool *pgxpool.Pool, storage ArtifactStorage, now func() time.Time, integrity IntegrityOptions) (Retention, error) {
+func NewRetention(pool postgres.DB, storage ArtifactStorage, now func() time.Time, integrity IntegrityOptions) (Retention, error) {
 	if pool == nil || storage == nil {
 		return nil, errors.New("reference pack: incomplete retention dependencies")
 	}
-	coordinator, err := newIntegrityCoordinator(pool, storage, now, integrity)
+	coordinator, err := newIntegrityService(pool, storage, now, integrity)
 	if err != nil {
 		return nil, err
 	}

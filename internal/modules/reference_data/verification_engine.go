@@ -10,10 +10,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 )
 
-// VerificationAttempt is frozen application input. Start is the successful
+// verificationAttempt is frozen application input. Start is the successful
 // verification instant, never admission or completion time. The coordinator
 // supplies the same instant and deadline to every member of a refresh cohort.
-type VerificationAttempt struct {
+type verificationAttempt struct {
 	Observer         OperationObserver
 	Staged           *StagingRef
 	Retained         *StorageRef
@@ -40,10 +40,10 @@ type verificationIdentityHistory interface {
 	resolveDependency(context.Context, packformat.Dependency) (packformat.Manifest, bool, error)
 }
 
-// VerifiedContent owns its private workspace until the coordinator has copied
+// verifiedContent owns its private workspace until the coordinator has copied
 // its immutable members and index into unpublished durable storage. Close must
 // be called on both a committed result and a proven uncommitted result.
-type VerifiedContent struct {
+type verifiedContent struct {
 	Manifest        packformat.Manifest
 	ManifestBytes   []byte
 	ManifestSHA256  string
@@ -57,7 +57,7 @@ type VerifiedContent struct {
 	workspace       VerificationWorkspace
 }
 
-func (v *VerifiedContent) Close() error {
+func (v *verifiedContent) Close() error {
 	if v == nil || v.workspace == nil {
 		return nil
 	}
@@ -73,15 +73,15 @@ type ContentRejection struct {
 	CheckID          string
 	CandidateKey     string
 	CandidateVersion string
-	Summary          *packformat.ValidationSummary
+	Summary          *ValidationSummary
 }
 
 func (e *ContentRejection) Error() string { return "reference pack verification failed: " + e.Code }
 
-// VerifyCanonicalContainer is the application verification boundary shared by
+// verifyCanonicalContainer is the application verification boundary shared by
 // imports, renewal, reverify, refresh and destination portability. It performs
 // no trust mutation or consumer publication and makes no network request.
-func VerifyCanonicalContainer(ctx context.Context, storage VerificationStorage, attempt VerificationAttempt, index func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error)) (result *VerifiedContent, resultErr error) {
+func verifyCanonicalContainer(ctx context.Context, storage VerificationStorage, attempt verificationAttempt, index func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error)) (result *verifiedContent, resultErr error) {
 	ctx, end := observeReferenceOperation(ctx, attempt.Observer, "reference_pack.verify")
 	defer func() { end(referenceOutcome(resultErr)) }()
 	defer func() {
@@ -132,7 +132,7 @@ func VerifyCanonicalContainer(ctx context.Context, storage VerificationStorage, 
 	}
 	if summary.Result == "failed" {
 		issue := summary.Issues[0]
-		return nil, &ContentRejection{Code: issue.Code, CheckID: issue.CheckID, CandidateKey: p.key, CandidateVersion: p.version, Summary: summary}
+		return nil, &ContentRejection{Code: issue.Code, CheckID: issue.CheckID, CandidateKey: p.key, CandidateVersion: p.version, Summary: summaryFromFormat(summary)}
 	}
 	sink, err := index(ctx, p.manifest, p.manifestSHA, p.payloadSHA)
 	if err != nil {
@@ -149,7 +149,7 @@ func VerifyCanonicalContainer(ctx context.Context, storage VerificationStorage, 
 		return nil, err
 	}
 	keep = true
-	return &VerifiedContent{Manifest: p.manifest, ManifestBytes: p.manifestBytes, ManifestSHA256: p.manifestSHA, PayloadSHA256: p.payloadSHA, ContainerSHA256: p.containerSHA, ContainerBytes: p.size, Inventory: p.inventory, Trust: p.proposal(), TrustSnapshot: p.trust, VerifiedAt: attempt.Start.UTC(), workspace: p.workspace}, nil
+	return &verifiedContent{Manifest: p.manifest, ManifestBytes: p.manifestBytes, ManifestSHA256: p.manifestSHA, PayloadSHA256: p.payloadSHA, ContainerSHA256: p.containerSHA, ContainerBytes: p.size, Inventory: p.inventory, Trust: p.proposal(), TrustSnapshot: p.trust, VerifiedAt: attempt.Start.UTC(), workspace: p.workspace}, nil
 }
 
 type attemptReader struct {

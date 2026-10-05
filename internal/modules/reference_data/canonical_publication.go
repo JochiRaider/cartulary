@@ -47,7 +47,7 @@ func (o preparedObject) releasePublication() error {
 }
 
 type preparedVersion struct {
-	Content  *VerifiedContent
+	Content  *verifiedContent
 	Objects  []preparedObject
 	Envelope successfulEnvelope
 	Rows     []packformat.ContentRow
@@ -202,7 +202,7 @@ func publishSetTx(ctx context.Context, tx pgx.Tx, members []PackSetMember, opera
 // success. It never changes health, administrative disablement or activation.
 // The caller owns the pack-key publication guards and validates retained bytes.
 func retainSetTx(ctx context.Context, tx pgx.Tx, members []PackSetMember, operationID uuid.UUID) (PackSet, error) {
-	set, err := packformat.BuildSet(members)
+	set, err := buildPackSet(members)
 	if err != nil {
 		return PackSet{}, err
 	}
@@ -237,7 +237,7 @@ func retainSetTx(ctx context.Context, tx pgx.Tx, members []PackSetMember, operat
 	if err != nil {
 		return PackSet{}, err
 	}
-	if err := packformat.ValidateProvenance(provenance, set); err != nil {
+	if err := packformat.ValidateProvenance(provenance, set.format()); err != nil {
 		return PackSet{}, err
 	}
 	result, err := tx.Exec(ctx, `INSERT INTO reference_pack_sets(pack_set_id,pack_set_sha256,canonical_set,canonical_provenance,first_operation_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, set.ID, set.SHA256, encoded, provenance, operationID)
@@ -276,7 +276,7 @@ func provenanceFor(setID string, m packformat.Manifest, envelope successfulEnvel
 			break
 		}
 	}
-	return PackProvenance{PackSetID: setID, PackKey: m.Key, PackVersion: m.Version, ManifestSHA256: envelope.ManifestSHA256, PayloadSHA256: envelope.PayloadSHA256, PackContractVersion: m.Contract, ContentProfileID: m.ProfileID, ContentProfileVersion: m.ProfileVersion, AuthorityClass: authority, SourceProfileID: m.SourceProfileID, SourceProfileSHA256: m.SourceProfileSHA256, SourceIdentifier: m.SourceIdentifier, SourceVersion: m.SourceVersion, SourceAsOf: m.SourceAsOf, SourceArtifacts: m.Artifacts, License: m.License, VerificationMethod: method, LastVerifiedAt: envelope.VerifiedAt, TrustValidUntil: envelope.TrustValidUntil, VerifiedSignerKeyIDs: signers}
+	return PackProvenance{PackSetID: setID, PackKey: m.Key, PackVersion: m.Version, ManifestSHA256: envelope.ManifestSHA256, PayloadSHA256: envelope.PayloadSHA256, PackContractVersion: m.Contract, ContentProfileID: m.ProfileID, ContentProfileVersion: m.ProfileVersion, AuthorityClass: authority, SourceProfileID: m.SourceProfileID, SourceProfileSHA256: m.SourceProfileSHA256, SourceIdentifier: m.SourceIdentifier, SourceVersion: m.SourceVersion, SourceAsOf: m.SourceAsOf, SourceArtifacts: sourceArtifactsFromFormat(m.Artifacts), License: packLicenseFromFormat(m.License), VerificationMethod: method, LastVerifiedAt: envelope.VerifiedAt, TrustValidUntil: envelope.TrustValidUntil, VerifiedSignerKeyIDs: signers}
 }
 
 func publishRootsTx(ctx context.Context, tx pgx.Tx, repository string, proposal packformat.TrustProposal) error {

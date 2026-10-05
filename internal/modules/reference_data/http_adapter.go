@@ -2,6 +2,7 @@ package reference_data
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,104 +14,25 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
-type Service struct {
-	coordinator         *Coordinator
-	authStore           *authn.Store
-	jobManager          referenceJobOperations
-	jobRunner           referenceJobRunner
-	jobSuccessFinalizer JobSuccessFinalizer
-	keys                authn.MasterKeys
-	cursorCodec         *pagination.Codec
-	storage             ArtifactStorage
-	limits              Limits
-	now                 func() time.Time
+type httpAdapter struct {
+	coordinator AdministrativeApplication
+	authStore   *authn.Store
+	jobRunner   jobNotifier
+	keys        authn.MasterKeys
+	cursorCodec *pagination.Codec
+	now         func() time.Time
 }
 
-type referenceJobAdmission interface {
-	CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueueParams, time.Time) (jobs.Resource, error)
-}
+type jobNotifier interface{ Notify(uuid.UUID) }
 
-type referenceJobOperations interface {
-	Get(context.Context, uuid.UUID) (jobs.Resource, error)
-	ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error)
-	UpdateProgress(context.Context, jobs.Execution, jobs.Progress, *string) (jobs.Resource, error)
-	CompleteFailed(context.Context, jobs.Execution, jobs.FailureCompletion) (jobs.Resource, error)
-	CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error)
-}
-
-type referenceJobRunner interface {
-	RegisterHandler(string, jobs.HandlerFunc) error
-	Notify(uuid.UUID)
-}
-
-type RouteOption func(*routeOptions)
-
-type routeOptions struct {
-	observer            OperationObserver
-	jobSuccessFinalizer JobSuccessFinalizer
-	storage             ArtifactStorage
-	limits              Limits
-	jobAdmission        referenceJobAdmission
-	jobOperations       referenceJobOperations
-	jobRunner           referenceJobRunner
-	configuration       Configuration
-	registryUsage       RegistryUsageReader
-}
-
-func WithRegistryUsage(reader RegistryUsageReader) RouteOption {
-	return func(options *routeOptions) { options.registryUsage = reader }
-}
-
-func WithOperationObserver(observer OperationObserver) RouteOption {
-	return func(options *routeOptions) { options.observer = observer }
-}
-
-func WithConfiguration(configuration Configuration) RouteOption {
-	return func(options *routeOptions) { options.configuration = configuration }
-}
-
-func WithJobs(admission referenceJobAdmission, operations referenceJobOperations, runner referenceJobRunner) RouteOption {
-	return func(options *routeOptions) {
-		options.jobAdmission = admission
-		options.jobOperations = operations
-		options.jobRunner = runner
-	}
-}
-
-func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
-	return func(options *routeOptions) {
-		options.jobSuccessFinalizer = finalizer
-	}
-}
-
-func WithStorage(storage ArtifactStorage) RouteOption {
-	return func(options *routeOptions) {
-		options.storage = storage
-	}
-}
-
-func WithLimits(limits Limits) RouteOption {
-	return func(options *routeOptions) {
-		options.limits = limits
-	}
-}
-
-func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
+func RegisterRoutes(application AdministrativeApplication, notifier jobNotifier) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		settings := routeOptions{}
-		for _, option := range options {
-			if option != nil {
-				option(&settings)
-			}
-		}
-		service, err := newService(deps, settings)
+		service, err := newHTTPAdapter(deps, application, notifier)
 		if err != nil {
 			return err
 		}
@@ -128,7 +50,7 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, options routeOptions) (*Service, error) {
+func newHTTPAdapter(deps httpapi.DependencySet, application AdministrativeApplication, notifier jobNotifier) (*httpAdapter, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -142,59 +64,13 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	if options.jobOperations != nil && options.jobSuccessFinalizer == nil {
-		return nil, fmt.Errorf("reference pack admitted route requires a job success finalizer")
+	if application == nil || notifier == nil {
+		return nil, errors.New("reference pack: routes require a complete application and Jobs notifier")
 	}
-	if options.jobOperations != nil && options.jobRunner == nil {
-		return nil, fmt.Errorf("reference pack admitted route requires the shared job runner")
-	}
-	if options.jobOperations != nil && options.jobAdmission == nil {
-		return nil, fmt.Errorf("reference pack admitted route requires the Jobs transaction service")
-	}
-	if options.jobOperations != nil && options.storage == nil {
-		return nil, fmt.Errorf("reference pack admitted route requires storage")
-	}
-	service := &Service{
-		authStore:           authn.NewStore(deps.PostgresHandle()),
-		jobManager:          options.jobOperations,
-		jobRunner:           options.jobRunner,
-		jobSuccessFinalizer: options.jobSuccessFinalizer,
-		keys:                keys,
-		cursorCodec:         cursorCodec,
-		storage:             options.storage,
-		limits:              options.limits,
-		now:                 now,
-	}
-	if options.jobOperations != nil {
-		if options.storage == nil {
-			return nil, errors.New("reference pack routes require bounded artifact storage")
-		}
-		guard, ok := options.jobAdmission.(referenceJobExecutionGuard)
-		if !ok {
-			return nil, errors.New("reference pack routes require the Jobs execution guard")
-		}
-		service.coordinator, err = NewCoordinator(CoordinatorOptions{Observer: options.observer, Postgres: deps.Postgres, Storage: options.storage, Configuration: options.configuration, Limits: options.limits, JobAdmission: options.jobAdmission, JobOperations: options.jobOperations, JobExecutionGuard: guard, JobFinalizer: options.jobSuccessFinalizer, RegistryUsage: options.registryUsage, Now: now})
-		if err != nil {
-			return nil, err
-		}
-	}
-	if err := service.registerJobHandler(); err != nil {
-		return nil, err
-	}
-	return service, nil
+	return &httpAdapter{coordinator: application, authStore: authn.NewStore(deps.PostgresHandle()), jobRunner: notifier, keys: keys, cursorCodec: cursorCodec, now: now}, nil
 }
 
-func (s *Service) registerJobHandler() error {
-	if s == nil || s.jobRunner == nil {
-		return nil
-	}
-	if s.coordinator == nil {
-		return errors.New("reference pack Jobs coordinator unavailable")
-	}
-	return s.jobRunner.RegisterHandler(LifecycleWorkerKind, s.coordinator.Execute)
-}
-
-func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
+func (s *httpAdapter) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
@@ -284,7 +160,7 @@ func searchableOptionalString(value *string) string {
 	return *value
 }
 
-func (s *Service) handleMember(w http.ResponseWriter, r *http.Request) {
+func (s *httpAdapter) handleMember(w http.ResponseWriter, r *http.Request) {
 	route, ok := parseReferencePackPath(r.URL.Path)
 	if !ok {
 		http.NotFound(w, r)
@@ -327,7 +203,7 @@ func (s *Service) handleMember(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
+func (s *httpAdapter) handleRead(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
 	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -357,7 +233,7 @@ func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, packKey str
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, record.Resource())
 }
 
-func (s *Service) handleValidationSummary(w http.ResponseWriter, r *http.Request) {
+func (s *httpAdapter) handleValidationSummary(w http.ResponseWriter, r *http.Request) {
 	principal, apiErr := s.requireDeploymentAdmin(r, false)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -383,7 +259,7 @@ func (s *Service) handleValidationSummary(w http.ResponseWriter, r *http.Request
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, summary)
 }
 
-func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
+func (s *httpAdapter) handleImport(w http.ResponseWriter, r *http.Request) {
 	principal, apiErr := s.requireDeploymentAdmin(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -421,7 +297,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := pending.Accept(r.Context(), principal.User.ID, request.ClientTxnID)
-	if errors.Is(err, authn.ErrClientTxnConflict) {
+	if errors.Is(err, ErrClientTxnConflict) {
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
@@ -439,7 +315,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *Service) handleActivate(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
+func (s *httpAdapter) handleActivate(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
 	principal, request, ok := s.decodeAdminAction(w, r)
 	if !ok {
 		return
@@ -454,7 +330,7 @@ func (s *Service) handleActivate(w http.ResponseWriter, r *http.Request, packKey
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *Service) handleDisable(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
+func (s *httpAdapter) handleDisable(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
 	principal, request, ok := s.decodeAdminAction(w, r)
 	if !ok {
 		return
@@ -469,7 +345,7 @@ func (s *Service) handleDisable(w http.ResponseWriter, r *http.Request, packKey 
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *Service) handleRemove(w http.ResponseWriter, r *http.Request, key, version string) {
+func (s *httpAdapter) handleRemove(w http.ResponseWriter, r *http.Request, key, version string) {
 	principal, request, ok := s.decodeAdminAction(w, r)
 	if !ok {
 		return
@@ -478,7 +354,7 @@ func (s *Service) handleRemove(w http.ResponseWriter, r *http.Request, key, vers
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *Service) handleReverify(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
+func (s *httpAdapter) handleReverify(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
 	principal, request, ok := s.decodeAdminAction(w, r)
 	if !ok {
 		return
@@ -488,12 +364,7 @@ func (s *Service) handleReverify(w http.ResponseWriter, r *http.Request, packKey
 		writeAPIError(w, r, referencePackNotFound())
 		return
 	}
-	var wrapped apiError
-	if errors.As(err, &wrapped) {
-		writeAPIError(w, r, wrapped.apiErr)
-		return
-	}
-	if errors.Is(err, authn.ErrClientTxnConflict) {
+	if errors.Is(err, ErrClientTxnConflict) {
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
@@ -511,7 +382,7 @@ func (s *Service) handleReverify(w http.ResponseWriter, r *http.Request, packKey
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *Service) handleRefresh(w http.ResponseWriter, r *http.Request) {
+func (s *httpAdapter) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	principal, apiErr := s.requireDeploymentAdmin(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -523,7 +394,7 @@ func (s *Service) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.coordinator.VerifyRetained(r.Context(), VerificationRequest{Kind: "refresh", ActorUserID: principal.User.ID, ClientTxnID: request.ClientTxnID, PackKeys: request.PackKeys, KeysProvided: request.PackKeysProvided})
-	if errors.Is(err, authn.ErrClientTxnConflict) {
+	if errors.Is(err, ErrClientTxnConflict) {
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
@@ -541,7 +412,7 @@ func (s *Service) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *Service) decodeAdminAction(w http.ResponseWriter, r *http.Request) (httpauth.Principal, ActionRequest, bool) {
+func (s *httpAdapter) decodeAdminAction(w http.ResponseWriter, r *http.Request) (httpauth.Principal, ActionRequest, bool) {
 	principal, apiErr := s.requireDeploymentAdmin(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -555,18 +426,13 @@ func (s *Service) decodeAdminAction(w http.ResponseWriter, r *http.Request) (htt
 	return principal, request, true
 }
 
-func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, clientTxnID string, result ActionResult, err error) {
+func (s *httpAdapter) writeActionResult(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, clientTxnID string, result ActionResult, err error) {
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, referencePackNotFound())
 		return
 	}
-	if errors.Is(err, authn.ErrClientTxnConflict) {
+	if errors.Is(err, ErrClientTxnConflict) {
 		writeAPIError(w, r, clientTxnConflict(clientTxnID))
-		return
-	}
-	var wrapped apiError
-	if errors.As(err, &wrapped) {
-		writeAPIError(w, r, wrapped.apiErr)
 		return
 	}
 	if err != nil {
@@ -577,10 +443,10 @@ func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, prin
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, actionReceipt{Version: result.Version})
 }
 
-func (s *Service) dispatchReferencePackJob(jobID string) {
+func (s *httpAdapter) dispatchReferencePackJob(jobID string) {
 	parsed, err := uuid.Parse(jobID)
 	if err != nil {
 		return
@@ -591,19 +457,7 @@ func (s *Service) dispatchReferencePackJob(jobID string) {
 	s.jobRunner.Notify(parsed)
 }
 
-func failedCompletion(code string, details map[string]any) jobs.FailureCompletion {
-	return jobs.FailureCompletion{
-		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ErrorSummary: jobs.ErrorSummary{
-			Code:      code,
-			Message:   code,
-			Retryable: false,
-			Details:   details,
-		},
-	}
-}
-
-func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
+func (s *httpAdapter) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
 	if apiErr != nil {
 		return httpauth.Principal{}, apiErr
@@ -614,7 +468,7 @@ func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (h
 	return principal, nil
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+func (s *httpAdapter) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
@@ -673,4 +527,30 @@ func unescapePathSegment(raw string) (string, bool) {
 		return "", false
 	}
 	return value, true
+}
+
+func (v AdministrativeVersion) Resource() map[string]any {
+	// Paging consumes JSON-shaped values, including explicit nulls. This is a
+	// projection of the closed typed resource, not a second schema definition.
+	raw, _ := json.Marshal(v)
+	var resource map[string]any
+	_ = json.Unmarshal(raw, &resource)
+	return resource
+}
+
+func filterAdministrativeVersions(versions []AdministrativeVersion, scope map[string]string) []AdministrativeVersion {
+	result := versions[:0]
+	for _, v := range versions {
+		if state := scope["pack_version_state"]; state != "" && state != v.Condition {
+			continue
+		}
+		if active := scope["active"]; active != "" && v.Active != (active == "true") {
+			continue
+		}
+		if !listquery.MatchSearchTokens(strings.Fields(scope["search"]), v.PackKey, v.PackKind, v.PackVersion, searchableOptionalString(v.SourceIdentifier), searchableOptionalString(v.ManifestSHA256), searchableOptionalString(v.PayloadSHA256)) {
+			continue
+		}
+		result = append(result, v)
+	}
+	return result
 }

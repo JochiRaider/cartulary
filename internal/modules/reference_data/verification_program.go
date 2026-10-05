@@ -18,7 +18,7 @@ import (
 // transport orchestration, invokes every check. Dependent owner programs are
 // initialized only after all their prerequisite ranks have succeeded.
 type containerVerificationProgram struct {
-	attempt                               VerificationAttempt
+	attempt                               verificationAttempt
 	storage                               VerificationStorage
 	source                                *checkedContainerReader
 	size                                  int64

@@ -46,7 +46,7 @@ func validatePortablePreparations(ctx context.Context, db historicalPreparationQ
 		if err != nil || !bytes.Equal(canonical, references) {
 			return errHistoricalIntegrity
 		}
-		frozen, err := packformat.DecodePortabilityInput(input, refs)
+		frozen, err := packformat.DecodePortabilityInput(input, refs.format())
 		if err != nil || kind != "portable_retention" || job != frozen.SourceOperationID || operation != uuid.NewSHA1(job, []byte("reference_pack:incident_retention")) || terminal != (result != nil) || hasCatalog && !terminal {
 			return errHistoricalIntegrity
 		}

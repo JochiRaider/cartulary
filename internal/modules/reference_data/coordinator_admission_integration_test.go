@@ -324,7 +324,7 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{ProfileClaimed: true, ClockTrusted: true, Limits: DefaultLimits()}, vector.At); err != nil {
 		t.Fatal(err)
 	}
-	c := &Coordinator{pool: pool, storage: storage, limits: DefaultLimits(), configuration: Configuration{ClockTrusted: true}, now: func() time.Time { return vector.At }}
+	c := &verificationService{referenceDependencies: &referenceDependencies{pool: pool, storage: storage, limits: DefaultLimits(), configuration: Configuration{ClockTrusted: true}, now: func() time.Time { return vector.At }}}
 	staged, _ := ParseStagingRef("staged/fixture.zip")
 	identity, err := probeContainerIdentity(ctx, storage, staged, packformat.DefaultArchiveLimits())
 	if err != nil {
@@ -387,7 +387,7 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := c.publishAttemptTx(ctx, tx, a, a.Start.Add(time.Second)); err != nil {
+		if err := publishAttemptTx(ctx, tx, a, a.Start.Add(time.Second)); err != nil {
 			_ = tx.Rollback(ctx)
 			t.Fatal(err)
 		}
@@ -482,7 +482,7 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 	}
 	for i := range base.Members {
 		if base.Members[i].Key == identity.Key {
-			base.Members[i] = v.Member
+			base.Members[i] = PackSetMember(v.Member)
 		}
 	}
 	active, err := publishSetTx(ctx, tx, base.Members, a.OperationID)

@@ -5,13 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packstate"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -32,7 +30,7 @@ func (c *Coordinator) Disable(ctx context.Context, p ActionParams) (ActionResult
 }
 func (c *Coordinator) Remove(ctx context.Context, p ActionParams) (ActionResult, error) {
 	if p.Request.Reason == nil || *p.Request.Reason == "" {
-		return ActionResult{}, wrapAPIError(invalidReferencePackRequest("reason", "missing_required_field"))
+		return ActionResult{}, &RequestRejection{Field: "reason", Reason: "missing_required_field"}
 	}
 	return c.applyAdministrativeAction(ctx, p, "remove")
 }
@@ -61,25 +59,25 @@ func (c *Coordinator) applyAdministrativeAction(ctx context.Context, p ActionPar
 	if err != nil {
 		return ActionResult{}, err
 	}
-	key := authn.RouteIdempotencyKey{RouteKey: "reference_packs." + kind, ActorUserID: p.ActorUserID, ScopeKey: p.PackKey + ":" + p.PackVersion, ClientTxnID: p.Request.ClientTxnID}
-	tx, err := c.pool.Begin(ctx)
+	key := receiptKey{RouteKey: "reference_packs." + kind, ActorUserID: p.ActorUserID, ScopeKey: p.PackKey + ":" + p.PackVersion, ClientTxnID: p.Request.ClientTxnID}
+	tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return ActionResult{}, err
 	}
 	defer tx.Rollback(ctx)
-	if err := authn.LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+	if err := lockReceiptTx(ctx, tx, key); err != nil {
 		return ActionResult{}, err
 	}
-	if receipt, err := authn.GetRouteIdempotencyTx(ctx, tx, key); err == nil {
+	if receipt, err := readReceipt(ctx, tx, key); err == nil {
 		if !bytes.Equal(receipt.RequestHash, hashBytes(raw)) {
-			return ActionResult{}, authn.ErrClientTxnConflict
+			return ActionResult{}, ErrClientTxnConflict
 		}
-		var payload map[string]any
+		var payload actionReceipt
 		if err := json.Unmarshal(receipt.ResponseJSON, &payload); err != nil {
 			return ActionResult{}, err
 		}
-		return ActionResult{Payload: payload, Replayed: true}, nil
-	} else if !errors.Is(err, authn.ErrNotFound) {
+		return ActionResult{Version: payload.Version, Replayed: true}, nil
+	} else if !errors.Is(err, ErrNotFound) {
 		return ActionResult{}, err
 	}
 	operation := uuid.New()
@@ -102,13 +100,13 @@ func (c *Coordinator) applyAdministrativeAction(ctx context.Context, p ActionPar
 	switch kind {
 	case "activate":
 		if v.Active {
-			return ActionResult{}, wrapAPIError(referencePackActivationRejected("already_active"))
+			return ActionResult{}, &ActivationRejection{Reason: "already_active"}
 		}
 		if v.Health != "verified_available" || v.LastVerifiedAt == nil {
-			return ActionResult{}, wrapAPIError(referencePackActivationRejected("not_verified_available"))
+			return ActionResult{}, &ActivationRejection{Reason: "not_verified_available"}
 		}
 		if activationIntegrity != nil {
-			return ActionResult{}, wrapAPIError(referencePackActivationRejected("not_verified_available"))
+			return ActionResult{}, &ActivationRejection{Reason: "not_verified_available"}
 		}
 		var revision int64
 		if err := tx.QueryRow(ctx, `SELECT revision FROM reference_pack_key_state WHERE pack_key=$1`, p.PackKey).Scan(&revision); err != nil {
@@ -122,7 +120,7 @@ func (c *Coordinator) applyAdministrativeAction(ctx context.Context, p ActionPar
 				return ActionResult{}, &OperationRejection{Reason: "clock_untrusted"}
 			}
 			if v.TrustValidUntil == nil || !at.Before(*v.TrustValidUntil) {
-				return ActionResult{}, wrapAPIError(referencePackActivationRejected("metadata_expired"))
+				return ActionResult{}, &ActivationRejection{Reason: "metadata_expired"}
 			}
 		}
 		target, err := loadStateVersionTx(ctx, tx, p.PackKey, p.PackVersion)
@@ -174,7 +172,7 @@ func (c *Coordinator) applyAdministrativeAction(ctx context.Context, p ActionPar
 		}
 		members := make([]PackSetMember, 0, len(effective))
 		for _, m := range effective {
-			members = append(members, m.Member)
+			members = append(members, PackSetMember(m.Member))
 		}
 		next, err = publishSetTx(ctx, tx, members, operation)
 		if err != nil {
@@ -228,8 +226,8 @@ func (c *Coordinator) applyAdministrativeAction(ctx context.Context, p ActionPar
 	if err != nil {
 		return ActionResult{}, err
 	}
-	payload := map[string]any{"pack_version": v.Resource()}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, hashBytes(raw), http.StatusOK, payload); err != nil {
+	payload := actionReceipt{Version: v}
+	if err := writeReceiptTx(ctx, tx, key, hashBytes(raw), receiptCompleted, payload); err != nil {
 		return ActionResult{}, err
 	}
 	proof := func(proofCtx context.Context) (bool, error) {
@@ -240,11 +238,11 @@ func (c *Coordinator) applyAdministrativeAction(ctx context.Context, p ActionPar
 		if !terminal {
 			return false, nil
 		}
-		receipt, err := authn.NewStore(c.pool).GetRouteIdempotency(proofCtx, key)
+		receipt, err := readReceipt(proofCtx, c.pool, key)
 		if err != nil {
 			return false, err
 		}
-		if receipt.StatusCode != http.StatusOK || !bytes.Equal(receipt.RequestHash, hashBytes(raw)) {
+		if receipt.Outcome != receiptCompleted || !bytes.Equal(receipt.RequestHash, hashBytes(raw)) {
 			return false, nil
 		}
 		expected, err := canonicaljson.Marshal(payload)
@@ -260,7 +258,7 @@ func (c *Coordinator) applyAdministrativeAction(ctx context.Context, p ActionPar
 	if err := c.actionFinalizer.FinalizeReferencePackAction(ctx, tx, proof); err != nil {
 		return ActionResult{}, err
 	}
-	return ActionResult{Payload: payload}, nil
+	return ActionResult{Version: payload.Version}, nil
 }
 
 func actionStateError(err error) error {
@@ -274,9 +272,6 @@ func actionStateError(err error) error {
 func (c *Coordinator) registryReplacementTx(ctx context.Context, tx pgx.Tx, target packstate.Version, selected, base []packstate.Version) error {
 	if !strings.HasPrefix(target.Member.Key, "type_registry.") {
 		return nil
-	}
-	if c.registryUsage == nil {
-		return errors.New("reference pack: registry usage owner is unavailable")
 	}
 	used, err := c.registryUsage.ReferencedRegistryEntriesTx(ctx, tx, target.Member.Key)
 	if err != nil {

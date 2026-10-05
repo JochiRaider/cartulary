@@ -1,7 +1,6 @@
 # Reference Pack limit evidence
 
-The earlier cutover totals below are historical. The four-defect follow-up, current candidate evidence and remaining adoption dispositions are recorded in the [remediation ledger](reference-pack-remediation.md#four-defect-remediation-follow-up--2026-10-04). They supersede earlier completeness claims for the affected boundaries.
-
+S08 rechecked this inventory against all candidate limit clauses and the unchanged typed limits. Current status and fresh S10 acceptance belong to the [controlling tracker](reference-pack-remediation.md). Older totals below are historical, not validation of the structural-remediation candidate.
 
 This is a human review index for candidate NLSpec 0.2.0, profile 2, and its typed `contracts/reference-packs/limits.v1.json` projection. It is not consumed by tests or generators. Execution results and superseding failures are in the [implementation ledger](reference-pack-remediation.md). The [obligation index](reference-pack-obligation-evidence.md) gives public Make routes. A component fixture establishes that component's admission boundary; it does not establish destination trust, persistence or adoption by itself.
 
@@ -76,8 +75,16 @@ The successful envelope duplicates bounded evidence intentionally. Its two curre
 
 An admitted diagnostic path uses at most twice 4096 bytes after canonical escaping; a single-line entry ID at most twice 512 bytes. Registered tokens, bounded related identities, fixed codes and object framing keep a complete issue below 12 KiB. A 1000-issue summary is therefore below 16 MiB. Frozen portability context and attempt-result objects contain only fixed names/tokens, hashes, booleans and bounded integers, so neither can approach 4096 canonical bytes.
 
-## Evidence scope and final validation
+## Evidence scope and historical validation
 
-This inventory makes component scope explicit. The final production implementation passed `make test-fast` 737/737 at `20261004T044530Z-p34338` and `make check` 990/990 at `20261004T045139Z-p26860`; the complete final `make release-check` passed 1259/1259 at `20261004T063630Z-p80139`. The pre-production implementation ledger is complete for its requested scope.
+This inventory makes component scope explicit. The historical cutover implementation passed `make test-fast` 737/737 at `20261004T044530Z-p34338` and `make check` 990/990 at `20261004T045139Z-p26860`; the complete final `make release-check` passed 1259/1259 at `20261004T063630Z-p80139`. The pre-production implementation ledger is complete for its requested scope.
 
 Execution and schema/semantic review remain distinct from production owner adoption and the target deployment's security-authority disposition. The project owner explicitly excludes recreation/interchangeability reports from this pre-production cutover. No passing component guard or fixture count establishes production adoption. In particular, structural directory/TAR framing evidence must not be represented as a fully authenticated lifecycle fixture. Reachability arguments above preserve production limits and identify where complete at-limit artifacts would contradict another admitted constraint.
+
+## S08 refresh
+
+The full Reference Data owner run passed 23/23 at `20261005T024203Z-p93991`, including equality/excess guards, signed-container checks and complete reachable content/portable catalogs. S02 changed the canonical signing fixture interface without removing its real signatures. S03 DTO round trips preserve ordered arrays and explicit nulls. S05 preserves typed early upload rejection and bounded consumption. No configurable or fixed limit changed. RP-REQ-244's set-member table now points to the current `reference_pack_operation_rejected/contract_incompatible` family; sixteen admitted keys still make its generic 64-member guard unreachable. This editorial correction does not introduce a reachable new public error. S10 supplies integrated validation after this review.
+
+## S10 final validation
+
+The complete release passed 1261/1261 at `.cartulary/test-results/20261005T030730Z-p45700` with the unchanged machine limits and source `sha256:b5d0f1c25905104352a03faae5c571510902d31ac89b4b16d1632dabe671d6ae`. Test-fast passed 739/739 at `20261005T030116Z-p50484`. No limits, equality rules, hostile-input assertions or reachability constraints were widened. The final acceptance run and cleanup are recorded in the controlling tracker; older results remain historical.

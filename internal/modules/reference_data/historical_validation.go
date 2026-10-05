@@ -342,7 +342,7 @@ func validateHistoricalEnvelope(ctx context.Context, db postgres.DB, storage Art
 			return err
 		}
 		defer tx.Rollback(ctx)
-		builder, err = newIndexBuilder(ctx, tx, envelope.OperationID, manifest, manifestSHA, payloadSHA)
+		builder, err = newIndexBuilderTx(ctx, tx, envelope.OperationID, manifest, manifestSHA, payloadSHA)
 		if err != nil {
 			return err
 		}
@@ -381,7 +381,7 @@ func validateHistoricalEnvelope(ctx context.Context, db postgres.DB, storage Art
 		if err != nil {
 			return errHistoricalIntegrity
 		}
-		verified, err := VerifyCanonicalContainer(ctx, storage, VerificationAttempt{Retained: &ref, ContainerSHA256: *envelope.ContainerSHA256, Start: envelope.VerifiedAt, ClockTrusted: true, Limits: limits.verificationArchiveLimits(), Identity: retainedVerificationIdentity{db: db, storage: storage, manifest: manifest, manifestSHA: manifestSHA, payloadSHA: payloadSHA}, Repositories: map[string]packformat.TrustSnapshot{*manifest.Repository: *envelope.TrustSnapshot}}, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+		verified, err := verifyCanonicalContainer(ctx, storage, verificationAttempt{Retained: &ref, ContainerSHA256: *envelope.ContainerSHA256, Start: envelope.VerifiedAt, ClockTrusted: true, Limits: limits.verificationArchiveLimits(), Identity: retainedVerificationIdentity{db: db, storage: storage, manifest: manifest, manifestSHA: manifestSHA, payloadSHA: payloadSHA}, Repositories: map[string]packformat.TrustSnapshot{*manifest.Repository: *envelope.TrustSnapshot}}, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 			return sink, nil
 		})
 		if err != nil {

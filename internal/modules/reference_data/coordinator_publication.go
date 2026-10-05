@@ -15,7 +15,7 @@ import (
 // publishAttemptTx is invoked only within the leased Extensions finalizer.
 // The retained cohort is walked one row at a time, so memory is bounded by a
 // single container's admitted metadata rather than the number of versions.
-func (c *Coordinator) publishAttemptTx(ctx context.Context, tx pgx.Tx, a executionAttempt, completed time.Time) error {
+func publishAttemptTx(ctx context.Context, tx pgx.Tx, a executionAttempt, completed time.Time) error {
 	if err := lockPublicationTx(ctx, tx, a.OperationID, a.Frozen); err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func publishFallbackTx(ctx context.Context, tx pgx.Tx, a executionAttempt, at ti
 	}
 	members := make([]PackSetMember, 0, len(effective))
 	for _, v := range effective {
-		members = append(members, v.Member)
+		members = append(members, PackSetMember(v.Member))
 	}
 	next, err := publishSetTx(ctx, tx, members, a.OperationID)
 	if err != nil {

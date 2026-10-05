@@ -43,7 +43,6 @@ func (c *Coordinator) Execute(ctx context.Context, execution jobs.Execution) (re
 			}
 		}()
 	}
-	runReferencePackWorkerStartHook(a.Frozen.Kind)
 	deadline := extensiondeadline.New(0, a.Frozen.TimeoutSeconds, nil)
 	budgetCtx, cancel := context.WithDeadline(executionCtx, monotonicStart.Add(time.Duration(a.Frozen.TimeoutSeconds)*time.Second))
 	defer cancel()
@@ -91,7 +90,7 @@ func (c *Coordinator) Execute(ctx context.Context, execution jobs.Execution) (re
 		var failures int64
 		err = c.pool.QueryRow(budgetCtx, `SELECT count(*) FROM reference_pack_attempt_members WHERE attempt_id=$1 AND verdict='content_rejected'`, a.ID).Scan(&failures)
 		if err == nil {
-			mutate := func(ctx context.Context, tx pgx.Tx) error { return c.publishAttemptTx(ctx, tx, a, c.now().UTC()) }
+			mutate := func(ctx context.Context, tx pgx.Tx) error { return publishAttemptTx(ctx, tx, a, c.now().UTC()) }
 			if failures > 0 {
 				var code, check, summaryID string
 				var encoded []byte

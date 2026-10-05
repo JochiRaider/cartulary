@@ -208,21 +208,21 @@ The dependencies in Table 4-B are exact. A newer upstream version MUST NOT be su
 
 **Table 4-C. Exact pre-production companion content revisions**
 
-These SHA-256 values bind the companion file bytes reviewed for the 2026-10-04 cutover and four-defect remediation follow-up. They are human-maintained revision references, not executable harness inputs and not assertions of production adoption. The corresponding authored machine projections are named in the owner inventory. A later companion edit requires an explicit renewed projection review and revision binding; tests and generators MUST NOT read or hash these Markdown files.
+These SHA-256 values bind the companion file bytes reviewed for the 2026-10-04 cutover and renewed in the 2026-10-05 S08 candidate review. They are human-maintained revision references, not executable harness inputs and not assertions of production adoption. The corresponding authored machine projections are named in the owner inventory. A later companion edit requires an explicit renewed projection review and revision binding; tests and generators MUST NOT read or hash these Markdown files.
 
 | Companion owner | Exact content SHA-256 |
 | --- | --- |
 | Core 00 | `124d16f733d4b206a2c09be660239befaeaf9f328f02ca99ea6c004570251ec6` |
-| Core 01, including portability and recovery | `42a3cce61ab1def768b4f59e92c467dd1959718ac49776db6b35d756a109212f` |
+| Core 01, including portability and recovery | `3a9e1e58e28b3a4456aedeb0af218e6e652adea438d83b3142a26a17779fdb12` |
 | Core 02 | `c00fcadf93d9df8ca13cecd4550da36c8fc2f001c33f18c6baa98f5f0ea44a11` |
 | Core 03 | `9b063d7558d5842adeb3a05fb6bdfab1edd4a7555c5c1d6a0f9faf55d468ee81` |
-| Core 04, including recovery | `119227053b748b03208af9b769ecdc70db48b08a417bfe7298941e7d267cf97a` |
+| Core 04, including recovery | `6fec6f3f6c8218615adafaadfa83b636463387743188af40732879f02bacdb84` |
 | Reporting 1.4.0 | `cd58af1d88002a317f600a729c4ef85dfa3e71e42d00dbe5c98fb9e197f09c24` |
 | Report Composition 1.3.0 | `0de47589948852466a928f62ba28eacdb7bc890f21f1a82eba9614c5213607dd` |
 | Extensions 0.12.0 | `30fa76dc8dbbdf8ec6c8a0b7f4c91f0a6323ba2802115b2e2acd1f0daeeceb86` |
 | OpenTelemetry | `fdf8f52131f9b21abcd8562f8a16f2e9d67e01af665d52c54791071a53ec43bf` |
-| Testing Harness | `204a9b172c938562cd7c512806278ad62df59c74ab6050a9ebfb12c558de39c7` |
-| Domain vocabulary | `fb485d86c2ab0b14df30a47d435f0cb628fd0b279b3b9765e098cde4a92f643e` |
+| Testing Harness | `a25585590383d0e521422d4b41a34fc9f7e2d1db608daf9802ae427c4d57f5a7` |
+| Domain vocabulary | `5bd11e8c5d2aaf63f6cb1f2cb0609ebef59d53d59f35cc638c56710822c51060` |
 
 **RP-REQ-021**
 An external dependency supplies only the interface imported in Table 4-B. This NLSpec MUST NOT import an upstream implementation library, repository layout, programming language, or network protocol implicitly.
@@ -740,7 +740,7 @@ Missing binding data and mismatches between structurally admitted binding values
 Threshold satisfaction MUST count only distinct valid signatures from key IDs authorized for the applicable role in the currently trusted root, except for the explicitly defined old/new root authorization union in RP-REQ-067. An untrusted signer, invalid signature, duplicate signer, or insufficient distinct threshold fails with `signature_threshold_not_met`, or `tuf_root_rotation_invalid` when evaluating a root update. Verification MUST examine every supplied signature and MUST NOT stop after reaching a threshold.
 
 **RP-REQ-074**
-The successful verification attestation MUST retain the complete sorted set of valid authorized supplied signer key IDs for each role, not an implementation-selected threshold subset. Root transitions retain predecessor-authorized and successor-authorized signer sets separately. For public summary compatibility, `signer_key_id` MUST equal the lexicographically least targets-role signer key ID. Before this NLSpec is adopted, Core 01 MUST add `verified_signer_key_ids[]` as required by RP-REQ-215. Until that Core amendment is adopted, the complete signer set remains attestation-only and the Reference Pack conformance claim remains blocked.
+The successful verification attestation MUST retain the complete sorted set of valid authorized supplied signer key IDs for each role, not an implementation-selected threshold subset. Root transitions retain predecessor-authorized and successor-authorized signer sets separately. Profile major 2 exposes the complete targets-role set through `verified_signer_key_ids[]` under RP-REQ-215; the retired scalar `signer_key_id` is not an alternate projection. Coordinated adoption of that Core amendment remains required before a Reference Pack conformance claim.
 
 ## 10.5 Expiry and historical use
 
@@ -1401,7 +1401,7 @@ Framework object IDs, object types, relationship types, and external references 
 Every relationship endpoint MUST resolve to an object in the same pack. Self-relationships are valid only when the source framework explicitly represents them and the relationship has at least one source ref.
 
 **RP-REQ-135**
-A framework pack MAY remove an object or relationship in a later pack version. It MUST NOT reuse the removed ID for a different subject or relationship meaning. Pinned historical pack sets preserve the old object.
+A framework producer MAY remove an object or relationship in a later pack version. It MUST NOT reuse the removed ID for a different subject or relationship meaning. This is a source-publication obligation: the producer reviews continuity against its source history. Runtime consumers identify an object by its exact pack set, member and object ID; they MUST NOT infer cross-version subject equivalence from an unqualified ID. Pinned historical pack sets preserve the old object.
 
 **RP-REQ-136**
 Framework lookup kinds are exactly:
@@ -1636,6 +1636,8 @@ Before the final compatibility checks, apply the initiating pointer mutation, re
 If an active dependency becomes disabled, failed, missing, removed, or replaced by another version, every transitive dependent whose exact tuple is no longer satisfied MUST lose active status in the same publication transaction. No dependent is automatically reactivated later.
 
 **Table 18-A. Compatibility classification**
+
+Registry rows define runtime replacement checks under RP-REQ-160 and RP-REQ-161. Framework/enrichment ID continuity and framework `object_type` stability are producer compatibility obligations against the producer's source history; they are not deployment-history admission checks. A deployment may first encounter any valid version and does not maintain an inferred cross-version subject registry. Runtime validates each version's closed schema, intra-pack identities and references, exact dependencies and immutable logical tuple. Consumers retain version-qualified provenance and treat unknown framework types generically under RP-REQ-133. A producer changing subject or object type must assign a new source-stable ID. Runtime acceptance does not certify that producer obligation.
 
 | Change | Required result |
 | --- | --- |
@@ -2587,7 +2589,7 @@ Equality at a maximum is valid. A value greater than a maximum is invalid.
 | `max_aliases` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
 | `max_source_refs` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
 | `max_profile_array` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
-| `max_set_members` | Table 26-B | `reference_pack_activation_rejected/contract_incompatible` |
+| `max_set_members` | Table 26-B | `reference_pack_operation_rejected/contract_incompatible` for an activation proposal; current sixteen-key profile cannot reach this guard. |
 | `max_line_bytes` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
 | `max_issues` | Table 26-B | Truncate under RP-REQ-094; no failure. |
 | `max_verification_seconds` | RP-REQ-245 | `reference_pack_verification_failed/verification_timeout` |

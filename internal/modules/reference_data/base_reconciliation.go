@@ -7,8 +7,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packstate"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type reconciledVersion struct {
@@ -27,7 +27,7 @@ type reconciliationCapture struct {
 
 // Capture a coherent selection without holding mutation locks while inspecting
 // bytes. Startup has the same stale-observation rule as ordinary verification.
-func inspectReconciliation(ctx context.Context, pool *pgxpool.Pool, storage ArtifactStorage) (reconciliationCapture, error) {
+func inspectReconciliation(ctx context.Context, pool postgres.DB, storage ArtifactStorage) (reconciliationCapture, error) {
 	capture := reconciliationCapture{keys: map[string]int64{}}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
@@ -58,7 +58,7 @@ func inspectReconciliation(ctx context.Context, pool *pgxpool.Pool, storage Arti
 			if err != nil {
 				return capture, err
 			}
-			if state.Member != member {
+			if PackSetMember(state.Member) != member {
 				return capture, errHistoricalIntegrity
 			}
 			capture.versions = append(capture.versions, reconciledVersion{state: state})

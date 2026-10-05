@@ -13,9 +13,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // IncidentReferences retains source references as historical evidence. It does
@@ -47,7 +47,7 @@ type portableExecutionGuard interface {
 }
 
 type IncidentReferenceOptions struct {
-	Postgres      *pgxpool.Pool
+	Postgres      postgres.DB
 	Storage       ArtifactStorage
 	Configuration Configuration
 	Limits        Limits
@@ -58,9 +58,9 @@ type IncidentReferenceOptions struct {
 }
 
 type incidentReferences struct {
-	pool       *pgxpool.Pool
+	pool       postgres.DB
 	storage    ArtifactStorage
-	verifier   *Coordinator
+	verifier   *verificationService
 	executions portableExecutionGuard
 }
 
@@ -71,7 +71,7 @@ func NewIncidentReferences(options IncidentReferenceOptions) (IncidentReferences
 	if err := validateCoordinatorLimits(options.Limits); err != nil {
 		return nil, err
 	}
-	c := &Coordinator{pool: options.Postgres, storage: options.Storage, configuration: options.Configuration, limits: options.Limits, operations: options.JobOperations, observer: options.Observer, now: options.Now}
+	c := &verificationService{referenceDependencies: &referenceDependencies{pool: options.Postgres, storage: options.Storage, configuration: options.Configuration, limits: options.Limits, observer: options.Observer, now: options.Now}, operations: options.JobOperations}
 	return &incidentReferences{pool: options.Postgres, storage: options.Storage, verifier: c, executions: options.JobExecutions}, nil
 }
 
@@ -124,7 +124,7 @@ func (r *incidentReferences) PrepareImport(ctx context.Context, request Incident
 	}
 	content := packformat.EmptyPortableContent()
 	if request.ContentManifest != nil {
-		content, err = packformat.DecodePortableContent(*request.ContentManifest, refs)
+		content, err = packformat.DecodePortableContent(*request.ContentManifest, refs.format())
 		if err != nil {
 			var failure *packformat.Failure
 			if errors.As(err, &failure) {
@@ -140,7 +140,7 @@ func (r *incidentReferences) PrepareImport(ctx context.Context, request Incident
 	if err != nil {
 		return nil, err
 	}
-	required := packformat.RequiredPortableVersions(content, refs)
+	required := packformat.RequiredPortableVersions(content, refs.format())
 	p := &PreparedReferenceImport{owner: r, incident: incident, operation: operation, actor: actor, at: at.UTC(), refs: refs, canonical: canonical, input: input}
 	// Proven exact replay precedes fresh availability and revision checks.
 	var previous, previousInput []byte
@@ -391,7 +391,7 @@ func (r *incidentReferences) ApplyImportTx(ctx context.Context, tx pgx.Tx, p *Pr
 	if err := json.Unmarshal(p.input, &declared); err != nil {
 		return err
 	}
-	required := packformat.RequiredPortableVersions(declared.Content, p.refs)
+	required := packformat.RequiredPortableVersions(declared.Content, p.refs.format())
 	for _, version := range p.versions {
 		if required[version.reference.Key+"\x00"+version.reference.Version] && !version.available {
 			return &IncidentBundleReferenceValidationError{InvariantID: IncidentBundleReferenceDegradationInvariant}
@@ -408,7 +408,7 @@ func (r *incidentReferences) ApplyImportTx(ctx context.Context, tx pgx.Tx, p *Pr
 	if err != nil {
 		return err
 	}
-	if err := packformat.ValidatePortabilityRetention(input, result, p.refs); err != nil {
+	if err := packformat.ValidatePortabilityRetention(input, result, p.refs.format()); err != nil {
 		return err
 	}
 	if p.cohort != nil {
@@ -435,7 +435,7 @@ func (r *incidentReferences) ApplyImportTx(ctx context.Context, tx pgx.Tx, p *Pr
 	for _, set := range p.refs.Sets {
 		complete := true
 		for _, member := range set.Members {
-			if !slices.ContainsFunc(p.versions, func(v importedReferenceVersion) bool { return v.available && v.reference.SetMember == member }) {
+			if !slices.ContainsFunc(p.versions, func(v importedReferenceVersion) bool { return v.available && v.reference.PackSetMember == member }) {
 				complete = false
 				break
 			}
@@ -548,7 +548,7 @@ func (r *incidentReferences) retainedContentTx(ctx context.Context, tx pgx.Tx, i
 		return packformat.PortableContent{}, err
 	}
 	refs, err := DecodeIncidentBundleReferences(references)
-	if err != nil || packformat.ValidatePortabilityRetention(input, result, refs) != nil {
+	if err != nil || packformat.ValidatePortabilityRetention(input, result, refs.format()) != nil {
 		return packformat.PortableContent{}, errHistoricalIntegrity
 	}
 	var frozen struct {

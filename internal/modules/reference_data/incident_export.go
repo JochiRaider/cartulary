@@ -55,7 +55,7 @@ func (r *incidentReferences) ExportContentTx(ctx context.Context, tx pgx.Tx, req
 	if len(content.Containers) == 0 && len(content.RequiredMembers) == 0 {
 		return nil, nil
 	}
-	return packformat.EncodePortableContent(content, refs)
+	return packformat.EncodePortableContent(content, refs.format())
 }
 
 func (r *incidentReferences) exportContainerTx(ctx context.Context, tx pgx.Tx, reference IncidentBundleVersionReference, write func(context.Context, string, int64, io.Reader) error) (result *packformat.PortableContainer, resultErr error) {
