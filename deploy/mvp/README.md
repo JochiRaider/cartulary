@@ -6,7 +6,7 @@ It is not disconnected-profile conformance. Operational recovery for this packag
 
 ## Contents
 
-- `Containerfile` builds the app image from Make-built `server`, `migrate`, and `operator` binaries.
+- `Containerfile` builds the app image from Make-built `server`, `migrate`, and `operator` binaries under `build/bin`.
 - `docker-compose.yml` starts `app`, `postgres`, `seaweedfs-s3`, one-shot `migrate`, and one-shot `object-store-init`.
 - `config.toml.example` is the deployment config template mounted at `/etc/cartulary/config.toml`.
 - `revisions-conflict-token-key-ring.json.example` is the dedicated sealed conflict-token key-ring template.
