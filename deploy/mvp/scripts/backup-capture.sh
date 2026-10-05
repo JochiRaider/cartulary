@@ -29,6 +29,9 @@ require_file() {
 
 compose() {
   local args=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")
+  if [[ -n "${CARTULARY_MVP_COMPOSE_OVERLAY:-}" ]]; then
+    args+=(-f "$CARTULARY_MVP_COMPOSE_OVERLAY")
+  fi
   if [[ -n "${CARTULARY_MVP_COMPOSE_PROJECT_NAME:-}" ]]; then
     args=(--project-name "$CARTULARY_MVP_COMPOSE_PROJECT_NAME" "${args[@]}")
   fi
@@ -47,7 +50,10 @@ set +a
 
 cleanup() {
   local status=$?
-  compose up -d app >/dev/null 2>&1 || true
+  if ! compose up -d app >/dev/null; then
+    echo "cartulary backup create failed: application restart failed" >&2
+    status=1
+  fi
   exit "$status"
 }
 trap cleanup EXIT

@@ -438,7 +438,7 @@ func newCanonicalCoordinatorFixture(t *testing.T, name string) canonicalCoordina
 	}
 	t.Cleanup(pool.Close)
 	var vector signedCoordinatorVector
-	data, err := os.ReadFile("../../../contracts/reference-packs/fixtures/signed-container.v1.json")
+	data, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/signed-container.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

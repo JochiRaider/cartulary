@@ -692,7 +692,7 @@
       "selector": {
         "package": "./internal/modules/reference_data/internal/packformat",
         "tests": [
-          "TestFixtureManifestsAndTraceability_Unit"
+          "TestExecutableFixtureContracts_Unit"
         ]
       },
       "evidence_class": "unit",

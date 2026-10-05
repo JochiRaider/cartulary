@@ -20,7 +20,7 @@ type manifestVector struct {
 
 func manifestFixture(t *testing.T) manifestVector {
 	t.Helper()
-	data, err := os.ReadFile("../../../../../contracts/reference-packs/fixtures/manifest.v1.json")
+	data, err := os.ReadFile("../../../../../contracts/reference-pack-fixtures/fixtures/manifest.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestPackSetIdentityIsContentOnlyAndRequiresBase_Unit(t *testing.T) {
 		Members  []SetMember `json:"members"`
 		Expected string      `json:"expected_set_id"`
 	}
-	raw, err := os.ReadFile("../../../../../contracts/reference-packs/fixtures/complete-set.v1.json")
+	raw, err := os.ReadFile("../../../../../contracts/reference-pack-fixtures/fixtures/complete-set.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

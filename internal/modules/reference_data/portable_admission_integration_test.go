@@ -36,7 +36,7 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 		t.Fatal(err)
 	}
 	r := &incidentReferences{pool: pool, storage: storage, executions: transactions, verifier: &verificationService{referenceDependencies: &referenceDependencies{pool: pool, storage: storage, configuration: Configuration{ClockTrusted: true}, limits: DefaultLimits(), now: time.Now}, operations: manager}}
-	raw, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-input.v1.json")
+	raw, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-input.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 		Bootstrap  string `json:"bootstrap"`
 		Repository string `json:"repository_id"`
 	}
-	trustBytes, err := os.ReadFile("../../../contracts/reference-packs/fixtures/signed-container.v1.json")
+	trustBytes, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/signed-container.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

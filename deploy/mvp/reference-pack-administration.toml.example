@@ -1,0 +1,8 @@
+# Append to config.toml only when enabling Reference Pack administration.
+[reference_pack]
+claimed = true
+
+[reference_packs]
+# Explicit deployment assertion; enable only after establishing trusted UTC.
+clock_trusted = false
+trust_bootstrap_path = "/etc/cartulary/reference-pack-trust.json"

@@ -1,5 +1,7 @@
 # Reference Pack obligation evidence index
 
+> Historical record of the completed pre-production iteration. The material below retains its original review scope, references and results; it is not a current gate ledger or a recurring reporting obligation. Do not refresh its document hashes, requirement mappings or signoffs. Current work and dispositions belong to the [controlling tracker](reference-pack-remediation.md); operational instructions belong to the [development cutover guide](../guides/reference-pack-development-cutover.md) and maintained package documentation. Ordinary owner review, adoption, trust, licensing and deployment suitability remain required.
+
 S08 reviewed all 264 requirement bodies and all 54 acceptance criteria on the structural-remediation candidate based on `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`. The [controlling tracker](reference-pack-remediation.md) owns current status. Historical run identities below remain attributable to their original sources; they do not qualify the new candidate. S10 is the final integrated acceptance slice.
 
 This index separates implemented behavior, executable evidence, human projection review and adoption. It is not a conformance certificate. The candidate owner is Reference Pack NLSpec 0.2.0 / profile 2; companion versions and unrecorded approvals are listed in the [owner inventory](reference-pack-owner-inventory.md). The [implementation ledger](reference-pack-remediation.md) records exact run roots, failures and superseding runs. No test, generator or release tool reads this document.

@@ -7708,7 +7708,7 @@ Profiles: base
 Verified by: AC-399
 
 **REQ-01-578**
-A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, `roots.reference_pack_storage` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a typed non-secret verification basis containing the mechanism identity, non-secret root-binding digests, recovery-state catalog digest, and codec-registry digest. Its canonical digest is the verification-basis digest. Open string maps and implementation wording MUST NOT participate. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
+A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, `roots.reference_pack_storage` binding, `roots.export_outputs` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a typed non-secret verification basis containing the mechanism identity, non-secret root-binding digests, recovery-state catalog digest, and codec-registry digest. Its canonical digest is the verification-basis digest. Open string maps and implementation wording MUST NOT participate. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
 
 A manual one-shot restore-verification command MAY exist, but it is not sufficient by itself to satisfy the cadence requirement. The deployment-local implementation MUST provide an operator-runnable due-verification control that selects retained backups due by verification age or verification-basis change, runs verification in an isolated restore target, records each result, and fails closed before mutating any target that is not proven to be a restore-verification target.
 
@@ -7719,7 +7719,7 @@ query. Workbook validates the complete registry and executes the selected
 registration. Recovery selects the lexicographically lowest restored
 `incident_id` once, passes that exact identity to Workbook, and records the
 returned registration and view identity in
-`cartulary.restore_verification.v3`; Workbook MUST NOT reselect an incident.
+`cartulary.restore_verification.v4`; Workbook MUST NOT reselect an incident.
 Duplicate registration IDs, more than one Base default, or an unresolved view
 schema or executor MUST fail before verification execution.
 
@@ -7745,7 +7745,7 @@ after successful restore, rebuild, and invariant checks establish that the
 restored backup contains no incidents.
 
 For a current SeaweedFS S3 object-store realization, a
-`cartulary.restore_verification.v3` artifact is sufficient
+`cartulary.restore_verification.v4` artifact is sufficient
 restore-verification evidence only when it selects exactly one retained
 `backup_set`, binds the exact verification basis, catalog, codecs, selected
 incident, and executed workbook registration, restores Postgres and

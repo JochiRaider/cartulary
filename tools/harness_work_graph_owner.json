@@ -65,7 +65,10 @@
       "release-readiness-evidence",
       "sbom",
       "seaweedfs-compatibility",
-      "seaweedfs-release-gate"
+      "seaweedfs-release-gate",
+      "standup-operational-recovery-smoke",
+      "standup-package-smoke",
+      "standup-reference-pack-smoke"
     ]
   },
   "target_members": {
@@ -466,7 +469,10 @@
         "harness-contract",
         "license-report",
         "sbom",
-        "seaweedfs-release-gate"
+        "seaweedfs-release-gate",
+        "standup-operational-recovery-smoke",
+        "standup-package-smoke",
+        "standup-reference-pack-smoke"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
@@ -539,18 +545,24 @@
         "deployable-shape"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 15000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
+      "estimated_work_ms": 180000,
+      "resource_profile_id": "package_qualification",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     "standup-package-smoke": {
       "needs": [
         "deployable-shape"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 15000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
+      "estimated_work_ms": 180000,
+      "resource_profile_id": "package_qualification",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     "test-catalog-check": {
       "needs": [
@@ -610,6 +622,18 @@
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
+    },
+    "standup-reference-pack-smoke": {
+      "needs": [
+        "deployable-shape"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 180000,
+      "resource_profile_id": "package_qualification",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     }
   },
   "evidence_estimates_ms": {

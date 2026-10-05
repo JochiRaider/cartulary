@@ -21,11 +21,11 @@ import (
 func testEmbeddedReferenceDestinationVerification(t *testing.T, runtime *appsupport.Runtime, source *appsupport.ServerHarness) {
 	t.Helper()
 	expected := referencetest.OwnerFixture(t, "portable_destination")
-	vector, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-input.v1.json")
+	vector, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-input.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	references, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-references.v1.json")
+	references, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-references.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

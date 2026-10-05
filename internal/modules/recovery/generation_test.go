@@ -133,6 +133,7 @@ func TestRecoveryGenerationSelectionDrivesVerificationBasisAndCadence_Unit(t *te
 		DatabaseBindingSHA256:             strings.Repeat("a", 64),
 		ObjectStoreBindingSHA256:          strings.Repeat("b", 64),
 		ReferencePackStorageBindingSHA256: strings.Repeat("d", 64),
+		ExportOutputsBindingSHA256:        SHA256String("test-export-root"),
 		BackupStorageBindingSHA256:        strings.Repeat("c", 64),
 		RecoveryStateCatalogSHA256:        registry.current.stateCatalog.DigestSHA256(),
 		CodecRegistrySHA256:               registry.current.codecRegistrySHA256,

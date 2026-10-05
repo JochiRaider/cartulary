@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
@@ -113,6 +114,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 }
 
 func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) {
+	t.Run("root rotation survives persisted transition evidence", testPersistedRootRotation)
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-lifecycle")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -950,5 +952,28 @@ func putObject(t testing.TB, baseURL string, target map[string]any, payload []by
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		data, _ := io.ReadAll(resp.Body)
 		t.Fatalf("upload object status %d: %s", resp.StatusCode, string(data))
+	}
+}
+
+func testPersistedRootRotation(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := startReferencePackServer(t, runtime, "retained-root-rotation")
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	container := referencePackBundle(t, bundleOptions{PackKey: "enrichment.tor", PackVersion: "2", RootVersion: 2})
+	response := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, `{"client_txn_id":"rotation"}`, container, "rotation.zip", "application/zip")
+	job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
+	if result := requireJob(t, harness, admin, job["job_id"].(string)); result["status"] != "succeeded" {
+		t.Fatal("root rotation failed", result)
+	}
+	storage, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer storage.Close()
+	if err := reference_data.ValidateRequiredState(context.Background(), harness.Pool, storage, reference_data.DefaultLimits()); err != nil {
+		t.Fatal("restart rejected valid retained root rotation", err)
+	}
+	if err := reference_data.RestoreHistoricalState(context.Background(), harness.Pool, storage, reference_data.DefaultLimits()); err != nil {
+		t.Fatal("restore rejected valid retained root rotation", err)
 	}
 }

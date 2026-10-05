@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepacks"
+	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepackfixtures"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -55,7 +55,7 @@ func TestCanonicalLifecycleFixtureManifests_Integration(t *testing.T) {
 		Schema string                 `json:"schema_id"`
 		Steps  []lifecycleFixtureStep `json:"steps"`
 	}
-	raw, err := os.ReadFile("../../../contracts/reference-packs/fixtures/lifecycle.v1.json")
+	raw, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/lifecycle.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,8 +65,8 @@ func TestCanonicalLifecycleFixtureManifests_Integration(t *testing.T) {
 		t.Fatal("invalid scenario", err)
 	}
 	manifests := map[string]lifecycleFixtureExpectation{}
-	for _, artifact := range contractreferencepacks.Artifacts {
-		if !strings.HasPrefix(artifact.Path, "contracts/reference-packs/fixture-manifests/lifecycle/") {
+	for _, artifact := range contractreferencepackfixtures.Artifacts {
+		if !strings.HasPrefix(artifact.Path, "contracts/reference-pack-fixtures/fixture-manifests/lifecycle/") {
 			continue
 		}
 		var expected lifecycleFixtureExpectation
@@ -105,7 +105,7 @@ func TestCanonicalLifecycleFixtureManifests_Integration(t *testing.T) {
 				data := f.container
 				if step.Input != nil {
 					// The closed scenario permits only this independently produced archive.
-					if *step.Input != "contracts/reference-packs/fixtures/admission/equivalent_tar.v1.json" {
+					if *step.Input != "contracts/reference-pack-fixtures/fixtures/admission/equivalent_tar.v1.json" {
 						t.Fatal("unknown lifecycle input")
 					}
 					raw, e := os.ReadFile("../../../" + *step.Input)

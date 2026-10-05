@@ -1,0 +1,69 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_admission_zip_case_collision",
+  "fixture_version": 1,
+  "fixture_family": "archive_attack",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/admission/zip_case_collision.v1.json"
+  ],
+  "expected_container_sha256": "2d61aa217370d6a2cad9013d50e03bc477fffde19429cfe7037368f14301ee4b",
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "archive_collision",
+      "severity": "error",
+      "phase": "archive_structure",
+      "code": "path_collision",
+      "path": "$.archive_members[0]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_f6ee211e8339871b2ab694049ca0563be686fa533cf4d9369b152f7f0b59ae3b",
+      "reason_code": "path_collision"
+    },
+    {
+      "check_id": "archive_collision",
+      "severity": "error",
+      "phase": "archive_structure",
+      "code": "path_collision",
+      "path": "$.archive_members[1]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_ca291c1b6b3d11eb7af15b9d76b041427680ce4beff57c0d8b1c2388cc393939",
+      "reason_code": "path_collision"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "path_collision"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

@@ -881,7 +881,7 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 	defer packs.Close()
 	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(
 		recoveryassembly.NewVNextObjectSource(sourceObjectStore),
-		packs,
+		packs, nil,
 	)
 	if err != nil {
 		t.Fatalf("construct current Recovery object inventory: %v", err)
@@ -1559,6 +1559,7 @@ func writeRestoreTargetMarker(t testing.TB, cfg configassembly.Deployment, purpo
 	now := time.Now().UTC()
 	digests := application.TargetBindingDigestsFor(application.Deployment{
 		ReferencePackStorage: application.RootBinding{BindingKind: cfg.Roots.ReferencePackStorage.BindingKind, Path: cfg.Roots.ReferencePackStorage.Path, ServiceRef: cfg.Roots.ReferencePackStorage.ServiceRef},
+		ExportOutputs:        application.RootBinding{BindingKind: cfg.Roots.ExportOutputs.BindingKind, Path: cfg.Roots.ExportOutputs.Path, ServiceRef: cfg.Roots.ExportOutputs.ServiceRef},
 		DatabaseStorage: application.RootBinding{
 			BindingKind: cfg.Roots.DatabaseStorage.BindingKind,
 			Path:        cfg.Roots.DatabaseStorage.Path,

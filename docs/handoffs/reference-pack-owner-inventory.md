@@ -1,5 +1,7 @@
 # Reference Pack cutover owner and artifact inventory
 
+> Historical record of the completed pre-production iteration. The material below retains its original review scope, references and results; it is not a current gate ledger or a recurring reporting obligation. Do not refresh its document hashes, requirement mappings or signoffs. Current work and dispositions belong to the [controlling tracker](reference-pack-remediation.md); operational instructions belong to the [development cutover guide](../guides/reference-pack-development-cutover.md) and maintained package documentation. Ordinary owner review, adoption, trust, licensing and deployment suitability remain required.
+
 This inventories the S01–S08 pre-production remediation on baseline `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`. The [controlling tracker](reference-pack-remediation.md) owns execution status and final S10 acceptance. The Reference Pack owner remains **draft 0.2.0**, profile major **2**. Existing adopted headers do not adopt the coordinated candidate amendments. Human content references are separate from executable contracts; no test, generator, runtime or release evidence may read this document. Formal adoption, validated cryptographic build, target security approval and deployment rehearsal remain production gates.
 
 ## Owner revisions and projections

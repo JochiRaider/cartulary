@@ -302,7 +302,7 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 		At         time.Time `json:"verification_time"`
 		Expiry     time.Time `json:"expected_valid_until"`
 	}
-	data, err := os.ReadFile("../../../contracts/reference-packs/fixtures/signed-container.v1.json")
+	data, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/signed-container.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

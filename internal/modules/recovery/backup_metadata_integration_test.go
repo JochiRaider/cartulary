@@ -104,7 +104,7 @@ INSERT INTO object_blobs (
 		t.Fatal(err)
 	}
 	t.Cleanup(sourcePacks.Close)
-	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks)
+	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,0 +1,61 @@
+# Optional overlay. Trust and incoming paths must already exist.
+services:
+  app:
+    volumes:
+      - type: bind
+        source: ./reference-pack-trust.json
+        target: /etc/cartulary/reference-pack-trust.json
+        read_only: true
+        bind:
+          create_host_path: false
+
+  recovery-operator:
+    volumes:
+      - type: bind
+        source: ./reference-pack-trust.json
+        target: /etc/cartulary/reference-pack-trust.json
+        read_only: true
+        bind:
+          create_host_path: false
+
+  restore-verify-operator:
+    volumes:
+      - type: bind
+        source: ./reference-pack-trust.json
+        target: /etc/cartulary/reference-pack-trust.json
+        read_only: true
+        bind:
+          create_host_path: false
+
+  reference-pack-operator:
+    profiles: [reference-pack-administration]
+    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    entrypoint: ["/usr/local/bin/cartulary-operator"]
+    environment:
+      CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
+      CARTULARY_POSTGRES_PRIMARY_RUNTIME_DSN: postgresql://cartulary_runtime_login:${CARTULARY_POSTGRES_RUNTIME_PASSWORD:?set CARTULARY_POSTGRES_RUNTIME_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+    depends_on:
+      app:
+        condition: service_started
+    volumes:
+      - type: bind
+        source: ./config.toml
+        target: /etc/cartulary/config.toml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./reference-pack-trust.json
+        target: /etc/cartulary/reference-pack-trust.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - cartulary-reference-packs:/var/lib/cartulary/reference-packs
+      - cartulary-tmp:/var/lib/cartulary/tmp
+      - type: bind
+        source: ./reference-pack-incoming
+        target: /var/lib/cartulary/reference-packs/incoming
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: "no"

@@ -63,7 +63,7 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 		projection.RestoreAction != recoverystate.RebuildState {
 		t.Fatalf("assessment projection Recovery classification = %#v", projection)
 	}
-	if _, err := CurrentVNextObjectInventoryCatalog(nil, nil); err != nil {
+	if _, err := CurrentVNextObjectInventoryCatalog(nil, nil, nil); err != nil {
 		t.Fatalf("exact six-family vNext inventory registration: %v", err)
 	}
 	if catalog.DigestSHA256() == "" {

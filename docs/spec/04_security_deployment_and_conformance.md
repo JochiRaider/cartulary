@@ -440,16 +440,18 @@ The deployment recovery-operation exclusion boundary is a deployment-local mutua
 Before `restore_latest`, `restore_verify_latest`, or any selected verification inside `restore_verify_due` mutates a target database or target object namespace, the implementation MUST prove all target preflight conditions below:
 
 1. source and target database bindings are distinct;
-2. source and target object-store bindings are distinct; source and target Reference Pack filesystem roots are distinct and do not overlap;
+2. source and target object-store bindings are distinct; source and target Reference Pack and export-output filesystem roots are distinct and do not overlap each other or another admitted source/target storage root;
 3. the target database is fresh, meaning it contains no application-owned Cartulary data except schema or migration bookkeeping required to admit the operation;
-4. the target object namespace and Reference Pack root are fresh, meaning they contain no retained object members;
+4. the target object namespace, Reference Pack root and export-output root are fresh, meaning they contain no retained object members;
 5. the operator holds the target's exclusive serving lease, proving that no
    target application HTTP or WebSocket listener is serving and preventing a
    target application process from starting listeners during mutation;
-6. the target has a valid `cartulary.restore_target_marker.v3` whose purpose,
-   target-generation ID, database-binding digest, object-store-binding digest, Reference Pack storage-binding digest,
+6. the target has a valid `cartulary.restore_target_marker.v4` whose purpose,
+   target-generation ID, database-binding digest, object-store-binding digest, Reference Pack storage-binding digest, export-output storage-binding digest,
    issuance time, and expiry bind it to this exact admitted target;
 7. required recovery keys, backup artifacts, and integrity proofs for the selected backup are available.
+
+Recovery MUST capture and restore published Incident Bundle files through the admitted export-output root, preserving their logical references and exact bytes. Object-family ownership selects the storage capability; an object key MUST NOT select a filesystem root. Current recovery journal completions use `cartulary.operator_recovery_journal_payload.v5`; older v4 records remain readable as history but cannot authorize replay into an export-bound target. Current restore verification uses `cartulary.restore_verification.v4` and binds the export-output storage digest alongside the other target bindings. An older marker or verification basis does not establish the current target admission or verification.
 
 Every application server process MUST acquire and hold the shared counterpart
 of the serving lease before starting HTTP or WebSocket listeners and MUST

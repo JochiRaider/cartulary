@@ -77,6 +77,7 @@ type RestoreTarget struct {
 	Postgres           postgres.DB
 	ObjectStore        objectstore.Store
 	ReferencePacks     ReferencePackStorage
+	ExportOutputs      RootObjectStorage
 	EvidenceObjects    EvidenceRecoveryProvider
 	GraphProjection    restorecontract.GraphProjectionParticipant
 	Projections        restorecontract.ProjectionRebuilder
@@ -428,7 +429,7 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 		return fmt.Errorf("disable vNext restore referential triggers: %w", err)
 	}
 	mutation := &vNextRestoreMutation{
-		tx: tx, objects: target.target.ObjectStore, referencePacks: target.target.ReferencePacks, stateCatalog: stateCatalog,
+		tx: tx, objects: target.target.ObjectStore, referencePacks: target.target.ReferencePacks, exportOutputs: target.target.ExportOutputs, stateCatalog: stateCatalog,
 	}
 	if err := run(mutation); err != nil {
 		return err
@@ -443,6 +444,7 @@ type vNextRestoreMutation struct {
 	tx             pgx.Tx
 	objects        objectstore.Store
 	referencePacks ReferencePackStorage
+	exportOutputs  RootObjectStorage
 	stateCatalog   *recoverystate.Catalog
 	insertPlans    map[string]restoreInsertPlan
 }
@@ -579,6 +581,12 @@ func (mutation *vNextRestoreMutation) RestoreObject(
 			return errors.New("reference pack restore dispatch is unavailable")
 		}
 		return mutation.referencePacks.RestoreMember(ctx, object.StorageKey, object.PlaintextSHA256, object.PlaintextBytes, reader)
+	}
+	if object.OwnerID == "module.incidentbundles" || object.ObjectFamilyID == "incident_bundles.files" {
+		if object.OwnerID != "module.incidentbundles" || object.ObjectFamilyID != "incident_bundles.files" || mutation.exportOutputs == nil {
+			return errors.New("incident bundle restore dispatch is unavailable")
+		}
+		return mutation.exportOutputs.RestoreMember(ctx, object.StorageKey, object.PlaintextSHA256, object.PlaintextBytes, reader)
 	}
 	if err := mutation.objects.PutObject(
 		ctx,
@@ -747,6 +755,11 @@ SELECT table_name
 	if len(objects) != 0 {
 		return fmt.Errorf("%w: object store contains %d objects", ErrRestoreTargetNotEmpty, len(objects))
 	}
+	if target.ExportOutputs != nil {
+		if err := target.ExportOutputs.RequireEmpty(ctx); err != nil {
+			return fmt.Errorf("%w: export output storage is not empty", ErrRestoreTargetNotEmpty)
+		}
+	}
 	if target.ReferencePacks != nil {
 		if err := target.ReferencePacks.RequireEmpty(ctx); err != nil {
 			return fmt.Errorf("%w: Reference Pack storage is not empty", ErrRestoreTargetNotEmpty)
@@ -876,7 +889,12 @@ INSERT INTO extension_state_metadata (
 		}
 	}
 	if target.ReferencePacks != nil {
-		return target.ReferencePacks.ResetVerificationTarget(ctx)
+		if err := target.ReferencePacks.ResetVerificationTarget(ctx); err != nil {
+			return err
+		}
+	}
+	if target.ExportOutputs != nil {
+		return target.ExportOutputs.ResetVerificationTarget(ctx)
 	}
 	return nil
 }

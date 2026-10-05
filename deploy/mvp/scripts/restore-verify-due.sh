@@ -34,6 +34,9 @@ require_file() {
 
 compose() {
   local args=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")
+  if [[ -n "${CARTULARY_MVP_COMPOSE_OVERLAY:-}" ]]; then
+    args+=(-f "$CARTULARY_MVP_COMPOSE_OVERLAY")
+  fi
   if [[ -n "${CARTULARY_MVP_COMPOSE_PROJECT_NAME:-}" ]]; then
     args=(--project-name "$CARTULARY_MVP_COMPOSE_PROJECT_NAME" "${args[@]}")
   fi
@@ -95,16 +98,22 @@ fi
 database_binding_identity="${CARTULARY_RESTORE_VERIFY_DATABASE_BINDING_IDENTITY:-managed_service:restore_verify}"
 object_binding_identity="${CARTULARY_RESTORE_VERIFY_OBJECT_BINDING_IDENTITY:-managed_service:restore_verify}"
 database_binding_sha256="$(printf '%s' "$database_binding_identity" | sha256sum | awk '{print $1}')"
+reference_pack_binding_identity="${CARTULARY_RESTORE_VERIFY_REFERENCE_PACK_BINDING_IDENTITY:-filesystem_root:${TARGET_ROOT_CONTAINER}/reference-packs}"
+reference_pack_binding_sha256="$(printf '%s' "$reference_pack_binding_identity" | sha256sum | awk '{print $1}')"
+export_binding_identity="${CARTULARY_RESTORE_VERIFY_EXPORT_BINDING_IDENTITY:-filesystem_root:${TARGET_ROOT_CONTAINER}/exports}"
+export_binding_sha256="$(printf '%s' "$export_binding_identity" | sha256sum | awk '{print $1}')"
 object_binding_sha256="$(printf '%s' "$object_binding_identity" | sha256sum | awk '{print $1}')"
 issued_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 expires_at="$(date -u -d '+23 hours' '+%Y-%m-%dT%H:%M:%SZ')"
 mkdir -p "${TARGET_ROOT_HOST}/backups"
 chmod 0755 "${TARGET_ROOT_HOST}/backups"
 printf '%s\n' "$target_generation_id" >"${TARGET_ROOT_HOST}/backups/restore-target-generation"
-printf '{"schema_id":"cartulary.restore_target_marker.v2","purpose":"restore_verification_target","target_generation_id":"%s","binding_digests":{"database_sha256":"%s","object_store_sha256":"%s"},"issued_at":"%s","expires_at":"%s"}\n' \
+printf '{"schema_id":"cartulary.restore_target_marker.v4","purpose":"restore_verification_target","target_generation_id":"%s","binding_digests":{"database_sha256":"%s","object_store_sha256":"%s","reference_pack_storage_sha256":"%s","export_outputs_sha256":"%s"},"issued_at":"%s","expires_at":"%s"}\n' \
   "$target_generation_id" \
   "$database_binding_sha256" \
   "$object_binding_sha256" \
+  "$reference_pack_binding_sha256" \
+  "$export_binding_sha256" \
   "$issued_at" \
   "$expires_at" >"${TARGET_ROOT_HOST}/backups/restore-target-marker.json"
 chmod 0644 \

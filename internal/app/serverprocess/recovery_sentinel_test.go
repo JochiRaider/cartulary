@@ -65,6 +65,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		DatabaseBindingSHA256:             recovery.SHA256String("backup_restore-i-10-02-database"),
 		ObjectStoreBindingSHA256:          recovery.SHA256String("backup_restore-i-10-02-objects"),
 		ReferencePackStorageBindingSHA256: recovery.SHA256String("backup_restore-i-10-02-reference-packs"),
+		ExportOutputsBindingSHA256:        recovery.SHA256String("test-export-root"),
 		BackupStorageBindingSHA256:        recovery.SHA256String("backup_restore-i-10-02-backups"),
 		RecoveryStateCatalogSHA256:        recovery.SHA256String("backup_restore-i-10-02-catalog"),
 		CodecRegistrySHA256:               recovery.SHA256String("backup_restore-i-10-02-codecs"),
@@ -244,7 +245,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 		t.Fatal(err)
 	}
 	packs := openRecoveryPackStorage(t, sourceEnv)
-	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), packs)
+	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), packs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

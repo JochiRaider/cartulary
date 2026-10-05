@@ -10,7 +10,7 @@ import (
 )
 
 func TestIncidentBundleReferenceCatalogValidation_Unit(t *testing.T) {
-	valid, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-references.v1.json")
+	valid, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-references.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

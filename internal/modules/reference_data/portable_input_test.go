@@ -50,7 +50,7 @@ func testPortableInputAdmission(t *testing.T) {
 	t.Run("dependency scheduling", testPortableVerificationOrder)
 	t.Run("shared parent execution deadline", testPortableExecutionDeadline)
 	t.Helper()
-	raw, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-input.v1.json")
+	raw, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-input.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,5 +1,7 @@
 # Reference Pack security review disposition
 
+> Historical record of the completed pre-production iteration. The material below retains its original review scope, references and results; it is not a current gate ledger or a recurring reporting obligation. Do not refresh its document hashes, requirement mappings or signoffs. Current work and dispositions belong to the [controlling tracker](reference-pack-remediation.md); operational instructions belong to the [development cutover guide](../guides/reference-pack-development-cutover.md) and maintained package documentation. Ordinary owner review, adoption, trust, licensing and deployment suitability remain required.
+
 Status: S08 implementer review refreshed for the structural-remediation working tree based on `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`; S10 integrated validation passed on that exact source. No unresolved implementation security finding was identified in the reviewed changed boundaries. This is not an independent audit, target security approval, FIPS validation or conformance claim. Formal adoption and deployment security disposition remain deferred production gates. Earlier review/run records below retain their original source identities.
 
 ## S08 changed-boundary review

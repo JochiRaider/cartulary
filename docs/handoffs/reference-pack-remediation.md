@@ -1,29 +1,39 @@
-# Reference Pack pre-production remediation ledger
+# Reference Pack regulated production-readiness plan
 
-This is the controlling execution tracker for the user-authorized pre-production remediation. It is implementation support, not a normative owner, adoption record or conformance claim. Tests, generators, runtime metadata and release evidence must not depend on it.
+This is the sole controlling tracker for the next Reference Pack and application cryptography iteration. It is implementation support, not a normative owner, adoption record or conformance claim. Tests, generators, runtime metadata and release evidence must not read, stat, hash or otherwise depend on this document.
 
 ## 1. Scope and source posture
 
-The current execution supersedes the earlier ledger-only and production-readiness plans. Historical A–F and four-defect implementation records remain below. Existing code already fixes strict composition identities, framework lookup-key deduplication, typed early upload rejection and pre-parse URL admission; this iteration preserves those corrections.
+**Current authorization is document-only.** The user approved the plan below for recording in this tracker on 2026-10-05. Production implementation requires a later authorized task. All new implementation workstreams S16–S25 are TODO. The completed structural and package iterations remain DONE; their plans, failures and original validation identities are retained as historical records below.
 
 | Scope fact | Decision |
 | --- | --- |
-| Baseline | Clean `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`, inspected 2026-10-04. |
-| Targets | `internal/modules/reference_data/`, `internal/app/referenceassembly/` and affected owner/caller/test boundaries. |
-| Authorized work | S01–S06, S08 and S10: specifications, implementation, tests, authored projections when necessary, generated outputs through Make, and handoff evidence. |
-| Completion | **PRE-PRODUCTION COMPLETE**: S01–S06, S08 and S10 DONE; S10 completed last with one fresh complete passing release and verified cleanup. |
-| Deferred | S07 validated cryptographic build; S09 deployment rehearsal; formal adoption and target security/licensing approval. No deployment, reset or activation. |
-| Compatibility | Preserve deliberate trust, identity, public transport, authorization, atomicity, retention and reproducibility contracts. Remove dead/private coupling without deprecated aliases. |
-| Data policy | Fresh initialization; preserve applied migrations and fail-without-mutation preflight. No converter, dual writer, historical trust inference or identity rewrite. |
-| Cryptography | Existing strict Ed25519 offline verification; no algorithm negotiation, FIPS claim or speculative build mode. |
-| Evidence | No second implementation/recreation report required. Independent fixed vectors and real acceptance evidence remain required. |
-| Authority | Adopted owners govern their scopes; typed inputs project them. The Reference Pack 0.2.0 candidate remains draft. Domain owns vocabulary only. |
+| Current baseline | Existing working tree based on `e7a1497ff9e8219f7ccdad7a09af9e356cb146ec`, inspected 2026-10-05, including completed remediation changes and other pre-existing edits. This is **not a clean checkout**. Preserve all pre-existing changes. |
+| Allowed change now | Update only `docs/handoffs/reference-pack-remediation.md`, append the planning-session record, run `make lint-markdown` and `git diff --check`. No implementation, generation, product verification, deployment or retained-state mutation. |
+| Target and growth constraint | Preserve the 197-file Reference Data/assembly inventory; extend planning across the application, authentication, sealing, recovery, integration and build boundaries in §2. Keep domain formats and authorization with their owners so later phases do not require a shared domain-token or provider framework. |
+| S07 disposition | Expand the formerly deferred validated-cryptography capability into S16–S25. S07 is a TODO umbrella, not another implementation slice. Its old DEFERRED records remain historical. |
+| Claim boundary | Security cryptographic operations performed by `server`, `migrate` and `operator`, including enabled optional integrations. Database servers, object-storage servers, external TLS terminators, browsers and host certification remain separately owned deployment dependencies. Application-side transport and certificate verification remain in scope. |
+| Production policy | One supported cryptographic implementation and release policy. No standard-versus-regulated algorithm branches, crypto provider plug-in framework, silent fallback or security-operation bypass. |
+| Initial module candidate | Go Cryptographic Module `v1.0.0-c2097c7c` in the repository's pinned Go `1.27.1` toolchain; CMVP certificate `5247`. Archive SHA-256: `daf3614e0406f67ae6323c902db3f953a1effb199142362a039e7526dfb9368b`. Verify and pin exact archive/build identity; never use floating `latest`, `certified` or `inprocess` selectors. Certificate and security disposition must be rechecked before qualification. |
+| Reference environment | Linux/amd64, Debian 12, using the existing digest-pinned application image. Record host OS/kernel, container runtime, CPU/features, image/index and resolved platform image identities; establish their relationship to the module's permitted operating environments before qualification. A Debian-derived image name alone is insufficient. |
+| Execution mode | Build against the pinned module and require enabled FIPS mode at startup. Use `fips140=only` for targeted diagnostic assessment, not production deployment or sole compliance evidence; it can produce false positives and negatives. |
+| Compatibility | Fresh regulated deployments only. Reject incompatible application state and backup formats before mutation. Historical deployments and backups stay with their matching releases. No password conversion, legacy cryptography fallback, dual writers or automatic reset. |
+| Reference Pack signatures | Preserve Ed25519, canonical bytes, trust rotation and `tuf_1_0_35_offline_bundle_v1`. Amend the owner's FIPS exclusion to distinguish execution qualification from signature semantics. The selected module includes EdDSA; a second signature algorithm or method would add unnecessary format/trust complexity. |
+| Permitted non-security use | Explicitly reviewed protocol-only hashes such as the WebSocket handshake hash may remain. They must never provide authentication, integrity protection, key derivation or authorization. Indicator MD5/SHA-1 strings remain domain data. An exception is not an enforcement bypass. |
+| Non-goals | No high availability, new pack profiles, external corpus distribution, unrelated module reshuffling, UI redesign or automatic customer rollout. Do not reopen completed runtime/test separation or recreate retired reporting dossiers. |
+| Authority | Adopted subsystem NLSpecs and normative Core sections govern their scopes; typed contracts are downstream projections. Verification routing belongs to its machine owners, not this tracker. `docs/domain.md` owns vocabulary/navigation and `docs/design.md` supplies design direction. Owner adoption, package qualification and customer deployment approval are separate decisions. |
 
-The later [release reliability handoff](release-reliability-remediation.md) reports a complete passing run for `36ed8c239`. The old browser failure is not an outstanding implementation diagnosis. Its referenced run root was absent during planning (`make explain-run` returned ENOENT); neither that report nor older results qualify new changes.
+The candidate and constraints above follow the [NIST certificate](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5247), [module security policy](https://csrc.nist.gov/CSRC/media/projects/cryptographic-module-validation-program/documents/security-policies/140sp5247.pdf), and [Go FIPS guidance](https://go.dev/doc/security/fips140). They define a qualification target, not a claim that the current package is qualified. Password parameters below follow the [OWASP password-storage guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). The [WebSocket security discussion](https://www.rfc-editor.org/rfc/rfc6455#section-10.8) informs the narrow protocol exception.
+
+The existing image pin is `gcr.io/distroless/base-debian12:nonroot@sha256:7f0c72cd138b442ae0deeb69c08b1acf5525439ba251a49ad93c320a061567e5` in `tools/toolchain_pins.json`. It is a reproducibility input; S24 must establish actual execution-environment suitability.
+
+The previous complete release remains **historical passing evidence**, not regulated qualification: `.cartulary/test-results/20261005T070744Z-p19802` passed 1264/1264 units, zero failures/skips/cancellations, all 17 readiness projections, and 665 cleanup steps without failure or block. Its manifest records the dirty candidate based on `e7a1497ff9e8219f7ccdad7a09af9e356cb146ec`, source digest `sha256:8ae8e9ab302a68ca099c6fb203158c202f25f477ac130330c334b0d30cf05fce` and graph digest `sha256:b2e3a5199571067bcca2addf20247eddbc46980e950a25b064e3a4f6640f40c7`. Do not relabel that run, the earlier failed release `20261005T061847Z-p6495`, or the older passing `20261005T030730Z-p45700` as evidence for a future candidate.
+
+The four prior behavioral corrections remain regression obligations: strict composition identities, framework lookup-key deduplication, typed early upload rejection and pre-parse URL admission. Completed module boundaries, canonical identity checks, export-root recovery binding and deterministic presence capture remain intact.
 
 ## 2. Current-state repository inventory
 
-The clean baseline contained **186 files**. After S02–S06 the direct target contains **196 files**, all Go, inventoried below. Added thirteen direct-target files and removed `http_requests.go`, `http_adapter.go`, and `worker_hooks.go` (net +10). Adjacent additions include the instance barrier in `internal/testutil/appsupport/reference_pack_barrier.go`; it is intentionally outside this count.
+The previous clean baseline contained **186 files**. The current direct target contains **197 files**, all Go, inventoried below and checked against the filesystem with no missing or stale entries. S02–S06 added thirteen direct-target files and removed `api.go`, `routes.go`, and `worker_hooks.go` (net +10); S13 added the fixture/runtime boundary regression (net +1). The HTTP adapter and request files are additions, not deletions. Adjacent additions include the instance barrier in `internal/testutil/appsupport/reference_pack_barrier.go`; it is intentionally outside this count.
 
 | Path / inventory group | Current responsibility | Public surface | Inbound callers | Outbound dependencies | Tests touching it | Contracts / generated artifacts | Target owner and disposition | Risk / notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -34,7 +44,7 @@ The clean baseline contained **186 files**. After S02–S06 the direct target co
 | Root: incident and portable operations | Destination verification, exact local reuse, export catalogs and parent publication | `IncidentReferences`, prepared imports, reference codecs | Incident Bundles and Reporting through assembly | Storage, trust, shared transactions, retained history | Portable admission/execution, incident export/retention | Incident-bundle v5; `reference_pack_refs.v1` | Reference Data participation; keep semantics | High: destination trust and activation preservation. |
 | Root: Base, storage, persistence, collection and lifecycle | Release-bound registries, roots, revisions, audit, readiness and cleanup | Base reconciliation, storage ports, collector, preflight and recovery helpers | Server/operator startup, migration/recovery owners, Jobs | PostgreSQL, confined storage and owner finalizers | Base, canonical persistence, storage, collection and retired-table tests | Built-in release binding; authored SQL/migrations 46–63 | Reference Data state; keep root-confined adapter outside owner logic | High: preserve required readiness and reference retention. |
 | Test scheduling | Instance-scoped test DB dependency | No production setter | Per-server test composition | Existing postgres.DB | Four race scenarios and two-instance isolation | Authored semantic row routing | Global hook removed in S06 | No cross-instance pause. |
-| `internal/packformat/` | Pure archive, TUF, schema, profile, normalization, identity, index and diagnostic logic | Owner-private package; exported symbols are not cross-owner API | Reference Data and private tests | Canonical JSON, generated typed contracts, standard cryptography | Complete listed package tests and independent vectors | Authored Reference Pack schemas/catalogs/fixtures | Keep private; remove only proven unused wrapper | High for trust; no general profile rewrite. |
+| `internal/packformat/` | Pure archive, TUF, schema, profile, normalization, identity, index and diagnostic logic | Owner-private package; exported symbols are not cross-owner API | Reference Data and private tests | Canonical JSON, generated typed contracts, standard cryptography | Complete listed package tests and independent vectors | Authored Reference Pack schemas/catalogs/fixtures | Keep algorithms private; preserve the runtime/test projection separation completed in S13 | High for trust; no general profile rewrite. |
 | `internal/packstate/` | Pure eligibility, cohort, transition, fallback and revision proposals | Private state functions | Application coordinator | Typed state inputs | `state_test.go` plus live integration | State contracts and transition acceptance | Keep private | High: proposals must not acquire persistence authority. |
 | `recoverycontribution/` | Owner-built recovery catalog/inventory participation | Contribution and inventory provider | Recovery composition | Recovery contracts and Reference Data owner state | Recovery/service-backed integration | Versioned recovery contributions | Keep owner contribution | High: include pinned, failed and disabled retained content. |
 | `testsupport/` | Reusable signed/reference fixtures and indicator helpers | Test support constructors | Other owner test packages | Reference Data contracts and fixture infrastructure | Caller suites | Synthetic fixture data | Keep test support; no runtime dependency | Medium: never distribute test trust as operator trust. |
@@ -180,7 +190,7 @@ worker_isolation_integration_test.go
 
 #### `internal/modules/reference_data/internal/packformat/`
 
-67 files; 30 test files.
+68 files; 31 test files.
 
 ```text
 admission_fixture_test.go
@@ -213,6 +223,7 @@ diagnostics_test.go
 duplicate_diagnostics.go
 envelope.go
 fixture_contract_test.go
+fixture_projection_test.go
 fixture_scratch_test.go
 framework_lookup_test.go
 identity.go
@@ -280,22 +291,451 @@ owner_fixture.go
 portable_fixture.go
 ```
 
-### Adjacent boundaries and explicit exclusions
+### Adjacent inspected boundaries and explicit exclusions
+
+The direct register above is retained in full. The following inspected boundaries extend this iteration; they do not add files to the 197-file Reference Data count or authorize unrelated refactors. Paths identify owner entry points and supporting callers/tests, not a new exhaustive repository-wide inventory.
+
+| Boundary / inspected entry points | Current responsibility and callers | Dependencies / public contract / tests | Owner and planned disposition | Risk |
+| --- | --- | --- | --- | --- |
+| `internal/app/server/server.go`, `internal/app/migrate/migrate.go`, `internal/app/operator/operator.go`; `cmd/server`, `cmd/migrate`, `cmd/operator` | Compose application dependencies and perform startup/cutover admission | Configuration, PostgreSQL, object store, bootstrap and domain owners; application/process tests and package smokes | Exact application facades enforce S17 policy admission before service acquisition/mutation; `cmd/*` stays composition-only. Preserve borrowed-resource ownership and reverse-order idempotent cleanup. | High: an invalid binary can otherwise begin mutating state. |
+| `internal/platform/authn/authn.go`, `internal/platform/bootstrap/bootstrap.go`, `internal/modules/auth/` | Password encoding/checking, TOTP, secret sealing, bootstrap account creation and authentication lifecycle | Existing Argon2id, SHA-1 TOTP and caller-nonce GCM; Auth/bootstrap unit, integration and browser routes | Platform owns primitive mechanics; Auth owns credential/session/MFA semantics. S18–S20 remove duplicate encoders and incompatible primitive use. | High: lockout, resource exhaustion or divergent bootstrap credentials. |
+| `internal/platform/pagination/pagination.go`, `internal/modules/revisions/conflicts/conflict_token.go`, `internal/modules/networkflow/security.go` | Cursor and conflict-token security for owning routes | Existing AES-GCM formats including `cft3`/`nfc2`, entropy options, claims/AAD and expiry; owning token and HTTP tests | S20 adopts the narrow S18 seal/open primitive; payload, key lifecycle, authorization, replay binding and error mapping remain local. | High: shared machinery must not weaken owner-specific binding. |
+| `internal/modules/evidence/upload_token.go`, `internal/platform/secretpurpose/registry.go` | Upload-token authentication and purpose/reuse checks | HMAC-SHA-256 and SHA-256; callers of Auth key derivation | Preserve supported algorithms and owner semantics; review S18 derivation changes and S23 service mapping. No blanket hash replacement. | Medium: an indirect key-derivation caller can be missed. |
+| `internal/modules/recovery/encryption.go`, `streaming_encryption.go`, recovery assembly and operator flows | Journal sealing, small-artifact encryption and streaming backup/restore | Existing v1/v2 encryption representations, manually constructed stream nonces and key truncation; `contracts/recovery/`, export-root, due-verification and restore tests | Recovery owns one current bounded-memory envelope and admission in S21; platform supplies primitives. Preserve storage confinement and no-publication-before-validation. | High: unreadable backups or unsafe target admission. |
+| `internal/modules/reference_data/internal/packformat/tuf.go`, `tuf_program.go`, `internal/app/referenceassembly/trust_bootstrap.go` | Actual Ed25519/TUF verification, bootstrap trust and lifecycle composition | Standard-library Ed25519; strict key/signature sizes; runtime contracts in `contracts/reference-packs/` and fixtures in `contracts/reference-pack-fixtures/` | S22 qualifies shipped verification paths without changing canonical formats, signer rules or immutable provenance. | High: a primitive test does not prove the real verifier. |
+| `internal/platform/postgres/postgres.go`, `internal/platform/objectstore/objectstore.go` | Application-side database and S3 adapters | pgx SCRAM/TLS; MinIO static V4 signing, hashes/checksums and transport; platform owner tests and service-backed tests | S23 reviews reachable services/parameters and transport at adapters; retain `postgres.DB` and existing library protocols. Server products are external dependencies. | High: transitive security services and insecure transport configuration. |
+| `internal/platform/enterpriseauth/enterpriseauth.go`, `configuration.go`, `manifest.go`; TLS, telemetry and WebSocket callers | OIDC/SAML verification, certificate configuration and network integration | Vendor verifier behavior, claims and key handling; enterprise auth tests; telemetry/TLS and collaboration routing | S23 retains library verification, constrains approved security use and records narrow protocol-only exceptions. | High: an enabled optional path can invalidate the overall claim. |
+| `contracts/openapi-source/owners/module.auth/openapi.json`, `apps/web/src/app/authenticationModel.ts` and auth fixtures | Public MFA algorithm enum and browser enrollment/login flows | Current SHA-1 projection; generated clients, frontend type/unit tests and Auth browser rows | S19 changes the authored enum and normal projections; no workbook, saved-view, grid or visual redesign. | Medium: stale generated/client assumptions prevent enrollment. |
+| `tools/toolchain_pins.json`, `Makefile`, `tools/harness/backend/build-go-artifact.sh`, `deploy/mvp/Containerfile` | Pinned toolchain/image and shared binary build/cache entry points | Go 1.27.1; existing cache identities do not establish the planned module policy; toolchain/build regressions | S17 makes the exact module and actual binary identity authoritative throughout supported build paths. S24 qualifies the package. | High: cache contamination, missing metadata or environment override. |
+| `deploy/mvp/docker-compose*.yml`, package configuration/guide, `tools/release-evidence/` and existing smoke orchestration | Shipped package, operational recovery and cleanup | Current package permits HTTP and PostgreSQL `sslmode=disable`; three package smoke targets already participate in release | S23 defines secure production admission; S24 extends existing isolated qualification and canonical evidence. No second release system. | High: source success can conceal package or transport failure. |
+| `tools/test_families/module.auth.json`, `module.recovery.json`, `module.reference_data.json`, `harness.release.json` and affected platform families | Semantic verification routing and release membership | `contracts/verification/`, owner catalog, authored topology and generated schedules | S17/S24 author diagnostic/module qualification routing; all slices update owning routes as needed. Never hand-edit generated roots. | Medium: unrouted checks are absent from release acceptance. |
+| Core 01/Core 04, Reference Pack, Recovery/configuration and Testing Harness owner sections | Requirements and projection authority | `docs/spec/`, `docs/reference-pack-subsystem-nlspec.md`, `docs/testing-harness-nlspec.md`; typed contract inputs | S16 coordinates the candidate amendments. Ordinary human review establishes projection fidelity; no runtime or harness dependency on prose. | High: tests cannot resolve contradictory requirements or adopt a draft. |
+| Applied SQL migrations, completed Reference Data boundaries, external servers/browsers/host certification | Retained history and separately owned deployment responsibilities | `db/migrations`, source-owner storage ports and deployment approvals | Preserve applied migrations; add a new migration only if the adopted cutover design needs it. No rewrite of existing schema history or expansion of the application claim into external products. | Intentional scope limit; environment evidence is still required. |
+
+Dependency source inspection included pgx `v5.9.2` SCRAM, MinIO `v7.0.100` signing/checksums, SAML `v0.5.1` and coder/websocket `v1.8.14`. pgx uses the standard PBKDF2 implementation, and MinIO's V4 path uses standard SHA-256/HMAC; their mere presence is not a finding of noncompliance. S23 must map the reachable operation, parameters and purpose to supported module services. An import scan cannot decide that question.
+
+## 3. Module boundary diagnosis
+
+Reference Data remains a cohesive supporting subsystem. The completed private format/state packages, root-owned DTOs, operation-focused persistence and application assembly should remain. This iteration centralizes cryptographic mechanics and startup policy, while preserving subsystem ownership of formats, authorization and lifecycle.
+
+| Responsibility | Current location / evidence | Correct owner | Disposition | Design constraint / long-term benefit |
+| --- | --- | --- | --- | --- |
+| Required cryptographic policy | Distributed owner clauses, build flags and runtime callers | Core security requirements plus a narrow platform policy boundary | Establish | One immutable production policy and explicit admission; no provider registry, alternative policy branch or configuration-driven downgrade. |
+| Process startup admission | Server, migrate and operator facades | Each matching application facade using the platform boundary | Extend | Check actual module/build identity and enabled mode before acquiring services or mutating state; assembly remains testable through explicit dependencies. |
+| KDF and GCM nonce mechanics | Authn, pagination, conflict tokens, Network Flow and Recovery | Small platform primitive boundary | Consolidate | Domain-separated derivation and module-generated nonces; keep payload schemas and key ownership out of the shared API. |
+| Password and MFA semantics | Authn primitives, duplicated bootstrap encoding, Auth module | Auth owns account/session/MFA lifecycle; shared supported password primitive serves bootstrap and normal creation | Simplify | One encoder/parser policy; bounded work; deliberate version evolution without legacy fallback. |
+| Token claims and replay protection | Existing pagination/Revisions/Network Flow/Auth owners | Existing owners | Keep | Shared sealing must not become a shared domain-token framework or replace owner-specific authorization/AAD. |
+| Recovery artifact and journal formats | Parallel small/streaming encryption paths | Recovery | Unify | One current streaming codec for all sizes; bounded memory and authenticated finality; historical readers stay with historical releases. |
+| Pack signatures and canonicalization | Reference Data private verifier | Reference Data | Keep and qualify | Execution qualification changes independently of stable signed bytes, trust rotation and method identity. |
+| External protocol verification | PostgreSQL, object-store, enterprise-auth and transport adapters | Existing platform adapters and vetted libraries | Constrain and qualify | Enforce supported algorithms/parameters and transport at the adapter; do not implement replacement SCRAM, XML-signature, OIDC or S3 protocols. |
+| Qualification and evidence | Existing harness, package smokes and release artifacts | Testing Harness/build/package owners | Extend | Reuse semantic routing, real binaries, canonical results and accountable cleanup; no new reporting dossiers. |
+| HA, new pack algorithms/profiles and unrelated owner moves | Outside identified gaps | Future separately authorized work | Defer | Avoid speculative abstractions and additional compatibility surfaces. |
+
+## 4. Public contract and behavior freeze map
+
+This is a planned cutover, not a blanket behavior-preserving refactor. Changes marked below **require later implementation authorization**. Existing behavior is retained where it carries a durable domain or security guarantee, not merely because it exists.
+
+| Contract | Owner / evidence | Retain or planned change | Existing / required validation | Risk |
+| --- | --- | --- | --- | --- |
+| Pack signed bytes, sets and provenance | Reference Pack owner, private verifier and canonical fixtures | Retain Ed25519, method identity, canonical digests, complete signer sets, immutable anchors and sixteen existing profiles | Independent vectors; actual bootstrap/TUF/rotation/replay/historical/destination paths under pinned module, S22 | High |
+| Five consumer operations and source participation | Reference Data DTOs, retention and assignment ports | Retain operation set, exact-set selection, authorization, pins, transaction/lock order and source-owner revision effects | Consumer/provenance/retention tests and affected source-owner slices | High |
+| Administrative HTTP/operator/Jobs behavior | Core 01/Core 04, adapters and assembly | Retain routes, actor attribution, replay, idempotency, bounded admission, finality, atomic publication and safe errors | Existing HTTP/Jobs/concurrency/operator tests plus S24 packaged parity and startup rejection | High |
+| Password and MFA records | Core 04, Auth/bootstrap and OpenAPI owner | Change to bounded versioned PBKDF2-HMAC-SHA-256 records and SHA-256 TOTP; fresh credentials/enrollment required | S19 bootstrap/login/enrollment/replacement/reset/revocation tests, concurrent-load bound, enum compatibility and browser flows | High; breaking, requires later authorization |
+| Secret, cursor and conflict-token representations | Auth, pagination, Revisions and Network Flow | Change sealed versions and derived keys; reject old formats; retain claim/AAD/expiry/error semantics | S18/S20 tamper, wrong-purpose/key, user/session/route replay, expiry and rotation | High; breaking, requires later authorization |
+| Backup, journal and recovery admission | Recovery owner and `contracts/recovery/` | One current encryption codec and explicit profile binding; preserve bounded streaming, target safety and export-root binding | S21 real backup/due verification/restore, adversarial chunk/framing tests, interruption and no-publication tests | High; breaking, requires later authorization |
+| Runtime/configuration admission and transport | Core 04, application facades and platform adapters | Ordinary/disabled/wrong-module binaries and insecure production transport reject; fresh-state cutover before mutation | S17/S23/S24 fail-closed tests and disposable package scenarios using actual binaries | High; breaking, requires later authorization |
+| Authentication browser and generated contracts | Auth OpenAPI owner, web authentication model and fixtures | Update algorithm projection through normal compatibility process; preserve routes, session UX and safe error handling | Auth frontend type/unit/browser evidence; generated drift and OpenAPI compatibility disposition | Medium; public enum change, requires later authorization |
+| WebSocket protocol and domain indicators | Transport owner and indicator owners | Preserve reviewed handshake hash and opaque indicator digest strings; no security use of an exception | S23 reachable-call review, positive/negative security evidence and targeted diagnostic findings | Medium |
+| UI/workbook/view schemas/selectors | Existing frontend and source owners | No planned redesign, entity-row/view-schema changes or selector/golden refresh | Preserve existing suites; expand only if an actual auth/integration change reaches these surfaces | Low |
+| Runtime/test asset split, harness and release | Contract-generation and Testing Harness owners | Preserve separated fixture family, semantic ownership and canonical artifacts; add module/cache/diagnostic/package acceptance inputs | Drift/boundary/harness checks, real-binary negatives and complete final release | High; release policy change requires later authorization |
+| Deployment trust, clock and external data | Reference Pack and deployment owners | Preserve explicit trusted-clock assertion, deployment-supplied trust and licensing/source-identity constraints | Existing admission/rejection tests and ordinary deployment review | High; test trust is not deployment approval |
+
+## 5. Coupling and boundary findings
+
+RP-F01–F19 and their historical outcomes remain below. The former RP-F09/S07 deferral is now expanded, not erased. No completed structural or package repair is reopened without new evidence.
+
+| Finding | Evidence | Risk if unresolved | Classification | Owner | Required action |
+| --- | --- | --- | --- | --- | --- |
+| RP-F20: current owner exclusions do not support the chosen regulated profile | RP-REQ-261 requires a new method for FIPS; RP-REQ-264 calls it unsupported; Core security projections still describe current primitives | Implementation can contradict owners or make an unsupported claim | must_fix | Core security / Reference Pack / Recovery | S16 separates execution qualification from unchanged signature semantics and coordinates all security-service requirements. |
+| RP-F21: build settings are not authoritative runtime admission | Go toolchain/image pins exist, but shared build/cache and all three facades lack the proposed exact module policy gate | Ordinary, stale or overridden binaries execute under a regulated label | must_fix | Build / platform policy / application facades | S17 pins identity, includes it in caches and artifacts, and rejects invalid startup before acquisition/mutation. |
+| RP-F22: duplicated nonce/KDF mechanics and permissive key handling | Authn hash-based derivation and fallback secrets; Recovery truncation; GCM nonce construction across multiple owners | Approved algorithm names conceal unsupported use; changes drift across callers | must_fix | Platform primitive boundary and calling owners | S18 explicit key contracts, domain-separated HKDF and module-generated-nonce sealing; S20/S21 migrate callers. |
+| RP-F23: password/MFA primitives and bootstrap encoding conflict with the selected profile | Argon2id in Authn/bootstrap; SHA-1 TOTP and public enum/client assumptions | Base authentication prevents qualification; encoders or clients diverge | must_fix | Auth / bootstrap / Core 04 / OpenAPI | S19 one password owner path and bounded PBKDF2; SHA-256 enrollment and complete lifecycle/browser validation. |
+| RP-F24: token migration can erase owner-specific binding | Pagination, `cft3`, `nfc2` and Auth secrets have separate claim/AAD/expiry rules | New shared machinery permits replay, wrong-purpose acceptance or unsafe error disclosure | must_fix | Existing token owners | S20 adopts only primitive mechanics and retains owner-local semantics with adversarial tests. |
+| RP-F25: recovery has parallel encryption formats and caller nonces | `encryption.go` and `streaming_encryption.go`; journal and backup envelope schemas | Policy-incompatible backup creation or unusable/unsafe restores | must_fix | Recovery | S21 one current streaming format for all sizes, authenticated chunk identity/finality and profile-bound admission. |
+| RP-F26: module support alone does not qualify the actual pack verifier | Real bootstrap/TUF/historical/portable code paths differ from an isolated Ed25519 test | A different runtime path or malformed input behavior escapes evidence | must_fix | Reference Data / assembly | S22 execute independent vectors and complete lifecycle paths under the pinned module. |
+| RP-F27: dependency and transport behavior is not established by direct imports | pgx SCRAM, MinIO signing/checksums, OIDC/SAML, TLS/telemetry and WebSocket; insecure current package transport options | An optional integration or unprotected transport invalidates the application claim | must_fix | Platform adapter / configuration owners | S23 service/purpose/parameter mapping, certificate/transport enforcement and narrow reviewed non-security exceptions. |
+| RP-F28: existing package acceptance has no regulated binary/environment contract | Existing three smokes and passing release establish the prior package only | Source tests pass while cache, image, startup inputs or environment undermine the package | must_fix | Package / build / Testing Harness | S24 real-binary identity and negative admission, fresh-state flows, reference-environment record and canonical release routing. |
+| RP-F29: readiness states can be conflated | Previous release passed; Reference Pack candidate and deployment acceptance remain separately governed | Historical results or draft changes are represented as current compliance/rollout approval | must_fix | Specification / release / deployment owners | S25 complete one final-candidate release and separately record implementation, qualification, adoption and deployment decisions. |
+| RP-F30: stable formats and existing owner boundaries remain useful | Completed DTO/persistence/fixture separation; canonical pack identity; protocol-only hash/data uses | Unnecessary redesign introduces migration and coupling without a security benefit | intentional/no_action | Existing subsystem owners | Preserve these boundaries; no algorithm negotiation, blanket hash bans or unrelated module moves. |
+
+## 6. Refactor workstreams and phase sequencing
+
+Each implementation slice is its own workstream. The authorized plan is intentionally sequential: **S16 → S17 → S18 → S19 → S20 → S21 → S22 → S23 → S24 → S25**. Later discoveries become explicit prerequisite slices; they do not silently expand an active slice. S25 must complete last.
+
+| Phase | Workstream / class / owner | Required previous | Required next | Goal and affected boundary | Validation / handoff checkpoint |
+| --- | --- | --- | --- | --- | --- |
+| 1: Specification and execution boundary | S16 / root / Core security and affected specification owners | Later authorized implementation task | S17 | Consistent profile/cutover requirements and projection design | Owner review and complete service/exception routing; no unresolved owner contradiction. |
+| 1: Specification and execution boundary | S17 / chain / build, platform policy and application facades | S16 | S18 | Exact build/module identity and startup admission | Actual binaries accept the candidate and reject wrong/missing/disabled/stale identities before side effects. |
+| 2: Application cryptography | S18 / chain / platform primitives | S17 | S19 | Explicit keys, HKDF and random-nonce sealing | Known-answer, domain-separation, misuse and key-use-bound tests. |
+| 2: Application cryptography | S19 / chain / Auth and bootstrap | S18 | S20 | One password path and SHA-256 TOTP | Full credential/MFA/session/browser lifecycle and resource bounds. |
+| 2: Application cryptography | S20 / chain / Auth, pagination, Revisions and Network Flow | S19 | S21 | Owner-specific tokens on shared primitives | Binding, replay, tamper, expiry and rotation evidence for every caller. |
+| 2: Application cryptography | S21 / chain / Recovery | S20 | S22 | One current backup/journal encryption policy | Real restore/due verification and adversarial stream/admission checks. |
+| 3: Verification and integrations | S22 / chain / Reference Data and reference assembly | S21 | S23 | Qualify the actual pack verifier | Shipped paths, lifecycle and unchanged canonical identities. |
+| 3: Verification and integrations | S23 / chain / platform adapter and configuration owners | S22 | S24 | Qualify enabled transitive services and transport | Supported service mapping plus positive/negative runtime evidence; no unresolved security use. |
+| 4: Package and handoff | S24 / chain / package, build and Testing Harness | S23 | S25 | Regulated package acceptance and environment evidence | Disposable scenarios, canonical routing/results and accountable cleanup. |
+| 4: Package and handoff | S25 / chain / release and handoff owners | S24 and every discovered prerequisite | None | One complete final-candidate validation and maintainable handoff | All implementation slices DONE, final release/cleanup pass, distinct approval dispositions recorded. Completes last. |
+
+| Phase | Principal risks / sequencing reason | Binary phase exit |
+| --- | --- | --- |
+| 1 | Mistaking build selection for operational qualification; contradicting adopted owners; admission after resource mutation | The profile is a consistent candidate and the policy is executable through typed/build/runtime inputs with no Markdown dependency. Any actual owner contradiction is BLOCKED and resolved before dependent implementation. |
+| 2 | Authentication lockout, unbounded password work, token-binding regressions, nonce misuse and unusable backups | Every directly owned security primitive follows the selected policy; incompatible state rejects before mutation and affected owner lifecycle/negative tests pass. |
+| 3 | Hidden transitive behavior, unsupported parameters/purposes or an overly broad exception | Every enabled application security service has an approved-use mapping and execution evidence; unresolved use blocks qualification. Pack format identity remains stable. |
+| 4 | Incorrect host/image assumptions, incomplete cleanup, stale evidence or premature deployment claims | Package scenarios and one complete final release pass with cleanup; implementation/qualification/adoption/deployment statuses are explicit, with promotion blocked where required acceptance is missing. |
+
+**Execution rule:** after later authorization, mark the next workstream IN_PROGRESS before its first implementation change. At its exit, record the changed owners/areas, compatibility consequence, commands and canonical run identities, failures, residual risks and next dependency; mark DONE only when the binary exit is satisfied. **Update this tracker after each completed workstream and before beginning the next one.** Failed prerequisites remain BLOCKED, not DONE. Allowed statuses are TODO, IN_PROGRESS, BLOCKED, DONE, DEFERRED and DROPPED. Compact canonical evidence replaces duplicate narrative dossiers.
+
+## 7. Proposed refactor slices and exits
+
+**Every slice below is TODO and requires later implementation authorization.** No new validation result is claimed. Evidence cited here diagnoses the baseline; planned tests and commands are acceptance requirements, not completed checks. §8 gives the discovered Make routes. Each slice must retain its owner-local regression coverage and report any additional command/semantic-row discovery in its checkpoint.
+
+### S16 — Define the regulated profile and amend owners
+
+**Owner:** Core security, with Reference Pack, Recovery, configuration, OpenAPI and Testing Harness owners. **Areas:** specifications, documentation and typed contract design. **Gaps:** RP-F20/F29. **Depends on:** later authorized implementation task. **Next:** S17.
+
+- **Remediation:** define one application cryptographic profile covering passwords, TOTP, key derivation, encryption, security signatures, enabled integrations and production admission. Amend Core 04 and affected Core 01/Recovery/configuration clauses together. Amend RP-REQ-261 and RP-REQ-264's FIPS exclusion without changing Ed25519 or `tuf_1_0_35_offline_bundle_v1`. Identify the corresponding authored Recovery schemas, configuration contracts, Auth OpenAPI enum, build inputs and harness projections before coding.
+- **Boundary:** distinguish domain semantics, module-service usage and deployment qualification. Enumerate each security service and owner, and each permitted non-security protocol use with its reason and validation route. Keep the review in normal owner changes and existing machine projections; do not create an approval registry or replacement evidence dossier.
+- **Rationale / long-term benefit:** a future module update can change qualified build/environment identity without changing pack signatures, trust history or unrelated domain contracts. Requirements become coherent enough for implementation and human projection review.
+- **Compatibility / migration:** explicitly declare the fresh-state cutover, breaking credential/MFA/sealed-state formats, startup rejection and changed transport admission. Define how incompatible state is identified before mutation. Applied migrations remain immutable; historical deployments/backups use matching releases.
+- **Unresolved risk / risk if left open:** the present Reference Pack exclusion is incompatible with the selected direction until amended. Tests cannot waive it. Missing or contradictory service requirements can produce implementation that overclaims qualification.
+- **Validation / evidence:** review Core security, Reference Pack, Recovery/configuration, OpenAPI and harness owners as one candidate; use `make lint-markdown` and `git diff --check`. No current owner adoption or new crypto execution evidence is asserted.
+- **Binary exit:** every affected service, protocol exception, cutover rule and projection has one consistent owner and validation route; no unresolved owner contradiction. An actual contradiction is recorded as **BLOCKED: owner contradiction** and blocks dependent implementation. Formal adoption remains a separately recorded status.
+- **Rollback:** withdraw conflicting candidate amendments together and keep production promotion blocked; do not implement against contradictory requirements.
+
+### S17 — Make build identity and startup admission authoritative
+
+**Owner:** build/toolchain and narrow platform cryptographic-policy boundary; all three application facades own invocation. **Areas:** implementation, build configuration, tests and documentation. **Gap:** RP-F21. **Depends on:** S16. **Next:** S18.
+
+- **Remediation:** pin `v1.0.0-c2097c7c` and its verified archive digest in authored build inputs, alongside the pinned toolchain. Include module selection, digest, compiler/build settings and relevant mode inputs in shared build cache identities, harness fingerprints and release artifacts. Cover supported server/migrate/operator builds and packaged binaries; do not rely on a label or caller-supplied version string.
+- **Admission:** each exact application facade checks actual module version, available build information and enabled FIPS mode before acquiring application services or mutating state. Runtime mode/environment overrides cannot downgrade the policy. Reject wrong module, absent/contradictory metadata and disabled mode with bounded safe diagnostics. Keep feature logic out of `cmd/*`.
+- **Rationale / long-term benefit:** one authoritative policy closes gaps between source, cached binary, image and process. The platform boundary stays small and upgrades remain reviewable without a provider framework.
+- **Compatibility / migration:** ordinary builds and `fips140=off` cannot run production application commands. Development/test composition supplies explicit supported inputs and owned dependencies; it does not add a production bypass. Preserve borrowed PostgreSQL/object-store ownership and idempotent cleanup.
+- **Unresolved risk / risk if left open:** stale cache entries, local/global toolchain mismatch, spoofed metadata or production environment overrides can admit an unqualified binary. Module metadata must be verified using the pinned toolchain's supported interfaces.
+- **Validation / evidence:** build/admission tests run actual binaries for correct/wrong/missing/disabled cases and assert no service acquisition or state mutation on rejection; exercise cross-policy cache reuse attempts. Run toolchain, boundary, harness and affected facade checks through discovered Make routes. Author the targeted strict-mode assessment route; do not invent or invoke an unregistered target.
+- **Binary exit:** all three binaries prove the required actual identity and enabled mode; all negative cases and cache-contamination tests reject before side effects; canonical build/release artifacts carry matching identities.
+- **Rollback:** revert an incomplete build/admission change as a unit and leave regulated production unavailable. Never restore an ordinary-build fallback.
+
+### S18 — Establish approved key derivation and sealing primitives
+
+**Owner:** narrow platform primitive boundary, with existing key/purpose owners as callers. **Areas:** implementation, contracts and tests. **Gap:** RP-F22. **Depends on:** S17. **Next:** S19.
+
+- **Remediation:** replace custom hash-based derivation with standard-library HKDF-SHA-256 and explicit, unambiguous domain separation. Require explicit master keys of the profile's exact supported size; remove production fallback secrets, permissive excess lengths and silent truncation. Keep key identifiers, rotation, authorization and secret-purpose reuse checks with their owners.
+- **Primitive boundary:** provide a small seal/open API using the module's AES-GCM random-nonce facility. Production callers never provide GCM nonces or test entropy. Define versioned framing and associated-data inputs without owning domain payload schemas. Independently derive per-object/message keys where necessary so safety does not depend on a deployment-global nonce counter. Specify and enforce per-key use limits, including the module random-nonce limit, over the actual key lifetime.
+- **Rationale / long-term benefit:** consolidate difficult derivation, framing and nonce mechanics once; keep future token/artifact growth local to each domain owner. Avoid a generic crypto service, provider API or shared domain-token framework.
+- **Compatibility / migration:** derived keys and sealed representations change. Old state is rejected by explicit version/profile admission, not probed with a legacy decoder. Existing HMAC/SHA-256 callers such as upload tokens retain their semantics while adopting correctly separated keys.
+- **Unresolved risk / risk if left open:** primitive names alone do not establish approved usage; ambiguous context encoding, reused keys, malformed framing or lifetime-limit assumptions can undermine isolation.
+- **Validation / evidence:** known-answer HKDF vectors; distinct owner/purpose/object contexts; malformed/oversized inputs, tampering, wrong keys/AAD and key-use boundaries. Verify production code cannot inject nonce/entropy. Run affected platform/owner slices and boundary checks; migrate callers only in their owning subsequent slices.
+- **Binary exit:** the primitive API and exact key contract pass all positive/negative vectors and usage-bound checks; no production caller of the new primitive supplies nonces or test entropy; caller migration obligations are explicitly assigned.
+- **Rollback:** keep the new primitives unexposed until their contract is complete; do not introduce automatic fallback in consumers.
+
+### S19 — Replace password and MFA cryptography
+
+**Owner:** Auth lifecycle and shared authentication primitives; bootstrap, Core 04 and OpenAPI owners participate. **Areas:** specifications, implementation, OpenAPI/contracts, tests and documentation. **Gap:** RP-F23. **Depends on:** S18. **Next:** S20.
+
+- **Remediation:** use standard-library PBKDF2-HMAC-SHA-256 with an initial fixed cost of **600,000 iterations**, **16-byte random salt** and **32-byte result**. Use a versioned, bounded record format and one creation/verification policy for bootstrap and ordinary credentials. Remove duplicate Argon2 encoders and legacy verification paths.
+- **MFA:** use SHA-256 TOTP with **32-byte secrets**, retaining six digits, 30-second periods and the existing bounded acceptance window. Update enrollment, verification and the authored OpenAPI algorithm enum through the normal compatibility process, then regenerate clients/fixtures. Keep authentication, session revocation, replacement/reset authorization and browser behavior owned by Auth.
+- **Rationale / long-term benefit:** one credential policy removes divergent encoders and unsupported authentication primitives. Explicit versions and bounded parameters permit deliberate future cost strengthening without arbitrary work factors. The selected initial password cost follows the linked OWASP FIPS guidance.
+- **Compatibility / migration:** existing password records and TOTP enrollment are incompatible; no conversion or automatic reset. Fresh deployment provisions credentials and enrollment under the new profile. Document authenticator compatibility and the intentional public enum break; do not add a SHA-1 fallback.
+- **Unresolved risk / risk if left open:** authentication alone can prevent an application-wide claim. A permissive parser or unmeasured cost can expose CPU exhaustion; unsupported clients can lock users out.
+- **Validation / evidence:** bootstrap, ordinary password creation, successful/failed login, MFA enrollment, replacement/reset and session revocation; independent PBKDF2/TOTP vectors and skew/replay/invalid-code cases. Reject malformed versions, lengths and work factors before expensive derivation. Measure representative concurrent authentication and record an explicit bounded resource/latency acceptance decision. Run Auth/bootstrap owner slices, relevant service-backed/browser rows, OpenAPI compatibility and generated/client checks.
+- **Binary exit:** both credential creation paths use one policy; lifecycle/browser cases pass; malformed records reject cheaply; representative concurrency stays within the agreed bound; old formats fail explicitly and the enum/client projections agree.
+- **Rollback:** fail fresh deployment qualification and correct the candidate; do not mix old authentication code with newly created regulated state.
+
+### S20 — Move secrets and short-lived tokens onto approved sealing
+
+**Owner:** Auth secrets, platform pagination, Revisions conflict tokens and Network Flow cursors. **Areas:** implementation, contracts and tests. **Gap:** RP-F24. **Depends on:** S19. **Next:** S21.
+
+- **Remediation:** migrate all identified authentication-secret, pagination, conflict-token and Network Flow sealing callers to S18. Version changed sealed/token formats and explicitly reject older formats. Keep claims, associated-data encoding, owner/purpose labels, user/session/route binding, expiry, rotation and public error mapping inside the existing owners.
+- **Boundary:** share cryptographic mechanics only. Retain authorization before/after decoding where required, bounded parsing and existing replay protections; do not let one owner's token become consumable by another. Review indirect derivation consumers such as Evidence upload-token signing without gratuitously replacing supported HMAC semantics.
+- **Rationale / long-term benefit:** nonce and key-derivation fixes are maintained once while future token fields remain cohesive with the domain that interprets them.
+- **Compatibility / migration:** old cursors/conflict tokens expire through explicit incompatibility rejection; clients follow existing restart/reload/error behavior. Persisted authentication secrets require fresh state. No dual reader, dual writer or compatibility alias.
+- **Unresolved risk / risk if left open:** a less-visible token path can retain incompatible crypto; a shared implementation can accidentally erase AAD, actor/session binding, expiry or safe failure behavior.
+- **Validation / evidence:** each owner tests positive round trips plus cross-user, cross-session and cross-route replay, wrong-purpose keys, tamper, expiry boundaries, rotation, malformed/oversized records and old-version rejection. Exercise public error mappings and owner lifecycle flows, not only primitive helpers. Use the affected owner/platform slices and service-backed rows selected through `make task-guide`.
+- **Binary exit:** every identified caller uses S18 and every owner-specific binding/rejection scenario passes; no legacy sealing caller or unassigned key-derivation consumer remains.
+- **Rollback:** keep the candidate unqualified until all affected callers agree; never deploy mixed format writers or restore legacy decoding as a tactical fix.
+
+### S21 — Replace recovery encryption with one current format
+
+**Owner:** Recovery, with operator/application assembly and Core recovery requirements. **Areas:** specifications, implementation, contracts, tests and operator documentation. **Gap:** RP-F25. **Depends on:** S20. **Next:** S22.
+
+- **Remediation:** introduce one current streaming backup envelope using independently derived per-artifact HKDF keys and module-generated nonces per chunk. Authenticate artifact identity, chunk position, length and finality; bound chunk sizes/counts and per-key use. Route small artifacts through the same codec and remove parallel legacy encryption paths from the new release.
+- **Admission and journals:** update journal sealing through S18 and bind backup/restore/verification admission to the cryptographic profile. Preserve confined storage, export-root binding, freshness/overlap checks, bounded-memory streaming, interruption safety and validation before publication/target admission. Reject incompatible profile/envelope state before any mutation.
+- **Rationale / long-term benefit:** one current codec prevents divergent integrity rules as artifact types and sizes grow, while actual recovery remains bounded and independently verifiable.
+- **Compatibility / migration:** new encrypted-envelope versions are intentional breaks. Historical backup readers remain with historical releases; document matching release/backup retention and fresh-deployment boundaries. Keep applied SQL migrations immutable; coordinate any necessary new authored migration and typed schema changes with their owners.
+- **Unresolved risk / risk if left open:** a backup can be created successfully yet violate module usage limits, lose finality, leak partial output or fail when needed. Old recovery proofs must not authorize a new profile.
+- **Validation / evidence:** actual backup, due verification and restore through operator/package paths; small/large/empty boundary artifacts; truncation, reordering, duplication, substitution, length/finality corruption, wrong keys, interrupted operations and incompatible versions. Assert no publication, target admission or retained-state mutation on failure. Run Recovery owner/service-backed slices, shape/drift checks and operational recovery smoke.
+- **Binary exit:** one current codec and journal policy serve all supported artifacts; actual restore and due verification pass; all adversarial/incompatibility cases reject before publication/admission, with bounded memory and accounted cleanup.
+- **Rollback:** preserve historical deployments/backups with their matching releases. Do not add a legacy reader or run a converter to rescue an incomplete new format.
+
+### S22 — Qualify the real Reference Pack verifier
+
+**Owner:** Reference Data and reference assembly. **Areas:** implementation verification, tests and contract review. **Gap:** RP-F26. **Depends on:** S21. **Next:** S23.
+
+- **Remediation:** exercise bootstrap admission and the complete TUF verifier under the pinned module, including root/key rotation, signature thresholds and malformed inputs, replay, historical validation and destination portability. Use shipped execution paths and independently authored vectors, not merely a standalone Ed25519 call.
+- **Preserved contract:** Ed25519, canonical bytes/digests, method identity, immutable provenance, trust history and destination trust remain unchanged. The owner amendment changes execution qualification, not signed-pack interpretation. Runtime projections remain separated from fixtures.
+- **Rationale / long-term benefit:** the actual verifier receives credible qualification while valid packs and historical identities avoid unnecessary migration. Future module upgrades reuse these stable lifecycle and vector obligations.
+- **Compatibility / migration:** valid canonical pack inputs retain identity; malformed keys/signatures and unsupported algorithms still reject. This does not authorize converting incompatible application databases or importing trust from a historical deployment automatically.
+- **Unresolved risk / risk if left open:** passing primitive tests can miss another runtime verification path, signature-validation edge cases, or altered canonicalization after a build change.
+- **Validation / evidence:** independent positive/negative vectors plus bootstrap/full TUF/rotation/replay/historical/destination scenarios through Reference Data owner/service-backed rows and packaged Reference Pack smoke. Compare valid canonical digests to preserved vectors; run targeted strict assessment through authored routing and explain any protocol-only findings.
+- **Binary exit:** all actual verifier paths and lifecycle scenarios pass with the pinned actual module identity; valid canonical digests are unchanged, malformed inputs reject and no algorithm fallback exists.
+- **Rollback:** block qualification and fix the verifier/module disposition; do not substitute algorithms or reissue pack identities to conceal an execution failure.
+
+### S23 — Close transitive cryptographic and transport gaps
+
+**Owner:** existing platform PostgreSQL, object-store, enterprise-auth, TLS/telemetry, WebSocket and configuration adapters; security owner reviews service usage. **Areas:** platform adapters, configuration, specifications, tests and documentation. **Gap:** RP-F27. **Depends on:** S22. **Next:** S24.
+
+- **Remediation:** map reachable PostgreSQL/SCRAM, S3 signing/checksum, OIDC/SAML, TLS, telemetry and WebSocket operations to the module services actually used, their parameters and permitted purpose. Review enabled optional features as part of the application boundary. Enforce approved algorithms/parameters at existing adapters while retaining vetted library protocol/signature verification.
+- **Transport:** validate certificate chains, names and trust handling; reject insecure production transport settings. Specify application-side behavior when TLS termination is external, without claiming qualification of the terminator or external servers. Current HTTP and PostgreSQL `sslmode=disable` package settings need explicit disposition under the adopted policy.
+- **Exceptions:** retain only explicitly reviewed non-security uses such as the WebSocket handshake hash. Treat indicator MD5/SHA-1 strings as data. Do not blanket-ban imports, wrap security calls to evade enforcement, or silently exempt a dependency. PBKDF2's password-storage service restrictions require purpose review for SCRAM; using a standard-library implementation is insufficient by itself.
+- **Rationale / long-term benefit:** qualification follows actual behavior instead of library names or import counts. Adapter-owned policy keeps integration constraints cohesive and avoids hand-written replacements for complex protocols.
+- **Compatibility / migration:** incompatible provider algorithms, credentials, certificates and transport settings fail explicitly. Operators configure supported providers/transports for fresh deployments; no legacy negotiation fallback is introduced.
+- **Unresolved risk / risk if left open:** third-party defaults, optional checksums or provider negotiation can execute unqualified services. An unresolved supported-purpose mapping blocks qualification; do not assume the selected candidate can satisfy every dependency before this review.
+- **Validation / evidence:** positive/negative integration execution for every enabled security path, including unsupported algorithms/parameters, malformed cryptographic inputs and rejected certificate/transport cases. Review dependency source with runtime evidence; targeted strict-mode assessment supplements both. Use platform/affected owner and service-backed slices, configuration checks and package scenarios.
+- **Binary exit:** every enabled security service has a supported module-service/purpose mapping and passing positive/negative execution evidence; every protocol exception has a bounded non-security rationale; no unresolved usage or insecure production setting remains.
+- **Rollback:** stop qualification for an unresolved required integration and resolve its supported design with the owner. Do not silently narrow the claimed boundary, disable a required feature or add a second crypto policy.
+
+### S24 — Integrate regulated package acceptance
+
+**Owner:** deployment package, build/toolchain and Testing Harness/release owners. **Areas:** deployment package, harness, tests, release artifacts and documentation. **Gap:** RP-F28. **Depends on:** S23. **Next:** S25.
+
+- **Remediation:** extend existing package qualifications to verify actual identities of server, migrate and operator; startup rejection; fresh-state admission; authentication/MFA; token flows; Reference Pack lifecycle; and actual recovery. Include wrong-module/disabled-mode/missing-metadata and incompatible retained-state/backup scenarios in disposable environments with rejection before mutation.
+- **Environment and artifacts:** record host OS/kernel, runtime/version, CPU/features, application image/index and resolved platform image, binary/module/archive/build identities and their relationship to permitted operating environments. Recheck certificate/security disposition before qualification. Use existing canonical package/release artifacts and semantic routing, not a new report or approval dossier.
+- **Harness:** author task, owner and topology inputs through existing mechanisms, regenerate outputs through Make, and require the regulated package results in release acceptance. Retain all owned-resource/workspace cleanup attempts and fail on incomplete cleanup. Keep strict-mode diagnostics distinct from production mode and security-service qualification.
+- **Rationale / long-term benefit:** qualify the exact package operators receive and reuse the established release system as features grow. Source-only tests cannot detect packaging, cache, configuration or runtime overrides.
+- **Compatibility / migration:** operators receive explicit fresh-deployment guidance and preflight rejection for incompatible installations. No automatic rollout, reset, conversion or retained deployment operation.
+- **Unresolved risk / risk if left open:** the reference environment may not yet be available or accepted; a distro-derived image alone does not establish the operating environment. Stale artifacts and incomplete cleanup can make a passing package result misleading.
+- **Validation / evidence:** `make standup-package-smoke`, `make standup-reference-pack-smoke` and `make standup-operational-recovery-smoke` with the new semantic cases; identity/cache negatives, harness/shape/drift/toolchain checks and canonical artifact review. Establish the target environment relationship explicitly; if unresolved, record the blocker rather than qualifying a substitute host.
+- **Binary exit:** disposable package scenarios and all cleanup pass on the recorded reference target with verified identities; release acceptance requires those canonical results; the module/environment relationship has an explicit supported disposition.
+- **Rollback:** keep release acceptance/promotion blocked until the package and routing agree. Never mark helper or partial results as completed package qualification.
+
+### S25 — Final validation and handoff completion
+
+**Owner:** release/validation and handoff owners, with affected specification and operational owners. **Areas:** validation, documentation and this tracker. **Gap:** RP-F29. **Depends on:** S24 and all implementation/prerequisite slices. **Next:** none; **must finish last**.
+
+- **Remediation:** finish focused owner and changed-input checks, run `make agent-finalize` before broader final verification, then `make test-fast` and one complete `make release-check` on the final candidate. Inspect canonical results, readiness projections, actual binary/module/environment identities and cleanup. A changed candidate or failing release needs its own corrected final validation; never combine partial runs into a pass.
+- **Handoff:** review fresh-deployment and incompatible-state handling, matching-release backup retention, operational failure diagnostics, key provisioning/rotation, integration limits and recovery procedures. Document the module-update process: choose an exact candidate, recheck certificate/security status and environment support, amend pins/cache identities, rerun service/verifier/package qualification and record ordinary review. Future updates are deliberate, never floating-selector refreshes.
+- **Rationale / long-term benefit:** a reproducible release boundary and actionable maintenance instructions survive beyond the current authors without multiplying signoff artifacts.
+- **Compatibility / migration:** no customer rollout or retained-state mutation is automatic. Clearly distinguish implementation completion, package qualification, specification adoption and customer deployment approval. Missing adoption or deployment/environment acceptance continues to block production promotion even when engineering checks pass.
+- **Unresolved risk / risk if left open:** partial, historical or stale evidence can be mistaken for readiness; unresolved security disposition or environment assumptions can be lost during handoff.
+- **Validation / evidence:** focused owner/drift/OpenAPI/boundary/toolchain/harness checks as needed; finalization, fast checks and one complete final release. Use `make explain-run RESULTS_DIR=<run-root>` for canonical inspection. Record exact source/graph/run identities, failure history, cleanup, skipped checks and their reasons. If retained-run maintenance is intended, use the permitted successful full warm-check `RESULTS_DIR`; otherwise report it skipped because unset.
+- **Binary exit:** S16–S24 and every discovered implementation prerequisite are DONE; one complete final-candidate release and cleanup pass; canonical evidence, compatibility guidance, remaining limitations and all four approval/qualification statuses are recorded. Then mark S25 DONE last and close the S07 umbrella. No unresolved implementation or package-qualification failure is hidden as a deployment-only issue.
+- **Rollback:** leave S25 incomplete or BLOCKED with the exact failed boundary and retained artifacts. Do not relabel the prior release, erase failures or declare promotion from an incomplete candidate.
+
+## 8. Validation plan
+
+Use public Make targets from the repository root and choose the narrowest owner rows first. `make task-guide ROLE=module-author OWNER=<owner-id>`, `make help` and `make help-all` remain the live navigation surface; this table records the relevant discovered routes, not a second command registry. Test routing does not define requirements or establish specification completeness.
+
+| Layer / workstreams | Discovered route | Required timing and evidence |
+| --- | --- | --- |
+| Immediate document update | `make lint-markdown`; `git diff --check` | Required now. Also compare the exact 197-file register, preserved historical text/run identities, new TODO statuses and pre-existing working-tree file hashes. No product validation. |
+| Owner unit/behavior checks, S18–S23 | `make task-guide ROLE=module-author OWNER=module.auth`, `OWNER=module.recovery`, `OWNER=module.reference_data`; then `make test-slice OWNER=<owner-id> [ROWS=<discovered-row-ids>]` | Guides for these three owners were inspected successfully during planning. Discover affected Revisions, Network Flow, bootstrap, configuration and other platform row selection when their slices begin; do not invent semantic row IDs. |
+| Integration/service-backed checks, S17–S24 | `make service-backed-test-slice OWNER=<owner-id> [ROWS=<discovered-row-ids>]` after the owning task guide | Exercise real persistence, provider, auth/session, verification and recovery boundaries where reached. Keep isolated services and accountable cleanup. |
+| Auth browser/client projection, S19/S20 | Auth task guide and its routed browser rows; `make frontend-typecheck` and `make frontend-unit` when their inputs change | Real enrollment/login/reset/session flows with the new enum and formats. No unsolicited UI redesign or golden refresh. Discover exact browser row selection from authored routing at execution time. |
+| Authored contracts and generated outputs | `make generate`, `make generate-drift`, `make json-shape-check`, `make generated-artifact-policy-check` | Run only when relevant owner inputs change during implementation. Preserve generated-root ownership and runtime/test separation; never use Markdown as a generator/test input. |
+| Public API compatibility, S19 | `make openapi-compatibility-check` | Resolve the intentional algorithm-enum change through the normal compatibility process; a known break is not silently ignored or hidden behind legacy support. |
+| Owner/module boundaries and pins | `make backend-module-boundary-check`; `make toolchain-drift` | Required when the platform primitive/policy boundary, imports or build pins change. Use normal frontend boundary routing if clients change. |
+| Harness and release routing, S17/S24 | `make harness-contract`; `make explain-target TARGET=release-check DETAIL=summary` | Verify authored routes, cache/fingerprint inputs, release membership and generated topology. Explain-target is discovery, not execution evidence. |
+| Targeted strict-mode assessment, S17/S22/S23/S24 | **TODO: author/discover the exact public Make/harness route in S17, then require its results in S24.** | No such new route is claimed today. Pin the module, select relevant security paths and retain actionable diagnostic findings. `fips140=only` is diagnostic, not deployment mode or sole compliance criterion; expected protocol-only findings are reviewed, not suppressed through bypasses. |
+| Actual package acceptance, S21/S22/S24 | `make standup-package-smoke`; `make standup-reference-pack-smoke`; `make standup-operational-recovery-smoke` | Extend the existing routed smokes. Verify all three real binaries, fresh-state/negative admission, auth/tokens, pack lifecycle and actual recovery on the recorded reference target, including cleanup. |
+| Final candidate, S25 last | Focused checks, then `make agent-finalize`, `make test-fast` and one complete `make release-check` | Finalization precedes broader end-of-run verification. Record source/module/image/environment identities and all failures. No merging partial runs or substituting historical release evidence. |
+| Canonical handoff review | `make explain-run RESULTS_DIR=<run-root>`; inspect canonical summary/manifest, package artifacts and cleanup receipts | Require complete passing results and correct identities. Distinguish retained-run maintenance from read-only result inspection. `RESULTS_DIR` for finalization must meet the repository's retained-run requirements or maintenance is explicitly skipped. |
+
+Current `lint-markdown` configuration selects authored documentation globs but does not directly include this handoff path. Run the required public target and report its configured scope honestly; supplement it with read-only tracker structure, inventory, history and diff checks. Do not edit lint configuration or bypass the Make surface solely to broaden this document-only task.
+
+## 9. Top-level work tracker
+
+Historical DONE rows below retain their original outcomes; their validation does not qualify S16–S25. All new implementation rows start TODO.
+
+| ID | Work item / workstream | Status | Depends on | Evidence / disposition | Binary exit |
+| --- | --- | --- | --- | --- | --- |
+| RP-P02 | Prior package-plan document update | DONE | Prior user-selected plan | Markdown `20261005T042618Z-p49665` and original session retained below | Prior document-only step completed. |
+| RP-P03 | Regulated-readiness document update | DONE | Current document-only request | Markdown `20261005T122414Z-p70033` passed for its configured scope; diff, tracker structure, 197-file inventory, history and 6,684-path scope checks passed | Only this tracker changed; S16–S25 remain TODO and require later implementation authorization. |
+| RP-S01 | Reconcile owner/tracker authority | DONE | Prior iteration | Original execution retained below | Prior slice exit passed. |
+| RP-S02 | Remove dead interfaces/misleading fixtures | DONE | S01 | Original execution retained below | Prior slice exit passed. |
+| RP-S03 | Stable owner DTOs/private verification | DONE | S02 | Original execution retained below | Prior slice exit passed. |
+| RP-S04 | Complete application construction | DONE | S03 | Original execution retained below | Prior slice exit passed. |
+| RP-S05 | Separate transport and semantics | DONE | S04 | Original execution retained below | Prior slice exit passed. |
+| RP-S06 | Persistence seams and instance isolation | DONE | S05 | Original execution retained below | Prior slice exit passed. |
+| RP-S07 | Validated cryptography umbrella, expanded into S16–S25 | TODO | S16–S25 | Former DEFERRED disposition retained in history; no separate implementation slice | S25 finishes last and the expanded capability's implementation/qualification exits pass. |
+| RP-S08 | Candidate owner/projection review | DONE | S06 | Historical review, not formal adoption or recurring reporting | Prior slice exit passed. |
+| RP-S09 | Disposable operational qualification | DONE | S14, S09a | Prior packaged lifecycle/recovery/cleanup results retained | Prior package exit passed. |
+| RP-S09a | Exported-bundle recovery storage repair | DONE | Discovered during S09 | Confined export-root capture/restore and admission binding retained | Prior repair exit passed. |
+| RP-S10 | Prior structural validation/handoff | DONE | S08 | Release `20261005T030730Z-p45700`, 1261/1261 on its original dirty candidate | Completed last in that iteration. |
+| RP-S11 | Simplify specification/reporting obligations | DONE | Prior implementation request | Historical plan and implementation checkpoint retained | Owner cleanup retained substantive controls. |
+| RP-S12 | Remove accounting-only machine contracts | DONE | S11 | Historical plan and checkpoint retained | Behavioral fixture completeness retained. |
+| RP-S13 | Separate runtime projections/test assets | DONE | S12 | Runtime/fixture families and boundary regression retained | Runtime excludes fixture assets. |
+| RP-S14 | Complete packaged administration support | DONE | S13 | Optional configuration and pinned image retained | Prior package configuration exit passed. |
+| RP-S15a | Deterministic presence capture framing | DONE | Discovered during S15 | Unchanged-golden repair and failed-release history retained | Prior visual prerequisite passed. |
+| RP-S15 | Integrated package release/final handoff | DONE | S09, S15a | `20261005T070744Z-p19802`, 1264/1264; 17 readiness projections and cleanup pass | Completed last in the prior package iteration. |
+| RP-S16 | Define regulated profile/amend owners | TODO | Later authorized implementation task | RP-F20/F29; §7; no new execution evidence | Consistent candidate, service/exception owners and routes; no owner contradiction. |
+| RP-S17 | Build identity/startup admission | TODO | S16 | RP-F21; §7; no new execution evidence | Three actual binaries enforce identity/mode before side effects; cache negatives pass. |
+| RP-S18 | Approved derivation/sealing primitives | TODO | S17 | RP-F22; §7; no new execution evidence | Exact keys, separated derivation and random-nonce primitive pass misuse/use-bound tests. |
+| RP-S19 | Password/MFA cryptography | TODO | S18 | RP-F23; §7; no new execution evidence | One credential policy, SHA-256 TOTP, lifecycle/client and resource-bound checks pass. |
+| RP-S20 | Secrets and short-lived tokens | TODO | S19 | RP-F24; §7; no new execution evidence | All caller migrations and owner-specific binding/rejection tests pass. |
+| RP-S21 | One current recovery encryption format | TODO | S20 | RP-F25; §7; no new execution evidence | Real restore/due verification and negative framing/admission tests pass. |
+| RP-S22 | Actual Reference Pack verifier qualification | TODO | S21 | RP-F26; §7; no new execution evidence | Shipped verifier/lifecycle pass with unchanged canonical identities and no fallback. |
+| RP-S23 | Transitive crypto/transport qualification | TODO | S22 | RP-F27; §7; no new execution evidence | Every enabled security path has a supported service mapping and positive/negative evidence. |
+| RP-S24 | Regulated package acceptance | TODO | S23 | RP-F28; §7; no new execution evidence | Real binaries, reference environment, package scenarios, routing and cleanup pass. |
+| RP-S25 | Final validation/handoff completion | TODO | S24 and all prerequisites | RP-F29; §7; no new execution evidence | All slices DONE, complete final release/cleanup, explicit approval states; completes last. |
+
+## 10. Session handoff log
+
+This is the appended regulated-readiness planning/document-update session. Prior planning sessions, implementation checkpoints and failures remain in the historical sections without reassigned run identities.
+
+### Scope and authority
+
+| Date / session | State / files inspected or touched | Commands / decision | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 / regulated planning | Repository AGENTS, refactor-tracker skill/format, local planning framework, domain/design navigation, owner context and controlling tracker | User selected the full regulated plan; current action is explicitly document-only | Preserve the dirty `e7a1497` working tree and all completed history. Only this tracker is editable now; later implementation starts S16. |
+
+### Backend boundary
+
+| Date / session | State / files | Commands / evidence | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 / regulated planning | 197-file Reference Data/assembly register; app facades; Authn/bootstrap; cursor/conflict/Network Flow; Recovery; actual pack verifier; platform adapters | Targeted `rg`/file reads and dependency source inspection; working-tree content snapshot | Keep completed Reference Data ownership. Add only the narrow policy/primitive boundaries and owner-specific migrations described in S17–S23. |
+| 2026-10-05 / document update | Existing tracker and repository scope | Exact register/file comparison and before/after content snapshots across 6,684 tracked/nonignored paths passed | All 197 direct files remain accounted for. Only this tracker changed; pre-existing source, contract, test, configuration and other edits were preserved. |
+
+### Frontend boundary
+
+| Date / session | State / files | Evidence / decision | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 / regulated planning | `apps/web/src/app/authenticationModel.ts` and Auth/OpenAPI fixture assumptions | Current SHA-1 TOTP enum reaches the browser | S19 changes the authored contract and projections with browser lifecycle checks. No rendered UI audit, selector redesign or visual-golden update is part of this document task. |
+
+### Contracts and code generation
+
+| Date / session | State / files | Commands / evidence | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 / regulated planning | Core security, RP-REQ-261/264, Recovery envelope/journal contracts, Auth OpenAPI owner, build pins and authored harness inputs | Targeted owner/projection reads | S16 coordinates requirements before implementation; S19/S21 version intentional incompatible formats. No contracts or generated artifacts changed now; no generator reads this tracker. |
+
+### Tests and harness
+
+| Date / session | State / files | Commands / evidence | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 / planning discovery | Auth, Recovery and Reference Data verification routes | `make task-guide ROLE=module-author OWNER=module.auth` / `module.recovery` / `module.reference_data` succeeded; `make explain-target TARGET=release-check DETAIL=summary` succeeded | Read-only command discovery, not product execution or regulated qualification. Discover additional exact owner/browser/strict-mode rows during their slices. |
+| 2026-10-05 / historical evidence review | Original final release and earlier failures | Retained summaries/manifests and tracker checkpoints inspected | Prior `20261005T070744Z-p19802` remains historical passing evidence with original source/graph identity; failed `20261005T061847Z-p6495` remains recorded. |
+| 2026-10-05 / document completion | Required current checks | `make lint-markdown` PASS at `20261005T122241Z-p67499` and after closeout at `20261005T122414Z-p70033`; summaries: `.cartulary/test-results/<run-id>/adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` PASS | Lint passed its configured scope. Supplemental read-only checks passed: twelve active sections, all per-slice fields, S16–S25 TODO, table/heading/fence structure, unchanged 197-file register, preserved historical plan/checkpoints/tail and only-tracker content change. RP-P03 DONE. |
+
+Read-only discovery encountered guessed paths that did not exist, including `internal/platform/postgres/settings.go` and a `docs/core-04*` glob; file enumeration resolved the actual owners/entry points. These lookup failures changed nothing and are not product-test failures. The current Markdown target does not directly select this handoff path; its configured-scope result and supplemental tracker checks are recorded separately.
+
+Product tests, generation/drift, package/recovery runs, release verification and `make agent-finalize` are deliberately skipped for this document-only step. Retained-run maintenance is skipped because `RESULTS_DIR` is unset. No prior successful run is refreshed or relabeled.
+
+### Security and authorization
+
+| Date / session | State / files | Evidence / decision | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 / regulated planning | Go 1.27.1 frozen module candidate, certificate/security policy, local library paths, existing image pin and package transport | One policy; all application binaries/integrations; fresh state; preserve Ed25519; reviewed protocol-only exceptions | Candidate pin/digest and Linux/amd64 Debian 12 reference target recorded. Actual module usage, certificate disposition and environment suitability must be qualified later; no adoption, customer rollout or external-server certification is asserted. |
+
+### Open risks and next session
+
+| Date / session | Current state | Remaining risk | Next action |
+| --- | --- | --- | --- |
+| 2026-10-05 / document handoff | S16–S25 all TODO; previous package iteration complete | Current code still uses the old cryptography; owner exclusion, transitive service mapping and actual reference-environment suitability remain unresolved implementation prerequisites | After later authorization, start S16, then follow the dependency chain and update this tracker at every workstream exit. S25 finishes last. Keep normal review/canonical evidence; do not recreate retired dossiers. |
+
+## 11. Open prerequisites and production boundaries
+
+There is no unresolved user preference preventing this plan. Planning choices do not establish adoption, compliance or authority to mutate a retained deployment. TODO here means required future evidence/work; BLOCKED is reserved for an actual contradiction or failed prerequisite encountered during execution.
+
+| ID | Prerequisite / question | Why it matters | Required owner / evidence | Status |
+| --- | --- | --- | --- | --- |
+| RP-PRE-01 | Prior coordinated reporting/accounting amendments | Completed S11 requirement cleanup remains valid history | Original owner changes and S11 checkpoint | DONE |
+| RP-PRE-02 | Prior package release routing and cleanup | Three smokes already participate in the historical package release | Original S09/S15 results, including `20261005T070744Z-p19802` | DONE |
+| RP-PRE-03 | Formal owner adoption and actual deployment suitability | Engineering success does not adopt a draft or approve a customer environment | Existing owner-status process and applicable deployment/security/licensing acceptance; ordinary records, no new dossier | TODO |
+| RP-B02 | Regulated security policy and Reference Pack owner amendment | Existing exclusion cannot be ignored; signature identity should remain stable | S16 coordinated owner candidate and service/exception definitions | TODO |
+| RP-B03 | Exact module/service/build/runtime/environment disposition | Certificate association or a Debian-derived image alone is insufficient | S17/S22/S23/S24 actual identities, supported service/purpose mappings, current security disposition and permitted environment relationship | TODO |
+| RP-B04 | Pinned-module and diagnostic Make/harness routing | Floating selection, stale caches and unrouted assessment undermine qualification | S17 authored build/cache/routing policy, S24 canonical release acceptance | TODO |
+| RP-PRE-04 | Fresh-state admission and incompatible-format detection | Rejection must precede mutation for all three binaries and recovery | S16 contract; S17/S19–S21 implementation; S24 real-binary negative evidence | TODO |
+| RP-PRE-05 | PBKDF2 cost and authenticator compatibility | Fixed cost must remain operationally bounded; SHA-256 TOTP clients must work | S19 representative concurrency evidence, explicit acceptance bound and supported-client guidance | TODO |
+| RP-PRE-06 | Enabled integration service usage and production transport | SCRAM, S3, OIDC/SAML, TLS/telemetry and optional paths may have unsupported uses/defaults | S23 adapter-owned positive/negative evidence and supported module-service/purpose mapping; unresolved use blocks qualification | TODO |
+| RP-PRE-07 | Reference environment availability and acceptance | Host/runtime/CPU/image relationship must be established before package qualification | S24 actual Linux/amd64 Debian 12 reference-target evidence; separate acceptance for a customer target | TODO |
+
+RP-B02–RP-B04 are expanded from historical DEFERRED constraints into active TODO prerequisites; their historical entries are not rewritten. Prior RP-B01 owner contradiction and RP-B05 pre-production release blocker remain resolved in their original iteration. Do not reopen them merely because another capability is planned.
+
+| Readiness dimension | Current status | Completion authority / evidence |
+| --- | --- | --- |
+| Previous structural/package implementation | DONE | Historical S01–S15/prerequisite exits and original releases; no regulated claim. |
+| New regulated implementation | TODO | S16–S25 completion and exact final-candidate evidence. |
+| Regulated package qualification | TODO | S22–S24 actual-service/verifier/package evidence and S25 complete release on the established reference target. |
+| Specification adoption for production | TODO; not claimed | Coordinated owner-status process; the Reference Pack 0.2.0 candidate remains draft at this planning point. Tracker/test results cannot adopt it. |
+| Customer deployment approval | TODO; outside this implementation authorization | Acceptance of the actual target, external dependencies, trust/clock inputs and applicable security/licensing requirements by their owners. No automatic rollout. |
+
+Production promotion remains blocked wherever required owner adoption or environment/deployment acceptance is absent, even if implementation and reference-package qualification later pass. A failed implementation or unsupported application security service cannot be reclassified as an external deployment responsibility.
+
+## 12. Binary completion criteria
+
+**The current document update is complete only when:**
+
+- Only this controlling tracker changed during this step; all pre-existing working-tree changes remain intact and the baseline is correctly described as dirty `e7a1497` with completed remediation.
+- The exact 197-file Reference Data inventory is preserved and verified; the inspected adjacent application/authentication/encryption/integration/build boundaries are recorded with owners, callers, contracts and test posture.
+- Active sections contain S16–S25 as separate TODO workstreams, the complete dependency chain, phase risks/exits, and per-slice remediation, areas, rationale/benefit, compatibility, unresolved risks, validation and binary exit.
+- S07 is explicitly expanded; prior completed workstreams, failures and original validation identities remain historical without relabeling.
+- All behavior changes are marked as requiring later implementation authorization; this task changes no product behavior, generated input/output, conformance or release evidence.
+- The appended session records `make lint-markdown`, `git diff --check`, supplemental tracker checks, actual results and skipped checks. RP-P03 is marked DONE only after they pass.
+
+**The later regulated implementation is complete only when:**
+
+- S16–S24 and any discovered prerequisites are DONE and S25 completes last, with this tracker updated after every completed workstream before the next begins.
+- The coherent owner candidate, typed projections, build/runtime policy and approved primitive/service usage agree; no owner contradiction or unsupported enabled security service remains hidden.
+- Fresh-state admission rejects incompatible state and backups before mutation; no legacy crypto reader/writer, password converter, automatic reset or fallback remains in the new production policy.
+- Pack signatures, canonical identities, trust rotation, immutable provenance and other retained domain/security guarantees pass the actual verifier and lifecycle tests.
+- Actual package identities and reference environment are established, disposable scenarios and cleanup pass, and one complete final-candidate release supplies current canonical evidence. Historical/partial results are not substituted.
+- Operational failure handling, key management, fresh-deployment/recovery guidance and the exact-module update policy are actionable; implementation completion, package qualification, specification adoption and customer deployment approval each have an explicit disposition.
+- Missing formal adoption or deployment/environment acceptance still blocks promotion. Completing the engineering iteration never authorizes retained-state mutation or customer rollout.
+
+## Historical completed package planning — S11–S15
+
+The following is the preserved previous package-iteration plan and session record. Its authorizations, clean-baseline assumption, current/next labels, S07 deferral and S15 final-slice instructions belong to that historical iteration only. The active §1–§12 above control S16–S25 and correctly identify the current dirty working tree. The exact file register remains in active §2 instead of being duplicated here. Original completed outcomes, failures and validation identities are not reassigned to the new plan. The same historical-context rule applies to all older records below.
+
+### Archived package plan — 1. Scope and source posture
+
+The user authorized implementation of the proposed plan on 2026-10-05. Execute the active workstreams in order and update this tracker after each exit before starting the next workstream. The new plan supersedes the previous iteration's current-state sequencing and production deferrals only where explicitly stated below; completed execution records and their original evidence identities remain historical.
+
+| Scope fact | Decision |
+| --- | --- |
+| Current baseline | Clean `e7a1497ff9e8219f7ccdad7a09af9e356cb146ec`, inspected 2026-10-05; prior structural remediation is committed. |
+| Targets | `internal/modules/reference_data/`, `internal/app/referenceassembly/`, their machine contracts, and the package/harness boundaries explicitly listed in §2. |
+| Current authorized change | Implement S11 → S12 → S13 → S14 → S09 → S15, including owner amendments, contracts, runtime/test boundaries, package qualification and final handoff. Preserve the pre-existing tracker edits. |
+| Current completion | COMPLETE: S11–S14, S09, discovered prerequisites S09a/S15a, and S15 are DONE. S15 completed last with one complete passing final-candidate release and verified cleanup. |
+| Previous completion | S01–S06, S08 and S10 remain DONE; S10 completed the prior pre-production iteration. Its results do not qualify future changes. |
+| Reporting decision | Remove compulsory human evidence dossiers, companion-document hashes, repeated signoff records and accounting-only requirement/criterion catalogs. Retain normal repository review, owner authority and the existing coordinated adoption process. |
+| Production boundary | Qualify the current non-FIPS Ed25519 package through repeatable disposable-environment tests. Actual customer deployment, infrastructure certification and destructive operations against retained environments are excluded. |
+| S09 scope change | The previously deferred on-prem rehearsal is DONE as automated disposable package qualification after S14. Retained deployment operation remains outside this iteration. |
+| S07 disposition | DEFERRED: validated cryptography remains a separate capability requiring a target posture, owner amendment and actual verifier/build qualification. No algorithm substitution or negotiation. |
+| Compatibility and data | Preserve public routes, authorization, actor attribution, replay, signed bytes, canonical identities, immutable provenance, atomic publication and retention. Preserve applied migrations and fail-without-mutation preflight; add no aliases, converter, dual writer or historical trust reconstruction. |
+| Evidence retained | Behavioral fixtures, independent vectors, semantic test routing, canonical run artifacts, security checks and useful machine-produced SBOM/license outputs. Test totals and mappings do not prove behavioral completeness. |
+| Operational constraints | Trust roots, explicit clock assertion, redistribution restrictions and suitability for the actual deployment remain substantive decisions. Test trust is not deployment trust. |
+| Authority | Adopted subsystem owners govern their scopes, then normative Core owners; typed inputs project those owners. Core 05 applies only to its separately claimed publication boundary. Domain owns vocabulary; code and historical plans supply evidence. The Reference Pack 0.2.0 candidate remains draft today. |
+
+The existing four behavioral corrections remain regression obligations: strict composition identities, framework lookup-key deduplication, typed early upload rejection and pre-parse URL admission. Do not redo the completed structural work or the browser acquisition repair merely because older historical entries describe their earlier failures.
+
+The accessible prior release at `.cartulary/test-results/20261005T030730Z-p45700/run-summary.json` passed 1261/1261 units with zero failures, skips or cancellations. Its manifest records the original dirty candidate based on `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`, source digest `sha256:b5d0f1c25905104352a03faae5c571510902d31ac89b4b16d1632dabe671d6ae`; do not relabel it as a new run on the current commit. Exact prior finalization, test-fast and cleanup evidence is preserved below.
+
+#### Adjacent boundaries and explicit exclusions
 
 | Boundary | Iteration treatment | Reason / owner |
 | --- | --- | --- |
-| `internal/app/server/`, `internal/app/operator/`, `internal/testutil/appsupport/` | Change only Reference Data construction and test injection call sites in later slices | Application facades compose dependencies; `cmd/*` remains composition-only. |
-| `internal/platform/postgres/`, Jobs, pagination, rooted FS and Extensions finalization | Reuse ports and protocols; no generic infrastructure rewrite | `postgres.DB` already supplies the narrow execution/query/transaction-opening surface. Shared owners retain finality, capabilities and cursor cryptography. |
-| `contracts/reference-packs/` including built-ins, source profiles, licenses and synthetic fixtures | Retain canonical algorithms/assets; change projections only for an adopted amendment or characterization need | The existing sixteen profiles and nine algorithm families are not a backlog to reimplement. No optional external corpus is newly distributed. |
-| Core, Extensions, Reporting, Report Composition, portability, recovery, telemetry and harness inputs | Candidate owner review and targeted boundary updates only | Exact current versions and projections are in the historical owner inventory; refresh final editorial references after amendments. |
-| Indicators, observations, Network Flow, Reporting, Incident Bundles and recovery consumers | Preserve owner interfaces and run affected regression slices | No new feature work or replacement canonicalizers. |
-| `apps/web` and shared protocol/UI packages | Preserve administration behavior and selectors; update imports/types only if facade projections require it | No UI redesign, new workbook surface, saved-view schema change or unsolicited golden refresh. |
-| `db/migrations`, `db/queries` | Keep applied history; append only if an actual new storage invariant requires it | This is a fresh cutover, not permission to rewrite applied migration bytes. |
-| `internal/gen`, generated TypeScript and other policy-declared roots | Regenerate from authored inputs when changed; never hand-edit | `tools/generated_artifact_policy.json` is authoritative. Preserve the current source-escaping fix. |
-| Build harness, toolchain pins and `deploy/mvp` | Deferred: no restricted build or deployment rehearsal in this iteration | FIPS mode is process-wide; the compliance scope is Reference Pack verification only. |
-| Authentication, infrastructure certification, unrelated modules and deployment targets | Excluded | No whole-application FIPS claim or broad hosting/security redesign. |
+| `internal/app/server/`, `internal/app/operator/`, `internal/testutil/appsupport/` | Preserve assembly; repair only reproduced package defects and add isolated test composition | Application facades compose dependencies; `cmd/*` remains composition-only. |
+| `internal/platform/postgres/`, Jobs, rooted FS and Extensions finalization | Reuse existing ports, storage confinement and protocols | No generic repository, transaction lifecycle, executor or infrastructure rewrite. |
+| `contracts/reference-packs/` | Remove accounting-only catalog; retain runtime schemas, algorithms, limits and original Base assets; move test-only inputs in S13 | Sixteen profiles and nine algorithm families remain supported; no optional external corpus is newly distributed. |
+| Planned `contracts/reference-pack-fixtures/` and its generated test artifact package | Separate test contract family through existing `contracts/index.json` generation | Fixture growth must not expand runtime artifacts or diagnostic vocabulary; no production import of test assets. |
+| Reference Pack, Core, Extensions, Reporting/Composition, recovery and Testing Harness owners | Coordinated reporting/adoption-process amendments, preserving substantive behavior | Normal review establishes projection fidelity; this tracker cannot waive an adopted requirement. |
+| Four auxiliary Reference Pack evidence handoffs | Preserve as historical records during S11; remove perpetual refresh requirements | No new owner/obligation/limit/security dossier is required per slice. Current operational instructions belong in maintained guides. |
+| Indicators, observations, Network Flow, Reporting, Incident Bundles and recovery | Preserve owner interfaces and run affected regression slices | No replacement canonicalizers or unrelated feature work. |
+| `apps/web` and shared protocol/UI packages | Preserve administration behavior, selectors and generated client contracts | No UI redesign, workbook surface, saved-view change or unsolicited golden refresh. |
+| `db/migrations`, `db/queries` | Preserve applied history and existing storage semantics | No schema migration planned; a reproduced defect needs its own owning invariant and regression. |
+| Generated roots, contract registry, boundary policy and harness routing | Amend authored inputs, then regenerate through Make | `tools/generated_artifact_policy.json` owns generated membership; never hand-edit outputs or lockfiles. |
+| `deploy/mvp`, toolchain/build ownership and `tools/release-evidence` | Optional administration wiring, immutable base-image pin, isolated qualification and release inclusion | Extend existing package/recovery infrastructure; no parallel evidence system or broad deployment framework. |
+| Authentication redesign, unrelated subsystems, external corpora, actual deployment targets and validated cryptography | Excluded or S07 DEFERRED | No new compliance claim, licensing approval or deployment authorization is inferred. |
 
-## 3. Implemented module boundaries
+### Archived package plan — 3. Module boundary diagnosis
 
 Reference Data remains one cohesive supporting subsystem. Private algorithms remain in `internal/packformat` and `internal/packstate`; the root owns supported DTOs, semantic operations and private persistence adapters. No directory rename or generic repository/transaction framework was introduced.
 
@@ -311,21 +751,363 @@ Reference Data remains one cohesive supporting subsystem. Private algorithms rem
 | Test scheduling | Instance-scoped DB barrier in `internal/testutil/appsupport` | Four former global-hook uses and explicit two-server isolation retain deterministic race evidence. |
 | Negative fixtures and cutover guards | Retired fixture isolated by name; live canonical fixtures always sign | Preserves retired-format rejection without implying a second supported import path. |
 
-## 4. Public contract and behavior freeze map
+The completed module boundaries remain appropriate. This iteration changes the following supporting boundaries:
 
-| Contract | Current owner | Evidence | Existing tests | Required characterization | Refactor risk | Notes |
+| Responsibility | Current location | Correct owner | Disposition | Evidence and design constraint |
+| --- | --- | --- | --- | --- |
+| Human reports and document revision binding | Reference Pack Table 4-C and auxiliary handoffs | Ordinary repository review and owner documents | Simplify | Repeated document hashes and dossiers add no executable guarantee; do not replace them with another report registry. |
+| Requirement-count accounting | Traceability JSON, fixture family and private format test | No runtime owner; behavioral verification stays with its semantic owner | Remove | The validator checks 264/54 identifiers and mappings, not behavior. S11 must amend the owning clauses before S12 removes it. |
+| Runtime and fixture artifact aggregation | One `contractreferencepacks.Artifacts` collection | Reference Data runtime projections versus test support | Split | Production `shape.go`, Base loading and diagnostic vocabulary scan the same collection that carries fixtures. No fixture-backed production fallback. |
+| Package administration and recovery choreography | MVP Compose package and existing smoke scripts | Deployment composition and Testing Harness mechanics | Extend | Existing server/operator/recovery semantics remain with their owners; introduce neither another executor nor a second evidence format. |
+| Production compliance beyond current Ed25519 profile | Target-specific authority and build posture | Security/build owners | Defer | S07 is not a prerequisite for qualifying the explicitly non-FIPS package. |
+
+### Archived package plan — 4. Public contract and behavior freeze map
+
+| Contract | Current owner | Evidence | Existing tests | Retained evidence / new qualification | Refactor risk | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| HTTP routes, envelopes and authorization | Core 01/Core 04; Reference Data adapter | OpenAPI owner input, `http_requests.go`, `http_adapter.go` | API/OpenAPI/lifecycle/operator tests | Exact public mapping after semantic-error extraction; claimed routes fail construction with missing dependencies | High | Keep `/api/v1`, authorization order, idempotency, removal and action errors. |
+| HTTP routes, envelopes and authorization | Core 01/Core 04; Reference Data adapter | OpenAPI owner input, `http_requests.go`, `http_adapter.go` | API/OpenAPI/lifecycle/operator tests | Retain exact public mapping; add packaged HTTP/operator parity and dependency rejection | High | Keep `/api/v1`, authorization order, idempotency, removal and action errors. |
 | Five consumer operations | Reference Pack candidate and machine projections | `ResolveCurrentPackSet`, `GetPackEntry`, `LookupPackEntries`, `EvaluateIndicatorValue`, `GetPackProvenance` | Consumer contract/profile/provenance tests | DTO round trips, exhaustive error unions, cursor omission/inheritance and exact expiry | High | No new operation or algorithm negotiation. |
 | Pins, usage and source mutation | Reference Data plus participating source owners | `Retention`, `RegistryAssignments`, transaction-bound consumers | Retention, concurrent publication and downstream owner suites | Two-instance isolation and unchanged shared lock order | High | Preserve exact tokens and source-owner revision effects. |
 | Jobs, admission, deadline and finality | Core Jobs/Extensions; Reference Data semantic effects | Frozen inputs, shared finalizers, terminal effects | Jobs, mixed refresh, commit-fault and restart tests | Route-free worker construction, lost acknowledgement, stale state and canceled admission | High | Configuration/Jobs v2; one execution budget, successful envelopes required. |
-| Formats, sets and historical provenance | Reference Pack candidate | Private format/state and authored canonical fixtures | Engine, TUF, immutable persistence and historical validation | Fixed vectors unchanged after facade movement | High | Retain canonical `.v1`, profile major 2, complete signer sets and immutable anchors. |
+| Formats, sets and historical provenance | Reference Pack candidate | Private format/state and authored canonical fixtures | Engine, TUF, immutable persistence and historical validation | Fixed vectors unchanged after runtime/test asset separation | High | Retain canonical `.v1`, profile major 2, complete signer sets and immutable anchors. |
 | Reporting, portability and recovery | Respective owners with Reference Data ports | Exact-set bindings and incident-bundle v5 | Export/import, snapshot, retention and restore suites | Changed activation between admission/render; exact reuse; historical restore and required loss | High | No current-set substitution, reactivation on import or historical trust reconstruction. |
 | UI and shared projections | Core/admin controller and generated clients | Existing administration model and OpenAPI | Frontend unit/type/import-boundary and browser owner rows | Existing disabled, mixed refresh, removal and uncertain-outcome behavior | Medium | No new WebSocket, workbook surface, saved-view or grid-selector behavior. |
 | Configuration and readiness | Core 04/Extensions | Existing configuration/limits/Base readiness | Base startup and configuration tests | Claimed/unclaimed startup | High | Clock false; timeout 1,800 in 60–86,400; lookup 50 in 1–200; cursor 900 seconds; null rules unchanged. |
-| Verification accounting | Testing Harness owner | `tools/test_families/module.reference_data.json` and owner catalog | Current owner routing; historical counts are not acceptance evidence | Retain semantic row ownership; add only meaningful new evidence | Medium | Test counts and mappings do not establish adoption or completeness. |
+| Verification accounting | Testing Harness owner | `tools/test_families/module.reference_data.json` and owner catalog | Current owner routing; historical counts are not acceptance evidence | Retain semantic row ownership; remove accounting-only catalogs and test totals in S12; integrate package qualification in S15 | Medium | Test counts and mappings do not establish adoption or completeness. |
 
-## 5. Coupling and boundary findings
+### Archived package plan — 5. Coupling and boundary findings
+
+The original RP-F01–F11 evidence and dispositions remain in the historical iteration record below. F01–F08 and F10 require no repeated remediation; F09 remains deferred with S07, and F11's fail-closed cutover guards remain intentional. The prior tracker’s incorrectly named deleted files are corrected in §2.
+
+| Finding | Evidence | Risk if unresolved | Classification | Owner | Planned disposition |
+| --- | --- | --- | --- | --- | --- |
+| RP-F12: compulsory human reporting and duplicate promotion bookkeeping | RP-REQ-020, Table 4-C, Tables 1-A/28-A, §32 and the four auxiliary handoffs | Records drift; editorial changes trigger repeated reporting; paperwork is mistaken for acceptance | must_fix | Reference Pack and companion specification owners | S11 removes hashes/dossiers and duplicate signoff records, retaining ordinary review, coordinated adoption and substantive constraints. |
+| RP-F13: accounting-only catalogs and hard-coded fixture totals | `traceability.v1.json`, `rpfx_traceability`, `spec_traceability`, RP-REQ-259/AC-049 and `fixture_contract_test.go` | Future profile/test growth requires unrelated numbering maintenance; zero-unmapped can obscure missing behavior | must_fix | Reference Pack / Testing Harness | S11 amends owners; S12 removes accounting and replaces 163-total assertion with executable fixture completeness. |
+| RP-F14: test assets share the production projection collection | `contracts/index.json`, contract generator, `packformat/shape.go`, `diagnostic_safety.go`, `base_release.go` | Fixture growth expands production artifacts and can alter diagnostic vocabulary | must_fix | Reference Data / contract generation | S13 separates test assets using the existing family mechanism and enforces import boundaries. |
+| RP-F15: packaged administration lacks an explicit supported configuration path | MVP configuration has storage roots but no administration example; operator requires server worker, claim, roots and clock inputs | Correct source-level behavior remains difficult to configure and qualify in the shipped package | must_fix | Deployment/application assembly | S14 adds optional package wiring with operator-supplied trust; S09 exercises it. |
+| RP-F16: package/recovery smokes are outside the release gate | `make explain-target` reports both targets as `helper_only`; current recovery smoke exercises backup/restore but not Reference Pack administration | A release can pass without packaged Reference Pack lifecycle qualification | must_fix | Testing Harness / deployment | S09 adds the proposed Reference Pack smoke; S15 integrates all relevant package checks into release. |
+| RP-F17: package smoke cleanup suppresses failures | Package/recovery script cleanup uses `compose down ... || true` and image-removal suppression | Leaked owned resources can accompany a successful qualification result | must_fix | Package test composition / Testing Harness | S09 records cleanup results, attempts all owned-resource cleanup and fails qualification on remaining resources. |
+| RP-F18: mutable application base-image reference | `deploy/mvp/Containerfile` uses `gcr.io/distroless/base-debian12:nonroot` without a digest | The same source can build with different base bytes | must_fix | Build/toolchain owner | S14 pins an immutable digest through existing pin ownership and drift checks. |
+| RP-F19: meaningful controls could be mistaken for reporting | Clock/trust admission, licensing rules, immutable attestations, canonical run evidence and current unsupported-FIPS policy | Removing controls would weaken authorization, reproducibility or truthful deployment claims | intentional/no_action | Reference Data, security, licensing and harness owners | Retain operational controls and machine evidence; remove only report/accounting obligations. |
+
+### Archived package plan — 6. Refactor workstreams and phase sequencing
+
+| Phase | Workstream / class | Depends on | Next | Goal and likely boundaries | Principal risk | Validation / phase exit |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1: Simplify obligations | S11 / root | User implementation request | S12 | Owner specification and documentation cleanup | Removing an actual control or implying adoption | Owner text agrees on simplified process; Markdown checks pass. |
+| 2: Simplify executable inputs | S12 / chain | S11 | S13 | Accounting removal in contracts, fixtures and routing | Deleting real behavioral evidence with accounting | Fixtures remain closed, covered and routed; focused checks pass. |
+| 2: Simplify executable inputs | S13 / chain | S12 | S14 | Runtime/test asset separation, generated families and boundaries | Missing runtime schema or changed canonical/diagnostic behavior | Runtime dependency exclusion, vectors, Base and privacy checks pass. |
+| 3: Qualify the supported package | S14 / chain | S13 | S09 | Optional deployment wiring and immutable image input | Implicit trust, permissions errors or accidental profile activation | Base/claimed package setup and negative configuration checks pass. |
+| 3: Qualify the supported package | S09 / chain | S14 | S15 | Disposable lifecycle/recovery qualification and accountable cleanup | Unsafe target selection, incomplete recovery or leaked resources | Complete isolated scenario and cleanup pass using packaged binaries. |
+| 3: Repair discovered recovery boundary | S09a / prerequisite | Reproduced during S09 | Resume S09 | Confined export-root capture/restore and target admission | Source/target overlap or unbound recovery proof | Exported bytes survive recovery; fresh bindings, isolation and cleanup pass. |
+| 4: Repair validation prerequisite | S15a / prerequisite | Reproduced during S15 | Resume S15 | Deterministic presence-capture framing | Stable screenshot at the wrong scroll position | Exact visual row and complete visual suite pass against unchanged goldens. |
+| 4: Integrate and hand off | S15 / chain | S09, S15a | None | Release graph, complete validation and final tracker closeout | Helper checks omitted or partial runs aggregated | One complete final-candidate release includes package qualification; tracker completed last. |
+| Future capability | S07 / deferred | Target crypto posture and owner amendment | Separate future plan | Validated cryptographic build | Unsupported compliance claim | Not part of this iteration's exit. |
+
+Before each active workstream, change its row to IN_PROGRESS. After its checks finish, record the outcome, compatibility consequence, canonical run location, unresolved prerequisite and next dependency; mark DONE only when its exit passes. **Update this tracker before beginning the next workstream.** Keep the checkpoint concise: link canonical artifacts instead of reproducing logs or requirement-by-requirement narratives. A failed prerequisite is BLOCKED, not DONE. Allowed statuses: TODO, IN_PROGRESS, BLOCKED, DONE, DEFERRED, DROPPED.
+
+### Archived package plan — 7. Proposed refactor slices and exits
+
+All slices below are authorized for implementation by the user request of 2026-10-05. Changes to accounting, package configuration or release acceptance are intentional changes, not behavior silently frozen from the current implementation.
+
+#### S11 — Simplify specification and approval obligations
+
+**Areas / gaps:** specification and documentation; RP-F12/F13/F19. **Dependency:** user implementation request; then S12.
+
+- **Remediation:** remove Table 4-C's human-maintained hashes and RP-REQ-020's compulsory document-byte/revision rebinding. Use owner references and ordinary repository history. Amend the accounting portion of RP-GATE-012, RP-REQ-257/259, RP-AC-049, Table 31-B and the matching Reference Pack companion under Testing Harness TH-HARNESS-REQ-657. Retire obsolete accounting identifiers without renumbering unrelated requirements or reassigning their meanings. Consolidate duplicate promotion bookkeeping in Tables 1-A/28-A and §32 into coordinated owner review/adoption through the existing process; do not create another approval manifest.
+- **Documentation:** mark the owner, obligation, limit and security evidence handoffs as historical and remove perpetual refresh requirements. Preserve their old results. Keep actionable trust/configuration/recovery instructions in maintained operational guides. No separate recreation, interchangeability, security-disposition dossier or per-requirement report is required for each change.
+- **Rationale / long-term benefit:** reviewers assess actual contracts and behavior without synchronizing multiple accounts of the same work; future phases do not multiply reporting obligations.
+- **Compatibility / migration:** process/specification amendment only; no runtime or stored-data conversion. Retain normal review and adoption authority, trust/clock configuration, actual deployment suitability and applicable redistribution decisions. A passing test or tracker edit cannot promote draft/proposed documents.
+- **Risk if unresolved:** duplicated records drift and repeated signoffs obscure missing behavior. **Rollback:** revert the coordinated editorial change together if it leaves conflicting owners; do not restore hashes as executable dependencies.
+- **Validation / exit:** no active mandatory dossier, document-hash or exhaustive requirement-mapping obligation remains in the amended scope; companion owners agree; meaningful controls remain explicit; Markdown/diff checks pass. Record an actual owner contradiction as BLOCKED and resolve it through its owner before S12.
+
+#### S12 — Remove accounting-only machine contracts
+
+**Areas / gaps:** authored contracts, tests, generation and harness routing; RP-F13. **Dependency:** S11; then S13.
+
+- **Remediation:** remove `contracts/reference-packs/traceability.v1.json`, `fixture-manifests/traceability.v1.json`, the `spec_traceability` schema member and `validateTraceabilityProjection`. Rename the retained fixture test to describe executable fixture contracts; update its selector atomically, retaining its semantic row identity where meaning is unchanged. No compatibility reader remains.
+- **Completeness:** replace the 163-manifest assertion with checks that every discovered fixture has an expectation runner or actual owner execution binding, required behavioral families have coverage, and every supported content profile retains valid, malformed and semantic-error cases. Keep strict shapes, required nulls, unique IDs, safe paths, ordered effects, independent vectors and actual scenario assertions. A mapping alone cannot replace execution.
+- **Rationale / long-term benefit:** new behavior grows the relevant tests without maintaining unrelated requirement counts or ranges.
+- **Compatibility / migration:** internal accounting removal only; no public or stored-data migration. Amend authored inputs and regenerate through Make. Do not generalize the removal to other owners' traceability systems.
+- **Risk if unresolved:** zero-unmapped and exact totals continue to imply completeness without checking behavior. **Rollback:** revert the slice's authored/test/generated changes together; preserve behavioral failures for diagnosis rather than weakening assertions.
+- **Validation / exit:** no live Reference Pack accounting-only consumer remains; missing, malformed, duplicate and unrouted fixtures still fail; profile/family coverage remains; focused owner, harness, generation, shape and artifact-policy checks pass.
+
+#### S13 — Separate runtime projections from test assets
+
+**Areas / gaps:** authored contracts, generated packaging, implementation boundaries and tests; RP-F14. **Dependency:** S12; then S14.
+
+- **Remediation:** move fixtures, fixture manifests and fixture-only schemas into `contracts/reference-pack-fixtures/`, registered as a separate family using the existing contract-family mechanism. Generate a separate fixture artifact package; allow it only in tests and test-support packages. Keep runtime schemas, algorithms, limits, source/license inputs needed by the packaged Base release and the Base assets in `contracts/reference-packs/`.
+- **Boundary:** update input paths and test helpers atomically. Fixture-only schema helpers remain test-side; runtime lookup must never fall back to the fixture package. Derive diagnostic vocabulary from production schemas and explicit diagnostic inputs so a new test cannot expand allowed runtime detail. Update contract-family and backend boundary inputs, then generate through Make. The existing generated-root policy already covers internal/gen; do not add a redundant root.
+- **Rationale / long-term benefit:** runtime contents, initialization and diagnostics become independent of corpus growth; the existing generator remains the single mechanism.
+- **Compatibility / migration:** internal repository paths/imports change; canonical pack bytes, identifiers, stored provenance and supported public diagnostic behavior remain stable. Do not rename contract IDs merely because an asset moves. No aliases, public API change or data conversion.
+- **Risk if unresolved:** fixture growth enlarges shipped artifacts and incidental test schemas affect production policy. **Rollback:** revert asset moves, registry inputs and all callers together; do not add runtime test-asset fallback.
+- **Validation / exit:** production dependency closure excludes the fixture package/assets; all fixture runners still execute; Base loading, fixed-byte/digest vectors, consumer/provenance/portability and diagnostic-privacy checks pass; generation and boundary checks pass.
+
+#### S14 — Complete packaged administration support
+
+**Areas / gaps:** deployment packaging, configuration examples, operational documentation and package tests; RP-F15/F18. **Dependency:** S13; then S09.
+
+- **Remediation:** provide an explicit optional administration configuration and Compose integration using existing server/operator binaries, read-only operator-supplied trust mounting and confined incoming-bundle access. Preserve Base-only startup as the default, with administration unclaimed and clock trust false until explicitly configured. Server and operator share configured storage and the existing durable Job worker. Do not add a listener, executor or command family.
+- **Build inputs:** pin the application image base by immutable digest through existing toolchain/build ownership and extend its drift check. Keep synthetic trust, fixture bundles and test credentials in disposable test composition, outside shipped defaults.
+- **Rationale / long-term benefit:** operators can reproduce the supported setup using the actual package and stable build inputs, without undocumented assembly or special production paths.
+- **Compatibility / migration:** optional deployment configuration; no automatic claim, trust installation or activation. No database migration. Retain existing public routes and operator result schema.
+- **Risk if unresolved:** shipped permissions, mounts and configuration may fail despite source tests; mutable image inputs undermine reproducibility. **Rollback:** revert optional package wiring and pin changes with their tests; do not mutate retained deployments.
+- **Validation / exit:** packaged Base and explicitly claimed configurations start; missing or invalid required dependencies reject safely; operator admission uses the server worker with the same identity/replay semantics; image and sanitized configuration identities are available in ordinary run artifacts. Run applicable package/configuration, toolchain drift and boundary checks.
+
+#### S09 — Automate disposable operational qualification
+
+**Areas / gaps:** deployment tests, recovery integration and harness composition; RP-F15/F16/F17. **Dependency:** S14; then S15. This replaces the old deferred S09 scope with isolated package qualification only.
+
+- **Remediation:** introduce the proposed public Make target `standup-reference-pack-smoke` using existing package/recovery smoke infrastructure, authored target inputs and semantic owner routing. It does not exist at this baseline. Share only narrow setup/cleanup helpers; do not build a new runner framework or a parallel evidence format.
+- **Scenarios:** exercise actual packaged binaries for Base-only and claimed startup; HTTP/operator import, initiating actor, replay and explicit activation; missing trust, untrusted clock, malformed input and incompatible-state rejection; pre-admission rejection leaves durable state unchanged, while admitted verification failures retain required Job/audit evidence without partial content, index, trust or activation publication; restart, root rotation and rollback rejection; snapshot/report exact-set binding, destination-trusted portability and historical restore; required-content loss/readiness, pin-protected removal and eventual collection. Retain focused race, cancellation, mixed-refresh and commit-proof tests at their current owner boundaries instead of duplicating every case in the package smoke.
+- **Isolation / cleanup:** allocate unique test-owned volumes, database, object-store resources and trust roots; never accept an arbitrary retained deployment as the default target. Exercise destructive initialization only inside that allocation. Attempt all cleanup, retain safe diagnostics and record failures; qualification fails if owned resources remain or required cleanup cannot be verified. Do not retain secrets in artifacts.
+- **Rationale / long-term benefit:** the supported lifecycle becomes repeatable executable evidence rather than a manually written rehearsal report.
+- **Compatibility / migration:** test infrastructure only; repair any reproduced product failure through its owning contract with a regression case. Preserve source environments and their identities; no reset or conversion of retained data.
+- **Risk if unresolved:** package, permissions, restart and recovery defects escape owner tests, and cleanup failures can be hidden. **Rollback:** remove only test-owned resources and revert the scoped harness change; keep safe diagnostics for failures.
+- **Validation / exit:** all listed scenarios pass on disposable resources using the package's real entry points, source environments remain untouched, cleanup passes, and canonical artifacts identify the actual image/configuration. Existing `standup-package-smoke` and `standup-operational-recovery-smoke` continue to pass with accountable cleanup.
+
+#### S09a — Repair exported-bundle recovery storage (discovered dependency)
+
+**Areas:** Core recovery specification, implementation, contracts, tests, package documentation. The package portability scenario exposes a real pre-existing mismatch: Incident Bundles publishes into the configured export root, while Recovery inventories those files through the object-store adapter. Backup therefore fails once an export exists. Reproduced by the packaged operator at `20261005T053223Z-p16885` and the focused lifecycle row at `20261005T054026Z-p91140`; the latter identifies `incident_bundles.files` as the missing-object family.
+
+**Remediation / rationale:** inject the confined export-root capability into recovery capture and restore; retain source-owner object-family inventory and exact bytes. Extend target binding, freshness and overlap checks to that root. Do not reroute durable files through unrelated storage or omit exported artifacts from backup. This keeps storage responsibility explicit and makes populated-deployment recovery reliable.
+
+**Impact / risk:** ephemeral restore-target marker and verification bindings must include the newly admitted root; refresh operator examples and generated contracts together. No authored SQL migration or automatic retained-deployment mutation. Leaving this unresolved makes successful export disable backup and prevents faithful recovery. Risks are accidental source-root overlap, incomplete cleanup and missing historical files.
+
+**Validation / exit:** real exported bytes survive capture/restore; absent, overlapping or nonempty targets reject before mutation; wrapper-produced bindings match the target; package qualification and cleanup pass. Record the checkpoint before returning to S09. S15 remains last.
+
+#### S15 — Integrate release acceptance and finish the handoff
+
+**Areas / gaps:** harness routing, validation and documentation; RP-F16. **Dependency:** S09; final workstream.
+
+- **Remediation:** add package, operational recovery and Reference Pack smoke qualification to the authored release dependency graph and canonical release-readiness projections. The first two are helper-only today. Register real service/resource requirements and serialize incompatible fixtures through existing scheduler mechanisms. Do not insert a static pass declaration or aggregate unrelated partial runs.
+- **Rationale / long-term benefit:** one release qualifies the supported package, and maintainers read canonical results instead of assembling a new readiness dossier.
+- **Compatibility / migration:** release acceptance strengthens; product contracts remain unchanged. Ordinary owner review/adoption remains explicit and cannot be inferred from test success.
+- **Risk if unresolved:** helper-only qualification is easily omitted and historical results can be mistaken for the new release. **Rollback:** revert a defective routing change together with its tests; keep the slice incomplete until the complete gate actually includes qualification.
+- **Validation / exit:** run `make agent-finalize` before `make test-fast` and one complete `make release-check` on the final implementation candidate. Verify qualification inclusion, accessible artifacts and cleanup. Resolve failures at the responsible owner and rerun affected checks plus the complete gate. Finish Markdown/diff/scope checks and this tracker last. All active slices must be DONE; S07 remains DEFERRED. Describe the result as qualification of the supported production package, without claiming approval for an untested deployment.
+
+### Archived package plan — 8. Validation plan
+
+Use public Make targets from the repository root. The original plan-only update used documentation validation. The authorized implementation follows the complete validation sequence below. Discover exact semantic rows at each workstream rather than copying a static target or row inventory into the tracker.
+
+| Layer | Public command / scope | When | Acceptance |
+| --- | --- | --- | --- |
+| Discovery | `make task-guide ROLE=module-author OWNER=module.reference_data`; `make explain-test-owner OWNER=module.reference_data`; equivalent affected owners | Before each implementation slice | Narrow semantic routing and affected consumers identified. |
+| Focused behavior | `make test-slice OWNER=module.reference_data`; `make service-backed-test-slice OWNER=module.reference_data`, with discovered ROWS | S12–S14 and reproduced product repairs | Independent vectors, hostile input, trust/rotation/rollback, no-egress, privacy, limits, finality and retained four-defect regressions pass. |
+| Participating owners | Equivalent owner slices for application/server/operator, Reporting/Composition, Incident Bundles, recovery and affected consumers | As affected | Exact-set binding, actor/replay parity, destination trust, retention and historical restore preserved. |
+| Static/public boundaries | `make backend-module-boundary-check`; `make openapi-compatibility-check`; applicable frontend type/import/unit targets | S13–S15 as affected | No runtime fixture dependency, transport drift or changed administration behavior. |
+| Authored/generated inputs | `make generate`, then `make generate-drift`, `make json-shape-check`, `make generated-artifact-policy-check`; `make harness-contract` | S12/S13 and harness changes | Generated outputs follow authored inputs; no Markdown dependency or accounting-only remnant; malformed fixtures remain rejected. |
+| Build/package | `make toolchain-drift`; `make standup-package-smoke`; `make standup-operational-recovery-smoke` | S14/S09 | Immutable build input, real entry points, configuration and cleanup checks pass. |
+| Reference Pack qualification | `make standup-reference-pack-smoke`, authored in S09 | S09; then included in S15 release | Full isolated scenario above passes; no retained environment touched. |
+| Gate investigation | `make explain-target TARGET=release-check DETAIL=summary`; `make target-plan-json TARGET=release-check`; `make explain-run RESULTS_DIR=<run-dir>` | Before/after final gate | Package checks actually selected; no missing artifacts, partial pass aggregation or unsupported readiness claim. |
+| Final candidate | `make agent-finalize`, then `make test-fast` and `make release-check` | S15 | One complete final-candidate release passes with cleanup. Record RESULTS_DIR use or why retained-run maintenance was skipped. Omit duplicate `make check` only after confirming release includes it. |
+| Documentation/scope | `make lint-markdown`; `git diff --check`; `git status --short` | Current document update and final handoff | Review all implementation changes and complete the tracker last. |
+
+No migration is planned; use migration checks only if a separately justified storage change becomes necessary. Do not widen production limits, weaken assertions, exclude failing rows or rerun already completed historical work to manufacture acceptance. Record failed or skipped verification with its reason and canonical artifact location. The proposed new target must be authored before it is invoked.
+
+### Archived package plan — 9. Top-level work tracker
+
+| ID | Work item / workstream | Status | Depends on | Evidence / current disposition | Exit condition |
+| --- | --- | --- | --- | --- | --- |
+| RP-P02 | Current document update | DONE | User-selected plan | Only this tracker changed; inventory/history verified; Markdown passed at `20261005T042618Z-p49665`; diff/scope checks passed | Initial document-only plan complete; implementation outcomes are recorded below. |
+| RP-S01 | Reconcile owner and tracker authority | DONE | Prior iteration | Historical execution below | Prior slice exit passed. |
+| RP-S02 | Remove dead interfaces and misleading fixtures | DONE | S01 | Historical execution below | Prior slice exit passed. |
+| RP-S03 | Stable owner DTOs and private verification | DONE | S02 | Historical execution below | Prior slice exit passed. |
+| RP-S04 | Complete application construction | DONE | S03 | Historical execution below | Prior slice exit passed. |
+| RP-S05 | Separate transport and semantics | DONE | S04 | Historical execution below | Prior slice exit passed. |
+| RP-S06 | Persistence seams and instance isolation | DONE | S05 | Historical execution below | Prior slice exit passed. |
+| RP-S07 | Validated cryptographic build | DEFERRED | Future target posture and owner amendment | Current profile remains non-FIPS | Separate future actual verifier/build and target qualification. |
+| RP-S08 | Candidate owner and projection review | DONE | S06 | Historical review below; not recurring reporting | Prior slice exit passed; adoption was not claimed. |
+| RP-S09 | Automated disposable operational qualification | DONE | S14 | Rescoped from the prior on-prem deferral; §7 | Packaged lifecycle/recovery scenarios and cleanup pass. |
+| RP-S10 | Prior pre-production validation/handoff | DONE | S08 | Release 1261/1261 at `20261005T030730Z-p45700` | Completed last in the previous iteration. |
+| RP-S11 | Simplify specification and approval obligations | DONE | User implementation request | RP-F12/F13/F19; §7 | Owner cleanup agrees and retains actual controls. |
+| RP-S12 | Remove accounting-only machine contracts | DONE | S11 | RP-F13; §7 | Accounting removed; behavioral fixture completeness passes. |
+| RP-S13 | Separate runtime projections from test assets | DONE | S12 | RP-F14; §7 | Runtime closure excludes fixtures; identities/privacy pass. |
+| RP-S14 | Complete packaged administration support | DONE | S13 | RP-F15/F18; §7 | Optional package configuration and immutable build pass. |
+| RP-S09a | Repair exported-bundle recovery storage | DONE | Reproduced during S09 | Backup inventory reads exported bundles from the wrong storage capability | Confined export-root capture and restore, target binding/isolation, and regression pass; then resume S09. |
+| RP-S15a | Stabilize declared presence capture framing | DONE | Reproduced during S15 | Test capture inherits horizontal scroll after density/reload setup | Reset and establish the declared cell/trailing-context anchor after presentation readiness; unchanged golden passes; then resume S15. |
+| RP-S15 | Integrated release and final handoff | DONE | S09, S15a | Final release `20261005T070744Z-p19802` passed 1264/1264; all 17 readiness projections and cleanup pass | Complete final release and cleanup passed; tracker completed last. |
+
+### Archived package plan — 10. Session handoff log
+
+These compact entries preserve the original planning/document-update session. Implementation checkpoints follow and link canonical run artifacts; they do not require new dossiers or duplicate requirement inventories.
+
+#### Scope and authority
+
+| Date | State / files | Commands or decision | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 | Inspected AGENTS, planning framework, Domain, Reference Pack/Core/Extensions/Reporting owner context and prior handoffs; only this tracker touched | User selected removal of reports/duplicate gates and the accounting-only catalog; current non-FIPS package with disposable qualification | Ordinary review, owner authority and operational constraints retained. Implementation is a later task, beginning with S11. |
+
+#### Backend boundary
+
+| Date | State / files | Commands or evidence | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 | Reference Data and assembly inventory; `shape.go`, `diagnostic_safety.go`, `base_release.go`, operator admission and readiness | `rg --files`, imports/callers, exact file reads and read-only register comparison | All 196 direct files accounted for. Preserve completed owner boundaries; split only runtime/test assets in S13. |
+
+#### Frontend boundary
+
+| Date | State / files | Evidence | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 | Existing public/admin behavior and prior browser evidence inspected through tracker/owner routing; no rendered UI audit | No frontend feature change in this plan | Retain existing selectors and behavior; run affected tests during later qualification, without unsolicited golden changes. |
+
+#### Contracts and code generation
+
+| Date | State / files | Commands or evidence | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 | Reference Pack §29/31, Testing Harness companion, traceability JSON, fixture schema/test, contract registry/generator and generated collection | Targeted reads/searches show accounting-only validation, fixed 163 total and mixed runtime/test collection | S11 amends owners before S12; S13 uses existing family generation. No authored machine input or generated output changed now. |
+
+#### Tests and harness
+
+| Date | State / files | Commands or evidence | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 | Public routing and package/recovery smoke scripts inspected | `make task-guide ROLE=module-author OWNER=module.reference_data`, `make help-all`, and `make explain-target TARGET=standup-package-smoke DETAIL=summary` / `TARGET=standup-operational-recovery-smoke` succeeded | Both package targets are helper-only. S09 adds Reference Pack qualification; S15 integrates release. |
+| 2026-10-05 | Prior release summary and manifest inspected | Read-only artifact inspection: `20261005T030730Z-p45700`, PASS 1261/1261 on its recorded dirty source | Historical baseline only; no fresh product validation in this document task. |
+| 2026-10-05 | Current tracker documentation validation | `make lint-markdown` PASS: `.cartulary/test-results/20261005T042618Z-p49665/adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` PASS; inventory/history/status assertions PASS; `git status --short` confirms only this tracker changed | RP-P02 DONE. No documentation verification failed. All implementation slices remain unstarted. |
+
+Initial discovery searches guessed nonexistent `tools/standup*`, `tools/task_surface.json`, `tools/execution_topology.json`, `docs/extensions-subsystem-nlspec.md` and `tools/harness/execution/topology*.json` paths. `rg --files` resolved the actual release scripts, authored task-surface/topology manifests and singular `docs/extension-subsystem-nlspec.md`. These read-only lookup errors changed nothing; no verification failure is hidden by them.
+
+Product tests, generation, package/deployment runs, migration checks, release checks and `make agent-finalize` are skipped for this document-only update. Retained-run maintenance is skipped because RESULTS_DIR is unset; the prior successful release is not rerun or relabeled.
+
+#### Security and authorization
+
+| Date | State / files | Evidence / decision | Result / next action |
+| --- | --- | --- | --- |
+| 2026-10-05 | Trust/clock contract, owner security/licensing boundaries, MVP image/configuration and smoke cleanup | Non-FIPS target selected; image is tag-only; smoke cleanup suppresses failures | S14 pins build input; S09 confines destructive tests and verifies cleanup. No compliance, adoption, licensing or deployment approval manufactured. |
+
+#### Open risks and next session
+
+| Date | Current state | Remaining risk | Next action |
+| --- | --- | --- | --- |
+| 2026-10-05 | Document update only; all new implementation slices TODO | Current owners still require accounting until S11; no new target exists or production package has been requalified | Later implementation starts S11, updates this tracker at each checkpoint and ends with S15. Preserve historical records; do not regenerate the four auxiliary reports. |
+
+### Archived package plan — 11. Open prerequisites and deferred production constraints
+
+There is no unresolved user preference blocking this plan. The choices above do not themselves change owner requirements or grant authority to operate an actual deployment.
+
+| ID | Prerequisite / disposition | Why it matters | Needed authority or evidence | Status |
+| --- | --- | --- | --- | --- |
+| RP-PRE-01 | Coordinated owner amendments before accounting removal | Reference Pack and Testing Harness now require executable coverage instead of accounting | S11 amendments reviewed together; no owner contradiction found | DONE |
+| RP-PRE-02 | Disposable package target and release routing | Three package projections and accountable cleanup passed in the complete final release | `20261005T070744Z-p19802`; S14/S09/S15 | DONE |
+| RP-PRE-03 | Production owner adoption and actual deployment suitability | Passing package tests does not adopt draft owners or approve a specific environment | Existing document-status process and applicable security/licensing decisions in ordinary review/operational records; no new dossier | TODO |
+| RP-B02 | Validated crypto policy and method | Current Ed25519 profile makes no FIPS claim | Future target-specific posture and coordinated owner amendment | DEFERRED |
+| RP-B03 | Validated module/build/runtime/environment disposition | General verification tests do not establish compliance | Actual verifier/build and target authority qualification if S07 resumes | DEFERRED |
+| RP-B04 | Fixed-module Make routing | No speculative build mode belongs in this iteration | Future authored routing and verifier/process evidence after posture selection | DEFERRED |
+
+Prior RP-B01 owner contradiction and RP-B05 pre-production release blocker were resolved in the completed iteration; their historical evidence is preserved below. They are not reopened by the new plan. Actual retained-environment rollout remains outside this iteration; never use disposable qualification as implicit authorization for it.
+
+### Archived package plan — 12. Binary completion criteria
+
+The original plan-only update RP-P02 is complete; its document-only evidence remains in §10. Implementation now accounts for 197 direct target files plus the explicitly identified adjacent package, Recovery and harness changes.
+
+The implementation iteration is complete only when S11–S14, the rescoped S09, discovered prerequisites S09a/S15a, and S15 are DONE, with S15 completed last, and all of the following hold:
+
+- Compulsory human reports, document hashes, duplicate signoff records and accounting-only requirement catalogs are removed from the amended scope; normal review, owner authority and substantive constraints remain.
+- Runtime dependencies exclude test assets; fixture growth does not expand production diagnostics; independent canonical and behavioral evidence remains intact.
+- Optional administration is configurable in the shipped package using explicit trust and clock inputs, immutable build inputs and the shared server worker.
+- Real packaged lifecycle, portability, recovery, negative admission and cleanup scenarios pass in disposable environments, without touching retained deployments.
+- One complete final-candidate release includes package qualification with accessible canonical artifacts, safe diagnostics and accounted cleanup. No partial-run aggregation or static readiness declaration substitutes for it.
+- The final tracker contains a compact outcome, compatibility decisions, canonical run location, actual adoption/deployment disposition and deferred S07 prerequisites. S07 remains DEFERRED. Qualification of the supported package is not approval of an untested deployment.
+
+## Historical package implementation checkpoints — 2026-10-05
+
+### S11 started
+
+User authorized the complete plan. The existing tracker edit is preserved. S11 is IN_PROGRESS; subsequent slices remain TODO. Planning clarifications are incorporated: admitted verification failures retain their required durable failure evidence, runtime fixture imports have no fallback, and the existing internal/gen policy covers the new generated package. Actual adoption and retained-environment deployment remain separate from disposable package qualification.
+
+### S11 completed
+
+Removed human document-hash binding and the duplicate owner-amendment ledger; Table 1-A now supplies the single coordinated owner boundary. Retired RP-REQ-259 and RP-AC-049 without reusing IDs; removed the accounting family/range mapping and amended the Harness companion to require executable fixture coverage. Marked all four auxiliary handoffs historical without changing their prior results. Trust, clock, redistribution, security suitability and actual adoption remain explicit. No runtime/data migration or product check changed.
+
+Validation: `make lint-markdown` PASS at `.cartulary/test-results/20261005T043506Z-p58291/adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` PASS; reviewed active Reference Pack/Harness clauses and companion references for retired obligations. Product checks intentionally skipped for this documentation-only slice. S11 DONE; S12 is next.
+
+### S12 completed
+
+Deleted the Reference Pack requirement/criterion catalog and its manifest; removed the accounting family and validator. The renamed executable fixture test keeps its semantic row ID. Coverage now follows the fixture-family enum and supported runtime profiles, checks valid/schema-invalid/semantic-invalid cases, and rejects removal of any required family or case class. Existing strict shape/path/null/effect checks and actual expectation runners remain. No public or persisted-data migration.
+
+Validation PASS: format `20261005T043656Z-p61011` (2/2); generate `20261005T043704Z-p65946`; focused fixture row `20261005T043723Z-p69183` (1/1); generate-drift `20261005T043723Z-p69098` (4/4); harness-contract `20261005T043723Z-p69325` (2/2); json-shape-check `20261005T043930Z-p9424` (3/3); generated-artifact-policy-check `20261005T043937Z-p9986` (3/3). Canonical artifacts are under `.cartulary/test-results/<run-id>/`. S12 DONE; S13 is next. Full product/release validation remains S15 work.
+
+### S13 completed
+
+Runtime contracts and Base assets now remain in `contracts/reference-packs/`; fixture schemas, manifests and vectors live in the separately generated `reference-pack-fixtures` family. Only tests and explicitly scoped test support import that family. The deployable-shape check traverses all three binary dependency closures, and the diagnostic regression rejects fixture-only vocabulary. Existing byte identities and contract IDs are unchanged. The direct target register gains `internal/modules/reference_data/internal/packformat/fixture_projection_test.go` (197 direct files total); generated output remains covered by the existing policy.
+
+Validation PASS: generate-drift `20261005T044305Z-p28233` (4/4), JSON shape `20261005T044326Z-p71527` (3/3), generated policy `20261005T044334Z-p94644` (3/3), boundary `20261005T044418Z-p22106` (3/3), OpenAPI `20261005T044425Z-p26783` (4/4), deployable-shape, Reporting `20261005T044315Z-p42837` (3/3), and Incident Bundles `20261005T044417Z-p21781` (3/3). Reference Data `20261005T044305Z-p28296` passed 22/23 units; the fixture-manifest row failed because moved paths changed lexical ordering. Authored refs were sorted and regenerated (`20261005T044842Z-p44242`); the corrective focused run passed (`20261005T044853Z-p47219`, 1/1). The initial boundary failure (`20261005T044339Z-p10979`) was an intended Indicators test-support import and is fixed by its narrow allowance. Canonical artifacts are under `.cartulary/test-results/<run-id>/`. S13 DONE; S14 starts next. Full final-candidate validation remains S15.
+
+### S14 completed
+
+Added optional administration TOML and Compose overlay, read-only trust/incoming mounts, shared server/operator storage, and operational setup instructions. Base-only defaults remain unchanged. Recovery wrappers accept the same overlay; backup creation now reports failure if application restart fails. The application base image is pinned to the registry-resolved multi-platform digest in the existing toolchain owner, with mutable-image drift regression coverage. The package smoke now runs missing/invalid trust, untrusted clock, claimed startup, and real operator import/replay using fresh test-only signatures, retaining private image/configuration identities.
+
+PASS: `standup-package-smoke` `20261005T050517Z-p46183` (9/9, retained scan included); `toolchain-drift` `20261005T050308Z-p18033` (2/2); toolchain regression in `20261005T045842Z-p26721/harness-smoke-toolchain-pins/tool-run-summary.json`; lint-scripts `20261005T045808Z-p24743` (2/2), lint-shell `20261005T045811Z-p25252` (4/4), Markdown `20261005T050311Z-p21545`. Canonical artifacts remain under `.cartulary/test-results/<run-id>/`.
+
+Corrected qualification failures: missing-bind directory transition (`20261005T045425Z-p15409`), invalid test repository identifier (`20261005T045556Z-p71327`), Docker Desktop stale config inode (`20261005T050009Z-p36974`), and non-private artifact permissions (`20261005T050248Z-p89872`, execution 9/9 but public result artifact failure). The final run supersedes these, not their historical records. An attempted private harness-check name was rejected by Make; its public extended suite was used instead. That suite's toolchain regression passed but its unrelated task-surface-report UI locator assertion failed; investigate during S15. Package-owned Docker resources from the completed smoke are absent; retained development services remain untouched. S14 DONE; S09 starts next.
+
+### S09a completed — exported-bundle recovery
+
+Recovery now receives the confined export-root capability used by Incident Bundles, captures the correct bytes, restores through owner/family dispatch, and includes that destination in freshness, overlap, marker and verification bindings. Marker v4, verification v4 and journal v5 are coordinated with Core 01/Core 04 and generated contracts. Operators must issue fresh markers and verification; historical v4 journals remain readable but cannot authorize replay without the export-root proof. No SQL migration or retained-environment mutation. The additional Reference Data repair compares persisted JSONB transition evidence canonically while preserving exact signed root bytes.
+
+PASS: export storage atomicity/confinement `20261005T054851Z-p88963`; full Recovery owner `20261005T055546Z-p80480` (24/24); Reference Data root rotation `20261005T052713Z-p27573`; generate `20261005T055347Z-p72908`; boundary `20261005T055414Z-p89683`; JSON shape `20261005T055420Z-p3931`; shell `20261005T055428Z-p30621`. Packaged qualification `20261005T060026Z-p34287` passed 11/11, including backup, due verification, actual restore, exact exported bytes and all owned-resource/workspace cleanup receipts. Canonical artifacts are under `.cartulary/test-results/<run-id>/`.
+
+Earlier failures exposed the missing export source, stale marker producer and JSONB byte comparison. Corrected test/build attempts included a helper-name collision (`054700`), missing caller/marker projections (`054818`), a changing-input build invalidation (`055358`), and an assertion that read a deliberately reset verification target (`055412`). The final scenario now admits a fresh generation for actual `restore latest` before asserting recovered state. S09a DONE; resume S09 and validate the two existing smoke entry points before S15.
+
+### S09 completed — disposable operational qualification
+
+Added the public Reference Pack package target and semantic owner row. Its source/destination stacks use shipped binaries and isolated databases, buckets and volumes; scenarios cover HTTP/operator actor and replay behavior, admission versus terminal failures, explicit activation, rotation/restart/rollback/signature rejection, exact historical reporting, destination-trusted portability, matching-package recovery, physical collection and required-content loss. Existing owner suites continue to own races/cancellation and mixed refresh. Shared cleanup attempts every owned resource, records failures and residual groups, repairs only the private test workspace's ownership, and fails qualification on incomplete cleanup. Fault tests cover rejected ownership, failed removal/listing, interruption and workspace failure.
+
+PASS: full Reference Pack smoke `20261005T060026Z-p34287` (11/11 units and eleven scenario groups); existing package `20261005T060306Z-p10194` (9/9); operational recovery `20261005T060428Z-p65685` (9/9); cleanup/release contract `20261005T060317Z-p24153`; script lint `20261005T060323Z-p35884`; shell lint `20261005T060326Z-p39231`. All package cleanup receipts pass, including source, destination and private workspace where allocated. Results are under `.cartulary/test-results/<run-id>/`. S09 DONE; S15 starts now with release graph integration, the known task-surface regression correction, final-candidate validation and handoff. No retained deployment was operated.
+
+### S15 release integration checkpoint
+
+The three packaged checks now have release-tier semantic rows, declared service/capacity needs and a shared volume-capacity constraint. `release-check` and its readiness marker require all three; canonical readiness validation requires their target projections. The regression proves exactly one execution per target, real service claims, fresh evidence and closure before readiness. The unrelated UI launcher assertion now distinguishes creating a locator from commands that require one. Performance roster tests follow authored target membership instead of a fixed count. The moved browser-fixture path comment and direct inventory are current.
+
+PASS: generate `20261005T060718Z-p18901`; release contract `20261005T060847Z-p53121`; harness contract `20261005T060852Z-p53546` (2/2); extended harness `20261005T060954Z-p67031`; generate-drift `20261005T061050Z-p2101` (4/4); Markdown `20261005T061020Z-p83818`; diff check. Initial new routing assertion and stale 47-target assertion failed at `20261005T060749Z-p22783` / `p22784`; both are corrected and superseded by the passing checks above. Public release inspection selects 1264 units, including the three package rows. These focused results do not replace the required full release. S15 remains IN_PROGRESS; run finalization, fast tests and one complete final-candidate release next. Retained-run maintenance is skipped because RESULTS_DIR is unset.
+
+Finalization passed at `20261005T061133Z-p6893` (1/1); fast validation passed at `20261005T061214Z-p11280` (739/739). The complete final-candidate release is now running; S15 remains IN_PROGRESS until it and the final cleanup/artifact review pass.
+
+### S15a — discovered validation prerequisite
+
+The complete release `20261005T061847Z-p6495` failed 1262/1264: one presence screenshot differed and its visual summary failed. All three packaged qualification rows passed, including cleanup. Private artifact-mode inspection through the repository UI review skill confirmed identical presence content but a horizontal grid shift of approximately 75 pixels. Both runs have the same viewport, density, fonts and renderer. The scenario uses nearest-target scrolling after density/reload exercises without resetting its origin; capture readiness verifies the body, not the intended grid framing.
+
+**Areas / remediation:** tests and handoff; establish the declared cell/trailing-context anchor from a known grid origin after presentation readiness, and verify the resulting framing at capture. **Rationale / benefit:** remove dependence on prior scroll history while preserving product behavior and the existing visual acceptance boundary. **Impact:** no product, schema or golden migration. **Risk if unresolved:** release qualification can fail nondeterministically or capture the wrong stable frame. **Validation / exit:** the exact failing semantic row passes against the unchanged golden, private review cleanup completes, then finalization/fast validation and a complete release are rerun. S15 remains BLOCKED pending S15a; no partial release results qualify the candidate.
+
+### S15a completed — deterministic presence framing
+
+The exact failing Collaboration visual row passed against the unchanged golden at `20261005T065951Z-p3426` (11/11 units). The scenario now resets shell/scrollport origin through the existing grid normalization helper, establishes the declared cell and neighboring context after presentation readiness, and verifies identical framing before/after capture. No production UI, tolerance, fixture registry or golden changed. Format passed at `20261005T065944Z-p98137`. The artifact-only UI review terminal receipt at `20261005T065511Z-p94405/ui-review/terminal.json` records `cleanup=complete`; task-owned scratch requests were removed. The two imported PNGs provided image evidence only; canonical renderer diagnostics supplied the matching font/density/viewport context.
+
+S15a DONE; S15 resumes with finalization, fast validation and a fresh complete release. Finalization passed at `20261005T070252Z-p41022`; fast validation passed at `20261005T070313Z-p45275` (739/739). The replacement complete release `20261005T070744Z-p19802` is running. The earlier release's three package projections and all cleanup receipts passed, but its visual failure prevents using it as overall qualification.
+
+### S15 final validation and handoff
+
+The final candidate passed `make agent-finalize` at `20261005T070252Z-p41022` (1/1), `make test-fast` at `20261005T070313Z-p45275` (739/739), and one complete `make release-check` at `20261005T070744Z-p19802` (1264/1264; zero failed, skipped or cancelled units). `make explain-run RESULTS_DIR=.cartulary/test-results/20261005T070744Z-p19802` confirms the canonical identity and 665 cleanup steps with zero failures or blocks. All three package target projections, workbook visual validation and the release-readiness projection pass in that same run. The eleven Reference Pack scenarios and actual restore result are retained under its package artifacts. Separate partial runs are not combined into this result.
+
+Final cleanup review confirmed passing source, destination and workspace receipts and absence of every package-owned container, volume and network. Only the pre-existing `cartulary-postgres-1` and `cartulary-seaweedfs-s3-1` services remain, both still up nine days. No visual goldens changed. The earlier failed release remains recorded and is superseded by this complete passing candidate.
+
+Handoff: runtime Reference Pack contracts remain in `contracts/reference-packs/`, test assets in `contracts/reference-pack-fixtures/`; `deploy/mvp/README.md` owns package setup and recovery instructions. Optional administration still needs deployment-supplied trust and an explicit verified-clock assertion. Recovery target markers must be regenerated as v4 and verification rerun for the export-root binding; current completions use journal v5, with historical v4 readable but not replay-authorizing. Exported bundles now use the confined export root throughout capture/restore. No SQL migration, public-route change or retained deployment operation is required by this iteration.
+
+A separate `make check` was not repeated: release inherits the `ci`/`check` policy closures and all lower semantic tiers through the authored graph. Retained-run maintenance was skipped because RESULTS_DIR was unset during finalization. S07 remains DEFERRED; formal owner adoption, FIPS qualification and approval of an actual deployment are not claimed. Final Markdown passed at `20261005T074809Z-p92909`; diff and scope checks passed, all 17 readiness projections were verified, and lockfiles/visual goldens are unchanged. S15 is DONE, completed last. No required work remains in this authorized iteration.
+
+## Historical completed structural remediation — S01–S10
+
+The following scope, findings, slice definitions, statuses and execution evidence describe the previous completed pre-production iteration. Their references to current work, required report refreshes, production deferrals, uncommitted state or final completion apply to that iteration only. The present §1–§12 control the new plan; in particular S09 is now planned for disposable qualification, and S15 is the new final slice. Original run identities and outcomes are preserved rather than rewritten as current evidence.
+
+### Previous scope and source posture
+
+The current execution supersedes the earlier ledger-only and production-readiness plans. Historical A–F and four-defect implementation records remain below. Existing code already fixes strict composition identities, framework lookup-key deduplication, typed early upload rejection and pre-parse URL admission; this iteration preserves those corrections.
+
+| Scope fact | Decision |
+| --- | --- |
+| Baseline | Clean `c9f5b366fe0d295057a30aaf6e488af9c587fdcb`, inspected 2026-10-04. |
+| Targets | `internal/modules/reference_data/`, `internal/app/referenceassembly/` and affected owner/caller/test boundaries. |
+| Authorized work | S01–S06, S08 and S10: specifications, implementation, tests, authored projections when necessary, generated outputs through Make, and handoff evidence. |
+| Completion | **PRE-PRODUCTION COMPLETE**: S01–S06, S08 and S10 DONE; S10 completed last with one fresh complete passing release and verified cleanup. |
+| Deferred | S07 validated cryptographic build; S09 deployment rehearsal; formal adoption and target security/licensing approval. No deployment, reset or activation. |
+| Compatibility | Preserve deliberate trust, identity, public transport, authorization, atomicity, retention and reproducibility contracts. Remove dead/private coupling without deprecated aliases. |
+| Data policy | Fresh initialization; preserve applied migrations and fail-without-mutation preflight. No converter, dual writer, historical trust inference or identity rewrite. |
+| Cryptography | Existing strict Ed25519 offline verification; no algorithm negotiation, FIPS claim or speculative build mode. |
+| Evidence | No second implementation/recreation report required. Independent fixed vectors and real acceptance evidence remain required. |
+| Authority | Adopted owners govern their scopes; typed inputs project them. The Reference Pack 0.2.0 candidate remains draft. Domain owns vocabulary only. |
+
+The later [release reliability handoff](release-reliability-remediation.md) reports a complete passing run for `36ed8c239`. The old browser failure is not an outstanding implementation diagnosis. Its referenced run root was absent during planning (`make explain-run` returned ENOENT); neither that report nor older results qualify new changes.
+
+### Previous 5. Coupling and boundary findings
 
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
 | --- | --- | --- | --- | --- | --- |
@@ -342,13 +1124,13 @@ Reference Data remains one cohesive supporting subsystem. Private algorithms rem
 | RP-F11: retained safety boundaries look legacy by name | Cutover preflight, retired-table checks, negative formats | Removing fail-closed evidence weakens the cutover | intentional/no_action | Migration owner and Reference Data | Keep; do not reintroduce retired runtime support. |
 
 
-## 6. Workstream sequencing
+### Previous 6. Workstream sequencing
 
 Each implementation slice is a separate workstream. Execute S01 → S02 → S03 → S04 → S05 → S06 → S08 → S10. Do not require deferred S07/S09 before pre-production closure.
 
 Before work starts, mark its row IN_PROGRESS. After its checks finish, record changes, compatibility impact, command/results/artifact locations and remaining findings, then mark DONE only if its exit passes. **Update this tracker after each completed workstream and before beginning the next.** A failing slice remains incomplete. Status vocabulary: TODO, IN_PROGRESS, BLOCKED, DONE, DEFERRED, DROPPED.
 
-## 7. Implementation slices and exits
+### Previous 7. Implementation slices and exits
 
 | Slice/workstream | Depends on | Remediation | Exit criteria |
 | --- | --- | --- | --- |
@@ -365,7 +1147,7 @@ Before work starts, mark its row IN_PROGRESS. After its checks finish, record ch
 
 The main risks are DTO identity drift (S03), incomplete/duplicate construction (S04), altered error/receipt atomicity (S05), and lock/finality or test isolation regressions (S06). Revert each structural slice with its callers if its exit cannot be met; never restore retired acceptance, weaken checks or rewrite retained data. S08 does not promote any draft/proposed document. Deferred compliance and deployment risks remain explicit.
 
-## 8. Validation plan
+### Previous 8. Validation plan
 
 Use public Make targets from the repository root. Discover semantic rows with `make task-guide ROLE=module-author OWNER=module.reference_data` and `make explain-test-owner OWNER=module.reference_data`; use the equivalent discovery for affected owners. Run narrow checks first.
 
@@ -380,7 +1162,7 @@ Use public Make targets from the repository root. Discover semantic rows with `m
 
 Retain hostile-container/signature/rotation/rollback, no-egress, diagnostic privacy, exact-set/pin, destination trust, historical restore, limits, cancellation, concurrency and commit-proof evidence. Preserve the four already fixed behavioral defects as regression anchors. Do not widen limits, exclude rows or combine partial runs to claim a release pass.
 
-## 9. Top-level work tracker
+### Previous 9. Top-level work tracker
 
 | Slice | Workstream | Status | Depends on | Evidence / current disposition |
 | --- | --- | --- | --- | --- |
@@ -395,7 +1177,7 @@ Retain hostile-container/signature/rotation/rollback, no-egress, diagnostic priv
 | RP-S09 | On-prem deployment rehearsal | DEFERRED | Formal adoption and deployment approvals | User-selected production deferral. |
 | RP-S10 | Validation and handoff completion | DONE | S08 | Finalize, test-fast 739/739 and release-check 1261/1261 passed; cleanup, evidence and documentation verified. Completed last. |
 
-## 10. Session handoff log
+### Previous 10. Session handoff log
 
 | Slice | State / edits | Validation and artifacts | Compatibility / risks | Next action |
 | --- | --- | --- | --- | --- |
@@ -412,7 +1194,7 @@ Retain hostile-container/signature/rotation/rollback, no-egress, diagnostic priv
 S06 failed attempts retained: `20261005T022928Z-p97716` caught stale concrete-pool test calls/missing import; corrected. Full-owner attempts `20261005T023148Z-p9477` and `20261005T023148Z-p9479` exposed the stale browser binary path and a new two-server fixture lease deadlock. The two stuck test processes were stopped with SIGQUIT for diagnostics; the fixture now allocates a distinct second bucket. Both runs report successful cleanup (27 and 17 steps). `make explain-run` initially failed while no completed summary existed, then succeeded for both. `make harness-smoke-execution-topology` has no public rule; it was replaced with public `make harness-contract` and the actual browser owner run. None of these partial runs is acceptance evidence.
 
 
-### S08 completion checkpoint
+#### S08 completion checkpoint
 
 S08 is DONE before S10 begins. Reviewed every requirement body RP-REQ-001–264, all 54 acceptance criteria and sub-obligations; the [obligation index](reference-pack-obligation-evidence.md#s08-requirement-and-sub-obligation-review) records each inclusive range and its evidence boundary. The [owner inventory](reference-pack-owner-inventory.md) has a separate disposition and responsible authority for every RP-GATE-001–016. Refreshed the limit and focused security indexes and inventoried all 196 current direct-target files.
 
@@ -422,7 +1204,7 @@ Compatibility: no public/schema/algorithm identifier, signed bytes, stored ident
 
 Validation: `make lint-markdown` passed at `20261005T025943Z-p43994/adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` passed. `make explain-target TARGET=release-check DETAIL=summary` succeeded and resolves 1261 units/2023 semantic rows, graph `sha256:0f2f8449a6f08477faab9e44a2423e2ed16fc2b51b980b9995c4eff4f0930e2d`. Public target ownership explicitly includes check within release-check; a duplicate standalone check is unnecessary. There is no qualifying retained full warm check RESULTS_DIR for this candidate, so finalization will report retained-run maintenance skipped. Next dependency: S10 final validation and handoff; S07/S09 remain DEFERRED.
 
-### S10 final validation and handoff
+#### S10 final validation and handoff
 
 The final machine-source candidate passed one complete release. This run, rather than historical reports or a collection of retries, is the pre-production acceptance basis. All production changes were complete before finalization; later edits are documentation only.
 
@@ -457,7 +1239,7 @@ S07 and S09 remain DEFERRED. Their named authorities and exact resumption prereq
 
 Final tracker closeout: `make lint-markdown` passed at `20261005T034656Z-p35172`; `git diff --check` passed, and every current-session run root referenced above resolves. S10 is DONE as the final completed slice. All authorized pre-production exit criteria pass. No active implementation work remains; only the explicitly deferred production gates await their authorities and prerequisites.
 
-## 11. Production gates and remaining risks
+### Previous 11. Production gates and remaining risks
 
 The current sixteen-gate disposition and named responsible authorities are in the [S08 owner inventory](reference-pack-owner-inventory.md#s08-gate-dispositions-and-responsible-authorities). This supersedes gate descriptions in historical execution records. None of those records independently grants adoption.
 
@@ -469,7 +1251,7 @@ The current sixteen-gate disposition and named responsible authorities are in th
 | RP-B04 | DEFERRED fixed-module Make routing | Authored harness routing and actual-verifier evidence if S07 is resumed. |
 | RP-B05 | RESOLVED for pre-production | One complete final-candidate release passed with accessible artifacts and cleanup; historical reported success is not substituted. |
 
-## 12. Binary completion criteria
+### Previous 12. Binary completion criteria
 
 Pre-production completion requires S01–S06, S08 and S10 DONE, with S10 completed last. It requires no dead/misleading facade paths, complete construction, narrow owner DTOs, transport separation, instance-isolated scheduling tests, preserved intended semantics, reviewed owner/projection/evidence boundaries and one fresh complete passing release gate with cleanup accounting. The final handoff records exact source identities, artifacts, skipped/failed checks and how to resume production gates. No executable evidence depends on Markdown. S07/S09 remain DEFERRED; formal adoption, production security/licensing approvals and deployment readiness remain unclaimed.
 

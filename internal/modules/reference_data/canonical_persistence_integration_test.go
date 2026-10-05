@@ -279,7 +279,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		if err != nil {
 			t.Fatal(err)
 		}
-		inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjects), sourcePacks)
+		inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjects), sourcePacks, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

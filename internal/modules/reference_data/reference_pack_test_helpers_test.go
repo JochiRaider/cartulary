@@ -168,7 +168,7 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 		} `json:"cases"`
 	}
 	if !strings.HasPrefix(options.PackKey, "type_registry.") {
-		b, err := os.ReadFile("../../../contracts/reference-packs/fixtures/profiles.v1.json")
+		b, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/profiles.v1.json")
 		if err != nil {
 			t.Fatal(err)
 		}

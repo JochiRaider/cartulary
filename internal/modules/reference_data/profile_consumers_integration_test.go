@@ -38,7 +38,7 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 			Members map[string]string `json:"members"`
 		} `json:"cases"`
 	}
-	raw, err := os.ReadFile("../../../contracts/reference-packs/fixtures/profiles.v1.json")
+	raw, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/profiles.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 	// canonical inputs independently state the longest profile identities.
 	for _, name := range []string{"enrichment_windows_event_ids", "enrichment_cisa_kev", "enrichment_windows_sids"} {
 		t.Run(name+" maximum identity", func(t *testing.T) {
-			data, err := os.ReadFile("../../../contracts/reference-packs/fixtures/profiles/" + name + "_boundary.v1.json")
+			data, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/profiles/" + name + "_boundary.v1.json")
 			if err != nil {
 				t.Fatal(err)
 			}

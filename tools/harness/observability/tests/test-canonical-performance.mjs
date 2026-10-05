@@ -17,7 +17,7 @@ import {
 const root = path.resolve(import.meta.dirname, "../../../..");
 const surface = JSON.parse(readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"));
 const roster = performanceRoster(surface);
-assert.equal(roster.size, 47, "the measured public-target roster must remain exact");
+assert.deepEqual([...roster.keys()], surface.observability_policy.required_targets, "measurement must cover the authored public-target roster");
 assert.deepEqual(
   [...roster.entries()].filter(([, policy]) => policy.gate === "required_improvement").map(([target]) => target),
   [
@@ -144,7 +144,7 @@ assertBaselineClosure(reference, surface);
 assertBaselineClosure(candidate, surface);
 const comparison = compareQualifiedBaselines(reference, candidate, surface);
 assert.deepEqual(comparison.failures, []);
-assert.equal(comparison.rows.length, 47);
+assert.equal(comparison.rows.length, roster.size);
 
 const regressed = structuredClone(candidate);
 const row = regressed.targets.find((entry) => entry.gate === "no_regression");

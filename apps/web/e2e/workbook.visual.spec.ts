@@ -2822,22 +2822,36 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       await test.step("reload visual application", () =>
         reloadVisualApplication(page));
 
-      await scrollGridTargetIntoView({
+      // Nearest-target scrolling must start at a known origin. Density and
+      // reload exercises can otherwise leave a different, already-visible
+      // viewport that remains stable but does not match this capture's anchor.
+      const preparePresenceAnchor = async () => {
+        await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+          scroll: { left: "left", top: 0 },
+        });
+        await scrollGridTargetIntoView({
+          page,
+          surface: timelineViewSchemaId,
+          targetTestId: cellPresenceMarkerTestId(
+            presenceRow.record_id,
+            "timeline.activity_synopsis_text",
+          ),
+        });
+        // Include the neighboring field so the edited field's marker has visible
+        // context on both sides, rather than sitting against the viewport edge.
+        await scrollGridCellIntoView({
+          page,
+          surface: timelineViewSchemaId,
+          recordId: presenceRow.record_id,
+          cellKey: "timeline.data_source_text",
+        });
+      };
+      await prepareVisualPresentation(page);
+      await preparePresenceAnchor();
+      const presenceScroll = await readWorkbookGridScroll(
         page,
-        surface: timelineViewSchemaId,
-        targetTestId: cellPresenceMarkerTestId(
-          presenceRow.record_id,
-          "timeline.activity_synopsis_text",
-        ),
-      });
-      // Include the neighboring field so the edited field's marker has visible
-      // context on both sides, rather than sitting against the viewport edge.
-      await scrollGridCellIntoView({
-        page,
-        surface: timelineViewSchemaId,
-        recordId: presenceRow.record_id,
-        cellKey: "timeline.data_source_text",
-      });
+        timelineViewSchemaId,
+      );
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "row-gutter",
         markerTestId: rowPresenceMarkerTestId(presenceRow.record_id),
@@ -2893,6 +2907,12 @@ test.describe("browser.collaboration workbook visual readiness", () => {
         "collaboration-presence-markers",
         {
           renderSurface: timelineViewSchemaId,
+          prepareAnchor: preparePresenceAnchor,
+          verifyFraming: async () => {
+            expect(
+              await readWorkbookGridScroll(page, timelineViewSchemaId),
+            ).toEqual(presenceScroll);
+          },
         },
       );
     } finally {

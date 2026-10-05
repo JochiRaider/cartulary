@@ -173,7 +173,7 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 		t.Fatal(err)
 	}
 	state := currentStateCatalog(t)
-	inventory, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks)
+	inventory, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

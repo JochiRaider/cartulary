@@ -261,7 +261,11 @@ for (const target of manifest.targets.filter((entry) =>
 for (const target of manifest.targets.filter((entry) => entry.output_policy?.artifact_policy === "ui_review_receipts")) {
   const recipe = manifest.make_recipes[target.name];
   assert.equal(recipe.type, "ui_review", "private review uses its explicit output projection");
-  assert.ok(target.input_contract.inputs.some((input) => input.name === "UI_SESSION" && input.required), "finite review commands bind an exact existing locator");
+  if (target.name === "ui-review") {
+    assert.equal(target.input_contract.inputs.some((input) => input.name === "UI_SESSION"), false, "the launcher creates a locator");
+  } else {
+    assert.ok(target.input_contract.inputs.some((input) => input.name === "UI_SESSION" && input.required), "finite review commands bind an exact existing locator");
+  }
 }
 assert.match(
   renderedMake,

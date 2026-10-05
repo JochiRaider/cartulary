@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepacks"
+	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepackfixtures"
 )
 
 // OwnerFixtureExpectation carries independently authored canonical identities
@@ -23,8 +23,8 @@ type OwnerFixtureExpectation struct {
 
 func OwnerFixture(t testing.TB, scenario string) OwnerFixtureExpectation {
 	t.Helper()
-	for _, artifact := range contractreferencepacks.Artifacts {
-		if artifact.Path != "contracts/reference-packs/fixture-manifests/owner_"+scenario+".v1.json" {
+	for _, artifact := range contractreferencepackfixtures.Artifacts {
+		if artifact.Path != "contracts/reference-pack-fixtures/fixture-manifests/owner_"+scenario+".v1.json" {
 			continue
 		}
 		var expected OwnerFixtureExpectation

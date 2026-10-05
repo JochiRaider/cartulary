@@ -10,7 +10,7 @@ import (
 func TestAttestationIndependentIdentityAndClosedShape_Unit(t *testing.T) {
 	// The ASCII fixture's hash was authored using sorted JSON and sha256sum,
 	// independently of the Go JCS and attestation implementation.
-	raw := projection("fixtures/attestation.v1.json")
+	raw := fixtureProjection("fixtures/attestation.v1.json")
 	canonical, err := canonicaljson.Canonicalize(raw)
 	if err != nil || ValidateAttestation(canonical) != nil {
 		t.Fatal("independent attestation rejected", err)

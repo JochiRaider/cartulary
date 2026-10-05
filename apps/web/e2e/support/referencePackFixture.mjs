@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 // Functional fixture producer only. Independent signature vectors are authored
-// separately under contracts/reference-packs/fixtures. These keys have no use
+// separately under contracts/reference-pack-fixtures/fixtures. These keys have no use
 // outside a disposable browser deployment.
 const repository = "browser.fixture.repo";
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");

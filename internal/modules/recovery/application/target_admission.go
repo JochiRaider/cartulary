@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	RestoreTargetMarkerSchemaID         = "cartulary.restore_target_marker.v3"
+	RestoreTargetMarkerSchemaID         = "cartulary.restore_target_marker.v4"
 	RestoreTargetMarkerMaximumBytes     = int64(65536)
 	RestoreTargetGenerationMaximumBytes = int64(64)
 	RestoreTargetMarkerMaximumLifetime  = 24 * time.Hour
@@ -40,6 +40,7 @@ type TargetBindingDigests struct {
 	DatabaseSHA256             string `json:"database_sha256"`
 	ObjectStoreSHA256          string `json:"object_store_sha256"`
 	ReferencePackStorageSHA256 string `json:"reference_pack_storage_sha256"`
+	ExportOutputsSHA256        string `json:"export_outputs_sha256"`
 }
 
 type RestoreTargetMarker struct {
@@ -64,6 +65,7 @@ func TargetBindingDigestsFor(deployment Deployment) TargetBindingDigests {
 		DatabaseSHA256:             bindingDigest(rootBindingBasis(deployment.DatabaseStorage)),
 		ObjectStoreSHA256:          bindingDigest(rootBindingBasis(deployment.ObjectStorage)),
 		ReferencePackStorageSHA256: bindingDigest(rootBindingBasis(deployment.ReferencePackStorage)),
+		ExportOutputsSHA256:        bindingDigest(rootBindingBasis(deployment.ExportOutputs)),
 	}
 }
 
@@ -101,7 +103,7 @@ func AdmitRestoreTargetMarker(material TargetMarkerMaterial, purpose string, exp
 	}
 	if marker.BindingDigests != expected ||
 		!isLowerSHA256(marker.BindingDigests.DatabaseSHA256) ||
-		!isLowerSHA256(marker.BindingDigests.ObjectStoreSHA256) || !isLowerSHA256(marker.BindingDigests.ReferencePackStorageSHA256) {
+		!isLowerSHA256(marker.BindingDigests.ObjectStoreSHA256) || !isLowerSHA256(marker.BindingDigests.ReferencePackStorageSHA256) || !isLowerSHA256(marker.BindingDigests.ExportOutputsSHA256) {
 		return uuid.Nil, errors.New("restore target marker has the wrong target binding")
 	}
 	issuedAt, err := parseCanonicalMarkerTime(marker.IssuedAt)

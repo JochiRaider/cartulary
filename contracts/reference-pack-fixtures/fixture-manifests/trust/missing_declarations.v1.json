@@ -1,0 +1,69 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_trust_missing_declarations",
+  "fixture_version": 1,
+  "fixture_family": "tuf_failure",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/trust/missing_declarations.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "target_missing",
+      "severity": "error",
+      "phase": "target_inventory",
+      "code": "target_not_declared",
+      "path": "$.archive_members[3]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_600b74eb723ef4cc653d3e36b3d2ec8be6af42673263684b59963d1f43aad372",
+      "reason_code": "target_not_declared"
+    },
+    {
+      "check_id": "target_missing",
+      "severity": "error",
+      "phase": "target_inventory",
+      "code": "target_not_declared",
+      "path": "$.archive_members[4]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_9f0727552d72db93baf9976c9fcfbf2383b89ffa1ad31c6917edc4521590911a",
+      "reason_code": "target_not_declared"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "target_not_declared"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

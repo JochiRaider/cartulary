@@ -1,5 +1,7 @@
 # Reference Pack limit evidence
 
+> Historical record of the completed pre-production iteration. The material below retains its original review scope, references and results; it is not a current gate ledger or a recurring reporting obligation. Do not refresh its document hashes, requirement mappings or signoffs. Current work and dispositions belong to the [controlling tracker](reference-pack-remediation.md); operational instructions belong to the [development cutover guide](../guides/reference-pack-development-cutover.md) and maintained package documentation. Ordinary owner review, adoption, trust, licensing and deployment suitability remain required.
+
 S08 rechecked this inventory against all candidate limit clauses and the unchanged typed limits. Current status and fresh S10 acceptance belong to the [controlling tracker](reference-pack-remediation.md). Older totals below are historical, not validation of the structural-remediation candidate.
 
 This is a human review index for candidate NLSpec 0.2.0, profile 2, and its typed `contracts/reference-packs/limits.v1.json` projection. It is not consumed by tests or generators. Execution results and superseding failures are in the [implementation ledger](reference-pack-remediation.md). The [obligation index](reference-pack-obligation-evidence.md) gives public Make routes. A component fixture establishes that component's admission boundary; it does not establish destination trust, persistence or adoption by itself.

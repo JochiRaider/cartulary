@@ -47,6 +47,18 @@ for main_file in "${MAIN_ENTRYPOINTS[@]}"; do
   esac
 done
 
+# Check the complete production dependency closure, including indirect imports
+# through generated or support packages that a direct-import guard could miss.
+runtime_packages="$(
+  GOCACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
+  GOMODCACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
+  GOTMPDIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
+    "${GO:-go}" list -deps -f '{{.ImportPath}}' ./cmd/server ./cmd/migrate ./cmd/operator
+)"
+if grep -Fxq 'github.com/JochiRaider/cartulary/internal/gen/contractreferencepackfixtures' <<<"$runtime_packages"; then
+  fail "runtime dependency closure contains Reference Pack test assets"
+fi
+
 if [[ ! -f "${CARTULARY_LAYOUT_BINARIES}/server" ]]; then
   fail "backend build artifact './${CARTULARY_LAYOUT_BINARIES}/server' was not produced"
 fi

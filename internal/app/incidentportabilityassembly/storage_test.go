@@ -2,7 +2,10 @@ package incidentportabilityassembly_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,6 +66,68 @@ func TestIncidentBundleRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing
 		t.Fatalf("duplicate Publish error = %v; want exclusive destination failure", err)
 	}
 	assertPrivateRegularFile(t, publishedPath, []byte("published bundle"))
+	t.Run("recovery preserves confined published bytes", func(t *testing.T) {
+		source, err := incidentportabilityassembly.NewRecoveryStorage(exportRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer source.Close()
+		targetRoot := t.TempDir()
+		target, err := incidentportabilityassembly.NewRecoveryStorage(targetRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer target.Close()
+		ctx := context.Background()
+		if err := target.RequireEmpty(ctx); err != nil {
+			t.Fatal(err)
+		}
+		info, err := source.StatRecoveryObject(ctx, published.String())
+		if err != nil || info.PlaintextBytes != int64(len("published bundle")) {
+			t.Fatal(info, err)
+		}
+		hash := sha256.Sum256([]byte("published bundle"))
+		digest := hex.EncodeToString(hash[:])
+		for _, invalid := range []string{"../escape", "/outside", "evidence/blobs/test", "incident-bundles/not-a-uuid.zip"} {
+			if target.RestoreMember(ctx, invalid, digest, info.PlaintextBytes, strings.NewReader("published bundle")) == nil {
+				t.Fatal("unsafe reference admitted", invalid)
+			}
+		}
+		if target.RestoreMember(ctx, published.String(), strings.Repeat("0", 64), info.PlaintextBytes, strings.NewReader("published bundle")) == nil {
+			t.Fatal("corrupt bytes admitted")
+		}
+		if err := target.RequireEmpty(ctx); err != nil {
+			t.Fatal("failed restore left partial bytes", err)
+		}
+		reader, err := source.OpenRecoveryObject(ctx, published.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = target.RestoreMember(ctx, published.String(), digest, info.PlaintextBytes, reader)
+		reader.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if target.RequireEmpty(ctx) == nil {
+			t.Fatal("populated root admitted as empty")
+		}
+		restored, err := target.OpenRecoveryObject(ctx, published.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(restored)
+		restored.Close()
+		if err != nil || string(body) != "published bundle" {
+			t.Fatal("restore changed bytes", err)
+		}
+		if err := target.ResetVerificationTarget(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := target.RequireEmpty(ctx); err != nil {
+			t.Fatal(err)
+		}
+		assertPrivateRegularFile(t, publishedPath, []byte("published bundle"))
+	})
 }
 
 func TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit(t *testing.T) {

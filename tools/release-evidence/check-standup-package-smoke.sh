@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/deploy/mvp"
@@ -53,37 +54,37 @@ container_id=""
 legacy_postgres_volume="${project}_legacy-postgres-v16"
 postgres_image="docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
 
+compose_overlay=()
 compose() {
-  docker compose --project-name "$project" --env-file "$work_dir/.env" -f "$compose_file" "$@"
+  docker compose --project-name "$project" --env-file "$work_dir/.env" -f "$compose_file" "${compose_overlay[@]}" "$@"
 }
 
-dump_compose_diagnostics() {
-  compose ps -a >&2 || true
-  compose logs --no-color --tail 200 >&2 || true
-}
-
+# shellcheck source=tools/release-evidence/package-smoke-cleanup.sh
+source "$ROOT_DIR/tools/release-evidence/package-smoke-cleanup.sh"
+qualification="${CARTULARY_PACKAGE_QUALIFICATION:-package}"
+case "$qualification" in package|reference-pack) ;; *) fail "unsupported package qualification" ;; esac
+artifact_dir="${CARTULARY_TEST_RESULTS_DIR:-${ROOT_DIR}/.cartulary/test-results}/${CARTULARY_TEST_RUN_ID:-standup-package-smoke-manual}/standup-${qualification}-smoke/artifacts"
+mkdir -p "$artifact_dir"
 cleanup() {
   local status=$?
+  trap - EXIT INT TERM
   set +e
-  if [[ "$status" -ne 0 ]]; then
-    dump_compose_diagnostics
-  fi
-  if [[ -n "$container_id" ]]; then
-    docker rm "$container_id" >/dev/null 2>&1 || true
-  fi
-  compose down -v --remove-orphans >/dev/null 2>&1 || true
-  docker volume rm "$legacy_postgres_volume" >/dev/null 2>&1 || true
-  docker rmi "$image" >/dev/null 2>&1 || true
-  rm -rf "$work_dir"
+  if ! cleanup_package_workspace "$project" "$work_dir" "$postgres_image" "$artifact_dir/workspace-cleanup.json"; then status=1; fi
+  if ! cleanup_package_resources "${project}destination" "" "$artifact_dir/destination-cleanup.json"; then status=1; fi
+  if ! cleanup_package_resources "$project" "$image" "$artifact_dir/cleanup.json"; then status=1; fi
   exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 sed "s#context: ../..#context: ${ROOT_DIR}#g" "$PACKAGE_DIR/docker-compose.yml" >"$compose_file"
 cp "$PACKAGE_DIR/config.toml.example" "$work_dir/config.toml"
 cp "$PACKAGE_DIR/bootstrap-admin.json.example" "$work_dir/bootstrap-admin.json"
 cp "$PACKAGE_DIR/revisions-conflict-token-key-ring.json.example" "$work_dir/revisions-conflict-token-key-ring.json"
 cp "$PACKAGE_DIR/postgres-provision.sh" "$work_dir/postgres-provision.sh"
+chmod 0755 "$work_dir/postgres-provision.sh"
+chmod 0644 "$work_dir/config.toml" "$work_dir/bootstrap-admin.json" "$work_dir/revisions-conflict-token-key-ring.json"
 cat >"$work_dir/.env" <<EOF
 CARTULARY_IMAGE=${image}
 CARTULARY_HTTP_PORT=${port}
@@ -112,7 +113,7 @@ EOF
 
 compose build app >/dev/null
 
-container_id="$(docker create "$image")"
+container_id="$(docker create --label "com.docker.compose.project=${project}" "$image")"
 docker export "$container_id" | tar -tf - >"$image_listing"
 docker rm "$container_id" >/dev/null
 container_id=""
@@ -129,9 +130,9 @@ if grep -Eq '(^|/)(node|npm|pnpm|vite)(/|$)|(^|/)node_modules(/|$)|(^|/)apps/web
 fi
 
 docker volume create --label "com.docker.compose.project=${project}" --label "com.docker.compose.volume=legacy-postgres-v16" "$legacy_postgres_volume" >/dev/null
-docker run --rm --entrypoint sh -v "${legacy_postgres_volume}:/var/lib/postgresql" "$postgres_image" -c \
+docker run --rm --label "com.docker.compose.project=${project}" --entrypoint sh -v "${legacy_postgres_volume}:/var/lib/postgresql" "$postgres_image" -c \
   'mkdir -p /var/lib/postgresql/18/docker && printf "16\n" >/var/lib/postgresql/18/docker/PG_VERSION'
-if docker run --rm \
+if docker run --rm --label "com.docker.compose.project=${project}" \
   -e PGDATA=/var/lib/postgresql/18/docker \
   -e POSTGRES_PASSWORD=unused-legacy-fixture \
   -v "${legacy_postgres_volume}:/var/lib/postgresql" \
@@ -243,5 +244,59 @@ untrusted_status="$(curl -sS -o "$work_dir/ws-untrusted.txt" -w '%{http_code}' "
 [[ "$untrusted_status" == "403" ]] || fail "untrusted cookie-authenticated WebSocket Origin returned $untrusted_status, want 403"
 trusted_status="$(curl -sS -o "$work_dir/ws-trusted.txt" -w '%{http_code}' "${ws_common[@]}" -H "Origin: ${public_origin}" "${public_origin}${PUBLIC_ORIGIN_PATH}" || true)"
 [[ "$trusted_status" != "403" ]] || fail "configured WebSocket Origin was rejected with 403"
+
+# Qualify the optional shipped administration setup against the same binaries.
+cp "$PACKAGE_DIR/docker-compose.reference-packs.yml" "$work_dir/reference-packs.yml"
+"${NODE_BIN:-node}" --input-type=module - "$ROOT_DIR" "$work_dir/reference-pack-incoming" <<'EOF'
+import { pathToFileURL } from "node:url";
+const [root, destination] = process.argv.slice(2);
+const { packageFixtures } = await import(pathToFileURL(`${root}/tools/release-evidence/reference-pack-fixtures.mjs`));
+packageFixtures(root, destination);
+EOF
+chmod 0755 "$work_dir/reference-pack-incoming"
+chmod 0644 "$work_dir/reference-pack-incoming/"*.tar
+compose stop app >/dev/null
+cat "$PACKAGE_DIR/reference-pack-administration.toml.example" >>"$work_dir/config.toml"
+compose_overlay=(-f "$work_dir/reference-packs.yml")
+if compose run --rm --no-deps app >"$work_dir/missing-trust.log" 2>&1; then
+  fail "claimed package accepted a missing trust mount"
+fi
+# Some Compose run versions materialize a missing bind as an empty directory
+# despite create_host_path=false. Admission must still fail; remove only that
+# empty test-owned path before the malformed-file case.
+if [[ -d "$work_dir/reference-pack-trust.json" ]]; then
+  rmdir "$work_dir/reference-pack-trust.json"
+fi
+printf '{}\n' >"$work_dir/reference-pack-trust.json"
+chmod 0644 "$work_dir/reference-pack-trust.json"
+if compose run --rm --no-deps app >"$work_dir/invalid-trust.log" 2>&1; then
+  fail "claimed package accepted invalid trust"
+fi
+cp "$work_dir/reference-pack-incoming/trust.json" "$work_dir/reference-pack-trust.json"
+compose up -d --no-deps --force-recreate app >/dev/null
+wait_for_http_status "/readyz" "200" "$ready_body" || fail "claimed package did not become ready"
+if compose run --rm --no-deps reference-pack-operator reference-pack import valid.tar >"$work_dir/untrusted-clock.json"; then
+  fail "operator accepted an untrusted clock"
+fi
+grep -Fq 'clock_untrusted' "$work_dir/untrusted-clock.json" || fail "operator did not report clock rejection"
+compose stop app >/dev/null
+sed 's/clock_trusted = false/clock_trusted = true/' "$work_dir/config.toml" >"$work_dir/clock.toml"
+cat "$work_dir/clock.toml" >"$work_dir/config.toml"
+compose up -d --no-deps --force-recreate app >/dev/null
+wait_for_http_status "/readyz" "200" "$ready_body" || fail "trusted claimed package did not become ready"
+compose run --rm --no-deps reference-pack-operator reference-pack import valid.tar >"$work_dir/import.json"
+compose run --rm --no-deps reference-pack-operator reference-pack import valid.tar >"$work_dir/replay.json"
+"${NODE_BIN:-node}" - "$work_dir/import.json" "$work_dir/replay.json" <<'EOF'
+const fs = require("node:fs");
+const [first, replay] = process.argv.slice(2).map((file) => JSON.parse(fs.readFileSync(file)));
+if (first.schema_id !== "cartulary.reference_pack_operator_result.v1" || first.result !== "succeeded" || replay.result !== "succeeded" || first.container_sha256 !== replay.container_sha256 || first.pack_key !== "enrichment.tor") throw new Error("packaged operator import/replay identity mismatch");
+EOF
+docker image inspect --format '{{.Id}}' "$image" >"$artifact_dir/image-id.txt"
+sha256sum "$work_dir/config.toml" "$PACKAGE_DIR/docker-compose.reference-packs.yml" | sed "s#$work_dir/##;s#$ROOT_DIR/##" >"$artifact_dir/configuration-digests.txt"
+cp "$work_dir/import.json" "$artifact_dir/reference-pack-import.json"
+
+if [[ "$qualification" == reference-pack ]]; then
+  "${NODE_BIN:-node}" "$ROOT_DIR/tools/release-evidence/standup-reference-pack-scenarios.mjs" "$ROOT_DIR" "$work_dir" "$project" "$public_origin" "$artifact_dir"
+fi
 
 echo "standup-package-smoke verified: image shape, compose runtime, migrations, object-store init, embedded assets, readiness, persistent roots, and WebSocket Origin behavior."

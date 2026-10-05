@@ -213,6 +213,30 @@
           "$ref": "#/$defs/sha256"
         }
       }
+    },
+    "binding_digests_v3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "database_sha256",
+        "object_store_sha256",
+        "reference_pack_storage_sha256",
+        "export_outputs_sha256"
+      ],
+      "properties": {
+        "database_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "object_store_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "reference_pack_storage_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "export_outputs_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
     }
   }
 }

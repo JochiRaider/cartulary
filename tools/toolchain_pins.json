@@ -22,5 +22,6 @@
     "sharp": "0.35.4",
     "@axe-core/playwright": "4.13.0",
     "axe-core": "4.13.0"
-  }
+  },
+  "application_base_image": "gcr.io/distroless/base-debian12:nonroot@sha256:7f0c72cd138b442ae0deeb69c08b1acf5525439ba251a49ad93c320a061567e5"
 }

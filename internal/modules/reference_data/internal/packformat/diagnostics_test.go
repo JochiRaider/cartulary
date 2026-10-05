@@ -166,7 +166,8 @@ func testDiagnosticSafety(t *testing.T) {
 	if err != nil || *summary.Issues[0].Details.ExpectedToken != "string" {
 		t.Fatal("caller mutated retained diagnostic")
 	}
-	for _, path := range []string{"/srv/private/secret", "$.attacker_private_value", "$.files[01]", "$.files[-1]", "$.files[9007199254740992]", "$[\"attacker_private_value\"]", "$\n"} {
+	// Fixture-only schema fields must never enlarge the runtime vocabulary.
+	for _, path := range []string{"$.fixture_id", "$.expected_public_error", "$.test_name", "/srv/private/secret", "$.attacker_private_value", "$.files[01]", "$.files[-1]", "$.files[9007199254740992]", "$[\"attacker_private_value\"]", "$\n"} {
 		if _, err := makeIssue(check, Finding{Path: path}); err == nil {
 			t.Fatalf("unsafe path admitted %q", path)
 		}

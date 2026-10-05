@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	RestoreVerificationArtifactSchemaID = "cartulary.restore_verification.v3"
+	RestoreVerificationArtifactSchemaID = "cartulary.restore_verification.v4"
 	VNextBackupMechanismID              = "logical_streaming_backup.v2"
 )
 
@@ -25,6 +25,7 @@ type RestoreVerificationBasis struct {
 	DatabaseBindingSHA256             string `json:"database_binding_sha256"`
 	ObjectStoreBindingSHA256          string `json:"object_store_binding_sha256"`
 	ReferencePackStorageBindingSHA256 string `json:"reference_pack_storage_binding_sha256"`
+	ExportOutputsBindingSHA256        string `json:"export_outputs_binding_sha256"`
 	BackupStorageBindingSHA256        string `json:"backup_storage_binding_sha256"`
 	RecoveryStateCatalogSHA256        string `json:"recovery_state_catalog_sha256"`
 	CodecRegistrySHA256               string `json:"codec_registry_sha256"`
@@ -50,6 +51,7 @@ func (basis RestoreVerificationBasis) Validate() error {
 		"database_binding_sha256":               basis.DatabaseBindingSHA256,
 		"object_store_binding_sha256":           basis.ObjectStoreBindingSHA256,
 		"reference_pack_storage_binding_sha256": basis.ReferencePackStorageBindingSHA256,
+		"export_outputs_binding_sha256":         basis.ExportOutputsBindingSHA256,
 		"backup_storage_binding_sha256":         basis.BackupStorageBindingSHA256,
 		"recovery_state_catalog_sha256":         basis.RecoveryStateCatalogSHA256,
 		"codec_registry_sha256":                 basis.CodecRegistrySHA256,
@@ -90,22 +92,22 @@ func EncodeRestoreVerificationArtifact(artifact RestoreVerificationArtifact) ([]
 	if err := ValidateRestoreVerificationArtifact(artifact); err != nil {
 		return nil, err
 	}
-	return canonicalRestoreVerificationArtifactV2Bytes(artifact), nil
+	return canonicalRestoreVerificationArtifactV4Bytes(artifact), nil
 }
 
 func DecodeRestoreVerificationArtifact(body []byte) (RestoreVerificationArtifact, error) {
 	if err := rejectDuplicateJSONKeys(body); err != nil {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification v2 JSON keys must be unique: %v", ErrInvalidBackupArtifact, err)
+		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification v4 JSON keys must be unique: %v", ErrInvalidBackupArtifact, err)
 	}
 	var artifact RestoreVerificationArtifact
 	if err := decodeStrictJSON(body, &artifact); err != nil {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: decode restore verification v2: %v", ErrInvalidBackupArtifact, err)
+		return RestoreVerificationArtifact{}, fmt.Errorf("%w: decode restore verification v4: %v", ErrInvalidBackupArtifact, err)
 	}
 	if err := ValidateRestoreVerificationArtifact(artifact); err != nil {
 		return RestoreVerificationArtifact{}, err
 	}
-	if !bytes.Equal(body, canonicalRestoreVerificationArtifactV2Bytes(artifact)) {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification v2 is not canonical JSON", ErrInvalidBackupArtifact)
+	if !bytes.Equal(body, canonicalRestoreVerificationArtifactV4Bytes(artifact)) {
+		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification v4 is not canonical JSON", ErrInvalidBackupArtifact)
 	}
 	return artifact, nil
 }
@@ -180,7 +182,7 @@ func ValidateRestoreVerificationArtifact(artifact RestoreVerificationArtifact) e
 	return nil
 }
 
-func canonicalRestoreVerificationArtifactV2Bytes(artifact RestoreVerificationArtifact) []byte {
+func canonicalRestoreVerificationArtifactV4Bytes(artifact RestoreVerificationArtifact) []byte {
 	workbookProbe := map[string]any{
 		"status": artifact.WorkbookProbe.Status,
 	}
@@ -201,6 +203,7 @@ func canonicalRestoreVerificationArtifactV2Bytes(artifact RestoreVerificationArt
 			"database_binding_sha256":               artifact.VerificationBasis.DatabaseBindingSHA256,
 			"object_store_binding_sha256":           artifact.VerificationBasis.ObjectStoreBindingSHA256,
 			"reference_pack_storage_binding_sha256": artifact.VerificationBasis.ReferencePackStorageBindingSHA256,
+			"export_outputs_binding_sha256":         artifact.VerificationBasis.ExportOutputsBindingSHA256,
 			"backup_storage_binding_sha256":         artifact.VerificationBasis.BackupStorageBindingSHA256,
 			"recovery_state_catalog_sha256":         artifact.VerificationBasis.RecoveryStateCatalogSHA256,
 			"codec_registry_sha256":                 artifact.VerificationBasis.CodecRegistrySHA256,

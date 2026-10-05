@@ -107,6 +107,7 @@ func CurrentRecoveryStateCatalog() (*recoverystate.Catalog, error) {
 func CurrentVNextObjectInventoryCatalog(
 	source recovery.VNextObjectSource,
 	referencePacks recovery.VNextObjectSource,
+	exportOutputs recovery.VNextObjectSource,
 ) (*recovery.VNextObjectInventoryCatalog, error) {
 	stateCatalog, err := CurrentRecoveryStateCatalog()
 	if err != nil {
@@ -117,7 +118,7 @@ func CurrentVNextObjectInventoryCatalog(
 		evidence.VNextRecoveryObjectInventory(source),
 		imports.VNextRecoveryObjectInventory(),
 		extensionsrecovery.VNextRecoveryObjectInventory(source),
-		incidentbundles.VNextRecoveryObjectInventory(source),
+		incidentbundles.VNextRecoveryObjectInventory(exportOutputs),
 		referencedatarecovery.VNextRecoveryObjectInventory(referencePacks),
 		reporting.VNextRecoveryObjectInventory(source),
 	)

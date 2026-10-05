@@ -1604,6 +1604,22 @@
         "internal/app/server/server_profile_harness.go"
       ],
       "production_only": true
+    },
+    {
+      "id": "production-no-reference-pack-fixtures",
+      "match_kind": "exact",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/gen/contractreferencepackfixtures",
+        "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+      ],
+      "scan_paths": [
+        "cmd/**",
+        "internal/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/indicators/testsupport/**"
+      ],
+      "production_only": true
     }
   ],
   "go_import_allowlists": [

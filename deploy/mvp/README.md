@@ -157,6 +157,47 @@ to PostgreSQL 16 or downgrade it in place. Supported recovery thereafter is a
 Cartulary logical Recovery artifact restored into a pristine admitted 18.6
 target.
 
+## Optional Reference Pack Administration
+
+Base registries load without claiming administration. To enable administration,
+append `reference-pack-administration.toml.example` to `config.toml` once and
+supply `reference-pack-trust.json` using the
+`cartulary.reference_pack_trust_bootstrap.v1` contract. Install only roots whose
+repository identity and signing keys you have independently approved. The
+package ships no trust roots or signing keys. Set `clock_trusted = true` only
+after establishing trusted UTC; the example deliberately leaves it false.
+
+Use `docker-compose.reference-packs.yml` together with the base Compose file
+for every operation on this deployment. Create `reference-pack-incoming` before
+running the operator. Trust, config, and incoming files must be regular files,
+readable by container UID 65532; incoming directories must be traversable by
+that UID. Grant only the required read access. Bind mounts reject absent host
+paths; trust and incoming bundles are read-only inside the containers. Published
+content and temporary work use the same named volumes as the server.
+
+```sh
+docker compose --env-file deploy/mvp/.env \
+  -f deploy/mvp/docker-compose.yml \
+  -f deploy/mvp/docker-compose.reference-packs.yml up -d app
+
+docker compose --env-file deploy/mvp/.env \
+  -f deploy/mvp/docker-compose.yml \
+  -f deploy/mvp/docker-compose.reference-packs.yml run --rm --no-deps \
+  reference-pack-operator reference-pack import approved-pack.zip
+```
+
+The server must be running and ready: its durable Job worker verifies admitted
+imports. The operator accepts a confined bundle filename from the incoming
+mount, observes that Job, and returns `cartulary.reference_pack_operator_result.v1`.
+Import does not activate a pack. An authorized administrator must explicitly
+activate a verified version through the existing administration interface.
+
+For backup/restore wrapper scripts, set `CARTULARY_MVP_COMPOSE_OVERLAY` to the
+absolute overlay path in the deployment environment so app restart preserves
+these mounts. Stop and restart with the same Compose file pair. Retain the
+configured roots, trust history, and backup artifacts together; removing a
+claim or changing bootstrap roots is not a conversion of retained state.
+
 ## Operational Recovery
 
 Backup creation and restore verification run through `cartulary-operator` inside the package image using the Core logical commands. They require `CARTULARY_RECOVERY_MASTER_KEY`; recovery CLI invocation is deployment-local operator behavior and is not authorized through a runtime `deployment_admin`.
@@ -201,11 +242,14 @@ deploy/mvp/scripts/restore-verify-due.sh > deploy/mvp/runtime/restore-verify-due
 The restore-verification script creates or confirms the target database,
 initializes the target object-store bucket, migrates the target database, and
 then writes a fresh target-generation proof plus a bound
-`cartulary.restore_target_marker.v2` under the target backup root before it
+`cartulary.restore_target_marker.v4` under the target backup root before it
 runs `cartulary-operator restore-verify due`. The target config, target root,
 target database, and target bucket must remain isolated from production state.
-Unsafe, expired, wrongly bound, or unmarked targets are rejected before
-mutation.
+The v4 marker binds the database, object store, Reference Pack storage, and export-output storage.
+For a customized target reference root, set
+`CARTULARY_RESTORE_VERIFY_REFERENCE_PACK_BINDING_IDENTITY` to
+`filesystem_root:` followed by its canonical container path. Unsafe, expired,
+wrongly bound, or unmarked targets are rejected before mutation.
 
 If wrapper scripts must join an existing non-default Compose project, set `CARTULARY_MVP_COMPOSE_PROJECT_NAME` before invoking them.
 
@@ -293,3 +337,5 @@ It builds and runs the MVP Compose package, creates a backup, inspects latest me
   are isolated, and both `restore-target-marker.json` and
   `restore-target-generation` are present under the target backup root.
 - If restore verification reports a failed item, retain the JSON output and inspect the target `postgres`, object-store, migration, and operator logs before deleting target state.
+
+Restore verification markers bind the database, object store, Reference Pack root, and export-output root. Reissue older markers with the current wrapper; previous verification bindings require a fresh verification. A custom export root uses `CARTULARY_RESTORE_VERIFY_EXPORT_BINDING_IDENTITY` with its `filesystem_root:` identity. Recovery captures exported Incident Bundles from the configured export root and restores them into the isolated target export root.

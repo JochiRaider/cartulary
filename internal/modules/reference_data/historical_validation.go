@@ -253,7 +253,11 @@ func validateRootHistory(ctx context.Context, db postgres.DB) error {
 			}
 		} else {
 			expected, err := canonicaljson.Marshal(transition)
-			if err != nil || !bytes.Equal(evidence, expected) {
+			// transition_evidence is JSONB: PostgreSQL renders equivalent JSON
+			// with its own whitespace and key order. Authenticate its value,
+			// while keeping exact-byte checks for signed root material above.
+			retained, retainedErr := canonicaljson.Canonicalize(evidence)
+			if err != nil || retainedErr != nil || !bytes.Equal(retained, expected) {
 				return errHistoricalIntegrity
 			}
 		}

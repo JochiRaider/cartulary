@@ -21,7 +21,7 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 	expected := TargetBindingDigests{
 		DatabaseSHA256:             strings.Repeat("1", 64),
 		ObjectStoreSHA256:          strings.Repeat("2", 64),
-		ReferencePackStorageSHA256: strings.Repeat("3", 64),
+		ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64),
 	}
 	validMarker := RestoreTargetMarker{
 		SchemaID:           RestoreTargetMarkerSchemaID,
@@ -69,7 +69,7 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 func TestRestoreTargetMarkerAdmissionReturnsValidatedGeneration_Unit(t *testing.T) {
 	now := time.Date(2026, 7, 29, 17, 30, 0, 0, time.UTC)
 	generationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
-	expected := TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64)}
+	expected := TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)}
 	material := markerMaterialForTest(t, RestoreTargetMarker{
 		SchemaID: RestoreTargetMarkerSchemaID, Purpose: RestoreTargetPurpose,
 		TargetGenerationID: generationID.String(), BindingDigests: expected,
@@ -142,13 +142,13 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 	if _, err := DecodeRecoveryJournalPayload(unknown); err == nil {
 		t.Fatal("journal decoder admitted an unknown completion member")
 	}
-	current := recoveryJournalCompletionPayloadV4{
+	current := recoveryJournalCompletionPayloadV5{
 		recoveryJournalCompletionPayloadV2: recoveryJournalCompletionPayloadV2{
 			SchemaID: RecoveryJournalPayloadSchemaID, RecordKind: "completion", OperationID: operationID,
 			Operation: OperationRestoreLatest, StartedAt: consistencyPoint, CompletedAt: consistencyPoint.Add(time.Minute),
 			Result: ResultSucceeded, BackupSetID: &backupSetID, ConsistencyPointAt: &consistencyPoint, ArtifactCounts: []ArtifactCount{},
 		}, GraphProjectionCompletion: completion,
-		TargetBindings: &TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64)},
+		TargetBindings: &TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)},
 	}
 	encoded, err := json.Marshal(current)
 	if err != nil {
@@ -156,6 +156,12 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 	}
 	if _, err := DecodeRecoveryJournalPayload(encoded); err != nil {
 		t.Fatal("valid current journal", err)
+	}
+	historical := bytes.Replace(encoded, []byte(RecoveryJournalPayloadSchemaID), []byte(RecoveryJournalPayloadV4SchemaID), 1)
+	historical = bytes.Replace(historical, []byte(`,"export_outputs_sha256":"`+strings.Repeat("4", 64)+`"`), nil, 1)
+	decodedV4, err := DecodeRecoveryJournalPayload(historical)
+	if err != nil || decodedV4.GraphProjectionCompletion == nil || decodedV4.TargetBindings != nil {
+		t.Fatal("historical v4 must remain readable without authorizing current replay", err)
 	}
 	var root map[string]any
 	if err := json.Unmarshal(encoded, &root); err != nil {
@@ -232,11 +238,16 @@ func TestRestoreTargetBindingDigestsExcludeCredentials_Unit(t *testing.T) {
 	if TargetBindingDigestsFor(base) == TargetBindingDigestsFor(differentTarget) {
 		t.Fatal("Reference Pack root absent from restore target identity")
 	}
+	differentTarget = base
+	differentTarget.ExportOutputs = RootBinding{BindingKind: "filesystem_root", Path: "/different/exports"}
+	if TargetBindingDigestsFor(base) == TargetBindingDigestsFor(differentTarget) {
+		t.Fatal("export root absent from target identity")
+	}
 	factory := func() (recovery.ReferencePackStorage, error) { return nil, nil }
-	source := Deployment{PostgresSettings: postgres.Settings{DSN: "source"}, ObjectSettings: objectstore.Settings{BindingKind: "filesystem_root", RootPath: "/source/objects"}, OpenReferencePacks: factory,
-		ReferencePackStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/packs"}, ObjectStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/objects"}, BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/backups"}}
-	target := Deployment{PostgresSettings: postgres.Settings{DSN: "target"}, ObjectSettings: objectstore.Settings{BindingKind: "filesystem_root", RootPath: "/target/objects"}, OpenReferencePacks: factory,
-		ReferencePackStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/packs"}, ObjectStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/objects"}, BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/backups"}}
+	source := Deployment{PostgresSettings: postgres.Settings{DSN: "source"}, ObjectSettings: objectstore.Settings{BindingKind: "filesystem_root", RootPath: "/source/objects"}, OpenReferencePacks: factory, OpenExportOutputs: func() (recovery.RootObjectStorage, error) { return nil, nil },
+		ReferencePackStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/packs"}, ExportOutputs: RootBinding{BindingKind: "filesystem_root", Path: "/source/exports"}, ObjectStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/objects"}, BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/backups"}}
+	target := Deployment{PostgresSettings: postgres.Settings{DSN: "target"}, ObjectSettings: objectstore.Settings{BindingKind: "filesystem_root", RootPath: "/target/objects"}, OpenReferencePacks: factory, OpenExportOutputs: func() (recovery.RootObjectStorage, error) { return nil, nil },
+		ReferencePackStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/packs"}, ExportOutputs: RootBinding{BindingKind: "filesystem_root", Path: "/target/exports"}, ObjectStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/objects"}, BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/backups"}}
 	if err := requireDistinctRestoreTarget("/source.toml", "/target.toml", source, target); err != nil {
 		t.Fatal(err)
 	}
@@ -245,6 +256,13 @@ func TestRestoreTargetBindingDigestsExcludeCredentials_Unit(t *testing.T) {
 		changed.ReferencePackStorage.Path = path
 		if requireDistinctRestoreTarget("/source.toml", "/target.toml", source, changed) == nil {
 			t.Fatalf("overlapping pack root admitted: %s", path)
+		}
+	}
+	for _, path := range []string{"/source/exports", "/source/packs", "/source", "/source/objects", "/source/backups/nested", "/target/packs/nested", "/target/objects", "/target/backups"} {
+		changed := target
+		changed.ExportOutputs.Path = path
+		if requireDistinctRestoreTarget("/source.toml", "/target.toml", source, changed) == nil {
+			t.Fatalf("overlapping export root admitted: %s", path)
 		}
 	}
 	changed := target

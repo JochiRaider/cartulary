@@ -62,28 +62,25 @@ compose() {
   docker compose --project-name "$project" --env-file "$work_dir/.env" -f "$compose_file" "$@"
 }
 
-dump_compose_diagnostics() {
-  compose ps -a >&2 || true
-  compose logs --no-color --tail 200 >&2 || true
-}
-
+# shellcheck source=tools/release-evidence/package-smoke-cleanup.sh
+source "$ROOT_DIR/tools/release-evidence/package-smoke-cleanup.sh"
 cleanup() {
   local status=$?
+  trap - EXIT INT TERM
   set +e
-  if [[ "$status" -ne 0 ]]; then
-    dump_compose_diagnostics
-  fi
-  compose down -v --remove-orphans >/dev/null 2>&1 || true
-  docker rmi "$image" >/dev/null 2>&1 || true
-  cp -f "$capture_json" "$artifact_dir/backup-capture.json" 2>/dev/null || true
-  cp -f "$latest_json" "$artifact_dir/latest-backup.json" 2>/dev/null || true
-  cp -f "$restore_verify_json" "$artifact_dir/restore-verify-due.json" 2>/dev/null || true
-  cp -f "$route_json" "$artifact_dir/public-route-absence.json" 2>/dev/null || true
-  cp -f "$summary_json" "$artifact_dir/standup-operational-recovery-summary.json" 2>/dev/null || true
-  rm -rf "$work_dir"
+  local artifact
+  for artifact in "$capture_json" "$latest_json" "$restore_verify_json" "$route_json" "$summary_json"; do
+    if [[ -f "$artifact" ]] && ! cp "$artifact" "$artifact_dir/"; then status=1; fi
+  done
+  local helper_image
+  helper_image="$(sed -n 's/^    image: \(docker.io\/library\/postgres:.*\)$/\1/p' "$PACKAGE_DIR/docker-compose.yml")"
+  if [[ -z "$helper_image" ]] || ! cleanup_package_workspace "$project" "$work_dir" "$helper_image" "$artifact_dir/workspace-cleanup.json"; then status=1; fi
+  if ! cleanup_package_resources "$project" "$image" "$artifact_dir/cleanup.json"; then status=1; fi
   exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 sed "s#context: ../..#context: ${ROOT_DIR}#g" "$PACKAGE_DIR/docker-compose.yml" >"$compose_file"
 cp "$PACKAGE_DIR/config.toml.example" "$work_dir/config.toml"

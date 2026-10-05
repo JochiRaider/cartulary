@@ -21,7 +21,7 @@ type contentFixture struct {
 
 func contentFixtures(t *testing.T) []contentFixture {
 	t.Helper()
-	raw, err := os.ReadFile("../../../../../contracts/reference-packs/fixtures/profiles.v1.json")
+	raw, err := os.ReadFile("../../../../../contracts/reference-pack-fixtures/fixtures/profiles.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -33,7 +33,7 @@ func TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration(t 
 	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "reference-catalog-incident", "incident_key": "REFERENCE-CATALOG", "title": "Portable reference history"})
 	id := incident["incident_id"].(string)
 	container := exportBundleBytes(t, source, sourceAdmin, id, "reference-catalog-export")
-	fixture, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-references.v1.json")
+	fixture, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-references.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

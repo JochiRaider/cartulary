@@ -14,7 +14,7 @@ import (
 func runDependencyManifest(t *testing.T, input []byte, expected map[string]any) {
 	t.Helper()
 	value, err := canonicaljson.DecodeStrict(input)
-	if err != nil || !compileProjection("dependency_fixture.v1.schema.json").matches(value) {
+	if err != nil || !compileFixtureProjection("dependency_fixture.v1.schema.json").matches(value) {
 		t.Fatal("invalid dependency fixture", err)
 	}
 	var fixture struct {

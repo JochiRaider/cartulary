@@ -12,7 +12,7 @@ schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 
 This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.[^7]
 
-The document remains `status: draft` until every promotion condition in Table 1-A is adopted by its named owner. A draft implementation may use this document for development, but it must not claim Reference Pack Extension Profile conformance while any required promotion condition remains open. Pre-production implementation acceptance is distinct from that promotion: it requires the behavioral, projection and executable evidence in §32, without a second implementation or an independent recreation/interchangeability report. This distinction reflects the project owner's explicit pre-production scope decision on 2026-10-04.
+The document remains `status: draft` until the coordinated owner requirements in Table 1-A are satisfied through the existing document-status process. A draft implementation may use this document for development, but it must not claim Reference Pack Extension Profile conformance while any required promotion condition remains open. Pre-production implementation acceptance is distinct from that promotion: it requires the behavioral, projection and executable evidence in §32, without a second implementation or an independent recreation/interchangeability report. This distinction reflects the project owner's explicit pre-production scope decision on 2026-10-04.
 
 Contract major 2 replaces the adopted Reference Pack administration contract. The canonical pack, content-profile, and algorithm identifiers introduced here have never been adopted and retain their `.v1` identifiers for first adoption. Application compatibility majors and the `/api/v1` route namespace are separate contracts and are not incremented by this document. Retired pack bytes are rejected; no compatibility reader or dual-write format is defined. Incident portability's changed reference representation requires incident-bundle format 5. A migration MUST reject incompatible retained state before mutation rather than invent trust, silently delete incident data, or rewrite indicator identities.
 
@@ -64,7 +64,7 @@ External import, activation, disablement, refresh, removal, trust-repository pro
 **RP-REQ-005**
 The Reference Pack Extension Profile MUST remain a deployment-scoped administrative subsystem. Reference packs MUST remain incident-external state. A reference pack MUST NOT become an incident record, record envelope, saved view, `view_schema`, workbook tab, extension workspace, or incident-specific ACL object.
 
-**Table 1-A. Promotion conditions**
+**Table 1-A. Coordinated owner requirements**
 
 | Gate ID | Owner | Required adopted state |
 | --- | --- | --- |
@@ -79,7 +79,7 @@ The Reference Pack Extension Profile MUST remain a deployment-scoped administrat
 | `RP-GATE-009` | `domain.md` | The concepts in Table 5-A are added without redefining this NLSpec's behavior. |
 | `RP-GATE-010` | Security authority | The security authority confirms that the Ed25519-only v1 profile is permitted for the target compliance posture. |
 | `RP-GATE-011` | Licensing authority | Every project-distributed external-data pack has an approved redistribution classification and required notices. |
-| `RP-GATE-012` | Corpus maintenance | Every `RP-REQ-*` maps to at least one `RP-AC-*` or canonical fixture, and no adopted normative placeholder remains. |
+| `RP-GATE-012` | Corpus maintenance | Required behavioral families and every supported profile have executed fixture coverage under §29; ordinary owner review resolves normative placeholders and contradictions. Counts and identifier mappings do not establish completeness. |
 | `RP-GATE-013` | Extensions Subsystem NLSpec | Profile major 2, configuration v2 and lifecycle Jobs v2 are adopted with shared transaction/deadline finalization and empty capability arrays. |
 | `RP-GATE-014` | Core 01 incident portability owner | Incident-bundle format 5, exact references, destination trust, inactive import, required-member failure and licensing rules are adopted together. |
 | `RP-GATE-015` | Core 01/Core 04 recovery owners | Current recovery contributions retain content, envelopes, trust history, immutable provenance and pins; historical-time verification and required-loss readiness are adopted. |
@@ -182,7 +182,7 @@ The exact v1 pack contract identifier MUST be `cartulary.reference_pack_contract
 Editorial corrections that do not change observable behavior MAY increment only the patch component of `document_version`. Additive content-profile registrations MAY increment the minor component only when existing canonical bytes, defaults, errors, and consumers remain unchanged.
 
 **RP-REQ-020**
-The dependencies in Table 4-B are exact. A newer upstream version MUST NOT be substituted without revising this NLSpec or the named owner artifact. Before promotion to `adopted/current`, every Core and adopted-subsystem row MUST name the exact adopted repository revision identifier or content digest that includes the companion amendments in Table 28-A. The current section locators are draft discovery locators and do not satisfy adoption by themselves.
+The dependencies in Table 4-B identify the imported owners and external contract versions. A newer external contract version MUST NOT be substituted without revising this NLSpec or its named owner. Coordinated owner amendments are reviewed and adopted through the existing repository document-status process. Repository history records the reviewed changes; companion-document hashes, repeated revision bindings and separate signoff dossiers are not required. Tests, generators, runtime metadata and release evidence MUST NOT read, stat or hash Markdown files.
 
 **Table 4-B. Normative dependency registry**
 
@@ -195,9 +195,9 @@ The dependencies in Table 4-B are exact. A newer upstream version MUST NOT be su
 | Core 04 | Authorization, roots, security, limits, conformance | Current adopted Core 04, §§2, 4.1, 9.4, and 12.3. |
 | Reporting Subsystem NLSpec | Pack-sensitive reporting consumer boundary | Reporting 1.4.0 companion amendment after `RP-GATE-006`. |
 | Report Composition Subsystem NLSpec | Exact admitted preview identity and time | Report Composition 1.3.0 companion amendment after `RP-GATE-006`. |
-| Extensions Subsystem NLSpec | Profile/configuration/Job version selection; transaction and deadline protocol | Companion revision after `RP-GATE-013`; exact adoption revision remains required before promotion. |
-| Core 01 incident portability owner | Format 5 references, embedding and destination reuse | §12.3 companion revision after `RP-GATE-014`; exact adoption revision remains required before promotion. |
-| Core 01/Core 04 recovery owners | Current recovery catalog and historical integrity | Backup/restore companion revisions after `RP-GATE-015`; exact adoption revisions remain required before promotion. |
+| Extensions Subsystem NLSpec | Profile/configuration/Job version selection; transaction and deadline protocol | Coordinated companion amendment under `RP-GATE-013`. |
+| Core 01 incident portability owner | Format 5 references, embedding and destination reuse | Coordinated §12.3 companion amendment under `RP-GATE-014`. |
+| Core 01/Core 04 recovery owners | Current recovery catalog and historical integrity | Coordinated backup/restore companion amendments under `RP-GATE-015`. |
 | OpenTelemetry NLSpec | Telemetry mechanics | Current adopted OpenTelemetry NLSpec after `RP-GATE-007`. |
 | Testing Harness NLSpec | Fixture and generated-artifact mechanics | Current adopted Testing Harness NLSpec after `RP-GATE-008`. |
 | JSON Schema | Structural schema dialect | Draft 2020-12, published 16 June 2022.[^2] |
@@ -205,24 +205,6 @@ The dependencies in Table 4-B are exact. A newer upstream version MUST NOT be su
 | TUF | Offline trust and metadata workflow | TUF Specification 1.0.35, last modified 15 July 2026.[^4] |
 | SPDX | License expression model | SPDX Specification 3.0.1 and SPDX License List 3.28.0.[^5] |
 
-
-**Table 4-C. Exact pre-production companion content revisions**
-
-These SHA-256 values bind the companion file bytes reviewed for the 2026-10-04 cutover and renewed in the 2026-10-05 S08 candidate review. They are human-maintained revision references, not executable harness inputs and not assertions of production adoption. The corresponding authored machine projections are named in the owner inventory. A later companion edit requires an explicit renewed projection review and revision binding; tests and generators MUST NOT read or hash these Markdown files.
-
-| Companion owner | Exact content SHA-256 |
-| --- | --- |
-| Core 00 | `124d16f733d4b206a2c09be660239befaeaf9f328f02ca99ea6c004570251ec6` |
-| Core 01, including portability and recovery | `3a9e1e58e28b3a4456aedeb0af218e6e652adea438d83b3142a26a17779fdb12` |
-| Core 02 | `c00fcadf93d9df8ca13cecd4550da36c8fc2f001c33f18c6baa98f5f0ea44a11` |
-| Core 03 | `9b063d7558d5842adeb3a05fb6bdfab1edd4a7555c5c1d6a0f9faf55d468ee81` |
-| Core 04, including recovery | `6fec6f3f6c8218615adafaadfa83b636463387743188af40732879f02bacdb84` |
-| Reporting 1.4.0 | `cd58af1d88002a317f600a729c4ef85dfa3e71e42d00dbe5c98fb9e197f09c24` |
-| Report Composition 1.3.0 | `0de47589948852466a928f62ba28eacdb7bc890f21f1a82eba9614c5213607dd` |
-| Extensions 0.12.0 | `30fa76dc8dbbdf8ec6c8a0b7f4c91f0a6323ba2802115b2e2acd1f0daeeceb86` |
-| OpenTelemetry | `fdf8f52131f9b21abcd8562f8a16f2e9d67e01af665d52c54791071a53ec43bf` |
-| Testing Harness | `a25585590383d0e521422d4b41a34fc9f7e2d1db608daf9802ae427c4d57f5a7` |
-| Domain vocabulary | `5bd11e8c5d2aaf63f6cb1f2cb0609ebef59d53d59f35cc638c56710822c51060` |
 
 **RP-REQ-021**
 An external dependency supplies only the interface imported in Table 4-B. This NLSpec MUST NOT import an upstream implementation library, repository layout, programming language, or network protocol implicitly.
@@ -2705,29 +2687,7 @@ It MUST display content profile, source version, source-as-of date, logical dige
 # 28. Core companion amendments and adoption status
 
 **RP-REQ-255**
-The companion amendments in Table 28-A are normative adoption dependencies. This NLSpec MUST remain draft while any row is open.
-
-**Table 28-A. Required owner amendments**
-
-| Owner artifact | Required amendment |
-| --- | --- |
-| Core 00 | Adopt this NLSpec for its bounded Base and Reference Pack scopes; update the owner matrix and claim dependency. |
-| Core 01 §11 | Distinguish packaged Base registries, imported replacement behavior, safety fallback, no separate re-enable action, exact refresh behavior, and immutable pack sets. |
-| Core 01 §12 | Bind snapshots, releases, portability, backup, and restore to exact pack sets and logical digests. |
-| Core 01 §17.4 | Add removal, resource fields, expanded error reasons, and this NLSpec's semantic bindings. |
-| Core 02 §11 | Remove mutable local overrides; import content-profile schemas and stable algorithm IDs. |
-| Core 02 §14.1 | Adopt logical persistence minima in §24. |
-| Core 04 §4.1 | Adopt mandatory signed trust, no-egress, and hostile-content rules. |
-| Core 04 §9.4 | Map Reference Pack conformance to §31. |
-| Core 04 §12.3 | Add trust-bootstrap path, `max_container_bytes`, and verification timeout; retain the imported archive-limit domains in §26. |
-| Reporting Subsystem NLSpec | Consume exact snapshot pack set and fail on missing pinned packs. |
-| Report Composition Subsystem NLSpec | Supply the exact preview-attempt identity and admission instant; never invent a release identity for preview rendering. |
-| Extensions Subsystem NLSpec | Adopt profile major 2 and changed configuration/Job contracts, preserve empty capability arrays, and share the existing commit/deadline protocol. |
-| Core incident portability owner | Adopt format 5 exact references and inactive destination-trusted reuse/embedding with required-member and redistribution rules. |
-| Core recovery owners | Adopt the current contribution catalog, retained successful envelopes and trust history, historical-time freshness and required-content readiness. |
-| OpenTelemetry NLSpec | Adopt operation and attribute registry. |
-| Testing Harness NLSpec | Adopt schema generation, fixture execution, and drift/accounting obligations. |
-| `domain.md` | Add vocabulary from Table 5-A. |
+The coordinated owner requirements in Table 1-A MUST be satisfied before this NLSpec is adopted through the existing document-status process. This section adds no second gate ledger or recurring approval record. Core owns recognition, public routes and errors, source persistence, security, configuration, portability and recovery; participating subsystem owners adopt their named contracts together. Implementation verification does not itself establish adoption.
 
 # 29. Conformance fixtures and harness obligations
 
@@ -2800,14 +2760,15 @@ The required fixture families are exhaustive:
 | `no_egress` | Network access unavailable during every operation. |
 | `licensing` | Valid SPDX, invalid expression, missing LicenseRef notice, embedding restriction. |
 | `source_profile` | Stable ID and digest, byte change, output-affecting ID change, unknown runtime pair, and canonical producer fixtures. |
-| `spec_traceability` | Every contiguous requirement range in Table 31-B maps to a live criterion and fixture family where required. |
 | `telemetry_privacy` | No forbidden data leakage. |
 
 **RP-REQ-258**
 Every Table 13-A content profile MUST have at least one canonical valid fixture, one malformed-structure fixture, and one semantic-error fixture. The three packaged built-in registry fixtures MUST be byte-identical release inputs and MUST publish their exact digests.
 
-**RP-REQ-259**
-The harness MUST verify the exhaustive range mapping in Table 31-B against the live requirement and criterion registries and MUST report `unmapped=0`, `unknown_requirement=0`, and `unknown_acceptance_criterion=0`. Research reports, implementation guides, screenshots, or manual demonstrations MUST NOT substitute for canonical fixture evidence.
+Research reports, implementation guides, screenshots, manual demonstrations and fixture-routing mappings do not substitute for executed canonical fixture evidence. Every discovered fixture MUST have an expectation runner or a participating-owner execution binding; all required families and all three case classes for every supported profile MUST be covered. Fixture count totals do not establish completeness.
+
+**RP-REQ-259 — retired**
+The accounting-only requirement-range projection is removed. This identifier is reserved and MUST NOT be reassigned.
 
 **RP-REQ-260**
 Reference Pack performance measurements are engineering information unless Core 05 claim-publication requirements are separately satisfied. This NLSpec creates no timed public claim.
@@ -2902,7 +2863,7 @@ A conforming implementation and an adopted document set MUST satisfy every crite
 | `RP-AC-046` | Every fixed and configurable limit has equality and one-over guard evidence. When equality is reachable under all other constraints, a complete accepted fixture reaches it. Otherwise a recorded constraint argument explains unreachability and an isolated guard fixture verifies the counter without widening production limits. |
 | `RP-AC-047` | Every distributed pack carries valid license, source, builder, immutable source-profile ID and digest, transformation, and notice provenance. |
 | `RP-AC-048` | Logs, telemetry, job summaries, issues, and audit contain no payload values, private keys, raw signatures, secrets, uncontrolled paths, or incident data. |
-| `RP-AC-049` | Every `RP-REQ-*` maps to at least one acceptance criterion or canonical fixture with `unmapped=0`. |
+| `RP-AC-049` | Retired accounting-only criterion; identifier reserved and not reassigned. |
 | `RP-AC-050` | No current normative behavior is defined only in a guide, appendix, generated artifact, research report, or implementation-local convention. |
 | `RP-AC-051` | Every attributable event creates the exact closed append-only attestation; pre-attribution rejection creates none. Operation replay reuses its original attestation and preserves complete authorized signer sets. |
 | `RP-AC-052` | Every required administrative audit event is emitted with its initiating actor and operation identity; replay creates no duplicate semantic event. |
@@ -2912,53 +2873,12 @@ A conforming implementation and an adopted document set MUST satisfy every crite
 Count-ceiling reachability under the current closed payload schemas is constrained by the 268435456-byte per-file ceiling. Every entry requires at least 270 JSON bytes, every framework object at least 277, and every relationship at least 246, before its required NDJSON LF. Consequently 2000000 entries require at least 542000000 bytes, 2000000 objects at least 556000000 bytes, and 5000000 relationships at least 1235000000 bytes. Each profile uses one corresponding payload file, so no complete admissible container can reach these count ceilings. Acceptance retains isolated equality/one-over counter tests and an executable conservative lower-bound proof over the typed row schemas. Schema expansion that makes equality reachable requires a complete accepted fixture; it does not justify raising file limits.
 
 
-**Table 31-B. Exhaustive requirement-to-acceptance mapping**
-
-Every integer requirement ID in each inclusive range maps to every listed acceptance criterion. No range overlaps another range, and the ranges cover `RP-REQ-001` through `RP-REQ-264` without omission.
-
-| Requirement range | Acceptance criteria |
-| --- | --- |
-| `RP-REQ-001..005` | `RP-AC-001`, `RP-AC-050` |
-| `RP-REQ-006..013` | `RP-AC-001`, `RP-AC-049`, `RP-AC-050` |
-| `RP-REQ-014..016` | `RP-AC-037`, `RP-AC-038`, `RP-AC-044` |
-| `RP-REQ-017..021` | `RP-AC-002`, `RP-AC-049` |
-| `RP-REQ-022..028` | `RP-AC-015`, `RP-AC-016` |
-| `RP-REQ-029..038` | `RP-AC-009` |
-| `RP-REQ-039..047` | `RP-AC-006`, `RP-AC-007`, `RP-AC-008`, `RP-AC-011`, `RP-AC-046` |
-| `RP-REQ-048..052` | `RP-AC-009`, `RP-AC-010`, `RP-AC-011`, `RP-AC-047` |
-| `RP-REQ-053..057` | `RP-AC-006`, `RP-AC-010` |
-| `RP-REQ-058..076` | `RP-AC-012`, `RP-AC-013`, `RP-AC-014` |
-| `RP-REQ-077..088` | `RP-AC-003`, `RP-AC-004`, `RP-AC-005`, `RP-AC-015`, `RP-AC-016`, `RP-AC-024` |
-| `RP-REQ-089..098` | `RP-AC-007`, `RP-AC-008`, `RP-AC-009`, `RP-AC-010`, `RP-AC-011`, `RP-AC-012`, `RP-AC-013`, `RP-AC-045`, `RP-AC-046`, `RP-AC-048` |
-| `RP-REQ-099..111` | `RP-AC-017`, `RP-AC-018` |
-| `RP-REQ-112..131` | `RP-AC-019`, `RP-AC-020`, `RP-AC-021`, `RP-AC-036` |
-| `RP-REQ-132..137` | `RP-AC-017`, `RP-AC-037` |
-| `RP-REQ-138..148` | `RP-AC-017`, `RP-AC-037` |
-| `RP-REQ-149..155` | `RP-AC-006`, `RP-AC-047` |
-| `RP-REQ-156..162` | `RP-AC-020`, `RP-AC-021`, `RP-AC-022` |
-| `RP-REQ-163..173` | `RP-AC-023`, `RP-AC-024`, `RP-AC-025`, `RP-AC-026`, `RP-AC-027`, `RP-AC-039`, `RP-AC-040` |
-| `RP-REQ-174..203` | `RP-AC-015`, `RP-AC-016`, `RP-AC-023`, `RP-AC-024`, `RP-AC-027`, `RP-AC-028`, `RP-AC-029`, `RP-AC-030`, `RP-AC-031`, `RP-AC-032`, `RP-AC-033`, `RP-AC-044`, `RP-AC-045` |
-| `RP-REQ-204..213` | `RP-AC-034`, `RP-AC-035`, `RP-AC-036`, `RP-AC-037`, `RP-AC-038` |
-| `RP-REQ-214..220` | `RP-AC-001`, `RP-AC-007`, `RP-AC-008`, `RP-AC-009`, `RP-AC-010`, `RP-AC-011`, `RP-AC-012`, `RP-AC-013`, `RP-AC-031` |
-| `RP-REQ-221..231` | `RP-AC-039`, `RP-AC-040`, `RP-AC-041`, `RP-AC-042`, `RP-AC-043` |
-| `RP-REQ-232..235` | `RP-AC-015`, `RP-AC-023`, `RP-AC-032`, `RP-AC-043` |
-| `RP-REQ-236..242` | `RP-AC-018`, `RP-AC-044`, `RP-AC-048` |
-| `RP-REQ-243..248` | `RP-AC-046` |
-| `RP-REQ-249..250` | `RP-AC-048`, `RP-AC-051` |
-| `RP-REQ-251` | `RP-AC-048`, `RP-AC-052` |
-| `RP-REQ-252..253` | `RP-AC-048`, `RP-AC-053` |
-| `RP-REQ-254` | `RP-AC-054` |
-| `RP-REQ-255` | `RP-AC-001`, `RP-AC-050` |
-| `RP-REQ-256..260` | `RP-AC-049` |
-| `RP-REQ-261..264` | `RP-AC-002`, `RP-AC-050` |
-
 # 32. Definition of done
 
-The pre-production implementation is complete when the behavioral and evidence obligations below are satisfied. Promotion to `adopted/current` additionally requires the named owner promotion gates and companion adoption; passing a release-check target does not publish that claim. A separately recreated implementation and an interchangeability report are not required for this cutover. Independent canonical byte, identity, normalization and signature vectors remain required evidence.
+The pre-production implementation is complete when the behavioral and evidence obligations below are satisfied. Promotion to `adopted/current` additionally requires coordinated owner adoption under Table 1-A; passing a release-check target does not publish that claim. Separate recreation, interchangeability, recurring security-disposition and per-requirement dossiers are not required. Ordinary review of changed behavior, trust/clock admission, applicable redistribution approval and target cryptographic suitability remain required. Independent canonical byte, identity, normalization and signature vectors remain required evidence.
 
-The complete adoption criteria are:
+Implementation acceptance requires the following behavioral evidence. Coordinated adoption is governed once, by Table 1-A and the existing document-status process:
 
-- every promotion gate passes;
 - every schema ID and algorithm ID resolves exactly once;
 - every object member has type, requiredness, nullability, default, and unknown-member behavior;
 - every collection has bounds, duplicate behavior, and ordering;
@@ -2966,7 +2886,6 @@ The complete adoption criteria are:
 - every current pack key has a valid fixture, malformed fixture, and semantic-error fixture;
 - every limit has boundary fixtures;
 - every public reason mapping is adopted by Core 01;
-- every Core companion amendment in Table 28-A is adopted;
 - independent vectors and the coordinated implementation acceptance suites pass;
 - no normative `TODO:`, open delegation, or contradictory owner statement remains.
 

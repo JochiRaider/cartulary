@@ -46,12 +46,14 @@ type Deployment struct {
 	DatabaseStorage            RootBinding
 	ObjectStorage              RootBinding
 	ReferencePackStorage       RootBinding
+	ExportOutputs              RootBinding
 	BackupStorage              RootBinding
 	PostgresSettings           postgres.Settings
 	ObjectSettings             objectstore.Settings
 	OpenPostgres               func(context.Context) (PostgresPool, error)
 	OpenObjectStore            func(context.Context) (objectstore.Store, error)
 	OpenReferencePacks         func() (recovery.ReferencePackStorage, error)
+	OpenExportOutputs          func() (recovery.RootObjectStorage, error)
 	OpenBackup                 func() (recovery.BackupStorage, error)
 	ServingLeaseAcquireTimeout time.Duration
 	ServingLeaseLossDetection  time.Duration
@@ -66,6 +68,7 @@ type RecoveryStateCoverageValidator func(context.Context, PostgresPool, *recover
 type VNextCaptureFactory func(
 	PostgresPool,
 	objectstore.Store,
+	recovery.VNextObjectSource,
 	recovery.VNextObjectSource,
 	recovery.BackupStorage,
 	*recoverystate.Catalog,
@@ -221,7 +224,15 @@ func (service Service) backupCreate(ctx context.Context, parsed operationRequest
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupObject, err)
 	}
 	defer referencePacks.Close()
-	capture, err := service.NewVNextCapture(pool, objectStore, referencePacks, backupStorage, service.RecoveryStateCatalog)
+	if cfg.OpenExportOutputs == nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, errors.New("export recovery storage is required"))
+	}
+	exports, err := cfg.OpenExportOutputs()
+	if err != nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupObject, err)
+	}
+	defer exports.Close()
+	capture, err := service.NewVNextCapture(pool, objectStore, referencePacks, exports, backupStorage, service.RecoveryStateCatalog)
 	if err != nil {
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, err)
 	}
@@ -330,6 +341,7 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreProjectionRebuild, err)
 	}
 	defer target.ReferencePacks.Close()
+	defer target.ExportOutputs.Close()
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
 	ReportProgress(progress, "projection_rebuild", 0, nil)
@@ -405,6 +417,7 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 		return Result{}, NewFailure(FailureVerificationProjectionRebuild, err)
 	}
 	defer target.ReferencePacks.Close()
+	defer target.ExportOutputs.Close()
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
 	ReportProgress(progress, "projection_rebuild", 0, nil)
@@ -590,6 +603,7 @@ func (service Service) runRestoreVerifyDueAttempt(
 		return outcome, attemptErr, true
 	}
 	defer target.ReferencePacks.Close()
+	defer target.ExportOutputs.Close()
 
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
@@ -722,12 +736,22 @@ func (service Service) restoreTarget(
 	if err != nil {
 		return recovery.RestoreTarget{}, err
 	}
+	if targetCfg.OpenExportOutputs == nil {
+		packs.Close()
+		return recovery.RestoreTarget{}, errors.New("export restore storage is required")
+	}
+	exports, err := targetCfg.OpenExportOutputs()
+	if err != nil {
+		packs.Close()
+		return recovery.RestoreTarget{}, err
+	}
 	return recovery.RestoreTarget{
 		RestoreOperationID: restoreOperationID,
 		TargetGenerationID: targetGenerationID,
 		Postgres:           targetPool,
 		ObjectStore:        targetObjectStore,
 		ReferencePacks:     packs,
+		ExportOutputs:      exports,
 		EvidenceObjects:    evidenceProvider,
 		GraphProjection:    graphRestore,
 		Projections:        rebuilder,
@@ -760,6 +784,15 @@ func (service Service) restoreVerificationTarget(
 	if err != nil {
 		return recovery.RestoreVerificationTarget{}, err
 	}
+	if targetCfg.OpenExportOutputs == nil {
+		packs.Close()
+		return recovery.RestoreVerificationTarget{}, errors.New("export restore storage is required")
+	}
+	exports, err := targetCfg.OpenExportOutputs()
+	if err != nil {
+		packs.Close()
+		return recovery.RestoreVerificationTarget{}, err
+	}
 	return recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
 			RestoreOperationID: restoreOperationID,
@@ -767,6 +800,7 @@ func (service Service) restoreVerificationTarget(
 			Postgres:           targetPool,
 			ObjectStore:        targetObjectStore,
 			ReferencePacks:     packs,
+			ExportOutputs:      exports,
 			EvidenceObjects:    evidenceProvider,
 			GraphProjection:    graphRestore,
 			Projections:        rebuilder,
@@ -830,19 +864,31 @@ func requireDistinctRestoreTarget(sourceConfigPath string, targetConfigPath stri
 	if objectStoreBindingID(sourceObject) == objectStoreBindingID(targetObject) {
 		return NewFailure(FailureSameObjectStoreBinding, errors.New("restore target source and target object-store bindings must differ"))
 	}
-	if sourceDeployment.OpenReferencePacks != nil || targetDeployment.OpenReferencePacks != nil {
+	if sourceDeployment.OpenReferencePacks != nil || targetDeployment.OpenReferencePacks != nil || sourceDeployment.OpenExportOutputs != nil || targetDeployment.OpenExportOutputs != nil {
 		sourceRoot, targetRoot := sourceDeployment.ReferencePackStorage, targetDeployment.ReferencePackStorage
 		if sourceRoot.BindingKind != "filesystem_root" || targetRoot.BindingKind != "filesystem_root" || !filepath.IsAbs(sourceRoot.Path) || !filepath.IsAbs(targetRoot.Path) {
 			return NewFailure(FailureSameObjectStoreBinding, errors.New("restore source and target Reference Pack roots must be distinct admitted filesystem roots"))
 		}
+		if sourceDeployment.OpenExportOutputs != nil || targetDeployment.OpenExportOutputs != nil {
+			for _, root := range []RootBinding{sourceDeployment.ExportOutputs, targetDeployment.ExportOutputs} {
+				if root.BindingKind != "filesystem_root" || !filepath.IsAbs(root.Path) {
+					return NewFailure(FailureSameObjectStoreBinding, errors.New("export restore roots must be admitted filesystem roots"))
+				}
+			}
+		}
 		// Both restore and disposable-target reset mutate these roots. Compare
 		// across storage kinds as well, so target packs cannot alias source
 		// objects or backups (nor target objects alias retained source packs).
-		for _, destination := range []RootBinding{targetDeployment.ObjectStorage, targetRoot} {
-			for _, source := range []RootBinding{sourceDeployment.DatabaseStorage, sourceDeployment.ObjectStorage, sourceDeployment.BackupStorage, sourceRoot} {
+		for _, destination := range []RootBinding{targetDeployment.ObjectStorage, targetRoot, targetDeployment.ExportOutputs} {
+			for _, source := range []RootBinding{sourceDeployment.DatabaseStorage, sourceDeployment.ObjectStorage, sourceDeployment.BackupStorage, sourceRoot, sourceDeployment.ExportOutputs} {
 				if restoreRootsOverlap(source, destination) {
 					return NewFailure(FailureSameObjectStoreBinding, errors.New("restore destination overlaps retained source storage"))
 				}
+			}
+		}
+		for _, other := range []RootBinding{targetDeployment.DatabaseStorage, targetDeployment.ObjectStorage, targetDeployment.BackupStorage, targetRoot} {
+			if restoreRootsOverlap(other, targetDeployment.ExportOutputs) {
+				return NewFailure(FailureSameObjectStoreBinding, errors.New("export restore root overlaps another target storage binding"))
 			}
 		}
 		if restoreRootsOverlap(targetDeployment.ObjectStorage, targetRoot) || restoreRootsOverlap(targetDeployment.BackupStorage, targetRoot) {
@@ -1107,6 +1153,7 @@ func (service Service) restoreVerificationBasisForConfigs(
 		DatabaseBindingSHA256:             recovery.SHA256String(rootBindingBasis(target.DatabaseStorage)),
 		ObjectStoreBindingSHA256:          recovery.SHA256String(rootBindingBasis(target.ObjectStorage)),
 		ReferencePackStorageBindingSHA256: recovery.SHA256String(rootBindingBasis(target.ReferencePackStorage)),
+		ExportOutputsBindingSHA256:        recovery.SHA256String(rootBindingBasis(target.ExportOutputs)),
 		BackupStorageBindingSHA256:        recovery.SHA256String(rootBindingBasis(source.BackupStorage)),
 	}
 	return basis, basis.Validate()

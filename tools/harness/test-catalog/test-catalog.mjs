@@ -68,6 +68,7 @@ const expectedProfiles = Object.freeze({
     "harness_contract",
     "io_heavy",
     "managed_process",
+    "package_qualification",
     "performance_fixture_builder",
     "postgres_catalog_isolated",
     "standard",

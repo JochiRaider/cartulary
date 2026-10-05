@@ -93,7 +93,7 @@ func TestOfflineTUFRequiresBothRootThresholdsAndRejectsExtraSignatures_Unit(t *t
 
 func trustVectors(t *testing.T) []trustVector {
 	t.Helper()
-	data, err := os.ReadFile("../../../../../contracts/reference-packs/fixtures/tuf.v1.json")
+	data, err := os.ReadFile("../../../../../contracts/reference-pack-fixtures/fixtures/tuf.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

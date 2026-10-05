@@ -378,7 +378,7 @@
       ],
       "typescript_projections": [],
       "activation_dependency_ids": [],
-      "description": "Reference Pack draft canonical schemas, profiles, limits, and interoperability fixtures. Does not confer adoption or conformance."
+      "description": "Reference Pack runtime schemas, profiles, limits, algorithms and packaged Base assets. Does not confer adoption or conformance."
     },
     {
       "family_id": "reporting",
@@ -392,6 +392,19 @@
       "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Reporting historical artifact transport contracts."
+    },
+    {
+      "family_id": "reference-pack-fixtures",
+      "contract_root": "contracts/reference-pack-fixtures",
+      "generation_status": "active",
+      "go_name": "ReferencePackFixtureArtifacts",
+      "output_order": 23,
+      "generated_outputs": [
+        "internal/gen/contractreferencepackfixtures/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Test-only Reference Pack fixtures, expectations and fixture schemas. Never a production runtime dependency."
     }
   ]
 }

@@ -65,7 +65,8 @@ assert_harness_scratch_rejects_repo_tmp() {
 copy_minimal_repo() {
   local dest="$1"
 
-  mkdir -p "${dest}/tools"
+  mkdir -p "${dest}/tools" "${dest}/deploy/mvp"
+  cp "${ROOT_DIR}/deploy/mvp/Containerfile" "${dest}/deploy/mvp/Containerfile"
   cp "${ROOT_DIR}/Makefile" "${dest}/Makefile"
   mkdir -p "${dest}/apps/web"
   cp "${ROOT_DIR}/apps/web/package.json" "${dest}/apps/web/package.json"
@@ -289,6 +290,11 @@ mutate_bootstrap_shellcheck_version() {
 
 "$NODE_BIN" "$SCRIPT" --root "${ROOT_DIR}" >/dev/null
 assert_harness_scratch_rejects_repo_tmp
+
+mutate_application_base() {
+  replace_text "$1/deploy/mvp/Containerfile" "$(pin_value application_base_image)" "gcr.io/distroless/base-debian12:nonroot"
+}
+expect_drift "application-base" "deploy/mvp/Containerfile: FROM mismatch" mutate_application_base
 
 expect_drift "node-engine" \
   "package.json: engines.node mismatch: expected $node_version, got $node_version_alt" \

@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_admission_non_ustar",
+  "fixture_version": 1,
+  "fixture_family": "archive_attack",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/admission/non_ustar.v1.json"
+  ],
+  "expected_container_sha256": "36b18b8f1d53dc00fede7452bd4c8ceab1afcfd1ff1b2b151e3dd00981fd7371",
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "container_format",
+      "severity": "error",
+      "phase": "container_admission",
+      "code": "unsupported_container_format",
+      "path": "$",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_d5ab63a72af1625049dd377f71f8619da9aa1dbf0834ce8adb432328c8fb3864",
+      "reason_code": "unsupported_container_format"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "unsupported_container_format"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

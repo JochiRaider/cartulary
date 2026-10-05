@@ -17,7 +17,7 @@ import (
 func runAdmissionManifest(t *testing.T, input []byte, expected map[string]any) {
 	t.Helper()
 	value, err := canonicaljson.DecodeStrict(input)
-	if err != nil || !compileProjection("admission_fixture.v1.schema.json").matches(value) {
+	if err != nil || !compileFixtureProjection("admission_fixture.v1.schema.json").matches(value) {
 		t.Fatal("invalid admission fixture", err)
 	}
 	var fixture struct {

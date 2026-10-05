@@ -103,6 +103,19 @@
       }
     },
     {
+      "id": "package_qualification",
+      "resource_claims": {
+        "cpu": 2,
+        "io": 2,
+        "memory_mb": 2048,
+        "object_store": 2,
+        "port_lane": 2,
+        "postgres": 2,
+        "process": 12,
+        "volume": 1
+      }
+    },
+    {
       "id": "performance_fixture_builder",
       "resource_claims": {
         "cpu": 1,

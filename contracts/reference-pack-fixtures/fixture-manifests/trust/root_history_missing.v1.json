@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_trust_root_history_missing",
+  "fixture_version": 1,
+  "fixture_family": "tuf_failure",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/trust/root_history_missing.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "root_trust",
+      "severity": "error",
+      "phase": "tuf_metadata",
+      "code": "tuf_root_untrusted",
+      "path": "metadata/root.json",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_9432cd3847c7b28c0fea60b313de8bdc3b711f5b0cc5eab353f58f51bc7339a1",
+      "reason_code": "tuf_root_untrusted"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "tuf_root_untrusted"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

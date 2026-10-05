@@ -7,14 +7,18 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-// ReferencePackStorage is a separately confined deployment root. Recovery
-// dispatches only this owner's object family through it; generic object-store
-// keys must never select or escape into this storage capability.
-type ReferencePackStorage interface {
+// RootObjectStorage confines recovery to an explicitly admitted filesystem root.
+// Dispatch is selected by the admitted owner family, never by an object key.
+type RootObjectStorage interface {
 	VNextObjectSource
 	RestoreMember(context.Context, string, string, int64, io.Reader) error
 	RequireEmpty(context.Context) error
 	ResetVerificationTarget(context.Context) error
-	ValidateHistoricalState(context.Context, postgres.DB) error
 	Close()
+}
+
+// ReferencePackStorage also validates the source owner's retained semantic state.
+type ReferencePackStorage interface {
+	RootObjectStorage
+	ValidateHistoricalState(context.Context, postgres.DB) error
 }

@@ -13,7 +13,7 @@ import (
 func runTrustManifest(t *testing.T, input []byte, expected map[string]any) {
 	t.Helper()
 	value, err := canonicaljson.DecodeStrict(input)
-	if err != nil || !compileProjection("trust_fixture.v1.schema.json").matches(value) {
+	if err != nil || !compileFixtureProjection("trust_fixture.v1.schema.json").matches(value) {
 		t.Fatal("invalid trust fixture", err)
 	}
 	var fixture struct {

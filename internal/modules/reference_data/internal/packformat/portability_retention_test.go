@@ -16,7 +16,7 @@ func TestPortableRetentionClosedShapeAndCatalogBinding_Unit(t *testing.T) {
 	testAttemptResultBoundary(t)
 	t.Run("frozen portable verification context", testPortableVerificationContext)
 	t.Run("embedded content and exact requirements", testPortableContentManifest)
-	fixture, err := os.ReadFile("../../../../../contracts/reference-packs/fixtures/portable-references.v1.json")
+	fixture, err := os.ReadFile("../../../../../contracts/reference-pack-fixtures/fixtures/portable-references.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

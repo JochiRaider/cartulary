@@ -22,6 +22,9 @@ const requiredProjections = [
   "release-readiness-evidence",
   "sbom",
   "seaweedfs-release-gate",
+  "standup-operational-recovery-smoke",
+  "standup-package-smoke",
+  "standup-reference-pack-smoke",
 ];
 
 function currentRunRoot() {

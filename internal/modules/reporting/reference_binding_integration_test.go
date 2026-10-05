@@ -25,11 +25,11 @@ import (
 func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *testing.T) {
 	expected := referencetest.OwnerFixture(t, "snapshot_binding")
 	runtime := appsupport.StartRuntime(t)
-	input, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-input.v1.json")
+	input, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-input.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	refs, err := os.ReadFile("../../../contracts/reference-packs/fixtures/portable-references.v1.json")
+	refs, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-references.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

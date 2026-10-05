@@ -56,6 +56,7 @@ function loadExpected(root) {
   const tools = requireObject(pins, "tools", file);
   return {
     uiReview: requireObject(pins, "ui_review", file),
+    applicationBaseImage: requireString(pins, "application_base_image", file),
     modulePath: requireString(pins, "module_path", file),
     goVersion: requireString(pins, "go_version", file),
     goToolchain: requireString(pins, "go_toolchain", file),
@@ -287,6 +288,11 @@ function main() {
   const expected = loadExpected(root);
   const mismatches = [];
 
+  if (!/^\S+@sha256:[a-f0-9]{64}$/.test(expected.applicationBaseImage)) {
+    throw new Error("tools/toolchain_pins.json: application_base_image requires an immutable digest");
+  }
+  checkEqual(mismatches, "deploy/mvp/Containerfile", "FROM", expected.applicationBaseImage,
+    matchLine(readRepoFile(root, "deploy/mvp/Containerfile"), /^FROM (\S+)$/m));
   checkMakefile(root, mismatches, expected);
   checkPackageJson(root, mismatches, expected);
   checkGoMod(root, mismatches, expected);

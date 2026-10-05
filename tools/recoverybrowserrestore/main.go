@@ -195,7 +195,7 @@ func run() error {
 		return err
 	}
 	defer sourcePacks.Close()
-	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks)
+	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks, nil)
 	if err != nil {
 		return err
 	}

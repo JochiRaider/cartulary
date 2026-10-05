@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	RecoveryJournalPayloadSchemaID   = "cartulary.operator_recovery_journal_payload.v4"
+	RecoveryJournalPayloadSchemaID   = "cartulary.operator_recovery_journal_payload.v5"
+	RecoveryJournalPayloadV4SchemaID = "cartulary.operator_recovery_journal_payload.v4"
 	RecoveryJournalPayloadV3SchemaID = "cartulary.operator_recovery_journal_payload.v3"
 	RecoveryJournalPayloadV2SchemaID = "cartulary.operator_recovery_journal_payload.v2"
 	RecoveryAuditSummarySchemaID     = "cartulary.operator_recovery_audit_summary.v2"
@@ -86,7 +87,7 @@ func NormalizeAdmissionRecord(record RecoveryAdmissionRecord) (RecoveryAdmission
 func NormalizeCompletionRecord(record RecoveryCompletionRecord) (RecoveryCompletionRecord, error) {
 	if record.TargetBindings != nil {
 		b := *record.TargetBindings
-		if !isLowerSHA256(b.DatabaseSHA256) || !isLowerSHA256(b.ObjectStoreSHA256) || !isLowerSHA256(b.ReferencePackStorageSHA256) {
+		if !isLowerSHA256(b.DatabaseSHA256) || !isLowerSHA256(b.ObjectStoreSHA256) || !isLowerSHA256(b.ReferencePackStorageSHA256) || !isLowerSHA256(b.ExportOutputsSHA256) {
 			return RecoveryCompletionRecord{}, fmt.Errorf("restore target binding digests are invalid")
 		}
 		record.TargetBindings = &b
@@ -204,11 +205,17 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 		} else if selector.RecordKind == "completion" {
 			destination = &recoveryJournalCompletionPayloadV3{}
 		}
-	case RecoveryJournalPayloadSchemaID:
+	case RecoveryJournalPayloadV4SchemaID:
 		if selector.RecordKind == "admission" {
-			destination = &recoveryJournalAdmissionPayloadV4{}
+			destination = &recoveryJournalAdmissionPayloadV2{}
 		} else if selector.RecordKind == "completion" {
 			destination = &recoveryJournalCompletionPayloadV4{}
+		}
+	case RecoveryJournalPayloadSchemaID:
+		if selector.RecordKind == "admission" {
+			destination = &recoveryJournalAdmissionPayloadV5{}
+		} else if selector.RecordKind == "completion" {
+			destination = &recoveryJournalCompletionPayloadV5{}
 		}
 	}
 	if destination == nil {
@@ -240,6 +247,11 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 		decoded.GraphProjectionCompletion = completion.GraphProjectionCompletion
 	}
 	if completion, ok := destination.(*recoveryJournalCompletionPayloadV4); ok {
+		// Historical bindings do not authorize replay into a target whose
+		// export root was never bound by this completion.
+		decoded.GraphProjectionCompletion = completion.GraphProjectionCompletion
+	}
+	if completion, ok := destination.(*recoveryJournalCompletionPayloadV5); ok {
 		decoded.GraphProjectionCompletion = completion.GraphProjectionCompletion
 		decoded.TargetBindings = completion.TargetBindings
 	}
@@ -248,7 +260,7 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 
 func validateCurrentJournalPayload(destination any) error {
 	switch value := destination.(type) {
-	case *recoveryJournalAdmissionPayloadV4:
+	case *recoveryJournalAdmissionPayloadV5:
 		if value.ArtifactKinds == nil || len(value.ArtifactKinds) > 128 {
 			return fmt.Errorf("invalid artifact kinds")
 		}
@@ -257,7 +269,7 @@ func validateCurrentJournalPayload(destination any) error {
 			return fmt.Errorf("invalid admission")
 		}
 		return nil
-	case *recoveryJournalCompletionPayloadV4:
+	case *recoveryJournalCompletionPayloadV5:
 		if value.ArtifactCounts == nil || len(value.ArtifactCounts) > 128 {
 			return fmt.Errorf("invalid artifact counts")
 		}
@@ -303,9 +315,9 @@ type recoveryJournalCompletionPayloadV3 struct {
 	GraphProjectionCompletion *GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
 }
 
-type recoveryJournalAdmissionPayloadV4 = recoveryJournalAdmissionPayloadV2
+type recoveryJournalAdmissionPayloadV5 = recoveryJournalAdmissionPayloadV2
 
-type recoveryJournalCompletionPayloadV4 struct {
+type recoveryJournalCompletionPayloadV5 struct {
 	recoveryJournalCompletionPayloadV2
 	GraphProjectionCompletion *GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
 	TargetBindings            *TargetBindingDigests              `json:"target_binding_digests"`
@@ -402,4 +414,16 @@ func normalizedTimePointer(value *time.Time) *time.Time {
 		return nil
 	}
 	return &normalized
+}
+
+// Historical v4 records bind three storage destinations. Preserve their private
+// history without inventing the missing export-root admission proof.
+type recoveryJournalCompletionPayloadV4 struct {
+	recoveryJournalCompletionPayloadV2
+	GraphProjectionCompletion *GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
+	TargetBindings            *struct {
+		DatabaseSHA256             string `json:"database_sha256"`
+		ObjectStoreSHA256          string `json:"object_store_sha256"`
+		ReferencePackStorageSHA256 string `json:"reference_pack_storage_sha256"`
+	} `json:"target_binding_digests"`
 }

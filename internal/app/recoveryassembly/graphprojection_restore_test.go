@@ -71,7 +71,7 @@ func TestGraphRestoreAcceptanceGPRA18RecoveryAssemblyUsesNarrowParticipant_Integ
 		StartedAt: startedAt, CompletedAt: startedAt.Add(time.Minute), Result: application.ResultSucceeded,
 		BackupSetID: &backupSetID, ConsistencyPointAt: &consistencyPoint, ArtifactCounts: []application.ArtifactCount{},
 		GraphProjectionCompletion: completion,
-		TargetBindings:            &application.TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64)},
+		TargetBindings:            &application.TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)},
 	}); err != nil {
 		t.Fatalf("persist Graph terminal completion: %v", err)
 	}

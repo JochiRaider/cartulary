@@ -46,6 +46,7 @@
   migration-drift \
   deployable-shape \
   standup-package-smoke \
+  standup-reference-pack-smoke \
   standup-operational-recovery-smoke \
   test-catalog-check \
   agent-finalize \
@@ -356,6 +357,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make seaweedfs-release-gate         enforce the strict SeaweedFS S3 release gate' \
 	'  make build                          build backend and operator binaries with embedded web assets' \
 	'  make standup-package-smoke          smoke the MVP on-prem stand-up package image and compose topology' \
+	'  make standup-reference-pack-smoke   qualify packaged Reference Pack lifecycle, portability and recovery' \
 	'  make standup-operational-recovery-smoke' \
 	'                                      smoke the MVP on-prem operational recovery workflow' \
 	'  make build-server                   build the server binary' \
@@ -1813,4 +1815,24 @@ frontend-lockfile-update:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-lockfile-update)
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_TOOLCHAIN_STAMP); fi
 	$(Q)$(RUN_STEP_SCRIPT) "frontend-lockfile-update" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) PNPM="$(PNPM)" NODE_BIN="$(NODE_BIN)" FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" PATH="$(NODE_RUNTIME_DIR)/bin:$(PATH)" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" bash ./tools/harness/readiness/frontend-lockfile-update.sh
+
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+standup-reference-pack-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+standup-reference-pack-smoke: export CARTULARY_TEST_TARGET ?= standup-reference-pack-smoke
+standup-reference-pack-smoke:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-reference-pack-smoke)
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory deployable-shape; fi
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "standup-reference-pack-smoke" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
+	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" ./tools/release-evidence/check-standup-reference-pack-smoke.sh
+	$(call RUN_TARGET_SUMMARY,standup-reference-pack-smoke,pass)
+else
+standup-reference-pack-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+standup-reference-pack-smoke: export CARTULARY_TEST_TARGET ?= standup-reference-pack-smoke
+standup-reference-pack-smoke:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-reference-pack-smoke)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs \
+	  --selection target --target standup-reference-pack-smoke
+endif
 

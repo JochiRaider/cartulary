@@ -23,7 +23,7 @@ func testPortableContentManifest(t *testing.T) {
 			Version string `json:"pack_version"`
 		} `json:"expected_required_version"`
 	}
-	data, err := os.ReadFile("../../../../../contracts/reference-packs/fixtures/portable-content.v1.json")
+	data, err := os.ReadFile("../../../../../contracts/reference-pack-fixtures/fixtures/portable-content.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

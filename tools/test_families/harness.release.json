@@ -22,6 +22,85 @@
       "fixture_capability": "none",
       "minimum_tier": "release",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.release.behavior.operational_recovery_package",
+      "owner_id": "harness.release",
+      "family_id": "harness.release.behavior",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "harness.release.verification.current_owner_evidence_only"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.standup_operational_recovery_smoke.v2"
+      },
+      "evidence_class": "release",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "package_qualification",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.release.behavior.reference_pack_package",
+      "owner_id": "harness.release",
+      "family_id": "harness.release.behavior",
+      "collaborator_ids": [
+        "module.recovery",
+        "module.reference_data"
+      ],
+      "verification_ids": [
+        "harness.release.verification.current_owner_evidence_only"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.standup_reference_pack_smoke.v2"
+      },
+      "evidence_class": "release",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "package_qualification",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.release.behavior.standup_package",
+      "owner_id": "harness.release",
+      "family_id": "harness.release.behavior",
+      "collaborator_ids": [
+        "module.reference_data"
+      ],
+      "verification_ids": [
+        "harness.release.verification.current_owner_evidence_only"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.standup_package_smoke.v2"
+      },
+      "evidence_class": "release",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "package_qualification",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     }
   ]
 }

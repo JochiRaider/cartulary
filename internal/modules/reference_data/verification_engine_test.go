@@ -117,7 +117,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 		Expiry       time.Time `json:"expected_valid_until"`
 		Signers      []string  `json:"expected_signers"`
 	}
-	data, err := os.ReadFile("../../../contracts/reference-packs/fixtures/signed-container.v1.json")
+	data, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/signed-container.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 			var archive struct {
 				Bytes string `json:"bytes_base64"`
 			}
-			raw, err := os.ReadFile("../../../contracts/reference-packs/fixtures/admission/equivalent_" + kind + ".v1.json")
+			raw, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/admission/equivalent_" + kind + ".v1.json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -168,7 +168,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 			var expected struct {
 				ContainerSHA string `json:"expected_container_sha256"`
 			}
-			raw, err = os.ReadFile("../../../contracts/reference-packs/fixture-manifests/admission/equivalent_" + kind + ".v1.json")
+			raw, err = os.ReadFile("../../../contracts/reference-pack-fixtures/fixture-manifests/admission/equivalent_" + kind + ".v1.json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -224,7 +224,7 @@ func canonicalEngineFixture(t *testing.T) (*engineStorage, verificationAttempt) 
 		Container  string    `json:"container_base64"`
 		At         time.Time `json:"verification_time"`
 	}
-	data, err := os.ReadFile("../../../contracts/reference-packs/fixtures/signed-container.v1.json")
+	data, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/signed-container.v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

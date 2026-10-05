@@ -6,6 +6,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/incidentportabilityassembly"
 	"github.com/JochiRaider/cartulary/internal/app/operator/internal/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
@@ -88,6 +89,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 				pool application.PostgresPool,
 				objects objectstore.Store,
 				referencePacks recovery.VNextObjectSource,
+				exportOutputs recovery.VNextObjectSource,
 				storage recovery.BackupStorage,
 				state *recoverystate.Catalog,
 			) (*recovery.VNextCaptureService, error) {
@@ -98,6 +100,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 				inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(
 					recoveryassembly.NewVNextObjectSource(objects),
 					referencePacks,
+					exportOutputs,
 				)
 				if err != nil {
 					return nil, err
@@ -139,6 +142,7 @@ func (executor recoveryExecutor) loadDeployment(path string) (application.Deploy
 			Path:        cfg.Roots.ObjectStorage.Path,
 			ServiceRef:  cfg.Roots.ObjectStorage.ServiceRef,
 		},
+		ExportOutputs:        application.RootBinding{BindingKind: cfg.Roots.ExportOutputs.BindingKind, Path: cfg.Roots.ExportOutputs.Path, ServiceRef: cfg.Roots.ExportOutputs.ServiceRef},
 		ReferencePackStorage: application.RootBinding{BindingKind: cfg.Roots.ReferencePackStorage.BindingKind, Path: cfg.Roots.ReferencePackStorage.Path, ServiceRef: cfg.Roots.ReferencePackStorage.ServiceRef},
 		BackupStorage: application.RootBinding{
 			BindingKind: cfg.Roots.BackupStorage.BindingKind,
@@ -158,6 +162,9 @@ func (executor recoveryExecutor) loadDeployment(path string) (application.Deploy
 				Archives:       reference_data.ArchiveLimits{DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes, MaxCompressionRatio: cfg.Limits.Archives.MaxCompressionRatio, MaxMembers: cfg.Limits.Archives.MaxMembers},
 				ReferencePacks: reference_data.ReferenceLimits{MaxExtractedBytes: cfg.Limits.ReferencePacks.MaxExtractedBytes, MaxContainerBytes: cfg.Limits.ReferencePacks.MaxContainerBytes, MaxVerificationSeconds: cfg.Limits.ReferencePacks.MaxVerificationSeconds},
 			})
+		},
+		OpenExportOutputs: func() (recovery.RootObjectStorage, error) {
+			return incidentportabilityassembly.NewRecoveryStorage(cfg.Roots.ExportOutputs.Path)
 		},
 		OpenBackup: func() (recovery.BackupStorage, error) {
 			return executor.newBackupStorage(

@@ -10,17 +10,17 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepacks"
+	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepackfixtures"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 // This is a machine-projection check, not a specification/adoption check.
 // Only closed executable inputs are opened; prose is never inspected.
-func TestFixtureManifestsAndTraceability_Unit(t *testing.T) {
+func TestExecutableFixtureContracts_Unit(t *testing.T) {
+	t.Run("runtime isolation", testFixtureProjectionIsolation)
 	root := "../../../../../"
 	raw, err := os.ReadFile(root + "tools/schemas/cartulary.reference_pack_fixture_manifest.v1.schema.json")
 	if err != nil {
@@ -32,8 +32,10 @@ func TestFixtureManifestsAndTraceability_Unit(t *testing.T) {
 	}
 	shape := compileShape(schema, map[string]bool{})
 	seen := map[string]bool{}
-	for _, artifact := range contractreferencepacks.Artifacts {
-		if !strings.HasPrefix(artifact.Path, "contracts/reference-packs/fixture-manifests/") {
+	families := map[string]int{}
+	profileCases := map[string]map[string]int{}
+	for _, artifact := range contractreferencepackfixtures.Artifacts {
+		if !strings.HasPrefix(artifact.Path, "contracts/reference-pack-fixtures/fixture-manifests/") {
 			continue
 		}
 		value, err := canonicaljson.DecodeStrict([]byte(artifact.JSON))
@@ -67,14 +69,27 @@ func TestFixtureManifestsAndTraceability_Unit(t *testing.T) {
 			t.Fatal("unknown fixture field admitted")
 		}
 		delete(m, "unknown")
-		input := projection(strings.TrimPrefix(m["input_refs"].([]any)[0].(string), "contracts/reference-packs/"))
+		input := fixtureProjection(strings.TrimPrefix(m["input_refs"].([]any)[0].(string), "contracts/reference-pack-fixtures/"))
 		var vector map[string]any
 		if err := json.Unmarshal(input, &vector); err != nil {
 			t.Fatal(err)
 		}
+		families[m["fixture_family"].(string)]++
+		if m["fixture_family"] == "content_profile" {
+			key := vector["pack_key"].(string)
+			if _, ok := profiles[key]; !ok {
+				t.Fatal("fixture names an unsupported profile", key)
+			}
+			outcome := "valid"
+			if expected, ok := m["expected_public_error"].(map[string]any); ok {
+				outcome = expected["reason_code"].(string)
+			}
+			if profileCases[key] == nil {
+				profileCases[key] = map[string]int{}
+			}
+			profileCases[key][outcome]++
+		}
 		switch id {
-		case "rpfx_traceability":
-			validateTraceabilityProjection(t)
 		case "rpfx_set_cardinality_64", "rpfx_set_cardinality_65":
 			// A complete 64-key set is unreachable in the closed 16-key
 			// catalog. Exercise only the independently declared count guard;
@@ -145,8 +160,27 @@ func TestFixtureManifestsAndTraceability_Unit(t *testing.T) {
 			}
 		}
 	}
-	if len(seen) != 163 {
-		t.Fatal("canonical fixture manifest inventory changed without expectation runners", len(seen))
+	if err := fixtureCoverage(shape, families, profileCases); err != nil {
+		t.Fatal(err)
+	}
+	// Removing the last case of any required class must fail even when the
+	// remaining corpus is otherwise well formed and every row is routed.
+	for family, count := range families {
+		families[family] = 0
+		if err := fixtureCoverage(shape, families, profileCases); err == nil {
+			t.Fatal("missing behavioral family accepted", family)
+		}
+		families[family] = count
+	}
+	for key, cases := range profileCases {
+		for _, outcome := range []string{"valid", "content_schema_invalid", "content_semantic_invalid"} {
+			count := cases[outcome]
+			cases[outcome] = 0
+			if err := fixtureCoverage(shape, families, profileCases); err == nil {
+				t.Fatal("missing profile case accepted", key, outcome)
+			}
+			cases[outcome] = count
+		}
 	}
 	for _, ref := range []string{"", "/tmp/a", "../a", "contracts//a", "contracts/./a", "contracts/a\\b", strings.Join([]string{"docs", "spec.md"}, "/"), "README", "README.txt", "contracts/notes.MD", "contracts/no\x00"} {
 		if fixtureInputPathAllowed(ref) {
@@ -169,15 +203,14 @@ func TestFixtureManifestsAndTraceability_Unit(t *testing.T) {
 			t.Fatal("fixture relation validation", err)
 		}
 	}
-	validateTraceabilityProjection(t)
 }
 
 // Other owners execute these scenarios through their actual application
 // boundary. This check establishes input closure and execution routing only.
 func validateOwnerFixtureBinding(t *testing.T, root, id string) {
 	t.Helper()
-	value, err := canonicaljson.DecodeStrict(projection("fixtures/" + strings.TrimPrefix(id, "rpfx_") + ".v1.json"))
-	if err != nil || !compileProjection("owner_fixture.v1.schema.json").matches(value) {
+	value, err := canonicaljson.DecodeStrict(fixtureProjection("fixtures/" + strings.TrimPrefix(id, "rpfx_") + ".v1.json"))
+	if err != nil || !compileFixtureProjection("owner_fixture.v1.schema.json").matches(value) {
 		t.Fatal("invalid owner fixture", err)
 	}
 	m := value.(map[string]any)
@@ -209,8 +242,8 @@ func validateOwnerFixtureBinding(t *testing.T, root, id string) {
 
 func validateLifecycleFixtureBinding(t *testing.T, root, id string) {
 	t.Helper()
-	value, err := canonicaljson.DecodeStrict(projection("fixtures/lifecycle.v1.json"))
-	if err != nil || !compileProjection("lifecycle_fixture.v1.schema.json").matches(value) {
+	value, err := canonicaljson.DecodeStrict(fixtureProjection("fixtures/lifecycle.v1.json"))
+	if err != nil || !compileFixtureProjection("lifecycle_fixture.v1.schema.json").matches(value) {
 		t.Fatal("invalid lifecycle fixture", err)
 	}
 	found := 0
@@ -299,67 +332,23 @@ func validateFixtureRelations(root string, m map[string]any) error {
 	return nil
 }
 
-func validateTraceabilityProjection(t *testing.T) {
-	t.Helper()
-	value, err := canonicaljson.DecodeStrict(projection("traceability.v1.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := value.(map[string]any)
-	if len(m) != 4 || m["schema_id"] != "cartulary.reference_pack_traceability.v1" {
-		t.Fatal("traceability shape")
-	}
-	ids := func(key, prefix string, count int) map[string]bool {
-		values, ok := m[key].([]any)
-		if !ok || len(values) != count {
-			t.Fatal("identifier inventory", key)
+// Coverage follows executable family and profile declarations, not a fixed
+// inventory total or a second catalog of prose requirement identifiers.
+func fixtureCoverage(manifestShape *shape, families map[string]int, cases map[string]map[string]int) error {
+	for _, value := range manifestShape.properties["fixture_family"].enum {
+		family := value.(string)
+		if families[family] == 0 {
+			return fmt.Errorf("missing fixture family %s", family)
 		}
-		result := map[string]bool{}
-		for i, value := range values {
-			if value != fmt.Sprintf("%s%03d", prefix, i+1) {
-				t.Fatal("identifier sequence", key)
+	}
+	for key := range profiles {
+		for _, outcome := range []string{"valid", "content_schema_invalid", "content_semantic_invalid"} {
+			if cases[key][outcome] == 0 {
+				return fmt.Errorf("missing %s fixture for profile %s", outcome, key)
 			}
-			result[value.(string)] = true
-		}
-		return result
-	}
-	requirements := ids("requirements", "RP-REQ-", 264)
-	criteria := ids("acceptance_criteria", "RP-AC-", 54)
-	mapped := map[string]bool{}
-	last := 0
-	for _, value := range m["ranges"].([]any) {
-		r := value.(map[string]any)
-		if len(r) != 3 {
-			t.Fatal("range shape")
-		}
-		firstID, endID := r["first"].(string), r["last"].(string)
-		if !requirements[firstID] || !requirements[endID] {
-			t.Fatal("unknown requirement")
-		}
-		first, _ := strconv.Atoi(strings.TrimPrefix(firstID, "RP-REQ-"))
-		end, _ := strconv.Atoi(strings.TrimPrefix(endID, "RP-REQ-"))
-		if first != last+1 || end < first {
-			t.Fatal("overlapping, unordered or missing range")
-		}
-		last = end
-		listed := []string{}
-		for _, id := range r["acceptance_criteria"].([]any) {
-			if !criteria[id.(string)] {
-				t.Fatal("unknown acceptance criterion")
-			}
-			listed = append(listed, id.(string))
-		}
-		if len(listed) == 0 || !slices.IsSorted(listed) || len(slices.Compact(slices.Clone(listed))) != len(listed) {
-			t.Fatal("criterion order/uniqueness")
-		}
-		for i := first; i <= end; i++ {
-			mapped[fmt.Sprintf("RP-REQ-%03d", i)] = true
 		}
 	}
-	if len(mapped) != len(requirements) {
-		t.Fatal("unmapped requirements")
-	}
-	t.Log("unmapped=0 unknown_requirement=0 unknown_acceptance_criterion=0; projection consistency only")
+	return nil
 }
 
 // Expectations are checked-in independent bytes. This runner never derives
@@ -367,7 +356,7 @@ func validateTraceabilityProjection(t *testing.T) {
 func runProfileManifest(t *testing.T, input []byte, manifest map[string]any) {
 	t.Helper()
 	value, err := canonicaljson.DecodeStrict(input)
-	if err != nil || !compileProjection("content_fixture.v1.schema.json").matches(value) {
+	if err != nil || !compileFixtureProjection("content_fixture.v1.schema.json").matches(value) {
 		t.Fatal("invalid content fixture", err)
 	}
 	var fixture contentFixture

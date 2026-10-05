@@ -103,6 +103,7 @@
       "service-backed-test-slice",
       "standup-operational-recovery-smoke",
       "standup-package-smoke",
+      "standup-reference-pack-smoke",
       "test",
       "test-evidence-audit",
       "test-fast",
@@ -681,6 +682,10 @@
         "profile_id": "standard_no_regression"
       },
       {
+        "target": "standup-reference-pack-smoke",
+        "profile_id": "standard_no_regression"
+      },
+      {
         "target": "test",
         "profile_id": "harness_bottleneck_improvement"
       },
@@ -1241,6 +1246,10 @@
         {
           "target": "standup-package-smoke",
           "description": "smoke the MVP on-prem stand-up package image and compose topology"
+        },
+        {
+          "target": "standup-reference-pack-smoke",
+          "description": "qualify packaged Reference Pack lifecycle, portability and recovery"
         },
         {
           "target": "standup-operational-recovery-smoke",
@@ -3321,6 +3330,20 @@
         "./tools/harness/readiness/frontend-lockfile-update.sh"
       ],
       "test_target": "self"
+    },
+    "standup-reference-pack-smoke": {
+      "prerequisites": [
+        "deployable-shape"
+      ],
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "standup-reference-pack-smoke",
+      "command": [
+        "./tools/release-evidence/check-standup-reference-pack-smoke.sh"
+      ],
+      "test_target": "self",
+      "success_summary": true,
+      "graph_entry": true
     }
   },
   "targets": [
@@ -5826,14 +5849,18 @@
         "deploy/mvp/Containerfile",
         "deploy/mvp/bootstrap-admin.json.example",
         "deploy/mvp/config.toml.example",
+        "deploy/mvp/docker-compose.reference-packs.yml",
         "deploy/mvp/docker-compose.yml",
+        "deploy/mvp/reference-pack-administration.toml.example",
         "deploy/mvp/revisions-conflict-token-key-ring.json.example",
         "deploy/mvp/runtime-roots/backups/.keep",
         "deploy/mvp/runtime-roots/exports/.keep",
         "deploy/mvp/runtime-roots/reference-packs/.keep",
         "deploy/mvp/runtime-roots/tmp/.keep",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/release-evidence/check-standup-package-smoke.sh"
+        "tools/release-evidence/check-standup-package-smoke.sh",
+        "tools/release-evidence/package-smoke-cleanup.sh",
+        "tools/release-evidence/reference-pack-fixtures.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5952,7 +5979,149 @@
       },
       "target_class": "public",
       "default_inclusion_sets": [
-        "helper_only"
+        "release-check"
+      ],
+      "lifecycle_state": "public_active"
+    },
+    {
+      "name": "standup-reference-pack-smoke",
+      "backing_scripts": [
+        "deploy/mvp/Containerfile",
+        "deploy/mvp/bootstrap-admin.json.example",
+        "deploy/mvp/config.toml.example",
+        "deploy/mvp/docker-compose.reference-packs.yml",
+        "deploy/mvp/docker-compose.yml",
+        "deploy/mvp/reference-pack-administration.toml.example",
+        "deploy/mvp/revisions-conflict-token-key-ring.json.example",
+        "deploy/mvp/runtime-roots/backups/.keep",
+        "deploy/mvp/runtime-roots/exports/.keep",
+        "deploy/mvp/runtime-roots/reference-packs/.keep",
+        "deploy/mvp/runtime-roots/tmp/.keep",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/release-evidence/check-standup-package-smoke.sh",
+        "tools/release-evidence/check-standup-reference-pack-smoke.sh",
+        "tools/release-evidence/package-smoke-cleanup.sh",
+        "tools/release-evidence/reference-pack-fixtures.mjs",
+        "tools/release-evidence/standup-reference-pack-scenarios.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.standup_reference_pack_smoke.v2",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        }
+      ],
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "build/bin"
+          ]
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      },
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "release-check"
       ],
       "lifecycle_state": "public_active"
     },
@@ -5969,7 +6138,8 @@
         "deploy/mvp/scripts/backup-capture.sh",
         "deploy/mvp/scripts/restore-verify-due.sh",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/release-evidence/check-standup-operational-recovery-smoke.sh"
+        "tools/release-evidence/check-standup-operational-recovery-smoke.sh",
+        "tools/release-evidence/package-smoke-cleanup.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6090,7 +6260,7 @@
       },
       "target_class": "public",
       "default_inclusion_sets": [
-        "helper_only"
+        "release-check"
       ],
       "lifecycle_state": "public_active"
     },
@@ -13246,7 +13416,9 @@
       "name": "release-evidence-contract",
       "backing_scripts": [
         "tools/release-evidence/tests/test-release-readiness-evidence.mjs",
-        "tools/release-evidence/release-readiness-evidence.mjs"
+        "tools/release-evidence/release-readiness-evidence.mjs",
+        "tools/release-evidence/tests/test-package-smoke-cleanup.mjs",
+        "tools/release-evidence/package-smoke-cleanup.sh"
       ],
       "command_id": "cartulary.harness.command.release_evidence_contract.v2",
       "target_class": "check_internal",

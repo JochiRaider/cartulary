@@ -462,7 +462,7 @@ func writeGo(root string, families []family) error {
 			buffer.WriteString(",\n")
 			buffer.WriteString("\t\tJSON: ")
 			quotedJSON := strconv.Quote(currentArtifact.JSON)
-			if current.Dir == "reference-packs" {
+			if current.Dir == "reference-packs" || current.Dir == "reference-pack-fixtures" {
 				// Content-derived attestation IDs resemble redirect.pizza API tokens.
 				// Escape the prefix in Go source without changing canonical JSON or hashes.
 				quotedJSON = strings.ReplaceAll(quotedJSON, "rpa_", `rpa\x5f`)

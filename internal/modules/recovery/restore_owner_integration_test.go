@@ -162,6 +162,7 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 		DatabaseBindingSHA256:             recovery.SHA256String("backup_restore-u-10-03-database"),
 		ObjectStoreBindingSHA256:          recovery.SHA256String("backup_restore-u-10-03-objects"),
 		ReferencePackStorageBindingSHA256: recovery.SHA256String("backup_restore-u-10-03-reference-packs"),
+		ExportOutputsBindingSHA256:        recovery.SHA256String("test-export-root"),
 		BackupStorageBindingSHA256:        recovery.SHA256String("backup_restore-u-10-03-backups"),
 		RecoveryStateCatalogSHA256:        currentStateCatalog(t).DigestSHA256(),
 		CodecRegistrySHA256:               recovery.VNextCodecRegistrySHA256(),
