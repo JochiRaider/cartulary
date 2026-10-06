@@ -70,8 +70,11 @@ func newService(deps httpapi.DependencySet) (*service, error) {
 	}
 	cursorCodec := deps.CursorCodec
 	if cursorCodec == nil {
-		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
-		cursorCodec = pagination.NewCodec(cursorKey[:])
+		cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
+		if err != nil {
+			return nil, err
+		}
+		cursorCodec = pagination.NewCodec(cursorKey)
 	}
 	return &service{
 		application:    newSavedViewApplication(newPostgresSavedViewRepository(deps.PostgresHandle())),

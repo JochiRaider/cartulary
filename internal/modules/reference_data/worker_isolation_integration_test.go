@@ -27,8 +27,8 @@ func TestWorkerDatabaseBarriersAreInstanceScoped_Integration(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	second := startReferencePackServerConfigured(t, runtime, appsupport.ServerOptions{Prefix: "reference-worker-second", ObjectStore: store, Env: runtime.S3.Env(bucket), TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: func(o *server.Options) { o.ReferenceDataComposition = secondBarrier }})
-	firstAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, first.Server.HTTP.URL)
-	secondAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, second.Server.HTTP.URL)
+	firstAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, first.Server.HTTP.URL)
+	secondAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, second.Server.HTTP.URL)
 	entered, release := make(chan struct{}), make(chan struct{})
 	released := false
 	defer func() {

@@ -55,7 +55,7 @@ const enrollment = () => ({
   totp_setup: {
     secret_base32: "SEED",
     otpauth_uri: "otpauth://test",
-    algorithm: "SHA1" as const,
+    algorithm: "SHA256" as const,
     digits: 6 as const,
     period_seconds: 30 as const,
   },

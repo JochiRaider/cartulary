@@ -75,6 +75,8 @@ copy_minimal_repo() {
     ln -s "${ROOT_DIR}/node_modules" "${dest}/node_modules"
   fi
   cp "${ROOT_DIR}/go.mod" "${dest}/go.mod"
+  mkdir -p "${dest}/internal/platform/cryptography"
+  cp "${ROOT_DIR}/internal/platform/cryptography/execution.go" "${dest}/internal/platform/cryptography/execution.go"
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface.runtime.generated.mk" "${dest}/tools/task_surface.runtime.generated.mk"
   cp "${ROOT_DIR}/tools/workspace_layout.json" "${dest}/tools/workspace_layout.json"

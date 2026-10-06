@@ -69,7 +69,7 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 	if catalog.DigestSHA256() == "" {
 		t.Fatal("catalog digest is empty")
 	}
-	if got, want := catalog.DigestSHA256(), "ff769efe796c3ac9194cbe6e531e82084d39d3d48b181d63b43f07840f40264b"; got != want {
+	if got, want := catalog.DigestSHA256(), "75eb3c368cc34bced58d829bf0fe07d858464968f3cef62b9256d6f880e83e71"; got != want {
 		t.Fatalf("current catalog digest = %s, want compatibility identity %s", got, want)
 	}
 	if want := graphrestore.CurrentRestoreImplementationBinding().Binding.RecoveryStateCatalogSHA256; catalog.DigestSHA256() != want {
@@ -86,23 +86,6 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 		t.Fatal("catalog digest depends on contribution registration order")
 	}
 
-	legacyTables := catalog.RequiredTableNames()
-	legacyTables = append(legacyTables,
-		"collaboration_event_intents",
-		"collaboration_incident_stream_cursors",
-		"collaboration_replay_events",
-		"collaboration_resume_tokens",
-		"enterprise_auth_transactions",
-	)
-	if err := catalog.ValidateLegacyShadowTables(legacyTables); err != nil {
-		t.Fatalf("validate exact transitional legacy table set: %v", err)
-	}
-	if err := catalog.ValidateLegacyShadowTables(legacyTables[1:]); !errors.Is(err, recoverystate.ErrInvalidCatalog) {
-		t.Fatalf("missing legacy table error = %v, want ErrInvalidCatalog", err)
-	}
-	if err := catalog.ValidateLegacyShadowTables(append(legacyTables, "unclassified_future_table")); !errors.Is(err, recoverystate.ErrInvalidCatalog) {
-		t.Fatalf("unknown legacy table error = %v, want ErrInvalidCatalog", err)
-	}
 	databaseTables := append(catalog.AuthoredTableNames(), "goose_db_version")
 	if err := catalog.ValidateDatabaseTableNames(databaseTables); err != nil {
 		t.Fatalf("validate exact database table coverage: %v", err)

@@ -1137,6 +1137,7 @@ function validateContractFamilyRegistryShape(file) {
     "reference-packs",
     "reporting",
     "reference-pack-fixtures",
+    "cryptography",
   ];
   if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(
@@ -1241,7 +1242,7 @@ function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   );
   requireExact(
     contractFiles.key_rings,
-    "contracts/network-flow/key-rings.v1.schema.json",
+    "contracts/network-flow/key-rings.v2.schema.json",
     `${file}.contract_files.key_rings`,
   );
   requireExact(

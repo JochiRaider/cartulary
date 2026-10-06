@@ -41,6 +41,9 @@ func TestOperatorObjectStoreInitCommand_U_DeploymentLocalResult(t *testing.T) {
 	objectStorageRoot := t.TempDir()
 	runner := operatorRunner{
 		objectStore: objectStoreExecutor{
+			setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
+				return &collaborationRequeueFakePool{}, nil
+			},
 			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
 			loadConfig: func(path string) (configassembly.Loaded, error) {
 				gotConfigPath = path
@@ -134,7 +137,7 @@ func TestOperatorCollaborationRequeueArgs_U_RejectsClosedGrammarMatrix(t *testin
 func TestOperatorCollaborationRequeueCommand_U_V2DeliveryAndClosure(t *testing.T) {
 	operationID := uuid.MustParse("10000000-0000-0000-0000-000000000001")
 	incidentID := uuid.MustParse("20000000-0000-0000-0000-000000000002")
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://unit-test")
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://fixture@db.example.test/cartulary?sslmode=verify-full&require_auth=none&sslrootcert=%2Ffixture%2Froot.pem&sslcert=%2Ffixture%2Fruntime.pem&sslkey=%2Ffixture%2Fruntime.key")
 
 	t.Run("help is the sole non-envelope path", func(t *testing.T) {
 		var stdout bytes.Buffer
@@ -326,6 +329,9 @@ func TestOperatorObjectStoreInitCommand_U_RedactsFailure(t *testing.T) {
 	}
 	runner := operatorRunner{
 		objectStore: objectStoreExecutor{
+			setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
+				return &collaborationRequeueFakePool{}, nil
+			},
 			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
 			loadConfig: func(string) (configassembly.Loaded, error) {
 				return objectStoreTestConfig(t, objectStorageRoot), nil
@@ -410,9 +416,12 @@ func TestOperatorObjectStoreInitCommand_U_UsesOnlyTypedFailureClassification(t *
 
 func objectStoreTestConfig(t testing.TB, rootPath string) configassembly.Loaded {
 	t.Helper()
+	dbRoot := t.TempDir()
+	configtest.BindPostgresDSNToDatabaseRoot(t, dbRoot, "postgres://fixture@db.example.test/cartulary?sslmode=verify-full&require_auth=none&sslrootcert=%2Ffixture%2Froot.pem&sslcert=%2Ffixture%2Frecovery.pem&sslkey=%2Ffixture%2Frecovery.key", postgres.PurposeRecovery)
 	return configtest.LoadFixture(t, []string{"config", "valid.toml"}, map[string]string{
 		"CARTULARY__ROOTS__OBJECT_STORAGE__BINDING_KIND": "filesystem_root",
 		"CARTULARY__ROOTS__OBJECT_STORAGE__PATH":         rootPath,
+		"CARTULARY__ROOTS__DATABASE_STORAGE__PATH":       dbRoot,
 		"CARTULARY__ROOTS__OBJECT_STORAGE__SERVICE_REF":  "",
 	})
 }

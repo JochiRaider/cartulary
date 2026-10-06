@@ -4,11 +4,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
+	"strings"
 	"testing"
 )
 
 func testCodec() *Codec {
-	return NewCodec([]byte("01234567890123456789012345678901"))
+	return NewCodec([32]byte([]byte("01234567890123456789012345678901")))
 }
 
 func TestResolveRequestReusesCursorBoundLimitAndValidatesBindings(t *testing.T) {
@@ -128,7 +129,7 @@ func TestCodecRejectsTamperedCursor(t *testing.T) {
 		t.Fatalf("encode cursor: %v", err)
 	}
 
-	sealed, err := base64.RawURLEncoding.DecodeString(token)
+	sealed, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(token, cursorPrefix))
 	if err != nil {
 		t.Fatalf("decode token: %v", err)
 	}
@@ -139,7 +140,7 @@ func TestCodecRejectsTamperedCursor(t *testing.T) {
 
 	tampered := append([]byte(nil), sealed...)
 	tampered[len(tampered)-1] ^= 0x01
-	if _, err := codec.Decode(base64.RawURLEncoding.EncodeToString(tampered)); err == nil {
+	if _, err := codec.Decode(cursorPrefix + base64.RawURLEncoding.EncodeToString(tampered)); err == nil {
 		t.Fatal("expected tampered cursor to fail authentication")
 	}
 }
@@ -164,5 +165,44 @@ func TestPageRawMessagesUsesSignedOffsetCursorWithoutRetainingRows(t *testing.T)
 	}
 	if len(pageTwo) != 1 || cursor != nil {
 		t.Fatalf("unexpected page two: rows=%d cursor=%#v", len(pageTwo), cursor)
+	}
+}
+
+func TestCursorVersionKeyAndFramingRejection(t *testing.T) {
+	codec := testCodec()
+	token, err := codec.Encode(Cursor{Mode: ModeOffset, Route: "users.list", ActorUserID: "actor", Limit: 1, Position: map[string]string{"offset": "1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, invalid := range []string{strings.TrimPrefix(token, cursorPrefix), "pc1." + strings.TrimPrefix(token, cursorPrefix), token + "=", "pc2.\n" + strings.TrimPrefix(token, cursorPrefix), strings.Repeat("A", maximumCursorBytes+1)} {
+		if _, err := codec.Decode(invalid); err == nil {
+			t.Fatal("accepted old or malformed cursor")
+		}
+	}
+	other := NewCodec([32]byte{1})
+	if _, err := other.Decode(token); err == nil {
+		t.Fatal("accepted wrong cursor key")
+	}
+	for _, invalid := range []Cursor{
+		{Mode: "unknown", Route: "users.list", ActorUserID: "actor", Limit: 1},
+		{Mode: ModeOffset, ActorUserID: "actor", Limit: 1},
+		{Mode: ModeKeyset, Route: "users.list", Limit: 1},
+		{Mode: ModeKeyset, Route: "users.list", ActorUserID: "actor", Limit: MaxLimit + 1},
+	} {
+		if token, err := codec.Encode(invalid); err == nil || token != "" {
+			t.Fatal("encoder issued unreadable cursor")
+		}
+		invalid.Version = CursorVersion
+		payload, err := json.Marshal(invalid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sealed, err := codec.key.Seal(CursorVersion, nil, payload, []byte(cursorPrefix))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := codec.Decode(cursorPrefix + base64.RawURLEncoding.EncodeToString(sealed)); err == nil {
+			t.Fatal("decoder accepted invalid authenticated payload")
+		}
 	}
 }

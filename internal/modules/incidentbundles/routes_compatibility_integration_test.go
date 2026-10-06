@@ -23,8 +23,8 @@ func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *tes
 	runtime := appsupport.StartRuntime(t)
 	sourceHarness := runtime.StartDefaultServer(t, "incident-bundle-retired-version-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "incident-bundle-retired-version-target")
-	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
-	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-retired-version-source",
 		"incident_key":  "BUNDLE-RETIRED-VERSION",
@@ -80,7 +80,7 @@ func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *tes
 
 func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-descriptor-canonical")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-descriptor-canonical",
 		"incident_key":  "BUNDLE-DESCRIPTOR",
@@ -145,8 +145,8 @@ func TestLegacyBundleLayoutRejectionAndHistoricalReplay_Integration(t *testing.T
 	runtime := appsupport.StartRuntime(t)
 	source := runtime.StartDefaultServer(t, "frozen-layout-legacy-source")
 	target := startIsolatedIncidentBundleServer(t, runtime, "frozen-layout-legacy-target")
-	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, source.Server.HTTP.URL)
-	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, target.Server.HTTP.URL)
+	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, source.Server, admin, map[string]any{
 		"client_txn_id": "frozen-legacy-source", "incident_key": "FROZEN-LEGACY", "title": "Legacy layout compatibility fixture",
 	})

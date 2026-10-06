@@ -21,7 +21,7 @@ import (
 func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident-membership-audit-route")
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	firstIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-audit-route-first",
 		"incident_key":  "IR-MAUDIT-ONE",
@@ -37,7 +37,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 	firstPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + firstIncidentID + "/membership-audit-events"
 	secondPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + secondIncidentID + "/membership-audit-events"
 
-	const viewerSecret = "JBSWY3DPEHPK3RAB"
+	const viewerSecret = "AA4RTVEXPPA34W5IQXOZIWUZMEGPM3ZVTRNESPL47EXXECXABZSQ"
 	viewerID := flowtest.SeedLocalUserWithActiveTOTP(
 		t,
 		harness.DB,
@@ -54,14 +54,14 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		"role":          "viewer",
 	})
 	viewerLogin := flowtest.LoginLocalUserWithSecondFactor(
-		t,
+		t, http.DefaultClient,
 		harness.Server.HTTP.URL,
 		"membership-audit-viewer@example.test",
 		"MembershipAuditViewer1!",
 		flowtest.GenerateTOTPCode(t, viewerSecret),
 	)
 
-	const deploymentAdminSecret = "JBSWY3DPEHPK3RAC"
+	const deploymentAdminSecret = "6JH6SPILV536RJLDH2XF3DJGPXSVQDIGKSZGGPTDTQBWD66EOODA"
 	flowtest.SeedLocalUserWithActiveTOTP(
 		t,
 		harness.DB,
@@ -73,14 +73,14 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		deploymentAdminSecret,
 	)
 	deploymentAdminLogin := flowtest.LoginLocalUserWithSecondFactor(
-		t,
+		t, http.DefaultClient,
 		harness.Server.HTTP.URL,
 		"membership-audit-deployment-admin@example.test",
 		"MembershipAuditDeploymentAdmin1!",
 		flowtest.GenerateTOTPCode(t, deploymentAdminSecret),
 	)
 
-	const nonmemberSecret = "JBSWY3DPEHPK3RAD"
+	const nonmemberSecret = "SDC6DJRVIR4DOPIXWBJ6LIBOQMNUMH2ZAKWANKAKPIVUZQWMNS5A"
 	flowtest.SeedLocalUserWithActiveTOTP(
 		t,
 		harness.DB,
@@ -92,7 +92,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		nonmemberSecret,
 	)
 	nonmemberLogin := flowtest.LoginLocalUserWithSecondFactor(
-		t,
+		t, http.DefaultClient,
 		harness.Server.HTTP.URL,
 		"membership-audit-nonmember@example.test",
 		"MembershipAuditNonmember1!",
@@ -137,7 +137,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		true,
 	)
 	bootstrapToken := flowtest.RequireBootstrapLogin(
-		t,
+		t, http.DefaultClient,
 		harness.Server.HTTP.URL,
 		"membership-audit-bootstrap@example.test",
 		"MembershipAuditBootstrap1!",

@@ -99,7 +99,7 @@ func TestConcurrencyCapRevokesSocket_Process(t *testing.T) {
 
 	server, db := startServerProcessWithDB(t, "authentication-e-1-03")
 	t.Cleanup(func() {
-		flowtest.ResetClockOffset(t, server.BaseURL)
+		flowtest.ResetClockOffset(t, server.Client, server.BaseURL)
 	})
 
 	initialLogin, adminSecret := provisionBootstrapAdmin(t, server)
@@ -110,14 +110,14 @@ func TestConcurrencyCapRevokesSocket_Process(t *testing.T) {
 	sessions := make([]flowtest.LoginResult, 0, 6)
 	sessions = append(sessions, initialLogin)
 	for i := 0; i < 4; i++ {
-		flowtest.SetClockOffset(t, server.BaseURL, int64(i+1))
+		flowtest.SetClockOffset(t, server.Client, server.BaseURL, int64(i+1))
 		sessions = append(sessions, loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, adminSecret)))
 	}
 
-	socket := flowtest.ConnectSessionSocket(t, server.BaseURL, socketIncidentID, sessions[0].SessionCookie.Value)
+	socket := flowtest.ConnectSessionSocket(t, server.Client, server.BaseURL, socketIncidentID, sessions[0].SessionCookie.Value)
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
-	flowtest.SetClockOffset(t, server.BaseURL, 5)
+	flowtest.SetClockOffset(t, server.Client, server.BaseURL, 5)
 	sessions = append(sessions, loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, adminSecret)))
 	if err := flowtest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
 		firstSession := flowtest.QuerySessionByID(t, db, firstSessionID)
@@ -157,11 +157,11 @@ func TestFirstEnrollmentFlow_Process(t *testing.T) {
 	})
 
 	bootstrapToken := requireBootstrapLogin(t, server, "authentication-e-1-04@example.test", "AuthenticationE104Pass!")
-	begin := flowtest.BeginTOTPEnrollment(t, server.BaseURL, bootstrapToken, map[string]any{
+	begin := flowtest.BeginTOTPEnrollment(t, server.Client, server.BaseURL, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-e-1-04-begin",
 	})
 	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
-	flowtest.CompleteInitialEnrollment(t, server.BaseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-e-1-04-complete")
+	flowtest.CompleteInitialEnrollment(t, server.Client, server.BaseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-e-1-04-complete")
 
 	mfaRequired := doJSON(t, server, http.MethodPost, "/api/v1/auth/login", map[string]any{
 		"username": "authentication-e-1-04@example.test",
@@ -425,13 +425,13 @@ func TestAdminTOTPResetAndBootstrapBoundaries_Process(t *testing.T) {
 	}
 
 	incidentID := createSocketIncident(t, server, adminLogin, "e-1-08-bootstrap")
-	flowtest.RequireBootstrapWebsocketRejected(t, server.BaseURL, incidentID, bootstrapToken)
+	flowtest.RequireBootstrapWebsocketRejected(t, server.Client, server.BaseURL, incidentID, bootstrapToken)
 
-	begin := flowtest.BeginTOTPEnrollment(t, server.BaseURL, bootstrapToken, map[string]any{
+	begin := flowtest.BeginTOTPEnrollment(t, server.Client, server.BaseURL, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-e-1-08-begin",
 	})
 	newSecretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
-	flowtest.CompleteInitialEnrollment(t, server.BaseURL, bootstrapToken, begin["enrollment_id"].(string), newSecretBase32, "txn-e-1-08-complete")
+	flowtest.CompleteInitialEnrollment(t, server.Client, server.BaseURL, bootstrapToken, begin["enrollment_id"].(string), newSecretBase32, "txn-e-1-08-complete")
 
 	_ = loginLocalUserWithSecondFactor(t, server, "authentication-e-1-08@example.test", "AuthenticationE108Pass!", flowtest.GenerateTOTPCode(t, newSecretBase32))
 }

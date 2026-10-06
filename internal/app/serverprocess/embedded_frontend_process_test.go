@@ -15,7 +15,8 @@ func TestServerEmbeddedFrontendAssets_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startServerProcess(t, "authentication-e-1-09")
-	client := &http.Client{Timeout: 2 * time.Second}
+	client := *server.Client
+	client.Timeout = 2 * time.Second
 
 	rootResp, err := client.Get(server.BaseURL + "/")
 	if err != nil {

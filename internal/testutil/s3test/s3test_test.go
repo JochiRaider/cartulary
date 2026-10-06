@@ -11,7 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore/s3transport"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
 	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	testcontainers "github.com/testcontainers/testcontainers-go"
@@ -157,18 +160,18 @@ func TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange(t *tes
 
 	got := seaweedFSS3AllowedOrigins()
 	for _, want := range []string{
-		"http://localhost:5173",
-		"http://127.0.0.1:5173",
-		"http://localhost:19000",
-		"http://127.0.0.1:19000",
-		"http://localhost:19199",
-		"http://127.0.0.1:19199",
+		"https://localhost:5173",
+		"https://127.0.0.1:5173",
+		"https://localhost:19000",
+		"https://127.0.0.1:19000",
+		"https://localhost:19199",
+		"https://127.0.0.1:19199",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("default SeaweedFS S3 allowed origins missing %q in %q", want, got)
 		}
 	}
-	for _, forbidden := range []string{"*", "http://0.0.0.0", "http://[::]"} {
+	for _, forbidden := range []string{"*", "http://", "https://0.0.0.0", "https://[::]"} {
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("default SeaweedFS S3 allowed origins must stay exact and loopback-scoped, got %q", got)
 		}
@@ -381,7 +384,7 @@ func TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure(t *testing.T
 			Outcome:        "capability_rejected",
 			Attempts:       1,
 			CleanupOutcome: "completed",
-			LastErr: minio.ErrorResponse{
+			LastErr: &smithy.GenericAPIError{
 				Code:    "AccessDenied",
 				Message: "Access Denied",
 			},
@@ -435,7 +438,7 @@ func TestObjectStoreMutationProbeRetriesTransientStagesOnSameLane(t *testing.T) 
 
 func TestObjectStoreMutationProbeRejectsCapabilitiesImmediately(t *testing.T) {
 	client := newFakeReadinessClient()
-	client.failureErrors["create_namespace"] = minio.ErrorResponse{Code: "AccessDenied", StatusCode: 403}
+	client.failureErrors["create_namespace"] = &smithy.GenericAPIError{Code: "AccessDenied"}
 	client.failures["create_namespace"] = -1
 	configureReadinessClient(t, client)
 
@@ -634,7 +637,7 @@ func TestPreparePackageBucketCoreRejectsCapabilityAndCancellation(t *testing.T) 
 			Stage:          "create_namespace",
 			Attempts:       1,
 			CleanupOutcome: "completed",
-			LastErr:        minio.ErrorResponse{Code: "AccessDenied", StatusCode: 403},
+			LastErr:        &smithy.GenericAPIError{Code: "AccessDenied"},
 		},
 		"cancelled": context.Canceled,
 	} {
@@ -782,10 +785,10 @@ func TestCleanupPrefixPreservesSiblingObjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create s3 client: %v", err)
 	}
-	if _, err := client.StatObject(context.Background(), bucket, "current/proof.txt", minio.StatObjectOptions{}); err == nil {
+	if _, err := client.HeadObject(context.Background(), &s3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String("current/proof.txt")}); err == nil {
 		t.Fatal("expected current prefix object to be removed")
 	}
-	if _, err := client.StatObject(context.Background(), bucket, "sibling/proof.txt", minio.StatObjectOptions{}); err != nil {
+	if _, err := client.HeadObject(context.Background(), &s3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String("sibling/proof.txt")}); err != nil {
 		t.Fatalf("expected sibling prefix object to remain: %v", err)
 	}
 }
@@ -814,11 +817,11 @@ func TestResetBucketPreservesNamespaceAndProvesMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create s3 client: %v", err)
 	}
-	exists, err := client.BucketExists(context.Background(), bucket)
+	exists, err := s3transport.BucketExists(context.Background(), client, bucket)
 	if err != nil || !exists {
 		t.Fatalf("stable bucket missing after reset: exists=%t err=%v", exists, err)
 	}
-	if _, err := client.StatObject(context.Background(), bucket, "prior/object.txt", minio.StatObjectOptions{}); err == nil {
+	if _, err := client.HeadObject(context.Background(), &s3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String("prior/object.txt")}); err == nil {
 		t.Fatal("prior generation object remained after reset")
 	}
 	if _, err := harness.RoundTrip(context.Background(), bucket, "next/object.txt", []byte("next")); err != nil {
@@ -946,7 +949,7 @@ func (c *fakeReadinessClient) Put(_ context.Context, bucket string, key string, 
 		return err
 	}
 	if !c.namespaces[bucket] {
-		return minio.ErrorResponse{Code: "NoSuchBucket", StatusCode: 404}
+		return &smithy.GenericAPIError{Code: "NoSuchBucket"}
 	}
 	c.objects[bucket+"/"+key] = append([]byte(nil), payload...)
 	return nil
@@ -965,7 +968,7 @@ func (c *fakeReadinessClient) HeadSize(_ context.Context, bucket string, key str
 		return 0, err
 	}
 	if !exists {
-		return 0, minio.ErrorResponse{Code: "NoSuchKey", StatusCode: 404}
+		return 0, &smithy.GenericAPIError{Code: "NoSuchKey"}
 	}
 	return int64(len(payload)) + c.headSizeDelta, nil
 }

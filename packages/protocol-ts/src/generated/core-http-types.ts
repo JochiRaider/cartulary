@@ -2947,7 +2947,7 @@ export interface TOTPBeginResponse {
  * via the `definition` "TOTPSetupResource".
  */
 export interface TOTPSetupResource {
-  algorithm: "SHA1";
+  algorithm: "SHA256";
   digits: 6;
   otpauth_uri: string;
   period_seconds: 30;

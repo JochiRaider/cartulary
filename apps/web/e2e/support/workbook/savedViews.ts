@@ -249,6 +249,13 @@ export async function selectSavedView(
   await page
     .getByTestId(savedViewOptionTestId(surface, savedViewId || "base"))
     .click();
+  await expect
+    .poll(() => readSavedViewSelectionState(page, surface))
+    .toEqual({
+      activeViewSchemaId: surface,
+      selectedSavedViewId: savedViewId,
+      selectedSheetRefKind: savedViewId ? "saved_view" : "view_schema",
+    });
 }
 
 export async function readSavedViewSelectionState(
@@ -280,9 +287,7 @@ export async function openSavedViewActionMenu(
   }
   await page.getByTestId(savedViewActionMenuTriggerTestId(surface)).click();
   if (canVerifyVisibility) {
-    if (!(await isSavedViewLocatorVisible(menu))) {
-      throw new Error(`Saved-view action menu for ${surface} did not open`);
-    }
+    await expect.poll(() => isSavedViewLocatorVisible(menu)).toBe(true);
   }
 }
 

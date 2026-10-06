@@ -14,25 +14,12 @@ type controlledEntropy struct {
 func (c *Controls) TableIDEntropy() io.Reader {
 	return controlledEntropy{c.Randomness, NetworkFlowRandomStreamTableID}
 }
-func (c *Controls) CursorNonceEntropy() io.Reader {
-	return controlledEntropy{c.Randomness, NetworkFlowRandomStreamCursorNonce}
-}
 func (r controlledEntropy) Read(p []byte) (int, error) {
-	var value []byte
-	var armed bool
-	var err error
-	if r.stream == NetworkFlowRandomStreamTableID {
-		if len(p) != 16 {
-			return 0, errors.New("table entropy draw must be 16 bytes")
-		}
-		id, ok, consumeErr := r.registry.ConsumeNetworkFlowRandomUUID(r.stream)
-		value, armed, err = id[:], ok, consumeErr
-	} else {
-		if len(p) != 12 {
-			return 0, errors.New("cursor entropy draw must be 12 bytes")
-		}
-		value, armed, err = r.registry.ConsumeNetworkFlowRandomHexBytes(r.stream)
+	if r.stream != NetworkFlowRandomStreamTableID || len(p) != 16 {
+		return 0, errors.New("table entropy draw must be 16 bytes")
 	}
+	id, armed, err := r.registry.ConsumeNetworkFlowRandomUUID(r.stream)
+	value := id[:]
 	if err != nil {
 		return 0, err
 	}

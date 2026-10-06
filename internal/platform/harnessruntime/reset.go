@@ -142,6 +142,10 @@ func resetAdmittedDatabase(
 	if err != nil {
 		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
 	}
+	beforeCryptoFormat, err := cryptoFormatSnapshot(ctx, tx)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
+	}
 	tables, err := listMutablePublicTables(ctx, tx)
 	if err != nil {
 		return result, newResetFailure("recovery_reset_inventory_failed", err)
@@ -165,6 +169,10 @@ func resetAdmittedDatabase(
 	if err != nil {
 		return result, newResetFailure("recovery_reset_metadata_verification_failed", err)
 	}
+	afterCryptoFormat, err := cryptoFormatSnapshot(ctx, tx)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_metadata_verification_failed", err)
+	}
 	counts, err := readDatabaseResetCounts(ctx, tx)
 	if err != nil {
 		return result, newResetFailure("recovery_reset_state_verification_failed", err)
@@ -174,7 +182,7 @@ func resetAdmittedDatabase(
 		return result, newResetFailure("recovery_reset_state_verification_failed", err)
 	}
 	result.TableCounts = tableCounts
-	result.MigrationMetadataPreserved = beforeGooseVersions == afterGooseVersions && afterGooseVersions > 0 && beforeLineageRows == afterLineageRows && afterLineageRows == 1
+	result.MigrationMetadataPreserved = beforeCryptoFormat == afterCryptoFormat && beforeGooseVersions == afterGooseVersions && afterGooseVersions > 0 && beforeLineageRows == afterLineageRows && afterLineageRows == 1
 	result.BootstrapAdminRestored = counts.ActiveDeploymentAdmins == 1 && counts.BootstrapMarkers == 1
 	result.PostResetCounts = counts
 	if !result.MigrationMetadataPreserved {
@@ -262,7 +270,7 @@ func listMutablePublicTables(ctx context.Context, db resetDB) ([]string, error) 
 		FROM information_schema.tables
 		WHERE table_schema = 'public'
 		  AND table_type = 'BASE TABLE'
-		  AND table_name NOT IN ('goose_db_version', 'schema_migration_lineage')
+		  AND table_name NOT IN ('goose_db_version', 'schema_migration_lineage', 'application_crypto_format')
 		ORDER BY table_name
 	`)
 	if err != nil {
@@ -334,6 +342,14 @@ ORDER BY ordinal_position`, table)
 		}
 	}
 	return nil
+}
+
+// Reset preserves the exact marker, including absence; only admitted migration
+// initialization owns creation of cryptographic-format identity.
+func cryptoFormatSnapshot(ctx context.Context, db resetDB) (string, error) {
+	var value string
+	err := db.QueryRow(ctx, `SELECT COALESCE(jsonb_agg(to_jsonb(identity) ORDER BY singleton), '[]'::jsonb)::text FROM public.application_crypto_format AS identity`).Scan(&value)
+	return value, err
 }
 
 func countTableRows(ctx context.Context, db resetDB, table string) (int, error) {

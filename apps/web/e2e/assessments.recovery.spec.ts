@@ -158,8 +158,17 @@ async function recovery(
     await expect(
       page.getByTestId(gridShellTestId(hostsViewSchemaId)),
     ).toBeVisible();
-    if (mode === "late") await tab.focus();
     if (mode === "late") {
+      // Surface selection first owns entry focus. Establish the later deliberate
+      // tab focus only after that transition has completed, before acceptance.
+      const hosts = page.getByTestId(gridShellTestId(hostsViewSchemaId));
+      await expect(hosts.getByRole("grid")).toHaveAttribute(
+        "aria-busy",
+        "false",
+      );
+      await expect(hosts.locator(":focus")).toHaveCount(1);
+      await tab.focus();
+      await expect(tab).toBeFocused();
       const complete = release as (() => void) | null;
       complete?.();
       await expect(recoveryEntry(page)).toBeVisible();

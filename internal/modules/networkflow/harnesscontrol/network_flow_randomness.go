@@ -1,7 +1,6 @@
 package harnesscontrol
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,16 +12,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-const testNetworkFlowRandomnessSchemaID = "cartulary.test.network_flow_randomness_control.v2"
+const testNetworkFlowRandomnessSchemaID = "cartulary.test.network_flow_randomness_control.v3"
 
 const (
-	NetworkFlowRandomStreamTableID     = "network_flow.table_id"
-	NetworkFlowRandomStreamCursorNonce = "network_flow.cursor_nonce"
+	NetworkFlowRandomStreamTableID = "network_flow.table_id"
 )
 
 const (
-	NetworkFlowRandomValueKindUUID     = "uuid"
-	NetworkFlowRandomValueKindHexBytes = "hex_bytes"
+	NetworkFlowRandomValueKindUUID = "uuid"
 )
 
 const networkFlowRandomnessExhaustionFailClosed = "fail_closed"
@@ -34,13 +31,11 @@ var (
 
 var (
 	networkFlowRandomStreams = map[string]struct{}{
-		NetworkFlowRandomStreamTableID:     {},
-		NetworkFlowRandomStreamCursorNonce: {},
+		NetworkFlowRandomStreamTableID: {},
 	}
 
 	networkFlowRandomValueKinds = map[string]struct{}{
-		NetworkFlowRandomValueKindUUID:     {},
-		NetworkFlowRandomValueKindHexBytes: {},
+		NetworkFlowRandomValueKindUUID: {},
 	}
 )
 
@@ -124,18 +119,6 @@ func (r *NetworkFlowRandomnessRegistry) ConsumeNetworkFlowRandomUUID(stream stri
 		return uuid.UUID{}, false, fmt.Errorf("parse deterministic UUID: %w", err)
 	}
 	return parsed, true, nil
-}
-
-func (r *NetworkFlowRandomnessRegistry) ConsumeNetworkFlowRandomHexBytes(stream string) ([]byte, bool, error) {
-	value, ok, err := r.consume(stream, NetworkFlowRandomValueKindHexBytes)
-	if err != nil || !ok {
-		return nil, ok, err
-	}
-	decoded, err := hex.DecodeString(value)
-	if err != nil {
-		return nil, false, fmt.Errorf("decode deterministic hex bytes: %w", err)
-	}
-	return decoded, true, nil
 }
 
 func (r *NetworkFlowRandomnessRegistry) NetworkFlowRandomnessState(stream string) (NetworkFlowRandomnessState, bool) {
@@ -264,9 +247,6 @@ func (r networkFlowRandomnessRequest) networkFlowRandomnessStream() (networkFlow
 	if _, ok := networkFlowRandomValueKinds[valueKind]; !ok {
 		return networkFlowRandomnessStream{}, errors.New("value_kind is not supported")
 	}
-	if (stream == NetworkFlowRandomStreamTableID && valueKind != NetworkFlowRandomValueKindUUID) || (stream == NetworkFlowRandomStreamCursorNonce && valueKind != NetworkFlowRandomValueKindHexBytes) {
-		return networkFlowRandomnessStream{}, errors.New("value_kind does not match stream")
-	}
 	if len(r.Values) == 0 || len(r.Values) > 256 {
 		return networkFlowRandomnessStream{}, errors.New("values must include 1..256 deterministic entries")
 	}
@@ -302,28 +282,8 @@ func validateNetworkFlowRandomnessValue(valueKind string, value string) error {
 		if parsed.String() != value {
 			return errors.New("must be canonical lowercase UUID text")
 		}
-	case NetworkFlowRandomValueKindHexBytes:
-		if !isNetworkFlowRandomnessHexBytes(value) {
-			return errors.New("must be exactly 12 bytes encoded as lowercase hex")
-		}
 	default:
 		return errors.New("unsupported value kind")
 	}
 	return nil
-}
-
-func isNetworkFlowRandomnessHexBytes(value string) bool {
-	if len(value) != 24 {
-		return false
-	}
-	for _, r := range value {
-		if r >= '0' && r <= '9' {
-			continue
-		}
-		if r >= 'a' && r <= 'f' {
-			continue
-		}
-		return false
-	}
-	return true
 }

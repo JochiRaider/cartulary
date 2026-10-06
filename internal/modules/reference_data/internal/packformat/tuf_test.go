@@ -3,15 +3,18 @@ package packformat
 import (
 	"bytes"
 	"context"
+	"crypto/fips140"
 	"encoding/json"
 	"errors"
 	"os"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 )
 
 type trustVector struct {
@@ -116,6 +119,51 @@ func vectorMetadata(v trustVector) map[string][]byte {
 	return m
 }
 func TestOfflineTUFIndependentVectorsAndRootReplay_Unit(t *testing.T) {
+	// Qualification is attached to the real verifier execution, including its
+	// independent bootstrap, rotation and replay vectors. Ordinary staging
+	// tests make no qualification claim before mandatory build activation.
+	if selector := os.Getenv("GOFIPS140"); selector != "" && selector != "off" {
+		if selector != cryptography.ModuleSelector || runtime.Version() != cryptography.Toolchain || !fips140.Enabled() || fips140.Version() != cryptography.ModuleVersion {
+			t.Fatal("Reference Pack verifier cryptographic execution identity rejected")
+		}
+		t.Logf("verifier execution: toolchain=%s selector=%s module=%s enabled=%t", runtime.Version(), selector, fips140.Version(), fips140.Enabled())
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(map[string]any)
+	}{
+		{"unsupported key algorithm", func(key map[string]any) { key["keytype"] = "rsa" }},
+		{"unsupported signature scheme", func(key map[string]any) { key["scheme"] = "ed25519ph" }},
+		{"short public key", func(key map[string]any) { key["keyval"].(map[string]any)["public"] = strings.Repeat("00", 31) }},
+		{"long public key", func(key map[string]any) { key["keyval"].(map[string]any)["public"] = strings.Repeat("00", 33) }},
+		{"malformed public key", func(key map[string]any) { key["keyval"].(map[string]any)["public"] = strings.Repeat("gg", 32) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			value, err := canonicaljson.DecodeStrict([]byte(trustVectors(t)[0].Bootstrap))
+			if err != nil {
+				t.Fatal(err)
+			}
+			keys := value.(map[string]any)["signed"].(map[string]any)["keys"].(map[string]any)
+			for _, key := range keys {
+				tc.change(key.(map[string]any))
+			}
+			raw, err := canonicaljson.Marshal(value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Shape admission must reject before signature verification; an
+			// invalidated self-signature alone would not prove key policy.
+			if _, err := decodeRootShape(raw); err == nil {
+				t.Fatal("unsupported root key admitted before signature verification")
+			}
+			if _, err := AdmitBootstrap(raw); err == nil {
+				t.Fatal("unsupported bootstrap key admitted")
+			}
+			if _, err := VerifyHistoricalRoot(nil, raw, "test.repo"); err == nil {
+				t.Fatal("unsupported historical key admitted")
+			}
+		})
+	}
 	for _, vector := range trustVectors(t) {
 		prior := []byte(vector.Bootstrap)
 		if _, err := VerifyHistoricalRoot(nil, prior, "test.repo"); err != nil {

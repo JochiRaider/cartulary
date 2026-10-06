@@ -55,7 +55,7 @@ func SeedLocalUserRecord(
 ) authn.UserRecord {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
+	hash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -65,7 +65,7 @@ func SeedLocalUserRecord(
 INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, email, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
 `, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin).Scan(
 		&record.ID,
 		&record.Email,
@@ -81,8 +81,7 @@ RETURNING id, email, display_name, password_hash, password_changed_at, mfa_requi
 		&record.LastLoginAt,
 		&record.UserVersion,
 		&record.TOTPEnrolledAt,
-		&record.TOTPSecretCiphertext,
-		&record.TOTPSecretNonce,
+		&record.TOTPSecretEnvelope,
 	); err != nil {
 		t.Fatalf("seed local user with flags: %v", err)
 	}
@@ -130,7 +129,7 @@ func SeedLocalUserWithActiveTOTPRecord(
 ) authn.UserRecord {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
+	hash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -142,18 +141,19 @@ func SeedLocalUserWithActiveTOTPRecord(
 	if err != nil {
 		t.Fatalf("decode base32 totp secret: %v", err)
 	}
-	ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+	userID := uuid.New()
+	envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: userID, SubjectID: userID}, secretBytes)
 	if err != nil {
 		t.Fatalf("encrypt totp secret: %v", err)
 	}
 
 	var record authn.UserRecord
 	if err := db.QueryRow(context.Background(), `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce)
-VALUES ($1, $2, $3, $4, true, $5, now(), $6, $7)
+INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, totp_enrolled_at, totp_secret_envelope)
+VALUES ($1, $2, $3, $4, $5, true, $6, now(), $7)
 RETURNING id, email, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
-`, email, displayName, hash, mfaRequired, isDeploymentAdmin, ciphertext, nonce).Scan(
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
+`, userID, email, displayName, hash, mfaRequired, isDeploymentAdmin, envelope).Scan(
 		&record.ID,
 		&record.Email,
 		&record.DisplayName,
@@ -168,8 +168,7 @@ RETURNING id, email, display_name, password_hash, password_changed_at, mfa_requi
 		&record.LastLoginAt,
 		&record.UserVersion,
 		&record.TOTPEnrolledAt,
-		&record.TOTPSecretCiphertext,
-		&record.TOTPSecretNonce,
+		&record.TOTPSecretEnvelope,
 	); err != nil {
 		t.Fatalf("seed local user with totp: %v", err)
 	}
@@ -250,7 +249,8 @@ func SeedPendingTOTPEnrollment(
 ) authn.PendingTOTPEnrollmentRecord {
 	t.Helper()
 
-	ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+	enrollmentID := uuid.New()
+	envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: userID}, secretBytes)
 	if err != nil {
 		t.Fatalf("encrypt pending totp secret: %v", err)
 	}
@@ -263,28 +263,29 @@ func SeedPendingTOTPEnrollment(
 	var record authn.PendingTOTPEnrollmentRecord
 	if err := db.QueryRow(context.Background(), `
 INSERT INTO pending_totp_enrollments (
+    id,
     user_id,
     auth_scope_kind,
     auth_scope_session_id,
     auth_scope_bootstrap_token_id,
     client_txn_id,
-    secret_ciphertext,
-    secret_nonce,
+    secret_envelope,
+
     replaces_active,
     created_at,
     expires_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
-          secret_ciphertext, secret_nonce, replaces_active, created_at, expires_at, consumed_at
+          secret_envelope, replaces_active, created_at, expires_at, consumed_at
 `,
+		enrollmentID,
 		userID,
 		authScopeKind,
 		sessionID,
 		bootstrapTokenID,
 		clientTxnID,
-		ciphertext,
-		nonce,
+		envelope,
 		replacesActive,
 		now.UTC(),
 		now.UTC().Add(authn.PendingTOTPEnrollmentTTL),
@@ -295,8 +296,7 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 		&record.AuthScopeSessionID,
 		&record.AuthScopeBootstrapTokenID,
 		&record.ClientTxnID,
-		&record.SecretCiphertext,
-		&record.SecretNonce,
+		&record.SecretEnvelope,
 		&record.ReplacesActive,
 		&record.CreatedAt,
 		&record.ExpiresAt,

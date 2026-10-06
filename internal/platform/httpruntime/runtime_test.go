@@ -3,6 +3,7 @@ package httpruntime
 import (
 	"context"
 	"errors"
+	tlstest "github.com/JochiRaider/cartulary/internal/testutil/tlstest/transport"
 	"io"
 	"log/slog"
 	"net"
@@ -16,6 +17,7 @@ import (
 )
 
 func TestServeInheritedListenerAndGracefulCancellation(t *testing.T) {
+	identity := tlstest.NewServer(t, "127.0.0.1")
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -37,12 +39,12 @@ func TestServeInheritedListenerAndGracefulCancellation(t *testing.T) {
 			close(requestStarted)
 			<-releaseRequest
 			w.WriteHeader(http.StatusNoContent)
-		}), Options{InheritedFD: fileDescriptorString(listenerFile), Logger: discardLogger()})
+		}), Options{TLS: identity.TLS, InheritedFD: fileDescriptorString(listenerFile), Logger: discardLogger()})
 	}()
 
 	responseDone := make(chan error, 1)
 	go func() {
-		resp, err := http.Get("http://" + address)
+		resp, err := identity.Client(t, "127.0.0.1").Get("https://" + address)
 		if resp != nil {
 			_ = resp.Body.Close()
 		}
@@ -69,11 +71,12 @@ func TestServeInheritedListenerAndGracefulCancellation(t *testing.T) {
 }
 
 func TestServeOrdinaryListenerReportsEffectiveAddress(t *testing.T) {
+	identity := tlstest.NewServer(t, "127.0.0.1")
 	ctx, cancel := context.WithCancel(context.Background())
 	var output synchronizedBuffer
 	done := make(chan error, 1)
 	go func() {
-		done <- Serve(ctx, http.NotFoundHandler(), Options{
+		done <- Serve(ctx, http.NotFoundHandler(), Options{TLS: identity.TLS,
 			Address: "127.0.0.1:0",
 			Logger:  slog.New(slog.NewTextHandler(&output, nil)),
 		})
@@ -92,6 +95,7 @@ func TestServeOrdinaryListenerReportsEffectiveAddress(t *testing.T) {
 }
 
 func TestServeRejectsMalformedAndClosedInheritedFD(t *testing.T) {
+	identity := tlstest.NewServer(t, "127.0.0.1")
 	for _, tc := range []struct {
 		name string
 		fd   string
@@ -102,7 +106,7 @@ func TestServeRejectsMalformedAndClosedInheritedFD(t *testing.T) {
 		{name: "closed", fd: "999999", want: "convert inherited http listener fd"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := Serve(context.Background(), http.NotFoundHandler(), Options{InheritedFD: tc.fd, Logger: discardLogger()})
+			err := Serve(context.Background(), http.NotFoundHandler(), Options{TLS: identity.TLS, InheritedFD: tc.fd, Logger: discardLogger()})
 			var startupErr *StartupError
 			if !errors.As(err, &startupErr) || !strings.Contains(startupErr.Unwrap().Error(), tc.want) {
 				t.Fatalf("Serve() error got %v want containing %q", err, tc.want)
@@ -112,12 +116,13 @@ func TestServeRejectsMalformedAndClosedInheritedFD(t *testing.T) {
 }
 
 func TestServeRejectsInheritedNonListenerFD(t *testing.T) {
+	identity := tlstest.NewServer(t, "127.0.0.1")
 	file, err := os.CreateTemp(t.TempDir(), "not-a-listener")
 	if err != nil {
 		t.Fatalf("create non-listener file: %v", err)
 	}
 	defer file.Close()
-	err = Serve(context.Background(), http.NotFoundHandler(), Options{
+	err = Serve(context.Background(), http.NotFoundHandler(), Options{TLS: identity.TLS,
 		InheritedFD: fileDescriptorString(file),
 		Logger:      discardLogger(),
 	})
@@ -128,13 +133,14 @@ func TestServeRejectsInheritedNonListenerFD(t *testing.T) {
 }
 
 func TestServeActivatesPublicationOnlyAfterListenerBind(t *testing.T) {
+	identity := tlstest.NewServer(t, "127.0.0.1")
 	probe, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	address := probe.Addr().String()
 	activated := false
-	err = Serve(context.Background(), http.NotFoundHandler(), Options{
+	err = Serve(context.Background(), http.NotFoundHandler(), Options{TLS: identity.TLS,
 		Address: address, Logger: discardLogger(), OnReady: func() error { activated = true; return nil },
 	})
 	if activated {
@@ -147,7 +153,7 @@ func TestServeActivatesPublicationOnlyAfterListenerBind(t *testing.T) {
 	_ = probe.Close()
 
 	publicationErr := errors.New("publication rejected")
-	err = Serve(context.Background(), http.NotFoundHandler(), Options{
+	err = Serve(context.Background(), http.NotFoundHandler(), Options{TLS: identity.TLS,
 		Address: address, Logger: discardLogger(), OnReady: func() error { return publicationErr },
 	})
 	if !errors.As(err, &startupErr) || !errors.Is(err, publicationErr) {
@@ -163,7 +169,7 @@ func TestServeActivatesPublicationOnlyAfterListenerBind(t *testing.T) {
 	ready := make(chan struct{})
 	done := make(chan error, 1)
 	go func() {
-		done <- Serve(ctx, http.NotFoundHandler(), Options{
+		done <- Serve(ctx, http.NotFoundHandler(), Options{TLS: identity.TLS,
 			Address: address, Logger: discardLogger(), OnReady: func() error { close(ready); return nil },
 		})
 	}()
@@ -179,6 +185,7 @@ func TestServeActivatesPublicationOnlyAfterListenerBind(t *testing.T) {
 }
 
 func TestServeCancelledBeforeListenDoesNotBind(t *testing.T) {
+	identity := tlstest.NewServer(t, "127.0.0.1")
 	probe, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("reserve address: %v", err)
@@ -188,7 +195,7 @@ func TestServeCancelledBeforeListenDoesNotBind(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := Serve(ctx, http.NotFoundHandler(), Options{Address: address, Logger: discardLogger()}); err != nil {
+	if err := Serve(ctx, http.NotFoundHandler(), Options{TLS: identity.TLS, Address: address, Logger: discardLogger()}); err != nil {
 		t.Fatalf("cancelled Serve() error: %v", err)
 	}
 
@@ -200,6 +207,7 @@ func TestServeCancelledBeforeListenDoesNotBind(t *testing.T) {
 }
 
 func TestServeForcesCloseAfterShutdownTimeout(t *testing.T) {
+	identity := tlstest.NewServer(t, "127.0.0.1")
 	ctx, cancel := context.WithCancel(context.Background())
 	requestStarted := make(chan struct{})
 	handlerExited := make(chan struct{})
@@ -223,7 +231,7 @@ func TestServeForcesCloseAfterShutdownTimeout(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- Serve(ctx, handler, Options{
+		done <- Serve(ctx, handler, Options{TLS: identity.TLS,
 			InheritedFD:     fileDescriptorString(listenerFile),
 			ShutdownTimeout: 10 * time.Millisecond,
 			Logger:          discardLogger(),
@@ -232,7 +240,7 @@ func TestServeForcesCloseAfterShutdownTimeout(t *testing.T) {
 
 	responseDone := make(chan error, 1)
 	go func() {
-		resp, err := http.Get("http://" + address)
+		resp, err := identity.Client(t, "127.0.0.1").Get("https://" + address)
 		if resp != nil {
 			_ = resp.Body.Close()
 		}
@@ -294,4 +302,23 @@ func waitServe(t testing.TB, done <-chan error) error {
 		t.Fatal("timed out waiting for Serve")
 		return nil
 	}
+}
+
+func TestServeRejectsMissingTLSBeforePublication(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := probe.Addr().String()
+	_ = probe.Close()
+	err = Serve(context.Background(), http.NotFoundHandler(), Options{Address: address, OnReady: func() error { t.Fatal("published without TLS"); return nil }})
+	var startup *StartupError
+	if !errors.As(err, &startup) {
+		t.Fatalf("missing TLS error: %v", err)
+	}
+	probe, err = net.Listen("tcp", address)
+	if err != nil {
+		t.Fatalf("rejected listener retained: %v", err)
+	}
+	_ = probe.Close()
 }

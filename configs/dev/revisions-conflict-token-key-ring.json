@@ -1,6 +1,6 @@
 {
-  "schema_id": "cartulary.revisions_conflict_token_key_ring.v1",
-  "algorithm": "aes_256_gcm_v1",
+  "schema_id": "cartulary.revisions_conflict_token_key_ring.v2",
+  "algorithm": "hkdf_sha256_aes_256_gcm_v2",
   "keys": [
     {
       "conflict_token_key_id": "dev-active-v1",

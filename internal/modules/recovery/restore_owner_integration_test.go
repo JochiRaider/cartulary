@@ -158,6 +158,7 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 	}
 
 	basis := recovery.RestoreVerificationBasis{
+		ApplicationCryptoFormat:           recovery.ApplicationCryptoFormatID,
 		MechanismID:                       "backup_restore.recovery.restore.v1",
 		DatabaseBindingSHA256:             recovery.SHA256String("backup_restore-u-10-03-database"),
 		ObjectStoreBindingSHA256:          recovery.SHA256String("backup_restore-u-10-03-objects"),

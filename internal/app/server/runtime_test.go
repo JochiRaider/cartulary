@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -34,6 +35,7 @@ import (
 
 func TestFailClosedStartup_Unit(t *testing.T) {
 	dependencies := productionRuntimeDependencies()
+	dependencies.requireCryptoState = func(context.Context, *pgxpool.Pool) error { return nil }
 
 	var jobsCalls int
 	dependencies.newJobsManager = func(options jobs.ManagerOptions) (*jobs.Manager, error) {
@@ -74,6 +76,28 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		handlerCalls++
 		return http.NewServeMux(), nil
 	}
+
+	t.Run("incompatible format stops before leases and effects", func(t *testing.T) {
+		testDependencies := dependencies
+		testDependencies.requireCryptoState = func(context.Context, *pgxpool.Pool) error { return database_migrations.ErrIncompatibleCryptoState }
+		testDependencies.acquireApplicationProcessLease = func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationProcessLease, error) {
+			t.Fatal("incompatible format acquired lease")
+			return nil, nil
+		}
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, *database_migrations.Source) error {
+			t.Fatal("incompatible format reached schema readiness")
+			return nil
+		}
+		cfg := RuntimeConfig(t)
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
+		if !errors.Is(err, database_migrations.ErrIncompatibleCryptoState) {
+			t.Fatalf("state admission = %v", err)
+		}
+		if objectStoreCalls != 0 || jobsCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatal("incompatible state reached side effects")
+		}
+		postgresCalls = 0
+	})
 
 	t.Run("invalid deployment config stops before any dependency wiring", func(t *testing.T) {
 		testDependencies := dependencies
@@ -139,7 +163,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 			diagnostics[0].ReasonCode != "revisions_conflict_token_key_purpose_conflict" {
 			t.Fatalf("cross-purpose secret diagnostics = %#v / %v", diagnostics, err)
 		}
-		if jobsCalls != 0 || postgresCalls != 1 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
 			t.Fatalf("cross-purpose secret reuse crossed the startup preflight boundary: jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
 		}
 	})
@@ -625,11 +649,12 @@ func RuntimeConfigError(t testing.TB, overlays map[string]string) error {
 
 func loadRuntimeConfig(t testing.TB, overlays map[string]string) (configassembly.Loaded, error) {
 	t.Helper()
+	t.Setenv(authn.AuthMasterKeyEnv, strings.TrimSpace(string(fixtures.MustRead("auth", "master-key.base64"))))
 
 	roots := configtest.SetupTempRoots(t)
-	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], "postgres://unit-test", postgres.PurposeRuntime)
+	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], "postgres://fixture@db.example.test/cartulary?sslmode=verify-full&require_auth=none&sslrootcert=%2Ffixture%2Froot.pem&sslcert=%2Ffixture%2Fruntime.pem&sslkey=%2Ffixture%2Fruntime.key", postgres.PurposeRuntime)
 	conflictTokenManifestPath := filepath.Join(roots.Base, "revisions-conflict-token-key-ring.json")
-	if err := os.WriteFile(conflictTokenManifestPath, []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[{"conflict_token_key_id":"runtime-test","state":"active","secret_ref":{"kind":"env","name":"runtime-test-revisions-conflict"}}]}`), 0o600); err != nil {
+	if err := os.WriteFile(conflictTokenManifestPath, []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v2","algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[{"conflict_token_key_id":"runtime-test","state":"active","secret_ref":{"kind":"env","name":"runtime-test-revisions-conflict"}}]}`), 0o600); err != nil {
 		t.Fatalf("write Revisions conflict-token key-ring fixture: %v", err)
 	}
 	artifact := string(fixtures.MustRead("config", "valid.toml"))

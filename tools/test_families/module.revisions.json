@@ -1724,8 +1724,8 @@
           "TestConflictTokenKeyRingRequiresExplicitEnvironment",
           "TestConflictTokenKeyRingValidationAndSecretIsolation",
           "TestConflictTokenV3ExpiryRotationAndClockSkew",
-          "TestConflictTokenV3PropagatesEntropyFailure",
-          "TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens"
+          "TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens",
+          "TestConflictTokenV4RejectsUnadmittedKeys"
         ]
       },
       "evidence_class": "unit",

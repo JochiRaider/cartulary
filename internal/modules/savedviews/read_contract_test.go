@@ -19,11 +19,11 @@ import (
 func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "saved-view-independent-reads")
-	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "svd-incident", "incident_key": "IR-SVD", "title": "Saved view discovery"})
 	id := incident["incident_id"].(string)
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "svd-viewer@example.test", "Viewer", "SavedViewDiscovery1!", false, false, true)
-	viewer, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "svd-viewer@example.test", "SavedViewDiscovery1!", nil)
+	viewer, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "svd-viewer@example.test", "SavedViewDiscovery1!", nil)
 	scenariotest.CreateMembership(t, harness.Server, admin, id, map[string]any{"client_txn_id": "svd-member", "user_id": viewerID, "role": "viewer"})
 	const schema = "cartulary.view.timeline.v2"
 	for i := 0; i < 101; i++ {

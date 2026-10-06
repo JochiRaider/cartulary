@@ -18,7 +18,7 @@ func TestVNextGraphRestoreV4ProjectionContract_Unit(t *testing.T) {
 	if len(contractrecovery.RecoveryGenerations) != 1 {
 		t.Fatalf("Recovery generations = %d, want one current generation", len(contractrecovery.RecoveryGenerations))
 	}
-	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "01a6b736bc33c211fb246bdf64fabc19b115cb431c0cc3f2c6902ee6f889a314"; got != want {
+	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "1006d1df55a273762d1986adcf541bac8b027e7a11894cf58f741deb12303afe"; got != want {
 		t.Fatalf("current Graph v4 binding digest = %s, want %s", got, want)
 	}
 	if got, want := contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256, "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634"; got != want {
@@ -133,7 +133,8 @@ func TestVNextRestoreRejectsV2AndV3GraphBindingsBeforeTargetMutation_Unit(t *tes
 			}
 			at := time.Date(2026, 8, 29, 20, 0, 0, 0, time.UTC)
 			manifest := VNextBackupIntegrityManifest{
-				SchemaID: BackupIntegrityManifestV3SchemaID, BackupSetID: "00000000-0000-0000-0000-000000009401",
+				ApplicationCryptoFormat: ApplicationCryptoFormatID,
+				SchemaID:                BackupIntegrityManifestV4SchemaID, BackupSetID: "00000000-0000-0000-0000-000000009401",
 				ConsistencyPointAt: at, CreatedAt: at.Add(time.Minute), RetainedUntil: at.Add(30 * 24 * time.Hour),
 				RecoveryStateCatalogSHA256: projected.CatalogDigestSHA256,
 				CodecRegistrySHA256:        projected.CodecRegistrySHA256,

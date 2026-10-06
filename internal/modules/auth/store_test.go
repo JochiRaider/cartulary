@@ -220,7 +220,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 		{
 			name: "password change revokes every active session",
 			run: func(t *testing.T, fixture *StoreFixture) {
-				secretBase32 := authn.EncodeSecretBase32([]byte("01234567890123456789"))
+				secretBase32 := authn.EncodeSecretBase32([]byte("01234567890123456789012345678901"))
 				user := storetest.SeedLocalUserWithActiveTOTPRecord(
 					t,
 					fixture.harness.DB,
@@ -264,7 +264,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 		{
 			name: "totp replacement completion revokes every active session",
 			run: func(t *testing.T, fixture *StoreFixture) {
-				currentSecretBase32 := authn.EncodeSecretBase32([]byte("01234567890123456789"))
+				currentSecretBase32 := authn.EncodeSecretBase32([]byte("01234567890123456789012345678901"))
 				user := storetest.SeedLocalUserWithActiveTOTPRecord(
 					t,
 					fixture.harness.DB,
@@ -277,7 +277,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 				)
 				current := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "authentication-u-1-06-totp-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
 				other := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "authentication-u-1-06-totp-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
-				replacementSecret := []byte("abcdefghij0123456789")
+				replacementSecret := []byte("abcdefghij0123456789012345678901")
 				enrollment := storetest.SeedPendingTOTPEnrollment(
 					t,
 					fixture.harness.DB,
@@ -432,7 +432,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 					true,
 					true,
 				)
-				targetSecretBase32 := authn.EncodeSecretBase32([]byte("jihgfedcba9876543210"))
+				targetSecretBase32 := authn.EncodeSecretBase32([]byte("jihgfedcba0123456789012345678901"))
 				target := storetest.SeedLocalUserWithActiveTOTPRecord(
 					t,
 					fixture.harness.DB,

@@ -35,7 +35,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 		ConfigureRuntime: func(o *server.Options) { o.NetworkFlowComposition = controls },
 	})
 	httptestx.SetClockFixed(t, h.Server, time.Now())
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, h.Server.HTTP.URL)
+	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "fault-incident", "incident_key": "IR-NF-FAULTS", "title": "Fault controls"})["incident_id"].(string)
 	const csv = "Source IP Address,Destination IP Address,Source Port,Destination Port,Protocol,Bytes,Packets,Flow Start Time,Flow End Time,Input Interface,Output Interface\n192.0.2.10,192.0.2.20,443,51515,TCP,1234,12,2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,,\n"
 	for i, boundary := range []string{hc.NetworkFlowFaultBoundaryImportBeforeOwnerApply, hc.NetworkFlowFaultBoundaryImportAfterOwnerApply, hc.NetworkFlowFaultBoundaryImportBeforeTransactionCommit, hc.NetworkFlowFaultBoundaryImportAfterTransactionCommitBeforeReply} {

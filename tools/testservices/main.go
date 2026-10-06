@@ -26,7 +26,6 @@ import (
 	dockerclient "github.com/moby/moby/client"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -113,17 +112,20 @@ type postgresService struct {
 }
 
 type objectStoreService struct {
-	endpoint     string
-	accessKey    string
-	secretKey    string
-	secure       bool
-	probeBucket  string
-	cleanupProbe func(context.Context) error
-	close        func(context.Context) error
-	containerID  string
-	name         string
-	image        string
-	labels       map[string]string
+	endpoint             string
+	accessKey            string
+	secretKey            string
+	secure               bool
+	rootCertificatePath  string
+	proxyCertificatePath string
+	proxyPrivateKeyPath  string
+	probeBucket          string
+	cleanupProbe         func(context.Context) error
+	close                func(context.Context) error
+	containerID          string
+	name                 string
+	image                string
+	labels               map[string]string
 }
 
 type postgresStartResult struct {
@@ -211,22 +213,23 @@ type serviceLeaseResource struct {
 }
 
 type webE2EFixture struct {
-	DatabaseName      string
-	DSN               string
-	Bucket            string
-	S3Endpoint        string
-	S3AccessKey       string
-	S3SecretKey       string
-	S3Secure          bool
-	FixtureProfileID  string
-	SnapshotKey       string
-	BuilderUnitID     string
-	RowID             string
-	PredicateID       string
-	CloneLeaseID      string
-	CloneOrdinal      int
-	RuntimeBundlePath string
-	RuntimeBundleRoot string
+	DatabaseName          string
+	DSN                   string
+	Bucket                string
+	S3Endpoint            string
+	S3AccessKey           string
+	S3SecretKey           string
+	S3Secure              bool
+	S3RootCertificatePath string
+	FixtureProfileID      string
+	SnapshotKey           string
+	BuilderUnitID         string
+	RowID                 string
+	PredicateID           string
+	CloneLeaseID          string
+	CloneOrdinal          int
+	RuntimeBundlePath     string
+	RuntimeBundleRoot     string
 }
 
 type webE2EMetadata struct {
@@ -538,6 +541,12 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	childEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
 	childEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
 	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", objectStoreSvc.secure)
+	childEnv["CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH"] = objectStoreSvc.proxyCertificatePath
+	childEnv["CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH"] = objectStoreSvc.proxyPrivateKeyPath
+	if objectStoreSvc.rootCertificatePath != "" {
+		childEnv["SSL_CERT_FILE"] = objectStoreSvc.rootCertificatePath
+		delete(childEnv, "SSL_CERT_DIR")
+	}
 	if objectStoreSvc.probeBucket != "" {
 		childEnv[suiteservices.S3ProbeBucketEnv] = objectStoreSvc.probeBucket
 	}
@@ -747,6 +756,12 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	childEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
 	childEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
 	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", objectStoreSvc.secure)
+	childEnv["CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH"] = objectStoreSvc.proxyCertificatePath
+	childEnv["CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH"] = objectStoreSvc.proxyPrivateKeyPath
+	if objectStoreSvc.rootCertificatePath != "" {
+		childEnv["SSL_CERT_FILE"] = objectStoreSvc.rootCertificatePath
+		delete(childEnv, "SSL_CERT_DIR")
+	}
 	if objectStoreSvc.probeBucket != "" {
 		childEnv[suiteservices.S3ProbeBucketEnv] = objectStoreSvc.probeBucket
 	}
@@ -1628,14 +1643,8 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 		return postgresService{}, err
 	}
 	return postgresService{
-		adminDSN: harness.AdminDSN(),
-		dsnTemplate: fmt.Sprintf(
-			"postgres://%s:%s@%s:%s/{database}?sslmode=disable",
-			harness.User,
-			harness.Password,
-			harness.Host,
-			harness.Port,
-		),
+		adminDSN:    harness.AdminDSN(),
+		dsnTemplate: harness.DSNTemplate(),
 		host:        harness.Host,
 		port:        harness.Port,
 		user:        harness.User,
@@ -1664,11 +1673,14 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 		cancel()
 		return objectStoreService{}, errors.Join(err, closeErr)
 	}
+	proxyCertificate, proxyPrivateKey := harness.ProxyTLSFiles()
 	return objectStoreService{
-		endpoint:    harness.Endpoint,
-		accessKey:   harness.AccessKey,
-		secretKey:   harness.SecretKey,
-		secure:      harness.Secure,
+		endpoint:             harness.Endpoint,
+		accessKey:            harness.AccessKey,
+		secretKey:            harness.SecretKey,
+		secure:               harness.Secure,
+		rootCertificatePath:  harness.RootCertificatePath(),
+		proxyCertificatePath: proxyCertificate, proxyPrivateKeyPath: proxyPrivateKey,
 		probeBucket: probeBucket,
 		cleanupProbe: func(cleanupCtx context.Context) error {
 			return harness.CleanupBucket(cleanupCtx, probeBucket)
@@ -1778,7 +1790,7 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 		_ = db.Close()
 		return fmt.Errorf("load migration source: %w", err)
 	}
-	if err := database_migrations.Apply(ctx, db, source); err != nil {
+	if err := pgtest.InitializeFreshDatabase(ctx, db, templateDSN, source); err != nil {
 		_ = db.Close()
 		return err
 	}
@@ -1888,13 +1900,14 @@ func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFix
 	}
 
 	return webE2EFixture{
-		DatabaseName: testDB.Name,
-		DSN:          testDB.DSN,
-		Bucket:       bucket,
-		S3Endpoint:   s3Harness.Endpoint,
-		S3AccessKey:  s3Harness.AccessKey,
-		S3SecretKey:  s3Harness.SecretKey,
-		S3Secure:     s3Harness.Secure,
+		DatabaseName:          testDB.Name,
+		DSN:                   testDB.DSN,
+		Bucket:                bucket,
+		S3Endpoint:            s3Harness.Endpoint,
+		S3AccessKey:           s3Harness.AccessKey,
+		S3SecretKey:           s3Harness.SecretKey,
+		S3Secure:              s3Harness.Secure,
+		S3RootCertificatePath: s3Harness.RootCertificatePath(),
 	}, nil
 }
 
@@ -1988,10 +2001,11 @@ func cleanupWebE2EBucket(ctx context.Context, metadata webE2EMetadata, env map[s
 	}
 	if endpoint := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.S3EndpointEnv)); endpoint != "" {
 		s3Harness := &s3test.Harness{
-			Endpoint:  endpoint,
-			AccessKey: suiteservices.LookupEnvValue(env, suiteservices.S3AccessKeyEnv),
-			SecretKey: suiteservices.LookupEnvValue(env, suiteservices.S3SecretKeyEnv),
-			Secure:    strings.EqualFold(suiteservices.LookupEnvValue(env, suiteservices.S3SecureEnv), "true"),
+			Endpoint:            endpoint,
+			AccessKey:           suiteservices.LookupEnvValue(env, suiteservices.S3AccessKeyEnv),
+			SecretKey:           suiteservices.LookupEnvValue(env, suiteservices.S3SecretKeyEnv),
+			Secure:              strings.EqualFold(suiteservices.LookupEnvValue(env, suiteservices.S3SecureEnv), "true"),
+			RootCertificateFile: suiteservices.LookupEnvValue(env, "SSL_CERT_FILE"),
 		}
 		return s3Harness.CleanupBucket(ctx, metadata.Bucket)
 	}
@@ -2076,6 +2090,8 @@ func writeWebE2EEnv(path string, fixture webE2EFixture) error {
 		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").AccessKey, fixture.S3AccessKey),
 		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").SecretKey, fixture.S3SecretKey),
 		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").Secure, fmt.Sprintf("%t", fixture.S3Secure)),
+		shellExport("SSL_CERT_FILE", fixture.S3RootCertificatePath),
+		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").RootCertificatePath, fixture.S3RootCertificatePath),
 		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").Bucket, fixture.Bucket),
 		"",
 	}
@@ -2985,6 +3001,10 @@ func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService,
 		cleanupEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
 	}
 	cleanupEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", objectStoreSvc.secure)
+	if objectStoreSvc.rootCertificatePath != "" {
+		cleanupEnv["SSL_CERT_FILE"] = objectStoreSvc.rootCertificatePath
+		delete(cleanupEnv, "SSL_CERT_DIR")
+	}
 	return cleanupEnv
 }
 

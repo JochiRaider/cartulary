@@ -7521,8 +7521,18 @@ test("a11y.reference-packs keyboard selection upload observation and cancellatio
   await page.setViewportSize({ width: 768, height: 640 });
   await expectReferencePackControlReachable(page, retry);
   await expectAllInteractiveControlsNamed(page);
+  const failedRetry = referencePackBarrier();
+  fixture.gateAdmission(failedRetry.promise);
+  const admissionsBeforeRetry = fixture.admissions.length;
   await page.keyboard.press("Enter");
+  await expect(retry).toHaveAttribute("aria-disabled", "true");
+  await expect
+    .poll(() => fixture.admissions.length)
+    .toBe(admissionsBeforeRetry + 1);
+  failedRetry.release();
+  await expect(retry).toHaveAttribute("aria-disabled", "false");
   await expect(retry).toBeFocused();
+  fixture.gateAdmission(null);
   fixture.failAdmission(false);
   fixture.failReads(true);
   await page.keyboard.press("Enter");
@@ -9329,97 +9339,145 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
   page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const handoff = handoffViewSchemaId;
-  const { incident } = await openOrdinaryFixture(page, handoff);
-  const referenceInput = await ordinaryField(
-    page,
-    handoff,
-    "handoff.incoming_owner_user_id",
-  );
-  const reference = page.getByRole("gridcell").filter({ has: referenceInput });
-  const choose = reference.getByRole("button", {
-    name: "Choose incoming owner",
-    exact: true,
-  });
-  await expectDecisionControlReachable(page, choose);
-  await choose.press("Enter");
-  const picker = reference.getByRole("combobox", {
-    name: "Incoming Owner",
-    exact: true,
-  });
-  await expect(picker).toBeEnabled();
-  await expect(
-    reference.getByRole("button", { name: "Cancel references", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(
-    reference.getByRole("button", { name: "Apply references", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(
-    reference.getByRole("button", { name: "Refresh candidates", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(
-    reference.getByRole("button", { name: "First candidates", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(picker).toBeFocused();
-  await expectVisibleFocus(picker);
-  const originalViewport = page.viewportSize();
-  if (!originalViewport) throw new Error("Missing browser viewport");
-  await page.setViewportSize({ width: originalViewport.width, height: 480 });
-  await expect(picker).toBeFocused();
-  await expect(picker).toBeInViewport({ ratio: 1 });
-  await expect(
-    reference.getByRole("button", { name: "Cancel references", exact: true }),
-  ).toBeInViewport({ ratio: 1 });
-  await page.setViewportSize(originalViewport);
-  await picker.press("Escape");
-  await expect(choose).toBeFocused();
-  await expect(picker).toHaveCount(0);
-  await switchOrdinarySheet(page, evidenceViewSchemaId);
-  await fillOrdinaryField(
-    page,
-    evidenceViewSchemaId,
-    "evidence.title",
-    "Accessible retained draft",
-  );
-  const { recovery } = await retainOrdinaryUncertainty(page, incident);
-  const recover = recovery.getByRole("button", {
-    name: "Recover submission",
-    exact: true,
-  });
-  for (const viewport of [
-    { width: 1280, height: 720 },
-    { width: 390, height: 480 },
-  ]) {
-    await page.setViewportSize(viewport);
-    await expectDecisionControlReachable(page, recover);
-    await expectVisibleFocus(recover);
-    await expectAllInteractiveControlsNamed(page);
-    await testInfo.attach(`ordinary-recovery-${viewport.width}`, {
-      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
-      contentType: "image/png",
+  const preferences = async () =>
+    (
+      await (
+        await page.request.get(`${apiBase}/api/v1/account/preferences`)
+      ).json()
+    ).data;
+  const priorPreferences = await preferences();
+  const selectDensity = async (density: string | null) => {
+    const current = await preferences();
+    const response = await page.request.put(
+      `${apiBase}/api/v1/account/preferences`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          base_preferences_version: current.preferences_version,
+          client_txn_id: uniqueTxn("ordinary-recovery-density"),
+          density_mode: density,
+        },
+      },
+    );
+    expect(response.ok()).toBe(true);
+  };
+  try {
+    await selectDensity("default");
+    const handoff = handoffViewSchemaId;
+    const { incident } = await openOrdinaryFixture(page, handoff);
+    const referenceInput = await ordinaryField(
+      page,
+      handoff,
+      "handoff.incoming_owner_user_id",
+    );
+    const reference = page
+      .getByRole("gridcell")
+      .filter({ has: referenceInput });
+    const choose = reference.getByRole("button", {
+      name: "Choose incoming owner",
+      exact: true,
     });
+    await expectDecisionControlReachable(page, choose);
+    await choose.press("Enter");
+    const picker = reference.getByRole("combobox", {
+      name: "Incoming Owner",
+      exact: true,
+    });
+    await expect(picker).toBeEnabled();
+    await expect(
+      reference.getByRole("button", { name: "Cancel references", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(
+      reference.getByRole("button", { name: "Apply references", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(
+      reference.getByRole("button", {
+        name: "Refresh candidates",
+        exact: true,
+      }),
+    ).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(
+      reference.getByRole("button", { name: "First candidates", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(picker).toBeFocused();
+    await expectVisibleFocus(picker);
+    const originalViewport = page.viewportSize();
+    if (!originalViewport) throw new Error("Missing browser viewport");
+    await page.setViewportSize({ width: originalViewport.width, height: 480 });
+    await expect(picker).toBeFocused();
+    await expect(picker).toBeInViewport({ ratio: 1 });
+    await expect(
+      reference.getByRole("button", { name: "Cancel references", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await page.setViewportSize(originalViewport);
+    await picker.press("Escape");
+    await expect(choose).toBeFocused();
+    await expect(picker).toHaveCount(0);
+    await switchOrdinarySheet(page, evidenceViewSchemaId);
+    await fillOrdinaryField(
+      page,
+      evidenceViewSchemaId,
+      "evidence.title",
+      "Accessible retained draft",
+    );
+    const { recovery } = await retainOrdinaryUncertainty(page, incident);
+    const recover = recovery.getByRole("button", {
+      name: "Recover submission",
+      exact: true,
+    });
+    const account = page.getByRole("button", {
+      name: "Account and application navigation",
+      exact: true,
+    });
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 390, height: 480 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expectDecisionControlReachable(page, recover);
+      await expectVisibleFocus(recover);
+      await expectAllInteractiveControlsNamed(page);
+      await testInfo.attach(`ordinary-recovery-${viewport.width}`, {
+        body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+        contentType: "image/png",
+      });
+    }
+    await testInfo.attach("ordinary-recovery-tree", {
+      body: await recovery.ariaSnapshot(),
+      contentType: "text/plain",
+    });
+    // Global account navigation remains visible while the narrow bar scrolls.
+    await expect(account).toBeInViewport({ ratio: 1 });
+    await recover.press("Enter");
+    await expect(recovery).toContainText("Row accepted.");
+    await expect(account).toBeInViewport({ ratio: 1 });
+    const systemViews = page.getByRole("button", {
+      name: "System views",
+      exact: true,
+    });
+    await expectDecisionControlReachable(page, systemViews);
+    await expect(systemViews).toBeInViewport({ ratio: 1 });
+    await expect(account).toBeInViewport({ ratio: 1 });
+    const systemBounds = await systemViews.boundingBox();
+    const accountBounds = await account.boundingBox();
+    if (!systemBounds || !accountBounds) throw new Error("Top bar is missing");
+    expect(systemBounds.x + systemBounds.width).toBeLessThanOrEqual(
+      accountBounds.x,
+    );
+    await expectDecisionControlReachable(page, account);
+    await account.press("Enter");
+    await expect(
+      page.getByRole("menuitem", { name: "Incidents", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(account).toBeFocused();
+  } finally {
+    await selectDensity(priorPreferences.density_mode);
   }
-  await testInfo.attach("ordinary-recovery-tree", {
-    body: await recovery.ariaSnapshot(),
-    contentType: "text/plain",
-  });
-  await recover.press("Enter");
-  await expect(recovery).toContainText("Row accepted.");
-  const account = page.getByRole("button", {
-    name: "Account and application navigation",
-    exact: true,
-  });
-  await expectDecisionControlReachable(page, account);
-  await account.press("Enter");
-  await expect(
-    page.getByRole("menuitem", { name: "Incidents", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(account).toBeFocused();
 });
 
 test("a11y.coordination all target fields source review and uncertain recovery support keyboard and narrow layouts", async ({
@@ -10120,14 +10178,19 @@ test("a11y.saved-view-discovery keyboard activation dismissal scope and bounded 
         });
         await expect(candidate).toBeVisible();
         await expect(candidate).toContainText("shared");
+        const firstPage = browser.getByRole("button", {
+          name: "First",
+          exact: true,
+        });
+        // Cached options can remain visible while discovery refresh disables paging.
+        // Start the keyboard sequence only after that read has been admitted.
+        await expect(firstPage).toBeEnabled();
         await browser
           .getByRole("option", { name: "Unsaved view", exact: true })
           .press("End");
         await expect(candidate).toBeFocused();
         await candidate.press("Tab");
-        await expect(
-          browser.getByRole("button", { name: "First", exact: true }),
-        ).toBeFocused();
+        await expect(firstPage).toBeFocused();
         await browser.press("Escape");
         await expect(trigger).toBeFocused();
         await expect(trigger).toHaveAttribute(
@@ -10136,6 +10199,7 @@ test("a11y.saved-view-discovery keyboard activation dismissal scope and bounded 
         );
         await trigger.press("Enter");
         await expect(candidate).toBeVisible();
+        await expect(firstPage).toBeEnabled();
         await candidate.focus();
         await candidate.press("Space");
         await expect(trigger).toHaveAttribute(

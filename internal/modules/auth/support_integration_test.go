@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base32"
@@ -205,7 +206,7 @@ func TestBootstrapBoundaries(t *testing.T) {
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessBootstrapBoundary) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			if route.Transport == routetest.RouteTransportWebSocket {
-				flowtest.RequireBootstrapWebsocketRejected(t, ctx.server.HTTP.URL, bootstrapIncidentID, bootstrapToken)
+				flowtest.RequireBootstrapWebsocketRejected(t, http.DefaultClient, ctx.server.HTTP.URL, bootstrapIncidentID, bootstrapToken)
 				return
 			}
 
@@ -274,8 +275,8 @@ func TestReplayAndStoredPayloadSafety(t *testing.T) {
 				if firstSetup["secret_base32"] != replayedSetup["secret_base32"] {
 					t.Fatalf("expected begin replay to reuse setup secret: first=%v replay=%v", firstSetup["secret_base32"], replayedSetup["secret_base32"])
 				}
-				ciphertext, nonce := queryPendingTOTPEnrollmentSecretMaterial(t, ctx.db, req.actorUserID, req.clientTxnID)
-				requireEncryptedSecretMaterial(t, ciphertext, nonce, firstSetup["secret_base32"].(string))
+				envelope := queryPendingTOTPEnrollmentSecretMaterial(t, ctx.db, req.actorUserID, req.clientTxnID)
+				requireEncryptedSecretMaterial(t, envelope, firstSetup["secret_base32"].(string))
 				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM pending_totp_enrollments WHERE user_id::text = $1 AND client_txn_id = $2`, req.actorUserID, req.clientTxnID); got != 1 {
 					t.Fatalf("expected one pending enrollment row for %s, got %d", route.ID, got)
 				}
@@ -284,8 +285,8 @@ func TestReplayAndStoredPayloadSafety(t *testing.T) {
 				if _, ok := firstData["totp_setup"]; ok {
 					t.Fatalf("totp complete must not return setup material, got %#v", firstData)
 				}
-				ciphertext, nonce := queryUserTOTPSecretMaterial(t, ctx.db, req.actorUserID)
-				requireEncryptedSecretMaterial(t, ciphertext, nonce, req.secretBase32)
+				envelope := queryUserTOTPSecretMaterial(t, ctx.db, req.actorUserID)
+				requireEncryptedSecretMaterial(t, envelope, req.secretBase32)
 				replayedResp := ctx.do(t, req)
 				replayedBody := httptestx.RequireErrorEnvelope(t, replayedResp, http.StatusConflict, "credential_bootstrap_rejected")
 				details := replayedBody["error"].(map[string]any)["details"].(map[string]any)
@@ -1332,63 +1333,61 @@ func cloneJSONMap(t testing.TB, body any) map[string]any {
 
 func supportSecretBase32(seed int) string {
 	secrets := []string{
-		"JBSWY3DPEHPK3PXP",
-		"JBSWY3DPEHPK3QAA",
-		"JBSWY3DPEHPK3QAB",
-		"JBSWY3DPEHPK3QAC",
-		"JBSWY3DPEHPK3QAD",
-		"JBSWY3DPEHPK3QAE",
-		"JBSWY3DPEHPK3QAF",
-		"JBSWY3DPEHPK3QAG",
+		"RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+		"BSSBKZHRDS77C7GTONCVUS5RFAJC5DBQCIBOEDGFXWOJFXHRSYSA",
+		"S4GWW6YHAXC6RLWWYI3NCCF2DRSYXEL5PJAPHEVCHL6HIZIQURZQ",
+		"XN4DOIDIW3XSJSME7ZVGXQWHYK74O2N5DZ5JGA7XDJI2XZSFFGJA",
+		"HBPQNSXK47RG42VSTSZPSWMRNG6AM5G6WBCW6RWHKVPDZ2J7PRWQ",
+		"I76DOTTEYB2O7I3HLEI6W3UYPEWKKV45RIGOEWI7VB7Y3FRFRR2Q",
+		"FDQ4O7C6I6YSWTK3QUJFE5BL5L2DNNXO236VOFXL6TMEHZQEHPSQ",
+		"57GRYJDDKDSRXL3BGD5XYE6KXI5RU75HLNQ5CMPHTNO5YFT733XQ",
 	}
 	return secrets[seed%len(secrets)]
 }
 
-func queryPendingTOTPEnrollmentSecretMaterial(t testing.TB, db *sql.DB, userID string, clientTxnID string) ([]byte, []byte) {
+func queryPendingTOTPEnrollmentSecretMaterial(t testing.TB, db *sql.DB, userID string, clientTxnID string) []byte {
 	t.Helper()
 
-	var ciphertext []byte
-	var nonce []byte
+	var envelope []byte
 	if err := db.QueryRowContext(context.Background(), `
-SELECT secret_ciphertext, secret_nonce
+SELECT secret_envelope
   FROM pending_totp_enrollments
  WHERE user_id::text = $1
    AND client_txn_id = $2
  ORDER BY created_at DESC
  LIMIT 1
-`, userID, clientTxnID).Scan(&ciphertext, &nonce); err != nil {
+`, userID, clientTxnID).Scan(&envelope); err != nil {
 		t.Fatalf("query pending totp material: %v", err)
 	}
-	return ciphertext, nonce
+	return envelope
 }
 
-func queryUserTOTPSecretMaterial(t testing.TB, db *sql.DB, userID string) ([]byte, []byte) {
+func queryUserTOTPSecretMaterial(t testing.TB, db *sql.DB, userID string) []byte {
 	t.Helper()
 
-	var ciphertext []byte
-	var nonce []byte
+	var envelope []byte
 	if err := db.QueryRowContext(context.Background(), `
-SELECT totp_secret_ciphertext, totp_secret_nonce
+SELECT totp_secret_envelope
   FROM users
  WHERE id::text = $1
-`, userID).Scan(&ciphertext, &nonce); err != nil {
+`, userID).Scan(&envelope); err != nil {
 		t.Fatalf("query user totp material: %v", err)
 	}
-	return ciphertext, nonce
+	return envelope
 }
 
-func requireEncryptedSecretMaterial(t testing.TB, ciphertext []byte, nonce []byte, clearSecretBase32 string) {
+func requireEncryptedSecretMaterial(t testing.TB, envelope []byte, clearSecretBase32 string) {
 	t.Helper()
 
 	clearSecret, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(clearSecretBase32)
 	if err != nil {
 		t.Fatalf("decode clear totp secret: %v", err)
 	}
-	if len(ciphertext) == 0 || len(nonce) == 0 {
-		t.Fatalf("expected encrypted secret material, got ciphertext=%d nonce=%d", len(ciphertext), len(nonce))
+	if len(envelope) != 93 || envelope[0] != 1 {
+		t.Fatal("expected complete current Auth envelope")
 	}
-	if string(ciphertext) == string(clearSecret) {
-		t.Fatal("expected ciphertext to differ from clear secret material")
+	if bytes.Contains(envelope, clearSecret) {
+		t.Fatal("envelope disclosed plaintext secret")
 	}
 }
 
@@ -1405,7 +1404,7 @@ func indexOfUser(rows []any, userID string) int {
 func seedFixedLocalUser(t testing.TB, db *sql.DB, userID string, email string, displayName string, password string, isDeploymentAdmin bool) string {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
+	hash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}

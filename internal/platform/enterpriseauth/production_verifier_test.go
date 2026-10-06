@@ -12,6 +12,7 @@ import (
 	"errors"
 	"html"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,6 +21,10 @@ import (
 	"time"
 
 	"github.com/crewjam/saml"
+	dsig "github.com/russellhaering/goxmldsig"
+
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
+	"github.com/JochiRaider/cartulary/internal/testutil/tlstest"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -42,7 +47,7 @@ func TestProductionOIDCVerifierAuthCodePKCEInterop(t *testing.T) {
 	)
 
 	var issuer string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server, rootPath := newProviderHTTPSServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
 			writeJSON(t, w, map[string]any{
@@ -136,7 +141,7 @@ func TestProductionOIDCVerifierAuthCodePKCEInterop(t *testing.T) {
 		t.Fatalf("unexpected nonce: %q", got)
 	}
 
-	result, apiErr := (ProductionOIDCVerifier{}).VerifyCallback(context.Background(), OIDCCallbackVerificationRequest{
+	result, apiErr := (ProductionOIDCVerifier{rootCertificatePath: rootPath}).VerifyCallback(context.Background(), OIDCCallbackVerificationRequest{
 		Provider:     provider,
 		Transaction:  transaction,
 		Values:       url.Values{"code": []string{code}, "state": []string{state}},
@@ -274,13 +279,14 @@ func TestProductionOIDCVerifierNegativeReasonCodes(t *testing.T) {
 			defer fixture.close()
 			tc.mutate(fixture)
 
-			_, apiErr := (ProductionOIDCVerifier{}).VerifyCallback(context.Background(), fixture.request)
+			_, apiErr := (ProductionOIDCVerifier{rootCertificatePath: fixture.rootPath}).VerifyCallback(context.Background(), fixture.request)
 			requireEnterpriseAuthAPIError(t, apiErr, tc.wantCode, tc.wantReason)
 		})
 	}
 }
 
-func TestProductionSAMLVerifierSPInitiatedInterop(t *testing.T) {
+func signedSAMLFixture(t *testing.T) SAMLACSVerificationRequest {
+	t.Helper()
 	key, cert := testSAMLKeyPair(t)
 	publicOrigin := "https://cartulary.example.test"
 	relayState := "saml-relay-state"
@@ -318,6 +324,7 @@ func TestProductionSAMLVerifierSPInitiatedInterop(t *testing.T) {
 	}
 	idp := saml.IdentityProvider{
 		Key:                     key,
+		SignatureMethod:         dsig.RSASHA256SignatureMethod,
 		Certificate:             cert,
 		MetadataURL:             idpMetadataURL,
 		SSOURL:                  idpSSOURL,
@@ -346,18 +353,17 @@ func TestProductionSAMLVerifierSPInitiatedInterop(t *testing.T) {
 		"RelayState":   []string{hiddenInputValue(t, response.Body.String(), "RelayState")},
 	}
 
-	result, apiErr := (ProductionSAMLVerifier{}).VerifyACS(context.Background(), SAMLACSVerificationRequest{
-		Provider:     provider,
-		Transaction:  transaction,
-		Values:       values,
-		PublicOrigin: publicOrigin,
-		Now:          time.Now().UTC(),
-	})
+	return SAMLACSVerificationRequest{Provider: provider, Transaction: transaction, Values: values, PublicOrigin: publicOrigin, Now: time.Now().UTC()}
+}
+
+func TestProductionSAMLVerifierSPInitiatedInterop(t *testing.T) {
+	request := signedSAMLFixture(t)
+	result, apiErr := (ProductionSAMLVerifier{}).VerifyACS(context.Background(), request)
 	if apiErr != nil {
 		t.Fatalf("verify SAML ACS: %#v", apiErr)
 	}
-	if result.ProviderSubject != subject {
-		t.Fatalf("unexpected SAML subject: got %q want %q", result.ProviderSubject, subject)
+	if result.ProviderSubject != "saml-subject-123" {
+		t.Fatalf("unexpected SAML subject: %q", result.ProviderSubject)
 	}
 }
 
@@ -513,23 +519,28 @@ func writeJSON(t testing.TB, w http.ResponseWriter, value any) {
 }
 
 type oidcVerifierFixture struct {
-	now             time.Time
-	issuer          string
-	clientID        string
-	clientSecret    string
-	code            string
-	state           string
-	nonce           string
-	pkceVerifier    string
-	subject         string
-	discoveryIssuer string
-	tokenStatus     int
-	includeIDToken  bool
-	tokenClaims     map[string]any
-	key             *rsa.PrivateKey
-	signingKey      *rsa.PrivateKey
-	request         OIDCCallbackVerificationRequest
-	server          *httptest.Server
+	now              time.Time
+	issuer           string
+	clientID         string
+	clientSecret     string
+	code             string
+	state            string
+	nonce            string
+	pkceVerifier     string
+	subject          string
+	discoveryIssuer  string
+	tokenStatus      int
+	includeIDToken   bool
+	tokenClaims      map[string]any
+	key              *rsa.PrivateKey
+	signingKey       *rsa.PrivateKey
+	request          OIDCCallbackVerificationRequest
+	server           *httptest.Server
+	rootPath         string
+	jwksOverride     json.RawMessage
+	idTokenOverride  string
+	discoveryJWKSURI string
+	tokenRedirect    string
 }
 
 func newOIDCVerifierFixture(t testing.TB) *oidcVerifierFixture {
@@ -552,21 +563,30 @@ func newOIDCVerifierFixture(t testing.TB) *oidcVerifierFixture {
 		key:            key,
 		signingKey:     key,
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server, rootPath := newProviderHTTPSServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
 			writeJSON(t, w, map[string]any{
 				"issuer":                 fixture.discoveryIssuer,
 				"authorization_endpoint": fixture.issuer + "/authorize",
 				"token_endpoint":         fixture.issuer + "/token",
-				"jwks_uri":               fixture.issuer + "/jwks",
+				"jwks_uri":               fixture.discoveryJWKSURI,
 				"id_token_signing_alg_values_supported": []string{
 					"RS256",
 				},
 			})
 		case "/jwks":
+			if fixture.jwksOverride != nil {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write(fixture.jwksOverride)
+				return
+			}
 			writeJSON(t, w, map[string]any{"keys": []map[string]any{rsaJWK(fixture.key, "test-key")}})
 		case "/token":
+			if fixture.tokenRedirect != "" {
+				http.Redirect(w, r, fixture.tokenRedirect, http.StatusTemporaryRedirect)
+				return
+			}
 			if fixture.tokenStatus != http.StatusOK {
 				w.WriteHeader(fixture.tokenStatus)
 				_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
@@ -578,7 +598,10 @@ func newOIDCVerifierFixture(t testing.TB) *oidcVerifierFixture {
 				"expires_in":   3600,
 			}
 			if fixture.includeIDToken {
-				payload["id_token"] = signOIDCIDToken(t, fixture.signingKey, "test-key", fixture.tokenClaims)
+				payload["id_token"] = fixture.idTokenOverride
+				if fixture.idTokenOverride == "" {
+					payload["id_token"] = signOIDCIDToken(t, fixture.signingKey, "test-key", fixture.tokenClaims)
+				}
 			}
 			writeJSON(t, w, payload)
 		default:
@@ -586,6 +609,8 @@ func newOIDCVerifierFixture(t testing.TB) *oidcVerifierFixture {
 		}
 	}))
 	fixture.server = server
+	fixture.rootPath = rootPath
+	fixture.discoveryJWKSURI = server.URL + "/jwks"
 	fixture.issuer = server.URL
 	fixture.discoveryIssuer = fixture.issuer
 	fixture.tokenClaims = map[string]any{
@@ -743,4 +768,48 @@ func hiddenInputValue(t testing.TB, body string, name string) string {
 
 func strPtr(value string) *string {
 	return &value
+}
+
+func newProviderHTTPSServer(t testing.TB, handler http.Handler, address ...string) (*httptest.Server, string) {
+	t.Helper()
+	directory := t.TempDir()
+	authority, err := tlstest.NewAuthority()
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := authority.Issue("provider", []string{"127.0.0.1"}, x509.ExtKeyUsageServerAuth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := tlstest.WriteFile(directory, "root.pem", authority.CertificatePEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := tlstest.WriteFile(directory, "server.pem", identity.CertificatePEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := tlstest.WriteFile(directory, "server.key", identity.PrivateKeyPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := cryptography.TLSServer("127.0.0.1", cert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewUnstartedServer(handler)
+	if len(address) > 0 {
+		if err := server.Listener.Close(); err != nil {
+			t.Fatal(err)
+		}
+		listener, err := net.Listen("tcp", address[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.Listener = listener
+	}
+	server.TLS = config
+	server.StartTLS()
+	t.Cleanup(server.Close)
+	return server, root
 }

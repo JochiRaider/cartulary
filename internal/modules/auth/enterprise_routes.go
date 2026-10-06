@@ -112,8 +112,8 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 
 	var state, nonce, relayState *string
 	var pkceHash []byte
-	var pkceCiphertext []byte
-	var pkceNonce []byte
+	transactionID := uuid.New()
+	var pkceEnvelope []byte
 	var pkceVerifier string
 	var samlRequestID *string
 	if provider.ProviderType == "oidc" {
@@ -134,7 +134,7 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 		}
 		sum := sha256.Sum256([]byte(verifier))
 		pkceHash = sum[:]
-		pkceCiphertext, pkceNonce, err = authn.EncryptSecret(s.keys, []byte(verifier))
+		pkceEnvelope, err = authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.EnterprisePKCESecret, RecordID: transactionID, SubjectID: provider.ID}, []byte(verifier))
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
@@ -158,7 +158,7 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 		samlRequestID = &requestID
 	}
 
-	transaction, err := s.enterpriseStore.CreateEnterpriseAuthTransaction(r.Context(), provider, request.ReturnTo, state, nonce, pkceHash, pkceCiphertext, pkceNonce, relayState, samlRequestID, browserHash, s.now())
+	transaction, err := s.enterpriseStore.CreateEnterpriseAuthTransaction(r.Context(), transactionID, provider, request.ReturnTo, state, nonce, pkceHash, pkceEnvelope, relayState, samlRequestID, browserHash, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -219,15 +219,12 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, s.enterpriseCompletionError(err))
 		return
 	}
-	pkceVerifier := ""
-	if len(transaction.PKCEVerifierCiphertext) > 0 || len(transaction.PKCEVerifierNonce) > 0 {
-		clear, err := authn.DecryptSecret(s.keys, transaction.PKCEVerifierCiphertext, transaction.PKCEVerifierNonce)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		pkceVerifier = string(clear)
+	clear, err := authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.EnterprisePKCESecret, RecordID: transaction.ID, SubjectID: transaction.ProviderID}, transaction.PKCEVerifierEnvelope)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
 	}
+	pkceVerifier := string(clear)
 	verified, apiErr := s.oidcVerifier.VerifyCallback(r.Context(), enterpriseauth.OIDCCallbackVerificationRequest{
 		Provider:     provider,
 		Transaction:  transaction,

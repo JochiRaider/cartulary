@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -156,6 +157,12 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
+	// The normal fixture is admitted. Prepare the missing-marker scenario
+	// explicitly through its migration handle; reset must never stamp it.
+	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM application_crypto_format WHERE format_id = 'cartulary.application_crypto_format.v1'`, 1)
+	if _, err := db.ExecContext(ctx, `DELETE FROM application_crypto_format`); err != nil {
+		t.Fatalf("prepare missing migration identity: %v", err)
+	}
 	beforeGooseVersions := requireSQLCount(t, db, `SELECT COUNT(*) FROM goose_db_version`)
 	beforeLineage := requireSQLCount(t, db, `SELECT COUNT(*) FROM schema_migration_lineage`)
 	seedTestRuntimeResetRows(t, db)
@@ -187,6 +194,29 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM records`, 0)
 	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM user_sessions`, 0)
 	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM route_idempotency`, 0)
+
+	// Missing identity remains missing. Reset is never initialization admission.
+	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM application_crypto_format`, 0)
+	if slices.Contains(result.TablesReset, "application_crypto_format") {
+		t.Fatal("reset selected migration identity as mutable data")
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO application_crypto_format(singleton, format_id) VALUES (true, 'cartulary.application_crypto_format.v1')`); err != nil {
+		t.Fatal(err)
+	}
+	result, err = ResetDatabase(ctx, recoveryPool.Pool(), func(ctx context.Context, tx pgx.Tx) error {
+		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
+	})
+	if err != nil || !result.MigrationMetadataPreserved {
+		t.Fatalf("reset changed admitted identity: %v", err)
+	}
+	var format string
+	if err := db.QueryRowContext(ctx, `SELECT format_id FROM application_crypto_format WHERE singleton`).Scan(&format); err != nil || format != "cartulary.application_crypto_format.v1" {
+		t.Fatalf("identity changed: %q %v", format, err)
+	}
+	var canWrite bool
+	if err := recoveryPool.Pool().QueryRow(ctx, `SELECT has_table_privilege(current_user, 'application_crypto_format', 'INSERT,UPDATE,DELETE,TRUNCATE')`).Scan(&canWrite); err != nil || canWrite {
+		t.Fatalf("recovery acquired identity write permission: %t %v", canWrite, err)
+	}
 
 	recoveryPool.Close()
 	if _, err := db.ExecContext(ctx, "ALTER DATABASE "+pgx.Identifier{testDB.Name}.Sanitize()+" SET lock_timeout = '100ms'"); err != nil {

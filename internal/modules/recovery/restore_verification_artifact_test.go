@@ -12,6 +12,7 @@ import (
 
 func TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit(t *testing.T) {
 	basis := recovery.RestoreVerificationBasis{
+		ApplicationCryptoFormat:           recovery.ApplicationCryptoFormatID,
 		MechanismID:                       recovery.VNextBackupMechanismID,
 		DatabaseBindingSHA256:             strings.Repeat("1", 64),
 		ObjectStoreBindingSHA256:          strings.Repeat("2", 64),
@@ -77,8 +78,8 @@ func TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit(t *tes
 
 	duplicate := bytes.Replace(
 		body,
-		[]byte(`"schema_id":"cartulary.restore_verification.v4"`),
-		[]byte(`"schema_id":"cartulary.restore_verification.v4","schema_id":"cartulary.restore_verification.v4"`),
+		[]byte(`"schema_id":"cartulary.restore_verification.v5"`),
+		[]byte(`"schema_id":"cartulary.restore_verification.v5","schema_id":"cartulary.restore_verification.v5"`),
 		1,
 	)
 	if _, err := recovery.DecodeRestoreVerificationArtifact(duplicate); err == nil {
@@ -108,24 +109,17 @@ func TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit(t *tes
 func TestRestoreVerificationArtifactV1HistoricalDecoderRemainsStrict_Unit(t *testing.T) {
 	const canonical = `{"artifact_sha256":"920cfbff5f18e2d871683b46309835159742e233dfd718bd18d91cddc6fbdfc3","backup_set_id":"00000000-0000-0000-0000-000000000201","blob_check_counts":{"failed":0,"passed":0,"total":0},"failure_reasons":[],"incident_open_check":{"status":"skipped_no_incidents"},"manifest_check_result":"pass","projection_rebuild_result":"pass","query_view_schema_id":"","result":"pass","schema_id":"cartulary.restore_verification.v1","selected_incident_id":null}
 `
-	decoded, err := recovery.DecodeRestoreVerificationArtifactV1([]byte(canonical))
-	if err != nil {
-		t.Fatalf("decode retained restore verification v1 artifact: %v", err)
+	// Preserve this historical validation identity as a rejection check. There
+	// is no historical decoder in the shipped package.
+	if _, err := recovery.DecodeRestoreVerificationArtifact([]byte(canonical)); err == nil {
+		t.Fatal("current decoder accepted a historical v1 proof")
 	}
-	if decoded.SchemaID != "cartulary.restore_verification.v1" ||
-		decoded.BackupSetID != "00000000-0000-0000-0000-000000000201" {
-		t.Fatalf("decoded historical artifact got %#v", decoded)
-	}
-	if _, err := recovery.DecodeRestoreVerificationArtifactV1(
-		[]byte(strings.Replace(canonical, `"result":"pass"`, `"result":"pass","unknown":true`, 1)),
-	); err == nil {
-		t.Fatal("historical decoder accepted an unknown member")
-	}
+
 }
 
 func TestRestoreVerificationArtifactV2CanonicalFixture_Unit(t *testing.T) {
 	for _, artifact := range contractrecovery.Artifacts {
-		if artifact.Path != "contracts/recovery/fixtures/restore-verification.v4.json" {
+		if artifact.Path != "contracts/recovery/fixtures/restore-verification.v5.json" {
 			continue
 		}
 		decoded, err := recovery.DecodeRestoreVerificationArtifact([]byte(artifact.JSON + "\n"))
@@ -134,6 +128,15 @@ func TestRestoreVerificationArtifactV2CanonicalFixture_Unit(t *testing.T) {
 		}
 		if decoded.WorkbookProbe.RegistrationID != "timeline.base_restore_probe.v1" {
 			t.Fatalf("canonical workbook registration got %#v", decoded.WorkbookProbe)
+		}
+		for _, replacement := range [][2]string{
+			{recovery.RestoreVerificationArtifactSchemaID, "cartulary.restore_verification.v4"},
+			{recovery.ApplicationCryptoFormatID, "cartulary.application_crypto_format.v0"},
+		} {
+			bad := strings.ReplaceAll(artifact.JSON, replacement[0], replacement[1])
+			if _, err := recovery.DecodeRestoreVerificationArtifact([]byte(bad + "\n")); err == nil {
+				t.Fatal("incompatible verification proof admitted")
+			}
 		}
 		return
 	}

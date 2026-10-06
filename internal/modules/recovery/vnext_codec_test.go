@@ -120,7 +120,7 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if got := len(captured.IntegrityManifest.Artifacts); got != wantArtifactProofs {
 		t.Fatalf("integrity artifact proofs = %d, want %d", got, wantArtifactProofs)
 	}
-	if captured.IntegrityManifest.SchemaID != recovery.BackupIntegrityManifestV3SchemaID ||
+	if captured.IntegrityManifest.SchemaID != recovery.BackupIntegrityManifestV4SchemaID ||
 		recovery.BackupIntegrityManifestSchemaID != "cartulary.backup_integrity_manifest.v2" ||
 		recovery.PostgresSnapshotArtifactSchemaID != "cartulary.postgres_snapshot_artifact.v1" {
 		t.Fatalf("vNext capture changed historical writer schema identities")

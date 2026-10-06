@@ -20,7 +20,7 @@ import (
 const (
 	KeyRingsOverrideKey        = "networkflow.key_rings.v1"
 	KeyRingManifestMaximumSize = 65536
-	keyRingManifestSchemaID    = "cartulary.network_flow_key_rings.v1"
+	keyRingManifestSchemaID    = "cartulary.network_flow_key_rings.v2"
 	keyRingManifestMaxBytes    = KeyRingManifestMaximumSize
 	keyRingMaxKeys             = 8
 	keyRingConfigPath          = "network_flow_activity.key_ring_manifest_path"
@@ -114,7 +114,7 @@ func parseKeyRings(raw []byte, env map[string]string, now time.Time, registry *s
 		return nil, keyRingConfigError(keyRingConfigPath, "network_flow_cursor_key_invalid", "parse Network Flow key-ring manifest: "+err.Error())
 	}
 	if manifest.SchemaID != keyRingManifestSchemaID {
-		return nil, keyRingConfigError(keyRingConfigPath+".schema_id", "network_flow_cursor_key_invalid", "schema_id must equal cartulary.network_flow_key_rings.v1")
+		return nil, keyRingConfigError(keyRingConfigPath+".schema_id", "network_flow_cursor_key_invalid", "schema_id must equal cartulary.network_flow_key_rings.v2")
 	}
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -139,8 +139,8 @@ func parseKeyRings(raw []byte, env map[string]string, now time.Time, registry *s
 }
 
 func (r *KeyRings) loadCursorRing(ring cursorKeyRingManifest, env map[string]string, now time.Time, registry *secretpurpose.Registry) error {
-	if ring.Algorithm != "aes_256_gcm_v1" || len(ring.Keys) < 1 || len(ring.Keys) > keyRingMaxKeys {
-		return keyRingConfigError(keyRingConfigPath+".cursor_key_ring", "network_flow_cursor_key_invalid", "cursor key ring must use aes_256_gcm_v1 and contain 1..8 keys")
+	if ring.Algorithm != "hkdf_sha256_aes_256_gcm_v2" || len(ring.Keys) < 1 || len(ring.Keys) > keyRingMaxKeys {
+		return keyRingConfigError(keyRingConfigPath+".cursor_key_ring", "network_flow_cursor_key_invalid", "cursor key ring must use hkdf_sha256_aes_256_gcm_v2 and contain 1..8 keys")
 	}
 	active := 0
 	for index, entry := range ring.Keys {

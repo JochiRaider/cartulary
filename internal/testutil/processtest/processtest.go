@@ -19,6 +19,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/diagnosticstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	tlstest "github.com/JochiRaider/cartulary/internal/testutil/tlstest/transport"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -81,6 +82,7 @@ func (c processGroupController) alive() bool {
 
 type Server struct {
 	BaseURL string
+	Client  *http.Client
 
 	cmd        *exec.Cmd
 	group      processGroupController
@@ -102,6 +104,15 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	t.Helper()
 
 	requestedEnv := cloneEnv(options.Env)
+	identity := tlstest.NewServer(t, "127.0.0.1", "localhost", "::1")
+	for key, value := range map[string]string{
+		"CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH": identity.CertificatePath,
+		"CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH": identity.PrivateKeyPath,
+	} {
+		if _, exists := requestedEnv[key]; !exists {
+			requestedEnv[key] = value
+		}
+	}
 	listenAddr := strings.TrimSpace(requestedEnv[httpAddrEnv])
 	if listenAddr == "" {
 		listenAddr = "127.0.0.1:0"
@@ -117,7 +128,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	}
 
 	address := clientAddress(listener.Addr())
-	baseURL := "http://" + address
+	baseURL := "https://" + address
 	finalEnv := cloneEnv(requestedEnv)
 	if options.FinalizeEnv != nil {
 		options.FinalizeEnv(finalEnv, baseURL)
@@ -139,6 +150,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 
 	server := &Server{
 		BaseURL: baseURL,
+		Client:  identity.Client(t, "127.0.0.1"),
 		cmd:     cmd,
 		done:    make(chan struct{}),
 	}
@@ -178,7 +190,8 @@ func cloneEnv(source map[string]string) map[string]string {
 func (s *Server) WaitForReady(t testing.TB) {
 	t.Helper()
 
-	client := &http.Client{Timeout: readinessRequestTimeout}
+	client := *s.Client
+	client.Timeout = readinessRequestTimeout
 	deadline := time.Now().Add(readinessDeadline)
 	for time.Now().Before(deadline) {
 		select {
@@ -288,7 +301,8 @@ func (s *Server) processExited() bool {
 func (s *Server) RequireStatus(t testing.TB, path string, want int) {
 	t.Helper()
 
-	client := &http.Client{Timeout: statusRequestTimeout}
+	client := *s.Client
+	client.Timeout = statusRequestTimeout
 	resp, err := client.Get(s.BaseURL + path)
 	if err != nil {
 		t.Fatalf("request %s: %v", path, err)
@@ -302,7 +316,8 @@ func (s *Server) RequireStatus(t testing.TB, path string, want int) {
 func (s *Server) RequireConnectionRefused(t testing.TB, path string) {
 	t.Helper()
 
-	client := &http.Client{Timeout: refusalRequestTimeout}
+	client := *s.Client
+	client.Timeout = refusalRequestTimeout
 	if resp, err := client.Get(s.BaseURL + path); err == nil {
 		resp.Body.Close()
 		t.Fatalf("expected %s to be unreachable, got HTTP %d", path, resp.StatusCode)
@@ -312,7 +327,7 @@ func (s *Server) RequireConnectionRefused(t testing.TB, path string) {
 func (s *Server) RequireWebsocketConnectionRefused(t testing.TB, path string) {
 	t.Helper()
 
-	_, _, err := wstest.TryConnect(s.BaseURL, path, nil)
+	_, _, err := wstest.TryConnectWithClient(s.Client, s.BaseURL, path, nil)
 	wstest.RequireConnectionRefused(t, err)
 }
 

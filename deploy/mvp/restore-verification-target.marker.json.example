@@ -1,5 +1,6 @@
 {
-  "schema_id": "cartulary.restore_target_marker.v4",
+  "schema_id": "cartulary.restore_target_marker.v5",
+  "application_crypto_format": "cartulary.application_crypto_format.v1",
   "purpose": "restore_verification_target",
   "target_generation_id": "00000000-0000-0000-0000-000000000101",
   "binding_digests": {

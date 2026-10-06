@@ -7,6 +7,8 @@ import { preparationFailure } from "./failure.mjs";
 import { ReviewFailure, limits, schemaID, validate } from "./contract.mjs";
 import { reviewTotp } from "../design-review-seed.mjs";
 import { boundedCleanup, ownedProcess, stopOwnedProcess } from "./ownership.mjs";
+import { startVisualRendererLease } from "../visual-renderer-lease.mjs";
+import { repoRoot } from "./policy.mjs";
 
 export function browserReady() {
   try { browserReadiness(); }
@@ -21,19 +23,25 @@ function boundedText(value, maximum = 4096) {
 }
 const unavailableAxe = (status = "unavailable") => ({ status, engine_version: null, scope: "main_document", violations: [], incomplete: [], unassessed_frames: null });
 export class ReviewBrowser {
-  constructor({ origin, mode, actors = {}, onLost = () => {}, onOwnedResource = () => {} }) {
+  constructor({ origin, mode, environment, actors = {}, onLost = () => {}, onOwnedResource = () => {} }) {
     this.origin = origin; this.mode = mode; this.actors = actors; this.onLost = onLost;
     this.onOwnedResource = onOwnedResource;
+    this.environment = environment;
     this.epoch = 0; this.generation = 0; this.references = new Map(); this.sequence = 0; this.needsSnapshot = false; this.closing = false;
     this.channels = { console: { records: [], truncated: false }, network: { records: [], truncated: false } };
   }
   async start() {
     browserReady();
     try {
+      if (this.mode === "seeded") {
+        this.renderer = await startVisualRendererLease({ root: repoRoot, environment: this.environment, diagnostics: true, onOwnedResource: this.onOwnedResource });
+        this.browser = await chromium.connect(this.renderer.environment.CARTULARY_VISUAL_RENDERER_WS_ENDPOINT, { exposeNetwork: "<loopback>", timeout: 30000 });
+      } else {
       this.server = await chromium.launchServer({ host: "127.0.0.1", headless: true, timeout: 30000, env: { PATH: "/usr/bin:/bin", HOME: process.env.HOME ?? "/tmp", LANG: "en_US.UTF-8" } });
       this.process = ownedProcess(this.server.process().pid);
       await this.onOwnedResource({ kind: "browser_process", target: this.process });
       this.browser = await chromium.connect(this.server.wsEndpoint(), { timeout: 30000 });
+      }
     }
     catch (cause) { throw new ReviewFailure("startup_failed", { cause }); }
     this.browser.on("disconnected", () => { if (!this.closing) this.onLost(new ReviewFailure("session_lost")); });
@@ -194,6 +202,15 @@ export class ReviewBrowser {
     return freeze(validate("observations", { schema_id: schemaID("observations"), elements, fonts, accessibility_snapshot, axe, ...structuredClone(this.channels) }));
   }
   version() { return this.browser.version(); }
+  async bindDiagnostic(session, directory) {
+    if (!this.renderer) return this.browser.bind(session, { host: "127.0.0.1", port: 0, workspaceDir: directory });
+    const port = this.renderer.diagnosticPort;
+    const { endpoint } = await this.browser.bind(session, { host: "0.0.0.0", port, workspaceDir: "/home/pwuser/review-diagnostic" });
+    const url = new URL(endpoint);
+    if (url.protocol !== "ws:" || url.hostname !== "0.0.0.0" || url.port !== String(port) || !/^\/[A-Za-z0-9_-]+$/u.test(url.pathname) || url.search || url.hash || url.username || url.password) throw new ReviewFailure("target_unavailable");
+    url.hostname = "127.0.0.1";
+    return { endpoint: url.href };
+  }
   async capture(request, context, operationID, stage) {
     if (request.expected_epoch !== this.epoch || this.needsSnapshot) throw new ReviewFailure("session_mismatch");
     // Only this adapter grants driver access to its observation implementation.
@@ -205,6 +222,7 @@ export class ReviewBrowser {
     this.closing = true;
     try { await boundedCleanup(async () => { await this.browser?.close(); await this.server?.close(); }, 10000); }
     finally {
+      this.renderer?.cleanup();
       if (this.process) {
         await stopOwnedProcess(this.process);
         await this.onOwnedResource({ kind: "browser_process", target: this.process, state: "released" });

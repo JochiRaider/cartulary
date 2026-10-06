@@ -46,7 +46,8 @@ func TestRecoveryGenerationSelectionDrivesCatalogCodecAndGraphValidation_Unit(t 
 				t.Fatal("exact generated pair was not admitted")
 			}
 			integrity := VNextBackupIntegrityManifest{
-				SchemaID: BackupIntegrityManifestV3SchemaID, BackupSetID: "00000000-0000-0000-0000-000000000901",
+				ApplicationCryptoFormat: ApplicationCryptoFormatID,
+				SchemaID:                BackupIntegrityManifestV4SchemaID, BackupSetID: "00000000-0000-0000-0000-000000000901",
 				ConsistencyPointAt:         time.Date(2026, 8, 19, 6, 0, 0, 0, time.UTC),
 				CreatedAt:                  time.Date(2026, 8, 19, 6, 1, 0, 0, time.UTC),
 				RetainedUntil:              time.Date(2026, 9, 18, 6, 1, 0, 0, time.UTC),
@@ -129,6 +130,7 @@ func TestRecoveryGenerationSelectionDrivesVerificationBasisAndCadence_Unit(t *te
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
 	base := RestoreVerificationBasis{
+		ApplicationCryptoFormat:           ApplicationCryptoFormatID,
 		MechanismID:                       VNextBackupMechanismID,
 		DatabaseBindingSHA256:             strings.Repeat("a", 64),
 		ObjectStoreBindingSHA256:          strings.Repeat("b", 64),

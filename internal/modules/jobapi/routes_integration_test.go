@@ -18,7 +18,7 @@ import (
 func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-incident-auth")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-incident",
 		"incident_key":  "IR-EXTENSION-PROFILE-JOBAPI",
@@ -30,8 +30,8 @@ func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	peerPassword := "PeerPassphrase11!"
 	viewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-job-viewer@example.test", "ExtensionProfile Viewer", viewerPassword, false, false, true)
 	peerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-job-peer@example.test", "ExtensionProfile Peer", peerPassword, false, false, true)
-	viewerCookies, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, viewerUser.Email, viewerPassword, nil)
-	peerCookies, peerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, peerUser.Email, peerPassword, nil)
+	viewerCookies, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, viewerUser.Email, viewerPassword, nil)
+	peerCookies, peerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, peerUser.Email, peerPassword, nil)
 
 	viewerMembership := scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-viewer-membership",
@@ -79,13 +79,13 @@ func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-deployment-auth")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	submitterPassword := "SubmitterPassphrase11!"
 	otherPassword := "OtherPassphrase11!"
 	submitterUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-job-submitter@example.test", "ExtensionProfile Submitter", submitterPassword, false, false, true)
 	otherUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-job-other@example.test", "ExtensionProfile Other", otherPassword, false, false, true)
-	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
-	otherCookies, otherCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, otherUser.Email, otherPassword, nil)
+	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
+	otherCookies, otherCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, otherUser.Email, otherPassword, nil)
 
 	job, err := createJobAPIFixture(context.Background(), harness.Jobs, jobs.EnqueueParams{
 		JobKind:           "import.discovery_v1",
@@ -118,7 +118,7 @@ func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 func TestExpiredJobReadAndCancelAreMasked_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "jobapi-expired-masking")
-	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
 	job, err := createJobAPIFixture(context.Background(), harness.Jobs, jobs.EnqueueParams{
 		JobKind:           "import.discovery_v1",
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
@@ -167,7 +167,7 @@ UPDATE jobs
 func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-incident-admin-member-auth")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-admin-member-incident",
 		"incident_key":  "IR-EXTENSION-PROFILE-JOBAPI-ADMIN-MEMBER",
@@ -183,10 +183,10 @@ func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 	deploymentViewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-job-deployment-viewer@example.test", "ExtensionProfile Deployment Viewer", deploymentViewerPassword, false, true, true)
 	incidentAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-job-incident-admin@example.test", "ExtensionProfile Incident Admin", incidentAdminPassword, false, false, true)
 	deploymentNonMemberUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-job-deployment-nonmember@example.test", "ExtensionProfile Deployment Nonmember", deploymentNonMemberPassword, false, true, true)
-	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
-	deploymentViewerCookies, deploymentViewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, deploymentViewerUser.Email, deploymentViewerPassword, nil)
-	incidentAdminCookies, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, incidentAdminUser.Email, incidentAdminPassword, nil)
-	deploymentNonMemberCookies, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, deploymentNonMemberUser.Email, deploymentNonMemberPassword, nil)
+	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
+	deploymentViewerCookies, deploymentViewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, deploymentViewerUser.Email, deploymentViewerPassword, nil)
+	incidentAdminCookies, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, incidentAdminUser.Email, incidentAdminPassword, nil)
+	deploymentNonMemberCookies, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, deploymentNonMemberUser.Email, deploymentNonMemberPassword, nil)
 
 	submitterMembership := scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-admin-member-submitter-membership",

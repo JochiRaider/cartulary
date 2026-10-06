@@ -155,6 +155,32 @@
       ]
     },
     {
+      "row_id": "module.recovery.integration.reset_preserves_crypto_format_identity",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestVerificationResetPreservesMigrationIdentity_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.recovery.integration.restore_readiness_selects_the_latest_retained_su_e71d710085",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.integration",
@@ -429,11 +455,8 @@
       "selector": {
         "package": "./internal/modules/recovery/testsupport",
         "tests": [
-          "TestCaptureInputRequiresExplicitIdentityAndBorrowedDependencies_Unit",
-          "TestCaptureParamsPreservesExplicitAnchorsAndDefaultsMissingAnchors_Unit",
           "TestEvidenceArtifactUsesPrivatePermissions_Unit",
           "TestEvidenceLocationRejectsNestedExecutionSegments_Unit",
-          "TestSnapshotDigestIsStableAcrossTableAndRowOrder_Unit",
           "TestTargetFixtureCopiesCallerEnvironment_Unit"
         ]
       },
@@ -733,6 +756,7 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
+          "TestRecoveryCurrentEncryptionPolicy_Unit",
           "TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit"
         ]
       },

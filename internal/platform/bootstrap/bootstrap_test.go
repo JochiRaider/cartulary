@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"io/fs"
 	"testing"
 	"time"
@@ -75,8 +76,8 @@ func TestBootstrapManifestValidation_Unit(t *testing.T) {
 			},
 			{
 				name:    "secret bearing extra",
-				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","totp_secret_ciphertext":"opaque-secret"}`,
-				path:    "bootstrap.first_admin_manifest.totp_secret_ciphertext",
+				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","totp_secret_envelope":"opaque-secret"}`,
+				path:    "bootstrap.first_admin_manifest.totp_secret_envelope",
 			},
 		}
 
@@ -135,7 +136,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		manifestFS := &bootstrapManifestFSStub{}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/stale-bootstrap.json",
-		}, store, manifestFS, deriveBootstrapPasswordHash)
+		}, store, manifestFS, authn.HashPassword)
 		if err != nil {
 			t.Fatalf("bootstrap preflight with existing admin: %v", err)
 		}
@@ -159,7 +160,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		manifestFS := &bootstrapManifestFSStub{}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/invalid-bootstrap.json",
-		}, store, manifestFS, deriveBootstrapPasswordHash)
+		}, store, manifestFS, authn.HashPassword)
 		if err != nil {
 			t.Fatalf("bootstrap preflight with existing admin and invalid manifest: %v", err)
 		}
@@ -180,7 +181,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		manifestFS := &bootstrapManifestFSStub{}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/bootstrap.json",
-		}, store, manifestFS, deriveBootstrapPasswordHash)
+		}, store, manifestFS, authn.HashPassword)
 		requireBootstrapDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		if store.readCalls != 1 {
 			t.Fatalf("expected exactly one bootstrap-state query, got %d", store.readCalls)
@@ -196,7 +197,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 	t.Run("requires a configured manifest path when bootstrap is still needed", func(t *testing.T) {
 		store := &bootstrapStoreStub{}
 		manifestFS := &bootstrapManifestFSStub{}
-		err := bootstrapPreflight(context.Background(), Settings{}, store, manifestFS, deriveBootstrapPasswordHash)
+		err := bootstrapPreflight(context.Background(), Settings{}, store, manifestFS, authn.HashPassword)
 		requireBootstrapDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_path_missing.json"})
 		if store.readCalls != 1 {
 			t.Fatalf("expected exactly one bootstrap-state query, got %d", store.readCalls)
@@ -217,7 +218,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/bootstrap-admin.json",
-		}, store, manifestFS, deriveBootstrapPasswordHash)
+		}, store, manifestFS, authn.HashPassword)
 		requireBootstrapDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_not_readable_permission_denied.json"})
 		if manifestFS.statCalls != 1 || manifestFS.readCalls != 1 {
 			t.Fatalf("expected one manifest stat and one read, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
@@ -231,7 +232,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/bootstrap-admin.json",
-		}, store, manifestFS, deriveBootstrapPasswordHash)
+		}, store, manifestFS, authn.HashPassword)
 		requireBootstrapDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_not_regular_file.json"})
 		if manifestFS.statCalls != 1 || manifestFS.readCalls != 0 {
 			t.Fatalf("expected one manifest stat and zero reads, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
@@ -246,7 +247,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/bootstrap-admin.json",
-		}, store, manifestFS, deriveBootstrapPasswordHash)
+		}, store, manifestFS, authn.HashPassword)
 		requireBootstrapDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_parse_error.json"})
 	})
 
@@ -258,7 +259,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/bootstrap-admin.json",
-		}, store, manifestFS, deriveBootstrapPasswordHash)
+		}, store, manifestFS, authn.HashPassword)
 		requireBootstrapDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_schema_invalid_multiple.json"})
 	})
 
@@ -270,7 +271,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		}
 		err := bootstrapPreflight(context.Background(), Settings{
 			ManifestPath: "/tmp/bootstrap-admin.json",
-		}, store, manifestFS, deriveBootstrapPasswordHash)
+		}, store, manifestFS, authn.HashPassword)
 		if err != nil {
 			t.Fatalf("bootstrap preflight with valid manifest: %v", err)
 		}

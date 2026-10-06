@@ -24,7 +24,7 @@ func TestTableLifecycleAdmissionAndReplay_Integration(t *testing.T) {
 	t.Run("functional authorization controls", assertNetworkFlowAuthorizationConsumers)
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "table-lifecycle")
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	actor := uuid.MustParse(actorText)
 	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "table-lifecycle-incident", "incident_key": "IR-TABLE-LIFECYCLE", "title": "Table lifecycle"})
 	id := uuid.MustParse(incident["incident_id"].(string))

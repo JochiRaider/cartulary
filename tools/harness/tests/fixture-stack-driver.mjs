@@ -32,7 +32,7 @@ if (args[0] === "serve") {
       process.once("SIGTERM", () => { clearInterval(active); resolve(); });
       writeFileSync(path.join(directory, "cancellable"), "ready", { mode: 0o600 });
     });
-    const stack = path.join(directory, "stack-v7.json");
+    const stack = path.join(directory, "stack-v8.json");
     writeFileSync(stack, "{}", { mode: 0o600 });
     writeFileSync(path.join(directory, "service-admission.json"), "{}", { mode: 0o600 });
     writeFileSync(leaseFile, JSON.stringify(lease), { mode: 0o600 });

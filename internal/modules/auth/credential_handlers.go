@@ -87,7 +87,13 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := authn.VerifyPasswordHash(principal.User.PasswordHash, request.CurrentPassword)
+	workflow := beginPasswordWorkflow(w, r)
+	if workflow == nil {
+		return
+	}
+	defer workflow.Close()
+
+	ok, err := workflow.Verify(principal.User.PasswordHash, request.CurrentPassword)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -101,7 +107,7 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newPasswordHash, err := authn.HashPassword(request.NewPassword)
+	newPasswordHash, err := workflow.Hash(request.NewPassword)
 	if err != nil {
 		writeAPIError(w, r, invalidAuthRequest("new_password", err.Error()))
 		return
@@ -153,14 +159,39 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	if pending, err := s.credentialStore.GetPendingTOTPEnrollmentForUser(r.Context(), authContext.User.ID, s.now()); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	} else if pending != nil {
+		sameScope := authContext.Principal != nil && pending.AuthScopeKind == "session" && pending.AuthScopeSessionID != nil && *pending.AuthScopeSessionID == authContext.Principal.Session.ID && pending.AuthScopeBootstrapTokenID == nil
+		if authContext.BootstrapToken != nil {
+			sameScope = pending.AuthScopeKind == "bootstrap_token" && pending.AuthScopeBootstrapTokenID != nil && *pending.AuthScopeBootstrapTokenID == authContext.BootstrapToken.ID && pending.AuthScopeSessionID == nil
+		}
+		if !sameScope || pending.UserID != authContext.User.ID || pending.ClientTxnID != request.ClientTxnID || authn.PendingEnrollmentStatusAt(pending, s.now()) != authn.PendingEnrollmentValid {
+			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
+			return
+		}
+		secret, err := authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: pending.ID, SubjectID: pending.UserID}, pending.SecretEnvelope)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		s.writeTOTPBeginResponse(w, r, authContext, *pending, authn.EncodeSecretBase32(secret))
+		return
+	}
 
-	replacesActive := authContext.User.TOTPEnrolledAt != nil && len(authContext.User.TOTPSecretCiphertext) > 0 && len(authContext.User.TOTPSecretNonce) > 0
+	replacesActive := authContext.User.TOTPEnrolledAt != nil && len(authContext.User.TOTPSecretEnvelope) > 0
 	if authContext.Principal != nil && replacesActive {
 		if request.CurrentPassword == nil {
 			writeAPIError(w, r, invalidAuthRequest("current_password", "current_password is required for totp replacement"))
 			return
 		}
-		ok, err := authn.VerifyPasswordHash(authContext.User.PasswordHash, *request.CurrentPassword)
+		workflow := beginPasswordWorkflow(w, r)
+		if workflow == nil {
+			return
+		}
+		defer workflow.Close()
+		ok, err := workflow.Verify(authContext.User.PasswordHash, *request.CurrentPassword)
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
@@ -180,7 +211,8 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	ciphertext, nonce, err := authn.EncryptSecret(s.keys, clearSecret)
+	enrollmentID := uuid.New()
+	envelope, err := authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: authContext.User.ID}, clearSecret)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -198,13 +230,13 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 
 	pending, replayed, err := s.credentialStore.BeginTOTPEnrollment(
 		r.Context(),
+		enrollmentID,
 		authContext.User.ID,
 		authScopeKind,
 		sessionID,
 		bootstrapTokenID,
 		request.ClientTxnID,
-		ciphertext,
-		nonce,
+		envelope,
 		replacesActive,
 		s.now(),
 	)
@@ -218,7 +250,7 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if replayed {
-		clearSecret, err = authn.DecryptSecret(s.keys, pending.SecretCiphertext, pending.SecretNonce)
+		clearSecret, err = authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: pending.ID, SubjectID: pending.UserID}, pending.SecretEnvelope)
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
@@ -226,6 +258,10 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		secretBase32 = authn.EncodeSecretBase32(clearSecret)
 	}
 
+	s.writeTOTPBeginResponse(w, r, authContext, pending, secretBase32)
+}
+
+func (s *Service) writeTOTPBeginResponse(w http.ResponseWriter, r *http.Request, authContext CredentialAuthContext, pending authn.PendingTOTPEnrollmentRecord, secretBase32 string) {
 	if authContext.Principal != nil {
 		if err := s.slideSessionIfNeeded(r.Context(), authContext.Principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
@@ -290,7 +326,7 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clearSecret, err := authn.DecryptSecret(s.keys, pending.SecretCiphertext, pending.SecretNonce)
+	clearSecret, err := authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: pending.ID, SubjectID: pending.UserID}, pending.SecretEnvelope)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -310,6 +346,11 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		bootstrapTokenID = &authContext.BootstrapToken.ID
 	}
 
+	activeEnvelope, err := authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: authContext.User.ID, SubjectID: authContext.User.ID}, clearSecret)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
 	result, err := s.credentialStore.ActivateTOTPEnrollment(
 		r.Context(),
 		authContext.User,
@@ -317,6 +358,8 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		authScopeKind,
 		sessionID,
 		bootstrapTokenID,
+		pending.SecretEnvelope,
+		activeEnvelope,
 		s.now(),
 	)
 	switch {
@@ -354,13 +397,13 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) validateActiveTOTP(user authn.UserRecord, secondFactor *SecondFactorAssertion) *httpapi.APIError {
-	if user.TOTPEnrolledAt == nil || len(user.TOTPSecretCiphertext) == 0 || len(user.TOTPSecretNonce) == 0 {
+	if user.TOTPEnrolledAt == nil || len(user.TOTPSecretEnvelope) == 0 {
 		return nil
 	}
 	if secondFactor == nil {
 		return &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}}
 	}
-	secretBytes, err := authn.DecryptSecret(s.keys, user.TOTPSecretCiphertext, user.TOTPSecretNonce)
+	secretBytes, err := authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: user.ID, SubjectID: user.ID}, user.TOTPSecretEnvelope)
 	if err != nil {
 		return internalAPIError(err)
 	}

@@ -18,8 +18,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"encoding/base64"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore/s3transport"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 const (
@@ -106,7 +109,8 @@ type compatibilityCase struct {
 
 type probeRunner struct {
 	cfg             config
-	client          *minio.Client
+	client          *s3.Client
+	connection      *s3transport.Connection
 	artifact        probeArtifact
 	compatibility   compatibilityReport
 	probeID         string
@@ -135,6 +139,7 @@ func main() {
 	}
 
 	runErr := runner.run(ctx)
+	_ = runner.connection.Close()
 	runner.finish(runErr)
 
 	if err := writeProbeArtifact(cfg, runner.artifact); err != nil {
@@ -162,12 +167,12 @@ func parseConfig() (config, error) {
 	flag.StringVar(&cfg.Endpoint, "endpoint", envDefault("OBJECT_STORE_ENDPOINT", "127.0.0.1:8333"), "S3 endpoint without scheme")
 	flag.StringVar(&cfg.AccessKeyID, "access-key-id", envDefault("SEAWEEDFS_S3_ACCESS_KEY_ID", "cartulary-local"), "S3 access key")
 	flag.StringVar(&cfg.SecretAccessKey, "secret-access-key", envDefault("SEAWEEDFS_S3_SECRET_ACCESS_KEY", "cartulary-local-secret"), "S3 secret key")
-	flag.StringVar(&secureText, "secure", envDefault("OBJECT_STORE_SECURE", "false"), "whether to use HTTPS")
+	flag.StringVar(&secureText, "secure", envDefault("OBJECT_STORE_SECURE", "true"), "whether to use HTTPS")
 	flag.StringVar(&cfg.Bucket, "bucket", envDefault("OBJECT_STORE_BUCKET", "cartulary"), "S3 bucket")
-	flag.StringVar(&cfg.Origin, "origin", envDefault("OBJECT_STORE_CORS_ORIGIN", "http://localhost:5173"), "browser origin for CORS preflight")
+	flag.StringVar(&cfg.Origin, "origin", envDefault("OBJECT_STORE_CORS_ORIGIN", "https://localhost:5173"), "browser origin for CORS preflight")
 	flag.StringVar(&cfg.ServiceName, "service-name", envDefault("OBJECT_STORE_SERVICE_NAME", "seaweedfs-s3"), "local object-store service name")
-	flag.StringVar(&cfg.Image, "image", envDefault("SEAWEEDFS_S3_IMAGE", "docker.io/chrislusf/seaweedfs:4.17"), "object-store image tag")
-	flag.StringVar(&cfg.ImageDigest, "image-digest", envDefault("SEAWEEDFS_S3_IMAGE_DIGEST", "sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9"), "object-store image digest")
+	flag.StringVar(&cfg.Image, "image", envDefault("SEAWEEDFS_S3_IMAGE", "docker.io/chrislusf/seaweedfs:4.48"), "object-store image tag")
+	flag.StringVar(&cfg.ImageDigest, "image-digest", envDefault("SEAWEEDFS_S3_IMAGE_DIGEST", "sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d"), "object-store image digest")
 	flag.DurationVar(&cfg.Timeout, "timeout", 60*time.Second, "probe timeout")
 	flag.StringVar(&cfg.ArtifactPath, "artifact", "", "artifact path; defaults to harness result path when available")
 	flag.Parse()
@@ -202,23 +207,26 @@ func parseConfig() (config, error) {
 }
 
 func newProbeRunner(cfg config) (*probeRunner, error) {
-	client, err := minio.New(cfg.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.AccessKeyID, cfg.SecretAccessKey, ""),
-		Secure: cfg.Secure,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create S3 client: %w", err)
+	if !cfg.Secure {
+		return nil, s3transport.ErrConfiguration
 	}
+	connection, err := s3transport.New(s3transport.Options{Endpoint: cfg.Endpoint, AccessKey: cfg.AccessKeyID, SecretKey: cfg.SecretAccessKey})
+	if err != nil {
+		return nil, err
+	}
+	client := connection.Client
 
 	startedAt := time.Now().UTC()
 	probeID, err := randomHex(16)
 	if err != nil {
+		_ = connection.Close()
 		return nil, err
 	}
 	probePrefix := ".cartulary/probes/startup/" + probeID + "/"
 	runner := &probeRunner{
 		cfg:             cfg,
 		client:          client,
+		connection:      connection,
 		probeID:         probeID,
 		probePrefix:     probePrefix,
 		probeKey:        probePrefix + "probe.bin",
@@ -282,13 +290,13 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 
 	var bucketExists bool
 	if err := r.stage(ctx, "endpoint_reachability", func(ctx context.Context) error {
-		_, err := r.client.BucketExists(ctx, r.cfg.Bucket)
+		_, err := s3transport.BucketExists(ctx, r.client, r.cfg.Bucket)
 		return err
 	}); err != nil {
 		return err
 	}
 	if err := r.stage(ctx, "bucket_validation", func(ctx context.Context) error {
-		exists, err := r.client.BucketExists(ctx, r.cfg.Bucket)
+		exists, err := s3transport.BucketExists(ctx, r.client, r.cfg.Bucket)
 		bucketExists = exists
 		return err
 	}); err != nil {
@@ -301,7 +309,8 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 			})
 		}
 		if err := r.stage(ctx, "bucket_creation", func(ctx context.Context) error {
-			return r.client.MakeBucket(ctx, r.cfg.Bucket, minio.MakeBucketOptions{})
+			_, err := r.client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(r.cfg.Bucket)})
+			return err
 		}); err != nil {
 			return err
 		}
@@ -320,7 +329,7 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 	}
 	for _, payload := range payloads {
 		if err := r.stage(ctx, "put_"+payload.name, func(ctx context.Context) error {
-			_, err := r.client.PutObject(ctx, r.cfg.Bucket, payload.key, bytes.NewReader(payload.payload), int64(len(payload.payload)), minio.PutObjectOptions{ContentType: "application/octet-stream"})
+			_, err := r.client.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(payload.key), Body: bytes.NewReader(payload.payload), ContentType: aws.String("application/octet-stream"), ChecksumAlgorithm: types.ChecksumAlgorithmSha256})
 			if err == nil {
 				r.createdKeys[payload.key] = true
 			}
@@ -332,11 +341,11 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 	r.markCompat("SWFS-COMP-002", "pass")
 	for _, payload := range payloads {
 		if err := r.stage(ctx, "head_"+payload.name, func(ctx context.Context) error {
-			info, err := r.client.StatObject(ctx, r.cfg.Bucket, payload.key, minio.StatObjectOptions{})
+			info, err := r.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(payload.key)})
 			if err != nil {
 				return err
 			}
-			if info.Size != int64(len(payload.payload)) {
+			if aws.ToInt64(info.ContentLength) != int64(len(payload.payload)) {
 				return fmt.Errorf("object size mismatch")
 			}
 			return nil
@@ -347,17 +356,14 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 	r.markCompat("SWFS-COMP-003", "pass")
 	for _, payload := range payloads {
 		if err := r.stage(ctx, "get_"+payload.name, func(ctx context.Context) error {
-			return requireObjectPayload(ctx, r.client, r.cfg.Bucket, payload.key, payload.payload, minio.GetObjectOptions{})
+			return requireObjectPayload(ctx, r.client, r.cfg.Bucket, payload.key, payload.payload, s3.GetObjectInput{})
 		}); err != nil {
 			return err
 		}
 	}
 	r.markCompat("SWFS-COMP-004", "pass")
 	if err := r.stage(ctx, "range_primary", func(ctx context.Context) error {
-		opts := minio.GetObjectOptions{}
-		if err := opts.SetRange(4, 15); err != nil {
-			return err
-		}
+		opts := s3.GetObjectInput{Range: aws.String("bytes=4-15")}
 		return requireObjectPayload(ctx, r.client, r.cfg.Bucket, r.probeKey, primaryPayload[4:16], opts)
 	}); err != nil {
 		return err
@@ -371,19 +377,19 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 	var putURL *url.URL
 	if err := r.stage(ctx, "create_direct_upload_target", func(ctx context.Context) error {
 		var err error
-		putURL, err = r.client.PresignedPutObject(ctx, r.cfg.Bucket, r.directUploadKey, 5*time.Minute)
+		putURL, err = presignedPUT(ctx, r.client, r.cfg.Bucket, r.directUploadKey, directPayload, 5*time.Minute)
 		return err
 	}); err != nil {
 		return err
 	}
 	if err := r.stage(ctx, "cors_preflight", func(ctx context.Context) error {
-		return checkCORSPreflight(ctx, putURL.String(), r.cfg.Origin)
+		return checkCORSPreflight(ctx, r.client.Options().HTTPClient, putURL.String(), r.cfg.Origin)
 	}); err != nil {
 		return err
 	}
 	r.markCompat("SWFS-COMP-011", "pass")
 	if err := r.stage(ctx, "direct_put", func(ctx context.Context) error {
-		err := uploadPresignedPUT(ctx, putURL.String(), r.cfg.Origin, directPayload)
+		err := uploadPresignedPUT(ctx, r.client.Options().HTTPClient, putURL.String(), r.cfg.Origin, directPayload)
 		if err == nil {
 			r.createdKeys[r.directUploadKey] = true
 		}
@@ -392,11 +398,11 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 		return err
 	}
 	if err := r.stage(ctx, "head_direct", func(ctx context.Context) error {
-		info, err := r.client.StatObject(ctx, r.cfg.Bucket, r.directUploadKey, minio.StatObjectOptions{})
+		info, err := r.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(r.directUploadKey)})
 		if err != nil {
 			return err
 		}
-		if info.Size != int64(len(directPayload)) {
+		if aws.ToInt64(info.ContentLength) != int64(len(directPayload)) {
 			return fmt.Errorf("direct upload size mismatch")
 		}
 		return nil
@@ -404,7 +410,7 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 		return err
 	}
 	if err := r.stage(ctx, "get_direct", func(ctx context.Context) error {
-		return requireObjectPayload(ctx, r.client, r.cfg.Bucket, r.directUploadKey, directPayload, minio.GetObjectOptions{})
+		return requireObjectPayload(ctx, r.client, r.cfg.Bucket, r.directUploadKey, directPayload, s3.GetObjectInput{})
 	}); err != nil {
 		return err
 	}
@@ -450,7 +456,7 @@ func (r *probeRunner) deleteAndVerify(ctx context.Context, deleteStage string, v
 		return nil
 	}
 	if err := r.stage(ctx, deleteStage, func(ctx context.Context) error {
-		if err := r.client.RemoveObject(ctx, r.cfg.Bucket, key, minio.RemoveObjectOptions{}); err != nil {
+		if _, err := r.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(key)}); err != nil {
 			return err
 		}
 		r.deletedKeys[key] = true
@@ -459,11 +465,11 @@ func (r *probeRunner) deleteAndVerify(ctx context.Context, deleteStage string, v
 		return err
 	}
 	return r.stage(ctx, verifyStage, func(ctx context.Context) error {
-		_, err := r.client.StatObject(ctx, r.cfg.Bucket, key, minio.StatObjectOptions{})
+		_, err := r.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(key)})
 		if err == nil {
 			return fmt.Errorf("object still exists after delete")
 		}
-		if response := minio.ToErrorResponse(err); response.Code == "NoSuchKey" || response.Code == "NoSuchObject" || response.Code == "NotFound" {
+		if code := s3transport.ErrorCode(err); code == "NoSuchKey" || code == "NoSuchObject" || code == "NotFound" {
 			return nil
 		}
 		return err
@@ -475,7 +481,7 @@ func (r *probeRunner) verifyPrefixIsolation(ctx context.Context) error {
 	rightKey := r.probePrefix + "prefix-b/object.txt"
 	if err := r.stage(ctx, "put_prefix_isolation", func(ctx context.Context) error {
 		for _, key := range []string{leftKey, rightKey} {
-			if _, err := r.client.PutObject(ctx, r.cfg.Bucket, key, strings.NewReader("prefix"), int64(len("prefix")), minio.PutObjectOptions{}); err != nil {
+			if _, err := r.client.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(key), Body: strings.NewReader("prefix"), ChecksumAlgorithm: types.ChecksumAlgorithmSha256}); err != nil {
 				return err
 			}
 			r.createdKeys[key] = true
@@ -486,12 +492,17 @@ func (r *probeRunner) verifyPrefixIsolation(ctx context.Context) error {
 	}
 	if err := r.stage(ctx, "list_prefix_isolation", func(ctx context.Context) error {
 		found := []string{}
-		for item := range r.client.ListObjects(ctx, r.cfg.Bucket, minio.ListObjectsOptions{Prefix: r.probePrefix + "prefix-a/", Recursive: true}) {
-			if item.Err != nil {
-				return item.Err
+		pages := s3.NewListObjectsV2Paginator(r.client, &s3.ListObjectsV2Input{Bucket: aws.String(r.cfg.Bucket), Prefix: aws.String(r.probePrefix + "prefix-a/")})
+		for pages.HasMorePages() {
+			page, err := pages.NextPage(ctx)
+			if err != nil {
+				return err
 			}
-			found = append(found, item.Key)
+			for _, item := range page.Contents {
+				found = append(found, aws.ToString(item.Key))
+			}
 		}
+
 		if len(found) != 1 || found[0] != leftKey {
 			return fmt.Errorf("prefix isolation mismatch")
 		}
@@ -512,7 +523,7 @@ func (r *probeRunner) verifyPresignedPutExpiry(ctx context.Context) error {
 	var expiredURL *url.URL
 	if err := r.stage(ctx, "create_expiring_direct_upload_target", func(ctx context.Context) error {
 		var err error
-		expiredURL, err = r.client.PresignedPutObject(ctx, r.cfg.Bucket, expiredKey, time.Second)
+		expiredURL, err = presignedPUT(ctx, r.client, r.cfg.Bucket, expiredKey, []byte("expired upload must fail"), time.Second)
 		return err
 	}); err != nil {
 		return err
@@ -525,7 +536,7 @@ func (r *probeRunner) verifyPresignedPutExpiry(ctx context.Context) error {
 			timer.Stop()
 			return ctx.Err()
 		}
-		return requirePresignedPUTRejected(ctx, expiredURL.String(), []byte("expired upload must fail"))
+		return requirePresignedPUTRejected(ctx, r.client.Options().HTTPClient, expiredURL.String(), []byte("expired upload must fail"))
 	})
 }
 
@@ -537,35 +548,34 @@ func (r *probeRunner) verifyErrorClassification(ctx context.Context) error {
 			errFn func(context.Context) error
 		}{
 			{name: "missing_object", want: "object_missing", errFn: func(ctx context.Context) error {
-				_, err := r.client.StatObject(ctx, r.cfg.Bucket, r.probePrefix+"missing.bin", minio.StatObjectOptions{})
+				_, err := r.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(r.probePrefix + "missing.bin")})
 				return err
 			}},
 			{name: "denied_credential", want: "credential_denied", errFn: func(ctx context.Context) error {
-				client, err := minio.New(r.cfg.Endpoint, &minio.Options{
-					Creds:  credentials.NewStaticV4(r.cfg.AccessKeyID+"-denied", r.cfg.SecretAccessKey+"-denied", ""),
-					Secure: r.cfg.Secure,
-				})
+				connection, err := s3transport.New(s3transport.Options{Endpoint: r.cfg.Endpoint, AccessKey: r.cfg.AccessKeyID + "-denied", SecretKey: r.cfg.SecretAccessKey + "-denied"})
 				if err != nil {
 					return err
 				}
-				_, err = client.StatObject(ctx, r.cfg.Bucket, r.probePrefix+"missing.bin", minio.StatObjectOptions{})
+				defer connection.Close()
+				_, err = connection.Client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(r.probePrefix + "missing.bin")})
 				return err
 			}},
 			{name: "missing_bucket", want: "bucket_missing", errFn: func(ctx context.Context) error {
-				_, err := r.client.StatObject(ctx, r.cfg.Bucket+"-missing-"+r.probeID, "missing.bin", minio.StatObjectOptions{})
+				output, err := r.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(r.cfg.Bucket + "-missing-" + r.probeID), Key: aws.String("missing.bin")})
+				if output != nil && output.Body != nil {
+					_ = output.Body.Close()
+				}
 				return err
 			}},
 			{name: "unreachable_endpoint", want: "endpoint_unreachable", errFn: func(ctx context.Context) error {
-				client, err := minio.New("127.0.0.1:1", &minio.Options{
-					Creds:  credentials.NewStaticV4(r.cfg.AccessKeyID, r.cfg.SecretAccessKey, ""),
-					Secure: false,
-				})
+				connection, err := s3transport.New(s3transport.Options{Endpoint: "127.0.0.1:1", AccessKey: r.cfg.AccessKeyID, SecretKey: r.cfg.SecretAccessKey})
 				if err != nil {
 					return err
 				}
+				defer connection.Close()
 				shortCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 				defer cancel()
-				_, err = client.BucketExists(shortCtx, r.cfg.Bucket)
+				_, err = s3transport.BucketExists(shortCtx, connection.Client, r.cfg.Bucket)
 				return err
 			}},
 			{name: "integrity_mismatch", want: "integrity_mismatch", errFn: func(context.Context) error {
@@ -733,7 +743,7 @@ func (r *probeRunner) cleanupAfterFailure(ctx context.Context) error {
 	}
 	return r.stage(ctx, "cleanup_after_failure", func(ctx context.Context) error {
 		for _, key := range remaining {
-			if err := r.client.RemoveObject(ctx, r.cfg.Bucket, key, minio.RemoveObjectOptions{}); err != nil {
+			if _, err := r.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: aws.String(key)}); err != nil {
 				return err
 			}
 			r.deletedKeys[key] = true
@@ -744,32 +754,38 @@ func (r *probeRunner) cleanupAfterFailure(ctx context.Context) error {
 
 func (r *probeRunner) runReset(ctx context.Context) error {
 	if err := r.stage(ctx, "bucket_validation", func(ctx context.Context) error {
-		exists, err := r.client.BucketExists(ctx, r.cfg.Bucket)
+		exists, err := s3transport.BucketExists(ctx, r.client, r.cfg.Bucket)
 		if err != nil {
 			return err
 		}
 		if exists {
 			return nil
 		}
-		return r.client.MakeBucket(ctx, r.cfg.Bucket, minio.MakeBucketOptions{})
+		_, err = r.client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(r.cfg.Bucket)})
+		return err
 	}); err != nil {
 		return err
 	}
 	if err := r.stage(ctx, "delete_bucket_objects", func(ctx context.Context) error {
-		for item := range r.client.ListObjects(ctx, r.cfg.Bucket, minio.ListObjectsOptions{Recursive: true}) {
-			if item.Err != nil {
-				return item.Err
-			}
-			if err := r.client.RemoveObject(ctx, r.cfg.Bucket, item.Key, minio.RemoveObjectOptions{}); err != nil {
+		pages := s3.NewListObjectsV2Paginator(r.client, &s3.ListObjectsV2Input{Bucket: aws.String(r.cfg.Bucket)})
+		for pages.HasMorePages() {
+			page, err := pages.NextPage(ctx)
+			if err != nil {
 				return err
 			}
+			for _, item := range page.Contents {
+				if _, err := r.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(r.cfg.Bucket), Key: item.Key}); err != nil {
+					return err
+				}
+			}
 		}
+
 		return nil
 	}); err != nil {
 		return err
 	}
 	return r.stage(ctx, "bucket_present_after_reset", func(ctx context.Context) error {
-		exists, err := r.client.BucketExists(ctx, r.cfg.Bucket)
+		exists, err := s3transport.BucketExists(ctx, r.client, r.cfg.Bucket)
 		if err != nil {
 			return err
 		}
@@ -911,13 +927,15 @@ func profileMayCreateBucket(profile string) bool {
 	}
 }
 
-func requireObjectPayload(ctx context.Context, client *minio.Client, bucket string, key string, want []byte, opts minio.GetObjectOptions) error {
-	body, err := client.GetObject(ctx, bucket, key, opts)
+func requireObjectPayload(ctx context.Context, client *s3.Client, bucket string, key string, want []byte, opts s3.GetObjectInput) error {
+	opts.Bucket = aws.String(bucket)
+	opts.Key = aws.String(key)
+	body, err := client.GetObject(ctx, &opts)
 	if err != nil {
 		return err
 	}
-	defer body.Close()
-	got, err := io.ReadAll(body)
+	defer body.Body.Close()
+	got, err := io.ReadAll(body.Body)
 	if err != nil {
 		return err
 	}
@@ -927,7 +945,7 @@ func requireObjectPayload(ctx context.Context, client *minio.Client, bucket stri
 	return nil
 }
 
-func checkCORSPreflight(ctx context.Context, endpoint string, origin string) error {
+func checkCORSPreflight(ctx context.Context, client s3.HTTPClient, endpoint string, origin string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, endpoint, nil)
 	if err != nil {
 		return err
@@ -935,7 +953,7 @@ func checkCORSPreflight(ctx context.Context, endpoint string, origin string) err
 	req.Header.Set("Origin", origin)
 	req.Header.Set("Access-Control-Request-Method", http.MethodPut)
 	req.Header.Set("Access-Control-Request-Headers", "content-type,x-amz-checksum-sha256")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -947,16 +965,16 @@ func checkCORSPreflight(ctx context.Context, endpoint string, origin string) err
 	if err := validateCORSPreflightResponse(resp.Header, origin); err != nil {
 		return err
 	}
-	if err := checkCORSDisallowedPreflightRejected(ctx, endpoint, origin, http.MethodGet, "content-type"); err != nil {
+	if err := checkCORSDisallowedPreflightRejected(ctx, client, endpoint, origin, http.MethodGet, "content-type"); err != nil {
 		return err
 	}
-	if err := checkCORSDisallowedPreflightRejected(ctx, endpoint, origin, http.MethodPut, "content-type, authorization"); err != nil {
+	if err := checkCORSDisallowedPreflightRejected(ctx, client, endpoint, origin, http.MethodPut, "content-type, authorization"); err != nil {
 		return err
 	}
-	return checkCORSNullOriginRejected(ctx, endpoint)
+	return checkCORSNullOriginRejected(ctx, client, endpoint)
 }
 
-func checkCORSDisallowedPreflightRejected(ctx context.Context, endpoint string, origin string, method string, requestHeaders string) error {
+func checkCORSDisallowedPreflightRejected(ctx context.Context, client s3.HTTPClient, endpoint string, origin string, method string, requestHeaders string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, endpoint, nil)
 	if err != nil {
 		return err
@@ -966,7 +984,7 @@ func checkCORSDisallowedPreflightRejected(ctx context.Context, endpoint string, 
 	if requestHeaders != "" {
 		req.Header.Set("Access-Control-Request-Headers", requestHeaders)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -984,7 +1002,7 @@ func checkCORSDisallowedPreflightRejected(ctx context.Context, endpoint string, 
 	return nil
 }
 
-func checkCORSNullOriginRejected(ctx context.Context, endpoint string) error {
+func checkCORSNullOriginRejected(ctx context.Context, client s3.HTTPClient, endpoint string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, endpoint, nil)
 	if err != nil {
 		return err
@@ -992,7 +1010,7 @@ func checkCORSNullOriginRejected(ctx context.Context, endpoint string) error {
 	req.Header.Set("Origin", "null")
 	req.Header.Set("Access-Control-Request-Method", http.MethodPut)
 	req.Header.Set("Access-Control-Request-Headers", "content-type,x-amz-checksum-sha256")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -1066,14 +1084,16 @@ func equalHeaderTokenSet(values []string, want []string) bool {
 	return true
 }
 
-func uploadPresignedPUT(ctx context.Context, endpoint string, origin string, payload []byte) error {
+func uploadPresignedPUT(ctx context.Context, client s3.HTTPClient, endpoint string, origin string, payload []byte) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Origin", origin)
 	req.Header.Set("Content-Type", "application/octet-stream")
-	resp, err := http.DefaultClient.Do(req)
+	digest := sha256.Sum256(payload)
+	req.Header.Set("X-Amz-Checksum-Sha256", base64.StdEncoding.EncodeToString(digest[:]))
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -1085,13 +1105,15 @@ func uploadPresignedPUT(ctx context.Context, endpoint string, origin string, pay
 	return validateCORSActualPUTResponse(resp.Header, origin)
 }
 
-func requirePresignedPUTRejected(ctx context.Context, endpoint string, payload []byte) error {
+func requirePresignedPUTRejected(ctx context.Context, client s3.HTTPClient, endpoint string, payload []byte) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
-	resp, err := http.DefaultClient.Do(req)
+	digest := sha256.Sum256(payload)
+	req.Header.Set("X-Amz-Checksum-Sha256", base64.StdEncoding.EncodeToString(digest[:]))
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -1323,13 +1345,13 @@ func classifyReason(err error) (string, bool) {
 	if err == nil {
 		return "", false
 	}
-	if response := minio.ToErrorResponse(err); response.Code != "" {
-		switch response.Code {
+	if code := s3transport.ErrorCode(err); code != "" {
+		switch code {
 		case "NoSuchKey", "NoSuchObject", "NotFound":
 			return "object_missing", false
 		case "NoSuchBucket":
 			return "bucket_missing", true
-		case "AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "AllAccessDisabled":
+		case "AccessDenied", "Forbidden", "Unauthorized", "InvalidAccessKeyId", "SignatureDoesNotMatch", "AllAccessDisabled":
 			return "credential_denied", false
 		case "NotImplemented", "MethodNotAllowed", "InvalidRequest", "InvalidArgument":
 			return "capability_missing", false
@@ -1369,4 +1391,13 @@ func sanitizeMessage(cfg config, message string) string {
 		message = message[:idx] + "[REDACTED:object-store-key]"
 	}
 	return message
+}
+
+func presignedPUT(ctx context.Context, client *s3.Client, bucket, key string, payload []byte, expiry time.Duration) (*url.URL, error) {
+	digest := sha256.Sum256(payload)
+	request, err := s3.NewPresignClient(client).PresignPutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(bucket), Key: aws.String(key), ContentLength: aws.Int64(int64(len(payload))), ContentType: aws.String("application/octet-stream"), ChecksumSHA256: aws.String(base64.StdEncoding.EncodeToString(digest[:]))}, func(o *s3.PresignOptions) { o.Expires = expiry })
+	if err != nil {
+		return nil, err
+	}
+	return url.Parse(request.URL)
 }

@@ -17,7 +17,7 @@ func TestConcurrentRootPublicationRejectsFrozenOtherKey_Integration(t *testing.T
 	runtime := appsupport.StartRuntime(t)
 	barrier := &appsupport.ReferencePackVerificationBarrier{}
 	harness := startReferencePackServerWithEnv(t, runtime, "reference-pack-shared-root-race", nil, barrier)
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	started, release := make(chan struct{}), make(chan struct{})
 	released := false
 	barrier.BlockNext(started, release)

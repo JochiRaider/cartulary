@@ -17,6 +17,7 @@ import { apiBase } from "./support/runtime/configuration";
 import { uniqueIncidentKey } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import { holdBrowserRequest } from "./support/transport/requestInterception";
 
 test("metadata edits each live field sparsely clears normalizes and reviews a real version conflict", async ({
   workerAdminPage: page,
@@ -101,26 +102,53 @@ test("metadata edits each live field sparsely clears normalizes and reviews a re
       `Version ${version}. Only changed promoted fields are submitted.`,
     ),
   ).toBeVisible();
+  await expect(panel).toHaveAttribute("data-metadata-operation", "confirmed");
   await panel.getByLabel("Severity", { exact: true }).fill("  intended  ");
-  const competing = await publicHttpOperation({
-    request: atJsonOrigin(page.request, apiBase),
-    headers: await csrfHeaders(page),
-    operationID: "patchIncident",
-    pathParameters: { incident_id: incidentId },
-    body: { base_incident_version: version, severity: "concurrent" },
+  // Admit the local attempt before the competing write can trigger proactive
+  // conflict review. Hold only its transport to exercise a real server conflict.
+  const localWrite = await holdBrowserRequest(page, {
+    method: "PATCH",
+    path: `/api/v1/incidents/${incidentId}`,
   });
-  expect(competing.ok).toBe(true);
-  await panel
-    .getByRole("button", { name: "Save promoted fields", exact: true })
-    .click();
-  await expect(panel).toHaveAttribute("data-metadata-operation", "conflicted");
-  const review = panel.getByRole("region", {
-    name: "Review promoted field changes",
-  });
-  await expect(review.getByText("concurrent", { exact: true })).toBeVisible();
-  await expect(panel.getByLabel("Severity", { exact: true })).toHaveValue(
-    "  intended  ",
-  );
+  try {
+    await panel
+      .getByRole("button", { name: "Save promoted fields", exact: true })
+      .click();
+    await localWrite.waitForHit;
+    const competing = await publicHttpOperation({
+      request: atJsonOrigin(page.request, apiBase),
+      headers: await csrfHeaders(page),
+      operationID: "patchIncident",
+      pathParameters: { incident_id: incidentId },
+      body: { base_incident_version: version, severity: "concurrent" },
+    });
+    expect(competing.ok).toBe(true);
+    const rejected = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().endsWith(`/incidents/${incidentId}`),
+    );
+    localWrite.release();
+    expect((await rejected).status()).toBe(409);
+    // Retain interception through the owner's automatic authorization/read
+    // follow-up. Removing the last route at HTTP completion races that request.
+    await expect(panel).toHaveAttribute(
+      "data-metadata-operation",
+      "conflicted",
+    );
+    const review = panel.getByRole("region", {
+      name: "Review promoted field changes",
+    });
+    await expect(review.getByText("concurrent", { exact: true })).toBeVisible();
+    await expect(panel.getByLabel("Severity", { exact: true })).toHaveValue(
+      "  intended  ",
+    );
+    await expect(
+      review.getByRole("button", { name: "Use this version", exact: true }),
+    ).toBeEnabled();
+  } finally {
+    await localWrite.dispose();
+  }
   const count = writes.length;
   await panel
     .getByRole("button", { name: "Use this version", exact: true })

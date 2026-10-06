@@ -9,6 +9,7 @@ import { repoRoot } from "../ui-review/policy.mjs";
 import { schemaID, validate } from "../ui-review/contract.mjs";
 import { digest, readLocator, resolveSession } from "../ui-review/session-files.mjs";
 import { readLocalFile } from "../../runtime/secure-local-files.mjs";
+import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { importFixture } from "./ui-review-import-fixture.mjs";
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,7 +24,7 @@ function make(args, env) {
   child.stdout.on("data", (part) => { output += part; }); child.stderr.on("data", (part) => { error += part; });
   return { child, output: () => output, ended: new Promise((resolve, reject) => { child.once("error", reject); child.once("close", (code) => resolve({ code, output, error })); }) };
 }
-export async function publicWorkflow({ seeded = false, profile = "default", resultsRoot, runID = "workflow" } = {}) {
+export async function publicWorkflow({ seeded = false, profile = "default", resultsRoot, runID = "workflow", interrupt = false } = {}) {
   assert.ok(["default", "network_flow_claimed"].includes(profile));
   const privateRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-public-workflow-"));
   const env = { ...cleanEnvironment(), PLAYWRIGHT_MCP_CONFIG: "/no-ambient-cli-config", PWTEST_CLI_GLOBAL_CONFIG: "/no-ambient-global-config", PLAYWRIGHT_CLI_SESSION: "unowned-session", CARTULARY_READINESS_CACHE_DIR: path.join(privateRoot, "readiness-cache"), CARTULARY_BUILD_CACHE_DIR: path.join(privateRoot, "build-cache") }, privateRefs = [], manifests = [], sentinel = `review-private-sentinel-${runID}`;
@@ -65,11 +66,33 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
     }
     assert.ok(running.output().includes("UI review ready"), `review startup failed: ${running.output()}`);
   };
-  const stop = async () => {
+  const stop = async (interruptController = false) => {
+    if (interruptController) {
+      const record = resolveSession(readLocator(locator));
+      assert.equal(processIdentityAlive(record.process), true);
+      process.kill(record.process.pid, "SIGKILL");
+      const ended = await running.ended;
+      assert.notEqual(ended.code, 0);
+      running = null;
+      const inspect = async () => {
+        const response = await make(["ui-review-stop", `UI_SESSION=${locator}`], { ...env, CARTULARY_OUTPUT_MODE: "machine" }).ended;
+        const result = validate("command_result", JSON.parse(response.output));
+        assert.equal(result.state, "failed");
+        assert.equal(result.failures[0].diagnostic_code, "session_lost");
+        assert.ok(result.receipt);
+        return result;
+      };
+      const result = await inspect();
+      const receipt = validate("receipt", JSON.parse(readFileSync(path.join(path.dirname(path.dirname(locator)), result.receipt.path), "utf8")));
+      assert.equal(receipt.cleanup, "complete");
+      assert.equal(existsSync(record.runtime.root), false);
+      assert.deepEqual((await inspect()).receipt, result.receipt);
+      return { run_root: path.dirname(path.dirname(locator)), terminal_sha256: result.receipt.sha256, terminal_outcome: "failed" };
+    }
     const result = await invoke("ui-review-stop"), ended = await running.ended;
     assert.equal(ended.code, 0); assert.deepEqual((await invoke("ui-review-stop")).receipt, result.receipt); assert.equal((await invoke("ui-review-status")).state, "closed");
     running = null;
-    return { run_root: path.dirname(path.dirname(locator)), terminal_sha256: result.receipt.sha256 };
+    return { run_root: path.dirname(path.dirname(locator)), terminal_sha256: result.receipt.sha256, terminal_outcome: "closed" };
   };
   try {
     if (!seeded) {
@@ -105,7 +128,7 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
     }
     const reference = path.join(privateRoot, "reference.png"), original = readFileSync(capture.image); writeFileSync(reference, original, { mode: 0o600 });
     for (const [file, sha] of manifests) assert.equal(digest(readFileSync(file)), sha);
-    const browserResult = await stop();
+    const browserResult = await stop(interrupt);
     assert.ok(privateRefs.every((file) => !existsSync(file)));
     if (server) assert.equal((await fetch(`http://127.0.0.1:${server.address().port}`)).status, 200);
     await start("artifacts", [], `${runID}-artifacts`);

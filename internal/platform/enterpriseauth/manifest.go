@@ -535,8 +535,8 @@ func requiredSigningCertificates(object map[string]json.RawMessage, index int, r
 			return nil, providerConfigError(fieldPath, "provider_manifest_referenced_file_invalid", message)
 		}
 		certificate, err := parseSigningCertificate(rawCert)
-		if err != nil {
-			return nil, providerConfigError(fieldPath, "provider_manifest_referenced_file_invalid", "SAML signing certificate is not parseable")
+		if err != nil || admitSAMLSigningCertificate(certificate) != nil {
+			return nil, providerConfigError(fieldPath, "provider_manifest_referenced_file_invalid", "SAML signing certificate is unsupported or invalid")
 		}
 		certificates = append(certificates, base64.StdEncoding.EncodeToString(certificate.Raw))
 	}

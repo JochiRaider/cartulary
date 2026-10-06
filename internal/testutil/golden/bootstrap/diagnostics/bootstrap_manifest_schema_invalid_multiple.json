@@ -24,7 +24,7 @@
           "reason_code": "bootstrap_manifest_schema_invalid"
         },
         {
-          "message": "initial_password must be at least 12 Unicode scalar values",
+          "message": "invalid initial_password: password length must be between 12 and 1024 Unicode scalar values",
           "path": "bootstrap.first_admin_manifest.initial_password",
           "reason_code": "bootstrap_manifest_schema_invalid"
         },

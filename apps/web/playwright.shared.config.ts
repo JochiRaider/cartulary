@@ -23,7 +23,7 @@ function requireValidatedAttachment(): void {
     apiOrigin === ""
   ) {
     throw new Error(
-      "Playwright requires a Make-owned, validated cartulary.web_e2e_stack.v7 attachment",
+      "Playwright requires a Make-owned, validated cartulary.web_e2e_stack.v8 attachment",
     );
   }
 }

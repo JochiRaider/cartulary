@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -23,15 +24,15 @@ const streamingRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 const wrongStreamingRecoveryMasterKey = "YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODk="
 
 type streamingEnvelopeFixture struct {
-	SchemaID           string                          `json:"schema_id"`
-	LogicalRef         string                          `json:"logical_ref"`
-	ContentType        string                          `json:"content_type"`
-	KDF                string                          `json:"kdf"`
-	Cipher             string                          `json:"cipher"`
-	SaltBase64         string                          `json:"salt_base64"`
-	NoncePrefixBase64  string                          `json:"nonce_prefix_base64"`
-	ChunkPlaintextSize int                             `json:"chunk_plaintext_bytes"`
-	Chunks             []streamingEnvelopeChunkFixture `json:"chunks"`
+	SchemaID                string                          `json:"schema_id"`
+	ApplicationCryptoFormat string                          `json:"application_crypto_format"`
+	LogicalRef              string                          `json:"logical_ref"`
+	ContentType             string                          `json:"content_type"`
+	KDF                     string                          `json:"kdf"`
+	Cipher                  string                          `json:"cipher"`
+	SaltBase64              string                          `json:"salt_base64"`
+	ChunkPlaintextSize      int                             `json:"chunk_plaintext_bytes"`
+	Chunks                  []streamingEnvelopeChunkFixture `json:"chunks"`
 }
 
 type streamingEnvelopeChunkFixture struct {
@@ -85,6 +86,90 @@ func (writer *observedStreamWriter) Write(body []byte) (int, error) {
 
 func TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit(t *testing.T) {
 	ctx := context.Background()
+	t.Run("small and empty artifacts use the same current stream", func(t *testing.T) {
+		root, storage, _ := writeStreamingArtifact(t, strings.NewReader("seed"), "seed")
+		for index, body := range [][]byte{nil, []byte("small artifact")} {
+			key := "small-" + strconv.Itoa(index)
+			proof, err := storage.WriteArtifact(ctx, key, body, "application/octet-stream")
+			if err != nil {
+				t.Fatal(err)
+			}
+			opened, err := recovery.VerifyArtifactProof(ctx, storage, proof)
+			if err != nil || !bytes.Equal(opened, body) {
+				t.Fatalf("small read: %q %v", opened, err)
+			}
+			raw := readStreamingEnvelopeBody(t, root, proof.Key)
+			streamProof := recovery.BackupArtifactStreamProof{LogicalRef: proof.Key, EnvelopeRef: proof.Key, ContentType: proof.ContentType, PlaintextBytes: proof.SizeBytes, PlaintextSHA256: proof.SHA256, EnvelopeBytes: int64(len(raw)), EnvelopeSHA256: sha256HexForStreamingTest(raw)}
+			var output bytes.Buffer
+			if err := storage.ReadArtifactStream(ctx, streamProof, &output); err != nil || !bytes.Equal(output.Bytes(), body) {
+				t.Fatalf("small stream read: %v", err)
+			}
+			if _, err := storage.WriteArtifact(ctx, key, body, "application/octet-stream"); err == nil {
+				t.Fatal("immutable artifact was overwritten")
+			}
+			if _, err := storage.WriteArtifactStream(ctx, recovery.BackupArtifactStreamWriteRequest{LogicalRef: key, EnvelopeRef: key + "-copy", ContentType: proof.ContentType, Plaintext: bytes.NewReader(body)}); err != nil {
+				t.Fatal(err)
+			}
+			first := readStreamingEnvelopeFixture(t, root, key)
+			second := readStreamingEnvelopeFixture(t, root, key+"-copy")
+			if first.SaltBase64 == second.SaltBase64 {
+				t.Fatal("new artifact reused its salt")
+			}
+		}
+	})
+	t.Run("interrupted writes never publish an envelope", func(t *testing.T) {
+		root, storage, _ := writeStreamingArtifact(t, strings.NewReader("seed"), "seed")
+		interrupted := errors.New("source interrupted")
+		source := io.MultiReader(bytes.NewReader(make([]byte, recovery.BackupArtifactChunkPlaintextBytes+1)), streamReaderFunc(func([]byte) (int, error) { return 0, interrupted }))
+		proof, err := storage.WriteArtifactStream(ctx, recovery.BackupArtifactStreamWriteRequest{LogicalRef: "interrupted", EnvelopeRef: "interrupted.json", ContentType: "application/octet-stream", Plaintext: source})
+		if !errors.Is(err, interrupted) || proof.EnvelopeRef != "" {
+			t.Fatalf("interrupted publication: %#v %v", proof, err)
+		}
+		if _, err := os.Stat(filepath.Join(root, "interrupted.json")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("interrupted envelope remains: %v", err)
+		}
+		cancelled, cancel := context.WithCancel(ctx)
+		cancel()
+		if _, err := storage.WriteArtifactStream(cancelled, recovery.BackupArtifactStreamWriteRequest{LogicalRef: "cancelled", EnvelopeRef: "cancelled.json", ContentType: "application/octet-stream", Plaintext: strings.NewReader("secret")}); !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(root, "cancelled.json")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("cancelled envelope remains: %v", err)
+		}
+	})
+	t.Run("authenticated output never reopens mutable source", func(t *testing.T) {
+		plaintext := bytes.Repeat([]byte("immutable-content"), 4096)
+		rootPath, _, proof := writeStreamingArtifact(t, bytes.NewReader(plaintext), "mutable")
+		raw, err := recoveryassembly.NewFilesystemStorage(rootPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		backend := &mutatingStreamBackend{FilesystemStorage: raw, mutate: func() {
+			if err := os.WriteFile(filepath.Join(rootPath, filepath.FromSlash(proof.EnvelopeRef)), []byte("replaced after authentication"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}}
+		key, err := recovery.ParseRecoveryEncryptionKey(streamingRecoveryMasterKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		encrypted, err := recovery.NewEncryptedBackupStorage(backend, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer recovery.CloseBackupStorage(encrypted)
+		stream, err := recovery.RequireStreamingBackupStorage(encrypted)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var output bytes.Buffer
+		if err := stream.ReadArtifactStream(ctx, proof, &output); err != nil {
+			t.Fatal(err)
+		}
+		if backend.opens != 1 || !bytes.Equal(output.Bytes(), plaintext) {
+			t.Fatal("output did not use exactly the authenticated input")
+		}
+	})
 
 	t.Run("multi-chunk and zero-byte artifacts round trip with exact envelope facts", func(t *testing.T) {
 		multiChunk := bytes.Repeat([]byte("cartulary-stream"), recovery.BackupArtifactChunkPlaintextBytes/8)
@@ -98,19 +183,15 @@ func TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit(t *tes
 			t.Fatal("multi-chunk plaintext changed")
 		}
 		envelope := readStreamingEnvelopeFixture(t, rootPath, proof.EnvelopeRef)
-		if envelope.SchemaID != recovery.BackupArtifactEnvelopeV2SchemaID ||
-			envelope.KDF != recovery.BackupArtifactEnvelopeV2KDF ||
-			envelope.Cipher != recovery.BackupArtifactEnvelopeV2Cipher ||
+		if envelope.SchemaID != recovery.BackupArtifactEnvelopeV3SchemaID ||
+			envelope.KDF != recovery.BackupArtifactEnvelopeV3KDF ||
+			envelope.Cipher != recovery.BackupArtifactEnvelopeV3Cipher ||
 			envelope.ChunkPlaintextSize != recovery.BackupArtifactChunkPlaintextBytes {
 			t.Fatalf("streaming envelope algorithms = %#v", envelope)
 		}
 		salt, err := base64.StdEncoding.Strict().DecodeString(envelope.SaltBase64)
 		if err != nil || len(salt) != 32 {
 			t.Fatalf("streaming envelope salt = %d bytes, %v", len(salt), err)
-		}
-		prefix, err := base64.StdEncoding.Strict().DecodeString(envelope.NoncePrefixBase64)
-		if err != nil || len(prefix) != 8 {
-			t.Fatalf("streaming envelope nonce prefix = %d bytes, %v", len(prefix), err)
 		}
 		if len(envelope.Chunks) < 2 {
 			t.Fatalf("multi-chunk envelope has %d chunk", len(envelope.Chunks))
@@ -153,7 +234,7 @@ func TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit(t *tes
 		zeroCiphertext, err := base64.StdEncoding.Strict().DecodeString(
 			zeroEnvelope.Chunks[0].CiphertextBase64,
 		)
-		if err != nil || len(zeroCiphertext) != 16 {
+		if err != nil || len(zeroCiphertext) != 28 {
 			t.Fatalf("zero-byte authenticated ciphertext = %d bytes, %v", len(zeroCiphertext), err)
 		}
 	})
@@ -168,6 +249,26 @@ func TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit(t *tes
 			invalidateEnvelopeDigest bool
 			mutate                   func([]byte, *streamingEnvelopeFixture, *recovery.BackupArtifactStreamProof) []byte
 		}{
+			{name: "wrong application format", mutate: func(_ []byte, e *streamingEnvelopeFixture, _ *recovery.BackupArtifactStreamProof) []byte {
+				e.ApplicationCryptoFormat = "cartulary.application_crypto_format.v0"
+				return marshalStreamingEnvelopeFixture(t, e)
+			}},
+			{name: "old envelope", mutate: func(_ []byte, e *streamingEnvelopeFixture, _ *recovery.BackupArtifactStreamProof) []byte {
+				e.SchemaID = "cartulary.backup_artifact_envelope.v2"
+				return marshalStreamingEnvelopeFixture(t, e)
+			}},
+			{name: "substituted artifact salt", mutate: func(_ []byte, e *streamingEnvelopeFixture, _ *recovery.BackupArtifactStreamProof) []byte {
+				e.SaltBase64 = base64.StdEncoding.EncodeToString(make([]byte, 32))
+				return marshalStreamingEnvelopeFixture(t, e)
+			}},
+			{name: "changed chunk length", mutate: func(_ []byte, e *streamingEnvelopeFixture, _ *recovery.BackupArtifactStreamProof) []byte {
+				e.Chunks[0].PlaintextLength--
+				return marshalStreamingEnvelopeFixture(t, e)
+			}},
+			{name: "oversized header", mutate: func(_ []byte, e *streamingEnvelopeFixture, _ *recovery.BackupArtifactStreamProof) []byte {
+				e.SchemaID = strings.Repeat("a", 32768)
+				return marshalStreamingEnvelopeFixture(t, e)
+			}},
 			{
 				name: "ciphertext corruption",
 				mutate: func(_ []byte, envelope *streamingEnvelopeFixture, _ *recovery.BackupArtifactStreamProof) []byte {
@@ -340,6 +441,36 @@ func TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit(t *tes
 			t.Fatalf("large destination write = %d", destination.maxWrite)
 		}
 	})
+}
+
+type mutatingStreamBackend struct {
+	*recoveryassembly.FilesystemStorage
+	opens  int
+	mutate func()
+}
+
+type streamReaderFunc func([]byte) (int, error)
+
+func (read streamReaderFunc) Read(body []byte) (int, error) { return read(body) }
+
+func (backend *mutatingStreamBackend) OpenStoredArtifact(ctx context.Context, key string) (io.ReadCloser, int64, error) {
+	reader, size, err := backend.FilesystemStorage.OpenStoredArtifact(ctx, key)
+	if err != nil {
+		return nil, 0, err
+	}
+	backend.opens++
+	return &mutatingStreamReader{ReadCloser: reader, mutate: backend.mutate}, size, nil
+}
+
+type mutatingStreamReader struct {
+	io.ReadCloser
+	mutate func()
+}
+
+func (reader *mutatingStreamReader) Close() error {
+	err := reader.ReadCloser.Close()
+	reader.mutate()
+	return err
 }
 
 func writeStreamingArtifact(

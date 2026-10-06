@@ -75,7 +75,7 @@ func consumerFixture(t *testing.T) (*consumerMemory, Consumer, *time.Time) {
 	for _, v := range versions {
 		m.provenance[v.Content.Manifest.Key] = provenanceFor(m.set.ID, v.Content.Manifest, successfulEnvelope{ManifestSHA256: v.Content.ManifestSHA256, PayloadSHA256: v.Content.PayloadSHA256, VerifiedAt: now})
 	}
-	c := newPackConsumer(m, pagination.NewCodec([]byte(strings.Repeat("x", 32))), func() time.Time { return now })
+	c := newPackConsumer(m, pagination.NewCodec([32]byte([]byte(strings.Repeat("x", 32)))), func() time.Time { return now })
 	return m, c, &now
 }
 
@@ -216,6 +216,28 @@ func TestCanonicalConsumerCursorBindingOmissionAndExactExpiry_Unit(t *testing.T)
 	first := c.LookupPackEntries(context.Background(), request)
 	if first.Error != nil || first.Value == nil || first.Value.NextCursor == nil || len(first.Value.Items) != 2 {
 		t.Fatalf("first page: %#v", first)
+	}
+	codec := pagination.NewCodec([32]byte([]byte(strings.Repeat("x", 32))))
+	cursorClaims, err := codec.Decode(*first.Value.NextCursor)
+	if err != nil || cursorClaims.Mode != pagination.ModeKeyset {
+		t.Fatalf("lookup did not issue supported keyset continuation: %v", err)
+	}
+	for _, change := range []func(*pagination.Cursor){
+		func(c *pagination.Cursor) { c.Mode = pagination.ModeOffset },
+		func(c *pagination.Cursor) { c.Route = "different.route" },
+		func(c *pagination.Cursor) { c.ActorUserID = "different.consumer" },
+	} {
+		altered := cursorClaims
+		change(&altered)
+		token, err := codec.Encode(altered)
+		if err != nil {
+			t.Fatal(err)
+		}
+		query := request
+		query.Cursor = &token
+		if result := c.LookupPackEntries(context.Background(), query); result.Error == nil || result.Error.Code != "cursor_invalid" {
+			t.Fatal("substituted continuation admitted")
+		}
 	}
 	request.Cursor = first.Value.NextCursor
 	request.Limit = nil

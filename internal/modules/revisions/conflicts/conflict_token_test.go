@@ -24,8 +24,8 @@ func TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue conflict token: %v", err)
 	}
-	if !strings.HasPrefix(token, "cft3.active.key.") || len(token) > conflictTokenMaximumWireLength {
-		t.Fatalf("unexpected v3 wire token: %q", token)
+	if !strings.HasPrefix(token, "cft4.active.key.") || len(token) > conflictTokenMaximumWireLength {
+		t.Fatalf("unexpected v4 wire token: %q", token)
 	}
 	for _, plaintext := range []string{claims.RouteKey, claims.RecordID, claims.ViewSchemaID, claims.FieldKey, claims.RequestHash} {
 		if strings.Contains(token, plaintext) {
@@ -33,7 +33,7 @@ func TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens(t *testing.T) {
 		}
 	}
 	parsed, ok := codec.Parse(token)
-	if !ok || parsed.Version != 3 || !parsed.IssuedAt.Equal(now) || !parsed.ExpiresAt.Equal(now.Add(30*time.Minute)) {
+	if !ok || parsed.Version != 4 || !parsed.IssuedAt.Equal(now) || !parsed.ExpiresAt.Equal(now.Add(30*time.Minute)) {
 		t.Fatalf("unexpected parsed claims: ok=%v claims=%#v", ok, parsed)
 	}
 	if parsed.RouteKey != claims.RouteKey || parsed.RecordID != claims.RecordID ||
@@ -52,6 +52,7 @@ func TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens(t *testing.T) {
 	for name, candidate := range map[string]string{
 		"tampered":    tampered,
 		"truncated":   token[:len(token)-1],
+		"v3":          strings.Replace(token, "cft4.", "cft3.", 1),
 		"v2":          base64.RawURLEncoding.EncodeToString([]byte(`{"cartulary_conflict_token_v":2}`)),
 		"too_long":    strings.Repeat("x", conflictTokenMaximumWireLength+1),
 		"unknown_key": strings.Replace(token, "active.key", "unknown", 1),
@@ -110,13 +111,13 @@ func TestConflictTokenV3ExpiryRotationAndClockSkew(t *testing.T) {
 func TestConflictTokenKeyRingValidationAndSecretIsolation(t *testing.T) {
 	now := time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
 	valid := []manifestKey{{id: "active", ref: "active", state: "active"}}
-	if _, err := conflicts.ParseConflictTokenKeyRing([]byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[]}`), nil, now, conflicts.KeyRingParseOptions{}); err == nil {
+	if _, err := conflicts.ParseConflictTokenKeyRing([]byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v2","algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[]}`), nil, now, conflicts.KeyRingParseOptions{}); err == nil {
 		t.Fatal("empty key ring was admitted")
 	}
-	if _, err := conflicts.ParseConflictTokenKeyRing([]byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[],"unknown":true}`), nil, now, conflicts.KeyRingParseOptions{}); err == nil {
+	if _, err := conflicts.ParseConflictTokenKeyRing([]byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v2","algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[],"unknown":true}`), nil, now, conflicts.KeyRingParseOptions{}); err == nil {
 		t.Fatal("unknown manifest member was admitted")
 	}
-	if _, err := conflicts.ParseConflictTokenKeyRing([]byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[]}`), nil, now, conflicts.KeyRingParseOptions{}); err == nil {
+	if _, err := conflicts.ParseConflictTokenKeyRing([]byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v2","schema_id":"cartulary.revisions_conflict_token_key_ring.v2","algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[]}`), nil, now, conflicts.KeyRingParseOptions{}); err == nil {
 		t.Fatal("duplicate manifest member was admitted")
 	}
 	for name, keys := range map[string][]manifestKey{
@@ -155,7 +156,12 @@ func TestConflictTokenKeyRingRequiresExplicitEnvironment(t *testing.T) {
 	environmentName := "CARTULARY_SECRET_EXPLICIT"
 	encoded := base64.RawURLEncoding.EncodeToString(key)
 	t.Setenv(environmentName, encoded)
-	manifest := []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[{"conflict_token_key_id":"active","state":"active","secret_ref":{"kind":"env","name":"explicit"}}]}`)
+	manifest := []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v2","algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[{"conflict_token_key_id":"active","state":"active","secret_ref":{"kind":"env","name":"explicit"}}]}`)
+
+	legacy := strings.Replace(strings.Replace(string(manifest), "cartulary.revisions_conflict_token_key_ring.v2", "cartulary.revisions_conflict_token_key_ring.v1", 1), "hkdf_sha256_aes_256_gcm_v2", "aes_256_gcm_v1", 1)
+	if _, err := conflicts.ParseConflictTokenKeyRing([]byte(legacy), map[string]string{environmentName: encoded}, now, conflicts.KeyRingParseOptions{}); err == nil {
+		t.Fatal("legacy key ring admitted")
+	}
 
 	if _, err := conflicts.ParseConflictTokenKeyRing(manifest, nil, now, conflicts.KeyRingParseOptions{}); err == nil || !strings.Contains(err.Error(), "secret_missing") {
 		t.Fatalf("nil environment error = %v", err)
@@ -243,7 +249,7 @@ func testRingError(now time.Time, keys []manifestKey, registry *secretpurpose.Re
 		}
 		env["CARTULARY_SECRET_"+secretSuffix(entry.ref)] = base64.RawURLEncoding.EncodeToString(key)
 	}
-	manifest := []byte(fmt.Sprintf(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[%s]}`, strings.Join(entries, ",")))
+	manifest := []byte(fmt.Sprintf(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v2","algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[%s]}`, strings.Join(entries, ",")))
 	if registry == nil {
 		return conflicts.ParseConflictTokenKeyRing(manifest, env, now, options)
 	}

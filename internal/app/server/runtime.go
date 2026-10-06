@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 )
 
 // NewRuntime is the repository-internal construction facade. The private
@@ -25,6 +26,9 @@ func newRuntimeWithDependencies(
 	options Options,
 	dependencies runtimeDependencies,
 ) (*Runtime, error) {
+	if err := cryptography.AdmitExecution(); err != nil {
+		return nil, err
+	}
 	if options.Env == nil {
 		options.Env = snapshotProcessEnvironment(os.Environ())
 	}

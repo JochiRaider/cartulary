@@ -6,7 +6,7 @@ import {
   surfaceTabTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import type { Locator, Page, Request } from "@playwright/test";
+import type { Locator, Page, Request, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
@@ -932,16 +932,35 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
     panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
   ).toHaveText("Renamed evidence graph");
 
-  await panel.getByRole("button", { name: "Refresh" }).click();
-  await page.getByRole("button", { name: "Refresh graph" }).click();
-  await expect(
-    panel.getByText(
-      "Showing the last successful result while refresh continues.",
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId(/^network-flow-saved-graph-vertex-/u).first(),
-  ).toBeVisible();
+  let releaseRefreshObservation!: () => void;
+  const refreshObservation = new Promise<void>((resolve) => {
+    releaseRefreshObservation = resolve;
+  });
+  let refreshReadRequested = false;
+  const observationRoute = "**/api/v1/jobs/*";
+  const holdObservation = async (route: Route) => {
+    if (route.request().method() === "GET") {
+      refreshReadRequested = true;
+      await refreshObservation;
+    }
+    await route.continue();
+  };
+  await page.route(observationRoute, holdObservation);
+  try {
+    await panel.getByRole("button", { name: "Refresh" }).click();
+    await page.getByRole("button", { name: "Refresh graph" }).click();
+    await expect.poll(() => refreshReadRequested).toBe(true);
+    await expect(
+      panel.getByText(
+        "Showing the last successful result while refresh continues.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(/^network-flow-saved-graph-vertex-/u).first(),
+    ).toBeVisible();
+  } finally {
+    releaseRefreshObservation();
+  }
   await expect(
     panel.getByText("Materialization succeeded.", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });

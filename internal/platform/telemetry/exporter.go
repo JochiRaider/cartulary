@@ -41,7 +41,6 @@ func BuildOTLPHTTPURLs(endpoint string) (OTLPHTTPURLs, error) {
 
 type OTLPGRPCTarget struct {
 	Target string
-	Secure bool
 }
 
 func BuildOTLPGRPCTarget(endpoint string) (OTLPGRPCTarget, error) {
@@ -54,7 +53,6 @@ func BuildOTLPGRPCTarget(endpoint string) (OTLPGRPCTarget, error) {
 	}
 	return OTLPGRPCTarget{
 		Target: canonicalHostPort(parsed),
-		Secure: strings.ToLower(parsed.Scheme) == "https",
 	}, nil
 }
 
@@ -446,8 +444,8 @@ func parseEndpoint(endpoint string) (*url.URL, error) {
 		return nil, fmt.Errorf("parse OTLP endpoint: %w", err)
 	}
 	parsed.Scheme = strings.ToLower(parsed.Scheme)
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return nil, fmt.Errorf("OTLP endpoint scheme must be http or https")
+	if parsed.Scheme != "https" {
+		return nil, fmt.Errorf("OTLP endpoint scheme must be https")
 	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, fmt.Errorf("OTLP endpoint must not contain userinfo, query, or fragment")

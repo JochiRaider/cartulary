@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	conflictTokenKeyRingSchemaID       = "cartulary.revisions_conflict_token_key_ring.v1"
-	conflictTokenKeyRingAlgorithm      = "aes_256_gcm_v1"
+	conflictTokenKeyRingSchemaID       = "cartulary.revisions_conflict_token_key_ring.v2"
+	conflictTokenKeyRingAlgorithm      = "hkdf_sha256_aes_256_gcm_v2"
 	conflictTokenKeyRingMaximumKeys    = 8
 	conflictTokenKeyStateActive        = "active"
 	conflictTokenKeyStateDecryptOnly   = "decrypt_only"

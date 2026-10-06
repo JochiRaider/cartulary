@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import "./test-package-smoke-cleanup.mjs";
+import "./test-package-operation.mjs";
 import path from "node:path";
 
 import { WorkGraphCompiler } from "../../harness/scheduler/work-graph/index.mjs";
@@ -36,3 +37,10 @@ for (const target of ["standup-package-smoke", "standup-operational-recovery-smo
   assert.equal(unit.cache_policy, "none", "package qualification needs fresh execution evidence");
   assert.ok(unit.needs.includes("target:deployable-shape"), "qualify the built deployable");
 }
+
+for (const target of ["credential-capacity-assessment", "cryptographic-policy-assessment"]) {
+  assert.ok(readinessClosure.has(`target:${target}`), "release readiness must require current cryptographic and fixed-capacity evidence");
+  assert.ok(plan.projections["release-check"].includes(`target:${target}`));
+  assert.equal(units.get(`target:${target}`).cache_policy,"none");
+}
+assert.ok(units.get("target:credential-capacity-assessment").needs.includes("target:deployable-shape"));

@@ -1,0 +1,2 @@
+# Keep empty owned directory entries; omit only source-control sentinels.
+deploy/mvp/runtime-roots/**/.keep

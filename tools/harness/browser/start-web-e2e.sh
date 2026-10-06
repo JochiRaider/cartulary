@@ -65,6 +65,7 @@ RUNTIME_PROFILE_KEY_RING_MANIFEST=""
 RUNTIME_PROFILE_CURSOR_SECRET=""
 RUNTIME_PROFILE_SAFE_DIGEST_SECRET=""
 REVISIONS_CONFLICT_TOKEN_SECRET=""
+AUTH_MASTER_KEY=""
 BACKEND_GENERATION_HEAD=""
 BACKEND_RESTART_SECRET_FILE=""
 EXPECTED_RUNTIME_PROFILE_FINGERPRINT=""
@@ -254,7 +255,7 @@ prepare_runtime_root() {
   WEB_LOG="${PRIVATE_SESSION_ROOT}/logs/web.log"
   step_secure_files "${SERVER_LOG}" "${WEB_LOG}" || return $?
   STACK_ENV_FILE="${PRIVATE_SESSION_ROOT}/stack.env"
-  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v7.json"
+  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v8.json"
   STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
   STACK_LEASE_FILE="${TARGET_ARTIFACT_DIR}/browser-stack-lease.json"
   SERVICE_ADMISSION_FILE="${TARGET_ARTIFACT_DIR}/service-admission.json"
@@ -264,7 +265,7 @@ prepare_runtime_root() {
 
   PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
   E2E_DB="cartulary_web_e2e_$$"
-  E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
+  E2E_DSN=""
   TEST_SERVICES_ENV_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.env"
   TEST_SERVICES_METADATA_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.json"
   TEST_ROUTE_TOKEN_FILE="${RUNTIME_ROOT_BASE}/test-route-token"
@@ -290,6 +291,20 @@ prepare_runtime_root() {
   export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
   export CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
   export CARTULARY_WEB_E2E_DB="${E2E_DB}"
+}
+
+prepare_browser_tls() {
+  "${GO_BIN}" run ./tools/browserpki --directory "${RUNTIME_ROOT_BASE}/tls" || return $?
+  cat "${RUNTIME_ROOT_BASE}/tls/ca.pem" "${SSL_CERT_FILE:?isolated S3 fixture root required}" >"${RUNTIME_ROOT_BASE}/tls/trust.pem"
+  chmod 600 "${RUNTIME_ROOT_BASE}/tls/trust.pem"
+  bind_browser_tls
+}
+
+bind_browser_tls() {
+  export CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE="${RUNTIME_ROOT_BASE}/tls/trust.pem"
+  export CARTULARY_WEB_E2E_TLS_CERTIFICATE="${RUNTIME_ROOT_BASE}/tls/frontend.crt"
+  export CARTULARY_WEB_E2E_TLS_PRIVATE_KEY="${RUNTIME_ROOT_BASE}/tls/frontend.key"
+  export NODE_EXTRA_CA_CERTS="${CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE}"
 }
 
 prepare_runtime_profile() {
@@ -322,6 +337,7 @@ write_backend_restart_secrets() {
   fi
   CARTULARY_BACKEND_RESTART_SECRET_FILE="${BACKEND_RESTART_SECRET_FILE}" \
   CARTULARY_BACKEND_RESTART_DSN="${E2E_DSN}" \
+  CARTULARY_BACKEND_RESTART_AUTH_MASTER_KEY="${AUTH_MASTER_KEY}" \
   CARTULARY_BACKEND_RESTART_REVISIONS_SECRET="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
   CARTULARY_BACKEND_RESTART_CURSOR_SECRET="${RUNTIME_PROFILE_CURSOR_SECRET}" \
   CARTULARY_BACKEND_RESTART_SAFE_DIGEST_SECRET="${RUNTIME_PROFILE_SAFE_DIGEST_SECRET}" \
@@ -334,6 +350,7 @@ const destination = process.env.CARTULARY_BACKEND_RESTART_SECRET_FILE;
 const temporary = `${destination}.tmp-${process.pid}`;
 const payload = {
   dsn: process.env.CARTULARY_BACKEND_RESTART_DSN,
+  auth_master_key: process.env.CARTULARY_BACKEND_RESTART_AUTH_MASTER_KEY,
   revisions_secret: process.env.CARTULARY_BACKEND_RESTART_REVISIONS_SECRET,
   cursor_secret: process.env.CARTULARY_BACKEND_RESTART_CURSOR_SECRET,
   safe_digest_secret: process.env.CARTULARY_BACKEND_RESTART_SAFE_DIGEST_SECRET,
@@ -357,6 +374,7 @@ const fs = require("node:fs");
 const value = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const q = (input) => JSON.stringify(String(input ?? ""));
 console.log(`E2E_DSN=${q(value.dsn)}`);
+console.log(`AUTH_MASTER_KEY=${q(value.auth_master_key)}`);
 console.log(`REVISIONS_CONFLICT_TOKEN_SECRET=${q(value.revisions_secret)}`);
 console.log(`RUNTIME_PROFILE_CURSOR_SECRET=${q(value.cursor_secret)}`);
 console.log(`RUNTIME_PROFILE_SAFE_DIGEST_SECRET=${q(value.safe_digest_secret)}`);
@@ -370,11 +388,11 @@ write_stack_metadata() {
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
   if [[ -z "${BACKEND_READY_AT}" || -z "${FRONTEND_READY_AT}" ]]; then
-    echo "v7 browser stack publication requires bound backend and frontend readiness" >&2
+    echo "v8 browser stack publication requires bound backend and frontend readiness" >&2
     return 1
   fi
   if [[ ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
-    echo "v7 browser stack publication requires terminal startup diagnostics" >&2
+    echo "v8 browser stack publication requires terminal startup diagnostics" >&2
     return 1
   fi
   if [[ ! -x "${node_bin}" ]]; then
@@ -417,7 +435,7 @@ EOF
 }
 
 publish_stack_metadata() {
-  run_timing_span "setup" "browser-e2e publish immutable v7 stack" write_stack_metadata || return $?
+  run_timing_span "setup" "browser-e2e publish immutable v8 stack" write_stack_metadata || return $?
 }
 
 verify_stack_publication() {
@@ -554,6 +572,7 @@ bounded_private_failure_message() {
   CARTULARY_PRIVATE_FAILURE_TEXT="${redacted}" \
   CARTULARY_PRIVATE_FAILURE_LABEL="${label}" \
   CARTULARY_PRIVATE_FAILURE_TEST_ROUTE_TOKEN="${TEST_ROUTE_TOKEN:-}" \
+  CARTULARY_PRIVATE_FAILURE_AUTH_MASTER_KEY="${AUTH_MASTER_KEY:-}" \
   CARTULARY_PRIVATE_FAILURE_REVISIONS_TOKEN="${REVISIONS_CONFLICT_TOKEN_SECRET:-}" \
   CARTULARY_PRIVATE_FAILURE_DSN="${E2E_DSN:-}" \
   CARTULARY_PRIVATE_FAILURE_S3_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:-}" \
@@ -561,6 +580,7 @@ bounded_private_failure_message() {
     "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" <<'EOF'
 const secrets = [
   process.env.CARTULARY_PRIVATE_FAILURE_TEST_ROUTE_TOKEN,
+  process.env.CARTULARY_PRIVATE_FAILURE_AUTH_MASTER_KEY,
   process.env.CARTULARY_PRIVATE_FAILURE_REVISIONS_TOKEN,
   process.env.CARTULARY_PRIVATE_FAILURE_DSN,
   process.env.CARTULARY_PRIVATE_FAILURE_S3_ACCESS_KEY,
@@ -886,6 +906,8 @@ const env = {
   CARTULARY_PLAYWRIGHT_STATE_DIR: process.env.CARTULARY_PLAYWRIGHT_STATE_DIR,
   CARTULARY_WEB_E2E_API_ORIGIN: process.env.CARTULARY_WEB_E2E_API_ORIGIN,
   CARTULARY_WEB_E2E_PUBLIC_ORIGIN: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN,
+  CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE: process.env.CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE,
+  NODE_EXTRA_CA_CERTS: process.env.CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE,
   CARTULARY_WEB_E2E_BACKEND_PORT: process.env.CARTULARY_WEB_E2E_BACKEND_PORT,
   CARTULARY_WEB_E2E_FRONTEND_PORT: process.env.CARTULARY_WEB_E2E_FRONTEND_PORT,
   CARTULARY_WEB_E2E_RUNTIME_ROOT: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
@@ -994,6 +1016,7 @@ EOF
   )"
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
   export CARTULARY_TEST_ROUTE_TOKEN_FILE
+  bind_browser_tls
   adopt_port_lease_for_cleanup "${BACKEND_PORT}"
   adopt_port_lease_for_cleanup "${FRONTEND_PORT}"
 }
@@ -1145,7 +1168,7 @@ wait_for_http() {
       cat "${WEB_LOG}" >&2 || true
       return 1
     fi
-    if curl -fsS "$url" >/dev/null 2>&1; then
+    if curl --cacert "${CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE:?}" --tlsv1.3 -fsS "$url" >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.5
@@ -1296,7 +1319,7 @@ browser_wait_frontend_ready() {
       cat "${WEB_LOG}" >&2 || true
       return 1
     fi
-    if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
+    if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl --cacert "${CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE:?}" --tlsv1.3 -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
       if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
         echo "frontend exited immediately after readiness probe" >&2
         write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited immediately after readiness probe" || true
@@ -1355,7 +1378,7 @@ browser_verify_frontend_ready() {
     cat "${WEB_LOG}" >&2 || true
     return 1
   fi
-  if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
+  if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl --cacert "${CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE:?}" --tlsv1.3 -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
     FRONTEND_READY_AT="${FRONTEND_READY_AT:-$(step_now_utc)}"
     return 0
   fi
@@ -1411,6 +1434,8 @@ start_backend_ready() {
       env \
       CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
       CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
+      CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH="${RUNTIME_ROOT_BASE}/tls/server.crt" \
+      CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH="${RUNTIME_ROOT_BASE}/tls/server.key" \
       CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
       CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
       CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
@@ -1418,6 +1443,7 @@ start_backend_ready() {
       CARTULARY__REFERENCE_PACK__CLAIMED=true \
       CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH="${RUNTIME_ROOT_BASE}/reference-pack-bootstrap.json" \
       CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED=true \
+      CARTULARY_AUTH_MASTER_KEY="${AUTH_MASTER_KEY}" \
       CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
       CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}" \
       CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:?}" \
@@ -1678,11 +1704,13 @@ main() {
 
   CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e allocate ports" resolve_owned_stack_ports || return $?
   CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e prepare test route token" prepare_test_route_token || return $?
+  AUTH_MASTER_KEY="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr -d '\n')"
 	REVISIONS_CONFLICT_TOKEN_SECRET="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr '+/' '-_' | tr -d '=\n')"
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts || return $?
 
   CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services || return $?
   CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database || return $?
+  prepare_browser_tls || return $?
   write_backend_restart_secrets || return $?
   start_backend_ready || return $?
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}" || return $?

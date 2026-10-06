@@ -1,4 +1,5 @@
 import { stopDiagnosticProcesses } from "./diagnostic-processes.mjs";
+import { recoverVisualRenderer } from "../visual-renderer-lease.mjs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { createSuiteRuntime, scanRetainedRoot } from "../../runtime/suite-runtime.mjs";
@@ -77,7 +78,7 @@ export class ReviewSession {
         if (!reached) throw new ReviewFailure("readiness_expired");
       }
       this.abort.signal.throwIfAborted();
-      this.browser = new ReviewBrowser({ origin, mode: this.mode, actors, onOwnedResource: async (resource) => { recordResource(this.runtime, resource); if (resource.state !== "released") { const { boot, pid, start } = resource.target; await this.hostLease.bind({ boot, pid, start }); } }, onLost: (error) => { void this.stop(error); } });
+      this.browser = new ReviewBrowser({ origin, mode: this.mode, actors, environment: this.seeded?.attached, onOwnedResource: (resource) => { recordResource(this.runtime, resource); if (resource.kind.endsWith("_process") && resource.state !== "released") { const { boot, pid, start } = resource.target; return this.hostLease.bind({ boot, pid, start }); } }, onLost: (error) => { void this.stop(error); } });
       try { await this.browser.start(); }
       catch (error) { throw preparationFailure(error, { phase: "browser_start", subject_id: "browser", condition: "child_failed", recovery_id: "inspect_failure" }); }
     }
@@ -206,6 +207,9 @@ export class ReviewSession {
     await attempt(async () => {
       for (const resource of recoveryResources(this.runtime).filter((entry) => entry.kind === "diagnostic_scope")) {
         await attempt(async () => { await stopDiagnosticProcesses(resource.target); recordResource(this.runtime, { ...resource, state: "released" }); });
+      }
+      for (const resource of recoveryResources(this.runtime).filter((entry) => entry.kind === "browser_renderer")) {
+        await attempt(async () => { recoverVisualRenderer(resource.target); recordResource(this.runtime, { ...resource, state: "released" }); });
       }
       for (const resource of recoveryResources(this.runtime).filter((entry) => entry.kind.endsWith("_process"))) {
         await attempt(async () => { await stopOwnedProcess(resource.target); recordResource(this.runtime, { ...resource, state: "released" }); });

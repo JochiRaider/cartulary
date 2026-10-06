@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,7 +45,7 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	controls := hc.NewControls()
 	harness := claimedNetworkFlowServerWithControlsForRouteTest(t, runtime, "network-flow-pagination-recovery", "", controls)
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	start := harness.Server.Clock.Now().Truncate(time.Second)
 	httptestx.SetClockFixed(t, harness.Server, start)
 	actor := uuid.MustParse(actorText)
@@ -79,19 +77,19 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 		response := httptestx.DoJSON(t, http.MethodPost, root+path, body, httptestx.WithCookies(login.SessionCookie))
 		return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 	}
-	t.Run("functional cursor entropy", func(t *testing.T) {
-		const nonce = "000102030405060708090a0b"
-		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-randomness", map[string]any{"stream": "network_flow.cursor_nonce", "value_kind": "hex_bytes", "values": []string{nonce}, "consume_once": true, "exhaustion": "fail_closed"}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+	t.Run("module generated cursor entropy", func(t *testing.T) {
+		response := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-randomness", map[string]any{"stream": "network_flow.cursor_nonce", "value_kind": "hex_bytes", "values": []string{"000102030405060708090a0b"}, "consume_once": true, "exhaustion": "fail_closed"}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken))
+		httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_network_flow_randomness_request")
 		path := "/tables/" + table.TableID + "/query"
-		result := query(path, map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1})
-		token := result["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
-		raw, err := base64.RawURLEncoding.DecodeString(strings.Split(token, ".")[2])
-		if err != nil || hex.EncodeToString(raw[:12]) != nonce {
-			t.Fatal("route cursor did not use armed nonce")
+		first := query(path, map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1})
+		second := query(path, map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1})
+		firstToken := first["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
+		secondToken := second["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
+		if firstToken == secondToken || !strings.HasPrefix(firstToken, "nfc3.") || !reflect.DeepEqual(first["rows"], second["rows"]) {
+			t.Fatal("fresh cursor sealing changed page semantics or reused an envelope")
 		}
-		response := httptestx.DoJSON(t, http.MethodPost, root+path, map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1}, httptestx.WithCookies(login.SessionCookie))
-		httptestx.RequireErrorEnvelope(t, response, http.StatusInternalServerError, "internal_error")
-		controls.Randomness.Clear()
+		query(path, map[string]any{"schema_id": schemaTableQueryContinuationForTest, "cursor_token": firstToken})
+		query(path, map[string]any{"schema_id": schemaTableQueryContinuationForTest, "cursor_token": secondToken})
 	})
 
 	graph := query("/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}})
@@ -150,7 +148,7 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "network-flow-routes-unclaimed")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-routes-unclaimed-incident",
 		"incident_key":  "IR-NF-UNCLAIMED",
@@ -174,7 +172,7 @@ func TestNetworkFlowEffectiveResourceLimitsReachDiscovery_Integration(t *testing
 		"network-flow-effective-limits",
 		`{"max_graph_vertices":7000,"max_graph_edges":0,"max_query_limit":750,"max_time_buckets_per_graph":64}`,
 	)
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-effective-limits-incident",
 		"incident_key":  "IR-NF-LIMITS",
@@ -211,7 +209,7 @@ func TestNetworkFlowStreamingGraphContributingRowLimit_Integration(t *testing.T)
 		"network-flow-contributing-row-limit",
 		`{"max_contributing_rows_per_graph":1}`,
 	)
-	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-contributing-limit-incident",
@@ -247,7 +245,7 @@ func TestNetworkFlowStreamingGraphContributingRowLimit_Integration(t *testing.T)
 func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-routes-query")
-	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-routes-query-incident",
@@ -321,7 +319,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("unexpected first query page: %#v", firstPage)
 	}
 	nextToken := firstPage["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
-	if !strings.HasPrefix(nextToken, "nfc2.route-cursor-v1.") {
+	if !strings.HasPrefix(nextToken, "nfc3.route-cursor-v1.") {
 		t.Fatalf("expected Network Flow cursor token with key id, got %q", nextToken)
 	}
 
@@ -500,7 +498,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	t.Run("functional committed audit controls", assertNetworkFlowCommittedAuditConsumers)
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-routes-graph-link")
-	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-routes-graph-incident",
@@ -1199,7 +1197,7 @@ DELETE FROM incident_memberships
 func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-temporal-saved-graph")
-	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-temporal-saved-incident",
@@ -1322,7 +1320,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	t.Run("functional worker faults", assertNetworkFlowWorkerFaultConsumers)
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-saved-graph-routes")
-	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-saved-graph-incident",
@@ -2062,8 +2060,8 @@ func claimedNetworkFlowServerWithControlsForRouteTest(t testing.TB, runtime *app
 	t.Helper()
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	rings, err := ParseKeyRings([]byte(`{
-  "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"route-cursor-v1","state":"active","secret_ref":{"kind":"env","name":"route-cursor"}}]},
+  "schema_id":"cartulary.network_flow_key_rings.v2",
+  "cursor_key_ring":{"algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[{"cursor_key_id":"route-cursor-v1","state":"active","secret_ref":{"kind":"env","name":"route-cursor"}}]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"route-safe-v1","state":"active","secret_ref":{"kind":"env","name":"route-safe"}}]}
 }`), map[string]string{
 		"CARTULARY_SECRET_ROUTE_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",

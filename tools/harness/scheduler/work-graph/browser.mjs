@@ -360,9 +360,8 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
     current_run_evidence_outputs: [
       ...group.selectedRowIDs.map((rowID) => `rows/${rowID}.json`),
       `${target}/browser-groups/${safeID(group.name)}/browser-group-result.json`,
-      ...(group.kind === "visual"
-        ? [`${target}/browser-groups/${safeID(group.name)}/renderer-profile-attestation.json`]
-        : []),
+      `${target}/browser-groups/${safeID(group.name)}/renderer-profile-attestation.json`,
+      `${target}/browser-groups/${safeID(group.name)}/tls-trust-attestation.json`,
     ].sort(compareASCII),
     failure_policy: finalizableFailurePolicy(),
     estimated_work_ms: group.estimatedWorkMs ??

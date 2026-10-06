@@ -19,6 +19,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { readBrowserTrustBundle } from "./browser-trust.mjs";
+
 import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
 import { resolveFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 
@@ -30,7 +32,7 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const identityPattern = /^[a-zA-Z0-9_.-]+$/u;
 
 function usage() {
-  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | write-service-admission | lease | stack | backend-generation <reset-id> <generation> | attach <stack-v7.json> | attach-json <stack-v7.json>";
+  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | write-service-admission | lease | stack | backend-generation <reset-id> <generation> | attach <stack-v8.json> | attach-json <stack-v8.json>";
 }
 
 function requiredEnv(name) {
@@ -232,7 +234,7 @@ function terminal(status, message, failureClass = "", failureReason = "") {
     throw new Error("browser ready diagnostic requires the complete startup state graph");
   }
   const payload = {
-    schema_id: "cartulary.browser_startup_diagnostics.v2",
+    schema_id: "cartulary.browser_startup_diagnostics.v3",
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     runtime_profile_id: identityEnv("CARTULARY_BROWSER_RUNTIME_PROFILE_ID"),
@@ -383,7 +385,7 @@ export function validateFrontendAttachment(root, artifact, frontend, environment
   const sealed = resolveFrontendArtifact(root, artifact.producer_target, environment);
   if (sealed.receiptDigest !== frontend.build_receipt_sha256 ||
       sealed.receipt.content_digest !== frontend.build_artifact_sha256) {
-    throw new Error("browser v7 attachment frontend build digest mismatch");
+    throw new Error("browser v8 attachment frontend build digest mismatch");
   }
 }
 
@@ -475,10 +477,10 @@ function writeStack() {
   }
   const terminalDiagnostic = JSON.parse(readFileSync(diagnostic, "utf8"));
   if (
-    terminalDiagnostic.schema_id !== "cartulary.browser_startup_diagnostics.v2" ||
+    terminalDiagnostic.schema_id !== "cartulary.browser_startup_diagnostics.v3" ||
     terminalDiagnostic.status !== "ready"
   ) {
-    throw new Error("v7 stack publication requires a terminal ready diagnostic");
+    throw new Error("v8 stack publication requires a terminal ready diagnostic");
   }
   const fixture = JSON.parse(readFileSync(metadataFile, "utf8"));
   const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
@@ -487,7 +489,9 @@ function writeStack() {
     requiredEnv("CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT"),
     "runtime profile fingerprint",
   );
+  const trustSHA = `sha256:${readBrowserTrustBundle(requiredEnv("CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE")).sha256}`;
   const configurationFingerprint = canonicalDigest({
+    tls_trust_sha256: trustSHA,
     runtime_profile_fingerprint: runtimeProfileFingerprint,
     api_origin: requiredEnv("CARTULARY_WEB_E2E_API_ORIGIN"),
     public_origin: requiredEnv("CARTULARY_WEB_E2E_PUBLIC_ORIGIN"),
@@ -496,7 +500,8 @@ function writeStack() {
   });
   const performanceFixture = performanceFixtureEvidence(fixture);
   const payload = {
-    schema_id: "cartulary.web_e2e_stack.v7",
+    schema_id: "cartulary.web_e2e_stack.v8",
+    tls_trust_sha256: trustSHA,
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     service_mode: requiredEnv("CARTULARY_TEST_SERVICES_CALL_MODE"),
@@ -557,8 +562,8 @@ function writeStack() {
     ready_at: new Date().toISOString(),
   };
   validateSchemaSync(payload.schema_id, payload);
-  const output = path.join(sessionRoot(), "stack-v7.json");
-  if (existsSync(output)) throw new Error("v7 browser stack evidence is immutable");
+  const output = path.join(sessionRoot(), "stack-v8.json");
+  if (existsSync(output)) throw new Error("v8 browser stack evidence is immutable");
   atomicWrite(output, `${JSON.stringify(payload, null, 2)}\n`);
   return output;
 }
@@ -577,7 +582,7 @@ function writeBackendGeneration(resetID, generationText) {
     throw new Error("immutable performance fixture stacks cannot publish reset generations");
   }
   const payload = {
-    schema_id: "cartulary.web_e2e_backend_generation.v1",
+    schema_id: "cartulary.web_e2e_backend_generation.v2",
     reset_id: resetID,
     generation,
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
@@ -642,7 +647,7 @@ function activeBackend(stack, stackPath) {
   const generation = JSON.parse(readFileSync(artifact, "utf8"));
   validateSchemaSync(generation.schema_id, generation);
   if (
-    generation.schema_id !== "cartulary.web_e2e_backend_generation.v1" ||
+    generation.schema_id !== "cartulary.web_e2e_backend_generation.v2" ||
     generation.base_stack_ref !== relativeToRun(stackPath) ||
     generation.base_stack_sha256 !== sha256File(stackPath) ||
     generation.suite_id !== stack.suite_id ||
@@ -669,7 +674,7 @@ function verifyProcessProof(proof, label) {
     "executable_sha256",
   ]) {
     if (current[key] !== proof[key]) {
-      throw new Error(`browser v7 attachment ${label} process proof mismatch`);
+      throw new Error(`browser v8 attachment ${label} process proof mismatch`);
     }
   }
 }
@@ -696,14 +701,16 @@ export function attachmentAssignments(stackPath) {
     throw new Error("Playwright state must be beneath the private browser runtime root");
   }
   if (
-    resolvedStack !== path.join(expectedRoot, "stack-v7.json") ||
+    resolvedStack !== path.join(expectedRoot, "stack-v8.json") ||
     !resolvedStack.startsWith(`${runRoot()}${path.sep}`)
   ) {
     throw new Error("browser stack path does not identify the current session");
   }
-  requireRegularNoSymlink(resolvedStack, "v7 browser stack");
+  requireRegularNoSymlink(resolvedStack, "v8 browser stack");
   const stack = JSON.parse(readFileSync(resolvedStack, "utf8"));
-  validateSchemaSync(stack.schema_id, stack);
+  validateSchemaSync("cartulary.web_e2e_stack.v8", stack);
+  const trustFile = path.join(runtimeRoot, "tls", "trust.pem");
+  if (`sha256:${readBrowserTrustBundle(trustFile).sha256}` !== stack.tls_trust_sha256) throw new Error("browser fixture trust identity mismatch");
   const currentBackend = activeBackend(stack, resolvedStack);
   const expected = {
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
@@ -712,7 +719,7 @@ export function attachmentAssignments(stackPath) {
   };
   for (const [key, value] of Object.entries(expected)) {
     if (stack[key] !== value) {
-      throw new Error(`browser v7 attachment ${key} mismatch`);
+      throw new Error(`browser v8 attachment ${key} mismatch`);
     }
   }
   for (const [referenceKey, digestKey] of [
@@ -722,7 +729,7 @@ export function attachmentAssignments(stackPath) {
   ]) {
     const artifact = resolveRunArtifact(stack[referenceKey]);
     if (sha256File(artifact) !== stack[digestKey]) {
-      throw new Error(`browser v7 attachment ${referenceKey} digest mismatch`);
+      throw new Error(`browser v8 attachment ${referenceKey} digest mismatch`);
     }
   }
   const retainedLease = JSON.parse(
@@ -735,7 +742,7 @@ export function attachmentAssignments(stackPath) {
     retainedLease.browser_session_id !== expected.browser_session_id ||
     retainedLease.runtime_profile_id !== expected.runtime_profile_id
   ) {
-    throw new Error("browser v7 attachment retained lease identity mismatch");
+    throw new Error("browser v8 attachment retained lease identity mismatch");
   }
   if (stack.performance_fixture) {
     const active = stack.performance_fixture;
@@ -745,11 +752,11 @@ export function attachmentAssignments(stackPath) {
       active.builder_unit_id !== requiredEnv("CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID") ||
       active.clone_ordinal !== Number.parseInt(requiredEnv("CARTULARY_FIXTURE_CLONE_ORDINAL"), 10)
     ) {
-      throw new Error("browser v7 attachment performance fixture identity mismatch");
+      throw new Error("browser v8 attachment performance fixture identity mismatch");
     }
     const buildArtifact = resolveRunArtifact(active.build_artifact_ref);
     if (sha256File(buildArtifact) !== active.build_artifact_sha256) {
-      throw new Error("browser v7 attachment performance fixture build digest mismatch");
+      throw new Error("browser v8 attachment performance fixture build digest mismatch");
     }
     const build = JSON.parse(readFileSync(buildArtifact, "utf8"));
     validateSchemaSync(build.schema_id, build);
@@ -759,7 +766,7 @@ export function attachmentAssignments(stackPath) {
       build.snapshot_key !== active.snapshot_key ||
       build.builder_unit_id !== active.builder_unit_id
     ) {
-      throw new Error("browser v7 attachment does not reference its exact sealed build");
+      throw new Error("browser v8 attachment does not reference its exact sealed build");
     }
     const runtimeBundle = requiredEnv("CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE");
     requireRegularNoSymlink(runtimeBundle, "private performance fixture runtime bundle");
@@ -769,7 +776,7 @@ export function attachmentAssignments(stackPath) {
       bundle.fixture_profile_id !== active.fixture_profile_id ||
       bundle.snapshot_key !== active.snapshot_key
     ) {
-      throw new Error("browser v7 attachment runtime bundle identity mismatch");
+      throw new Error("browser v8 attachment runtime bundle identity mismatch");
     }
   }
   const serviceAdmission = JSON.parse(
@@ -782,7 +789,7 @@ export function attachmentAssignments(stackPath) {
     serviceAdmission.browser_session_id !== stack.browser_session_id ||
     serviceAdmission.required_services.join("\0") !== "object_store\0postgres"
   ) {
-    throw new Error("browser v7 attachment service-admission identity mismatch");
+    throw new Error("browser v8 attachment service-admission identity mismatch");
   }
   const diagnostic = JSON.parse(
     readFileSync(resolveRunArtifact(stack.startup_diagnostics_ref), "utf8"),
@@ -794,7 +801,7 @@ export function attachmentAssignments(stackPath) {
     diagnostic.browser_session_id !== stack.browser_session_id ||
     diagnostic.runtime_profile_id !== stack.runtime_profile_id
   ) {
-    throw new Error("browser v7 attachment diagnostic identity mismatch");
+    throw new Error("browser v8 attachment diagnostic identity mismatch");
   }
   if (
     stack.postgres_identity.schema_hash !==
@@ -812,7 +819,7 @@ export function attachmentAssignments(stackPath) {
         requiredEnv("CARTULARY_S3_OBJECT_PRIMARY_SECURE"),
       )
   ) {
-    throw new Error("browser v7 attachment active service identity mismatch");
+    throw new Error("browser v8 attachment active service identity mismatch");
   }
   const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
   validateFrontendAttachment(repoRoot, artifact, stack.frontend);
@@ -822,11 +829,14 @@ export function attachmentAssignments(stackPath) {
   const stateDirInfo = lstatSync(playwrightStateDir);
   if (!stateDirInfo.isDirectory() || stateDirInfo.isSymbolicLink()) {
     throw new Error(
-      "browser v7 attachment Playwright state path must be a non-symlink directory",
+      "browser v8 attachment Playwright state path must be a non-symlink directory",
     );
   }
   return {
     CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED: "1",
+    CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE: trustFile,
+    CARTULARY_WEB_E2E_TLS_TRUST_SHA256: stack.tls_trust_sha256,
+    NODE_EXTRA_CA_CERTS: trustFile,
     CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER: "1",
     CARTULARY_PLAYWRIGHT_STATE_DIR: playwrightStateDir,
     CARTULARY_WEB_E2E_STACK_JSON_FILE: resolvedStack,

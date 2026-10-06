@@ -380,6 +380,30 @@
       "filename": "00063_reporting_admitted_model_identity.sql",
       "sha256": "9b993b4087c7ba92a17b76655ff552df46cc2bb86d8a52d9226f98de657f0ae7",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 64,
+      "filename": "00064_application_crypto_format.sql",
+      "sha256": "8055e2999d3d939a78581dc861e40e444bb82a92b094a39d2085fce976b409dc",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 65,
+      "filename": "00065_auth_secret_envelopes.sql",
+      "sha256": "14a2939c41a8ea5176a1b73d269533d2a0e2eb9f6fbb1cc3306eaddfb6cf0728",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 66,
+      "filename": "00066_recovery_journal_envelopes.sql",
+      "sha256": "22c82803e57866619cd9d3468d510ebb595d89f55ffcb6ee1ba429de345ead24",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 67,
+      "filename": "00067_application_crypto_format_privileges.sql",
+      "sha256": "fef14a51a3772a811f0c82e099ae6b4a8100acd3708621d09a00fd35d164b6b4",
+      "historical_phase_shaped": false
     }
   ]
 }

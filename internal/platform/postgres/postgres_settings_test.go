@@ -10,6 +10,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
+const validPostgresTestDSN = "postgres://login@postgres/cartulary?require_auth=none&sslmode=verify-full&sslrootcert=%2Ffixture%2Froot.pem&sslcert=%2Ffixture%2Fclient.pem&sslkey=%2Ffixture%2Fclient.key"
+
 func TestPostgresPurposeContracts(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -25,14 +27,14 @@ func TestPostgresPurposeContracts(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name+" filesystem", func(t *testing.T) {
 			cfg := postgresSettingsConfig(t, "filesystem_root")
-			if err := os.WriteFile(filepath.Join(cfg.RootPath, test.file), []byte("postgres://selected\r\n"), 0o600); err != nil {
+			if err := os.WriteFile(filepath.Join(cfg.RootPath, test.file), []byte(validPostgresTestDSN+"\r\n"), 0o600); err != nil {
 				t.Fatalf("write selected DSN: %v", err)
 			}
 			settings, err := postgres.ResolveSettings(cfg, test.purpose, map[string]string{})
 			if err != nil {
 				t.Fatalf("resolve filesystem settings: %v", err)
 			}
-			if settings.Purpose != test.purpose || settings.ExpectedRole != test.role || settings.DSN != "postgres://selected" {
+			if settings.Purpose != test.purpose || settings.ExpectedRole != test.role || settings.DSN != validPostgresTestDSN {
 				t.Fatalf("unexpected settings: %#v", settings)
 			}
 		})
@@ -46,11 +48,11 @@ func TestPostgresPurposeContracts(t *testing.T) {
 			if key != wantKey {
 				t.Fatalf("unexpected key: got %q want %q", key, wantKey)
 			}
-			settings, err := postgres.ResolveSettings(cfg, test.purpose, map[string]string{key: "postgres://selected"})
+			settings, err := postgres.ResolveSettings(cfg, test.purpose, map[string]string{key: validPostgresTestDSN})
 			if err != nil {
 				t.Fatalf("resolve managed settings: %v", err)
 			}
-			if settings.Purpose != test.purpose || settings.ExpectedRole != test.role || settings.DSN != "postgres://selected" {
+			if settings.Purpose != test.purpose || settings.ExpectedRole != test.role || settings.DSN != validPostgresTestDSN {
 				t.Fatalf("unexpected settings: %#v", settings)
 			}
 		})
@@ -185,15 +187,15 @@ func TestPostgresFilesystemCredentialSafety(t *testing.T) {
 			payload []byte
 			valid   bool
 		}{
-			{name: "single line", payload: []byte("postgres://selected"), valid: true},
-			{name: "terminal LF", payload: []byte("postgres://selected\n"), valid: true},
-			{name: "terminal CRLF", payload: []byte("postgres://selected\r\n"), valid: true},
+			{name: "single line", payload: []byte(validPostgresTestDSN), valid: true},
+			{name: "terminal LF", payload: []byte(validPostgresTestDSN + "\n"), valid: true},
+			{name: "terminal CRLF", payload: []byte(validPostgresTestDSN + "\r\n"), valid: true},
 			{name: "empty", payload: nil},
 			{name: "only LF", payload: []byte("\n")},
-			{name: "multiple LF", payload: []byte("postgres://selected\n\n")},
-			{name: "embedded LF", payload: []byte("postgres://selected\nsecond")},
-			{name: "terminal CR", payload: []byte("postgres://selected\r")},
-			{name: "NUL", payload: []byte("postgres://selected\x00")},
+			{name: "multiple LF", payload: []byte(validPostgresTestDSN + "\n\n")},
+			{name: "embedded LF", payload: []byte(validPostgresTestDSN + "\nsecond")},
+			{name: "terminal CR", payload: []byte(validPostgresTestDSN + "\r")},
+			{name: "NUL", payload: []byte(validPostgresTestDSN + "\x00")},
 			{name: "invalid UTF-8", payload: []byte{0xff}},
 		}
 		for _, test := range tests {

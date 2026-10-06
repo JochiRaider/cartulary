@@ -49,7 +49,7 @@ func newProcessEnv(t testing.TB, options processEnvOptions) map[string]string {
 	if options.BootstrapPath != "" {
 		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = options.BootstrapPath
 	}
-	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
+	configtest.EnsureCryptographicTestEnvironment(env)
 	if _, ok := env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"]; !ok {
 		env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"] = fixtures.Path("reference-packs", "trust-bootstrap.json")
 	}
@@ -68,8 +68,10 @@ func newProcessCleanupContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), processCleanupTimeout)
 }
 
-func newProcessHTTPClient() *http.Client {
-	return &http.Client{Timeout: processHTTPTimeout}
+func newProcessHTTPClient(source *http.Client) *http.Client {
+	client := *source
+	client.Timeout = processHTTPTimeout
+	return &client
 }
 
 func reportProcessCleanupFailure(reporter processCleanupReporter, operation string, err error) {
@@ -120,5 +122,5 @@ func startServerProcessWithDB(t testing.TB, prefix string) (*processtest.Server,
 
 func doJSON(t testing.TB, server *processtest.Server, method string, path string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
-	return flowtest.DoJSON(t, method, server.BaseURL+path, body, options...)
+	return flowtest.DoJSON(t, server.Client, method, server.BaseURL+path, body, options...)
 }

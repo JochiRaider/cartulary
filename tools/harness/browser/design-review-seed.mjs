@@ -4,22 +4,53 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { seedTimelineInvestigation, timelineRecipe, validateTimelineRecipe } from "../fixtures/timeline-investigation/index.mjs";
 import { writeReviewSamples } from "./design-review-samples.mjs";
+import { startVisualRendererLease } from "./visual-renderer-lease.mjs";
 
 export function reviewTotp(secret, now = Date.now()) {
+  if (typeof secret !== "string" || !/^[A-Z2-7]{52}$/u.test(secret) || !Number.isSafeInteger(now) || now < 0) throw new Error("Invalid review authenticator key or time");
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const bits = [...secret.replace(/=+$/u, "").toUpperCase()].map((char) => {
+  const bits = [...secret].map((char) => {
     const value = alphabet.indexOf(char);
     if (value < 0) throw new Error("Invalid review authenticator key");
     return value.toString(2).padStart(5, "0");
   }).join("");
   const bytes = Buffer.from((bits.match(/.{8}/gu) ?? []).map((byte) => Number.parseInt(byte, 2)));
+  if (bytes.length !== 32 || bits.slice(256) !== "0000") throw new Error("Invalid review authenticator key");
   const counter = Buffer.alloc(8);
   counter.writeBigUInt64BE(BigInt(Math.floor(now / 30000)));
-  const digest = createHmac("sha1", bytes).update(counter).digest();
+  const digest = createHmac("sha256", bytes).update(counter).digest();
   return String((digest.readUInt32BE(digest.at(-1) & 15) & 0x7fffffff) % 1000000).padStart(6, "0");
 }
 
-export async function seedDesignReview({ root, environment, privateDirectory, runRoot, profile, signal, verifySamples, registerSecret }) {
+export async function seedDesignReview(options) {
+  const { root, environment, signal, onOwnedResource } = options;
+  const require = createRequire(path.join(root, "apps/web/package.json"));
+  const { chromium, expect } = require("@playwright/test");
+  const renderer = await startVisualRendererLease({ root, environment, onOwnedResource });
+  let browser;
+  const cancel = () => { void browser?.close().catch(() => {}); };
+  signal?.addEventListener("abort", cancel, { once: true });
+  let primary;
+  try {
+    signal?.throwIfAborted();
+    browser = await chromium.connect(renderer.environment.CARTULARY_VISUAL_RENDERER_WS_ENDPOINT, { exposeNetwork: "<loopback>", timeout: 30000 });
+    signal?.throwIfAborted();
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    return await seedWithBrowser({ ...options, browser, context, expect });
+  } catch (error) { primary = error; throw error; }
+  finally {
+    signal?.removeEventListener("abort", cancel);
+    const failures = [];
+    try { await browser?.close(); } catch (error) { failures.push(error); }
+    try { renderer.cleanup(); } catch (error) { failures.push(error); }
+    if (failures.length) {
+      if (primary) (primary.cleanupFailures ??= []).push(...failures);
+      else throw Object.assign(new AggregateError(failures, "seeded renderer cleanup failed"), { failure_class: "harness", failure_reason: "cleanup_error", cleanupFailures: failures });
+    }
+  }
+}
+
+async function seedWithBrowser({ root, environment, privateDirectory, runRoot, profile, signal, verifySamples, registerSecret, browser, context, expect }) {
   validateTimelineRecipe();
   const apiOrigin = environment.CARTULARY_WEB_E2E_API_ORIGIN;
   const publicOrigin = environment.CARTULARY_WEB_E2E_PUBLIC_ORIGIN;
@@ -34,19 +65,19 @@ export async function seedDesignReview({ root, environment, privateDirectory, ru
       if (!parameters[name]) throw new Error(`Missing ${operation} parameter ${name}`);
       return encodeURIComponent(parameters[name]);
     });
-    const response = await fetch(new URL(route, apiOrigin), {
-      method: definition.method.toUpperCase(), signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(30000)]),
+    const response = await context.request.fetch(new URL(route, apiOrigin).href, {
+      method: definition.method.toUpperCase(), timeout: 30000, maxRedirects: 0,
       headers: { "Content-Type": "application/json", Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; "), ...(cookies.has("cartulary_csrf") ? { "X-CSRF-Token": cookies.get("cartulary_csrf") } : {}), ...extraHeaders },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { data: JSON.stringify(body) }),
     });
-    for (const header of response.headers.getSetCookie()) {
+    for (const { value: header } of response.headersArray().filter(({ name }) => name.toLowerCase() === "set-cookie")) {
       const pair = header.split(";", 1)[0];
       const index = pair.indexOf("=");
       cookies.set(pair.slice(0, index), pair.slice(index + 1));
       registerSecret(pair.slice(index + 1));
     }
     const result = await response.json();
-    if (!response.ok && !expectedError) throw new Error(`${operation}: HTTP ${response.status} (${result.error?.code ?? "invalid response"}; ${result.error?.details?.reason_code ?? "no reason"}; field=${result.error?.details?.field ?? "none"}; view=${parameters.view_schema_id ?? "none"})`);
+    if (!response.ok() && !expectedError) throw new Error(`${operation}: HTTP ${response.status()} (${result.error?.code ?? "invalid response"}; ${result.error?.details?.reason_code ?? "no reason"}; field=${result.error?.details?.field ?? "none"}; view=${parameters.view_schema_id ?? "none"})`);
     return expectedError ? result : result.data;
   }
   const txn = () => randomUUID();
@@ -84,8 +115,8 @@ export async function seedDesignReview({ root, environment, privateDirectory, ru
         const upload = blob.upload_target;
         if (upload.method !== "PUT" || !/^\/api\/v1\/object-uploads\/[^/?#]+$/u.test(upload.href)) throw new Error("Unexpected review upload target");
         registerSecret(upload.href);
-        const response = await fetch(new URL(upload.href, apiOrigin), { method: "PUT", signal, body: bytes, headers: { ...upload.headers, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; "), "X-CSRF-Token": cookies.get("cartulary_csrf") } });
-        if (!response.ok) throw new Error(`Investigation upload failed: HTTP ${response.status}`);
+        const response = await context.request.fetch(new URL(upload.href, apiOrigin).href, { method: "PUT", timeout: 30000, maxRedirects: 0, data: bytes, headers: { ...upload.headers, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; "), "X-CSRF-Token": cookies.get("cartulary_csrf") } });
+        if (!response.ok()) throw new Error(`Investigation upload failed: HTTP ${response.status()}`);
         const attached = await call("attachBlobToEvidenceRecord", { client_txn_id: txn(), base_row_version: row.row_version, object_blob_id: blob.object_blob_id }, { record_id: row.record_id });
         return (await call("patchRecord", { client_txn_id: txn(), view_schema_id: view("evidence"), base_row_version: attached.row.row_version, changes: [{ field_key: "evidence.lifecycle_state", value: "available" }] }, { record_id: row.record_id })).row;
       },
@@ -121,14 +152,8 @@ export async function seedDesignReview({ root, environment, privateDirectory, ru
 
   // A real attached browser exercises the production surface while preparing
   // the sample. These screenshots are observations, never golden inputs.
-  const require = createRequire(path.join(root, "apps/web/package.json"));
-  const { chromium, expect } = require("@playwright/test");
-  const browser = await chromium.launch({ headless: true });
   let page;
-  const cancelBrowser = () => { void browser.close(); };
-  signal?.addEventListener("abort", cancelBrowser, { once: true });
   try {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await context.addCookies([...cookies].map(([name, value]) => ({ name, value, url: publicOrigin, httpOnly: name === "cartulary_session", sameSite: "Lax" })));
     page = await context.newPage();
     await page.goto(`${publicOrigin}/?incident_id=${populated}`);
@@ -201,14 +226,14 @@ export async function seedDesignReview({ root, environment, privateDirectory, ru
           }
         } finally { await roleContext.close(); }
       }
-      writeFileSync(path.join(runRoot, "review-smoke.json"), `${JSON.stringify({ purpose: "review_setup_observations", status: "pass", profile, checks: ["v7_attachment", "workbook", "evidence_upload_download", "csv_import", "reference_pack_import", "incident_import_handoff", "zero_one_many_roles", ...(profile === "network_flow_claimed" ? ["network_flow_import"] : ["network_flow_omitted"])] }, null, 2)}\n`, { mode: 0o600 });
+      writeFileSync(path.join(runRoot, "review-smoke.json"), `${JSON.stringify({ purpose: "review_setup_observations", status: "pass", profile, checks: ["v8_attachment", "workbook", "evidence_upload_download", "csv_import", "reference_pack_import", "incident_import_handoff", "zero_one_many_roles", ...(profile === "network_flow_claimed" ? ["network_flow_import"] : ["network_flow_omitted"])] }, null, 2)}\n`, { mode: 0o600 });
     }
   } catch (error) {
     if (page && !page.isClosed()) {
       try { writeFileSync(path.join(runRoot, "review-failure.png"), await page.screenshot(), { mode: 0o600 }); } catch { /* Preserve the original failure if capture is unavailable. */ }
     }
     throw error;
-  } finally { signal?.removeEventListener("abort", cancelBrowser); await browser.close(); }
+  }
   const verifiedInvestigation = await investigation.verify();
   writeFileSync(path.join(runRoot, "investigation-receipt.json"), `${JSON.stringify(verifiedInvestigation)}\n`, { mode: 0o600 });
   return { samples, investigation: verifiedInvestigation, privateSemanticMapping: investigation.mapping, scenarios: [

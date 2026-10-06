@@ -1,0 +1,121 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v6",
+  "owner_id": "platform.cryptography",
+  "rows": [
+    {
+      "row_id": "platform.cryptography.unit.execution_identity",
+      "owner_id": "platform.cryptography",
+      "family_id": "platform.cryptography.unit",
+      "collaborator_ids": [
+        "app.migrate",
+        "app.operator",
+        "app.server"
+      ],
+      "verification_ids": [
+        "platform.cryptography.verification.execution_policy"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/cryptography",
+        "tests": [
+          "TestExecutionActualIdentity",
+          "TestExecutionIdentityMatrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.cryptography.unit.rsa_service_parameters",
+      "owner_id": "platform.cryptography",
+      "family_id": "platform.cryptography.unit",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "platform.cryptography.verification.rsa_service_parameters"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/cryptography",
+        "tests": [
+          "TestRSAIndependentVectors",
+          "TestRSAParameterAndSignatureAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.cryptography.unit.sealing_primitives",
+      "owner_id": "platform.cryptography",
+      "family_id": "platform.cryptography.unit",
+      "collaborator_ids": [
+        "module.auth",
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "platform.cryptography.verification.sealing_primitives"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/cryptography",
+        "tests": [
+          "TestArtifactCapabilityUseBoundAndIsolation",
+          "TestKeyAdmissionAndDomainSeparation",
+          "TestPrimitiveContractAndIndependentVector",
+          "TestSealingBoundsAndAdversarialInputs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.cryptography.unit.tls_transport",
+      "owner_id": "platform.cryptography",
+      "family_id": "platform.cryptography.unit",
+      "collaborator_ids": [
+        "platform.rootedfs"
+      ],
+      "verification_ids": [
+        "platform.cryptography.verification.tls_transport"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/cryptography",
+        "tests": [
+          "TestTLSCertificateAdmissionBeforeVerification",
+          "TestTLSCertificateAndFileAdmission",
+          "TestTLSSystemTrustBundleAdmission",
+          "TestTLSVerifiedTransport"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    }
+  ]
+}

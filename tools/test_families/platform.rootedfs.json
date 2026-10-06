@@ -19,6 +19,8 @@
           "TestRootedFSDetectsComponentAndRootReplacementRaces_Unit",
           "TestRootedFSErrorsDoNotDiscloseHostRoot_Unit",
           "TestRootedFSOperationContainment_Unit",
+          "TestRootedFSPrivateStage_Unit",
+          "TestRootedFSReadOnlyInspection_Unit",
           "TestRootedFSReferenceValidation_Unit",
           "TestRootedFSRemoveEmptyDirectoryFailsClosed_Unit"
         ]

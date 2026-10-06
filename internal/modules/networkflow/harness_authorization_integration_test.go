@@ -20,7 +20,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 	ctx := context.Background()
 	controls := hc.NewControls()
 	h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-auth-controls", "", controls)
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, h.Server.HTTP.URL)
+	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	actor := uuid.MustParse(actorText)
 	incidentText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "auth-control-incident", "incident_key": "IR-NF-AUTH-CONTROL", "title": "Authorization controls"})["incident_id"].(string)
 	incident := uuid.MustParse(incidentText)

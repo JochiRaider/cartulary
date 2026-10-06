@@ -61,6 +61,8 @@
     "release-check": [
       "browser-e2e-support",
       "build",
+      "credential-capacity-assessment",
+      "cryptographic-policy-assessment",
       "license-report",
       "release-readiness-evidence",
       "sbom",
@@ -464,6 +466,8 @@
     "release-readiness-evidence": {
       "needs": [
         "browser-e2e-support",
+        "credential-capacity-assessment",
+        "cryptographic-policy-assessment",
         "deployable-shape",
         "go-gosec-audit",
         "harness-contract",
@@ -624,6 +628,27 @@
       "service_dependencies": []
     },
     "standup-reference-pack-smoke": {
+      "needs": [
+        "deployable-shape"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 180000,
+      "resource_profile_id": "package_qualification",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    "cryptographic-policy-assessment": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 15000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "credential-capacity-assessment": {
       "needs": [
         "deployable-shape"
       ],

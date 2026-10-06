@@ -12,6 +12,7 @@ import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, s
 import { reviewChild } from "./review-child.mjs";
 import { seedDesignReview } from "./design-review-seed.mjs";
 import { readBrowserAcquisition, settleBrowserAcquisition } from "./browser-acquisition.mjs";
+import { recoverVisualRenderer } from "./visual-renderer-lease.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 
@@ -196,7 +197,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       mkdirSync(privateDirectory, { recursive: true, mode: 0o700 });
       stage({ phase: "seeding", subject_id: "fixture_seed", condition: "child_failed", recovery_id: "inspect_failure" });
       let review;
-      try { review = await seedDesignReview({ root, environment: attached, privateDirectory, runRoot, profile, signal, verifySamples, registerSecret: (value) => runtime.registerSecret(value) }); }
+      try { review = await seedDesignReview({ root, environment: attached, privateDirectory, runRoot, profile, signal, verifySamples, registerSecret: (value) => runtime.registerSecret(value), onOwnedResource: ownedResource }); }
       catch (error) {
         if (!error.failure_reason && error !== signal?.reason) Object.assign(error, { failure_class: "harness", failure_reason: "fixture_error" });
         throw error;
@@ -282,6 +283,10 @@ export async function recoverReviewPreparation({ runtime, resources, onReleased 
   // Retiring the browser fixture requires the suite it was allocated from.
   // Recover that identity from the exact retained owner proof, never ambient
   // caller credentials or another live review's environment.
+  for (const resource of resources.filter((entry) => entry.kind === "browser_renderer")) {
+    try { recoverVisualRenderer(resource.target); onReleased(resource); }
+    catch (error) { failures.push(error); }
+  }
   const suites = resources.filter((resource) => resource.kind === "managed_suite");
   const blocked = new Set();
   for (const resource of resources.filter((entry) => entry.kind === "browser_stack")) {

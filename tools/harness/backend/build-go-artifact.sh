@@ -21,6 +21,8 @@ go_mod_cache_dir="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 go_tmp_dir="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 go_build_tags="${GO_BUILD_TAGS:-}"
 
+"${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs verify
+
 go_build_args=(-buildvcs=false)
 if [[ -n "$go_build_tags" ]]; then
   go_build_args+=(-tags "$go_build_tags")
@@ -31,3 +33,5 @@ CARTULARY_TEST_TARGET="$target" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   "$run_step" "$label" -- \
   env GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" \
   "$go_bin" build "${go_build_args[@]}" -o "$output" "$package"
+
+"${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs receipt "$output"

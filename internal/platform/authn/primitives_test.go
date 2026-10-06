@@ -1,6 +1,7 @@
 package authn
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -28,15 +29,15 @@ func TestLoginNormalizationAndPasswordExactness(t *testing.T) {
 		t.Fatalf("password should remain exact after validation: got %q want %q", accepted, password)
 	}
 
-	hash, err := HashPassword(password)
+	hash, err := HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
 
-	if ok, err := VerifyPasswordHash(hash, password); err != nil || !ok {
+	if ok, err := VerifyPasswordHash(context.Background(), hash, password); err != nil || !ok {
 		t.Fatalf("expected exact password match to verify, ok=%v err=%v", ok, err)
 	}
-	if ok, err := VerifyPasswordHash(hash, "parol\u00e9 secret"); err != nil {
+	if ok, err := VerifyPasswordHash(context.Background(), hash, "parol\u00e9 secret"); err != nil {
 		t.Fatalf("verify trimmed password: %v", err)
 	} else if ok {
 		t.Fatal("expected trimmed password to fail exact verification")

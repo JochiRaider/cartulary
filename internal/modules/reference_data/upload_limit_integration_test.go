@@ -18,7 +18,7 @@ import (
 func testOversizedUploadAdmission(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	h := startReferencePackServerWithEnv(t, runtime, "reference-pack-stream-limit", map[string]string{"CARTULARY__LIMITS__REFERENCE_PACKS__MAX_CONTAINER_BYTES": "128"})
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, h.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	tables := []string{"jobs", "reference_pack_operations", "reference_pack_candidates", "reference_pack_events", "reference_pack_attempt_members", "reference_pack_objects", "reference_pack_indexes"}
 	before := map[string]int{}
 	for _, table := range tables {

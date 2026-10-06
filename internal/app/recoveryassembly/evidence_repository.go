@@ -201,7 +201,7 @@ func (repository *recoveryEvidenceRepository) FindSuccessfulCompletion(
 	}
 	rows, err := repository.db.Query(ctx, `
 SELECT envelope_schema_id, encryption_mode, key_fingerprint_sha256,
-       payload_sha256, nonce, ciphertext
+       payload_sha256, operator_recovery_journal_id::text, sealed_payload
   FROM operator_recovery_journal
  WHERE operation_id = $1
    AND operation = $2
@@ -224,8 +224,8 @@ SELECT envelope_schema_id, encryption_mode, key_fingerprint_sha256,
 			&envelope.EncryptionMode,
 			&envelope.KeyFingerprintSHA256,
 			&envelope.PayloadSHA256,
-			&envelope.Nonce,
-			&envelope.Ciphertext,
+			&envelope.RecordID,
+			&envelope.SealedPayload,
 		); err != nil {
 			return nil, fmt.Errorf("scan successful Recovery completion: %w", err)
 		}
@@ -294,6 +294,7 @@ func (repository *recoveryEvidenceRepository) encryptPayload(
 	}
 	envelope, err := recovery.EncryptOperatorRecoveryJournalPayload(
 		key,
+		uuid.NewString(),
 		recoveryEvidenceAAD(operationID, operation, recordKind),
 		body,
 	)
@@ -327,12 +328,12 @@ INSERT INTO operator_recovery_journal (
     encryption_mode,
     key_fingerprint_sha256,
     payload_sha256,
-    nonce,
-    ciphertext,
+    operator_recovery_journal_id,
+    sealed_payload,
     created_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-`, record.OperationID, record.Operation, record.Result, record.BackupSetID, record.ErrorCode, record.ErrorReason, record.Envelope.SchemaID, record.Envelope.EncryptionMode, record.Envelope.KeyFingerprintSHA256, record.Envelope.PayloadSHA256, record.Envelope.Nonce, record.Envelope.Ciphertext, record.RecordedAt); err != nil {
+`, record.OperationID, record.Operation, record.Result, record.BackupSetID, record.ErrorCode, record.ErrorReason, record.Envelope.SchemaID, record.Envelope.EncryptionMode, record.Envelope.KeyFingerprintSHA256, record.Envelope.PayloadSHA256, record.Envelope.RecordID, record.Envelope.SealedPayload, record.RecordedAt); err != nil {
 		return fmt.Errorf("append operator recovery journal: %w", err)
 	}
 	return nil

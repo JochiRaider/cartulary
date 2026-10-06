@@ -17,10 +17,11 @@ func ValidateRecoveryStateDatabaseCoverage(
 		return fmt.Errorf("%w: database is unavailable", recoverystate.ErrInvalidCatalog)
 	}
 	rows, err := pool.Query(ctx, `
-SELECT table_name
-FROM information_schema.tables
-WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-ORDER BY table_name ASC
+SELECT c.relname
+FROM pg_catalog.pg_class c
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'f')
+ORDER BY c.relname ASC
 `)
 	if err != nil {
 		return fmt.Errorf("list database tables for recovery state coverage: %w", err)

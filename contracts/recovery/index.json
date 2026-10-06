@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.recovery_contract_registry.v1",
+  "schema_id": "cartulary.recovery_contract_registry.v2",
   "canonicalization": "cartulary.recovery_canonical_json.v1",
   "current_schema_ids": [
-    "cartulary.backup_artifact_envelope.v2",
-    "cartulary.backup_integrity_manifest.v3",
+    "cartulary.backup_artifact_envelope.v3",
+    "cartulary.backup_integrity_manifest.v4",
     "cartulary.graph_projection_restore_implementation_binding.v5",
     "cartulary.graph_projection_restore_rebuild_result.v4",
     "cartulary.graph_projection_restore_source_registry.v4",
@@ -17,35 +17,26 @@
     "cartulary.recovery_generation_registry.v1",
     "cartulary.recovery_state_catalog.v2",
     "cartulary.recovery_state_contribution.v1",
-    "cartulary.restore_target_marker.v4",
-    "cartulary.restore_verification.v4",
+    "cartulary.restore_target_marker.v5",
+    "cartulary.restore_verification.v5",
     "cartulary.restore_workbook_probe_registration.v1"
   ],
-  "historical_reader_schema_ids": [
-    "cartulary.backup_artifact_envelope.v1",
-    "cartulary.backup_integrity_manifest.v2",
-    "cartulary.object_store_backup_manifest.v1",
-    "cartulary.object_store_backup_summary.v1",
-    "cartulary.object_store_snapshot_artifact.v2",
-    "cartulary.postgres_snapshot_artifact.v1",
-    "cartulary.restore_verification.v1"
-  ],
   "limits": {
-    "authored_table_count": 142,
+    "authored_table_count": 143,
     "required_table_count": 111,
     "chunk_plaintext_bytes": 4194304,
     "envelope_salt_bytes": 32,
-    "envelope_nonce_prefix_bytes": 8,
-    "maximum_chunks": 4294967296,
+    "maximum_chunks": 1048576,
     "maximum_artifact_refs": 4096,
     "maximum_artifact_kinds": 128,
     "maximum_contributions": 128,
     "maximum_object_families": 128,
-    "maximum_tables": 4096
+    "maximum_tables": 4096,
+    "envelope_random_nonce_bytes": 12
   },
   "schemas": [
-    "backup-artifact-envelope.v2.schema.json",
-    "backup-integrity-manifest.v3.schema.json",
+    "backup-artifact-envelope.v3.schema.json",
+    "backup-integrity-manifest.v4.schema.json",
     "common.v1.schema.json",
     "graph-projection-restore-implementation-binding.v5.schema.json",
     "graph-projection-restore-rebuild-result.v4.schema.json",
@@ -59,13 +50,13 @@
     "recovery-generation-registry.v1.schema.json",
     "recovery-state-catalog.v2.schema.json",
     "recovery-state-contribution.v1.schema.json",
-    "restore-target-marker.v4.schema.json",
-    "restore-verification.v4.schema.json",
+    "restore-target-marker.v5.schema.json",
+    "restore-verification.v5.schema.json",
     "restore-workbook-probe-registration.v1.schema.json"
   ],
   "canonical_fixtures": [
-    "fixtures/backup-artifact-envelope.v2.json",
-    "fixtures/backup-integrity-manifest.v3.json",
+    "fixtures/backup-artifact-envelope.v3.json",
+    "fixtures/backup-integrity-manifest.v4.json",
     "fixtures/graph-projection-restore-implementation-binding.v5.json",
     "fixtures/graph-projection-restore-rebuild-result.v4.json",
     "fixtures/graph-projection-restore-source-registry.v4.json",
@@ -78,8 +69,24 @@
     "fixtures/recovery-generation-registry.v1.json",
     "fixtures/recovery-state-catalog.v2.json",
     "fixtures/recovery-state-contribution.v1.json",
-    "fixtures/restore-target-marker.v4.json",
-    "fixtures/restore-verification.v4.json",
+    "fixtures/restore-target-marker.v5.json",
+    "fixtures/restore-verification.v5.json",
     "fixtures/restore-workbook-probe-registration.v1.json"
+  ],
+  "retired_schema_ids": [
+    "cartulary.backup_artifact_envelope.v1",
+    "cartulary.backup_artifact_envelope.v2",
+    "cartulary.backup_integrity_manifest.v2",
+    "cartulary.backup_integrity_manifest.v3",
+    "cartulary.object_store_backup_manifest.v1",
+    "cartulary.object_store_backup_summary.v1",
+    "cartulary.object_store_snapshot_artifact.v2",
+    "cartulary.operator_recovery_journal_payload.v2",
+    "cartulary.operator_recovery_journal_payload.v3",
+    "cartulary.operator_recovery_journal_payload.v4",
+    "cartulary.postgres_snapshot_artifact.v1",
+    "cartulary.restore_target_marker.v4",
+    "cartulary.restore_verification.v1",
+    "cartulary.restore_verification.v4"
   ]
 }

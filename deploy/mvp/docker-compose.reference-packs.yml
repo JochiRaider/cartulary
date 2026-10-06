@@ -33,11 +33,29 @@ services:
     entrypoint: ["/usr/local/bin/cartulary-operator"]
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
-      CARTULARY_POSTGRES_PRIMARY_RUNTIME_DSN: postgresql://cartulary_runtime_login:${CARTULARY_POSTGRES_RUNTIME_PASSWORD:?set CARTULARY_POSTGRES_RUNTIME_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY_POSTGRES_PRIMARY_RUNTIME_DSN: postgresql://cartulary_runtime_login@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
     depends_on:
       app:
         condition: service_started
     volumes:
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
+        target: /etc/cartulary/tls/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/runtime.crt
+        target: /etc/cartulary/tls/pg.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/runtime.key
+        target: /etc/cartulary/tls/pg.key
+        read_only: true
+        bind:
+          create_host_path: false
       - type: bind
         source: ./config.toml
         target: /etc/cartulary/config.toml

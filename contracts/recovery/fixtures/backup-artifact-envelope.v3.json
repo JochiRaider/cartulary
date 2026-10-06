@@ -1,0 +1,18 @@
+{
+  "schema_id": "cartulary.backup_artifact_envelope.v3",
+  "application_crypto_format": "cartulary.application_crypto_format.v1",
+  "logical_ref": "backup/00000000-0000-0000-0000-000000000201/empty",
+  "content_type": "application/octet-stream",
+  "kdf": "hkdf_sha256_v2",
+  "cipher": "aes_256_gcm_random_nonce_chunked_v2",
+  "salt_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "chunk_plaintext_bytes": 4194304,
+  "chunks": [
+    {
+      "index": 0,
+      "plaintext_length": 0,
+      "final": true,
+      "ciphertext_base64": "AAECAwQFBgcICQoLVKEX8kvl4tu/G3KkFG3OCA=="
+    }
+  ]
+}

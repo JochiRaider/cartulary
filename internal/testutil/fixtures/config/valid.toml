@@ -1,8 +1,10 @@
-config_schema_id = "cartulary.deployment_config.v2"
+config_schema_id = "cartulary.deployment_config.v3"
 deployment_profile = "disconnected"
 
 [application]
-public_origin = "http://localhost:5173"
+tls_certificate_path = "/etc/cartulary/tls/application.crt"
+tls_private_key_path = "/etc/cartulary/tls/application.key"
+public_origin = "https://localhost:5173"
 
 [roots.database_storage]
 binding_kind = "filesystem_root"

@@ -12,7 +12,7 @@ import (
 func NewCodec(scope string) conflicttokens.ConflictTokenCodec {
 	key := sha256.Sum256([]byte("cartulary-test-conflict-token-v3:" + scope))
 	secretRef := "test-" + scope
-	manifest := fmt.Sprintf(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[{"conflict_token_key_id":"%s","state":"active","secret_ref":{"kind":"env","name":"%s"}}]}`, secretRef, secretRef)
+	manifest := fmt.Sprintf(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v2","algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[{"conflict_token_key_id":"%s","state":"active","secret_ref":{"kind":"env","name":"%s"}}]}`, secretRef, secretRef)
 	ring, err := conflicttokens.ParseConflictTokenKeyRing([]byte(manifest), map[string]string{
 		"CARTULARY_SECRET_" + normalizedSecretSuffix(secretRef): base64.RawURLEncoding.EncodeToString(key[:]),
 	}, time.Now().UTC(), conflicttokens.KeyRingParseOptions{AllowFixtureKey: true})

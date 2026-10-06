@@ -15,6 +15,8 @@ const requiredProjections = [
   "build-operator",
   "build-server",
   "build-web",
+  "credential-capacity-assessment",
+  "cryptographic-policy-assessment",
   "deployable-shape",
   "go-gosec-audit",
   "harness-contract",

@@ -26,15 +26,15 @@ const (
 	PostgresSnapshotUnitV1SchemaID      = "cartulary.postgres_snapshot_unit.v1"
 	ObjectStoreBackupManifestV2SchemaID = "cartulary.object_store_backup_manifest.v2"
 	ObjectStoreBackupSummaryV2SchemaID  = "cartulary.object_store_backup_summary.v2"
-	BackupIntegrityManifestV3SchemaID   = "cartulary.backup_integrity_manifest.v3"
+	BackupIntegrityManifestV4SchemaID   = "cartulary.backup_integrity_manifest.v4"
 	VNextTransactionIsolation           = "repeatable_read_read_only"
 	vNextCodecRegistryDomain            = "CARTULARY-RECOVERY-CODEC-REGISTRY-VNEXT\n"
 	vNextPostgresSnapshotDigestDomain   = "CARTULARY-POSTGRES-SNAPSHOT-ARTIFACT-V2\n"
 	vNextObjectManifestDigestDomain     = "CARTULARY-OBJECT-STORE-BACKUP-MANIFEST-V2\n"
-	vNextIntegrityManifestDigestDomain  = "CARTULARY-BACKUP-INTEGRITY-MANIFEST-V3\n"
+	vNextIntegrityManifestDigestDomain  = "CARTULARY-BACKUP-INTEGRITY-MANIFEST-V4\n"
 	vNextNDJSONContentType              = "application/x-ndjson"
 	vNextJSONContentType                = "application/json"
-	VNextMetadataArtifactScheme         = "backup-stream-v2://"
+	VNextMetadataArtifactScheme         = "backup-stream-v3://"
 )
 
 var ErrVNextBackup = errors.New("recovery: invalid vNext backup")
@@ -280,6 +280,7 @@ type VNextArtifactProof struct {
 }
 
 type VNextBackupIntegrityManifest struct {
+	ApplicationCryptoFormat    string               `json:"application_crypto_format"`
 	SchemaID                   string               `json:"schema_id"`
 	BackupSetID                string               `json:"backup_set_id"`
 	ConsistencyPointAt         time.Time            `json:"consistency_point_at"`
@@ -474,7 +475,8 @@ func (service *VNextCaptureService) Capture(
 		return artifacts[left].LogicalRef < artifacts[right].LogicalRef
 	})
 	integrity := VNextBackupIntegrityManifest{
-		SchemaID:                   BackupIntegrityManifestV3SchemaID,
+		ApplicationCryptoFormat:    ApplicationCryptoFormatID,
+		SchemaID:                   BackupIntegrityManifestV4SchemaID,
 		BackupSetID:                params.BackupSetID.String(),
 		ConsistencyPointAt:         params.ConsistencyPointAt,
 		CreatedAt:                  params.CreatedAt,
@@ -489,7 +491,7 @@ func (service *VNextCaptureService) Capture(
 		return VNextCapturedBackup{}, err
 	}
 	integrityProof, err := service.writeJSONArtifact(
-		ctx, params.BackupSetID, "integrity_manifest", BackupIntegrityManifestV3SchemaID, integrity,
+		ctx, params.BackupSetID, "integrity_manifest", BackupIntegrityManifestV4SchemaID, integrity,
 	)
 	if err != nil {
 		return VNextCapturedBackup{}, err
@@ -1300,7 +1302,7 @@ func (service *VNextRestoreService) validateIntegrityManifest(
 		manifest.RecoveryStateCatalogSHA256,
 		manifest.CodecRegistrySHA256,
 	)
-	if manifest.SchemaID != BackupIntegrityManifestV3SchemaID ||
+	if manifest.ApplicationCryptoFormat != ApplicationCryptoFormatID || manifest.SchemaID != BackupIntegrityManifestV4SchemaID ||
 		!admitted ||
 		len(manifest.Artifacts) < 3 || len(manifest.Artifacts) > 4096 {
 		return nil, fmt.Errorf("%w: integrity manifest facts mismatch", ErrVNextBackup)

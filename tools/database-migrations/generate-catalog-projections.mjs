@@ -390,7 +390,7 @@ function toManifestEntry(object) {
     "rebuild_indicator_active_identities",
   ]);
   const runtimeClass = {
-    table: bareName === "schema_migration_lineage"
+    table: ["schema_migration_lineage", "application_crypto_format"].includes(bareName)
       ? "migration_ledger_read"
       : runtimeNoAccessTables.has(bareName)
         ? "table_no_access"
@@ -404,7 +404,7 @@ function toManifestEntry(object) {
     routine: runtimeApplicationRoutines.has(bareName) ? "routine_application" : "routine_private",
   }[object.object_kind] ?? "not_applicable";
   const recoveryAccessClass = {
-    table: bareName === "schema_migration_lineage"
+    table: ["schema_migration_lineage", "application_crypto_format"].includes(bareName)
       ? "migration_ledger_read"
       : derivedReadOnlyTables.has(bareName)
         ? "table_rebuild"

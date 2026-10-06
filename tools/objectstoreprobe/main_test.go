@@ -28,7 +28,7 @@ func TestCheckCORSPreflightRequiresExactDirectPutPolicy(t *testing.T) {
 		}))
 		defer server.Close()
 
-		if err := checkCORSPreflight(context.Background(), server.URL, corsTestOrigin); err != nil {
+		if err := checkCORSPreflight(context.Background(), http.DefaultClient, server.URL, corsTestOrigin); err != nil {
 			t.Fatalf("exact CORS policy rejected: %v", err)
 		}
 	})
@@ -79,7 +79,7 @@ func TestCheckCORSPreflightRequiresExactDirectPutPolicy(t *testing.T) {
 			}))
 			defer server.Close()
 
-			if err := checkCORSPreflight(context.Background(), server.URL, corsTestOrigin); err == nil {
+			if err := checkCORSPreflight(context.Background(), http.DefaultClient, server.URL, corsTestOrigin); err == nil {
 				t.Fatalf("%s CORS policy unexpectedly accepted", tc.name)
 			}
 		})
@@ -95,7 +95,7 @@ func TestCheckCORSPreflightRejectsNullOriginAcceptance(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := checkCORSPreflight(context.Background(), server.URL, corsTestOrigin); err == nil {
+	if err := checkCORSPreflight(context.Background(), http.DefaultClient, server.URL, corsTestOrigin); err == nil {
 		t.Fatalf("Origin null acceptance unexpectedly passed")
 	}
 }
@@ -112,7 +112,7 @@ func TestUploadPresignedPUTRequiresExactCORSResponse(t *testing.T) {
 		}))
 		defer server.Close()
 
-		if err := uploadPresignedPUT(context.Background(), server.URL, corsTestOrigin, []byte("payload")); err != nil {
+		if err := uploadPresignedPUT(context.Background(), http.DefaultClient, server.URL, corsTestOrigin, []byte("payload")); err != nil {
 			t.Fatalf("exact PUT CORS response rejected: %v", err)
 		}
 	})
@@ -125,7 +125,7 @@ func TestUploadPresignedPUTRequiresExactCORSResponse(t *testing.T) {
 		}))
 		defer server.Close()
 
-		if err := uploadPresignedPUT(context.Background(), server.URL, corsTestOrigin, []byte("payload")); err == nil {
+		if err := uploadPresignedPUT(context.Background(), http.DefaultClient, server.URL, corsTestOrigin, []byte("payload")); err == nil {
 			t.Fatalf("extra exposed header unexpectedly accepted")
 		}
 	})

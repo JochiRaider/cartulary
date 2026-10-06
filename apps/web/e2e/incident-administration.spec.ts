@@ -95,8 +95,15 @@ type AccountDensityMode = "compact" | "default" | "comfortable" | null;
 
 /** Establish only the preceding region; the selector journey itself uses keyboard input. */
 async function enterDesktopSurfaceSelector(page: Page) {
-  await page.getByRole("button", { name: /^Incident details:/ }).focus();
+  const tabs = page.getByRole("tablist", {
+    name: "Built-in workbook surfaces",
+  });
+  await expect(tabs).toBeVisible();
+  const preceding = page.getByRole("button", { name: /^Incident details:/ });
+  await preceding.focus();
+  await expect(preceding).toBeFocused();
   await page.keyboard.press("Tab");
+  await expect(tabs.locator('[role="tab"]:focus')).toHaveCount(1);
 }
 
 test("operates account application menus with keyboard focus and viewport containment", async ({
@@ -1253,6 +1260,11 @@ test("Verify viewer built-in selection focuses committed cells then the empty gr
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(
+    page
+      .getByTestId(gridShellTestId(timelineViewSchemaId))
+      .locator('[role="grid"], [role="treegrid"]'),
+  ).toHaveAttribute("aria-busy", "false");
 
   await enterDesktopSurfaceSelector(page);
   for (let index = 0; index < 3; index += 1)

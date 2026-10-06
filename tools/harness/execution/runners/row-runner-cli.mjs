@@ -67,7 +67,7 @@ async function execute(invocation) {
   try {
     result = await runPrivateCapturedProcess(invocation.command, invocation.args, {
       cwd: root,
-      env: { ...process.env, ...context?.environment },
+      env: { ...process.env, ...invocation.environment, ...context?.environment },
       repoRoot: root,
       runRoot: runRoot(),
       tailBytes: 1024 * 1024,
@@ -102,7 +102,11 @@ function invocationsForRows(rows) {
   }
   if (runner === "go") {
     return {
-      invocations: buildGoInvocations(rows, workers, process.env.GO || "go"),
+      invocations: buildGoInvocations(rows, workers, process.env.GO || "go").map((invocation) => ({
+        ...invocation,
+        // Explicit test credentials: production key loading has no default.
+        environment: { CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() },
+      })),
       adapt: adaptGoInvocationFile,
     };
   }

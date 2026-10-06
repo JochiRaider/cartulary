@@ -64,8 +64,11 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	}
 	cursorCodec := deps.CursorCodec
 	if cursorCodec == nil {
-		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
-		cursorCodec = pagination.NewCodec(cursorKey[:])
+		cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
+		if err != nil {
+			return nil, err
+		}
+		cursorCodec = pagination.NewCodec(cursorKey)
 	}
 	return &Service{
 		store:          NewStore(deps.PostgresHandle()),

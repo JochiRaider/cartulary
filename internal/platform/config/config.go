@@ -18,7 +18,7 @@ const (
 	ConfigFileEnv               = "CARTULARY_CONFIG_FILE"
 	InvalidDeploymentConfigCode = "invalid_deployment_config"
 	overlayPrefix               = "CARTULARY__"
-	expectedConfigSchemaID      = "cartulary.deployment_config.v2"
+	expectedConfigSchemaID      = "cartulary.deployment_config.v3"
 
 	defaultObjectBlobMaxDeclaredByteSize         int64 = 536870912
 	defaultImportMaxCSVSourceBytes               int64 = 33554432
@@ -72,7 +72,9 @@ type document struct {
 }
 
 type ApplicationConfig struct {
-	PublicOrigin string `toml:"public_origin"`
+	PublicOrigin       string `toml:"public_origin"`
+	TLSCertificatePath string `toml:"tls_certificate_path"`
+	TLSPrivateKeyPath  string `toml:"tls_private_key_path"`
 }
 
 type RootBindings struct {

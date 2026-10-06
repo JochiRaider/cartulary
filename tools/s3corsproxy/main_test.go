@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
+	"github.com/JochiRaider/cartulary/internal/testutil/tlstest"
 	"io"
 	"net"
 	"net/http"
@@ -17,14 +20,14 @@ import (
 	"time"
 )
 
-const testOrigin = "http://localhost:5173"
+const testOrigin = "https://localhost:5173"
 
 func TestProxyPreflightExactPolicy(t *testing.T) {
-	upstream := httptest.NewServer(http.NotFoundHandler())
+	upstream := proxyTestServer(t, http.NotFoundHandler())
 	t.Cleanup(upstream.Close)
-	handler := newProxyHandler(parseTestURL(t, upstream.URL), testOrigin)
+	handler := newProxyHandler(parseTestURL(t, upstream.URL), testOrigin, upstream.Client().Transport)
 
-	req := httptest.NewRequest(http.MethodOptions, "http://object-store.test/cartulary/object.bin", nil)
+	req := httptest.NewRequest(http.MethodOptions, "https://object-store.test/cartulary/object.bin", nil)
 	req.Header.Set("Origin", testOrigin)
 	req.Header.Set("Access-Control-Request-Method", http.MethodPut)
 	req.Header.Set("Access-Control-Request-Headers", "x-amz-checksum-sha256, content-type")
@@ -52,9 +55,9 @@ func TestProxyPreflightExactPolicy(t *testing.T) {
 }
 
 func TestProxyPreflightRejectsDisallowedOriginMethodAndHeader(t *testing.T) {
-	upstream := httptest.NewServer(http.NotFoundHandler())
+	upstream := proxyTestServer(t, http.NotFoundHandler())
 	t.Cleanup(upstream.Close)
-	handler := newProxyHandler(parseTestURL(t, upstream.URL), testOrigin)
+	handler := newProxyHandler(parseTestURL(t, upstream.URL), testOrigin, upstream.Client().Transport)
 
 	tests := []struct {
 		name    string
@@ -69,7 +72,7 @@ func TestProxyPreflightRejectsDisallowedOriginMethodAndHeader(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodOptions, "http://object-store.test/cartulary/object.bin", nil)
+			req := httptest.NewRequest(http.MethodOptions, "https://object-store.test/cartulary/object.bin", nil)
 			req.Header.Set("Origin", tc.origin)
 			req.Header.Set("Access-Control-Request-Method", tc.method)
 			req.Header.Set("Access-Control-Request-Headers", tc.headers)
@@ -89,7 +92,7 @@ func TestProxyPreflightRejectsDisallowedOriginMethodAndHeader(t *testing.T) {
 func TestProxyPUTPreservesHostAndNormalizesCORS(t *testing.T) {
 	var gotHost string
 	var gotBody []byte
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := proxyTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotHost = r.Host
 		gotBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -98,9 +101,9 @@ func TestProxyPUTPreservesHostAndNormalizesCORS(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(upstream.Close)
-	handler := newProxyHandler(parseTestURL(t, upstream.URL), testOrigin)
+	handler := newProxyHandler(parseTestURL(t, upstream.URL), testOrigin, upstream.Client().Transport)
 
-	req := httptest.NewRequest(http.MethodPut, "http://signed-host.test/cartulary/object.bin", strings.NewReader("payload"))
+	req := httptest.NewRequest(http.MethodPut, "https://signed-host.test/cartulary/object.bin", strings.NewReader("payload"))
 	req.Header.Set("Origin", testOrigin)
 	resp := httptest.NewRecorder()
 	handler.ServeHTTP(resp, req)
@@ -120,6 +123,22 @@ func TestProxyPUTPreservesHostAndNormalizesCORS(t *testing.T) {
 	if got := resp.Header().Get("Access-Control-Expose-Headers"); got != "etag" {
 		t.Fatalf("expose headers got %q want etag", got)
 	}
+	t.Run("untrusted upstream rejects before PUT", func(t *testing.T) {
+		bindings := proxyTestBindings(t)
+		transport, err := proxyTransport("127.0.0.1", bindings.RootCertificate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer transport.CloseIdleConnections()
+		handler := newProxyHandler(parseTestURL(t, upstream.URL), testOrigin, transport)
+		req := httptest.NewRequest(http.MethodPut, "https://signed-host.test/cartulary/object.bin", strings.NewReader("substituted"))
+		resp := httptest.NewRecorder()
+		handler.ServeHTTP(resp, req)
+		if resp.Code != http.StatusBadGateway || string(gotBody) != "payload" {
+			t.Fatal("untrusted upstream was reached")
+		}
+	})
+
 }
 
 func TestProxyConfigurationRejectsAmbiguousOrNonLoopbackInputs(t *testing.T) {
@@ -129,40 +148,42 @@ func TestProxyConfigurationRejectsAmbiguousOrNonLoopbackInputs(t *testing.T) {
 		upstream string
 		origin   string
 	}{
+		{name: "plaintext upstream", listen: "127.0.0.1:8333", upstream: "http://127.0.0.1:18333", origin: testOrigin},
+		{name: "plaintext origin", listen: "127.0.0.1:8333", upstream: "https://127.0.0.1:18333", origin: "http://localhost:5173"},
 		{
 			name:     "non-loopback listener",
 			listen:   "0.0.0.0:8333",
-			upstream: "http://127.0.0.1:18333",
+			upstream: "https://127.0.0.1:18333",
 			origin:   testOrigin,
 		},
 		{
 			name:     "upstream userinfo",
 			listen:   "127.0.0.1:8333",
-			upstream: "http://user@127.0.0.1:18333",
+			upstream: "https://user@127.0.0.1:18333",
 			origin:   testOrigin,
 		},
 		{
 			name:     "upstream query",
 			listen:   "127.0.0.1:8333",
-			upstream: "http://127.0.0.1:18333?mode=stale",
+			upstream: "https://127.0.0.1:18333?mode=stale",
 			origin:   testOrigin,
 		},
 		{
 			name:     "allowed-origin fragment",
 			listen:   "127.0.0.1:8333",
-			upstream: "http://127.0.0.1:18333",
-			origin:   "http://localhost:5173#stale",
+			upstream: "https://127.0.0.1:18333",
+			origin:   "https://localhost:5173#stale",
 		},
 		{
 			name:     "allowed-origin path",
 			listen:   "127.0.0.1:8333",
-			upstream: "http://127.0.0.1:18333",
-			origin:   "http://localhost:5173/path",
+			upstream: "https://127.0.0.1:18333",
+			origin:   "https://localhost:5173/path",
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := normalizeConfig(tc.listen, tc.upstream, tc.origin); err == nil {
+			if _, err := testProxyConfig(t, tc.listen, tc.upstream, tc.origin); err == nil {
 				t.Fatal("unsafe proxy configuration must be rejected")
 			}
 		})
@@ -171,9 +192,9 @@ func TestProxyConfigurationRejectsAmbiguousOrNonLoopbackInputs(t *testing.T) {
 
 func TestProxyLifecycleTreatsPreProofAttemptAsUntrusted(t *testing.T) {
 	temp := t.TempDir()
-	config, err := normalizeConfig(
+	config, err := testProxyConfig(t,
 		availableLoopbackAddress(t),
-		"http://127.0.0.1:18333",
+		"https://127.0.0.1:18333",
 		testOrigin,
 	)
 	if err != nil {
@@ -210,11 +231,12 @@ func TestProxyLifecycleUsesImmutableProofAndPidfdStop(t *testing.T) {
 	leaseFile := filepath.Join(temp, "lease.json")
 	logPath := filepath.Join(temp, "logs", "instance.log")
 	instanceID := "test-instance"
-	config, err := normalizeConfig(listen, "http://127.0.0.1:18333", testOrigin)
+	config, err := testProxyConfig(t, listen, "https://127.0.0.1:18333", testOrigin)
 	if err != nil {
 		t.Fatalf("normalize config: %v", err)
 	}
 	options := commandOptions{
+		tls:         config.TLS,
 		listen:      listen,
 		upstream:    config.UpstreamOrigin,
 		origin:      config.AllowedOrigin,
@@ -243,7 +265,7 @@ func TestProxyLifecycleUsesImmutableProofAndPidfdStop(t *testing.T) {
 	if err := status(leaseFile, config); err != nil {
 		t.Fatalf("ready lease status: %v", err)
 	}
-	mismatched, err := normalizeConfig(listen, config.UpstreamOrigin, "http://localhost:5174")
+	mismatched, err := normalizeConfig(listen, config.UpstreamOrigin, "https://localhost:5174", config.TLS)
 	if err != nil {
 		t.Fatalf("normalize mismatch config: %v", err)
 	}
@@ -268,13 +290,14 @@ func TestProxyLifecycleRefusesMutatedProofAndUnownedListener(t *testing.T) {
 	}
 	temp := t.TempDir()
 	listen := availableLoopbackAddress(t)
-	config, err := normalizeConfig(listen, "http://127.0.0.1:18333", testOrigin)
+	config, err := testProxyConfig(t, listen, "https://127.0.0.1:18333", testOrigin)
 	if err != nil {
 		t.Fatalf("normalize config: %v", err)
 	}
 	attemptFile := filepath.Join(temp, "attempt.json")
 	leaseFile := filepath.Join(temp, "lease.json")
 	options := commandOptions{
+		tls:         config.TLS,
 		listen:      listen,
 		upstream:    config.UpstreamOrigin,
 		origin:      config.AllowedOrigin,
@@ -372,9 +395,9 @@ func TestProxyLifecycleRefusesMutatedProofAndUnownedListener(t *testing.T) {
 		t.Fatalf("listen unowned: %v", err)
 	}
 	defer unowned.Close()
-	unownedConfig, err := normalizeConfig(
+	unownedConfig, err := testProxyConfig(t,
 		unowned.Addr().String(),
-		"http://127.0.0.1:18333",
+		"https://127.0.0.1:18333",
 		testOrigin,
 	)
 	if err != nil {
@@ -382,6 +405,7 @@ func TestProxyLifecycleRefusesMutatedProofAndUnownedListener(t *testing.T) {
 	}
 	unownedOptions := options
 	unownedOptions.listen = unownedConfig.Listen
+	unownedOptions.tls = unownedConfig.TLS
 	unownedOptions.attemptFile = filepath.Join(temp, "unowned-attempt.json")
 	unownedOptions.instanceID = "unowned-test"
 	if err := createAttempt(unownedOptions, unownedConfig); err != nil {
@@ -409,6 +433,7 @@ func TestProxyHelperProcess(t *testing.T) {
 		os.Exit(2)
 	}
 	options := commandOptions{
+		tls:         tlsBindings{Certificate: values["tls_certificate"], PrivateKey: values["tls_key"], RootCertificate: values["tls_root"]},
 		listen:      values["listen"],
 		upstream:    values["upstream"],
 		origin:      values["origin"],
@@ -416,7 +441,7 @@ func TestProxyHelperProcess(t *testing.T) {
 		instanceID:  values["instance_id"],
 		logPath:     values["log_path"],
 	}
-	config, err := normalizeConfig(options.listen, options.upstream, options.origin)
+	config, err := normalizeConfig(options.listen, options.upstream, options.origin, options.tls)
 	if err == nil {
 		err = serve(options, config)
 	}
@@ -446,12 +471,15 @@ func startProxyHelper(t *testing.T, options commandOptions) *exec.Cmd {
 		t.Fatalf("test executable: %v", err)
 	}
 	serialized, err := json.Marshal(map[string]string{
-		"listen":       options.listen,
-		"upstream":     options.upstream,
-		"origin":       options.origin,
-		"attempt_file": options.attemptFile,
-		"instance_id":  options.instanceID,
-		"log_path":     options.logPath,
+		"tls_certificate": options.tls.Certificate,
+		"tls_key":         options.tls.PrivateKey,
+		"tls_root":        options.tls.RootCertificate,
+		"listen":          options.listen,
+		"upstream":        options.upstream,
+		"origin":          options.origin,
+		"attempt_file":    options.attemptFile,
+		"instance_id":     options.instanceID,
+		"log_path":        options.logPath,
 	})
 	if err != nil {
 		t.Fatalf("serialize helper options: %v", err)
@@ -487,4 +515,49 @@ func parseTestURL(t *testing.T, raw string) *url.URL {
 		t.Fatalf("parse test URL: %v", err)
 	}
 	return parsed
+}
+
+func proxyTestBindings(t *testing.T) tlsBindings {
+	t.Helper()
+	ca, err := tlstest.NewAuthority()
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := ca.Issue("proxy", []string{"127.0.0.1"}, x509.ExtKeyUsageServerAuth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	write := func(name string, data []byte) string {
+		path, err := tlstest.WriteFile(directory, name, data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	return tlsBindings{Certificate: write("server.pem", identity.CertificatePEM), PrivateKey: write("server.key", identity.PrivateKeyPEM), RootCertificate: write("root.pem", ca.CertificatePEM)}
+}
+
+func testProxyConfig(t *testing.T, listen, upstream, origin string) (proxyConfig, error) {
+	t.Helper()
+	return normalizeConfig(listen, upstream, origin, proxyTestBindings(t))
+}
+
+func proxyTestServer(t *testing.T, handler http.Handler) *httptest.Server {
+	t.Helper()
+	bindings := proxyTestBindings(t)
+	config, err := cryptography.TLSServer("127.0.0.1", bindings.Certificate, bindings.PrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewUnstartedServer(handler)
+	server.TLS = config
+	server.StartTLS()
+	transport, err := proxyTransport("127.0.0.1", bindings.RootCertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.Client().Transport = transport
+	t.Cleanup(transport.CloseIdleConnections)
+	return server
 }

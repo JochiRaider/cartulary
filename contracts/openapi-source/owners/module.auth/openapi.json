@@ -29,6 +29,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": []
@@ -319,6 +322,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [
@@ -368,6 +374,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [
@@ -990,6 +999,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [
@@ -1136,6 +1148,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [
@@ -2122,14 +2137,17 @@
         "additionalProperties": false,
         "properties": {
           "secret_base32": {
-            "type": "string"
+            "type": "string",
+            "minLength": 52,
+            "maxLength": 52,
+            "pattern": "^[A-Z2-7]{51}[AQ]$"
           },
           "otpauth_uri": {
             "type": "string",
             "format": "uri"
           },
           "algorithm": {
-            "const": "SHA1"
+            "const": "SHA256"
           },
           "digits": {
             "const": 6
@@ -2726,6 +2744,44 @@
         "required": [
           "changed_at"
         ]
+      },
+      "AuthCapacityExhaustedEnvelope": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ErrorEnvelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "const": "authentication_capacity_exhausted"
+                  },
+                  "details": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "maxProperties": 0
+                  },
+                  "status": {
+                    "type": "integer",
+                    "const": 503
+                  },
+                  "retryable": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "code",
+                  "details"
+                ]
+              }
+            }
+          }
+        ]
       }
     },
     "responses": {
@@ -3258,6 +3314,28 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthCapacityExhaustedResponse": {
+        "description": "Credential workflow capacity exhausted. No credential, session or durable idempotency effect; retry after one second.",
+        "x-cartulary-error-codes": [
+          "authentication_capacity_exhausted"
+        ],
+        "headers": {
+          "Retry-After": {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "1"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthCapacityExhaustedEnvelope"
             }
           }
         }

@@ -81,10 +81,11 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "object_store_namespace",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "full",
       "service_dependencies": [
-        "object_store"
+        "object_store",
+        "postgres"
       ]
     },
     {

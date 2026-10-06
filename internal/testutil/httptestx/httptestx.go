@@ -187,7 +187,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	if err := applyTestRouteMode(env, options.TestRouteMode); err != nil {
 		t.Fatalf("configure test routes: %v", err)
 	}
-	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
+	configtest.EnsureCryptographicTestEnvironment(env)
 
 	var loaded configassembly.Loaded
 	if options.Loaded == nil {

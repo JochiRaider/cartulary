@@ -184,6 +184,18 @@
   ],
   "shared_data_roots": [
     {
+      "path": "internal/testutil/fixtures/auth",
+      "owner": "platform_bootstrap_auth",
+      "posture": "shared",
+      "data_kind": "platform_config",
+      "file_roles": [
+        "fixture"
+      ],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Explicit non-production authentication key fixture shared by Go rows and application test composition; production loading has no fallback."
+    },
+    {
       "path": "internal/testutil/fixtures/bootstrap-admin",
       "owner": "platform_bootstrap_auth",
       "posture": "shared",

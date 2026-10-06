@@ -5,7 +5,7 @@
   "status": "succeeded",
   "readiness_outcome": "ready",
   "algorithm_id": "graphprojection.restore_rebuild.v4",
-  "implementation_binding_sha256": "01a6b736bc33c211fb246bdf64fabc19b115cb431c0cc3f2c6902ee6f889a314",
+  "implementation_binding_sha256": "1006d1df55a273762d1986adcf541bac8b027e7a11894cf58f741deb12303afe",
   "source_registry_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634",
   "cleared_table_ids": ["graph_projection_result_edges", "graph_projection_result_leases", "graph_projection_result_vertices", "graph_projection_results"],
   "rebuilt_views": [

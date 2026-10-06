@@ -805,46 +805,43 @@ export async function focusRemoteTimelineCellAndWaitForPresence({
   socketMonitor: ReturnType<typeof installIncidentSocketMonitor>;
   timeoutMs?: number;
 }) {
+  // A query replacement can reset the virtualized columns after a cell was
+  // visible. Position both targets only after the current grids are ready.
+  for (const page of [primaryPage, remotePage]) {
+    await expect(
+      page
+        .getByTestId(gridShellTestId(timelineViewSchemaId))
+        .locator('[role="grid"], [role="treegrid"]'),
+    ).toHaveAttribute("aria-busy", "false");
+  }
+  for (const page of [primaryPage, remotePage]) {
+    await scrollGridCellIntoView({
+      cellKey: fieldKey,
+      page,
+      recordId,
+      surface: timelineViewSchemaId,
+    });
+  }
   const markerStartAt = socketMonitor.messageCount();
-  const markerPresence = socketMonitor.waitForMessageWhere(
-    `matching presence ${recordId}:${fieldKey}:${mode}`,
-    {
-      matches: (message) =>
-        presenceMessageMatches(message, {
-          fieldKey,
-          mode,
-          recordId,
-        }),
-      startAt: markerStartAt,
-      ...(timeoutMs === undefined ? {} : { timeoutMs }),
-    },
-  );
-  await scrollGridCellIntoView({
-    cellKey: fieldKey,
-    page: remotePage,
-    recordId,
-    surface: timelineViewSchemaId,
-  });
-  await scrollGridCellIntoView({
-    cellKey: fieldKey,
-    page: primaryPage,
-    recordId,
-    surface: timelineViewSchemaId,
-  });
-  const remoteDisplay = remotePage.getByTestId(
-    rowCellTestId(recordId, fieldKey),
-  );
-  await remoteDisplay.click();
-  await expect(
-    remotePage.getByTestId(
-      timelineScalarEditorTestId({
-        fieldKey,
-        recordId,
-        surface: "grid",
-      }),
+  const [presenceMessage] = await Promise.all([
+    socketMonitor.waitForMessageWhere(
+      `matching presence ${recordId}:${fieldKey}:${mode}`,
+      {
+        matches: (message) =>
+          presenceMessageMatches(message, { fieldKey, mode, recordId }),
+        startAt: markerStartAt,
+        ...(timeoutMs === undefined ? {} : { timeoutMs }),
+      },
     ),
-  ).toBeFocused();
-  const presenceMessage = await markerPresence;
+    (async () => {
+      await remotePage.getByTestId(rowCellTestId(recordId, fieldKey)).click();
+      await expect(
+        remotePage.getByTestId(
+          timelineScalarEditorTestId({ fieldKey, recordId, surface: "grid" }),
+        ),
+      ).toBeFocused();
+    })(),
+  ]);
   const rowMarker = primaryPage.getByTestId(rowPresenceMarkerTestId(recordId));
   const cellMarker = primaryPage.getByTestId(
     cellPresenceMarkerTestId(recordId, fieldKey),

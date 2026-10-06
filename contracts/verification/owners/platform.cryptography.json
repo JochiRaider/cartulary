@@ -1,0 +1,38 @@
+{
+  "schema_id": "cartulary.verification_contract.v3",
+  "owner_id": "platform.cryptography",
+  "verifications": [
+    {
+      "verification_id": "platform.cryptography.verification.execution_policy",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.cryptography.verification.rsa_service_parameters",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.cryptography.verification.sealing_primitives",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.cryptography.verification.tls_transport",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    }
+  ]
+}

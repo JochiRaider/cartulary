@@ -470,7 +470,7 @@ func validateSamplerConsistency(profile string, ratio float64, findings *[]Findi
 func validateHTTPEndpoint(raw string, path string, findings *[]Finding) {
 	parsed, err := url.Parse(raw)
 	if err != nil || !validEndpointBase(parsed) || parsed.Path == "" && strings.HasSuffix(raw, "//") {
-		appendFinding(findings, path, "OTLP/HTTP endpoint must be an absolute http(s) URL with explicit port and no userinfo, query, or fragment")
+		appendFinding(findings, path, "OTLP/HTTP endpoint must be an absolute https URL with explicit port and no userinfo, query, or fragment")
 		return
 	}
 	if parsed.Path != "" && parsed.Path != "/" {
@@ -490,7 +490,7 @@ func validateHTTPEndpoint(raw string, path string, findings *[]Finding) {
 func validateGRPCEndpoint(raw string, path string, findings *[]Finding) {
 	parsed, err := url.Parse(raw)
 	if err != nil || !validEndpointBase(parsed) {
-		appendFinding(findings, path, "OTLP/gRPC endpoint must be an absolute http(s) URL with explicit port and no userinfo, query, fragment, or path")
+		appendFinding(findings, path, "OTLP/gRPC endpoint must be an absolute https URL with explicit port and no userinfo, query, fragment, or path")
 		return
 	}
 	if parsed.Path != "" && parsed.Path != "/" {
@@ -499,7 +499,7 @@ func validateGRPCEndpoint(raw string, path string, findings *[]Finding) {
 }
 
 func validEndpointBase(parsed *url.URL) bool {
-	if parsed == nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if parsed == nil || parsed.Scheme != "https" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return false
 	}
 	host := parsed.Hostname()

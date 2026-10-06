@@ -98,7 +98,7 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 	})
 
 	t.Run("rejects unsupported config schema identifiers", func(t *testing.T) {
-		err := loadInvalidConfig(t, strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `config_schema_id = "cartulary.deployment_config.v2"`, `config_schema_id = "cartulary.deployment_config.v1"`), nil)
+		err := loadInvalidConfig(t, strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `config_schema_id = "cartulary.deployment_config.v3"`, `config_schema_id = "cartulary.deployment_config.v1"`), nil)
 		requireDiagnostic(t, err, "config_schema_id", "unsupported_config_schema_id")
 	})
 
@@ -127,6 +127,9 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 
 	t.Run("rejects non-origin application public origin values", func(t *testing.T) {
 		cases := []string{
+			`public_origin = "http://localhost:5173"`,
+			`public_origin = "https://localhost:5173?"`,
+			`public_origin = "https://localhost:5173#"`,
 			`public_origin = "localhost:5173"`,
 			`public_origin = "ftp://localhost:5173"`,
 			`public_origin = "http://localhost:5173/path"`,
@@ -135,7 +138,7 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 		}
 		for _, replacement := range cases {
 			t.Run(replacement, func(t *testing.T) {
-				content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `public_origin = "http://localhost:5173"`, replacement)
+				content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `public_origin = "https://localhost:5173"`, replacement)
 				err := loadInvalidConfig(t, content, nil)
 				requireDiagnostic(t, err, "application.public_origin", "invalid_origin")
 			})
@@ -379,6 +382,40 @@ func TestRuntimeRoots_Unit(t *testing.T) {
 }
 
 func TestFilesystemRootPaths_Unit(t *testing.T) {
+	t.Run("inspection requires only read access and creates no paths", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Chmod(root, 0500); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(root, 0700) })
+		roots := RootBindings{BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(root, "absent")}}
+		if findings := validateInspectionFilesystemRoots(roots); len(findings) != 0 {
+			t.Fatalf("read-only root rejected: %v", findings)
+		}
+		entries, err := os.ReadDir(root)
+		if err != nil || len(entries) != 0 {
+			t.Fatalf("inspection created state: %v %v", entries, err)
+		}
+		if os.Geteuid() != 0 {
+			if findings := validateStartupFilesystemRoots(roots); len(findings) != 1 || findings[0].ReasonCode != "path_not_writable" {
+				t.Fatalf("writable root admission = %v", findings)
+			}
+			if err := os.Chmod(root, 0100); err != nil {
+				t.Fatal(err)
+			}
+			if findings := validateInspectionFilesystemRoots(roots); len(findings) != 1 || findings[0].ReasonCode != "path_not_readable" {
+				t.Fatalf("unreadable inspection = %v", findings)
+			}
+			if err := os.Chmod(root, 0500); err != nil {
+				t.Fatal(err)
+			}
+		}
+		roots.ExportOutputs = RootBinding{BindingKind: "filesystem_root", Path: roots.BackupStorage.Path}
+		if findings := validateInspectionFilesystemRoots(roots); len(findings) == 0 {
+			t.Fatal("inspection accepted overlapping roots")
+		}
+	})
+
 	t.Run("rejects non-absolute filesystem roots", func(t *testing.T) {
 		content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `path = "/var/lib/cartulary/postgres"`, `path = "relative/postgres"`)
 		err := loadInvalidConfig(t, content, nil)
@@ -818,5 +855,32 @@ func requireExactInactiveDiagnostic(t testing.TB, err error, profileID string, p
 		diagnostic.Details["profile_id"] != profileID ||
 		diagnostic.Details["config_path"] != "$."+path {
 		t.Fatalf("inactive diagnostic = %#v", diagnostic)
+	}
+}
+
+func TestApplicationTLSConfiguration_Unit(t *testing.T) {
+	for _, key := range []string{"TLS_CERTIFICATE_PATH", "TLS_PRIVATE_KEY_PATH"} {
+		for _, value := range []string{"", "relative/file", "/tls/../file", "/tls/./file", "/tls/$KEY", "/tls/\x00file", "C:\\tls\\file"} {
+			t.Run(key+value, func(t *testing.T) {
+				_, err := loadWithTestCatalog(t, LoadOptions{Path: fixtureConfigPath(), Env: map[string]string{"CARTULARY__APPLICATION__" + key: value}})
+				if err == nil {
+					t.Fatal("invalid TLS binding accepted")
+				}
+			})
+		}
+	}
+	cfg, err := loadWithTestCatalog(t, LoadOptions{Path: fixtureConfigPath(), Env: map[string]string{
+		"CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH": "/missing//tls/server.crt",
+		"CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH": "/missing//tls/server.key",
+	}})
+	if err != nil {
+		t.Fatalf("structural admission opened TLS files: %v", err)
+	}
+	if cfg.Application.TLSCertificatePath != "/missing/tls/server.crt" || cfg.Application.TLSPrivateKeyPath != "/missing/tls/server.key" {
+		t.Fatalf("TLS bindings not normalized: %#v", cfg.Application)
+	}
+	for _, version := range []string{"v1", "v2"} {
+		err := loadInvalidConfig(t, strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), "cartulary.deployment_config.v3", "cartulary.deployment_config."+version), nil)
+		requireDiagnostic(t, err, "config_schema_id", "unsupported_config_schema_id")
 	}
 }

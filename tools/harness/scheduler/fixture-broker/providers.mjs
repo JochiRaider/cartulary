@@ -159,7 +159,7 @@ function readSuiteEnvironmentFile(file) {
       name === "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID" ||
       name.startsWith("CARTULARY_TEST_SERVICES_") ||
       name.startsWith("CARTULARY_PGTEST_") ||
-      name.startsWith("CARTULARY_S3TEST_"),
+      name.startsWith("CARTULARY_S3TEST_") || name === "SSL_CERT_FILE",
     ),
   );
   for (const [name, value] of Object.entries(admitted)) {
@@ -229,9 +229,13 @@ function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime, onO
       const leaseFile = path.join(instanceRoot, "ready-lease.json");
       const logFile = path.join(instanceRoot, "proxy.log");
       const listen = `127.0.0.1:${await availableLoopbackPort()}`;
-      const upstream = `http://${upstreamEndpoint}`;
-      const origin = "http://localhost:5173";
-      const common = ["--listen", listen, "--upstream", upstream, "--origin", origin];
+      const upstream = `https://${upstreamEndpoint}`;
+      const origin = "https://localhost:5173";
+      const common = ["--listen", listen, "--upstream", upstream, "--origin", origin,
+        "--tls-certificate", suite.environment.CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH,
+        "--tls-private-key", suite.environment.CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH,
+        "--tls-root-certificate", suite.environment.SSL_CERT_FILE];
+      if (common.some((value) => typeof value !== "string" || value === "")) throw new Error("object-store proxy requires its owned TLS bindings");
       run(
         proxyBinary,
         [
@@ -311,7 +315,8 @@ function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime, onO
             OBJECT_STORE_ENDPOINT: listen,
             SEAWEEDFS_S3_ACCESS_KEY_ID: suite.environment.CARTULARY_S3TEST_ACCESS_KEY_ID,
             SEAWEEDFS_S3_SECRET_ACCESS_KEY: suite.environment.CARTULARY_S3TEST_SECRET_ACCESS_KEY,
-            OBJECT_STORE_SECURE: "false",
+            OBJECT_STORE_SECURE: "true",
+            OBJECT_STORE_CORS_ORIGIN: origin,
           },
         },
         release: stop,
@@ -364,7 +369,9 @@ export function startManagedSuite({
   ], {
     cwd: root,
     env: { ...process.env, ...startEnvironment },
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
+    encoding: "utf8",
+    maxBuffer: 256 * 1024,
   });
   if (start.error) {
     const missing = start.error.code === "ENOENT";
@@ -428,6 +435,15 @@ export function startManagedSuite({
       } catch (cleanupError) {
         cleanupFailures.push(cleanupError);
       }
+    }
+    // Only a closed diagnostic is allowed out of this bounded buffer: raw
+    // dependency panic output may include connection credentials or arguments.
+    const excludedHash = String(start.stderr ?? "").match(/^panic: (crypto\/(?:sha1|md5)): use of [A-Z0-9-]+ is not allowed in FIPS 140-only mode/mu);
+    if (!existsSync(resultFile) && excludedHash) {
+      throw Object.assign(acquisitionError(
+        `test-services helper rejected ${excludedHash[1]} in strict diagnostic mode before start evidence`,
+        "harness", "fixture_error",
+      ), { cleanupFailures });
     }
     if (!existsSync(resultFile) && start.status === 2) {
       throw acquisitionError(
@@ -533,7 +549,7 @@ function browserSuiteEnvironment(environment) {
     Object.entries(environment).filter(([name]) =>
       exact.has(name) ||
       name.startsWith("CARTULARY_PGTEST_") ||
-      name.startsWith("CARTULARY_S3TEST_"),
+      name.startsWith("CARTULARY_S3TEST_") || name === "SSL_CERT_FILE",
     ),
   );
 }
@@ -649,10 +665,10 @@ export function productionFixtureProviders({
         try {
           stackEnvironment = readEnvironmentFile(envFile);
           const stackFile = stackEnvironment.CARTULARY_WEB_E2E_STACK_JSON_FILE;
-          if (!stackFile || path.basename(stackFile) !== "stack-v7.json") {
-            throw new Error("browser session did not publish its stack-v7 attachment path");
+          if (!stackFile || path.basename(stackFile) !== "stack-v8.json") {
+            throw new Error("browser session did not publish its stack-v8 attachment path");
           }
-          requireOwnerOnlyRegularFile(stackFile, "browser stack-v7 evidence");
+          requireOwnerOnlyRegularFile(stackFile, "browser stack-v8 evidence");
           requireOwnerOnlyRegularFile(
             path.join(path.dirname(stackFile), "service-admission.json"),
             "browser service-admission evidence",

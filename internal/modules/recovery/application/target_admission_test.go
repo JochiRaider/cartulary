@@ -24,12 +24,13 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 		ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64),
 	}
 	validMarker := RestoreTargetMarker{
-		SchemaID:           RestoreTargetMarkerSchemaID,
-		Purpose:            RestoreVerificationTargetPurpose,
-		TargetGenerationID: generationID.String(),
-		BindingDigests:     expected,
-		IssuedAt:           now.Add(-time.Minute).Format(time.RFC3339Nano),
-		ExpiresAt:          now.Add(time.Hour).Format(time.RFC3339Nano),
+		ApplicationCryptoFormat: recovery.ApplicationCryptoFormatID,
+		SchemaID:                RestoreTargetMarkerSchemaID,
+		Purpose:                 RestoreVerificationTargetPurpose,
+		TargetGenerationID:      generationID.String(),
+		BindingDigests:          expected,
+		IssuedAt:                now.Add(-time.Minute).Format(time.RFC3339Nano),
+		ExpiresAt:               now.Add(time.Hour).Format(time.RFC3339Nano),
 	}
 	validMaterial := markerMaterialForTest(t, validMarker, generationID)
 	if err := ValidateRestoreTargetMarker(validMaterial, RestoreVerificationTargetPurpose, expected, now); err != nil {
@@ -49,6 +50,8 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 		{"missing generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody}, RestoreVerificationTargetPurpose, expected},
 		{"v1 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_verification_target.v1"), RestoreVerificationTargetPurpose, expected},
 		{"v2 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_target_marker.v2"), RestoreVerificationTargetPurpose, expected},
+		{"v4 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_target_marker.v4"), RestoreVerificationTargetPurpose, expected},
+		{"wrong application format", replaceMarkerMember(validMaterial, recovery.ApplicationCryptoFormatID, "cartulary.application_crypto_format.v0"), RestoreVerificationTargetPurpose, expected},
 		{"wrong Reference Pack root", replaceMarkerMember(validMaterial, expected.ReferencePackStorageSHA256, strings.Repeat("4", 64)), RestoreVerificationTargetPurpose, expected},
 		{"duplicate member", TargetMarkerMaterial{MarkerBody: bytes.Replace(validMaterial.MarkerBody, []byte(`"purpose":`), []byte(`"purpose":"restore_verification_target","purpose":`), 1), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected},
 		{"unknown member", TargetMarkerMaterial{MarkerBody: bytes.Replace(validMaterial.MarkerBody, []byte(`{`), []byte(`{"unknown":true,`), 1), GenerationBody: validMaterial.GenerationBody}, RestoreVerificationTargetPurpose, expected},
@@ -71,7 +74,8 @@ func TestRestoreTargetMarkerAdmissionReturnsValidatedGeneration_Unit(t *testing.
 	generationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
 	expected := TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)}
 	material := markerMaterialForTest(t, RestoreTargetMarker{
-		SchemaID: RestoreTargetMarkerSchemaID, Purpose: RestoreTargetPurpose,
+		ApplicationCryptoFormat: recovery.ApplicationCryptoFormatID,
+		SchemaID:                RestoreTargetMarkerSchemaID, Purpose: RestoreTargetPurpose,
 		TargetGenerationID: generationID.String(), BindingDigests: expected,
 		IssuedAt:  now.Add(-time.Minute).Format(time.RFC3339Nano),
 		ExpiresAt: now.Add(time.Hour).Format(time.RFC3339Nano),
@@ -86,20 +90,6 @@ func TestRestoreTargetMarkerAdmissionReturnsValidatedGeneration_Unit(t *testing.
 }
 
 func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *testing.T) {
-	v2, err := json.Marshal(recoveryJournalAdmissionPayloadV2{
-		SchemaID: RecoveryJournalPayloadV2SchemaID, RecordKind: "admission",
-		OperationID: uuid.MustParse("00000000-0000-0000-0000-000000004284"),
-		Operation:   OperationRestoreLatest, StartedAt: time.Date(2026, 7, 29, 17, 30, 0, 0, time.UTC),
-		ArtifactKinds: []string{},
-	})
-	if err != nil {
-		t.Fatalf("encode historical journal payload: %v", err)
-	}
-	decodedV2, err := DecodeRecoveryJournalPayload(v2)
-	if err != nil || decodedV2.SchemaID != RecoveryJournalPayloadV2SchemaID || decodedV2.GraphProjectionCompletion != nil {
-		t.Fatalf("strict historical v2 journal decoder failed: decoded=%#v err=%v", decodedV2, err)
-	}
-
 	operationID := uuid.MustParse("00000000-0000-0000-0000-000000004285")
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000000428")
 	targetGenerationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
@@ -122,28 +112,8 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 		ImplementationBindingSHA256: participant.ImplementationBindingSHA256,
 		PostconditionSHA256:         postcondition, ParticipantResult: participant,
 	}
-	v3, err := json.Marshal(recoveryJournalCompletionPayloadV3{
-		recoveryJournalCompletionPayloadV2: recoveryJournalCompletionPayloadV2{
-			SchemaID: RecoveryJournalPayloadV3SchemaID, RecordKind: "completion", OperationID: operationID,
-			Operation: OperationRestoreLatest, StartedAt: consistencyPoint, CompletedAt: consistencyPoint.Add(time.Minute),
-			Result: ResultSucceeded, BackupSetID: &backupSetID, ConsistencyPointAt: &consistencyPoint,
-			ArtifactCounts: []ArtifactCount{},
-		},
-		GraphProjectionCompletion: completion,
-	})
-	if err != nil {
-		t.Fatalf("encode v3 journal payload: %v", err)
-	}
-	decodedV3, err := DecodeRecoveryJournalPayload(v3)
-	if err != nil || decodedV3.GraphProjectionCompletion == nil || decodedV3.GraphProjectionCompletion.TargetGenerationID != targetGenerationID {
-		t.Fatalf("v3 Graph completion was not durably decodable: decoded=%#v err=%v", decodedV3, err)
-	}
-	unknown := bytes.Replace(v3, []byte(`"result":`), []byte(`"unknown":true,"result":`), 1)
-	if _, err := DecodeRecoveryJournalPayload(unknown); err == nil {
-		t.Fatal("journal decoder admitted an unknown completion member")
-	}
 	current := recoveryJournalCompletionPayloadV5{
-		recoveryJournalCompletionPayloadV2: recoveryJournalCompletionPayloadV2{
+		recoveryJournalCompletionFields: recoveryJournalCompletionFields{
 			SchemaID: RecoveryJournalPayloadSchemaID, RecordKind: "completion", OperationID: operationID,
 			Operation: OperationRestoreLatest, StartedAt: consistencyPoint, CompletedAt: consistencyPoint.Add(time.Minute),
 			Result: ResultSucceeded, BackupSetID: &backupSetID, ConsistencyPointAt: &consistencyPoint, ArtifactCounts: []ArtifactCount{},
@@ -157,11 +127,13 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 	if _, err := DecodeRecoveryJournalPayload(encoded); err != nil {
 		t.Fatal("valid current journal", err)
 	}
-	historical := bytes.Replace(encoded, []byte(RecoveryJournalPayloadSchemaID), []byte(RecoveryJournalPayloadV4SchemaID), 1)
-	historical = bytes.Replace(historical, []byte(`,"export_outputs_sha256":"`+strings.Repeat("4", 64)+`"`), nil, 1)
-	decodedV4, err := DecodeRecoveryJournalPayload(historical)
-	if err != nil || decodedV4.GraphProjectionCompletion == nil || decodedV4.TargetBindings != nil {
-		t.Fatal("historical v4 must remain readable without authorizing current replay", err)
+	// The historical test identity now records deliberate rejection; current
+	// releases do not carry journal readers for historical deployments.
+	for _, version := range []string{"v2", "v3", "v4"} {
+		historical := bytes.Replace(encoded, []byte(RecoveryJournalPayloadSchemaID), []byte("cartulary.operator_recovery_journal_payload."+version), 1)
+		if _, err := DecodeRecoveryJournalPayload(historical); err == nil {
+			t.Fatalf("historical %s journal admitted", version)
+		}
 	}
 	var root map[string]any
 	if err := json.Unmarshal(encoded, &root); err != nil {

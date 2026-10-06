@@ -1951,9 +1951,6 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       page.getByTestId(mentionItemTestId(String(dismissedMention.item_ref))),
     ).toHaveAccessibleName(`Dismissed mention: ${dismissedRawText}`);
 
-    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
-      scroll: { top: 0, left: "left" },
-    });
     const dismissedMentionItem = page.getByTestId(
       mentionItemTestId(String(dismissedMention.item_ref)),
     );
@@ -1961,8 +1958,9 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
     await expect(
       page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     ).toBeVisible();
-    await scrollVisualAnchorToScrollContainerTop(page, dismissedMentionItem, {
-      clipTopPixels: -8,
+    await blurActiveElement(page);
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
     });
     await expectCollectionControlPainted(
       dismissedMentionItem.getByText("dismissed", { exact: true }),
@@ -1999,6 +1997,48 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       page,
       "entity-mention-chip-states",
       chipFixture,
+      {
+        prepareState: async () => {
+          const scrollportSelector = `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`;
+          await settleVisualGeometry(page, {
+            locator: dismissedMentionItem,
+            align: "start",
+            scrollportSelector,
+          });
+          // Preserve the fixture's existing eight-pixel inset within the
+          // declared body, after resetting all outer scroll containers.
+          await page.locator(scrollportSelector).evaluate((element) => {
+            element.scrollTop = Math.max(0, element.scrollTop - 8);
+          });
+        },
+        verifyFraming: async () => {
+          const inspector = page.getByTestId(timelineInspectorTestId());
+          await expect(
+            inspector.getByRole("heading", { level: 2 }),
+          ).toBeInViewport({ ratio: 1 });
+          await expect(
+            inspector.getByRole("button", {
+              name: "Relationships",
+              exact: true,
+            }),
+          ).toHaveAttribute("aria-current", "location");
+          await expect
+            .poll(() =>
+              dismissedMentionItem.evaluate((element) => {
+                const body = element.closest("[data-inspector-scroll-body]");
+                if (!body)
+                  throw new Error(
+                    "Mention fixture requires its Inspector body",
+                  );
+                return Math.round(
+                  element.getBoundingClientRect().top -
+                    body.getBoundingClientRect().top,
+                );
+              }),
+            )
+            .toBe(8);
+        },
+      },
     );
   });
 });
@@ -3064,6 +3104,15 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
         "timeline.capture_state",
       ),
     ).toHaveText("reviewed");
+
+    await openRecoveryItem(page, /^Timeline action ·/);
+    await expect(
+      page.getByTestId(
+        timelineCaptureActionTestId("result", reviewedRow.record_id),
+      ),
+    ).toHaveText("Timeline review completed.");
+    await page.keyboard.press("Escape");
+    await expect(recoveryEntry(page)).toHaveText("Recovery (0)");
 
     await applyFilterChip(
       page,
@@ -5315,45 +5364,6 @@ async function emitVisualCaptureIntent(
     ),
     contentType: "application/json",
   });
-}
-
-async function scrollVisualAnchorToScrollContainerTop(
-  page: Page,
-  locator: Locator,
-  { clipTopPixels = 0 }: { clipTopPixels?: number } = {},
-) {
-  await locator.evaluate(
-    (element, visualAnchorOptions) => {
-      const scrollableOverflow = new Set(["auto", "scroll", "overlay"]);
-      let container = element.parentElement;
-      while (container !== null) {
-        const style = window.getComputedStyle(container);
-        if (
-          container.scrollHeight > container.clientHeight &&
-          scrollableOverflow.has(style.overflowY)
-        ) {
-          break;
-        }
-        container = container.parentElement;
-      }
-
-      const elementRect = element.getBoundingClientRect();
-      if (container === null) {
-        window.scrollBy({
-          top: elementRect.top + visualAnchorOptions.clipTopPixels,
-          left: 0,
-          behavior: "instant",
-        });
-        return;
-      }
-
-      const containerRect = container.getBoundingClientRect();
-      container.scrollTop +=
-        elementRect.top - containerRect.top + visualAnchorOptions.clipTopPixels;
-    },
-    { clipTopPixels },
-  );
-  await waitForVisualLayoutFrame(page);
 }
 
 async function assertAuthGatewayVisual(page: Page, name: string) {

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/minio/minio-go/v7"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore/s3transport"
 )
 
 const (
@@ -255,8 +255,8 @@ func mapBackendError(operation Operation, err error) error {
 	if errors.Is(err, os.ErrNotExist) || os.IsNotExist(err) {
 		return adapterError(operation, ErrorCodeObjectNotFound, ReasonObjectMissing, false, "object not found", err)
 	}
-	if minioErr := minio.ToErrorResponse(err); minioErr.Code != "" {
-		return mapMinIOErrorResponse(operation, minioErr, err)
+	if code := s3transport.ErrorCode(err); code != "" {
+		return mapS3ErrorResponse(operation, code, err)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
@@ -268,13 +268,13 @@ func mapBackendError(operation Operation, err error) error {
 	return adapterError(operation, ErrorCodeUnavailable, ReasonEndpointUnreachable, true, "object-store operation failed", err)
 }
 
-func mapMinIOErrorResponse(operation Operation, response minio.ErrorResponse, cause error) error {
-	switch response.Code {
+func mapS3ErrorResponse(operation Operation, code string, cause error) error {
+	switch code {
 	case "NoSuchKey", "NoSuchObject", "NotFound":
 		return adapterError(operation, ErrorCodeObjectNotFound, ReasonObjectMissing, false, "object not found", cause)
 	case "NoSuchBucket":
 		return adapterError(operation, ErrorCodeUnavailable, ReasonBucketMissing, true, "bucket missing", cause)
-	case "AccessDenied", "InvalidAccessKeyId", "InvalidSecurity", "SignatureDoesNotMatch", "AllAccessDisabled":
+	case "AccessDenied", "Forbidden", "Unauthorized", "InvalidAccessKeyId", "InvalidSecurity", "SignatureDoesNotMatch", "AllAccessDisabled", "AuthorizationHeaderMalformed", "PermanentRedirect":
 		return adapterError(operation, ErrorCodeAccessRejected, ReasonCredentialDenied, false, "object-store credential denied", cause)
 	case "InvalidRange", "RequestedRangeNotSatisfiable":
 		return adapterError(operation, ErrorCodeRangeNotSatisfiable, ReasonRangeInvalid, false, "object range not satisfiable", cause)

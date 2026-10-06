@@ -606,6 +606,7 @@ export class WorkGraphCache {
       inputs: dependencyClosure.digest,
       platform: `${process.platform}/${process.arch}`,
       toolchain_digest: this.toolchainDigest,
+      cryptographic_execution: { selector: process.env.GOFIPS140 ?? "", mode: process.env.GODEBUG ?? "", toolchain: process.env.GOTOOLCHAIN ?? "" },
       helper_digest: this.helperDigest,
       vulnerability_database_revision: profile.requires_vulnerability_database_revision ? this.vulnerabilityDatabaseRevision : "",
     });

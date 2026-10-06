@@ -105,6 +105,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.frontend_unit.viewport_layout_subscription",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/layout/useWorkbookResponsiveLayout.test.tsx",
+        "titles": [
+          "workbook responsive viewport uses real window dimensions when visualViewport is unavailable",
+          "workbook responsive viewport uses the effective root inline size for zoomed workbook chrome"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.activesurfacesavedviewselector_resource_action_focus_a103000001",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

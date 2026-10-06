@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_tls_trust.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "tool_sha256",
+    "trust_bundle_sha256",
+    "authorities_sha256"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.browser_tls_trust.v1"
+    },
+    "tool_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "trust_bundle_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "authorities_sha256": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

@@ -22,13 +22,13 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 	ctx := context.Background()
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "reference-pack-all-profiles")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	storage, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer storage.Close()
-	consumer, err := reference_data.NewConsumer(harness.Pool, storage, pagination.NewCodec([]byte(strings.Repeat("v", 32))), func() time.Time { return time.Now().UTC() }, consumerIntegrityOptions(t))
+	consumer, err := reference_data.NewConsumer(harness.Pool, storage, pagination.NewCodec([32]byte([]byte(strings.Repeat("v", 32)))), func() time.Time { return time.Now().UTC() }, consumerIntegrityOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}

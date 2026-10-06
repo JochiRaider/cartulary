@@ -9,7 +9,7 @@ import (
 )
 
 func TestSavedViewReadQueryValidation_Unit(t *testing.T) {
-	codec := pagination.NewCodec(make([]byte, 32))
+	codec := pagination.NewCodec([32]byte{})
 	cases := []struct{ query, code, reason string }{
 		{"view_schema_id=", "invalid_list_query", "invalid_filter_value"},
 		{"view_schema_id=unknown", "invalid_list_query", "invalid_filter_value"},
@@ -51,7 +51,7 @@ func TestSavedViewReadQueryValidation_Unit(t *testing.T) {
 }
 
 func TestSavedViewReadCursorBindings_Unit(t *testing.T) {
-	codec := pagination.NewCodec(make([]byte, 32))
+	codec := pagination.NewCodec([32]byte{})
 	cursor := pagination.Cursor{Version: pagination.CursorVersion, Mode: pagination.ModeKeyset, Route: "incident.saved-views.list", ActorUserID: "actor", Limit: 2, Scope: map[string]string{"incident_id": "incident"}, Position: map[string]string{"anchor_updated_at": "2026-09-01T00:00:00Z", "last_updated_at": "2026-09-01T00:00:00Z", "last_saved_view_id": "00000000-0000-4000-8000-000000000001"}}
 	token, err := codec.Encode(cursor)
 	if err != nil {

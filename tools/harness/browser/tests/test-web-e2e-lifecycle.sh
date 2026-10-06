@@ -68,8 +68,8 @@ assert_file_not_contains "$START_SCRIPT" 'CARTULARY_TEST_SERVICES_ACTIVE' "ambie
 # shellcheck disable=SC2016
 assert_file_contains "$START_SCRIPT" '_shared/test-services/${SUITE_ID}/browser-sessions/${BROWSER_SESSION_ID}' "session artifact cardinality"
 assert_file_contains "$START_SCRIPT" 'finalize startup diagnostics' "terminal diagnostic precedes publication"
-assert_file_contains "$START_SCRIPT" 'publish immutable v7 stack' "v7 publication"
-assert_file_contains "$START_SCRIPT" 'v7 browser stack publication requires bound backend and frontend readiness' "missing readiness fails publication"
+assert_file_contains "$START_SCRIPT" 'publish immutable v8 stack' "v7 publication"
+assert_file_contains "$START_SCRIPT" 'v8 browser stack publication requires bound backend and frontend readiness' "missing readiness fails publication"
 assert_file_contains "$START_SCRIPT" 'snapshot_service_scope || return $?' "admission publication failure propagates"
 assert_file_contains "$START_SCRIPT" 'verify_stack_publication' "terminal publication verification"
 # shellcheck disable=SC2016
@@ -138,7 +138,7 @@ assert_stack_publication_failure() {
 
   mkdir -p "$public_root" "$runtime_root"
   if [[ "$diagnostic_state" == "present" ]]; then
-    printf '%s\n' '{"schema_id":"cartulary.browser_startup_diagnostics.v2","status":"ready"}' >"$terminal_diagnostic"
+    printf '%s\n' '{"schema_id":"cartulary.browser_startup_diagnostics.v3","status":"ready"}' >"$terminal_diagnostic"
     chmod 600 "$terminal_diagnostic"
   fi
 
@@ -200,16 +200,16 @@ assert_stack_publication_failure() {
 
 assert_stack_publication_failure \
   "missing-backend-readiness" "" "2026-08-19T12:00:01Z" "present" \
-  "v7 browser stack publication requires bound backend and frontend readiness"
+  "v8 browser stack publication requires bound backend and frontend readiness"
 assert_stack_publication_failure \
   "missing-frontend-readiness" "2026-08-19T12:00:00Z" "" "present" \
-  "v7 browser stack publication requires bound backend and frontend readiness"
+  "v8 browser stack publication requires bound backend and frontend readiness"
 assert_stack_publication_failure \
   "missing-both-readiness" "" "" "present" \
-  "v7 browser stack publication requires bound backend and frontend readiness"
+  "v8 browser stack publication requires bound backend and frontend readiness"
 assert_stack_publication_failure \
   "missing-terminal-diagnostic" "2026-08-19T12:00:00Z" "2026-08-19T12:00:01Z" "missing" \
-  "v7 browser stack publication requires terminal startup diagnostics"
+  "v8 browser stack publication requires terminal startup diagnostics"
 
 verification_case_root="$tmp_dir/publication-verification-failure"
 mkdir -p "$verification_case_root/private-runtime"
@@ -442,6 +442,9 @@ private_session_root="$private_suite_root/browser-stack-leases/$session_id"
 runtime_root="$private_session_root/runtime-root"
 mkdir -p "$session_root" "$private_session_root/logs" "$runtime_root/playwright-state"
 chmod 700 "$private_suite_root" "$private_session_root" "$runtime_root" "$runtime_root/playwright-state"
+"${GO:-go}" run ./tools/browserpki --directory "$runtime_root/tls"
+cp "$runtime_root/tls/ca.pem" "$runtime_root/tls/trust.pem"
+export CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE="$runtime_root/tls/trust.pem"
 printf '{"schema_id":"cartulary.test_services.scope.v2","target":"browser-e2e","suite_id":"%s","run_id":"%s","artifact_dir":"%s","readiness_generation":"sha256:%s","wrapper":{"owned_count":1,"pass_through_count":0},"preflight":{"docker_ok":true,"reaper_ready":true,"stale_containers_scanned":0,"stale_containers_removed":0,"stale_containers_deferred":0,"ryuk_disabled_for_suite_startup":true},"failures":{},"cleanup":{},"postgres":{"started":true,"startup":{"attempt_count":0,"retry_count":0,"slowest_attempt_duration_ms":0,"final_attempt":0,"final_retryable":false,"final_retry_blocked_by_context":false},"attached_harness_count":1,"created_database_count":1,"migrated_database_count":1,"template_clone_count":1},"object_store":{"started":true,"secure":false,"startup":{"attempt_count":0,"retry_count":0,"slowest_attempt_duration_ms":0,"final_attempt":0,"final_retryable":false,"final_retry_blocked_by_context":false},"attached_harness_count":1,"bucket_create_count":1,"bucket_cleanup_count":0},"browser_e2e":{"retired_fixture_count":0,"cleaned_fixture_count":0,"reclaimed_fixture_count":0},"fixture":{"total_count":2,"total_duration_ms":0,"strategy_aggregate_count":0},"started_services":{"names":["object_store","postgres"]}}\n' \
   "$suite_id" "$run_id" "$suite_root" "$(printf '4%.0s' {1..64})" >"$suite_root/service-scope.json"
 printf '{"schema_id":"cartulary.harness_run_manifest.v1","toolchain_digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222","source_digest":"sha256:%s"}\n' \
@@ -478,8 +481,8 @@ export CARTULARY_HARNESS_SUITE_RUNTIME_ROOT="$private_suite_root"
 export CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID="$run_id"
 export CARTULARY_WEB_E2E_SERVER_LOG="$private_session_root/logs/server.log"
 export CARTULARY_WEB_E2E_WEB_LOG="$private_session_root/logs/web.log"
-export CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:38080
-export CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:34173
+export CARTULARY_WEB_E2E_API_ORIGIN=https://127.0.0.1:38080
+export CARTULARY_WEB_E2E_PUBLIC_ORIGIN=https://127.0.0.1:34173
 export CARTULARY_WEB_E2E_BACKEND_PORT=38080
 export CARTULARY_WEB_E2E_FRONTEND_PORT=34173
 export CARTULARY_WEB_E2E_SERVER_PGID="$backend_pid"
@@ -497,7 +500,7 @@ CARTULARY_PGTEST_SCHEMA_HASH="sha256:$(printf '2%.0s' {1..64})"
 export CARTULARY_PGTEST_SCHEMA_HASH
 export CARTULARY_S3TEST_ENDPOINT=127.0.0.1:39000
 export CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT=127.0.0.1:39000
-export CARTULARY_S3_OBJECT_PRIMARY_SECURE=false
+export CARTULARY_S3_OBJECT_PRIMARY_SECURE=true
 export CARTULARY_S3_OBJECT_PRIMARY_BUCKET=ct-web-test
 
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$run_root" "$private_suite_root" "$run_id" <<'JS'
@@ -529,12 +532,12 @@ JS
 stack_file="$("$NODE_BIN" "$EVIDENCE_HELPER" stack)"
 export CARTULARY_WEB_E2E_STACK_JSON_FILE="$stack_file"
 
-assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v7"' "v7 schema identity"
+assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v8"' "v8 schema identity"
 assert_json "$stack_file" 'value.suite_id === "suite-test" && value.browser_session_id === "session-default"' "v7 suite/session identity"
 assert_json "$stack_file" 'value.postgres_identity.database_name === "ct_web_test" && value.object_store_identity.bucket === "ct-web-test"' "v7 isolated resource identity"
 assert_json "$stack_file" 'value.frontend.frontend_command_kind === "vite-preview"' "v7 preview identity"
 if grep -Eq 'access_key|secret|postgres://' "$stack_file"; then
-  fail "v7 stack must not contain credentials or DSNs"
+  fail "v8 stack must not contain credentials or DSNs"
 fi
 
 attachment_exports="$("$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file")"
@@ -595,7 +598,7 @@ fi
 assert_file_contains "$tmp_dir/stale-build.log" 'frontend build digest mismatch' "stale build rejection"
 cp "$tmp_dir/original-stack.json" "$stack_file"
 if "$NODE_BIN" "$EVIDENCE_HELPER" stack >/dev/null 2>&1; then
-  fail "v7 stack publication must be immutable"
+  fail "v8 stack publication must be immutable"
 fi
 printf '\n' >>"$session_root/startup-diagnostics.json"
 if "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >/dev/null 2>&1; then
@@ -617,7 +620,7 @@ if "$NODE_BIN" "$EVIDENCE_HELPER" event service_attached "must not append" >/dev
   fail "terminal diagnostics must close the event stream"
 fi
 assert_json "$failed_session_root/startup-diagnostics.json" \
-  'value.schema_id === "cartulary.browser_startup_diagnostics.v2" && value.status === "failed"' \
+  'value.schema_id === "cartulary.browser_startup_diagnostics.v3" && value.status === "failed"' \
   "failed v2 terminal diagnostic"
 
 # Browser reset is a process-replacement lifecycle, not a live HTTP route or

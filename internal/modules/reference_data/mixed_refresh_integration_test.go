@@ -19,7 +19,7 @@ func TestMixedRefreshCommitsCohortFallbackAndReplay_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	barrier := &appsupport.ReferencePackVerificationBarrier{}
 	harness := startReferencePackServerWithEnv(t, runtime, "extension_profile-reference-pack-mixed-refresh", nil, barrier)
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	capture := testsupport.StartCapture()
 	defer capture.Close(context.Background())
 	importReferencePack(t, harness, admin, "type_registry.host", "1", "mixed-import-1")

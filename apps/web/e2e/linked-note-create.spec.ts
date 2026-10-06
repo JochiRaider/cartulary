@@ -288,6 +288,7 @@ test("Note response loss after commit replays exact bytes after navigation and a
   const requests: string[] = [],
     receipts: CreateViewRowResponse[] = [];
   let failReads = false;
+  let committedResponseLost = false;
   await page.route(`**/views/${notesViewSchemaId}/query`, async (route) => {
     if (failReads) await route.abort("failed");
     else await route.continue();
@@ -299,8 +300,10 @@ test("Note response loss after commit replays exact bytes after navigation and a
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       receipts.push(await response.json());
-      if (requests.length === 1) await route.abort("failed");
-      else {
+      if (requests.length === 1) {
+        await route.abort("failed");
+        committedResponseLost = true;
+      } else {
         failReads = true;
         await route.fulfill({ response });
       }
@@ -316,6 +319,10 @@ test("Note response loss after commit replays exact bytes after navigation and a
   await expect(
     f.form.getByRole("textbox", { name: "Title", exact: true }),
   ).toBeDisabled();
+  // Disabled fields also occur during preflight. Navigation must follow the
+  // real committed write and deliberately lost response in this scenario.
+  await expect.poll(() => committedResponseLost).toBe(true);
+  expect(receipts).toHaveLength(1);
   await page
     .getByTestId(workbookInspectorCloseButtonTestId(hostsViewSchemaId))
     .click();

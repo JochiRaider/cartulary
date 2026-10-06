@@ -3,7 +3,6 @@ package networkflow
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
@@ -246,8 +245,8 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 	t.Helper()
 	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
 	manifest := `{
-  "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"network_flow-cursor","state":"active","secret_ref":{"kind":"env","name":"network_flow-cursor"}}]},
+  "schema_id":"cartulary.network_flow_key_rings.v2",
+  "cursor_key_ring":{"algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[{"cursor_key_id":"network_flow-cursor","state":"active","secret_ref":{"kind":"env","name":"network_flow-cursor"}}]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"network_flow-safe","state":"active","secret_ref":{"kind":"env","name":"network_flow-safe"}}]}
 }`
 	rings, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), map[string]string{
@@ -258,50 +257,25 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 		t.Fatalf("parse Network Flow key rings: %v", err)
 	}
 	clock := now
-	codec, err := newCursorCodec(rings, func() time.Time { return clock }, nil)
+	codec, err := newCursorCodec(rings, func() time.Time { return clock })
 	if err != nil {
 		t.Fatalf("construct Network Flow cursor protector: %v", err)
 	}
 	binding := cursorBinding{Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident", Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "query-hash", QueryEcho: json.RawMessage(`{"sort":[]}`), Limit: 1}
-	t.Run("nonce entropy admission", func(t *testing.T) {
-		deterministic, err := newCursorCodec(rings, func() time.Time { return clock }, bytes.NewReader(bytes.Repeat([]byte{7}, 12)))
+	t.Run("caller cannot select nonce bytes", func(t *testing.T) {
+		first, err := codec.Encode(binding, "row_keyset_v1", position)
 		if err != nil {
 			t.Fatal(err)
 		}
-		token, err := deterministic.Encode(binding, "row_keyset_v1", position)
-		if err != nil {
-			t.Fatal(err)
-		}
-		raw, err := base64.RawURLEncoding.DecodeString(strings.Split(token, ".")[2])
-		if err != nil || !bytes.Equal(raw[:12], bytes.Repeat([]byte{7}, 12)) {
-			t.Fatal("nonce bytes were not preserved")
-		}
-		if _, err := deterministic.Encode(binding, "row_keyset_v1", position); err == nil {
-			t.Fatal("exhausted injected entropy fell back")
-		}
-		short, err := newCursorCodec(rings, func() time.Time { return clock }, bytes.NewReader(make([]byte, 11)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := short.Encode(binding, "row_keyset_v1", position); err == nil {
-			t.Fatal("short nonce admitted")
-		}
-		other, err := newCursorCodec(rings, func() time.Time { return clock }, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		first, err := other.Encode(binding, "row_keyset_v1", position)
-		if err != nil {
-			t.Fatal(err)
-		}
-		second, err := other.Encode(binding, "row_keyset_v1", position)
-		if err != nil || first == second || first == token {
-			t.Fatal("ordinary entropy not isolated")
+		second, err := codec.Encode(binding, "row_keyset_v1", position)
+		if err != nil || first == second {
+			t.Fatal("cursor sealing reused randomness")
 		}
 	})
+
 	token, err := codec.Encode(binding, "row_keyset_v1", position)
-	if err != nil || !strings.HasPrefix(token, "nfc2.network_flow-cursor.") {
-		t.Fatalf("encode nfc2 cursor token=%q err=%v", token, err)
+	if err != nil || !strings.HasPrefix(token, "nfc3.network_flow-cursor.") {
+		t.Fatalf("encode nfc3 cursor token=%q err=%v", token, err)
 	}
 	payload, reason := codec.Decode(token)
 	if reason != "" || payload.PositionKind != "row_keyset_v1" || bytes.Contains(payload.Position, []byte(`"offset"`)) {

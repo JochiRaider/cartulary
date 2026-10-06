@@ -32,7 +32,7 @@ func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 	database := runtime.PrepareServerDatabase(t, "extension_profile-incident-bundle-export")
 	retainedRoots := map[string]string{"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH": t.TempDir()}
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-export", Database: database, Env: retainedRoots, TestRouteMode: httptestx.TestRouteModeDisabled})
-	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source",
 		"incident_key":  "BUNDLE-EXPORT",
@@ -261,7 +261,7 @@ VALUES ($1, 'export', $2, $3, $4, $5, $5)
 
 func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testing.T) {
 	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-export-auth")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-source",
 		"incident_key":  "BUNDLE-EXPORT-AUTH",
@@ -281,10 +281,10 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	memberAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-bundle-member-admin@example.test", "ExtensionProfile Bundle Member Admin", memberAdminPassword, false, true, true)
 	memberOnlyUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-bundle-member-only@example.test", "ExtensionProfile Bundle Member Only", memberOnlyPassword, false, false, true)
 	nonmemberAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-bundle-nonmember-admin@example.test", "ExtensionProfile Bundle Nonmember Admin", nonmemberAdminPassword, false, true, true)
-	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
-	memberAdminCookies, memberAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, memberAdminUser.Email, memberAdminPassword, nil)
-	memberOnlyCookies, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, memberOnlyUser.Email, memberOnlyPassword, nil)
-	nonmemberAdminCookies, nonmemberAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, nonmemberAdminUser.Email, nonmemberAdminPassword, nil)
+	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
+	memberAdminCookies, memberAdminCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, memberAdminUser.Email, memberAdminPassword, nil)
+	memberOnlyCookies, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, memberOnlyUser.Email, memberOnlyPassword, nil)
+	nonmemberAdminCookies, nonmemberAdminCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, nonmemberAdminUser.Email, nonmemberAdminPassword, nil)
 	submitterLogin := flowtest.LoginResult{SessionCookie: submitterCookies, CSRFCookie: submitterCSRF}
 	memberAdminLogin := flowtest.LoginResult{SessionCookie: memberAdminCookies, CSRFCookie: memberAdminCSRF}
 	nonmemberAdminLogin := flowtest.LoginResult{SessionCookie: nonmemberAdminCookies, CSRFCookie: nonmemberAdminCSRF}
@@ -379,8 +379,8 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	runtime := appsupport.StartRuntime(t)
 	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-target")
-	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
-	targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
+	targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-import-source",
 		"incident_key":  "BUNDLE-IMPORT",

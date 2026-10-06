@@ -34,7 +34,7 @@ import (
 func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-u-8-02")
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-02-incident",
 		"incident_key":  "IR-U802",
@@ -43,7 +43,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u802-viewer@example.test", "SavedViewQuery U802 Viewer", "SavedViewQueryU802Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-u802-viewer@example.test", "SavedViewQueryU802Viewer1!", nil)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u802-viewer@example.test", "SavedViewQueryU802Viewer1!", nil)
 	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u802-other@example.test", "SavedViewQuery U802 Other", "SavedViewQueryU802Other1!", false, false, true)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-02-viewer-membership",
@@ -335,7 +335,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 func TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-layout-evolution-u-8-02")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-layout-evolution-incident",
 		"incident_key":  "IR-U802-LAYOUT-EVOLUTION",
@@ -420,7 +420,7 @@ func TestSavedViewSystemFixtureRoute_Unit(t *testing.T) {
 		AdditionalRoutes: []httpapi.RouteRegistrar{savedviews.RegisterTestRoutes()},
 		TestRouteMode:    httptestx.TestRouteModeHarnessOwned,
 	})
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-savedviews-system-fixture-incident",
 		"incident_key":  "IR-U802-SYSTEM",
@@ -652,7 +652,7 @@ func TestSavedViewPatchContract_Unit(t *testing.T) {
 func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-i-8-01")
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-01-incident",
 		"incident_key":  "IR-I801",
@@ -666,8 +666,8 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	peerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i801-peer@example.test", "SavedViewQuery I801 Peer", "SavedViewQueryI801Peer1!", false, false, true)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-owner-membership", "user_id": ownerID, "role": "viewer"})
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-peer-membership", "user_id": peerID, "role": "viewer"})
-	ownerSession, ownerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-i801-owner@example.test", "SavedViewQueryI801Owner1!", nil)
-	peerSession, peerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-i801-peer@example.test", "SavedViewQueryI801Peer1!", nil)
+	ownerSession, ownerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i801-owner@example.test", "SavedViewQueryI801Owner1!", nil)
+	peerSession, peerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i801-peer@example.test", "SavedViewQueryI801Peer1!", nil)
 
 	timelineOne := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-one", "timeline.activity_synopsis_text": "Saved-view delete keeps records"})
 	timelineTwo := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})

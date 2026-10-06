@@ -133,6 +133,11 @@ test("Indicator observations replay source capture and every transition after co
   if (!observationId) throw new Error("observation missing");
   const transitionEvidence = [];
   for (const action of ["resolve", "dismiss", "restore"] as const) {
+    const completedResults = editor.getByText(
+      "Observation change saved. Records and history refreshed.",
+      { exact: true },
+    );
+    const completedBefore = await completedResults.count();
     const bodies: string[] = [],
       results: CreateManualIndicatorObservationResponse["data"][] = [];
     await page.route(
@@ -181,6 +186,7 @@ test("Indicator observations replay source capture and every transition after co
     await expect(
       editor.getByText(/The observation outcome is unknown/),
     ).toHaveCount(0);
+    await expect(completedResults).toHaveCount(completedBefore + 1);
     await expect
       .poll(
         async () =>

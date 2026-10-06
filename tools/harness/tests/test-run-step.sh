@@ -519,7 +519,7 @@ browser_resource_conflict_session="$browser_resource_conflict_results/browser-re
 mkdir -p "$browser_resource_conflict_session"
 cat >"$browser_resource_conflict_session/startup-diagnostics.json" <<'JSON'
 {
-  "schema_id": "cartulary.browser_startup_diagnostics.v2",
+  "schema_id": "cartulary.browser_startup_diagnostics.v3",
   "suite_id": "suite-test",
   "browser_session_id": "session-test",
   "runtime_profile_id": "default",

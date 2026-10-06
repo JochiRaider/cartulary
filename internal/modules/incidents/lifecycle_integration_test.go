@@ -19,7 +19,7 @@ import (
 func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident-lifecycle-close-reopen")
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-incident-lifecycle-create",
 		"incident_key":  "IR-LIFECYCLE",
@@ -53,7 +53,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	)
 	httptestx.RequireErrorEnvelope(t, noCSRF, http.StatusForbidden, "csrf_verification_failed")
 
-	const viewerSecretBase32 = "JBSWY3DPEHPK3PXP"
+	const viewerSecretBase32 = "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA"
 	viewerID := flowtest.SeedLocalUserWithActiveTOTP(
 		t,
 		harness.DB,
@@ -65,7 +65,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 		viewerSecretBase32,
 	)
 	viewerLogin := flowtest.LoginLocalUserWithSecondFactor(
-		t,
+		t, http.DefaultClient,
 		harness.Server.HTTP.URL,
 		"incident-lifecycle-viewer@example.test",
 		"IncidentLifecycleViewer1!",
@@ -86,7 +86,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	)
 	httptestx.RequireErrorEnvelope(t, viewerDenied, http.StatusForbidden, "authorization_denied")
 
-	const deploymentAdminSecretBase32 = "JBSWY3DPEHPK3QAA"
+	const deploymentAdminSecretBase32 = "BSSBKZHRDS77C7GTONCVUS5RFAJC5DBQCIBOEDGFXWOJFXHRSYSA"
 	secondAdminID := flowtest.SeedLocalUserWithActiveTOTP(
 		t,
 		harness.DB,
@@ -98,7 +98,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 		deploymentAdminSecretBase32,
 	)
 	deploymentAdminLogin := flowtest.LoginLocalUserWithSecondFactor(
-		t,
+		t, http.DefaultClient,
 		harness.Server.HTTP.URL,
 		"incident-lifecycle-nonmember@example.test",
 		"IncidentLifecycleNonmember1!",

@@ -1,12 +1,9 @@
 package authn
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/base32"
 	"encoding/base64"
 	"errors"
@@ -21,9 +18,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
-	"golang.org/x/crypto/argon2"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
@@ -37,14 +34,11 @@ const (
 	BootstrapTokenTTL          = 10 * time.Minute
 	PendingTOTPEnrollmentTTL   = 10 * time.Minute
 	ConcurrencyLimitReasonCode = "concurrency_limit"
-	passwordSaltBytes          = 16
-	passwordHashBytes          = 32
 	minPasswordScalars         = 12
 	maxPasswordScalars         = 1024
 	maxEmailScalars            = 320
 	displayNameMaxScalars      = 256
 	reasonNoteMaxScalars       = 4096
-	developmentFallbackAuthKey = "Q2FydHVsYXJ5UGhhc2UxRGV2ZWxvcG1lbnRBdXRoS2V5MDE"
 )
 
 var base32NoPadding = base32.StdEncoding.WithPadding(base32.NoPadding)
@@ -85,7 +79,7 @@ const (
 type MasterKeys struct {
 	tokenFingerprintKey   [32]byte
 	csrfKey               [32]byte
-	secretEncryptionKey   [32]byte
+	master                cryptography.MasterKey
 	requestFingerprintKey [32]byte
 }
 
@@ -107,57 +101,12 @@ const (
 	PendingEnrollmentConsumed
 )
 
-func DerivePasswordHash(password []byte, salt []byte) []byte {
-	return argon2.IDKey(password, salt, 1, 64*1024, 4, passwordHashBytes)
-}
-
-func HashPassword(password string) (string, error) {
-	accepted, err := ValidatePasswordProvision(password)
-	if err != nil {
-		return "", err
-	}
-
-	salt := make([]byte, passwordSaltBytes)
-	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("generate password salt: %w", err)
-	}
-
-	hash := DerivePasswordHash([]byte(accepted), salt)
-	return fmt.Sprintf(
-		"argon2id$v=19$m=65536,t=1,p=4$%s$%s",
-		base64.RawStdEncoding.EncodeToString(salt),
-		base64.RawStdEncoding.EncodeToString(hash),
-	), nil
-}
-
-func VerifyPasswordHash(encodedHash string, password string) (bool, error) {
-	parts := strings.Split(encodedHash, "$")
-	if len(parts) != 5 {
-		return false, errors.New("invalid argon2id hash format")
-	}
-	if parts[0] != "argon2id" || parts[1] != "v=19" || parts[2] != "m=65536,t=1,p=4" {
-		return false, errors.New("unsupported argon2id parameters")
-	}
-
-	salt, err := base64.RawStdEncoding.DecodeString(parts[3])
-	if err != nil {
-		return false, fmt.Errorf("decode password salt: %w", err)
-	}
-	want, err := base64.RawStdEncoding.DecodeString(parts[4])
-	if err != nil {
-		return false, fmt.Errorf("decode password hash: %w", err)
-	}
-
-	got := DerivePasswordHash([]byte(password), salt)
-	if len(got) != len(want) {
-		return false, nil
-	}
-	return subtle.ConstantTimeCompare(got, want) == 1, nil
-}
-
 func ValidatePasswordProvision(value string) (string, error) {
 	if value == "" {
 		return "", errors.New("password must not be empty")
+	}
+	if len(value) > maxPasswordScalars*utf8.UTFMax {
+		return "", fmt.Errorf("password length must be between %d and %d Unicode scalar values", minPasswordScalars, maxPasswordScalars)
 	}
 
 	scalars := 0
@@ -300,44 +249,52 @@ func GenerateOpaqueToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
-func LoadMasterKeys(env map[string]string) (MasterKeys, error) {
+func masterKeyMaterial(env map[string]string) ([]byte, error) {
 	raw, ok := lookupEnv(env, AuthMasterKeyEnv)
 	if !ok || raw == "" {
-		raw = developmentFallbackAuthKey
+		return nil, fmt.Errorf("%s is required", AuthMasterKeyEnv)
 	}
-
-	decoded, err := base64.RawStdEncoding.DecodeString(raw)
+	decoded, err := base64.RawStdEncoding.Strict().DecodeString(raw)
 	if err != nil {
-		decoded, err = base64.StdEncoding.DecodeString(raw)
+		decoded, err = base64.StdEncoding.Strict().DecodeString(raw)
+	}
+	if err != nil || len(decoded) != cryptography.MasterKeyBytes || (base64.RawStdEncoding.EncodeToString(decoded) != raw && base64.StdEncoding.EncodeToString(decoded) != raw) {
+		return nil, fmt.Errorf("%s must encode exactly 32 bytes", AuthMasterKeyEnv)
+	}
+	return decoded, nil
+}
+
+func LoadMasterKeys(env map[string]string) (MasterKeys, error) {
+	material, err := masterKeyMaterial(env)
+	if err != nil {
+		return MasterKeys{}, err
+	}
+	defer clear(material)
+	master, err := cryptography.AdmitKey(material)
+	if err != nil {
+		return MasterKeys{}, err
+	}
+	keys := MasterKeys{master: master}
+	for purpose, destination := range map[string]*[32]byte{
+		"token-fingerprint":   &keys.tokenFingerprintKey,
+		"csrf":                &keys.csrfKey,
+		"request-fingerprint": &keys.requestFingerprintKey,
+	} {
+		*destination, err = master.Derive("cartulary.auth.key.v1", purpose)
 		if err != nil {
-			return MasterKeys{}, fmt.Errorf("decode %s: %w", AuthMasterKeyEnv, err)
+			return MasterKeys{}, err
 		}
 	}
-	if len(decoded) < 32 {
-		return MasterKeys{}, fmt.Errorf("%s must decode to at least 32 bytes", AuthMasterKeyEnv)
-	}
-
-	return MasterKeys{
-		tokenFingerprintKey:   deriveKey(decoded, "token-fingerprint"),
-		csrfKey:               deriveKey(decoded, "csrf"),
-		secretEncryptionKey:   deriveKey(decoded, "totp-secret"),
-		requestFingerprintKey: deriveKey(decoded, "request-fingerprint"),
-	}, nil
+	return keys, nil
 }
 
 func RegisterMasterSecretPurpose(registry *secretpurpose.Registry, env map[string]string) error {
-	raw, ok := lookupEnv(env, AuthMasterKeyEnv)
-	if !ok || raw == "" {
-		raw = developmentFallbackAuthKey
-	}
-	decoded, err := base64.RawStdEncoding.DecodeString(raw)
+	material, err := masterKeyMaterial(env)
 	if err != nil {
-		decoded, err = base64.StdEncoding.DecodeString(raw)
-	}
-	if err != nil || len(decoded) < 32 {
 		return errors.New("register authentication master secret: invalid material")
 	}
-	if err := registry.Register(AuthMasterKeyEnv, "authentication_master", decoded); err != nil {
+	defer clear(material)
+	if err := registry.Register(AuthMasterKeyEnv, "authentication_master", material); err != nil {
 		return fmt.Errorf("register authentication master secret purpose: %w", err)
 	}
 	return nil
@@ -351,48 +308,19 @@ func FingerprintRequestValue(keys MasterKeys, value string) []byte {
 	return hmacSHA256(keys.requestFingerprintKey[:], value)
 }
 
-func DerivePurposeKey(keys MasterKeys, purpose string) [32]byte {
-	return deriveKey(keys.requestFingerprintKey[:], purpose)
+func DerivePurposeKey(keys MasterKeys, purpose string) ([32]byte, error) {
+	if purpose == "" {
+		return [32]byte{}, cryptography.ErrInput
+	}
+	return keys.master.Derive("cartulary.auth.consumer-key.v1", purpose)
 }
 
 func CSRFTokenForSessionToken(keys MasterKeys, sessionToken string) string {
 	return base64.RawURLEncoding.EncodeToString(hmacSHA256(keys.csrfKey[:], sessionToken))
 }
 
-func EncryptSecret(keys MasterKeys, cleartext []byte) ([]byte, []byte, error) {
-	block, err := aes.NewCipher(keys.secretEncryptionKey[:])
-	if err != nil {
-		return nil, nil, fmt.Errorf("create secret cipher: %w", err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, nil, fmt.Errorf("create secret gcm: %w", err)
-	}
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, nil, fmt.Errorf("generate secret nonce: %w", err)
-	}
-	return gcm.Seal(nil, nonce, cleartext, nil), nonce, nil
-}
-
-func DecryptSecret(keys MasterKeys, ciphertext []byte, nonce []byte) ([]byte, error) {
-	block, err := aes.NewCipher(keys.secretEncryptionKey[:])
-	if err != nil {
-		return nil, fmt.Errorf("create secret cipher: %w", err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("create secret gcm: %w", err)
-	}
-	secret, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt secret: %w", err)
-	}
-	return secret, nil
-}
-
 func GenerateTOTPSecret() ([]byte, string, error) {
-	raw := make([]byte, 20)
+	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return nil, "", fmt.Errorf("generate totp secret: %w", err)
 	}
@@ -404,11 +332,15 @@ func EncodeSecretBase32(secret []byte) string {
 }
 
 func ValidateTOTPCode(secretBase32 string, passcode string, now time.Time) bool {
+	secret, err := base32NoPadding.DecodeString(secretBase32)
+	if err != nil || len(secret) != 32 || EncodeSecretBase32(secret) != secretBase32 || len(passcode) != 6 {
+		return false
+	}
 	ok, err := totp.ValidateCustom(passcode, secretBase32, now, totp.ValidateOpts{
 		Period:    30,
 		Skew:      1,
 		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
+		Algorithm: otp.AlgorithmSHA256,
 	})
 	return err == nil && ok
 }
@@ -475,11 +407,6 @@ func earlierTime(a, b time.Time) time.Time {
 		return a
 	}
 	return b
-}
-
-func deriveKey(master []byte, purpose string) [32]byte {
-	sum := sha256.Sum256(append(append([]byte(nil), master...), []byte(":"+purpose)...))
-	return sum
 }
 
 func hmacSHA256(key []byte, value string) []byte {

@@ -1118,6 +1118,34 @@
       ]
     },
     {
+      "row_id": "module.auth.integration.secret_envelope_substitution",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestEnterprisePKCEEnvelopeSubstitution_Integration",
+          "TestTOTPEnvelopeSubstitutionAndActivation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6",
       "owner_id": "module.auth",
       "family_id": "module.auth.integration",
@@ -1291,6 +1319,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.auth.support_unit.session_socket_trusted_tls",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth/testsupport/flowtest",
+        "tests": [
+          "TestSessionSocketClientCapturesRevocationThenClose"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.auth.unit.administrative_audit_openapi_is_complete_and_exact_7281a6f4d2",
       "owner_id": "module.auth",
       "family_id": "module.auth.unit",
@@ -1368,6 +1420,82 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.auth.unit.bound_secret_envelopes",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/authn",
+        "tests": [
+          "TestAuthSecretEnvelopeRecordAndPurposeBinding",
+          "TestMasterKeyAdmissionAndHKDFPurposes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.auth.unit.bounded_password_and_sha256_totp",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/authn",
+        "tests": [
+          "TestPasswordRecordVectorsAndRejection",
+          "TestPasswordWorkflowCapacityCancellationAndLifetime",
+          "TestPasswordWorkflowQueueDeadline",
+          "TestTOTPSHA256VectorsAndSecretAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.auth.unit.credential_capacity_public_boundary",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestLoginCapacityAdmissionDoesNotDiscloseAccountExistence_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.auth.unit.deployment_admin_only_credential_routes_fail_clo_5cfa2f8dce",
       "owner_id": "module.auth",
       "family_id": "module.auth.unit",
@@ -1406,6 +1534,43 @@
         "package": "./internal/modules/auth",
         "tests": [
           "TestEnterpriseAuthErrorRegistriesClosed"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.auth.unit.enterprise_provider_cryptographic_policy",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [
+        "platform.cryptography"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/enterpriseauth",
+        "tests": [
+          "TestEnterpriseOIDCCertificateReplacement",
+          "TestEnterpriseOIDCCryptographicPolicy",
+          "TestEnterpriseOIDCRejectsNonJOSEPSSSalt",
+          "TestEnterpriseProviderInputBounds",
+          "TestEnterpriseSAMLAlgorithmAdmission",
+          "TestEnterpriseSAMLClaimAndTrustAdmission",
+          "TestProductionOIDCVerifierAuthCodePKCEInterop",
+          "TestProductionOIDCVerifierNegativeReasonCodes",
+          "TestProductionSAMLVerifierClassifiesPrivateErrors",
+          "TestProductionSAMLVerifierNegativeReasonCodes",
+          "TestProductionSAMLVerifierSPInitiatedInterop",
+          "TestProductionVerifierReasonRegistriesRemainClosed"
         ]
       },
       "evidence_class": "unit",

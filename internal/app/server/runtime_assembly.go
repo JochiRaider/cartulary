@@ -177,6 +177,67 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 
+	// Configuration material is admitted before any service or lease acquisition.
+	secretPurposes := secretpurpose.NewRegistry()
+	if err := authn.RegisterMasterSecretPurpose(secretPurposes, options.Env); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	if err := telemetry.RegisterSecretPurposes(normalizedCfg.Telemetry, options.Env, secretPurposes); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
+	if enterpriseAuthenticationConfiguration.Claimed {
+		enterpriseProviderDefinitions, err = loadEnterpriseProviderManifest(
+			enterpriseAuthenticationConfiguration,
+			options.Env,
+			dependencies.readSecureFile,
+		)
+		if err != nil {
+			runtime.Close()
+			return nil, err
+		}
+		if err := enterpriseauth.RegisterProviderSecretPurposes(enterpriseProviderDefinitions, options.Env, secretPurposes); err != nil {
+			runtime.Close()
+			return nil, deploymentEnterpriseAuthenticationError(err)
+		}
+	}
+	revisionsConflictTokenKeyRing, err := loadRevisionsConflictTokenKeyRing(
+		normalizedCfg.Revisions,
+		options.Env,
+		now(),
+		secretPurposes,
+		dependencies.readSecureFile,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	networkFlowKeyRings, err := loadNetworkFlowKeyRings(
+		networkFlowConfiguration,
+		options.Env,
+		now(),
+		secretPurposes,
+		dependencies.readSecureFile,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	keys, err := authn.LoadMasterKeys(options.Env)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("load auth master key: %w", err)
+	}
+	var objectStoreSettings objectstore.Settings
+	if options.ObjectStore == nil {
+		objectStoreSettings, err = objectstore.ResolveSettings(configassembly.ObjectStoreBinding(normalizedCfg), options.Env)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("setup object store: %w", err)
+		}
+	}
 	postgresAdmission := options.Postgres
 	if postgresAdmission == nil {
 		postgresSettings, settingsErr := postgres.ResolveSettings(configassembly.PostgresBinding(normalizedCfg), postgres.PurposeRuntime, options.Env)
@@ -197,6 +258,35 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	var postgresPool *pgxpool.Pool
 	if postgresAdmission != nil {
 		postgresPool = postgresAdmission.Pool()
+	}
+	if dependencies.requireCryptoState == nil {
+		runtime.Close()
+		return nil, database_migrations.ErrIncompatibleCryptoState
+	}
+	if err := dependencies.requireCryptoState(ctx, postgresPool); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	migrationSource, err := dbmigrations.Source()
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("load migration source: %w", err)
+	}
+	if err := dependencies.ensureSchemaReady(ctx, postgresPool, migrationSource); err != nil {
+		runtime.Close()
+		var remediation database_migrations.RemediationReporter
+		if errors.As(err, &remediation) {
+			return nil, remediation
+		}
+		var migrationFailure database_migrations.MigrationFailure
+		if errors.As(err, &migrationFailure) {
+			return nil, config.NewDiagnosticsError(config.Diagnostic{
+				Path:       "database.schema_version",
+				ReasonCode: migrationFailure.ReasonCode(),
+				Message:    "Database migration validation failed.",
+			})
+		}
+		return nil, err
 	}
 	lease, leaseErr := dependencies.acquireApplicationProcessLease(
 		ctx,
@@ -409,42 +499,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	runtime.publication = publication.controller
 	resolvedClaims := extensionPlan.ResolvedClaims()
 
-	secretPurposes := secretpurpose.NewRegistry()
-	if err := authn.RegisterMasterSecretPurpose(secretPurposes, options.Env); err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	if err := telemetry.RegisterSecretPurposes(normalizedCfg.Telemetry, options.Env, secretPurposes); err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
-	if enterpriseAuthenticationAdmitted {
-		enterpriseProviderDefinitions, err = loadEnterpriseProviderManifest(
-			enterpriseAuthenticationConfiguration,
-			options.Env,
-			dependencies.readSecureFile,
-		)
-		if err != nil {
-			runtime.Close()
-			return nil, err
-		}
-		if err := enterpriseauth.RegisterProviderSecretPurposes(enterpriseProviderDefinitions, options.Env, secretPurposes); err != nil {
-			runtime.Close()
-			return nil, deploymentEnterpriseAuthenticationError(err)
-		}
-	}
-	revisionsConflictTokenKeyRing, err := loadRevisionsConflictTokenKeyRing(
-		normalizedCfg.Revisions,
-		options.Env,
-		now(),
-		secretPurposes,
-		dependencies.readSecureFile,
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, err
-	}
 	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg.Telemetry, normalizedCfg.DeploymentProfile, options.Env, telemetry.WithResolvedClaimIdentity(telemetry.ResolvedClaimIdentity{
 		ProfileIDs: resolvedClaims.ProfileIDs(),
 		SHA256:     resolvedClaims.SHA256(),
@@ -460,42 +514,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		_ = telemetryRuntime.Shutdown(shutdownCtx)
 	})
 
-	migrationSource, err := dbmigrations.Source()
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("load migration source: %w", err)
-	}
-	if err := dependencies.ensureSchemaReady(ctx, postgresPool, migrationSource); err != nil {
-		runtime.Close()
-		var remediation database_migrations.RemediationReporter
-		if errors.As(err, &remediation) {
-			return nil, remediation
-		}
-		var migrationFailure database_migrations.MigrationFailure
-		if errors.As(err, &migrationFailure) {
-			return nil, config.NewDiagnosticsError(config.Diagnostic{
-				Path:       "database.schema_version",
-				ReasonCode: migrationFailure.ReasonCode(),
-				Message:    "Database migration validation failed.",
-			})
-		}
-		return nil, err
-	}
 	recognizedJobDefinitions, err := extensionassembly.RecognizedJobDefinitions(extensionCoordinator.JobKindContracts(), extensionCoordinator.WorkerRuntimeContracts())
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose recognized extension job definitions: %w", err)
-	}
-	networkFlowKeyRings, err := loadNetworkFlowKeyRings(
-		networkFlowConfiguration,
-		options.Env,
-		now(),
-		secretPurposes,
-		dependencies.readSecureFile,
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, err
 	}
 	var extensionStateStore *extensionstore.Store
 	if postgresPool != nil {
@@ -601,11 +623,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if options.ObjectStore != nil {
 		rawObjectStore = options.ObjectStore
 	} else {
-		objectStoreSettings, settingsErr := objectstore.ResolveSettings(configassembly.ObjectStoreBinding(normalizedCfg), options.Env)
-		if settingsErr != nil {
-			runtime.Close()
-			return nil, fmt.Errorf("setup object store: %w", settingsErr)
-		}
 		client, err := dependencies.setupObjectStore(ctx, objectStoreSettings, objectstore.Instrumentation{})
 		if err != nil {
 			runtime.Close()
@@ -730,13 +747,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("validate retained Reference Pack state: %w", err)
 	}
-	keys, err := authn.LoadMasterKeys(options.Env)
+	cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("load auth master key: %w", err)
+		return nil, err
 	}
-	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
-	cursorCodec := pagination.NewCodec(cursorKey[:])
+	cursorCodec := pagination.NewCodec(cursorKey)
 	referenceMutationFinalizer, err := extensionassembly.NewReferencePackMutationFinalizer(func(error) { runtime.lifecycle.Fatal("indeterminate_database_commit") })
 	if err != nil {
 		runtime.Close()

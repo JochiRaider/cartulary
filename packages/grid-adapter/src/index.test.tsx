@@ -1876,6 +1876,14 @@ describe("grid-adapter", () => {
       "Stale Action; refresh required",
     );
 
+    const actionCell = cell("action");
+    if (!actionCell) throw new Error("Action cell is missing");
+    const mutations = new MutationObserver(() => {});
+    mutations.observe(actionCell, { attributes: true });
+    view.rerender(grid("editable", { active: true, stale: true }));
+    expect(mutations.takeRecords()).toEqual([]);
+    mutations.disconnect();
+
     view.rerender(grid("read_only"));
     expect(cell("action")?.getAttribute("aria-readonly")).toBe("true");
     expect(cell("action")?.getAttribute("aria-description")).toBe(

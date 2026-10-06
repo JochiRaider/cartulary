@@ -35,8 +35,8 @@ func testEmbeddedReferenceDestinationVerification(t *testing.T, runtime *appsupp
 		t.Fatal(err)
 	}
 	target := startIsolatedIncidentBundleServerWithEnv(t, runtime, "embedded-reference-target", map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"})
-	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, source.Server.HTTP.URL)
-	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, target.Server.HTTP.URL)
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
 	var active string
 	if err := target.DB.QueryRow(`SELECT pack_set_id FROM reference_pack_current_set WHERE singleton`).Scan(&active); err != nil || active != "rpset_"+*expected.Set {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func testEmbeddedReferenceDestinationVerification(t *testing.T, runtime *appsupp
 	}
 	t.Run("untrusted clock rejects fresh verification", func(t *testing.T) {
 		untrusted := startIsolatedIncidentBundleServerWithEnv(t, runtime, "embedded-clock-untrusted", map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "false"})
-		admin, _ := flowtest.ProvisionBootstrapAdmin(t, untrusted.Server.HTTP.URL)
+		admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, untrusted.Server.HTTP.URL)
 		id, bundle := create("EMBEDDED-CLOCK-UNTRUSTED")
 		bundle = replaceStructuredBundleMember(t, bundle, fixture.Path, fixture.Container)
 		response := postImport(t, untrusted.Server, admin, `{"client_txn_id":"embedded-clock-import"}`, bundle, "bundle.zip")
@@ -219,7 +219,7 @@ func testEmbeddedReferenceDestinationVerification(t *testing.T, runtime *appsupp
 				}
 			}
 			destination := startIsolatedIncidentBundleServerConfigured(t, runtime, "embedded-cohort-"+name, map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": rootPath, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}, configure)
-			admin, _ := flowtest.ProvisionBootstrapAdmin(t, destination.Server.HTTP.URL)
+			admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, destination.Server.HTTP.URL)
 			if publicationFailure {
 				// The sequence is deliberate nontransactional test evidence:
 				// value 63 proves all earlier owner writes were visible before

@@ -103,6 +103,20 @@ describe("ordinary app shell", () => {
     expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
       "Checking current session...",
     );
+    for (const field of ["login-username", "login-password"] as const) {
+      expect(screen.getByTestId(authTestId(field))).toHaveProperty(
+        "readOnly",
+        true,
+      );
+      expect(screen.getByTestId(authTestId(field))).toHaveProperty(
+        "disabled",
+        false,
+      );
+    }
+    expect(screen.getByTestId(authTestId("login-submit"))).toHaveProperty(
+      "disabled",
+      true,
+    );
     pendingInitialSession.resolve(
       errorResponse("session_required", 401, {
         reason_code: "no_session",
@@ -117,6 +131,16 @@ describe("ordinary app shell", () => {
         .getByTestId(authTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("anonymous");
+    for (const field of ["login-username", "login-password"] as const) {
+      expect(screen.getByTestId(authTestId(field))).toHaveProperty(
+        "readOnly",
+        false,
+      );
+    }
+    expect(screen.getByTestId(authTestId("login-submit"))).toHaveProperty(
+      "disabled",
+      false,
+    );
     expect(
       screen.getByTestId(authTestId("shell-message")).textContent,
     ).toContain("Use your deployment account.");
@@ -413,10 +437,11 @@ describe("ordinary app shell", () => {
                 enrollment_id: "00000000-0000-4000-8000-000000000002",
                 expires_at: new Date(Date.now() + 300_000).toISOString(),
                 totp_setup: {
-                  secret_base32: "JBSWY3DPEHPK3PXP",
+                  secret_base32:
+                    "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
                   otpauth_uri:
-                    "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
-                  algorithm: "SHA1",
+                    "otpauth://totp/Cartulary?secret=RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+                  algorithm: "SHA256",
                   digits: 6,
                   period_seconds: 30,
                 },
@@ -507,7 +532,7 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(authTestId("bootstrap-setup-key")).textContent,
-      ).toBe("JBSWY3DPEHPK3PXP");
+      ).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA");
     });
 
     fireEvent.change(
@@ -597,10 +622,11 @@ describe("ordinary app shell", () => {
                 enrollment_id: "00000000-0000-4000-8000-000000000001",
                 expires_at: new Date(Date.now() + 300_000).toISOString(),
                 totp_setup: {
-                  secret_base32: "JBSWY3DPEHPK3PXP",
+                  secret_base32:
+                    "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
                   otpauth_uri:
-                    "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
-                  algorithm: "SHA1",
+                    "otpauth://totp/Cartulary?secret=RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+                  algorithm: "SHA256",
                   digits: 6,
                   period_seconds: 30,
                 },
@@ -669,7 +695,7 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(accountTestId("totp-setup-key")).textContent,
-      ).toBe("JBSWY3DPEHPK3PXP");
+      ).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA");
     });
 
     fireEvent.change(screen.getByTestId(accountTestId("password-current")), {
@@ -964,10 +990,11 @@ describe("ordinary app shell", () => {
                 enrollment_id: "00000000-0000-4000-8000-000000000002",
                 expires_at: new Date(Date.now() + 300_000).toISOString(),
                 totp_setup: {
-                  secret_base32: "JBSWY3DPEHPK3PXP",
+                  secret_base32:
+                    "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
                   otpauth_uri:
-                    "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
-                  algorithm: "SHA1",
+                    "otpauth://totp/Cartulary?secret=RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+                  algorithm: "SHA256",
                   digits: 6,
                   period_seconds: 30,
                 },
@@ -1011,7 +1038,7 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(authTestId("bootstrap-setup-key")).textContent,
-      ).toBe("JBSWY3DPEHPK3PXP");
+      ).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA");
     });
 
     fireEvent.change(
@@ -1066,10 +1093,11 @@ describe("ordinary app shell", () => {
                 enrollment_id: "00000000-0000-4000-8000-000000000001",
                 expires_at: new Date(Date.now() + 300_000).toISOString(),
                 totp_setup: {
-                  secret_base32: "JBSWY3DPEHPK3PXP",
+                  secret_base32:
+                    "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
                   otpauth_uri:
-                    "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
-                  algorithm: "SHA1",
+                    "otpauth://totp/Cartulary?secret=RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+                  algorithm: "SHA256",
                   digits: 6,
                   period_seconds: 30,
                 },
@@ -1108,7 +1136,7 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(accountTestId("totp-setup-key")).textContent,
-      ).toBe("JBSWY3DPEHPK3PXP");
+      ).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA");
     });
     fireEvent.change(screen.getByTestId(accountTestId("totp-complete-code")), {
       target: { value: "000000" },

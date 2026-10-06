@@ -1,0 +1,65 @@
+{
+  "schema_id": "cartulary.backup_integrity_manifest.v4",
+  "backup_set_id": "00000000-0000-0000-0000-000000000201",
+  "consistency_point_at": "2026-07-29T11:00:00Z",
+  "created_at": "2026-07-29T12:00:00Z",
+  "retained_until": "2026-08-28T12:00:00Z",
+  "recovery_state_catalog_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "codec_registry_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+  "postgres_snapshot_ref": "backup/00000000-0000-0000-0000-000000000201/postgres/index",
+  "object_store_manifest_ref": "backup/00000000-0000-0000-0000-000000000201/objects/manifest",
+  "artifacts": [
+    {
+      "kind": "graph_projection_restore_implementation_binding",
+      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v5",
+      "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/implementation-binding",
+      "content_type": "application/json",
+      "plaintext_bytes": 1461,
+      "plaintext_sha256": "1006d1df55a273762d1986adcf541bac8b027e7a11894cf58f741deb12303afe",
+      "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/graph-implementation-binding",
+      "envelope_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+    },
+    {
+      "kind": "graph_projection_restore_source_registry",
+      "schema_id": "cartulary.graph_projection_restore_source_registry.v4",
+      "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/source-registry",
+      "content_type": "application/json",
+      "plaintext_bytes": 543,
+      "plaintext_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634",
+      "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/graph-source-registry",
+      "envelope_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    {
+      "kind": "object_store_manifest",
+      "schema_id": "cartulary.object_store_backup_manifest.v2",
+      "logical_ref": "backup/00000000-0000-0000-0000-000000000201/objects/manifest",
+      "content_type": "application/json",
+      "plaintext_bytes": 1024,
+      "plaintext_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/objects-manifest",
+      "envelope_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "kind": "object_store_summary",
+      "schema_id": "cartulary.object_store_backup_summary.v2",
+      "logical_ref": "backup/00000000-0000-0000-0000-000000000201/objects/summary",
+      "content_type": "application/json",
+      "plaintext_bytes": 512,
+      "plaintext_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/objects-summary",
+      "envelope_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "kind": "postgres_snapshot",
+      "schema_id": "cartulary.postgres_snapshot_artifact.v2",
+      "logical_ref": "backup/00000000-0000-0000-0000-000000000201/postgres/index",
+      "content_type": "application/json",
+      "plaintext_bytes": 2048,
+      "plaintext_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/postgres-index",
+      "envelope_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  ],
+  "manifest_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+  "application_crypto_format": "cartulary.application_crypto_format.v1"
+}

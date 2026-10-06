@@ -47,6 +47,7 @@ require_command docker
 require_command date
 require_command sha256sum
 docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not available"
+docker info >/dev/null 2>&1 || fail "Docker Desktop WSL2 backend is unavailable; start Docker Desktop and retry"
 require_file "$ENV_FILE"
 require_file "$SOURCE_CONFIG_HOST"
 require_file "$TARGET_CONFIG_HOST"
@@ -70,14 +71,14 @@ for name in \
   fi
 done
 
-if ! compose exec -T postgres psql -U "${POSTGRES_USER:-cartulary}" -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '${target_db}'" | grep -qx "1"; then
-  compose exec -T postgres createdb -U "${POSTGRES_USER:-cartulary}" "$target_db"
+if ! compose exec -T --user postgres postgres psql -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '${target_db}'" | grep -qx "1"; then
+  compose exec -T --user postgres postgres createdb -U postgres "$target_db"
+  compose exec -T --user postgres -e "PGDATABASE=${target_db}" postgres /docker-entrypoint-initdb.d/010-cartulary-provision.sh >/dev/null
 fi
-compose exec -T -e "PGDATABASE=${target_db}" postgres /docker-entrypoint-initdb.d/010-cartulary-provision.sh >/dev/null
 
 compose run --rm --no-deps \
   --volume "${TARGET_CONFIG_HOST}:${TARGET_CONFIG_CONTAINER}:ro" \
-  --volume "${TARGET_ROOT_HOST}:${TARGET_ROOT_CONTAINER}" \
+  --volume "${TARGET_ROOT_HOST}:${TARGET_ROOT_CONTAINER}:ro" \
   --entrypoint /usr/local/bin/cartulary-migrate \
   restore-verify-migrate up
 
@@ -108,7 +109,7 @@ expires_at="$(date -u -d '+23 hours' '+%Y-%m-%dT%H:%M:%SZ')"
 mkdir -p "${TARGET_ROOT_HOST}/backups"
 chmod 0755 "${TARGET_ROOT_HOST}/backups"
 printf '%s\n' "$target_generation_id" >"${TARGET_ROOT_HOST}/backups/restore-target-generation"
-printf '{"schema_id":"cartulary.restore_target_marker.v4","purpose":"restore_verification_target","target_generation_id":"%s","binding_digests":{"database_sha256":"%s","object_store_sha256":"%s","reference_pack_storage_sha256":"%s","export_outputs_sha256":"%s"},"issued_at":"%s","expires_at":"%s"}\n' \
+printf '{"schema_id":"cartulary.restore_target_marker.v5","application_crypto_format":"cartulary.application_crypto_format.v1","purpose":"restore_verification_target","target_generation_id":"%s","binding_digests":{"database_sha256":"%s","object_store_sha256":"%s","reference_pack_storage_sha256":"%s","export_outputs_sha256":"%s"},"issued_at":"%s","expires_at":"%s"}\n' \
   "$target_generation_id" \
   "$database_binding_sha256" \
   "$object_binding_sha256" \

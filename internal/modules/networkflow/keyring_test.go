@@ -19,8 +19,8 @@ const (
 func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
 	manifest := `{
-  "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[
+  "schema_id":"cartulary.network_flow_key_rings.v2",
+  "cursor_key_ring":{"algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[
     {"cursor_key_id":"cursor-v2","state":"active","secret_ref":{"kind":"env","name":"cursor-active"}},
     {"cursor_key_id":"cursor-v1","state":"decrypt_only","secret_ref":{"kind":"env","name":"cursor-old"},"deactivated_at":"2026-07-13T11:55:00Z","retire_at":"2026-07-13T12:10:00Z"}
   ]},
@@ -36,8 +36,16 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse key rings: %v", err)
 	}
+	legacy := strings.Replace(strings.Replace(manifest, "cartulary.network_flow_key_rings.v2", "cartulary.network_flow_key_rings.v1", 1), "hkdf_sha256_aes_256_gcm_v2", "aes_256_gcm_v1", 1)
+	if _, err := parseKeyRingsWithDefaultRegistry([]byte(legacy), map[string]string{
+		"CARTULARY_SECRET_CURSOR_ACTIVE": testCursorKeyText,
+		"CARTULARY_SECRET_CURSOR_OLD":    "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+		"CARTULARY_SECRET_SAFE_ACTIVE":   testSafeKeyText,
+	}, now); err == nil {
+		t.Fatal("legacy key ring admitted")
+	}
 	clock := now
-	codec, err := newCursorCodec(rings, func() time.Time { return clock }, nil)
+	codec, err := newCursorCodec(rings, func() time.Time { return clock })
 	if err != nil {
 		t.Fatalf("create cursor codec: %v", err)
 	}
@@ -49,8 +57,13 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode cursor: %v", err)
 	}
-	if !strings.HasPrefix(token, "nfc2.cursor-v2.") {
+	if !strings.HasPrefix(token, "nfc3.cursor-v2.") {
 		t.Fatalf("unexpected cursor envelope: %q", token)
+	}
+	for _, invalid := range []string{strings.Replace(token, "nfc3.", "nfc2.", 1), token + "=", token + "\n", strings.Repeat("x", 4097)} {
+		if _, reason := codec.Decode(invalid); reason == "" {
+			t.Fatal("invalid framing accepted")
+		}
 	}
 	payload, reason := codec.Decode(token)
 	if reason != "" || payload.PositionKind != "row_keyset_v1" {
@@ -63,7 +76,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 		t.Fatalf("actor mismatch reason = %q", reason)
 	}
 	parts := strings.Split(token, ".")
-	if _, reason := codec.Decode("nfc2.unknown." + parts[2]); reason != "malformed" {
+	if _, reason := codec.Decode("nfc3.unknown." + parts[2]); reason != "malformed" {
 		t.Fatalf("unknown key reason = %q", reason)
 	}
 	sealed, err := base64.RawURLEncoding.DecodeString(parts[2])
@@ -83,7 +96,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 	oldCodec, err := newCursorCodec(&KeyRings{
 		cursorActiveID: "cursor-v1",
 		cursorKeys:     map[string]cursorKeyMaterial{"cursor-v1": oldMaterial},
-	}, func() time.Time { return oldClock }, nil)
+	}, func() time.Time { return oldClock })
 	if err != nil {
 		t.Fatalf("create prior cursor codec: %v", err)
 	}
@@ -105,6 +118,26 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 		t.Fatal("retired cursor key remained in live codec")
 	}
 	clock = now
+	// Key IDs may contain dots; split only the final envelope separator.
+	dottedRings := KeyRings{
+		cursorActiveID: "active.key",
+		cursorKeys:     map[string]cursorKeyMaterial{"active.key": rings.cursorKeys[rings.cursorActiveID]},
+	}
+	dotted, err := newCursorCodec(&dottedRings, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := cursorBinding{Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident", QueryHash: "hash", QueryEcho: queryEcho, Limit: 25}
+	dottedToken, err := dotted.Encode(binding, "row_keyset_v1", map[string]string{"id": "row"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, reason := dotted.Decode(dottedToken); reason != "" {
+		t.Fatalf("dotted key: %s", reason)
+	}
+	if _, err := dotted.Encode(binding, "row_keyset_v1", strings.Repeat("x", 4096)); err == nil {
+		t.Fatal("issued oversized cursor")
+	}
 	clock = now.Add(cursorTTL)
 	if _, reason := codec.Decode(token); reason != "expired" {
 		t.Fatalf("expected equality with expiry to be expired, got %q", reason)
@@ -114,8 +147,8 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 func TestNetworkFlowSafeDigestRingPurgesInactiveEpoch(t *testing.T) {
 	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
 	manifest := `{
-  "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[
+  "schema_id":"cartulary.network_flow_key_rings.v2",
+  "cursor_key_ring":{"algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[
     {"cursor_key_id":"cursor-v2","state":"active","secret_ref":{"kind":"env","name":"cursor-active"}}
   ]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[
@@ -153,8 +186,8 @@ func TestNetworkFlowKeyRingValidationRejectsPurposeReuseAndNull(t *testing.T) {
 	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
 	t.Run("purpose reuse", func(t *testing.T) {
 		manifest := `{
-  "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"cursor","state":"active","secret_ref":{"kind":"env","name":"shared"}}]},
+  "schema_id":"cartulary.network_flow_key_rings.v2",
+  "cursor_key_ring":{"algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[{"cursor_key_id":"cursor","state":"active","secret_ref":{"kind":"env","name":"shared"}}]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"safe","state":"active","secret_ref":{"kind":"env","name":"shared"}}]}
 }`
 		if _, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), map[string]string{"CARTULARY_SECRET_SHARED": testCursorKeyText}, now); err == nil || !strings.Contains(err.Error(), "purpose_conflict") {
@@ -163,8 +196,8 @@ func TestNetworkFlowKeyRingValidationRejectsPurposeReuseAndNull(t *testing.T) {
 	})
 	t.Run("authentication master material reuse", func(t *testing.T) {
 		manifest := `{
-  "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"cursor","state":"active","secret_ref":{"kind":"env","name":"cursor"}}]},
+  "schema_id":"cartulary.network_flow_key_rings.v2",
+  "cursor_key_ring":{"algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[{"cursor_key_id":"cursor","state":"active","secret_ref":{"kind":"env","name":"cursor"}}]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"safe","state":"active","secret_ref":{"kind":"env","name":"safe"}}]}
 }`
 		env := map[string]string{
@@ -177,7 +210,7 @@ func TestNetworkFlowKeyRingValidationRejectsPurposeReuseAndNull(t *testing.T) {
 		}
 	})
 	t.Run("explicit null", func(t *testing.T) {
-		manifest := `{"schema_id":"cartulary.network_flow_key_rings.v1","cursor_key_ring":null,"safe_digest_key_ring":{}}`
+		manifest := `{"schema_id":"cartulary.network_flow_key_rings.v2","cursor_key_ring":null,"safe_digest_key_ring":{}}`
 		if _, err := parseKeyRingsWithDefaultRegistry([]byte(manifest), nil, now); err == nil || !strings.Contains(err.Error(), "explicit null") {
 			t.Fatalf("expected explicit-null rejection, got %v", err)
 		}

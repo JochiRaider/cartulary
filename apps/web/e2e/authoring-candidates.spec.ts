@@ -793,6 +793,7 @@ test("Timeline contextual reference removal keeps keyboard focus in the referenc
     name: "Linked Records",
     exact: true,
   });
+  await expect(select.getByRole("option")).toHaveCount(100);
   const firstPageIds = await select
     .getByRole("option")
     .evaluateAll((options) =>

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ import (
 func TestRecoveryEvidenceInventoryClosure_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "recovery-evidence-inventory-closure")
-	admin, actorID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-recovery-evidence-inventory-incident",
 		"incident_key":  "RECOVERY-EVIDENCE-INVENTORY",

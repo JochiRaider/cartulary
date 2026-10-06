@@ -35,6 +35,18 @@ func TestLogCorrelationSafeFields(t *testing.T) {
 			t.Fatalf("missing safe field %s in %#v", key, fields)
 		}
 	}
+	capacity := LogCorrelation(context.Background(), LogCorrelationFields{
+		ErrorCode:  "authentication_capacity_exhausted",
+		ErrorClass: "capacity_exhausted",
+	})
+	wantCapacity := map[string]string{
+		"cartulary.error_code":  "authentication_capacity_exhausted",
+		"cartulary.error_class": "capacity_exhausted",
+	}
+	if !reflect.DeepEqual(capacity, wantCapacity) {
+		t.Fatalf("capacity admission must retain only its bounded public classification: %#v", capacity)
+	}
+
 }
 
 func TestLogCorrelationDropsUnsafeFields(t *testing.T) {

@@ -14,33 +14,33 @@ import (
 	"os"
 	pathpkg "path"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
 const (
-	EndpointEnv  = "CARTULARY_S3_ENDPOINT"
-	AccessKeyEnv = "CARTULARY_S3_ACCESS_KEY_ID"
-	SecretKeyEnv = "CARTULARY_S3_SECRET_ACCESS_KEY"
-	SecureEnv    = "CARTULARY_S3_SECURE"
-	BucketEnv    = "CARTULARY_S3_BUCKET"
+	EndpointEnv        = "CARTULARY_S3_ENDPOINT"
+	AccessKeyEnv       = "CARTULARY_S3_ACCESS_KEY_ID"
+	SecretKeyEnv       = "CARTULARY_S3_SECRET_ACCESS_KEY"
+	SecureEnv          = "CARTULARY_S3_SECURE"
+	BucketEnv          = "CARTULARY_S3_BUCKET"
+	RegionEnv          = "CARTULARY_S3_REGION"
+	RootCertificateEnv = "CARTULARY_S3_ROOT_CERTIFICATE_PATH"
 )
 
 type Settings struct {
-	BindingKind string
-	RootPath    string
-	Endpoint    string
-	AccessKey   string
-	SecretKey   string
-	Secure      bool
-	Bucket      string
+	BindingKind         string
+	RootPath            string
+	Endpoint            string
+	AccessKey           string
+	SecretKey           string
+	Secure              bool
+	Bucket              string
+	Region              string
+	RootCertificatePath string
 }
 
 type Binding struct {
@@ -55,11 +55,13 @@ type Instrumentation struct {
 }
 
 type ServiceRefEnvKeys struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	Secure    string
-	Bucket    string
+	Endpoint            string
+	AccessKey           string
+	SecretKey           string
+	Secure              string
+	Bucket              string
+	Region              string
+	RootCertificatePath string
 }
 
 type Store interface {
@@ -132,323 +134,6 @@ func ResolveSettings(binding Binding, env map[string]string) (Settings, error) {
 	default:
 		return Settings{}, fmt.Errorf("resolve object-store settings: roots.object_storage.binding_kind must be configured before object-store setup")
 	}
-}
-
-func newS3Store(ctx context.Context, settings Settings) (Store, error) {
-	if err := validateBucketName(settings.Bucket); err != nil {
-		return nil, err
-	}
-	client, err := newS3Client(settings)
-	if err != nil {
-		return nil, fmt.Errorf("create S3 client: %w", err)
-	}
-
-	store := &S3Store{client: client, bucket: settings.Bucket}
-	exists, err := runWithRetry(ctx, OperationStartupValidation, objectMetadataTimeout, true, func(ctx context.Context) (bool, error) {
-		return client.BucketExists(ctx, settings.Bucket)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("validate object-store bucket: %w", err)
-	}
-	if !exists {
-		return nil, adapterError(OperationStartupValidation, ErrorCodeUnavailable, ReasonBucketMissing, true, "configured bucket is missing", nil)
-	}
-	if err := store.validateStartupCapabilities(ctx); err != nil {
-		return nil, err
-	}
-
-	return store, nil
-}
-
-func EnsureBucket(ctx context.Context, settings Settings) (EnsureBucketResult, error) {
-	switch settings.BindingKind {
-	case "filesystem_root":
-		store, err := NewFilesystemStore(settings.RootPath)
-		if err != nil {
-			return EnsureBucketResult{}, err
-		}
-		_ = store.Close()
-		return EnsureBucketResult{AlreadyExists: true}, nil
-	case "managed_service":
-		return ensureManagedServiceBucket(ctx, settings)
-	default:
-		return EnsureBucketResult{}, fmt.Errorf("ensure object-store bucket: unsupported binding_kind %q", settings.BindingKind)
-	}
-}
-
-func ensureManagedServiceBucket(ctx context.Context, settings Settings) (EnsureBucketResult, error) {
-	if err := validateBucketName(settings.Bucket); err != nil {
-		return EnsureBucketResult{}, err
-	}
-	client, err := newS3Client(settings)
-	if err != nil {
-		return EnsureBucketResult{}, fmt.Errorf("create S3 client: %w", err)
-	}
-
-	exists, err := runWithRetry(ctx, OperationEnsureBucket, objectMetadataTimeout, true, func(ctx context.Context) (bool, error) {
-		return client.BucketExists(ctx, settings.Bucket)
-	})
-	if err != nil {
-		return EnsureBucketResult{}, err
-	}
-
-	result := EnsureBucketResult{AlreadyExists: exists}
-	if !exists {
-		_, err = runWithRetry(ctx, OperationEnsureBucket, objectMutationTimeout, true, func(ctx context.Context) (struct{}, error) {
-			return struct{}{}, client.MakeBucket(ctx, settings.Bucket, minio.MakeBucketOptions{})
-		})
-		if err != nil {
-			return EnsureBucketResult{}, err
-		}
-		result = EnsureBucketResult{Created: true}
-	}
-
-	store := &S3Store{client: client, bucket: settings.Bucket}
-	if err := store.validateStartupCapabilities(ctx); err != nil {
-		return EnsureBucketResult{}, err
-	}
-	return result, nil
-}
-
-func newS3Client(settings Settings) (*minio.Client, error) {
-	return minio.New(settings.Endpoint, &minio.Options{
-		Creds:      credentials.NewStaticV4(settings.AccessKey, settings.SecretKey, ""),
-		Secure:     settings.Secure,
-		MaxRetries: 1,
-	})
-}
-
-func (s *S3Store) validateStartupCapabilities(ctx context.Context) error {
-	_, err := runWithRetry(ctx, OperationStartupValidation, objectMetadataTimeout, true, func(ctx context.Context) (struct{}, error) {
-		_, statErr := s.client.StatObject(ctx, s.bucket, ".cartulary/startup/capability-check", minio.StatObjectOptions{})
-		if statErr == nil {
-			return struct{}{}, nil
-		}
-		mapped := mapBackendError(OperationStartupValidation, statErr)
-		if IsObjectNotFound(mapped) {
-			return struct{}{}, nil
-		}
-		return struct{}{}, mapped
-	})
-	if err != nil {
-		return err
-	}
-	_, err = s.client.PresignedPutObject(ctx, s.bucket, ".cartulary/startup/direct-put-check", time.Minute)
-	if err != nil {
-		return mapBackendError(OperationStartupValidation, err)
-	}
-	return nil
-}
-
-type S3Store struct {
-	client *minio.Client
-	bucket string
-}
-
-func (s *S3Store) UploadTarget(ctx context.Context, key string, expiresAt time.Time) (UploadTarget, error) {
-	return s.CreateUploadTarget(ctx, UploadTargetRequest{Key: key, ByteSize: -1, ExpiresAt: expiresAt, Purpose: PurposeProductUpload})
-}
-
-func (s *S3Store) CreateUploadTarget(ctx context.Context, request UploadTargetRequest) (UploadTarget, error) {
-	if err := validateUploadTargetRequest(request); err != nil {
-		return UploadTarget{}, err
-	}
-	expiresIn := time.Until(request.ExpiresAt)
-	target, err := runWithRetry(ctx, OperationCreateUploadTarget, uploadTargetTimeout, true, func(ctx context.Context) (UploadTarget, error) {
-		targetURL, err := s.client.PresignedPutObject(ctx, s.bucket, request.Key, expiresIn)
-		if err != nil {
-			return UploadTarget{}, err
-		}
-		return UploadTarget{Href: targetURL.String(), Method: "PUT", Headers: map[string]string{}}, nil
-	})
-	if err != nil {
-		return UploadTarget{}, err
-	}
-	return target, nil
-}
-
-func (s *S3Store) CompleteUploadTarget(context.Context, string, io.Reader, string) error {
-	return adapterError(OperationCompleteUploadTarget, ErrorCodeInvalidRequest, ReasonInvalidRequest, false, "direct upload targets must use the presigned object-store URL", nil)
-}
-
-func (s *S3Store) PutObject(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
-	_, err := s.Put(ctx, PutObjectRequest{Key: key, Body: body, Size: size, ContentType: contentType, Purpose: PurposeMigrationCopy})
-	return err
-}
-
-func (s *S3Store) Put(ctx context.Context, request PutObjectRequest) (PutObjectResult, error) {
-	if err := validatePutObjectRequest(request); err != nil {
-		return PutObjectResult{}, err
-	}
-	opts := minio.PutObjectOptions{ContentType: request.ContentType}
-	if len(request.Metadata) > 0 {
-		opts.UserMetadata = map[string]string(request.Metadata)
-	}
-	info, err := runWithRetry(ctx, OperationPutObject, objectMutationTimeout, false, func(ctx context.Context) (minio.UploadInfo, error) {
-		return s.client.PutObject(ctx, s.bucket, request.Key, request.Body, request.Size, opts)
-	})
-	if err != nil {
-		return PutObjectResult{}, err
-	}
-	return PutObjectResult{ETag: info.ETag, SizeBytes: info.Size, ContentType: request.ContentType, Metadata: request.Metadata}, nil
-}
-
-func (s *S3Store) ReadObject(ctx context.Context, key string, options ReadOptions) (io.ReadCloser, ObjectInfo, error) {
-	return s.Get(ctx, GetObjectRequest{Key: key, RangeStart: options.RangeStart, RangeEnd: options.RangeEnd, Purpose: PurposeProductRead})
-}
-
-func (s *S3Store) Get(ctx context.Context, request GetObjectRequest) (io.ReadCloser, ObjectInfo, error) {
-	if err := validateGetObjectRequest(request); err != nil {
-		return nil, ObjectInfo{}, err
-	}
-	operation := OperationGetObject
-	if request.RangeStart != nil {
-		operation = OperationGetObjectRange
-	}
-	info, err := s.Head(ctx, HeadObjectRequest{Key: request.Key, Purpose: request.Purpose})
-	if err != nil {
-		return nil, ObjectInfo{}, err
-	}
-	if request.RangeStart != nil && *request.RangeStart >= info.Size {
-		return nil, ObjectInfo{}, adapterError(OperationGetObjectRange, ErrorCodeRangeNotSatisfiable, ReasonRangeInvalid, false, "object range not satisfiable", nil)
-	}
-	opts := minio.GetObjectOptions{}
-	if request.RangeStart != nil {
-		end := int64(0)
-		if request.RangeEnd != nil {
-			end = *request.RangeEnd
-		}
-		if err := opts.SetRange(*request.RangeStart, end); err != nil {
-			return nil, ObjectInfo{}, mapBackendError(operation, err)
-		}
-	}
-	object, cancel, err := s.getObjectStreamWithRetry(ctx, operation, request.Key, opts)
-	if err != nil {
-		return nil, ObjectInfo{}, err
-	}
-	return closeObservedStream(operation, request.Key, cancelOnCloseReadCloser{ReadCloser: object, cancel: cancel}), info, nil
-}
-
-func (s *S3Store) getObjectStreamWithRetry(ctx context.Context, operation Operation, key string, opts minio.GetObjectOptions) (*minio.Object, context.CancelFunc, error) {
-	attemptLimit := maxTotalAttempts
-	var lastErr error
-	for attempt := 1; attempt <= attemptLimit; attempt++ {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, mapBackendError(operation, err)
-		}
-		attemptCtx, cancel := context.WithTimeout(ctx, objectReadTimeout)
-		object, err := s.client.GetObject(attemptCtx, s.bucket, key, opts)
-		if err == nil {
-			return object, cancel, nil
-		}
-		cancel()
-		lastErr = mapBackendError(operation, err)
-		adapterErr, _ := AsAdapterError(lastErr)
-		if adapterErr == nil || !adapterErr.Retryable || attempt >= attemptLimit {
-			break
-		}
-		if retryBackoff > 0 {
-			timer := time.NewTimer(retryBackoff)
-			select {
-			case <-timer.C:
-			case <-ctx.Done():
-				timer.Stop()
-				return nil, nil, mapBackendError(operation, ctx.Err())
-			}
-		}
-	}
-	if adapterErr, ok := AsAdapterError(lastErr); ok && adapterErr.Retryable {
-		return nil, nil, adapterError(operation, ErrorCodeRetryExhausted, ReasonRetryExhausted, false, "retryable object-store operation exhausted attempts", lastErr)
-	}
-	return nil, nil, lastErr
-}
-
-func (s *S3Store) StatObject(ctx context.Context, key string) (ObjectInfo, error) {
-	return s.Head(ctx, HeadObjectRequest{Key: key, Purpose: PurposeProductRead})
-}
-
-func (s *S3Store) Head(ctx context.Context, request HeadObjectRequest) (ObjectInfo, error) {
-	if err := validateHeadObjectRequest(request); err != nil {
-		return ObjectInfo{}, err
-	}
-	stat, err := runWithRetry(ctx, OperationHeadObject, objectMetadataTimeout, true, func(ctx context.Context) (minio.ObjectInfo, error) {
-		return s.client.StatObject(ctx, s.bucket, request.Key, minio.StatObjectOptions{})
-	})
-	if err != nil {
-		return ObjectInfo{}, err
-	}
-	return ObjectInfo{Key: request.Key, Size: stat.Size, ContentType: stat.ContentType}, nil
-}
-
-func (s *S3Store) ListObjects(ctx context.Context, prefix string) ([]ObjectInfo, error) {
-	result, err := s.ListPrefix(ctx, ListPrefixRequest{Prefix: prefix, Purpose: PurposeTestCleanup})
-	if err != nil {
-		return nil, err
-	}
-	return result.Objects, nil
-}
-
-func (s *S3Store) ListPrefix(ctx context.Context, request ListPrefixRequest) (ListPrefixResult, error) {
-	if err := validateListPrefixRequest(request); err != nil {
-		return ListPrefixResult{}, err
-	}
-	objects, err := runWithRetry(ctx, OperationListPrefix, objectMutationTimeout, true, func(ctx context.Context) ([]ObjectInfo, error) {
-		objects := make([]ObjectInfo, 0)
-		for objectInfo := range s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Prefix: request.Prefix, Recursive: true}) {
-			if objectInfo.Err != nil {
-				return objects, objectInfo.Err
-			}
-			objects = append(objects, ObjectInfo{Key: objectInfo.Key, Size: objectInfo.Size, ContentType: objectInfo.ContentType})
-		}
-		return objects, nil
-	})
-	if err != nil {
-		return ListPrefixResult{}, err
-	}
-	sort.Slice(objects, func(left, right int) bool {
-		return objects[left].Key < objects[right].Key
-	})
-	return ListPrefixResult{Objects: objects}, nil
-}
-
-func (s *S3Store) DeleteObject(ctx context.Context, key string) error {
-	return s.Delete(ctx, DeleteObjectRequest{Key: key, Purpose: PurposeTestCleanup})
-}
-
-func (s *S3Store) Delete(ctx context.Context, request DeleteObjectRequest) error {
-	if err := validateDeleteObjectRequest(request); err != nil {
-		return err
-	}
-	_, err := runWithRetry(ctx, OperationDeleteObject, objectMutationTimeout, true, func(ctx context.Context) (struct{}, error) {
-		return struct{}{}, s.client.RemoveObject(ctx, s.bucket, request.Key, minio.RemoveObjectOptions{})
-	})
-	return err
-}
-
-func (s *S3Store) EnsureBucketForDevTest(ctx context.Context, request EnsureBucketRequest) (EnsureBucketResult, error) {
-	if err := validateEnsureBucketRequest(request); err != nil {
-		return EnsureBucketResult{}, err
-	}
-	exists, err := runWithRetry(ctx, OperationEnsureBucketForDevTest, objectMetadataTimeout, true, func(ctx context.Context) (bool, error) {
-		return s.client.BucketExists(ctx, s.bucket)
-	})
-	if err != nil {
-		return EnsureBucketResult{}, err
-	}
-	if exists {
-		return EnsureBucketResult{AlreadyExists: true}, nil
-	}
-	_, err = runWithRetry(ctx, OperationEnsureBucketForDevTest, objectMutationTimeout, true, func(ctx context.Context) (struct{}, error) {
-		return struct{}{}, s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{})
-	})
-	if err != nil {
-		return EnsureBucketResult{}, err
-	}
-	return EnsureBucketResult{Created: true}, nil
-}
-
-func (s *S3Store) Close() error {
-	return nil
 }
 
 type FilesystemStore struct {
@@ -805,10 +490,13 @@ func resolveManagedServiceSettings(serviceRef string, env map[string]string) (Se
 	}
 
 	settings := Settings{
-		Endpoint:  lookupEnvValue(env, keys.Endpoint),
-		AccessKey: lookupEnvValue(env, keys.AccessKey),
-		SecretKey: lookupEnvValue(env, keys.SecretKey),
-		Bucket:    lookupEnvValue(env, keys.Bucket),
+		Secure:              true,
+		Endpoint:            lookupEnvValue(env, keys.Endpoint),
+		AccessKey:           lookupEnvValue(env, keys.AccessKey),
+		SecretKey:           lookupEnvValue(env, keys.SecretKey),
+		Bucket:              lookupEnvValue(env, keys.Bucket),
+		Region:              lookupEnvValue(env, keys.Region),
+		RootCertificatePath: lookupEnvValue(env, keys.RootCertificatePath),
 	}
 	if settings.Endpoint == "" {
 		return Settings{}, fmt.Errorf("missing object-store endpoint for managed service %q (%s)", serviceRef, keys.Endpoint)
@@ -823,12 +511,8 @@ func resolveManagedServiceSettings(serviceRef string, env map[string]string) (Se
 		return Settings{}, fmt.Errorf("missing object-store bucket for managed service %q (%s)", serviceRef, keys.Bucket)
 	}
 
-	if secureValue := lookupEnvValue(env, keys.Secure); secureValue != "" {
-		secure, err := strconv.ParseBool(secureValue)
-		if err != nil {
-			return Settings{}, fmt.Errorf("parse %s: %w", keys.Secure, err)
-		}
-		settings.Secure = secure
+	if value, present := lookupEnv(env, keys.Secure); present && value != "true" {
+		return Settings{}, fmt.Errorf("managed object store requires verified TLS")
 	}
 
 	return settings, nil
@@ -841,11 +525,13 @@ func EnvKeysForServiceRef(serviceRef string) (ServiceRefEnvKeys, error) {
 	}
 
 	return ServiceRefEnvKeys{
-		Endpoint:  "CARTULARY_S3_" + normalized + "_ENDPOINT",
-		AccessKey: "CARTULARY_S3_" + normalized + "_ACCESS_KEY_ID",
-		SecretKey: "CARTULARY_S3_" + normalized + "_SECRET_ACCESS_KEY",
-		Secure:    "CARTULARY_S3_" + normalized + "_SECURE",
-		Bucket:    "CARTULARY_S3_" + normalized + "_BUCKET",
+		Endpoint:            "CARTULARY_S3_" + normalized + "_ENDPOINT",
+		AccessKey:           "CARTULARY_S3_" + normalized + "_ACCESS_KEY_ID",
+		SecretKey:           "CARTULARY_S3_" + normalized + "_SECRET_ACCESS_KEY",
+		Secure:              "CARTULARY_S3_" + normalized + "_SECURE",
+		Bucket:              "CARTULARY_S3_" + normalized + "_BUCKET",
+		Region:              "CARTULARY_S3_" + normalized + "_REGION",
+		RootCertificatePath: "CARTULARY_S3_" + normalized + "_ROOT_CERTIFICATE_PATH",
 	}, nil
 }
 

@@ -95,8 +95,11 @@ func newService(
 	}
 	cursorCodec := deps.CursorCodec
 	if cursorCodec == nil {
-		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
-		cursorCodec = pagination.NewCodec(cursorKey[:])
+		cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
+		if err != nil {
+			return nil, err
+		}
+		cursorCodec = pagination.NewCodec(cursorKey)
 	}
 	if routeDependencies.Catalog == nil {
 		return nil, errors.New("workbook route composition requires a contribution catalog")

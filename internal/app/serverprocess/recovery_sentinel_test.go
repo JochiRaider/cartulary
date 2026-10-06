@@ -61,6 +61,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	}
 
 	basis := recovery.RestoreVerificationBasis{
+		ApplicationCryptoFormat:           recovery.ApplicationCryptoFormatID,
 		MechanismID:                       "backup_restore.process.restore.v1",
 		DatabaseBindingSHA256:             recovery.SHA256String("backup_restore-i-10-02-database"),
 		ObjectStoreBindingSHA256:          recovery.SHA256String("backup_restore-i-10-02-objects"),
@@ -199,7 +200,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
 	objectBlobID := blobData["object_blob_id"].(string)
-	putObject(t, server.BaseURL, uploadTarget, payload, adminLogin)
+	putObject(t, server, uploadTarget, payload, adminLogin)
 
 	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   objectBlobID,

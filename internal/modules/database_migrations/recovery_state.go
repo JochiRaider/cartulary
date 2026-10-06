@@ -5,6 +5,6 @@ import recoverystate "github.com/JochiRaider/cartulary/internal/platform/recover
 func RecoveryStateContribution() recoverystate.Contribution {
 	return recoverystate.NewContribution(
 		"module.database_migrations",
-		recoverystate.SchemaMetadataTables("schema_migration_lineage"),
+		recoverystate.SchemaMetadataTables("application_crypto_format", "schema_migration_lineage"),
 	)
 }

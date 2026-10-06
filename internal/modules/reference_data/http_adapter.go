@@ -61,8 +61,11 @@ func newHTTPAdapter(deps httpapi.DependencySet, application AdministrativeApplic
 	}
 	cursorCodec := deps.CursorCodec
 	if cursorCodec == nil {
-		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
-		cursorCodec = pagination.NewCodec(cursorKey[:])
+		cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
+		if err != nil {
+			return nil, err
+		}
+		cursorCodec = pagination.NewCodec(cursorKey)
 	}
 	if application == nil || notifier == nil {
 		return nil, errors.New("reference pack: routes require a complete application and Jobs notifier")

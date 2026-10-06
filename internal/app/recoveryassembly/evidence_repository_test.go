@@ -63,7 +63,7 @@ func TestRecoveryEvidenceCompletionIsTypedEncryptedAndAtomic_Integration(t *test
 	var admissionEnvelope recovery.OperatorRecoveryJournalEnvelope
 	if err := db.QueryRow(ctx, `
 SELECT envelope_schema_id, encryption_mode, key_fingerprint_sha256,
-       payload_sha256, nonce, ciphertext
+       payload_sha256, operator_recovery_journal_id::text, sealed_payload
 FROM operator_recovery_journal
 WHERE operation_id = $1 AND result = 'started'
 `, operationID).Scan(
@@ -71,8 +71,8 @@ WHERE operation_id = $1 AND result = 'started'
 		&admissionEnvelope.EncryptionMode,
 		&admissionEnvelope.KeyFingerprintSHA256,
 		&admissionEnvelope.PayloadSHA256,
-		&admissionEnvelope.Nonce,
-		&admissionEnvelope.Ciphertext,
+		&admissionEnvelope.RecordID,
+		&admissionEnvelope.SealedPayload,
 	); err != nil {
 		t.Fatalf("query admission recovery journal envelope: %v", err)
 	}
@@ -103,7 +103,7 @@ WHERE operation_id = $1 AND result = 'started'
 	var envelope recovery.OperatorRecoveryJournalEnvelope
 	if err := db.QueryRow(ctx, `
 SELECT envelope_schema_id, encryption_mode, key_fingerprint_sha256,
-       payload_sha256, nonce, ciphertext
+       payload_sha256, operator_recovery_journal_id::text, sealed_payload
 FROM operator_recovery_journal
 WHERE operation_id = $1 AND result = 'succeeded'
 `, operationID).Scan(
@@ -111,8 +111,8 @@ WHERE operation_id = $1 AND result = 'succeeded'
 		&envelope.EncryptionMode,
 		&envelope.KeyFingerprintSHA256,
 		&envelope.PayloadSHA256,
-		&envelope.Nonce,
-		&envelope.Ciphertext,
+		&envelope.RecordID,
+		&envelope.SealedPayload,
 	); err != nil {
 		t.Fatalf("query terminal recovery journal envelope: %v", err)
 	}

@@ -13,7 +13,7 @@ import (
 func connectSessionSocket(t testing.TB, server *processtest.Server, login flowtest.LoginResult, tag string) *flowtest.SessionSocketClient {
 	t.Helper()
 	incidentID := createSocketIncident(t, server, login, tag)
-	return flowtest.ConnectSessionSocket(t, server.BaseURL, incidentID, login.SessionCookie.Value)
+	return flowtest.ConnectSessionSocket(t, server.Client, server.BaseURL, incidentID, login.SessionCookie.Value)
 }
 
 func createSocketIncident(t testing.TB, server *processtest.Server, login flowtest.LoginResult, tag string) string {

@@ -95,18 +95,32 @@ export async function expectDecisionControlReachable(
   await control.focus();
   await control.scrollIntoViewIfNeeded();
   await expect(control).toBeFocused();
-  const box = await control.boundingBox(),
-    viewport = page.viewportSize();
-  if (!box || !viewport) throw new Error("Decision control viewport missing");
-  expect(box.x).toBeGreaterThanOrEqual(-1);
-  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
-  expect(box.y).toBeGreaterThanOrEqual(-1);
-  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
-  expect(
-    await page.evaluate(
-      () =>
-        document.documentElement.scrollWidth <=
-        document.documentElement.clientWidth + 1,
-    ),
-  ).toBe(true);
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error("Decision control viewport missing");
+  // Recovery completion can replace layout while native focus/scroll settles.
+  // Observe one frame atomically; do not repair focus or scroll during retries.
+  await expect(async () => {
+    const geometry = await control.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        focused: document.activeElement === element,
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        bottom: box.bottom,
+        documentWidth: document.documentElement.scrollWidth,
+        documentClientWidth: document.documentElement.clientWidth,
+      };
+    });
+    expect(geometry.focused).toBe(true);
+    expect(geometry.left).toBeGreaterThanOrEqual(-1);
+    expect(geometry.right, JSON.stringify(geometry)).toBeLessThanOrEqual(
+      viewport.width + 1,
+    );
+    expect(geometry.top).toBeGreaterThanOrEqual(-1);
+    expect(geometry.bottom).toBeLessThanOrEqual(viewport.height + 1);
+    expect(geometry.documentWidth).toBeLessThanOrEqual(
+      geometry.documentClientWidth + 1,
+    );
+  }).toPass({ timeout: 5_000 });
 }

@@ -24,8 +24,8 @@ import (
 func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	source := startIsolatedIncidentBundleServer(t, runtime, "reporting-artifact-source")
 	target := startIsolatedIncidentBundleServer(t, runtime, "reporting-artifact-target")
-	admin, actorID := flowtest.ProvisionBootstrapAdmin(t, source.Server.HTTP.URL)
-	destination, _ := flowtest.ProvisionBootstrapAdmin(t, target.Server.HTTP.URL)
+	admin, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
+	destination, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, source.Server, admin, map[string]any{"client_txn_id": "artifact-incident", "incident_key": "ARTIFACT-ROUNDTRIP", "title": "Original immutable title", "current_phase": "analysis"})
 	incidentID := incident["incident_id"].(string)
 	party := uuid.New()

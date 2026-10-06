@@ -218,7 +218,7 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 		Period:    30,
 		Skew:      1,
 		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
+		Algorithm: otp.AlgorithmSHA256,
 	})
 	if err != nil {
 		t.Fatalf("generate totp code: %v", err)

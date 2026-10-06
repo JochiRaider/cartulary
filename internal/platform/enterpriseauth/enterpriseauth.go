@@ -2,6 +2,8 @@ package enterpriseauth
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -71,9 +73,13 @@ func (UnconfiguredSAMLVerifier) VerifyACS(context.Context, SAMLACSVerificationRe
 	return SAMLAssertionResult{}, verifierUnavailable()
 }
 
-type ProductionOIDCVerifier struct{}
+type ProductionOIDCVerifier struct {
+	// Empty in application assembly: operators provision runtime system trust.
+	// Package-local fixtures supply an isolated CA without modifying host trust.
+	rootCertificatePath string
+}
 
-func (ProductionOIDCVerifier) VerifyCallback(ctx context.Context, request OIDCCallbackVerificationRequest) (OIDCCallback, *httpapi.APIError) {
+func (verifierPolicy ProductionOIDCVerifier) VerifyCallback(ctx context.Context, request OIDCCallbackVerificationRequest) (OIDCCallback, *httpapi.APIError) {
 	code := strings.TrimSpace(request.Values.Get("code"))
 	state := strings.TrimSpace(request.Values.Get("state"))
 	if code == "" || state == "" {
@@ -109,6 +115,22 @@ func (ProductionOIDCVerifier) VerifyCallback(ctx context.Context, request OIDCCa
 		return OIDCCallback{}, apiErr
 	}
 
+	jwksURI, apiErr := requiredProviderValue(request.Provider.JWKSURI, "signature_invalid")
+	if apiErr != nil {
+		return OIDCCallback{}, apiErr
+	}
+	for _, endpoint := range []string{issuer, authorizationEndpoint, tokenEndpoint, jwksURI} {
+		if !validHTTPSProviderURL(endpoint) {
+			return OIDCCallback{}, providerResponseRejected("signature_invalid")
+		}
+	}
+	client, closeClient, err := providerHTTPClient(jwksURI, verifierPolicy.rootCertificatePath, issuer, tokenEndpoint, authorizationEndpoint)
+	if err != nil {
+		return OIDCCallback{}, providerResponseRejected("signature_invalid")
+	}
+	defer closeClient()
+	ctx = oidc.ClientContext(ctx, client)
+
 	oauthConfig := oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
@@ -128,12 +150,20 @@ func (ProductionOIDCVerifier) VerifyCallback(ctx context.Context, request OIDCCa
 		return OIDCCallback{}, providerResponseRejected("missing_required_field")
 	}
 
+	if admitOIDCToken(rawIDToken) != nil {
+		return OIDCCallback{}, providerResponseRejected("signature_invalid")
+	}
 	provider, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
 		return OIDCCallback{}, providerResponseRejected(classifyOIDCDiscoveryError(err))
 	}
-	verifier := provider.Verifier(&oidc.Config{
-		ClientID: clientID,
+	var discovery oidc.ProviderConfig
+	if provider.Claims(&discovery) != nil || discovery.JWKSURL != jwksURI || discovery.TokenURL != tokenEndpoint || discovery.AuthURL != authorizationEndpoint {
+		return OIDCCallback{}, providerResponseRejected("signature_invalid")
+	}
+	verifier := oidc.NewVerifier(issuer, oidcPolicyKeySet{client: client, endpoint: jwksURI}, &oidc.Config{
+		ClientID:             clientID,
+		SupportedSigningAlgs: []string{oidc.RS256, oidc.PS256, oidc.ES256},
 		Now: func() time.Time {
 			if request.Now.IsZero() {
 				return time.Now().UTC()
@@ -168,19 +198,15 @@ func (ProductionSAMLVerifier) VerifyACS(_ context.Context, request SAMLACSVerifi
 	if err != nil {
 		return SAMLAssertionResult{}, providerResponseRejected("signature_invalid")
 	}
-	httpRequest, err := http.NewRequest(http.MethodPost, SAMLACSURL(request.PublicOrigin, request.Provider.ProviderKey), strings.NewReader(request.Values.Encode()))
+	raw, err := admitSAMLResponse(request.Values.Get("SAMLResponse"))
 	if err != nil {
-		return SAMLAssertionResult{}, providerResponseRejected("signature_invalid")
-	}
-	httpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if err := httpRequest.ParseForm(); err != nil {
 		return SAMLAssertionResult{}, providerResponseRejected("signature_invalid")
 	}
 	requestIDs := make([]string, 0, 1)
 	if request.Transaction.SAMLRequestID != nil && *request.Transaction.SAMLRequestID != "" {
 		requestIDs = append(requestIDs, *request.Transaction.SAMLRequestID)
 	}
-	assertion, err := sp.ParseResponse(httpRequest, requestIDs)
+	assertion, err := sp.ParseXMLResponse(raw, requestIDs, sp.AcsURL)
 	if err != nil {
 		return SAMLAssertionResult{}, providerResponseRejected(classifySAMLVerificationError(err))
 	}
@@ -289,7 +315,18 @@ func SAMLServiceProvider(provider authn.EnterpriseAuthProviderRecord, publicOrig
 		return saml.ServiceProvider{}, err
 	}
 	keyDescriptors := make([]saml.KeyDescriptor, 0, len(provider.SAMLIDPSigningCertificate))
+	if !validHTTPSProviderURL(ssoURL) || len(provider.SAMLIDPSigningCertificate) == 0 {
+		return saml.ServiceProvider{}, errProviderPolicy
+	}
 	for _, certificate := range provider.SAMLIDPSigningCertificate {
+		raw, err := base64.StdEncoding.DecodeString(certificate)
+		if err != nil {
+			return saml.ServiceProvider{}, errProviderPolicy
+		}
+		parsed, err := x509.ParseCertificate(raw)
+		if err != nil || admitSAMLSigningCertificate(parsed) != nil {
+			return saml.ServiceProvider{}, errProviderPolicy
+		}
 		keyDescriptors = append(keyDescriptors, saml.KeyDescriptor{
 			Use: "signing",
 			KeyInfo: saml.KeyInfo{
@@ -300,9 +337,10 @@ func SAMLServiceProvider(provider authn.EnterpriseAuthProviderRecord, publicOrig
 		})
 	}
 	return saml.ServiceProvider{
-		EntityID:    entityID,
-		MetadataURL: *metadataURL,
-		AcsURL:      *acsURL,
+		SignatureVerifier: samlSignaturePolicy{},
+		EntityID:          entityID,
+		MetadataURL:       *metadataURL,
+		AcsURL:            *acsURL,
 		IDPMetadata: &saml.EntityDescriptor{
 			EntityID: idpEntityID,
 			IDPSSODescriptors: []saml.IDPSSODescriptor{{

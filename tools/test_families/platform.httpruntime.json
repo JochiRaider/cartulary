@@ -20,7 +20,8 @@
           "TestServeInheritedListenerAndGracefulCancellation",
           "TestServeOrdinaryListenerReportsEffectiveAddress",
           "TestServeRejectsInheritedNonListenerFD",
-          "TestServeRejectsMalformedAndClosedInheritedFD"
+          "TestServeRejectsMalformedAndClosedInheritedFD",
+          "TestServeRejectsMissingTLSBeforePublication"
         ]
       },
       "evidence_class": "unit",

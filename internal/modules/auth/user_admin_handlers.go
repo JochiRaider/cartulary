@@ -139,7 +139,15 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			"mfa_required":        request.MFARequired,
 			"is_deployment_admin": request.IsDeploymentAdmin,
 		})
-		passwordHash, err := authn.HashPassword(request.InitialPassword)
+		if s.replayCredentialMutation(w, r, authn.ActorOnlyRouteIdempotencyKey("users.create", principal.User.ID, request.ClientTxnID), requestHash) {
+			return
+		}
+		workflow := beginPasswordWorkflow(w, r)
+		if workflow == nil {
+			return
+		}
+		defer workflow.Close()
+		passwordHash, err := workflow.Hash(request.InitialPassword)
 		if err != nil {
 			writeAPIError(w, r, invalidMutationPayload("initial_password", "invalid_password"))
 			return
@@ -331,7 +339,15 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 			"new_password":      requestSecretFingerprint(s.keys, request.NewPassword),
 			"reason":            request.Reason,
 		})
-		passwordHash, err := authn.HashPassword(request.NewPassword)
+		if s.replayCredentialMutation(w, r, authn.RouteIdempotencyKey{RouteKey: "users.password.reset", ActorUserID: principal.User.ID, ScopeKey: userID.String(), ClientTxnID: request.ClientTxnID}, requestHash) {
+			return
+		}
+		workflow := beginPasswordWorkflow(w, r)
+		if workflow == nil {
+			return
+		}
+		defer workflow.Close()
+		passwordHash, err := workflow.Hash(request.NewPassword)
 		if err != nil {
 			writeAPIError(w, r, invalidMutationPayload("new_password", "invalid_password"))
 			return

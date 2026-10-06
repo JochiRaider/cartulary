@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -307,17 +306,24 @@ SELECT party_record_id
 
 func seedPartyClaimIncident(t testing.TB, db *sql.DB, incidentKey string) (uuid.UUID, uuid.UUID) {
 	t.Helper()
-	actor := authflowtest.SeedLocalUserRecord(t, db, strings.ToLower(incidentKey)+"@example.test", "Party Claim Actor", "PartyClaimActorPass1!", false, false, true)
+	// Only the historical attribution identity is relevant to these upgrades.
+	actorID := uuid.New()
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO users (id, email, display_name, password_hash, is_active)
+VALUES ($1, $2, 'Party Claim Actor', 'historical-migration-fixture-no-login', false)
+`, actorID, strings.ToLower(incidentKey)+"@example.test"); err != nil {
+		t.Fatalf("seed historical Party claim actor: %v", err)
+	}
 	incidentID := uuid.New()
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO incidents (
     id, incident_key, incident_key_canonical, title, status,
     created_by_user_id, updated_by_user_id
 ) VALUES ($1, $2, lower($2), $3, 'active', $4, $4)
-`, incidentID, incidentKey, "Party claim "+incidentKey, actor.ID); err != nil {
+`, incidentID, incidentKey, "Party claim "+incidentKey, actorID); err != nil {
 		t.Fatalf("seed Party claim incident: %v", err)
 	}
-	return incidentID, actor.ID
+	return incidentID, actorID
 }
 
 func seedPartyClaimRow(t testing.TB, db *sql.DB, incidentID, actorID uuid.UUID, displayName, email, externalRef string) uuid.UUID {

@@ -3,10 +3,6 @@ package recovery
 import (
 	"bufio"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/hkdf"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
@@ -18,25 +14,26 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 )
 
 const (
-	BackupArtifactEnvelopeV2SchemaID = "cartulary.backup_artifact_envelope.v2"
-	BackupArtifactEnvelopeV2KDF      = "hkdf_sha256_v1"
-	BackupArtifactEnvelopeV2Cipher   = "aes_256_gcm_chunked_v1"
+	BackupArtifactEnvelopeV3SchemaID = "cartulary.backup_artifact_envelope.v3"
+	BackupArtifactEnvelopeV3KDF      = "hkdf_sha256_v2"
+	BackupArtifactEnvelopeV3Cipher   = "aes_256_gcm_random_nonce_chunked_v2"
 
-	BackupArtifactChunkPlaintextBytes   = 4 * 1024 * 1024
-	backupArtifactEnvelopeV2SaltBytes   = 32
-	backupArtifactEnvelopeV2PrefixBytes = 8
-	backupArtifactEnvelopeV2TagBytes    = 16
-	backupArtifactEnvelopeV2InfoPrefix  = "CARTULARY-BACKUP-ARTIFACT-ENVELOPE-V2\n"
+	BackupArtifactChunkPlaintextBytes = 4 * 1024 * 1024
+	backupArtifactEnvelopeV3SaltBytes = cryptography.SaltBytes
+	backupArtifactEnvelopeV3Overhead  = 12 + 16
+	BackupArtifactMaximumChunks       = cryptography.MaxArtifactSeals
 )
 
 var ErrStreamingBackupStorage = errors.New("recovery: streaming backup storage required")
 
 // StoredStreamingBackupStorage is the persistence-side streaming capability.
-// Its callback is published atomically or not at all, and opened artifacts are
-// immutable for the lifetime of the returned reader.
+// Its write callback is published atomically or not at all. Opened input may be
+// mutable: authentication must complete into private staging before exposure.
 type StoredStreamingBackupStorage interface {
 	BackupStorage
 	WriteStoredArtifact(
@@ -46,6 +43,9 @@ type StoredStreamingBackupStorage interface {
 		write func(io.Writer) error,
 	) (BackupArtifactProof, error)
 	OpenStoredArtifact(ctx context.Context, key string) (io.ReadCloser, int64, error)
+	// StageArtifact bounds private, unpublished output and returns its immutable
+	// read capability only after the callback succeeds. Close discards the stage.
+	StageArtifact(ctx context.Context, maxBytes int64, write func(io.Writer) error) (io.ReadCloser, error)
 }
 
 type BackupArtifactStreamWriteRequest struct {
@@ -65,19 +65,13 @@ type BackupArtifactStreamProof struct {
 	EnvelopeBytes   int64  `json:"-"`
 }
 
-// StreamingBackupStorage is the authenticated v2 capability beside the
-// historical byte-slice v1 BackupStorage API. ReadArtifactStream performs a
+// StreamingBackupStorage and BackupStorage share the sole current v3 codec. ReadArtifactStream performs a
 // complete authentication preflight before writing to destination. The
 // destination remains staging material until the method succeeds.
 type StreamingBackupStorage interface {
 	BackupStorage
 	WriteArtifactStream(context.Context, BackupArtifactStreamWriteRequest) (BackupArtifactStreamProof, error)
 	ReadArtifactStream(context.Context, BackupArtifactStreamProof, io.Writer) error
-}
-
-type streamingEncryptedBackupStorage struct {
-	encryptedBackupStorage
-	backend StoredStreamingBackupStorage
 }
 
 type countedReader struct {
@@ -99,7 +93,7 @@ func RequireStreamingBackupStorage(storage BackupStorage) (StreamingBackupStorag
 	return streaming, nil
 }
 
-func (storage streamingEncryptedBackupStorage) WriteArtifactStream(
+func (storage encryptedBackupStorage) WriteArtifactStream(
 	ctx context.Context,
 	request BackupArtifactStreamWriteRequest,
 ) (BackupArtifactStreamProof, error) {
@@ -110,15 +104,7 @@ func (storage streamingEncryptedBackupStorage) WriteArtifactStream(
 	if err != nil {
 		return BackupArtifactStreamProof{}, err
 	}
-	salt := make([]byte, backupArtifactEnvelopeV2SaltBytes)
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return BackupArtifactStreamProof{}, fmt.Errorf("generate backup artifact envelope salt: %w", err)
-	}
-	noncePrefix := make([]byte, backupArtifactEnvelopeV2PrefixBytes)
-	if _, err := io.ReadFull(rand.Reader, noncePrefix); err != nil {
-		return BackupArtifactStreamProof{}, fmt.Errorf("generate backup artifact envelope nonce prefix: %w", err)
-	}
-	artifactKey, err := deriveBackupArtifactEnvelopeV2Key(storage.key, salt, logicalRef)
+	artifactKey, err := storage.key.key.NewArtifactSealer(BackupArtifactEnvelopeV3SchemaID, ApplicationCryptoFormatID, logicalRef, contentType)
 	if err != nil {
 		return BackupArtifactStreamProof{}, err
 	}
@@ -131,15 +117,13 @@ func (storage streamingEncryptedBackupStorage) WriteArtifactStream(
 		"application/json",
 		func(writer io.Writer) error {
 			var writeErr error
-			plaintextBytes, plaintextSHA256, writeErr = writeBackupArtifactEnvelopeV2(
+			plaintextBytes, plaintextSHA256, writeErr = writeBackupArtifactEnvelopeV3(
 				ctx,
 				writer,
 				request.Plaintext,
 				logicalRef,
 				contentType,
 				artifactKey,
-				salt,
-				noncePrefix,
 			)
 			return writeErr
 		},
@@ -167,11 +151,11 @@ func (storage streamingEncryptedBackupStorage) WriteArtifactStream(
 	}, nil
 }
 
-func (storage streamingEncryptedBackupStorage) ReadArtifactStream(
+func (storage encryptedBackupStorage) ReadArtifactStream(
 	ctx context.Context,
 	proof BackupArtifactStreamProof,
 	destination io.Writer,
-) error {
+) (resultErr error) {
 	if destination == nil {
 		return fmt.Errorf("%w: streaming artifact destination is required", ErrInvalidBackupArtifact)
 	}
@@ -179,16 +163,30 @@ func (storage streamingEncryptedBackupStorage) ReadArtifactStream(
 	if err != nil {
 		return err
 	}
-	if err := storage.processBackupArtifactEnvelopeV2(ctx, normalized, io.Discard); err != nil {
+	stage, err := storage.backend.StageArtifact(ctx, max(1, normalized.PlaintextBytes), func(writer io.Writer) error {
+		return storage.processBackupArtifactEnvelopeV3(ctx, normalized, writer)
+	})
+	if err != nil {
 		return err
 	}
-	if err := storage.processBackupArtifactEnvelopeV2(ctx, normalized, destination); err != nil {
-		return err
-	}
-	return nil
+	defer func() { resultErr = errors.Join(resultErr, stage.Close()) }()
+	_, err = io.CopyBuffer(contextStreamWriter{ctx: ctx, writer: destination}, stage, make([]byte, 64*1024))
+	return err
 }
 
-func (storage streamingEncryptedBackupStorage) ResolveObjectProof(
+type contextStreamWriter struct {
+	ctx    context.Context
+	writer io.Writer
+}
+
+func (writer contextStreamWriter) Write(body []byte) (int, error) {
+	if err := writer.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return writer.writer.Write(body)
+}
+
+func (storage encryptedBackupStorage) ResolveObjectProof(
 	ctx context.Context,
 	object VNextObjectManifestEntry,
 ) (result BackupArtifactStreamProof, resultErr error) {
@@ -224,7 +222,7 @@ func (storage streamingEncryptedBackupStorage) ResolveObjectProof(
 	}, nil
 }
 
-func (storage streamingEncryptedBackupStorage) processBackupArtifactEnvelopeV2(
+func (storage encryptedBackupStorage) processBackupArtifactEnvelopeV3(
 	ctx context.Context,
 	proof BackupArtifactStreamProof,
 	destination io.Writer,
@@ -247,7 +245,7 @@ func (storage streamingEncryptedBackupStorage) processBackupArtifactEnvelopeV2(
 	if proof.EnvelopeBytes > 0 && storedBytes != proof.EnvelopeBytes {
 		return fmt.Errorf("%w: streaming envelope size mismatch", ErrInvalidBackupArtifact)
 	}
-	maxEnvelopeBytes, err := maximumBackupArtifactEnvelopeV2Bytes(proof.PlaintextBytes)
+	maxEnvelopeBytes, err := maximumBackupArtifactEnvelopeV3Bytes(proof.PlaintextBytes)
 	if err != nil {
 		return err
 	}
@@ -258,15 +256,14 @@ func (storage streamingEncryptedBackupStorage) processBackupArtifactEnvelopeV2(
 	hasher := sha256.New()
 	counted := &countedReader{reader: reader}
 	envelopeReader := io.TeeReader(counted, hasher)
-	if err := decryptBackupArtifactEnvelopeV2(
-		ctx,
-		envelopeReader,
-		storage.key,
-		proof,
-		destination,
-	); err != nil {
+	plaintext, err := decryptBackupArtifactEnvelopeV3(ctx, envelopeReader, storage.key, proof.LogicalRef, proof.ContentType, proof.PlaintextBytes, destination)
+	if err != nil {
 		return err
 	}
+	if plaintext.SizeBytes != proof.PlaintextBytes || plaintext.SHA256 != proof.PlaintextSHA256 {
+		return fmt.Errorf("%w: streaming plaintext proof mismatch", ErrInvalidBackupArtifact)
+	}
+
 	if counted.count != storedBytes {
 		return fmt.Errorf("%w: streaming envelope size changed during read", ErrInvalidBackupArtifact)
 	}
@@ -318,7 +315,7 @@ func validateBackupArtifactStreamProof(
 		proof.EnvelopeBytes < 0 {
 		return BackupArtifactStreamProof{}, fmt.Errorf("%w: streaming artifact proof is invalid", ErrInvalidBackupArtifact)
 	}
-	if _, err := expectedBackupArtifactEnvelopeV2Chunks(proof.PlaintextBytes); err != nil {
+	if _, err := expectedBackupArtifactEnvelopeV3Chunks(proof.PlaintextBytes); err != nil {
 		return BackupArtifactStreamProof{}, err
 	}
 	proof.LogicalRef = logicalRef
@@ -372,56 +369,15 @@ func validateBackupContentType(value string) (string, error) {
 	return value, nil
 }
 
-func deriveBackupArtifactEnvelopeV2Key(
-	masterKey RecoveryEncryptionKey,
-	salt []byte,
-	logicalRef string,
-) ([32]byte, error) {
-	if masterKey.fingerprint == "" {
-		return [32]byte{}, ErrRecoveryMasterKeyRequired
-	}
-	if len(salt) != backupArtifactEnvelopeV2SaltBytes {
-		return [32]byte{}, fmt.Errorf("%w: streaming envelope salt size is invalid", ErrInvalidBackupArtifact)
-	}
-	derived, err := hkdf.Key(
-		sha256.New,
-		masterKey.key[:],
-		salt,
-		backupArtifactEnvelopeV2InfoPrefix+logicalRef,
-		32,
-	)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("derive backup artifact envelope key: %w", err)
-	}
-	var key [32]byte
-	copy(key[:], derived)
-	return key, nil
-}
-
-func writeBackupArtifactEnvelopeV2(
+func writeBackupArtifactEnvelopeV3(
 	ctx context.Context,
 	writer io.Writer,
 	plaintext io.Reader,
 	logicalRef string,
 	contentType string,
-	artifactKey [32]byte,
-	salt []byte,
-	noncePrefix []byte,
+	artifactKey cryptography.ArtifactSealer,
 ) (int64, string, error) {
-	block, err := aes.NewCipher(artifactKey[:])
-	if err != nil {
-		return 0, "", fmt.Errorf("create streaming backup artifact cipher: %w", err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return 0, "", fmt.Errorf("create streaming backup artifact gcm: %w", err)
-	}
-	if gcm.NonceSize() != backupArtifactEnvelopeV2PrefixBytes+4 ||
-		gcm.Overhead() != backupArtifactEnvelopeV2TagBytes {
-		return 0, "", fmt.Errorf("%w: unsupported streaming cipher parameters", ErrInvalidBackupArtifact)
-	}
-
-	if err := writeBackupArtifactEnvelopeV2Header(writer, logicalRef, contentType, salt, noncePrefix); err != nil {
+	if err := writeBackupArtifactEnvelopeV3Header(writer, logicalRef, contentType, artifactKey.Salt()); err != nil {
 		return 0, "", err
 	}
 	buffered := bufio.NewReaderSize(plaintext, 64*1024)
@@ -456,7 +412,7 @@ func writeBackupArtifactEnvelopeV2(
 		default:
 			return 0, "", fmt.Errorf("read streaming backup artifact plaintext: %w", readErr)
 		}
-		if index > math.MaxUint32 {
+		if index >= BackupArtifactMaximumChunks {
 			return 0, "", fmt.Errorf("%w: streaming artifact has too many chunks", ErrInvalidBackupArtifact)
 		}
 		if !firstChunk {
@@ -472,10 +428,12 @@ func writeBackupArtifactEnvelopeV2(
 			return 0, "", fmt.Errorf("%w: streaming artifact size overflows", ErrInvalidBackupArtifact)
 		}
 		plaintextBytes += int64(count)
-		nonce := backupArtifactEnvelopeV2Nonce(noncePrefix, uint32(index))
-		aad := backupArtifactEnvelopeV2AAD(logicalRef, contentType, uint32(index), count, final)
-		ciphertext := gcm.Seal(nil, nonce, plaintextChunk, aad)
-		if err := writeBackupArtifactEnvelopeV2Chunk(
+		aad := backupArtifactEnvelopeV3AAD(logicalRef, contentType, uint32(index), count, final)
+		ciphertext, err := artifactKey.Seal(plaintextChunk, aad)
+		if err != nil {
+			return 0, "", err
+		}
+		if err := writeBackupArtifactEnvelopeV3Chunk(
 			writer,
 			uint32(index),
 			count,
@@ -496,22 +454,20 @@ func writeBackupArtifactEnvelopeV2(
 	return plaintextBytes, hex.EncodeToString(plaintextHasher.Sum(nil)), nil
 }
 
-func writeBackupArtifactEnvelopeV2Header(
+func writeBackupArtifactEnvelopeV3Header(
 	writer io.Writer,
 	logicalRef string,
 	contentType string,
-	salt []byte,
-	noncePrefix []byte,
+	salt [cryptography.SaltBytes]byte,
 ) error {
 	logicalRefJSON, _ := json.Marshal(logicalRef)
 	contentTypeJSON, _ := json.Marshal(contentType)
-	header := `{"schema_id":"` + BackupArtifactEnvelopeV2SchemaID +
-		`","logical_ref":` + string(logicalRefJSON) +
+	header := `{"schema_id":"` + BackupArtifactEnvelopeV3SchemaID +
+		`","application_crypto_format":"` + ApplicationCryptoFormatID + `","logical_ref":` + string(logicalRefJSON) +
 		`,"content_type":` + string(contentTypeJSON) +
-		`,"kdf":"` + BackupArtifactEnvelopeV2KDF +
-		`","cipher":"` + BackupArtifactEnvelopeV2Cipher +
-		`","salt_base64":"` + base64.StdEncoding.EncodeToString(salt) +
-		`","nonce_prefix_base64":"` + base64.StdEncoding.EncodeToString(noncePrefix) +
+		`,"kdf":"` + BackupArtifactEnvelopeV3KDF +
+		`","cipher":"` + BackupArtifactEnvelopeV3Cipher +
+		`","salt_base64":"` + base64.StdEncoding.EncodeToString(salt[:]) +
 		`","chunk_plaintext_bytes":` + strconv.Itoa(BackupArtifactChunkPlaintextBytes) +
 		`,"chunks":[`
 	if _, err := io.WriteString(writer, header); err != nil {
@@ -520,7 +476,7 @@ func writeBackupArtifactEnvelopeV2Header(
 	return nil
 }
 
-func writeBackupArtifactEnvelopeV2Chunk(
+func writeBackupArtifactEnvelopeV3Chunk(
 	writer io.Writer,
 	index uint32,
 	plaintextLength int,
@@ -548,187 +504,147 @@ func writeBackupArtifactEnvelopeV2Chunk(
 	return nil
 }
 
-func decryptBackupArtifactEnvelopeV2(
-	ctx context.Context,
-	reader io.Reader,
-	masterKey RecoveryEncryptionKey,
-	proof BackupArtifactStreamProof,
-	destination io.Writer,
-) error {
-	decoder := json.NewDecoder(reader)
-	decoder.UseNumber()
+func decryptBackupArtifactEnvelopeV3(ctx context.Context, reader io.Reader, masterKey RecoveryEncryptionKey, logicalRef, contentType string, maxBytes int64, destination io.Writer) (BackupArtifactProof, error) {
+	fail := func() (BackupArtifactProof, error) { return BackupArtifactProof{}, ErrInvalidBackupArtifact }
+	if maxBytes < 0 {
+		return fail()
+	}
+	decoder := newEnvelopeDecoder(reader)
 	if err := expectJSONDelimiter(decoder, '{', "envelope object"); err != nil {
-		return err
+		return BackupArtifactProof{}, err
 	}
-	var schemaID string
-	if err := decodeExactJSONField(decoder, "schema_id", &schemaID); err != nil {
-		return err
+	var schemaID, formatID, encodedRef, encodedType, kdfID, cipherID, saltBase64 string
+	for _, field := range []struct {
+		name  string
+		value *string
+	}{
+		{"schema_id", &schemaID}, {"application_crypto_format", &formatID}, {"logical_ref", &encodedRef}, {"content_type", &encodedType}, {"kdf", &kdfID}, {"cipher", &cipherID}, {"salt_base64", &saltBase64},
+	} {
+		if err := decodeExactJSONField(decoder, field.name, field.value); err != nil {
+			return BackupArtifactProof{}, err
+		}
 	}
-	if schemaID != BackupArtifactEnvelopeV2SchemaID {
-		return fmt.Errorf("%w: streaming envelope schema is invalid", ErrInvalidBackupArtifact)
+	if schemaID != BackupArtifactEnvelopeV3SchemaID || formatID != ApplicationCryptoFormatID || encodedRef != logicalRef || (contentType != "" && encodedType != contentType) || kdfID != BackupArtifactEnvelopeV3KDF || cipherID != BackupArtifactEnvelopeV3Cipher {
+		return fail()
 	}
-	var logicalRef string
-	if err := decodeExactJSONField(decoder, "logical_ref", &logicalRef); err != nil {
-		return err
+	if _, err := validateBackupContentType(encodedType); err != nil {
+		return fail()
 	}
-	if logicalRef != proof.LogicalRef {
-		return fmt.Errorf("%w: streaming envelope logical reference mismatch", ErrInvalidBackupArtifact)
-	}
-	var contentType string
-	if err := decodeExactJSONField(decoder, "content_type", &contentType); err != nil {
-		return err
-	}
-	if contentType != proof.ContentType {
-		return fmt.Errorf("%w: streaming envelope content type mismatch", ErrInvalidBackupArtifact)
-	}
-	var kdfID string
-	if err := decodeExactJSONField(decoder, "kdf", &kdfID); err != nil {
-		return err
-	}
-	if kdfID != BackupArtifactEnvelopeV2KDF {
-		return fmt.Errorf("%w: streaming envelope KDF is invalid", ErrInvalidBackupArtifact)
-	}
-	var cipherID string
-	if err := decodeExactJSONField(decoder, "cipher", &cipherID); err != nil {
-		return err
-	}
-	if cipherID != BackupArtifactEnvelopeV2Cipher {
-		return fmt.Errorf("%w: streaming envelope cipher is invalid", ErrInvalidBackupArtifact)
-	}
-	var saltBase64 string
-	if err := decodeExactJSONField(decoder, "salt_base64", &saltBase64); err != nil {
-		return err
-	}
-	salt, err := decodeExactBase64(saltBase64, backupArtifactEnvelopeV2SaltBytes, "salt")
+	salt, err := decodeExactBase64(saltBase64, cryptography.SaltBytes, "salt")
 	if err != nil {
-		return err
+		return fail()
 	}
-	var noncePrefixBase64 string
-	if err := decodeExactJSONField(decoder, "nonce_prefix_base64", &noncePrefixBase64); err != nil {
-		return err
-	}
-	noncePrefix, err := decodeExactBase64(
-		noncePrefixBase64,
-		backupArtifactEnvelopeV2PrefixBytes,
-		"nonce prefix",
-	)
+	var saltValue [cryptography.SaltBytes]byte
+	copy(saltValue[:], salt)
+	opener, err := masterKey.key.ArtifactOpener(BackupArtifactEnvelopeV3SchemaID, []string{ApplicationCryptoFormatID, logicalRef, encodedType}, saltValue)
 	if err != nil {
-		return err
+		return fail()
 	}
-	var chunkPlaintextBytes json.Number
-	if err := decodeExactJSONField(decoder, "chunk_plaintext_bytes", &chunkPlaintextBytes); err != nil {
-		return err
+	var chunkSize json.Number
+	if err := decodeExactJSONField(decoder, "chunk_plaintext_bytes", &chunkSize); err != nil {
+		return BackupArtifactProof{}, err
 	}
-	if chunkPlaintextBytes.String() != strconv.Itoa(BackupArtifactChunkPlaintextBytes) {
-		return fmt.Errorf("%w: streaming envelope chunk size is invalid", ErrInvalidBackupArtifact)
+	if chunkSize.String() != strconv.Itoa(BackupArtifactChunkPlaintextBytes) {
+		return fail()
 	}
 	if err := expectJSONFieldName(decoder, "chunks"); err != nil {
-		return err
+		return BackupArtifactProof{}, err
 	}
 	if err := expectJSONDelimiter(decoder, '[', "chunks array"); err != nil {
-		return err
+		return BackupArtifactProof{}, err
 	}
-
-	artifactKey, err := deriveBackupArtifactEnvelopeV2Key(masterKey, salt, logicalRef)
-	if err != nil {
-		return err
-	}
-	block, err := aes.NewCipher(artifactKey[:])
-	if err != nil {
-		return fmt.Errorf("create streaming backup artifact cipher: %w", err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return fmt.Errorf("create streaming backup artifact gcm: %w", err)
-	}
-	expectedChunks, err := expectedBackupArtifactEnvelopeV2Chunks(proof.PlaintextBytes)
-	if err != nil {
-		return err
-	}
-	plaintextHasher := sha256.New()
-	var plaintextBytes int64
-	for index := uint64(0); index < expectedChunks; index++ {
+	hasher := sha256.New()
+	var size int64
+	for index := uint64(0); ; index++ {
 		if err := ctx.Err(); err != nil {
-			return err
+			return BackupArtifactProof{}, err
 		}
-		if !decoder.More() {
-			return fmt.Errorf("%w: streaming envelope is truncated", ErrInvalidBackupArtifact)
+		if index >= BackupArtifactMaximumChunks || !decoder.More() {
+			return fail()
 		}
-		chunkIndex, plaintextLength, final, ciphertextBase64, err := decodeBackupArtifactEnvelopeV2Chunk(decoder)
+		chunkIndex, length, final, encoded, err := decodeBackupArtifactEnvelopeV3Chunk(decoder)
 		if err != nil {
-			return err
+			return BackupArtifactProof{}, err
 		}
-		expectedLength := expectedBackupArtifactEnvelopeV2ChunkLength(
-			proof.PlaintextBytes,
-			expectedChunks,
-			index,
-		)
-		expectedFinal := index == expectedChunks-1
-		if chunkIndex != index ||
-			plaintextLength != expectedLength ||
-			final != expectedFinal {
-			return fmt.Errorf("%w: streaming envelope chunk sequence is invalid", ErrInvalidBackupArtifact)
+		if chunkIndex != index || (!final && length != BackupArtifactChunkPlaintextBytes) || (length == 0 && index != 0) || int64(length) > maxBytes-size {
+			return fail()
 		}
-		expectedCiphertextBytes := plaintextLength + gcm.Overhead()
-		if len(ciphertextBase64) != base64.StdEncoding.EncodedLen(expectedCiphertextBytes) {
-			return fmt.Errorf("%w: streaming envelope ciphertext length is invalid", ErrInvalidBackupArtifact)
-		}
-		ciphertext, err := base64.StdEncoding.Strict().DecodeString(ciphertextBase64)
-		if err != nil || len(ciphertext) != expectedCiphertextBytes {
-			return fmt.Errorf("%w: streaming envelope ciphertext encoding is invalid", ErrInvalidBackupArtifact)
-		}
-		nonce := backupArtifactEnvelopeV2Nonce(noncePrefix, uint32(index))
-		aad := backupArtifactEnvelopeV2AAD(
-			logicalRef,
-			contentType,
-			uint32(index),
-			plaintextLength,
-			final,
-		)
-		plaintext, err := gcm.Open(nil, nonce, ciphertext, aad)
+		ciphertext, err := decodeExactBase64(encoded, length+backupArtifactEnvelopeV3Overhead, "ciphertext")
 		if err != nil {
-			return fmt.Errorf("%w: authenticate streaming envelope chunk", ErrInvalidBackupArtifact)
+			return fail()
 		}
-		if _, err := plaintextHasher.Write(plaintext); err != nil {
-			return fmt.Errorf("hash streaming backup artifact plaintext: %w", err)
+		plaintext, err := opener.Open(ciphertext, backupArtifactEnvelopeV3AAD(logicalRef, encodedType, uint32(index), length, final))
+		if err != nil || len(plaintext) != length {
+			return fail()
 		}
-		if len(plaintext) > 0 {
-			written, err := destination.Write(plaintext)
+		_, _ = hasher.Write(plaintext)
+		size += int64(length)
+		if length != 0 {
+			n, err := destination.Write(plaintext)
 			if err != nil {
-				return fmt.Errorf("write authenticated streaming backup artifact: %w", err)
+				return BackupArtifactProof{}, err
 			}
-			if written != len(plaintext) {
-				return fmt.Errorf("write authenticated streaming backup artifact: %w", io.ErrShortWrite)
+			if n != length {
+				return BackupArtifactProof{}, io.ErrShortWrite
 			}
 		}
-		plaintextBytes += int64(len(plaintext))
+		if final {
+			break
+		}
 	}
 	if decoder.More() {
-		return fmt.Errorf("%w: streaming envelope has duplicate or trailing chunks", ErrInvalidBackupArtifact)
+		return fail()
 	}
 	if err := expectJSONDelimiter(decoder, ']', "chunks array"); err != nil {
-		return err
+		return BackupArtifactProof{}, err
 	}
 	if decoder.More() {
-		return fmt.Errorf("%w: streaming envelope has unknown or duplicate members", ErrInvalidBackupArtifact)
+		return fail()
 	}
 	if err := expectJSONDelimiter(decoder, '}', "envelope object"); err != nil {
-		return err
+		return BackupArtifactProof{}, err
 	}
-	if err := rejectBackupArtifactEnvelopeV2TrailingData(decoder, reader); err != nil {
-		return err
+	if err := rejectBackupArtifactEnvelopeV3TrailingData(decoder.Decoder, reader); err != nil {
+		return BackupArtifactProof{}, err
 	}
-	if plaintextBytes != proof.PlaintextBytes {
-		return fmt.Errorf("%w: streaming artifact plaintext size mismatch", ErrInvalidBackupArtifact)
-	}
-	if hex.EncodeToString(plaintextHasher.Sum(nil)) != proof.PlaintextSHA256 {
-		return fmt.Errorf("%w: streaming artifact plaintext digest mismatch", ErrInvalidBackupArtifact)
-	}
-	return nil
+	return BackupArtifactProof{Key: logicalRef, ContentType: encodedType, SizeBytes: size, SHA256: hex.EncodeToString(hasher.Sum(nil))}, nil
 }
 
-func decodeBackupArtifactEnvelopeV2Chunk(
-	decoder *json.Decoder,
+// Reset the input budget for each JSON member, accounting for decoder read-ahead.
+// This keeps a hostile string or whitespace run from allocating an artifact-sized
+// buffer. Ordinary fields get 2 KiB; only ciphertext gets the chunk-sized bound.
+type envelopeDecoder struct {
+	*json.Decoder
+	limited *io.LimitedReader
+	counted *countedReader
+}
+
+func newEnvelopeDecoder(reader io.Reader) *envelopeDecoder {
+	counted := &countedReader{reader: reader}
+	limited := &io.LimitedReader{R: counted, N: 2048}
+	decoder := json.NewDecoder(limited)
+	decoder.UseNumber()
+	return &envelopeDecoder{Decoder: decoder, limited: limited, counted: counted}
+}
+func (decoder *envelopeDecoder) budget(n int64) {
+	decoder.limited.N = max(0, n-(decoder.counted.count-decoder.InputOffset()))
+}
+func (decoder *envelopeDecoder) Token() (json.Token, error) {
+	decoder.budget(2048)
+	return decoder.Decoder.Token()
+}
+func (decoder *envelopeDecoder) More() bool { decoder.budget(2048); return decoder.Decoder.More() }
+func (decoder *envelopeDecoder) field(name string, value any) error {
+	bound := int64(2048)
+	if name == "ciphertext_base64" {
+		bound = int64(base64.StdEncoding.EncodedLen(BackupArtifactChunkPlaintextBytes+backupArtifactEnvelopeV3Overhead) + 32)
+	}
+	decoder.budget(bound)
+	return decoder.Decoder.Decode(value)
+}
+
+func decodeBackupArtifactEnvelopeV3Chunk(
+	decoder *envelopeDecoder,
 ) (uint64, int, bool, string, error) {
 	if err := expectJSONDelimiter(decoder, '{', "chunk object"); err != nil {
 		return 0, 0, false, "", err
@@ -769,17 +685,17 @@ func decodeBackupArtifactEnvelopeV2Chunk(
 	return indexValue, int(lengthValue), final, ciphertextBase64, nil
 }
 
-func decodeExactJSONField(decoder *json.Decoder, name string, destination any) error {
+func decodeExactJSONField(decoder *envelopeDecoder, name string, destination any) error {
 	if err := expectJSONFieldName(decoder, name); err != nil {
 		return err
 	}
-	if err := decoder.Decode(destination); err != nil {
+	if err := decoder.field(name, destination); err != nil {
 		return fmt.Errorf("%w: decode streaming envelope member %s", ErrInvalidBackupArtifact, name)
 	}
 	return nil
 }
 
-func expectJSONFieldName(decoder *json.Decoder, expected string) error {
+func expectJSONFieldName(decoder *envelopeDecoder, expected string) error {
 	if !decoder.More() {
 		return fmt.Errorf("%w: streaming envelope member %s is missing", ErrInvalidBackupArtifact, expected)
 	}
@@ -798,7 +714,7 @@ func expectJSONFieldName(decoder *json.Decoder, expected string) error {
 	return nil
 }
 
-func expectJSONDelimiter(decoder *json.Decoder, expected json.Delim, label string) error {
+func expectJSONDelimiter(decoder *envelopeDecoder, expected json.Delim, label string) error {
 	token, err := decoder.Token()
 	if err != nil {
 		return fmt.Errorf("%w: decode streaming envelope %s", ErrInvalidBackupArtifact, label)
@@ -810,7 +726,7 @@ func expectJSONDelimiter(decoder *json.Decoder, expected json.Delim, label strin
 	return nil
 }
 
-func rejectBackupArtifactEnvelopeV2TrailingData(decoder *json.Decoder, reader io.Reader) error {
+func rejectBackupArtifactEnvelopeV3TrailingData(decoder *json.Decoder, reader io.Reader) error {
 	var trailing [1]byte
 	if count, _ := decoder.Buffered().Read(trailing[:]); count != 0 {
 		return fmt.Errorf("%w: streaming envelope has trailing data", ErrInvalidBackupArtifact)
@@ -826,7 +742,7 @@ func decodeExactBase64(encoded string, expectedBytes int, label string) ([]byte,
 		return nil, fmt.Errorf("%w: streaming envelope %s encoding is invalid", ErrInvalidBackupArtifact, label)
 	}
 	decoded, err := base64.StdEncoding.Strict().DecodeString(encoded)
-	if err != nil || len(decoded) != expectedBytes {
+	if err != nil || len(decoded) != expectedBytes || base64.StdEncoding.EncodeToString(decoded) != encoded {
 		return nil, fmt.Errorf("%w: streaming envelope %s encoding is invalid", ErrInvalidBackupArtifact, label)
 	}
 	return decoded, nil
@@ -838,36 +754,21 @@ func isASCIIAlphaNumeric(value byte) bool {
 		(value >= '0' && value <= '9')
 }
 
-func backupArtifactEnvelopeV2Nonce(prefix []byte, index uint32) []byte {
-	nonce := make([]byte, backupArtifactEnvelopeV2PrefixBytes+4)
-	copy(nonce, prefix)
-	binary.BigEndian.PutUint32(nonce[backupArtifactEnvelopeV2PrefixBytes:], index)
-	return nonce
+func backupArtifactEnvelopeV3AAD(logicalRef, contentType string, index uint32, plaintextLength int, final bool) []byte {
+	var result []byte
+	for _, value := range []string{ApplicationCryptoFormatID, BackupArtifactEnvelopeV3SchemaID, logicalRef, contentType} {
+		result = binary.BigEndian.AppendUint32(result, uint32(len(value)))
+		result = append(result, value...)
+	}
+	result = binary.BigEndian.AppendUint32(result, index)
+	result = binary.BigEndian.AppendUint32(result, uint32(plaintextLength))
+	if final {
+		return append(result, 1)
+	}
+	return append(result, 0)
 }
 
-func backupArtifactEnvelopeV2AAD(
-	logicalRef string,
-	contentType string,
-	index uint32,
-	plaintextLength int,
-	final bool,
-) []byte {
-	result := make([]byte, 0, 256+len(logicalRef)+len(contentType))
-	result = append(result, BackupArtifactEnvelopeV2SchemaID...)
-	result = append(result, '\n')
-	result = append(result, logicalRef...)
-	result = append(result, '\n')
-	result = append(result, contentType...)
-	result = append(result, '\n')
-	result = strconv.AppendUint(result, uint64(index), 10)
-	result = append(result, '\n')
-	result = strconv.AppendInt(result, int64(plaintextLength), 10)
-	result = append(result, '\n')
-	result = strconv.AppendBool(result, final)
-	return result
-}
-
-func expectedBackupArtifactEnvelopeV2Chunks(plaintextBytes int64) (uint64, error) {
+func expectedBackupArtifactEnvelopeV3Chunks(plaintextBytes int64) (uint64, error) {
 	if plaintextBytes < 0 {
 		return 0, fmt.Errorf("%w: streaming artifact size is invalid", ErrInvalidBackupArtifact)
 	}
@@ -876,13 +777,13 @@ func expectedBackupArtifactEnvelopeV2Chunks(plaintextBytes int64) (uint64, error
 	}
 	chunks := (uint64(plaintextBytes) + BackupArtifactChunkPlaintextBytes - 1) /
 		BackupArtifactChunkPlaintextBytes
-	if chunks > uint64(math.MaxUint32)+1 {
+	if chunks > BackupArtifactMaximumChunks {
 		return 0, fmt.Errorf("%w: streaming artifact has too many chunks", ErrInvalidBackupArtifact)
 	}
 	return chunks, nil
 }
 
-func expectedBackupArtifactEnvelopeV2ChunkLength(
+func expectedBackupArtifactEnvelopeV3ChunkLength(
 	plaintextBytes int64,
 	chunks uint64,
 	index uint64,
@@ -900,26 +801,26 @@ func expectedBackupArtifactEnvelopeV2ChunkLength(
 	return remainder
 }
 
-func maximumBackupArtifactEnvelopeV2Bytes(plaintextBytes int64) (uint64, error) {
-	chunks, err := expectedBackupArtifactEnvelopeV2Chunks(plaintextBytes)
+func maximumBackupArtifactEnvelopeV3Bytes(plaintextBytes int64) (uint64, error) {
+	chunks, err := expectedBackupArtifactEnvelopeV3Chunks(plaintextBytes)
 	if err != nil {
 		return 0, err
 	}
 	fullChunkEncodedBytes := uint64(base64.StdEncoding.EncodedLen(
-		BackupArtifactChunkPlaintextBytes + backupArtifactEnvelopeV2TagBytes,
+		BackupArtifactChunkPlaintextBytes + backupArtifactEnvelopeV3Overhead,
 	))
 	fullChunks := chunks - 1
 	if fullChunks > math.MaxUint64/fullChunkEncodedBytes {
 		return 0, fmt.Errorf("%w: streaming envelope bound overflows", ErrInvalidBackupArtifact)
 	}
 	encodedCiphertextBytes := fullChunks * fullChunkEncodedBytes
-	lastPlaintextBytes := expectedBackupArtifactEnvelopeV2ChunkLength(
+	lastPlaintextBytes := expectedBackupArtifactEnvelopeV3ChunkLength(
 		plaintextBytes,
 		chunks,
 		chunks-1,
 	)
 	lastEncodedBytes := uint64(base64.StdEncoding.EncodedLen(
-		lastPlaintextBytes + backupArtifactEnvelopeV2TagBytes,
+		lastPlaintextBytes + backupArtifactEnvelopeV3Overhead,
 	))
 	if encodedCiphertextBytes > math.MaxUint64-lastEncodedBytes {
 		return 0, fmt.Errorf("%w: streaming envelope bound overflows", ErrInvalidBackupArtifact)

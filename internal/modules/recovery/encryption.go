@@ -3,25 +3,24 @@ package recovery
 import (
 	"bytes"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"os"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
+	"github.com/google/uuid"
 )
 
 const (
 	RecoveryMasterKeyEnv              = "CARTULARY_RECOVERY_MASTER_KEY"
-	BackupArtifactEnvelopeSchemaID    = "cartulary.backup_artifact_envelope.v1"
-	OperatorRecoveryJournalSchemaID   = "cartulary.operator_recovery_journal_envelope.v1"
+	ApplicationCryptoFormatID         = "cartulary.application_crypto_format.v1"
+	BackupArtifactEnvelopeSchemaID    = "cartulary.backup_artifact_envelope.v3"
+	OperatorRecoveryJournalSchemaID   = "cartulary.operator_recovery_journal_envelope.v2"
 	BackupStorageEncryptionModeAESGCM = "aes-256-gcm-envelope"
 )
 
@@ -38,32 +37,22 @@ type BackupStorageEncryptionProof struct {
 }
 
 type OperatorRecoveryJournalEnvelope struct {
+	RecordID             string
 	SchemaID             string
 	EncryptionMode       string
 	KeyFingerprintSHA256 string
 	PayloadSHA256        string
-	Nonce                []byte
-	Ciphertext           []byte
+	SealedPayload        []byte
 }
 
 type RecoveryEncryptionKey struct {
-	key         [32]byte
+	key         cryptography.MasterKey
 	fingerprint string
 }
 
 type encryptedBackupStorage struct {
-	inner BackupStorage
-	key   RecoveryEncryptionKey
-}
-
-type backupArtifactEnvelope struct {
-	SchemaID             string `json:"schema_id"`
-	EncryptionMode       string `json:"encryption_mode"`
-	KeyFingerprintSHA256 string `json:"key_fingerprint_sha256"`
-	ArtifactKey          string `json:"artifact_key"`
-	PlaintextContentType string `json:"plaintext_content_type"`
-	NonceBase64          string `json:"nonce_base64"`
-	CiphertextBase64     string `json:"ciphertext_base64"`
+	backend StoredStreamingBackupStorage
+	key     RecoveryEncryptionKey
 }
 
 type backupStorageEncryptionReporter interface {
@@ -72,51 +61,48 @@ type backupStorageEncryptionReporter interface {
 
 func LoadRecoveryEncryptionKey(env map[string]string) (RecoveryEncryptionKey, error) {
 	raw, ok := lookupRecoveryEnv(env, RecoveryMasterKeyEnv)
-	if !ok || strings.TrimSpace(raw) == "" {
+	if !ok || raw == "" {
 		return RecoveryEncryptionKey{}, ErrRecoveryMasterKeyRequired
 	}
 	return ParseRecoveryEncryptionKey(raw)
 }
 
 func ParseRecoveryEncryptionKey(raw string) (RecoveryEncryptionKey, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
+	if raw == "" {
 		return RecoveryEncryptionKey{}, ErrRecoveryMasterKeyRequired
 	}
-	decoded, err := base64.RawStdEncoding.DecodeString(trimmed)
+	if len(raw) != 43 && len(raw) != 44 {
+		return RecoveryEncryptionKey{}, ErrRecoveryMasterKeyInvalid
+	}
+	encoding := base64.RawStdEncoding
+	if len(raw) == 44 {
+		encoding = base64.StdEncoding
+	}
+	decoded, err := encoding.Strict().DecodeString(raw)
+	if err != nil || encoding.EncodeToString(decoded) != raw {
+		return RecoveryEncryptionKey{}, ErrRecoveryMasterKeyInvalid
+	}
+	defer clear(decoded)
+	key, err := cryptography.AdmitKey(decoded)
 	if err != nil {
-		decoded, err = base64.StdEncoding.DecodeString(trimmed)
-		if err != nil {
-			return RecoveryEncryptionKey{}, fmt.Errorf("%w: decode %s: %v", ErrRecoveryMasterKeyInvalid, RecoveryMasterKeyEnv, err)
-		}
+		return RecoveryEncryptionKey{}, ErrRecoveryMasterKeyInvalid
 	}
-	if len(decoded) < 32 {
-		return RecoveryEncryptionKey{}, fmt.Errorf("%w: %s must decode to at least 32 bytes", ErrRecoveryMasterKeyInvalid, RecoveryMasterKeyEnv)
-	}
-	var key [32]byte
-	copy(key[:], decoded[:32])
-	sum := sha256.Sum256(decoded[:32])
-	return RecoveryEncryptionKey{
-		key:         key,
-		fingerprint: hex.EncodeToString(sum[:]),
-	}, nil
+	sum := sha256.Sum256(decoded)
+	return RecoveryEncryptionKey{key: key, fingerprint: hex.EncodeToString(sum[:])}, nil
 }
 
 func NewEncryptedBackupStorage(inner BackupStorage, key RecoveryEncryptionKey) (BackupStorage, error) {
 	if inner == nil {
-		return nil, fmt.Errorf("%w: inner backup storage is required", ErrEncryptedBackupStorage)
+		return nil, ErrEncryptedBackupStorage
 	}
 	if key.fingerprint == "" {
 		return nil, ErrRecoveryMasterKeyRequired
 	}
-	legacy := encryptedBackupStorage{inner: inner, key: key}
-	if backend, ok := inner.(StoredStreamingBackupStorage); ok {
-		return streamingEncryptedBackupStorage{
-			encryptedBackupStorage: legacy,
-			backend:                backend,
-		}, nil
+	backend, ok := inner.(StoredStreamingBackupStorage)
+	if !ok {
+		return nil, ErrStreamingBackupStorage
 	}
-	return legacy, nil
+	return encryptedBackupStorage{backend: backend, key: key}, nil
 }
 
 func NewEncryptedBackupStorageFromEnv(inner BackupStorage, env map[string]string) (BackupStorage, error) {
@@ -127,190 +113,79 @@ func NewEncryptedBackupStorageFromEnv(inner BackupStorage, env map[string]string
 	return NewEncryptedBackupStorage(inner, key)
 }
 
-func EncryptOperatorRecoveryJournalPayload(key RecoveryEncryptionKey, aad string, body []byte) (OperatorRecoveryJournalEnvelope, error) {
+func EncryptOperatorRecoveryJournalPayload(key RecoveryEncryptionKey, recordID string, aad string, body []byte) (OperatorRecoveryJournalEnvelope, error) {
 	if key.fingerprint == "" {
 		return OperatorRecoveryJournalEnvelope{}, ErrRecoveryMasterKeyRequired
 	}
-	if len(body) == 0 {
-		return OperatorRecoveryJournalEnvelope{}, errors.New("recovery: operator recovery journal payload is empty")
+	id, err := uuid.Parse(recordID)
+	if err != nil || id == uuid.Nil || id.String() != recordID || strings.TrimSpace(aad) == "" || len(body) == 0 {
+		return OperatorRecoveryJournalEnvelope{}, ErrInvalidBackupArtifact
 	}
-	block, err := aes.NewCipher(key.key[:])
+	sealed, err := key.key.Seal(OperatorRecoveryJournalSchemaID, []string{ApplicationCryptoFormatID, recordID, aad}, body, nil)
 	if err != nil {
-		return OperatorRecoveryJournalEnvelope{}, fmt.Errorf("create operator recovery journal cipher: %w", err)
+		return OperatorRecoveryJournalEnvelope{}, ErrInvalidBackupArtifact
 	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return OperatorRecoveryJournalEnvelope{}, fmt.Errorf("create operator recovery journal gcm: %w", err)
-	}
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return OperatorRecoveryJournalEnvelope{}, fmt.Errorf("generate operator recovery journal nonce: %w", err)
-	}
-	if strings.TrimSpace(aad) == "" {
-		aad = OperatorRecoveryJournalSchemaID
-	}
-	return OperatorRecoveryJournalEnvelope{
-		SchemaID:             OperatorRecoveryJournalSchemaID,
-		EncryptionMode:       BackupStorageEncryptionModeAESGCM,
-		KeyFingerprintSHA256: key.fingerprint,
-		PayloadSHA256:        sha256Hex(body),
-		Nonce:                nonce,
-		Ciphertext:           gcm.Seal(nil, nonce, body, []byte(aad)),
-	}, nil
+	return OperatorRecoveryJournalEnvelope{RecordID: recordID, SchemaID: OperatorRecoveryJournalSchemaID, EncryptionMode: BackupStorageEncryptionModeAESGCM, KeyFingerprintSHA256: key.fingerprint, PayloadSHA256: sha256Hex(body), SealedPayload: sealed}, nil
 }
 
-func DecryptOperatorRecoveryJournalPayload(
-	key RecoveryEncryptionKey,
-	aad string,
-	envelope OperatorRecoveryJournalEnvelope,
-) ([]byte, error) {
+func DecryptOperatorRecoveryJournalPayload(key RecoveryEncryptionKey, aad string, envelope OperatorRecoveryJournalEnvelope) ([]byte, error) {
 	if key.fingerprint == "" {
 		return nil, ErrRecoveryMasterKeyRequired
 	}
-	if envelope.SchemaID != OperatorRecoveryJournalSchemaID ||
-		envelope.EncryptionMode != BackupStorageEncryptionModeAESGCM ||
-		envelope.KeyFingerprintSHA256 != key.fingerprint ||
-		!validSHA256Hex(envelope.PayloadSHA256) {
-		return nil, fmt.Errorf("%w: operator recovery journal envelope metadata mismatch", ErrInvalidBackupArtifact)
+	id, err := uuid.Parse(envelope.RecordID)
+	if err != nil || id == uuid.Nil || id.String() != envelope.RecordID || strings.TrimSpace(aad) == "" ||
+		envelope.SchemaID != OperatorRecoveryJournalSchemaID || envelope.EncryptionMode != BackupStorageEncryptionModeAESGCM || envelope.KeyFingerprintSHA256 != key.fingerprint || !validSHA256Hex(envelope.PayloadSHA256) {
+		return nil, ErrInvalidBackupArtifact
 	}
-	block, err := aes.NewCipher(key.key[:])
-	if err != nil {
-		return nil, fmt.Errorf("create operator recovery journal cipher: %w", err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("create operator recovery journal gcm: %w", err)
-	}
-	if len(envelope.Nonce) != gcm.NonceSize() {
-		return nil, fmt.Errorf("%w: operator recovery journal nonce size is invalid", ErrInvalidBackupArtifact)
-	}
-	if strings.TrimSpace(aad) == "" {
-		aad = OperatorRecoveryJournalSchemaID
-	}
-	body, err := gcm.Open(nil, envelope.Nonce, envelope.Ciphertext, []byte(aad))
-	if err != nil {
-		return nil, fmt.Errorf("%w: decrypt operator recovery journal payload: %v", ErrInvalidBackupArtifact, err)
-	}
-	if sha256Hex(body) != envelope.PayloadSHA256 {
-		return nil, fmt.Errorf("%w: operator recovery journal payload digest mismatch", ErrInvalidBackupArtifact)
+	body, err := key.key.Open(OperatorRecoveryJournalSchemaID, []string{ApplicationCryptoFormatID, envelope.RecordID, aad}, envelope.SealedPayload, nil)
+	if err != nil || len(body) == 0 || sha256Hex(body) != envelope.PayloadSHA256 {
+		return nil, ErrInvalidBackupArtifact
 	}
 	return body, nil
 }
 
 func (storage encryptedBackupStorage) BackupStorageEncryptionProof() BackupStorageEncryptionProof {
-	return BackupStorageEncryptionProof{
-		Mode:                 BackupStorageEncryptionModeAESGCM,
-		EnvelopeSchemaID:     BackupArtifactEnvelopeSchemaID,
-		KeyFingerprintSHA256: storage.key.fingerprint,
-	}
+	return BackupStorageEncryptionProof{Mode: BackupStorageEncryptionModeAESGCM, EnvelopeSchemaID: BackupArtifactEnvelopeSchemaID, KeyFingerprintSHA256: storage.key.fingerprint}
 }
 
 func (storage encryptedBackupStorage) WriteArtifact(ctx context.Context, key string, body []byte, contentType string) (BackupArtifactProof, error) {
-	if err := ctx.Err(); err != nil {
-		return BackupArtifactProof{}, err
-	}
-	normalizedKey, err := normalizeArtifactKey(key)
-	if err != nil {
-		return BackupArtifactProof{}, err
-	}
-	if len(body) == 0 {
-		return BackupArtifactProof{}, fmt.Errorf("%w: artifact body is empty", ErrInvalidBackupArtifact)
-	}
 	if strings.TrimSpace(contentType) == "" {
 		contentType = "application/octet-stream"
 	}
-	block, err := aes.NewCipher(storage.key.key[:])
+	proof, err := storage.WriteArtifactStream(ctx, BackupArtifactStreamWriteRequest{LogicalRef: key, EnvelopeRef: key, ContentType: contentType, Plaintext: bytes.NewReader(body)})
 	if err != nil {
-		return BackupArtifactProof{}, fmt.Errorf("create backup artifact cipher: %w", err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return BackupArtifactProof{}, fmt.Errorf("create backup artifact gcm: %w", err)
-	}
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return BackupArtifactProof{}, fmt.Errorf("generate backup artifact nonce: %w", err)
-	}
-	envelope := backupArtifactEnvelope{
-		SchemaID:             BackupArtifactEnvelopeSchemaID,
-		EncryptionMode:       BackupStorageEncryptionModeAESGCM,
-		KeyFingerprintSHA256: storage.key.fingerprint,
-		ArtifactKey:          normalizedKey,
-		PlaintextContentType: contentType,
-		NonceBase64:          base64.StdEncoding.EncodeToString(nonce),
-		CiphertextBase64:     base64.StdEncoding.EncodeToString(gcm.Seal(nil, nonce, body, backupArtifactAAD(normalizedKey, contentType))),
-	}
-	envelopeBody, err := json.Marshal(envelope)
-	if err != nil {
-		return BackupArtifactProof{}, fmt.Errorf("encode backup artifact envelope: %w", err)
-	}
-	if _, err := storage.inner.WriteArtifact(ctx, normalizedKey, envelopeBody, "application/json"); err != nil {
 		return BackupArtifactProof{}, err
 	}
-	return BackupArtifactProof{
-		Key:         normalizedKey,
-		SHA256:      sha256Hex(body),
-		SizeBytes:   int64(len(body)),
-		ContentType: contentType,
-	}, nil
+	return BackupArtifactProof{Key: proof.LogicalRef, SHA256: proof.PlaintextSHA256, SizeBytes: proof.PlaintextBytes, ContentType: proof.ContentType}, nil
 }
 
 func (storage encryptedBackupStorage) ReadArtifact(ctx context.Context, key string, maxBytes int64) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if maxBytes <= 0 || maxBytes > (math.MaxInt64-65536)/2 {
-		return nil, fmt.Errorf("%w: invalid artifact read bound", ErrInvalidBackupArtifact)
-	}
-	normalizedKey, err := normalizeArtifactKey(key)
+	key, err := validateBackupLogicalRef(key)
 	if err != nil {
 		return nil, err
 	}
-	envelopeBody, err := storage.inner.ReadArtifact(ctx, normalizedKey, maxBytes*2+65536)
+	if maxBytes < 0 {
+		return nil, ErrInvalidBackupArtifact
+	}
+	bound, err := maximumBackupArtifactEnvelopeV3Bytes(maxBytes)
+	if err != nil || bound > math.MaxInt64 {
+		return nil, ErrInvalidBackupArtifact
+	}
+	envelope, err := storage.backend.ReadArtifact(ctx, key, int64(bound))
 	if err != nil {
 		return nil, err
 	}
-	decoder := json.NewDecoder(bytes.NewReader(envelopeBody))
-	decoder.DisallowUnknownFields()
-	var envelope backupArtifactEnvelope
-	if err := decoder.Decode(&envelope); err != nil {
-		return nil, fmt.Errorf("%w: decode backup artifact envelope: %v", ErrInvalidBackupArtifact, err)
+	var body bytes.Buffer
+	if _, err := decryptBackupArtifactEnvelopeV3(ctx, bytes.NewReader(envelope), storage.key, key, "", maxBytes, &body); err != nil {
+		return nil, err
 	}
-	if envelope.SchemaID != BackupArtifactEnvelopeSchemaID ||
-		envelope.EncryptionMode != BackupStorageEncryptionModeAESGCM ||
-		envelope.KeyFingerprintSHA256 != storage.key.fingerprint ||
-		envelope.ArtifactKey != normalizedKey {
-		return nil, fmt.Errorf("%w: backup artifact envelope metadata mismatch for %s", ErrInvalidBackupArtifact, normalizedKey)
-	}
-	nonce, err := base64.StdEncoding.DecodeString(envelope.NonceBase64)
-	if err != nil {
-		return nil, fmt.Errorf("%w: decode backup artifact envelope nonce for %s: %v", ErrInvalidBackupArtifact, normalizedKey, err)
-	}
-	ciphertext, err := base64.StdEncoding.DecodeString(envelope.CiphertextBase64)
-	if err != nil {
-		return nil, fmt.Errorf("%w: decode backup artifact envelope ciphertext for %s: %v", ErrInvalidBackupArtifact, normalizedKey, err)
-	}
-	block, err := aes.NewCipher(storage.key.key[:])
-	if err != nil {
-		return nil, fmt.Errorf("create backup artifact cipher: %w", err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("create backup artifact gcm: %w", err)
-	}
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, backupArtifactAAD(normalizedKey, envelope.PlaintextContentType))
-	if err != nil {
-		return nil, fmt.Errorf("%w: decrypt backup artifact envelope for %s: %v", ErrInvalidBackupArtifact, normalizedKey, err)
-	}
-	if int64(len(plaintext)) > maxBytes {
-		return nil, fmt.Errorf("%w: backup artifact exceeds admitted size for %s", ErrInvalidBackupArtifact, normalizedKey)
-	}
-	return plaintext, nil
+	return body.Bytes(), nil
 }
 
-func (storage encryptedBackupStorage) Close() error {
-	return CloseBackupStorage(storage.inner)
-}
+func (storage encryptedBackupStorage) Close() error { return CloseBackupStorage(storage.backend) }
 
 func backupStorageEncryptionProof(storage BackupStorage) (BackupStorageEncryptionProof, error) {
 	reporter, ok := storage.(backupStorageEncryptionReporter)
@@ -318,16 +193,10 @@ func backupStorageEncryptionProof(storage BackupStorage) (BackupStorageEncryptio
 		return BackupStorageEncryptionProof{}, ErrEncryptedBackupStorage
 	}
 	proof := reporter.BackupStorageEncryptionProof()
-	if proof.Mode != BackupStorageEncryptionModeAESGCM ||
-		proof.EnvelopeSchemaID != BackupArtifactEnvelopeSchemaID ||
-		!validSHA256Hex(proof.KeyFingerprintSHA256) {
+	if proof.Mode != BackupStorageEncryptionModeAESGCM || proof.EnvelopeSchemaID != BackupArtifactEnvelopeSchemaID || !validSHA256Hex(proof.KeyFingerprintSHA256) {
 		return BackupStorageEncryptionProof{}, ErrEncryptedBackupStorage
 	}
 	return proof, nil
-}
-
-func backupArtifactAAD(key string, contentType string) []byte {
-	return []byte(BackupArtifactEnvelopeSchemaID + "\n" + key + "\n" + contentType)
 }
 
 func lookupRecoveryEnv(env map[string]string, key string) (string, bool) {
@@ -337,3 +206,6 @@ func lookupRecoveryEnv(env map[string]string, key string) (string, bool) {
 	}
 	return os.LookupEnv(key)
 }
+
+var _ StreamingBackupStorage = encryptedBackupStorage{}
+var _ io.Closer = encryptedBackupStorage{}

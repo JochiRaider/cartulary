@@ -3,8 +3,11 @@ package performancefixturelifecycle
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -266,7 +269,35 @@ func writeLeaseArtifact(env map[string]string, profile performancefixtureprofile
 		return err
 	}
 	file := filepath.Join(resultsRoot, suiteservices.ResolveRunID(env), "performance-fixtures", artifact.SnapshotKey, "leases", artifact.RowID+".json")
-	return WriteImmutableJSON(file, artifact)
+	err = WriteImmutableJSON(file, artifact)
+	if !errors.Is(err, os.ErrExist) {
+		return err
+	}
+	// Retirement can run more than once. Observe the original terminal result;
+	// never replace its bytes or turn a failed observation into passing evidence.
+	info, err := os.Lstat(file)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Size() > 64<<10 {
+		return errors.New("retained performance lease is not a bounded regular file")
+	}
+	raw, err := os.ReadFile(file) // #nosec G304 -- canonical run-relative lease artifact.
+	if err != nil {
+		return err
+	}
+	var retained leaseArtifact
+	if err := json.Unmarshal(raw, &retained); err != nil {
+		return err
+	}
+	if err := validateLeaseArtifact(profile, retained); err != nil {
+		return err
+	}
+	artifact.FinalizedAt = retained.FinalizedAt
+	if !reflect.DeepEqual(retained, artifact) {
+		return errors.New("performance lease retirement conflicts with immutable evidence")
+	}
+	return nil
 }
 
 func FailedLease(env map[string]string, failureCode string) error {

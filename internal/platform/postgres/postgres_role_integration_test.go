@@ -2,9 +2,11 @@ package postgres_test
 
 import (
 	"context"
+	"crypto/x509"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,12 +15,18 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/tlstest"
 )
 
 func TestPostgresPurposeConnectionsEstablishExactIdentity_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
 	testDB := harness.PrepareIsolatedDatabaseT(t, "postgres-purpose-identity")
 	ctx := context.Background()
+	admin, err := sql.Open("pgx", harness.AdminDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Close()
 
 	for _, test := range postgresPurposeFixtures() {
 		t.Run(test.name, func(t *testing.T) {
@@ -38,6 +46,7 @@ func TestPostgresPurposeConnectionsEstablishExactIdentity_Integration(t *testing
 				t.Fatalf("open stdlib purpose connection: %v", err)
 			}
 			assertPostgresIdentity(t, db, test.login, test.role)
+			assertPostgresTLS(t, admin, db.QueryRowContext(ctx, `SELECT pg_backend_pid()`), test.login)
 			if err := db.Close(); err != nil {
 				t.Fatalf("close stdlib purpose connection: %v", err)
 			}
@@ -46,6 +55,7 @@ func TestPostgresPurposeConnectionsEstablishExactIdentity_Integration(t *testing
 			if err != nil {
 				t.Fatalf("open pool purpose connection: %v", err)
 			}
+			assertPostgresTLS(t, admin, pool.QueryRow(ctx, `SELECT pg_backend_pid()`), test.login)
 			first, err := pool.Acquire(ctx)
 			if err != nil {
 				pool.Close()
@@ -70,6 +80,100 @@ func TestPostgresPurposeConnectionsEstablishExactIdentity_Integration(t *testing
 			var recycledPID int64
 			assertPGXPostgresIdentity(t, pool.QueryRow(ctx, `SELECT session_user::text, current_user::text, pg_backend_pid()::bigint`), test.login, test.role, &recycledPID)
 			pool.Close()
+			// A stopped/reconstructed adapter loads the renewed identity;
+			// existing pools do not reread mutable paths during handshakes.
+			renewed, _ := url.Parse(dsn)
+			query := renewed.Query()
+			query.Set("sslcert", strings.TrimSuffix(query.Get("sslcert"), ".pem")+".renewed.pem")
+			query.Set("sslkey", strings.TrimSuffix(query.Get("sslkey"), ".key")+".renewed.key")
+			renewed.RawQuery = query.Encode()
+			settings.DSN = renewed.String()
+			renewedDB, err := postgres.OpenSQL(ctx, settings)
+			if err != nil {
+				t.Fatalf("renewed identity: %v", err)
+			}
+			assertPostgresTLS(t, admin, renewedDB.QueryRowContext(ctx, `SELECT pg_backend_pid()`), test.login)
+			if err := renewedDB.Close(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	var passwords int
+	if err := admin.QueryRowContext(ctx, `SELECT count(*) FROM pg_catalog.pg_authid WHERE rolname IN ('cartulary','cartulary_runtime_login','cartulary_migration_login','cartulary_recovery_login') AND rolpassword IS NOT NULL`).Scan(&passwords); err != nil || passwords != 0 {
+		t.Fatalf("usable fixture passwords=%d: %v", passwords, err)
+	}
+	runtimeDSN, err := testDB.DSNForPurpose(postgres.PurposeRuntime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrationDSN, err := testDB.DSNForPurpose(postgres.PurposeMigration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrationURL, _ := url.Parse(migrationDSN)
+	otherCA, err := tlstest.NewAuthority()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrongRoot, err := tlstest.WriteFile(t.TempDir(), "other-root.pem", otherCA.CertificatePEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrustedIdentity, err := otherCA.Issue("cartulary_runtime_login", nil, x509.ExtKeyUsageClientAuth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrustedDirectory := t.TempDir()
+	untrustedCertificate, err := tlstest.WriteFile(untrustedDirectory, "client.pem", untrustedIdentity.CertificatePEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrustedKey, err := tlstest.WriteFile(untrustedDirectory, "client.key", untrustedIdentity.PrivateKeyPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*url.URL)
+	}{
+		{"wrong certificate identity", func(u *url.URL) {
+			q := u.Query()
+			q.Set("sslcert", migrationURL.Query().Get("sslcert"))
+			q.Set("sslkey", migrationURL.Query().Get("sslkey"))
+			u.RawQuery = q.Encode()
+		}},
+		{"wrong trust root", func(u *url.URL) { q := u.Query(); q.Set("sslrootcert", wrongRoot); u.RawQuery = q.Encode() }},
+		{"untrusted replacement client", func(u *url.URL) {
+			q := u.Query()
+			q.Set("sslcert", untrustedCertificate)
+			q.Set("sslkey", untrustedKey)
+			u.RawQuery = q.Encode()
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			u, _ := url.Parse(runtimeDSN)
+			tc.change(u)
+			settings := postgres.Settings{BindingKind: "managed_service", DSN: u.String(), Purpose: postgres.PurposeRuntime, ExpectedRole: "cartulary_runtime"}
+			for _, open := range []func() error{
+				func() error {
+					db, err := postgres.OpenSQL(ctx, settings)
+					if db != nil {
+						_ = db.Close()
+					}
+					return err
+				},
+				func() error {
+					pool, err := postgres.Setup(ctx, settings)
+					if pool != nil {
+						pool.Close()
+					}
+					return err
+				},
+			} {
+				if err := open(); err == nil {
+					t.Fatal("invalid certificate connection admitted")
+				}
+			}
 		})
 	}
 }
@@ -355,6 +459,22 @@ func assertPostgresIdentity(t testing.TB, db *sql.DB, wantSession string, wantCu
 	}
 	if sessionUser != wantSession || currentUser != wantCurrent {
 		t.Fatalf("identity = %q/%q, want %q/%q", sessionUser, currentUser, wantSession, wantCurrent)
+	}
+}
+
+func assertPostgresTLS(t testing.TB, admin *sql.DB, row pgxIdentityRow, wantSession string) {
+	t.Helper()
+	var pid int64
+	if err := row.Scan(&pid); err != nil {
+		t.Fatal(err)
+	}
+	var ssl bool
+	var version, clientDN string
+	if err := admin.QueryRowContext(context.Background(), `SELECT ssl, version, client_dn FROM pg_catalog.pg_stat_ssl WHERE pid=$1`, pid).Scan(&ssl, &version, &clientDN); err != nil {
+		t.Fatal(err)
+	}
+	if !ssl || version != "TLSv1.3" || clientDN != "/CN="+wantSession {
+		t.Fatalf("purpose TLS identity rejected: ssl=%t version=%s client=%s", ssl, version, clientDN)
 	}
 }
 

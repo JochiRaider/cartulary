@@ -158,7 +158,7 @@ export type TimelineMutationDriverPorts = {
   readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly readCurrentRow?: (
     unit: PendingReplayUnitState,
-  ) => Promise<WorkbookRow | null>;
+  ) => WorkbookRow | null | Promise<WorkbookRow | null>;
   readonly beginDispatch?: () => () => void;
 };
 
@@ -981,14 +981,17 @@ export function createTimelineMutationDriver(
     const captured = unit !== null && pending.model.wasDispatched(unit.id);
     let currentRow: ReturnType<typeof currentTimelineReplayRow> | null;
     try {
-      currentRow =
+      const current =
         !captured && unit && ports.readCurrentRow
-          ? await ports.readCurrentRow(unit)
+          ? ports.readCurrentRow(unit)
           : currentTimelineReplayRow(
               unit,
               rowsRef.current,
               latestCommittedTimelineRow,
             );
+      // Owner-local draft and current-row observations are already available.
+      // Yield only when the owner actually needs an authoritative read.
+      currentRow = current && "then" in current ? await current : current;
     } catch {
       if (
         epoch !== mutationRuntime.authorizationEpoch ||

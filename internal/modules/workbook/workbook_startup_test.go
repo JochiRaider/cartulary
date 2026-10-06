@@ -25,7 +25,7 @@ import (
 func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "saved_view_query-workbook-prefs-u-8-05")
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-05-incident",
 		"incident_key":  "IR-U805",
@@ -34,9 +34,9 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-viewer@example.test", "SavedViewQuery U805 Viewer", "SavedViewQueryU805Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-u805-viewer@example.test", "SavedViewQueryU805Viewer1!", nil)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u805-viewer@example.test", "SavedViewQueryU805Viewer1!", nil)
 	secondAdminID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-admin2@example.test", "SavedViewQuery U805 Admin2", "SavedViewQueryU805Admin21!", false, false, true)
-	secondAdminSession, secondAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-u805-admin2@example.test", "SavedViewQueryU805Admin21!", nil)
+	secondAdminSession, secondAdminCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u805-admin2@example.test", "SavedViewQueryU805Admin21!", nil)
 	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-other@example.test", "SavedViewQuery U805 Other", "SavedViewQueryU805Other1!", false, false, true)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-u-8-05-viewer-membership", "user_id": viewerID, "role": "viewer"})
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-u-8-05-admin2-membership", "user_id": secondAdminID, "role": "admin"})
@@ -131,7 +131,7 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 			}
 		}
 		flowtest.SeedLocalUserFlags(t, harness.DB, "wp-outsider@example.test", "Deployment admin without membership", "PreferenceOutsider1!", false, true, true)
-		outsider, csrf := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "wp-outsider@example.test", "PreferenceOutsider1!", nil)
+		outsider, csrf := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "wp-outsider@example.test", "PreferenceOutsider1!", nil)
 		for _, suffix := range []string{"me", "default"} {
 			path := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/workbook-preferences/" + suffix
 			field := "home_sheet_ref"
@@ -170,7 +170,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 		},
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-02-incident",
 		"incident_key":  "IR-I802",
@@ -179,7 +179,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-viewer@example.test", "SavedViewQuery I802 Viewer", "SavedViewQueryI802Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-i802-viewer@example.test", "SavedViewQueryI802Viewer1!", nil)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i802-viewer@example.test", "SavedViewQueryI802Viewer1!", nil)
 	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-other@example.test", "SavedViewQuery I802 Other", "SavedViewQueryI802Other1!", false, false, true)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-02-viewer-membership", "user_id": viewerID, "role": "viewer"})
 
@@ -302,8 +302,8 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 func NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
 	t.Helper()
 	rings, err := networkflow.ParseKeyRingsWithRegistry([]byte(`{
-  "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"saved_view_query-harness-cursor","state":"active","secret_ref":{"kind":"env","name":"saved_view_query-harness-cursor"}}]},
+  "schema_id":"cartulary.network_flow_key_rings.v2",
+  "cursor_key_ring":{"algorithm":"hkdf_sha256_aes_256_gcm_v2","keys":[{"cursor_key_id":"saved_view_query-harness-cursor","state":"active","secret_ref":{"kind":"env","name":"saved_view_query-harness-cursor"}}]},
   "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"saved_view_query-harness-safe","state":"active","secret_ref":{"kind":"env","name":"saved_view_query-harness-safe"}}]}
 }`), map[string]string{
 		"CARTULARY_SECRET_SAVED_VIEW_QUERY_HARNESS_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
@@ -318,7 +318,7 @@ func NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
 func TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "saved_view_query-workbook-startup-base-surface-i-8-02")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-02-base-incident",
 		"incident_key":  "IR-I802-BASE",
@@ -327,7 +327,7 @@ func TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration(t *testin
 	incidentID := incident["incident_id"].(string)
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-base-viewer@example.test", "SavedViewQuery I802 Base Viewer", "SavedViewQueryI802BaseViewer1!", false, false, true)
-	viewerSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-i802-base-viewer@example.test", "SavedViewQueryI802BaseViewer1!", nil)
+	viewerSession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i802-base-viewer@example.test", "SavedViewQueryI802BaseViewer1!", nil)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-02-base-viewer-membership", "user_id": viewerID, "role": "viewer"})
 	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"default_sheet_ref": map[string]any{"kind": "view_schema", "id": "cartulary.view.task_requests.v1"},

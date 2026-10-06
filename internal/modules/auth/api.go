@@ -182,8 +182,8 @@ func BuildTOTPSetup(secretBase32 string, username string) map[string]any {
 	label := "Cartulary:" + username
 	return map[string]any{
 		"secret_base32":  secretBase32,
-		"otpauth_uri":    "otpauth://totp/" + url.PathEscape(label) + "?secret=" + url.QueryEscape(secretBase32) + "&issuer=Cartulary&algorithm=SHA1&digits=6&period=30",
-		"algorithm":      "SHA1",
+		"otpauth_uri":    "otpauth://totp/" + url.PathEscape(label) + "?secret=" + url.QueryEscape(secretBase32) + "&issuer=Cartulary&algorithm=SHA256&digits=6&period=30",
+		"algorithm":      "SHA256",
 		"digits":         6,
 		"period_seconds": 30,
 	}

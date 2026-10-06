@@ -505,10 +505,11 @@ describe("ordinary shell support", () => {
                     enrollment_id: "00000000-0000-4000-8000-000000000002",
                     expires_at: new Date(Date.now() + 300_000).toISOString(),
                     totp_setup: {
-                      secret_base32: "JBSWY3DPEHPK3PXP",
+                      secret_base32:
+                        "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
                       otpauth_uri:
-                        "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
-                      algorithm: "SHA1",
+                        "otpauth://totp/Cartulary?secret=RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+                      algorithm: "SHA256",
                       digits: 6,
                       period_seconds: 30,
                     },
@@ -541,7 +542,7 @@ describe("ordinary shell support", () => {
       await waitFor(() =>
         expect(
           screen.getByTestId(accountTestId("totp-setup-key")).textContent,
-        ).toBe("JBSWY3DPEHPK3PXP"),
+        ).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA"),
       );
       fireEvent.change(
         screen.getByTestId(accountTestId("totp-complete-code")),
@@ -558,7 +559,11 @@ describe("ordinary shell support", () => {
             : { kind: "resource_refresh" },
         ),
       );
-      expect(screen.queryByText("JBSWY3DPEHPK3PXP")).toBeNull();
+      expect(
+        screen.queryByText(
+          "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+        ),
+      ).toBeNull();
       rendered.unmount();
     }
   });

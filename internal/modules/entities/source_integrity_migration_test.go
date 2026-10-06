@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -183,9 +182,18 @@ type sourceIntegrityFixture struct {
 
 func seedSourceIntegrityFixture(t testing.TB, db *sql.DB) sourceIntegrityFixture {
 	t.Helper()
-	actor := authflowtest.SeedLocalUserRecord(t, db, "entities-source-integrity@example.test", "Entities Source Integrity", "EntitiesSourceIntegrity1!", false, false, true)
+	// These immutable-schema fixtures need an attribution identity, not a
+	// current credential record or an authentication-capable account.
+	actorID := uuid.New()
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO users (id, email, display_name, password_hash, is_active)
+VALUES ($1, 'entities-source-integrity@example.test', 'Entities Source Integrity',
+        'historical-migration-fixture-no-login', false)
+`, actorID); err != nil {
+		t.Fatalf("seed historical source-integrity actor: %v", err)
+	}
 	fixture := sourceIntegrityFixture{
-		actorID:    actor.ID,
+		actorID:    actorID,
 		incidentID: uuid.New(),
 		hostID:     uuid.New(),
 		identityID: uuid.New(),

@@ -231,6 +231,11 @@ func (loaded Loaded) ValidateForStartup() error {
 	return config.ValidateSnapshotForStartup(loaded.snapshot)
 }
 
+// ValidateForInspection validates roots for a read-only compatibility operation.
+func (loaded Loaded) ValidateForInspection() error {
+	return config.ValidateSnapshotForInspection(loaded.snapshot)
+}
+
 // RequestedClaims returns an immutable typed request distinct from coordinator
 // resolution and the published resolved-claim-set identity.
 func (loaded Loaded) RequestedClaims() extensionassembly.RequestedClaims {

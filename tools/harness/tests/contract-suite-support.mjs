@@ -1118,6 +1118,7 @@ const target = process.env.CARTULARY_TEST_TARGET;
 const scopeRef = "_shared/test-services/" + suiteID + "/service-scope.json";
 const scopePath = path.join(process.env.CARTULARY_TEST_RESULTS_DIR, runID, scopeRef);
 if (process.env.FAKE_START_MODE === "config") process.exit(2);
+if (process.env.FAKE_START_MODE === "crypto") { process.stderr.write("panic: crypto/sha1: use of SHA-1 is not allowed in FIPS 140-only mode\\nprivate-fixture-value\\n"); process.exit(2); }
 fs.mkdirSync(path.dirname(scopePath), { recursive: true, mode: 0o700 });
 const startup = { attempt_count: 1, retry_count: 0, slowest_attempt_duration_ms: 5, final_attempt: 1, final_status: "pass", final_retryable: false, final_retry_blocked_by_context: false };
 const failure = { failure_class: "infra", failure_reason: "service_readiness_timeout", service: "object_store", stage: "object-store-start", operation: "start suite object-store", message: "object-store readiness failed: stage=list attempts=29 cleanup=not_needed reason=deadline_expired", attempts_started: 1, max_attempts: 2, retryable: false, retry_blocked_by_context: false };
@@ -1158,6 +1159,17 @@ process.exit(3);
         return true;
       },
     );
+    assert.throws(() => startManagedSuite({ root, target: "test-slice", suiteRuntime,
+      executable: process.execPath, executableArgs: ["--", executable], environment: {
+        CARTULARY_TEST_RESULTS_DIR: resultsRoot, CARTULARY_TEST_RUN_ID: runID, FAKE_START_MODE: "crypto",
+      },
+    }), (error) => {
+      assert.equal(error.failure_class, "harness");
+      assert.equal(error.failure_reason, "fixture_error");
+      assert.match(error.message, /crypto\/sha1.*strict diagnostic mode/u);
+      assert.ok(!error.message.includes("private-fixture-value"));
+      return true;
+    });
     for (const mode of ["escape", "foreign", "missing"]) {
       assert.throws(
         () => startManagedSuite({
@@ -1274,6 +1286,19 @@ async function assertContentCacheContract() {
     rmSync(fixture.output);
     assert.equal((await cache.lookup(fixture.unit)).outcome, "hit");
     assert.equal(readFileSync(fixture.output, "utf8"), "output-one\n");
+
+    // Evidence from ordinary/disabled/different-module executions must not be
+    // reusable for the selected cryptographic execution identity.
+    for (const [key, value] of [["GOFIPS140", "off"], ["GOFIPS140", "v1.0.0-c2097c7c"], ["GODEBUG", "fips140=off"], ["GOTOOLCHAIN", "go1.26.0"]]) {
+      const original = process.env[key];
+      process.env[key] = value === original ? `${value}-different` : value;
+      try {
+        assert.equal((await fixture.create().lookup(fixture.unit)).reason, "record_missing");
+      } finally {
+        if (original === undefined) delete process.env[key];
+        else process.env[key] = original;
+      }
+    }
 
     const context = cache.context(fixture.unit);
     const directory = cache.entryDirectory(context.profile, context.inputDigest);

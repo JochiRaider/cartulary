@@ -46,7 +46,7 @@ mutation bodies, idempotency, History item identities, and opaque reversal
 selectors retain their existing contracts. There is no legacy response adapter.
 
 `history.position.v1` versions the ordering position inside the unchanged
-`pagination.cursor.v1` protected envelope. Old History anchor cursors restart via
+`pagination.cursor.v2` protected envelope. Old History anchor cursors restart via
 `invalid_pagination_request`; there is no legacy decoder. Rolling back the coherent
 application bundle also restarts newer disposable cursors without clearing local
 drafts, captured requests or receipts. Paging changes alone do not alter semantic

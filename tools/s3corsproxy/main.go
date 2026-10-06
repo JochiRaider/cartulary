@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -23,13 +24,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
+	"github.com/JochiRaider/cartulary/internal/platform/securefile"
 	"golang.org/x/sys/unix"
 )
 
 const (
 	defaultListenAddr = "127.0.0.1:8333"
-	defaultUpstream   = "http://127.0.0.1:18333"
-	defaultOrigin     = "http://localhost:5173"
+	defaultUpstream   = "https://127.0.0.1:18333"
+	defaultOrigin     = "https://localhost:5173"
 	healthPath        = "/.cartulary/s3corsproxy/health"
 )
 
@@ -39,12 +42,21 @@ var (
 	exposedHeaders = []string{"etag"}
 )
 
+type tlsBindings struct {
+	Certificate     string `json:"certificate_path"`
+	PrivateKey      string `json:"private_key_path"`
+	RootCertificate string `json:"root_certificate_path"`
+}
+
 type proxyConfig struct {
-	Listen            string `json:"listen"`
-	UpstreamOrigin    string `json:"upstream_origin"`
-	AllowedOrigin     string `json:"allowed_origin"`
-	HealthPath        string `json:"health_path"`
-	ConfigFingerprint string `json:"configuration_fingerprint"`
+	TLS                   tlsBindings `json:"tls"`
+	CertificateSHA256     string      `json:"certificate_sha256"`
+	RootCertificateSHA256 string      `json:"root_certificate_sha256"`
+	Listen                string      `json:"listen"`
+	UpstreamOrigin        string      `json:"upstream_origin"`
+	AllowedOrigin         string      `json:"allowed_origin"`
+	HealthPath            string      `json:"health_path"`
+	ConfigFingerprint     string      `json:"configuration_fingerprint"`
 }
 
 type processProof struct {
@@ -86,6 +98,7 @@ type proxyHealth struct {
 }
 
 type commandOptions struct {
+	tls         tlsBindings
 	listen      string
 	upstream    string
 	origin      string
@@ -123,7 +136,7 @@ func run(args []string) error {
 	if err != nil {
 		return &exitError{code: 2, err: err}
 	}
-	config, err := normalizeConfig(options.listen, options.upstream, options.origin)
+	config, err := normalizeConfig(options.listen, options.upstream, options.origin, options.tls)
 	if err != nil {
 		return &exitError{code: 2, err: err}
 	}
@@ -153,6 +166,9 @@ func parseOptions(command string, args []string) (commandOptions, error) {
 	flags.StringVar(&options.listen, "listen", envDefault("OBJECT_STORE_CORS_PROXY_LISTEN", defaultListenAddr), "listen address")
 	flags.StringVar(&options.upstream, "upstream", envDefault("OBJECT_STORE_CORS_PROXY_UPSTREAM", defaultUpstream), "upstream origin")
 	flags.StringVar(&options.origin, "origin", envDefault("OBJECT_STORE_CORS_ORIGIN", defaultOrigin), "allowed browser origin")
+	flags.StringVar(&options.tls.Certificate, "tls-certificate", envDefault("OBJECT_STORE_CORS_PROXY_TLS_CERTIFICATE", ""), "listener certificate file")
+	flags.StringVar(&options.tls.PrivateKey, "tls-private-key", envDefault("OBJECT_STORE_CORS_PROXY_TLS_PRIVATE_KEY", ""), "listener private key file")
+	flags.StringVar(&options.tls.RootCertificate, "tls-root-certificate", envDefault("OBJECT_STORE_CORS_PROXY_TLS_ROOT_CERTIFICATE", ""), "listener and upstream trust root file")
 	flags.StringVar(&options.attemptFile, "attempt-file", "", "startup attempt state")
 	flags.StringVar(&options.leaseFile, "lease-file", "", "ready lease state")
 	flags.StringVar(&options.stateFile, "state-file", "", "attempt or lease state")
@@ -181,7 +197,7 @@ func parseOptions(command string, args []string) (commandOptions, error) {
 	return options, nil
 }
 
-func normalizeConfig(listenRaw, upstreamRaw, originRaw string) (proxyConfig, error) {
+func normalizeConfig(listenRaw, upstreamRaw, originRaw string, bindings tlsBindings) (proxyConfig, error) {
 	host, port, err := net.SplitHostPort(strings.TrimSpace(listenRaw))
 	if err != nil {
 		return proxyConfig{}, fmt.Errorf("parse listener: %w", err)
@@ -192,7 +208,7 @@ func normalizeConfig(listenRaw, upstreamRaw, originRaw string) (proxyConfig, err
 		return proxyConfig{}, errors.New("listener must use 127.0.0.1 and a valid port")
 	}
 	listen := net.JoinHostPort(ip.String(), strconv.Itoa(portNumber))
-	upstream, err := normalizeOrigin(upstreamRaw, false)
+	upstream, err := normalizeOrigin(upstreamRaw, true)
 	if err != nil {
 		return proxyConfig{}, fmt.Errorf("normalize upstream: %w", err)
 	}
@@ -200,7 +216,29 @@ func normalizeConfig(listenRaw, upstreamRaw, originRaw string) (proxyConfig, err
 	if err != nil {
 		return proxyConfig{}, fmt.Errorf("normalize allowed origin: %w", err)
 	}
+	for _, file := range []string{bindings.Certificate, bindings.PrivateKey, bindings.RootCertificate} {
+		if !filepath.IsAbs(file) || filepath.Clean(file) != file {
+			return proxyConfig{}, errors.New("TLS bindings require absolute clean paths")
+		}
+	}
+	if _, err := cryptography.TLSServer(host, bindings.Certificate, bindings.PrivateKey); err != nil {
+		return proxyConfig{}, err
+	}
+	parsedUpstream, _ := url.Parse(upstream)
+	if _, err := cryptography.TLSClient(cryptography.TLSClientOptions{ServerName: parsedUpstream.Hostname(), RootCertificatePath: bindings.RootCertificate}); err != nil {
+		return proxyConfig{}, err
+	}
+	certificate, err := securefile.Read(bindings.Certificate, cryptography.TLSPEMMaximumBytes)
+	if err != nil {
+		return proxyConfig{}, err
+	}
+	root, err := securefile.Read(bindings.RootCertificate, cryptography.TLSPEMMaximumBytes)
+	if err != nil {
+		return proxyConfig{}, err
+	}
+	certificateSum, rootSum := sha256.Sum256(certificate.Bytes()), sha256.Sum256(root.Bytes())
 	config := proxyConfig{
+		TLS: bindings, CertificateSHA256: hex.EncodeToString(certificateSum[:]), RootCertificateSHA256: hex.EncodeToString(rootSum[:]),
 		Listen:         listen,
 		UpstreamOrigin: upstream,
 		AllowedOrigin:  origin,
@@ -217,8 +255,8 @@ func normalizeOrigin(raw string, requireOriginOnly bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return "", errors.New("origin must use http or https and include a host")
+	if parsed.Scheme != "https" || parsed.Host == "" {
+		return "", errors.New("origin must use https and include a host")
 	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return "", errors.New("origin must not contain userinfo, query, or fragment")
@@ -233,7 +271,7 @@ func normalizeOrigin(raw string, requireOriginOnly bool) (string, error) {
 
 func createAttempt(options commandOptions, config proxyConfig) error {
 	attempt := startAttempt{
-		SchemaID:   "cartulary.local_object_store_proxy_start_attempt.v1",
+		SchemaID:   "cartulary.local_object_store_proxy_start_attempt.v2",
 		InstanceID: options.instanceID,
 		State:      "launching",
 		CreatedAt:  time.Now().UTC().Format(time.RFC3339Nano),
@@ -257,6 +295,16 @@ func serve(options commandOptions, config proxyConfig) error {
 	if err != nil {
 		return err
 	}
+	host, _, _ := net.SplitHostPort(config.Listen)
+	serverTLS, err := cryptography.TLSServer(host, config.TLS.Certificate, config.TLS.PrivateKey)
+	if err != nil {
+		return err
+	}
+	upstreamTransport, err := proxyTransport(upstreamURL.Hostname(), config.TLS.RootCertificate)
+	if err != nil {
+		return err
+	}
+	defer upstreamTransport.CloseIdleConnections()
 	listener, err := net.Listen("tcp", config.Listen)
 	if err != nil {
 		return fmt.Errorf("bind proxy listener: %w", err)
@@ -273,7 +321,7 @@ func serve(options commandOptions, config proxyConfig) error {
 		return err
 	}
 
-	proxyHandler := newProxyHandler(upstreamURL, config.AllowedOrigin)
+	proxyHandler := newProxyHandler(upstreamURL, config.AllowedOrigin, upstreamTransport)
 	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == healthPath {
 			if request.Method != http.MethodGet || request.Host != config.Listen {
@@ -287,7 +335,7 @@ func serve(options commandOptions, config proxyConfig) error {
 			}
 			writer.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(writer).Encode(proxyHealth{
-				SchemaID:   "cartulary.local_object_store_proxy_health.v1",
+				SchemaID:   "cartulary.local_object_store_proxy_health.v2",
 				InstanceID: options.instanceID,
 				EmittedAt:  time.Now().UTC().Format(time.RFC3339Nano),
 				Config:     config,
@@ -303,7 +351,7 @@ func serve(options commandOptions, config proxyConfig) error {
 	}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.Serve(listener)
+		errCh <- server.Serve(tls.NewListener(listener, serverTLS))
 	}()
 	signalCh := make(chan os.Signal, 2)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
@@ -364,7 +412,7 @@ func promote(options commandOptions, expected proxyConfig) error {
 		return err
 	}
 	lease := proxyLease{
-		SchemaID:   "cartulary.local_object_store_proxy_lease.v1",
+		SchemaID:   "cartulary.local_object_store_proxy_lease.v2",
 		InstanceID: state.instanceID,
 		ReadyAt:    time.Now().UTC().Format(time.RFC3339Nano),
 		Config:     state.config,
@@ -440,7 +488,7 @@ func readState(file string) (provenState, error) {
 		return provenState{}, err
 	}
 	switch identity.SchemaID {
-	case "cartulary.local_object_store_proxy_start_attempt.v1":
+	case "cartulary.local_object_store_proxy_start_attempt.v2":
 		attempt, err := decodeAttempt(raw)
 		if err != nil {
 			return provenState{}, err
@@ -449,7 +497,7 @@ func readState(file string) (provenState, error) {
 			return provenState{}, errors.New("startup attempt has no complete process proof")
 		}
 		return provenState{attempt.InstanceID, attempt.Config, *attempt.Process, attempt.LogPath}, nil
-	case "cartulary.local_object_store_proxy_lease.v1":
+	case "cartulary.local_object_store_proxy_lease.v2":
 		var lease proxyLease
 		if err := decodeStrict(raw, &lease); err != nil {
 			return provenState{}, err
@@ -473,7 +521,7 @@ func decodeAttempt(raw []byte) (startAttempt, error) {
 	if err := decodeStrict(raw, &attempt); err != nil {
 		return startAttempt{}, err
 	}
-	if attempt.SchemaID != "cartulary.local_object_store_proxy_start_attempt.v1" {
+	if attempt.SchemaID != "cartulary.local_object_store_proxy_start_attempt.v2" {
 		return startAttempt{}, errors.New("unexpected startup attempt schema")
 	}
 	return attempt, nil
@@ -499,7 +547,7 @@ func verifyState(state provenState) error {
 	if err != nil {
 		return err
 	}
-	if health.SchemaID != "cartulary.local_object_store_proxy_health.v1" ||
+	if health.SchemaID != "cartulary.local_object_store_proxy_health.v2" ||
 		health.InstanceID != state.instanceID ||
 		health.Config.ConfigFingerprint != state.config.ConfigFingerprint ||
 		health.Process != state.process {
@@ -509,8 +557,14 @@ func verifyState(state provenState) error {
 }
 
 func fetchHealth(config proxyConfig) (proxyHealth, error) {
-	client := &http.Client{Timeout: 750 * time.Millisecond}
-	request, err := http.NewRequest(http.MethodGet, "http://"+config.Listen+healthPath, nil)
+	host, _, _ := net.SplitHostPort(config.Listen)
+	transport, err := proxyTransport(host, config.TLS.RootCertificate)
+	if err != nil {
+		return proxyHealth{}, err
+	}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport, Timeout: 750 * time.Millisecond, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("proxy health redirect rejected") }}
+	request, err := http.NewRequest(http.MethodGet, "https://"+config.Listen+healthPath, nil)
 	if err != nil {
 		return proxyHealth{}, err
 	}
@@ -716,8 +770,17 @@ func syncDirectory(directory string) error {
 	return handle.Sync()
 }
 
-func newProxyHandler(upstreamURL *url.URL, origin string) http.Handler {
+func proxyTransport(serverName, root string) (*http.Transport, error) {
+	config, err := cryptography.TLSClient(cryptography.TLSClientOptions{ServerName: serverName, RootCertificatePath: root})
+	if err != nil {
+		return nil, err
+	}
+	return &http.Transport{TLSClientConfig: config, DialContext: (&net.Dialer{Timeout: 5 * time.Second}).DialContext, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 30 * time.Second, IdleConnTimeout: 30 * time.Second}, nil
+}
+
+func newProxyHandler(upstreamURL *url.URL, origin string, transport http.RoundTripper) http.Handler {
 	proxy := &httputil.ReverseProxy{
+		Transport: transport,
 		Rewrite: func(req *httputil.ProxyRequest) {
 			originalHost := req.In.Host
 			req.SetURL(upstreamURL)

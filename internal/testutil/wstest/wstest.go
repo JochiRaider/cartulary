@@ -37,9 +37,13 @@ func Connect(t testing.TB, serverURL string, path string) *Client {
 }
 
 func ConnectWithHeaders(t testing.TB, serverURL string, path string, headers http.Header) *Client {
+	return ConnectWithClient(t, http.DefaultClient, serverURL, path, headers)
+}
+
+func ConnectWithClient(t testing.TB, httpClient *http.Client, serverURL string, path string, headers http.Header) *Client {
 	t.Helper()
 
-	client, _, err := TryConnect(serverURL, path, headers)
+	client, _, err := TryConnectWithClient(httpClient, serverURL, path, headers)
 	if err != nil {
 		t.Fatalf("dial websocket: %v", err)
 	}
@@ -51,12 +55,16 @@ func ConnectWithHeaders(t testing.TB, serverURL string, path string, headers htt
 }
 
 func TryConnect(serverURL string, path string, headers http.Header) (*Client, *http.Response, error) {
+	return TryConnectWithClient(http.DefaultClient, serverURL, path, headers)
+}
+
+func TryConnectWithClient(httpClient *http.Client, serverURL string, path string, headers http.Header) (*Client, *http.Response, error) {
 	target, err := websocketURL(serverURL, path)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	conn, response, err := websocket.Dial(context.Background(), target, &websocket.DialOptions{HTTPHeader: headers})
+	conn, response, err := websocket.Dial(context.Background(), target, &websocket.DialOptions{HTTPClient: httpClient, HTTPHeader: headers})
 	if err != nil {
 		return nil, response, err
 	}

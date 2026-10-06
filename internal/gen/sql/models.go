@@ -64,6 +64,11 @@ type AdministrativeAuditProjection struct {
 	ReasonCode   pgtype.Text        `json:"reason_code"`
 }
 
+type ApplicationCryptoFormat struct {
+	Singleton bool   `json:"singleton"`
+	FormatID  string `json:"format_id"`
+}
+
 type Artifact struct {
 	RecordID            pgtype.UUID        `json:"record_id"`
 	IncidentID          pgtype.UUID        `json:"incident_id"`
@@ -424,25 +429,24 @@ type EnterpriseAuthProvider struct {
 }
 
 type EnterpriseAuthTransaction struct {
-	ID                     pgtype.UUID        `json:"id"`
-	ProviderID             pgtype.UUID        `json:"provider_id"`
-	ProviderKey            string             `json:"provider_key"`
-	ProviderType           string             `json:"provider_type"`
-	ReturnTo               string             `json:"return_to"`
-	State                  pgtype.Text        `json:"state"`
-	Nonce                  pgtype.Text        `json:"nonce"`
-	PkceVerifierHash       []byte             `json:"pkce_verifier_hash"`
-	PkceVerifierCiphertext []byte             `json:"pkce_verifier_ciphertext"`
-	PkceVerifierNonce      []byte             `json:"pkce_verifier_nonce"`
-	RelayState             pgtype.Text        `json:"relay_state"`
-	SamlRequestID          pgtype.Text        `json:"saml_request_id"`
-	BrowserBindingHash     []byte             `json:"browser_binding_hash"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt             pgtype.Timestamptz `json:"consumed_at"`
-	SamlCompletionHash     []byte             `json:"saml_completion_hash"`
-	SamlSubject            pgtype.Text        `json:"saml_subject"`
-	SamlStagedAt           pgtype.Timestamptz `json:"saml_staged_at"`
+	ID                   pgtype.UUID        `json:"id"`
+	ProviderID           pgtype.UUID        `json:"provider_id"`
+	ProviderKey          string             `json:"provider_key"`
+	ProviderType         string             `json:"provider_type"`
+	ReturnTo             string             `json:"return_to"`
+	State                pgtype.Text        `json:"state"`
+	Nonce                pgtype.Text        `json:"nonce"`
+	PkceVerifierHash     []byte             `json:"pkce_verifier_hash"`
+	RelayState           pgtype.Text        `json:"relay_state"`
+	SamlRequestID        pgtype.Text        `json:"saml_request_id"`
+	BrowserBindingHash   []byte             `json:"browser_binding_hash"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt           pgtype.Timestamptz `json:"consumed_at"`
+	SamlCompletionHash   []byte             `json:"saml_completion_hash"`
+	SamlSubject          pgtype.Text        `json:"saml_subject"`
+	SamlStagedAt         pgtype.Timestamptz `json:"saml_staged_at"`
+	PkceVerifierEnvelope []byte             `json:"pkce_verifier_envelope"`
 }
 
 type EntityActiveIdentifierClaim struct {
@@ -1324,9 +1328,8 @@ type OperatorRecoveryJournal struct {
 	EncryptionMode            string             `json:"encryption_mode"`
 	KeyFingerprintSha256      string             `json:"key_fingerprint_sha256"`
 	PayloadSha256             string             `json:"payload_sha256"`
-	Nonce                     []byte             `json:"nonce"`
-	Ciphertext                []byte             `json:"ciphertext"`
 	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	SealedPayload             []byte             `json:"sealed_payload"`
 }
 
 type Party struct {
@@ -1373,12 +1376,11 @@ type PendingTotpEnrollment struct {
 	AuthScopeSessionID        pgtype.UUID        `json:"auth_scope_session_id"`
 	AuthScopeBootstrapTokenID pgtype.UUID        `json:"auth_scope_bootstrap_token_id"`
 	ClientTxnID               string             `json:"client_txn_id"`
-	SecretCiphertext          []byte             `json:"secret_ciphertext"`
-	SecretNonce               []byte             `json:"secret_nonce"`
 	ReplacesActive            bool               `json:"replaces_active"`
 	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt                 pgtype.Timestamptz `json:"expires_at"`
 	ConsumedAt                pgtype.Timestamptz `json:"consumed_at"`
+	SecretEnvelope            []byte             `json:"secret_envelope"`
 }
 
 type Record struct {
@@ -2102,22 +2104,21 @@ type TimelineTimeConversionProfile struct {
 }
 
 type User struct {
-	ID                   pgtype.UUID        `json:"id"`
-	Email                string             `json:"email"`
-	DisplayName          string             `json:"display_name"`
-	PasswordHash         string             `json:"password_hash"`
-	PasswordChangedAt    pgtype.Timestamptz `json:"password_changed_at"`
-	MfaRequired          bool               `json:"mfa_required"`
-	IsActive             bool               `json:"is_active"`
-	IsDeploymentAdmin    bool               `json:"is_deployment_admin"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
-	LastLoginAt          pgtype.Timestamptz `json:"last_login_at"`
-	UserVersion          int64              `json:"user_version"`
-	UpdatedByUserID      pgtype.UUID        `json:"updated_by_user_id"`
-	TotpEnrolledAt       pgtype.Timestamptz `json:"totp_enrolled_at"`
-	TotpSecretCiphertext []byte             `json:"totp_secret_ciphertext"`
-	TotpSecretNonce      []byte             `json:"totp_secret_nonce"`
+	ID                 pgtype.UUID        `json:"id"`
+	Email              string             `json:"email"`
+	DisplayName        string             `json:"display_name"`
+	PasswordHash       string             `json:"password_hash"`
+	PasswordChangedAt  pgtype.Timestamptz `json:"password_changed_at"`
+	MfaRequired        bool               `json:"mfa_required"`
+	IsActive           bool               `json:"is_active"`
+	IsDeploymentAdmin  bool               `json:"is_deployment_admin"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	LastLoginAt        pgtype.Timestamptz `json:"last_login_at"`
+	UserVersion        int64              `json:"user_version"`
+	UpdatedByUserID    pgtype.UUID        `json:"updated_by_user_id"`
+	TotpEnrolledAt     pgtype.Timestamptz `json:"totp_enrolled_at"`
+	TotpSecretEnvelope []byte             `json:"totp_secret_envelope"`
 }
 
 type UserSession struct {

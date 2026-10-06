@@ -260,10 +260,7 @@ async function main() {
   const stdoutPath = path.join(artifactRoot, "stdout.log");
   const stderrPath = path.join(artifactRoot, "stderr.log");
   const invocation = commandForGroup(rows, group, artifactRoot);
-  const rendererLease =
-    group.kind === "visual"
-      ? await startVisualRendererLease({ root, environment: process.env })
-      : null;
+  const rendererLease = await startVisualRendererLease({ root, environment: process.env });
   let captureProof, captureStop, signalCleanupError, interruptedSignal;
   const onSignal = (signal) => {
     interruptedSignal ??= signal;
@@ -281,6 +278,7 @@ async function main() {
   let cleanupError;
   try {
   if (rendererLease !== null) {
+    secureWriteFile(path.join(artifactRoot, "tls-trust-attestation.json"), `${JSON.stringify(rendererLease.trustAttestation, null, 2)}\n`);
     secureWriteFile(
       path.join(artifactRoot, "renderer-profile-attestation.json"),
       `${JSON.stringify(rendererLease.attestation, null, 2)}\n`,

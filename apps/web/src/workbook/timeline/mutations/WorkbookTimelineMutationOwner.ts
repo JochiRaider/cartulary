@@ -130,7 +130,7 @@ export class WorkbookTimelineMutationOwner {
           this.dispatchAttachment = undefined;
         };
       },
-      readCurrentRow: async (unit) => {
+      readCurrentRow: (unit) => {
         if (unit.recordId === null)
           return (
             pending.replayContextByUnitId.get(unit.id)?.rowSnapshot ?? null
@@ -149,30 +149,37 @@ export class WorkbookTimelineMutationOwner {
             normalizeTimelineFullRow(cached, "current Timeline source"),
           );
         if (mounted && (mounted.rowVersion ?? 0) >= floor) return mounted;
-        if (!this.readSource || this.retired)
+        const readSource = this.readSource;
+        const recordId = unit.recordId;
+        if (!readSource || this.retired)
           throw new Error("Timeline source reader is unavailable");
-        const controller = new AbortController();
-        this.reads.add(controller);
-        const epoch = runtime.authorizationEpoch;
-        try {
-          const row = await this.readSource(unit.recordId, controller.signal);
-          if (controller.signal.aborted || epoch !== runtime.authorizationEpoch)
-            throw new Error("Timeline source lifetime changed");
-          if (!row) return null;
-          if (
-            row.record_id !== unit.recordId ||
-            row.row_version <
-              (runtime.history.latestVersion(unit.recordId) ?? 0)
-          )
-            throw new Error(
-              "Timeline source identity or version is not current",
+        return (async () => {
+          const controller = new AbortController();
+          this.reads.add(controller);
+          const epoch = runtime.authorizationEpoch;
+          try {
+            const row = await readSource(recordId, controller.signal);
+            if (
+              controller.signal.aborted ||
+              epoch !== runtime.authorizationEpoch
+            )
+              throw new Error("Timeline source lifetime changed");
+            if (!row) return null;
+            if (
+              row.record_id !== unit.recordId ||
+              row.row_version <
+                (runtime.history.latestVersion(unit.recordId) ?? 0)
+            )
+              throw new Error(
+                "Timeline source identity or version is not current",
+              );
+            return rowFromApi(
+              normalizeTimelineFullRow(row, "retained Timeline source"),
             );
-          return rowFromApi(
-            normalizeTimelineFullRow(row, "retained Timeline source"),
-          );
-        } finally {
-          this.reads.delete(controller);
-        }
+          } finally {
+            this.reads.delete(controller);
+          }
+        })();
       },
       latestCommittedTimelineRow: (id) => {
         const row = runtime.explicitPatches.latestRow(id);

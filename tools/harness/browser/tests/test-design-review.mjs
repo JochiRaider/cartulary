@@ -10,7 +10,10 @@ assert.equal(reviewProfile(), "network_flow_claimed");
 for (const profile of ["default", "network_flow_claimed"]) assert.equal(reviewProfile(profile), profile);
 assert.equal(reviewProfile(" default "), "default");
 for (const invalid of ["", "base", "../default", "enterprise"]) assert.throws(() => reviewProfile(invalid));
-assert.equal(reviewTotp("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", 59000), "287082");
+// RFC 6238 SHA-256 vectors, retaining the owner's six-digit output.
+const totpKey = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA";
+for (const [seconds, expected] of [[59, "119246"], [1111111109, "084774"], [1111111111, "062674"], [1234567890, "819424"], [2000000000, "698825"], [20000000000, "737706"]]) assert.equal(reviewTotp(totpKey, seconds * 1000), expected);
+for (const invalid of ["GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", totpKey.toLowerCase(), `${totpKey}=`, `${totpKey.slice(0, -1)}B`]) assert.throws(() => reviewTotp(invalid));
 
 await assert.rejects(holdReviewSession({ check: async () => { throw new Error("stale attachment"); } }), /stale attachment/u);
 for (const checking of [true, false]) {
@@ -32,7 +35,7 @@ for (const failure of [null, "acquire", "prepare", "hold", "close", "finish"]) {
   const events = [];
   const step = (name) => async () => { events.push(name); if (failure === name) throw new Error(name); return "lease"; };
   const promise = withReviewResources({ acquire: step("acquire"), prepare: step("prepare"), hold: step("hold"), close: step("close"), finish: step("finish") });
-  if (["close", "finish"].includes(failure)) await assert.rejects(promise, (error) => error.failure_reason === "cleanup_error" && error.phase === "cleanup" && error.cause.message === failure);
+  if (["close", "finish"].includes(failure)) await assert.rejects(promise, (error) => error.failure_reason === "cleanup_error" && error.phase === "cleanup" && error instanceof AggregateError && error.errors[0].message === failure && error.cleanupFailures[0].message === failure);
   else if (failure) await assert.rejects(promise, new RegExp(failure)); else await promise;
   assert.deepEqual(events.slice(-2), ["close", "finish"]);
   if (failure === "acquire") assert.ok(!events.includes("prepare"));

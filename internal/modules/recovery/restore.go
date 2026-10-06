@@ -1,10 +1,8 @@
 package recovery
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -31,7 +29,6 @@ type RestoreStep string
 const (
 	RestoreStepPostgresRestore    RestoreStep = "postgres_restore"
 	RestoreStepObjectStoreRestore RestoreStep = "object_store_restore"
-	RestoreStepExtensionBindings  RestoreStep = "extension_binding_validation"
 	RestoreStepProjectionRebuild  RestoreStep = "projection_rebuild"
 	RestoreStepConsistencyCheck   RestoreStep = "consistency_check"
 	RestoreStepReadiness          RestoreStep = "readiness"
@@ -101,11 +98,9 @@ type RestoreStepObserver interface {
 type RestoreResult struct {
 	BackupSet                  BackupSet
 	ConsistencyReport          RestoreConsistencyReport
-	ObjectStoreBackupManifest  ObjectStoreBackupManifest
 	ProjectionRebuildResult    restorecontract.ProjectionRebuildResult
 	GraphProjectionResult      graphrestore.RestoreRebuildResult
 	GraphProjectionCompletion  *restorecontract.GraphProjectionCompletionEvidence
-	ExtensionBindings          []ExtensionBindingProof
 	SelectedIncidentID         *string
 	WorkbookProbe              *workbookprobe.Result
 	IntegrityManifestSHA256    string
@@ -185,7 +180,7 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	if target.EvidenceObjects == nil {
 		return RestoreResult{}, fmt.Errorf("%w: Evidence recovery provider is required", ErrInvalidBackupArtifact)
 	}
-	if err := requireEmptyRestoreTarget(ctx, target, runner.extensionBackups); err != nil {
+	if err := requireEmptyRestoreTarget(ctx, target, runner.extensionBackups, runner.stateCatalog); err != nil {
 		return RestoreResult{}, err
 	}
 	if _, current := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); !current {
@@ -705,33 +700,12 @@ func restoreProjectionSourceStateRef(backupSet BackupSet) string {
 	return fmt.Sprintf("backup_set:%s/postgres_artifact:%s", backupSet.BackupSetID.String(), backupSet.PostgresArtifactSHA256)
 }
 
-func requireEmptyRestoreTarget(ctx context.Context, target RestoreTarget, extensionBackups *ExtensionBackupCatalog) error {
-	rows, err := target.Postgres.Query(ctx, `
-SELECT table_name
-  FROM information_schema.tables
- WHERE table_schema = 'public'
-   AND table_type = 'BASE TABLE'
- ORDER BY table_name ASC
-`)
+func requireEmptyRestoreTarget(ctx context.Context, target RestoreTarget, extensionBackups *ExtensionBackupCatalog, stateCatalog *recoverystate.Catalog) error {
+	tableNames, err := mutableRestoreTargetTables(ctx, target.Postgres, stateCatalog)
 	if err != nil {
-		return fmt.Errorf("inspect restore target tables: %w", err)
+		return err
 	}
-	tableNames := make([]string, 0)
-	for rows.Next() {
-		var tableName string
-		if err := rows.Scan(&tableName); err != nil {
-			rows.Close()
-			return fmt.Errorf("scan restore target table: %w", err)
-		}
-		if IsAuthoritativePostgresSnapshotTable(tableName) {
-			tableNames = append(tableNames, tableName)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return fmt.Errorf("iterate restore target tables: %w", err)
-	}
-	rows.Close()
+
 	for _, tableName := range tableNames {
 		if tableName == "extension_state_metadata" {
 			if err := requirePristineExtensionMetadata(ctx, target.Postgres, extensionBackups); err != nil {
@@ -804,40 +778,54 @@ SELECT profile_id, migration_lineage_id, state_version,
 	return nil
 }
 
+// Schema metadata belongs to admitted initialization, never to a restore or
+// disposable reset. Validate the full catalog before selecting mutable tables.
+func mutableRestoreTargetTables(ctx context.Context, db postgres.DB, catalog *recoverystate.Catalog) ([]string, error) {
+	if err := catalog.ValidateFrozen(); err != nil {
+		return nil, err
+	}
+	// information_schema hides tables without privileges. Coverage must also
+	// reject unknown tables the Recovery role cannot access.
+	rows, err := db.Query(ctx, `SELECT c.relname FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('r','p','f') ORDER BY c.relname`)
+	if err != nil {
+		return nil, fmt.Errorf("inspect restore target table coverage: %w", err)
+	}
+	defer rows.Close()
+	var actual []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		actual = append(actual, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := catalog.ValidateDatabaseTableNames(actual); err != nil {
+		return nil, err
+	}
+	var mutable []string
+	for _, table := range catalog.Document().Tables {
+		if table.BackupInclusion != recoverystate.InclusionSchemaMetadata {
+			mutable = append(mutable, table.TableName)
+		}
+	}
+	return mutable, nil
+}
+
 // ResetRestoreVerificationTarget returns an exclusively admitted, disposable
 // verification target to its migration-owned pristine state between successful
 // restore proofs. It is not part of ordinary restore and must never be used to
 // make a nonempty production target admissible.
-func ResetRestoreVerificationTarget(ctx context.Context, target RestoreTarget, catalog *ExtensionBackupCatalog) error {
+func ResetRestoreVerificationTarget(ctx context.Context, target RestoreTarget, catalog *ExtensionBackupCatalog, stateCatalog *recoverystate.Catalog) error {
 	if target.Postgres == nil || target.ObjectStore == nil || catalog == nil {
 		return fmt.Errorf("%w: verification target and extension catalog are required", ErrInvalidBackupArtifact)
 	}
-	rows, err := target.Postgres.Query(ctx, `
-SELECT table_name
-  FROM information_schema.tables
- WHERE table_schema = 'public'
-   AND table_type = 'BASE TABLE'
- ORDER BY table_name ASC
-`)
+	tableNames, err := mutableRestoreTargetTables(ctx, target.Postgres, stateCatalog)
 	if err != nil {
-		return fmt.Errorf("list restore verification target tables: %w", err)
+		return err
 	}
-	tableNames := make([]string, 0)
-	for rows.Next() {
-		var tableName string
-		if err := rows.Scan(&tableName); err != nil {
-			rows.Close()
-			return fmt.Errorf("scan restore verification target table: %w", err)
-		}
-		if IsAuthoritativePostgresSnapshotTable(tableName) {
-			tableNames = append(tableNames, tableName)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return fmt.Errorf("iterate restore verification target tables: %w", err)
-	}
-	rows.Close()
 
 	tx, err := target.Postgres.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -897,72 +885,6 @@ INSERT INTO extension_state_metadata (
 		return target.ExportOutputs.ResetVerificationTarget(ctx)
 	}
 	return nil
-}
-
-func DecodePostgresSnapshotArtifact(body []byte) (PostgresSnapshotArtifact, error) {
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	var artifact PostgresSnapshotArtifact
-	if err := decoder.Decode(&artifact); err != nil {
-		return PostgresSnapshotArtifact{}, fmt.Errorf("%w: decode postgres snapshot artifact: %v", ErrInvalidBackupArtifact, err)
-	}
-	if artifact.SchemaID != PostgresSnapshotArtifactSchemaID {
-		return PostgresSnapshotArtifact{}, fmt.Errorf("%w: unsupported postgres snapshot schema %q", ErrInvalidBackupArtifact, artifact.SchemaID)
-	}
-	seen := make(map[string]struct{}, len(artifact.Tables))
-	for _, table := range artifact.Tables {
-		if !IsAuthoritativePostgresSnapshotTable(table.TableName) {
-			return PostgresSnapshotArtifact{}, fmt.Errorf("%w: postgres snapshot contains non-authoritative table %q", ErrInvalidBackupArtifact, table.TableName)
-		}
-		if _, exists := seen[table.TableName]; exists {
-			return PostgresSnapshotArtifact{}, fmt.Errorf("%w: postgres snapshot contains duplicate table %q", ErrInvalidBackupArtifact, table.TableName)
-		}
-		seen[table.TableName] = struct{}{}
-		if table.RowCount != int64(len(table.Rows)) {
-			return PostgresSnapshotArtifact{}, fmt.Errorf("%w: postgres snapshot row_count mismatch for %q", ErrInvalidBackupArtifact, table.TableName)
-		}
-	}
-	sort.Slice(artifact.Tables, func(i, j int) bool {
-		return artifact.Tables[i].TableName < artifact.Tables[j].TableName
-	})
-	return artifact, nil
-}
-
-func DecodeObjectStoreSnapshotArtifact(body []byte) (ObjectStoreSnapshotArtifact, error) {
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	var artifact ObjectStoreSnapshotArtifact
-	if err := decoder.Decode(&artifact); err != nil {
-		return ObjectStoreSnapshotArtifact{}, fmt.Errorf("%w: decode object-store snapshot artifact: %v", ErrInvalidBackupArtifact, err)
-	}
-	if artifact.SchemaID != ObjectStoreSnapshotArtifactSchemaID {
-		return ObjectStoreSnapshotArtifact{}, fmt.Errorf("%w: unsupported object-store snapshot schema %q", ErrInvalidBackupArtifact, artifact.SchemaID)
-	}
-	seen := make(map[string]struct{}, len(artifact.Objects))
-	for index, item := range artifact.Objects {
-		if strings.TrimSpace(item.Key) == "" {
-			return ObjectStoreSnapshotArtifact{}, fmt.Errorf("%w: object-store snapshot object key is required", ErrInvalidBackupArtifact)
-		}
-		if _, exists := seen[item.Key]; exists {
-			return ObjectStoreSnapshotArtifact{}, fmt.Errorf("%w: object-store snapshot contains duplicate key %q", ErrInvalidBackupArtifact, item.Key)
-		}
-		seen[item.Key] = struct{}{}
-		body, err := base64.StdEncoding.DecodeString(item.BodyBase64)
-		if err != nil {
-			return ObjectStoreSnapshotArtifact{}, fmt.Errorf("%w: decode object-store body for %s: %v", ErrInvalidBackupArtifact, item.Key, err)
-		}
-		if int64(len(body)) != item.SizeBytes {
-			return ObjectStoreSnapshotArtifact{}, fmt.Errorf("%w: object-store snapshot size mismatch for %s", ErrInvalidBackupArtifact, item.Key)
-		}
-		if sha256Hex(body) != item.SHA256 {
-			return ObjectStoreSnapshotArtifact{}, fmt.Errorf("%w: object-store snapshot sha256 mismatch for %s", ErrInvalidBackupArtifact, item.Key)
-		}
-		artifact.Objects[index].ContentType = artifactContentType(BackupArtifact{ContentType: item.ContentType})
-	}
-	sort.Slice(artifact.Objects, func(i, j int) bool {
-		return artifact.Objects[i].Key < artifact.Objects[j].Key
-	})
-	return artifact, nil
 }
 
 func sanitizedTableList(tableNames []string) string {

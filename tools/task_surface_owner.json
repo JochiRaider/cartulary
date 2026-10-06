@@ -76,6 +76,8 @@
       "browser-e2e-webserver-backed",
       "check",
       "ci",
+      "credential-capacity-assessment",
+      "cryptographic-policy-assessment",
       "frontend-fallow-static",
       "frontend-import-boundary-check",
       "frontend-typecheck",
@@ -704,6 +706,14 @@
       {
         "target": "toolchain-drift",
         "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "cryptographic-policy-assessment",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "credential-capacity-assessment",
+        "profile_id": "standard_no_regression"
       }
     ]
   },
@@ -1209,6 +1219,14 @@
           "target": "scheduler-summary-timing-drift",
           "usage": "RESULTS_DIR=<dir>",
           "description": "verify scheduler summary timing accounting"
+        },
+        {
+          "target": "cryptographic-policy-assessment",
+          "description": "assess pinned-module build identity and admission (strict mode is diagnostic)"
+        },
+        {
+          "target": "credential-capacity-assessment",
+          "description": "assess bounded credential workflows on the fixed Windows 11 / WSL2 container profile"
         }
       ]
     },
@@ -3344,6 +3362,36 @@
       "test_target": "self",
       "success_summary": true,
       "graph_entry": true
+    },
+    "cryptographic-policy-assessment": {
+      "type": "step_command",
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "$(NODE_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "cryptographic-policy-assessment",
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/readiness/cryptographic-policy-assessment.mjs"
+      ],
+      "test_target": "self",
+      "graph_entry": true
+    },
+    "credential-capacity-assessment": {
+      "type": "step_command",
+      "prerequisites": [
+        "deployable-shape"
+      ],
+      "mode": "run_step",
+      "step_label": "credential-capacity-assessment",
+      "command": [
+        "env",
+        "CARTULARY_PACKAGE_QUALIFICATION=credential-capacity",
+        "./tools/release-evidence/check-standup-package-smoke.sh"
+      ],
+      "test_target": "self",
+      "graph_entry": true
     }
   },
   "targets": [
@@ -3883,6 +3931,13 @@
     {
       "name": "db-up",
       "backing_scripts": [
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "docker-compose.dev.yml",
         "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
@@ -3946,6 +4001,13 @@
     {
       "name": "db-migrate",
       "backing_scripts": [
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "docker-compose.dev.yml",
         "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
@@ -4018,6 +4080,13 @@
     {
       "name": "db-reset",
       "backing_scripts": [
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "docker-compose.dev.yml",
         "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
@@ -4251,6 +4320,13 @@
     {
       "name": "services-up",
       "backing_scripts": [
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "docker-compose.dev.yml",
         "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
@@ -4670,6 +4746,13 @@
     {
       "name": "object-store-init",
       "backing_scripts": [
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "docker-compose.dev.yml",
         "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
@@ -4903,7 +4986,10 @@
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -5847,20 +5933,36 @@
       "name": "standup-package-smoke",
       "backing_scripts": [
         "deploy/mvp/Containerfile",
+        "deploy/mvp/Containerfile.dockerignore",
         "deploy/mvp/bootstrap-admin.json.example",
         "deploy/mvp/config.toml.example",
         "deploy/mvp/docker-compose.reference-packs.yml",
         "deploy/mvp/docker-compose.yml",
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
         "deploy/mvp/reference-pack-administration.toml.example",
         "deploy/mvp/revisions-conflict-token-key-ring.json.example",
         "deploy/mvp/runtime-roots/backups/.keep",
         "deploy/mvp/runtime-roots/exports/.keep",
         "deploy/mvp/runtime-roots/reference-packs/.keep",
         "deploy/mvp/runtime-roots/tmp/.keep",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "internal/testutil/packagepki/pki.go",
+        "tools/credentialassessment/main.go",
+        "tools/harness/readiness/credential-capacity-assessment.mjs",
+        "tools/harness/readiness/cryptographic-build-cli.mjs",
+        "tools/harness/readiness/cryptographic-module.mjs",
+        "tools/harness/readiness/reference-platform.mjs",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-package-smoke.sh",
+        "tools/release-evidence/package-fixture-tls.sh",
         "tools/release-evidence/package-smoke-cleanup.sh",
-        "tools/release-evidence/reference-pack-fixtures.mjs"
+        "tools/release-evidence/reference-pack-fixtures.mjs",
+        "tools/toolchain_pins.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5987,22 +6089,43 @@
       "name": "standup-reference-pack-smoke",
       "backing_scripts": [
         "deploy/mvp/Containerfile",
+        "deploy/mvp/Containerfile.dockerignore",
         "deploy/mvp/bootstrap-admin.json.example",
         "deploy/mvp/config.toml.example",
         "deploy/mvp/docker-compose.reference-packs.yml",
         "deploy/mvp/docker-compose.yml",
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
         "deploy/mvp/reference-pack-administration.toml.example",
         "deploy/mvp/revisions-conflict-token-key-ring.json.example",
         "deploy/mvp/runtime-roots/backups/.keep",
         "deploy/mvp/runtime-roots/exports/.keep",
         "deploy/mvp/runtime-roots/reference-packs/.keep",
         "deploy/mvp/runtime-roots/tmp/.keep",
+        "deploy/mvp/scripts/operation-start.sh",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "deploy/mvp/systemd/cartulary-backup.service",
+        "deploy/mvp/systemd/cartulary-backup.timer",
+        "deploy/mvp/systemd/cartulary-restore-verify.service",
+        "deploy/mvp/systemd/cartulary-restore-verify.timer",
+        "internal/testutil/packagepki/pki.go",
+        "tools/credentialassessment/main.go",
+        "tools/harness/readiness/credential-capacity-assessment.mjs",
+        "tools/harness/readiness/cryptographic-build-cli.mjs",
+        "tools/harness/readiness/cryptographic-module.mjs",
+        "tools/harness/readiness/reference-platform.mjs",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-package-smoke.sh",
         "tools/release-evidence/check-standup-reference-pack-smoke.sh",
+        "tools/release-evidence/package-fixture-tls.sh",
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/reference-pack-fixtures.mjs",
-        "tools/release-evidence/standup-reference-pack-scenarios.mjs"
+        "tools/release-evidence/standup-reference-pack-scenarios.mjs",
+        "tools/toolchain_pins.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6129,16 +6252,31 @@
       "name": "standup-operational-recovery-smoke",
       "backing_scripts": [
         "deploy/mvp/Containerfile",
+        "deploy/mvp/Containerfile.dockerignore",
         "deploy/mvp/bootstrap-admin.json.example",
         "deploy/mvp/config.toml.example",
         "deploy/mvp/docker-compose.yml",
-        "deploy/mvp/revisions-conflict-token-key-ring.json.example",
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
         "deploy/mvp/restore-verification-target.marker.json.example",
         "deploy/mvp/restore-verification-target.toml.example",
+        "deploy/mvp/revisions-conflict-token-key-ring.json.example",
         "deploy/mvp/scripts/backup-capture.sh",
+        "deploy/mvp/scripts/operation-start.sh",
         "deploy/mvp/scripts/restore-verify-due.sh",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "deploy/mvp/systemd/cartulary-backup.service",
+        "deploy/mvp/systemd/cartulary-backup.timer",
+        "deploy/mvp/systemd/cartulary-restore-verify.service",
+        "deploy/mvp/systemd/cartulary-restore-verify.timer",
+        "internal/testutil/packagepki/pki.go",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-operational-recovery-smoke.sh",
+        "tools/release-evidence/package-fixture-tls.sh",
         "tools/release-evidence/package-smoke-cleanup.sh"
       ],
       "output_policy": {
@@ -13415,10 +13553,13 @@
     {
       "name": "release-evidence-contract",
       "backing_scripts": [
-        "tools/release-evidence/tests/test-release-readiness-evidence.mjs",
+        "deploy/mvp/scripts/backup-capture.sh",
+        "deploy/mvp/scripts/operation-start.sh",
+        "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/release-readiness-evidence.mjs",
+        "tools/release-evidence/tests/test-package-operation.mjs",
         "tools/release-evidence/tests/test-package-smoke-cleanup.mjs",
-        "tools/release-evidence/package-smoke-cleanup.sh"
+        "tools/release-evidence/tests/test-release-readiness-evidence.mjs"
       ],
       "command_id": "cartulary.harness.command.release_evidence_contract.v2",
       "target_class": "check_internal",
@@ -14585,7 +14726,10 @@
         "tools/harness/browser/review-preparation.mjs",
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -14698,7 +14842,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_review.v1",
       "semantic_behaviors": [
@@ -14847,7 +14994,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_review_status.v1",
       "semantic_behaviors": [
@@ -14952,7 +15102,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_browser.v1",
       "semantic_behaviors": [
@@ -15073,7 +15226,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_capture.v1",
       "semantic_behaviors": [
@@ -15194,7 +15350,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_analyze.v1",
       "semantic_behaviors": [
@@ -15315,7 +15474,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_review_report.v1",
       "semantic_behaviors": [
@@ -15436,7 +15598,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.ui_review_stop.v1",
       "semantic_behaviors": [
@@ -15546,7 +15711,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_contract.v1",
       "target_class": "check_internal",
@@ -15603,7 +15771,10 @@
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
-        "tools/harness/browser/tests/test-browser-acquisition.mjs"
+        "tools/harness/browser/tests/test-browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_lifecycle.v1",
       "target_class": "check_internal",
@@ -15658,7 +15829,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_artifacts.v1",
       "target_class": "check_internal",
@@ -15713,7 +15887,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_presentation.v1",
       "target_class": "check_internal",
@@ -15768,7 +15945,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_execution.v1",
       "target_class": "check_internal",
@@ -15823,7 +16003,10 @@
         "tools/harness/runtime/host-admission.mjs",
         "tools/harness/runtime/lease-lock.mjs",
         "tools/harness/runtime/secure-local-files.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_workflow.v1",
       "target_class": "check_internal",
@@ -15880,7 +16063,10 @@
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_seeded_default.v1",
       "target_class": "check_internal",
@@ -15937,12 +16123,278 @@
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/runtime/owned-renderer.mjs",
+        "tools/harness/browser/browser-trust.mjs",
+        "tools/harness/browser/visual-renderer-lease.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_ui_review_seeded_network_flow_claimed.v1",
       "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "cryptographic-policy-assessment",
+      "backing_scripts": [
+        "tools/harness/backend/build-go-artifact.sh",
+        "tools/harness/backend/tests/test-build-go-artifact.sh",
+        "tools/harness/readiness/cryptographic-build-cli.mjs",
+        "tools/harness/readiness/cryptographic-module.mjs",
+        "tools/harness/readiness/cryptographic-policy-assessment.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/toolchain_pins.json"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.cryptographic_policy_assessment.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "credential-capacity-assessment",
+      "backing_scripts": [
+        "deploy/mvp/Containerfile",
+        "deploy/mvp/Containerfile.dockerignore",
+        "deploy/mvp/bootstrap-admin.json.example",
+        "deploy/mvp/config.toml.example",
+        "deploy/mvp/docker-compose.reference-packs.yml",
+        "deploy/mvp/docker-compose.yml",
+        "deploy/mvp/postgres-entrypoint.sh",
+        "deploy/mvp/postgres-hba.conf",
+        "deploy/mvp/postgres-ident.conf",
+        "deploy/mvp/postgres-provision.sh",
+        "deploy/mvp/postgres-provision.sql",
+        "deploy/mvp/reference-pack-administration.toml.example",
+        "deploy/mvp/revisions-conflict-token-key-ring.json.example",
+        "deploy/mvp/runtime-roots/backups/.keep",
+        "deploy/mvp/runtime-roots/exports/.keep",
+        "deploy/mvp/runtime-roots/reference-packs/.keep",
+        "deploy/mvp/runtime-roots/tmp/.keep",
+        "deploy/mvp/seaweed-entrypoint.sh",
+        "internal/testutil/packagepki/pki.go",
+        "tools/credentialassessment/main.go",
+        "tools/harness/readiness/credential-capacity-assessment.mjs",
+        "tools/harness/readiness/cryptographic-build-cli.mjs",
+        "tools/harness/readiness/cryptographic-module.mjs",
+        "tools/harness/readiness/reference-platform.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/packagepki/main.go",
+        "tools/release-evidence/check-standup-package-smoke.sh",
+        "tools/release-evidence/package-fixture-tls.sh",
+        "tools/release-evidence/package-smoke-cleanup.sh",
+        "tools/release-evidence/reference-pack-fixtures.mjs",
+        "tools/toolchain_pins.json"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.credential_capacity_assessment.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "build/bin"
+          ]
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
     }
   ],
   "harness_tiers": {
@@ -16260,6 +16712,9 @@
     {
       "name": "harness-smoke-release-readiness-evidence",
       "backing_scripts": [
+        "deploy/mvp/scripts/backup-capture.sh",
+        "deploy/mvp/scripts/operation-start.sh",
+        "tools/release-evidence/tests/test-package-operation.mjs",
         "tools/release-evidence/tests/test-release-readiness-evidence.mjs"
       ],
       "command": [

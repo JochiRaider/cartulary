@@ -364,6 +364,12 @@ test("Workbook Import Assistant reviews XLSX partial outcomes and navigates only
   await timeline
     .getByRole("button", { name: "Approve mapping and select" })
     .click();
+  await expect(
+    timeline.getByRole("button", {
+      name: "Mapping approved and selected",
+      exact: true,
+    }),
+  ).toBeVisible();
   const evidence = assistant.getByRole("region", {
     name: "Import unit 2",
     exact: true,

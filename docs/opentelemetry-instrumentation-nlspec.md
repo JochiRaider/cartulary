@@ -791,6 +791,7 @@ Every Core 01 §3.3.6.1 public `error.code` token MUST map to exactly one `cartu
 | --- | --- |
 | `request_invalid` | `invalid_view_query`, `invalid_saved_view_read_request`, `invalid_pagination_request`, `invalid_list_query`, `invalid_mutation_payload`, `invalid_evidence_handle_request`, `invalid_blob_create_request`, `invalid_incident_create`, `invalid_incident_patch`, `invalid_incident_lifecycle_request`, `invalid_rollback_request`, `invalid_auth_request`, `invalid_enterprise_auth_request`, `invalid_import_request`, `invalid_snapshot_request`, `invalid_release_request`, `invalid_reference_pack_request`, `invalid_incident_bundle_request` |
 | `authentication` | `invalid_credentials`, `mfa_required`, `mfa_setup_required`, `credential_bootstrap_rejected`, `invalid_current_password`, `invalid_second_factor`, `totp_setup_not_pending`, `enterprise_auth_transaction_rejected`, `provider_response_rejected`, `provider_identity_rejected` |
+| `capacity_exhausted` | `authentication_capacity_exhausted` |
 | `authorization` | `authorization_denied` |
 | `capability_unavailable` | `extension_profile_not_claimed`, `extension_capability_not_supported`, `auth_provider_not_found`, `auth_provider_disabled` |
 | `concurrency_conflict` | `client_txn_conflict`, `row_version_conflict`, `incident_key_conflict`, `incident_version_conflict`, `same_field_conflict`, `user_version_conflict`, `preferences_version_conflict`, `membership_version_conflict`, `auth_binding_conflict` |
@@ -800,6 +801,8 @@ Every Core 01 §3.3.6.1 public `error.code` token MUST map to exactly one `cartu
 | `policy_rejected` | `blob_create_rejected`, `evidence_attach_rejected`, `import_source_unsupported`, `import_source_rejected`, `release_render_failed`, `reference_pack_verification_failed`, `incident_bundle_export_rejected`, `incident_bundle_import_rejected` |
 | `dependency_unavailable` | `evidence_access_unavailable`, `object_store_unavailable`, `object_store_access_rejected`, `required_reference_pack_unavailable` |
 | `invariant_violation` | `object_store_invalid_request` |
+
+Authentication-capacity overload is a bounded service-admission outcome, independent of account existence or credential validity. It MUST use `capacity_exhausted`; it MUST NOT be classified as failed authentication or telemetry processor overflow. The public empty-details and retry contract remains owned by Core 01.
 
 **OTEL-REQ-143**
 The complete `cartulary.error_class` registry additionally includes the following dependency and runtime classes.
@@ -1316,21 +1319,21 @@ Cartulary MUST NOT support per-signal endpoint, per-signal header, or per-signal
 ### 12.2 OTLP endpoint normalization
 
 **OTEL-REQ-097**
-For `telemetry.exporter.kind='otlp_http'`, `telemetry.exporter.endpoint` MUST be an absolute `http` or `https` URL with explicit port, ASCII hostname or bracketed IPv6 address, no userinfo, no query, and no fragment. Scheme and hostname MUST be lowercased during canonicalization. Missing port, unsupported scheme, host-only target, Unicode or IDNA hostname text, percent-encoded path, duplicate slash in the path, dot segment, `..` segment, empty internal path segment, query, fragment, or userinfo is invalid before exporter construction.
+For `telemetry.exporter.kind='otlp_http'`, `telemetry.exporter.endpoint` MUST be an absolute `https` URL with explicit port, ASCII hostname or bracketed IPv6 address, no userinfo, no query, and no fragment. Scheme and hostname MUST be lowercased during canonicalization. Missing port, unsupported scheme, host-only target, Unicode or IDNA hostname text, percent-encoded path, duplicate slash in the path, dot segment, `..` segment, empty internal path segment, query, fragment, or userinfo is invalid before exporter construction.
 
 The OTLP/HTTP path prefix may be empty, `/`, or `/`-separated ASCII path segments matching `[A-Za-z0-9._~-]{1,64}`. The implementation MUST strip one trailing slash from a non-root prefix and then append exactly `/v1/traces`, `/v1/metrics`, or `/v1/logs`:
 
 | Configured endpoint | Trace URL | Metrics URL | Logs URL |
 | --- | --- | --- | --- |
-| `http://collector:4318` | `http://collector:4318/v1/traces` | `http://collector:4318/v1/metrics` | `http://collector:4318/v1/logs` |
-| `http://collector:4318/` | `http://collector:4318/v1/traces` | `http://collector:4318/v1/metrics` | `http://collector:4318/v1/logs` |
-| `http://collector:4318/otel` | `http://collector:4318/otel/v1/traces` | `http://collector:4318/otel/v1/metrics` | `http://collector:4318/otel/v1/logs` |
-| `http://collector:4318/otel/` | `http://collector:4318/otel/v1/traces` | `http://collector:4318/otel/v1/metrics` | `http://collector:4318/otel/v1/logs` |
+| `https://collector:4318` | `https://collector:4318/v1/traces` | `https://collector:4318/v1/metrics` | `https://collector:4318/v1/logs` |
+| `https://collector:4318/` | `https://collector:4318/v1/traces` | `https://collector:4318/v1/metrics` | `https://collector:4318/v1/logs` |
+| `https://collector:4318/otel` | `https://collector:4318/otel/v1/traces` | `https://collector:4318/otel/v1/metrics` | `https://collector:4318/otel/v1/logs` |
+| `https://collector:4318/otel/` | `https://collector:4318/otel/v1/traces` | `https://collector:4318/otel/v1/metrics` | `https://collector:4318/otel/v1/logs` |
 
 **OTEL-REQ-098**
-For `telemetry.exporter.kind='otlp_grpc'`, `telemetry.exporter.endpoint` MUST be an absolute `http://host:port` or `https://host:port` URL with explicit port, no userinfo, no query, no fragment, and no path except empty path or `/`. Scheme and hostname MUST be lowercased during canonicalization. The normalized gRPC target is exactly `host:port`, preserving brackets for bracketed IPv6 addresses. Host-only targets, missing ports, non-empty paths other than `/`, per-signal targets, stripped schemes, unsupported schemes, custom path prefixes, query strings, fragments, and userinfo are invalid.
+For `telemetry.exporter.kind='otlp_grpc'`, `telemetry.exporter.endpoint` MUST be an absolute `https://host:port` URL with explicit port, no userinfo, no query, no fragment, and no path except empty path or `/`. Scheme and hostname MUST be lowercased during canonicalization. The normalized gRPC target is exactly `host:port`, preserving brackets for bracketed IPv6 addresses. Host-only targets, missing ports, non-empty paths other than `/`, per-signal targets, stripped schemes, unsupported schemes, custom path prefixes, query strings, fragments, and userinfo are invalid.
 
-For OTLP/gRPC, `https` selects TLS transport using the runtime system trust store. `http` selects insecure transport. mTLS, custom CA bundles, client certificates, `insecure_skip_verify`, endpoint credentials from OTel environment variables, and per-signal gRPC credentials are not adopted in this revision.
+OTLP/HTTP and OTLP/gRPC MUST use Core 04 §1.3's TLS 1.3 policy with the runtime system trust store, full server-chain and server-name verification. `http` and insecure transport are unsupported and reject before exporter construction. Certificate validation failure never retries with plaintext or disabled verification. mTLS, custom CA bundles, client certificates, `insecure_skip_verify`, endpoint credentials from OTel environment variables, and per-signal credentials are not adopted in this revision. Trust-store replacement requires a validated restart; operators provision trust and renew collector certificates before expiry. The configured endpoint is the only destination: ambient HTTP proxies, redirects and gRPC proxy discovery are unsupported. Owned HTTP connections close after exporter shutdown, including partial activation failure.
 
 **OTEL-REQ-099**
 OTLP/HTTP JSON export is unsupported in this revision. OTLP/HTTP MUST use `http/protobuf`. OTLP/gRPC MUST use protobuf over gRPC.
@@ -1350,7 +1353,7 @@ Exporter `User-Agent` MUST use exactly this grammar:
 Cartulary/<SERVICE_VERSION> OTel-OTLP-Exporter-go/<EXPORTER_VERSION>
 ```
 
-`SERVICE_VERSION` is the resolved `service.version` from §5.2. `EXPORTER_VERSION` is the pinned OTLP exporter package version from repo-control package evidence. One ASCII space separates the two segments. The value MUST contain no comments, parentheses, additional product identifiers, environment names, incident identifiers, deployment hostnames, usernames, object-store identifiers, runtime roots, local paths, arbitrary operator-provided text, or extra segments. Export-enabled startup MUST fail before readiness if the pinned exporter package version cannot be resolved from repo-control package evidence.
+`SERVICE_VERSION` is the resolved `service.version` from §5.2. `EXPORTER_VERSION` is the pinned OTLP exporter package version from repo-control package evidence. One ASCII space separates the two segments. The HTTP value MUST contain no comments, parentheses, additional product identifiers, environment names, incident identifiers, deployment hostnames, usernames, object-store identifiers, runtime roots, local paths, arbitrary operator-provided text, or extra segments. Each signal uses the selected exporter module version recorded in executable dependency metadata for that protocol. Missing, replaced or duplicate module identities fail exporter activation; neither application constants nor library Version helpers are authoritative substitutes. The gRPC transport appends its mandatory `grpc-go/VERSION` library identifier after one space; only that library-owned suffix is permitted. The application MUST NOT replace the gRPC protocol implementation to remove this suffix. Export-enabled startup MUST fail before readiness if the pinned exporter package version cannot be resolved from repo-control package evidence.
 
 **OTEL-REQ-103**
 The User-Agent segment rules are:

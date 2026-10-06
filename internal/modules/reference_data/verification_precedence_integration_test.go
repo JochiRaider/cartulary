@@ -16,7 +16,7 @@ import (
 func TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-precedence")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	importReferencePack(t, harness, admin, "type_registry.host", "2", "precedence-existing")
 	for _, tc := range []struct {
 		name, version, code, check string
@@ -125,7 +125,7 @@ func TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration(t *
 func TestLiveVerificationResolvesExactDependenciesBeforeIndexing_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-dependencies")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	importReferencePackWithKind(t, harness, admin, "enrichment.tor", "enrichment", "1", "dependency-seed")
 	requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/enrichment.tor/1/disable", "dependency-disable", ""), http.StatusOK)
 	var digest string

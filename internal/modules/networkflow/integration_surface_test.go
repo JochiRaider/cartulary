@@ -1,10 +1,12 @@
 package networkflow
 
 import (
+	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 // External integration fixtures use only these test-build names. Ordinary
@@ -74,6 +76,14 @@ var WithTableIDEntropy = withTableIDEntropy
 const WorkspaceKeyNetworkAnalysis = workspaceKeyNetworkAnalysis
 
 func parseKeyRingsWithDefaultRegistry(raw []byte, env map[string]string, now time.Time) (*KeyRings, error) {
+	copied := make(map[string]string, len(env)+1)
+	for key, value := range env {
+		copied[key] = value
+	}
+	if _, ok := copied[authn.AuthMasterKeyEnv]; !ok {
+		copied[authn.AuthMasterKeyEnv] = strings.TrimSpace(string(fixtures.MustRead("auth", "master-key.base64")))
+	}
+	env = copied
 	registry := secretpurpose.NewRegistry()
 	if err := authn.RegisterMasterSecretPurpose(registry, env); err != nil {
 		return nil, err

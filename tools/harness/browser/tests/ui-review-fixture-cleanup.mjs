@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { get } from "node:https";
+import { admittedBrowserTrust } from "../browser-trust.mjs";
 import { runPreparedReview, recoverReviewPreparation } from "../review-preparation.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
@@ -15,13 +17,18 @@ export async function realStackCleanupCases() {
     const runRoot = path.join(repoRoot, ".cartulary/test-results", runID);
     mkdirSync(runRoot, { mode: 0o700 });
     const runtime = createSuiteRuntime({ repoRoot, runRoot, runID });
-    let result, origin, primary;
+    let result, origin, primary, probe;
     try {
       const operation = runPreparedReview({ environment: { ...process.env, REVIEW_PROFILE: "default" },
         runID, runRoot, runtime, retainDetail: false, writeOutput: () => {}, hold: async () => {},
         onReady: async ({ attached, fixtureLease, fixtureBroker }) => {
           origin = attached.CARTULARY_WEB_E2E_PUBLIC_ORIGIN;
-          assert.equal((await fetch(origin)).status, 200);
+          const ca = admittedBrowserTrust(attached).bytes;
+          probe = () => new Promise((resolve, reject) => {
+            const request = get(origin, { ca, minVersion: "TLSv1.3", maxVersion: "TLSv1.3", agent: false, signal: AbortSignal.timeout(3000) }, (response) => { response.resume(); response.once("end", () => resolve(response.statusCode)); response.once("error", reject); });
+            request.once("error", reject);
+          });
+          assert.equal(await probe(), 200);
           if (cleanupFailed) fixtureLease.entry.allocation.release = () => { throw new Error("controlled live-stack cleanup failure"); };
           const unit = { unit_id: "fixture:failed-work", owner_id: "harness.browser", kind: "runner",
             command: { executable: "true", args: [], environment: { CARTULARY_BROWSER_RELEASE_AFFINITY: "1" } },
@@ -46,7 +53,7 @@ export async function realStackCleanupCases() {
       assert.equal(releases[0].outcome, cleanupFailed ? "failed" : "completed");
       assert.equal(releases[0].failure_reason, cleanupFailed ? "cleanup_error" : null);
       if (cleanupFailed) {
-        assert.equal((await fetch(origin)).status, 200, "genuine failure leaves a live owned stack");
+        assert.equal(await probe(), 200, "genuine failure leaves a live owned stack");
         runtime.preserveRecovery();
         const resources = runtimeRecoveryResources(runtime);
         assert.deepEqual(resources.map((resource) => resource.kind).sort(), ["browser_stack", "managed_suite"]);
@@ -58,7 +65,7 @@ export async function realStackCleanupCases() {
           onReleased: (resource) => recordRuntimeResource(runtime, { ...resource, state: "released" }) });
       }
       assert.equal(runtimeRecoveryResources(runtime).length, 0);
-      await assert.rejects(fetch(origin), "the owned listener is gone after cleanup or exact recovery");
+      await assert.rejects(probe(), "the owned listener is gone after cleanup or exact recovery");
     } catch (error) { primary = error; }
     finally {
       try {

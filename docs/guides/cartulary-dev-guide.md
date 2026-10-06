@@ -145,7 +145,7 @@ All direct backend runtime dependencies MUST be permissive-licensed. Everything 
 | `github.com/coder/websocket`   | WebSocket server for the collaboration stream                                | ISC          |
 | `github.com/minio/minio-go/v7` | S3-compatible object storage client                                          | Apache-2.0   |
 | `github.com/BurntSushi/toml`   | Deployment configuration loading with fail-closed unknown-key validation     | MIT          |
-| `golang.org/x/crypto`          | Argon2id password hashing and related primitives                             | BSD-3-Clause |
+| `golang.org/x/crypto`          | Supporting cryptographic primitives outside the standard library                             | BSD-3-Clause |
 | `github.com/pquerna/otp`       | TOTP MFA                                                                     | Apache-2.0   |
 
 Standard-library responsibilities include:
@@ -1159,9 +1159,8 @@ The default local loop is:
 not migrate a retained database. Use `make db-migrate` for a non-destructive
 current-v2-line migration. `make db-migrate` preserves only an inherited
 `CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN`; `make dev` preserves only
-`CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN`. When the selected variable
-is unset, the command derives the matching local Compose credential for the
-`postgres_primary` development service. A v1, foreign-lineage,
+`CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN`. Both variables must be explicitly provisioned certificate-authenticated DSNs;
+there is no password, passfile, service-file or inherited `PG*` fallback. A v1, foreign-lineage,
 unmarked-nonzero, or contaminated database is not an upgrade source. Reset it
 with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`; v2 defines no data
 bridge, export/import transition, legacy dual read, or compatibility alias.
@@ -1170,7 +1169,7 @@ The ordinary development service is exact PostgreSQL 18.6 from
 `docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2`.
 It mounts the versioned `postgres-data-v18` volume at
 `/var/lib/postgresql`, sets `PGDATA=/var/lib/postgresql/18/docker`, and creates
-the cluster with data checksums plus SCRAM host authentication. A PostgreSQL 16
+the cluster with data checksums plus certificate-only verified TLS 1.3 host authentication. A PostgreSQL 16
 volume is disposable state, not an upgrade source. Preview the bounded reset
 with
 `CARTULARY_CLEANUP_DRY_RUN=1 make postgres-baseline-reset POSTGRES_BASELINE_PROFILE=dev`;
@@ -1611,7 +1610,7 @@ The bootstrap-created admin then enters the ordinary local TOTP bootstrap flow o
 
 Extension-specific code paths MUST remain off by default unless the deployment explicitly claims the corresponding profile.
 
-For a claimed `network_flow_activity` deployment, set `network_flow_activity.claimed=true` and set `network_flow_activity.key_ring_manifest_path` to one absolute regular-file path containing `cartulary.network_flow_key_rings.v1`. The authored shape example is `configs/dev/network-flow-key-rings.example.json`; it contains references only, never key material. Each referenced `CARTULARY_SECRET_<REF>` value must be unpadded base64url for exactly 32 random bytes. Cursor and safe-digest references and material must be distinct from each other and from authentication, enterprise-provider, telemetry, storage, recovery, and bootstrap purposes.
+For a claimed `network_flow_activity` deployment, set `network_flow_activity.claimed=true` and set `network_flow_activity.key_ring_manifest_path` to one absolute regular-file path containing `cartulary.network_flow_key_rings.v2`. The authored shape example is `configs/dev/network-flow-key-rings.example.json`; it contains references only, never key material. Each referenced `CARTULARY_SECRET_<REF>` value must be unpadded base64url for exactly 32 random bytes. Cursor and safe-digest references and material must be distinct from each other and from authentication, enterprise-provider, telemetry, storage, recovery, and bootstrap purposes.
 
 Treat a Network Flow key change as a coordinated deployment epoch. Stage the new secret references and manifest, apply the keyset index migration, drain every claimed node, restart all claimed nodes against the same manifest, verify readiness, and then restore traffic. A previous cursor key may remain `decrypt_only` only until exactly 15 minutes after deactivation; a previous safe-digest key may remain `inactive` only until its declared `retain_until`. The runtime does not reload this manifest in place. Once the new epoch emits safe digests, recovery is roll-forward: do not roll back to auth-master-derived issuance or a mixed-node epoch.
 
@@ -1845,3 +1844,94 @@ This guide rewrite is complete only when all of the following are true:
 
 - A reviewer can inspect this guide alone and determine document authority, section class, profile gating, contract derivation direction, and module ownership without cross-file guesswork.
 - A maintainer can update stack choices, commands, or package ownership in this guide without accidentally changing product behavior already owned by the normative core.
+
+
+### Fresh credential compatibility
+
+New deployments encode passwords with PBKDF2-HMAC-SHA-256 at the fixed 600,000
+iteration cost. Existing Argon2 records require their matching historical
+release; the current release has no fallback verifier or automatic conversion.
+TOTP enrollment requires an authenticator that honors `algorithm=SHA256`, a
+32-byte secret, six digits and a 30-second period in the enrollment URI. Verify
+the displayed code during enrollment before relying on the authenticator; an
+application that silently substitutes SHA-1 is incompatible. The server accepts
+the current time step and its immediate neighbors.
+
+Credential operations share two active workflow slots and eight waiting slots.
+An overloaded request returns `503 authentication_capacity_exhausted` with empty
+details and `Retry-After: 1`. Retry after the indicated interval using the same
+client transaction identifier for a mutation. A completed mutation replay does
+not repeat password derivation. The public Make task surface includes
+`credential-capacity-assessment` for the fixed WSL2 container acceptance; its
+intermediate disposable state is not final-package acceptance evidence.
+
+
+Current cryptographic-format development state requires an explicitly provisioned
+`CARTULARY_AUTH_MASTER_KEY` containing base64 for exactly 32 random bytes. Keep
+that key with its disposable development state across restarts; changing it
+invalidates stored secrets and credentials derived from it. `make dev` fails
+when it is absent. Go and browser harnesses provision their own test credentials;
+they are not production defaults. Current owner tokens use pagination `pc2`,
+Revisions `cft4` and Network Flow `nfc3`. Restart pagination or refresh the
+conflict after an old token is rejected. Historical Auth state is not converted.
+
+
+### Qualified object-store transport
+
+The current candidate requires HTTPS for SeaweedFS and the existing development
+CORS proxy. Set `OBJECT_STORE_CORS_PROXY_TLS_CERTIFICATE`,
+`OBJECT_STORE_CORS_PROXY_TLS_PRIVATE_KEY` and
+`OBJECT_STORE_CORS_PROXY_TLS_ROOT_CERTIFICATE` to absolute, owner-only files.
+The proxy certificate must cover its loopback IP; the root bundle must admit
+both the proxy and SeaweedFS server identities. Use separate server private
+keys. The application/probe trust binding is `SSL_CERT_FILE` or the explicit
+object-store service-reference root certificate path. Keep the browser origin
+HTTPS and provision trust in the isolated test client; never disable verification.
+
+Stop the proven owned proxy before replacing certificate/root files, then
+restart and run the public compatibility target. Dispose of old development
+state with its matching release; the current helper rejects v1 lifecycle
+records. These bindings describe the S23 integration candidate. Complete fresh
+package provisioning and WSL2 acceptance remain required before release.
+
+
+### HTTPS development and browser fixtures
+
+`make dev` requires the operator-provisioned `CARTULARY_DEV_TLS_CERTIFICATE`,
+`CARTULARY_DEV_TLS_PRIVATE_KEY` and `CARTULARY_DEV_TLS_ROOT_CERTIFICATE` paths.
+The frontend certificate covers the selected loopback host; use a separate
+application listener identity in configuration v3. Both hops use TLS 1.3.
+Provide the certificate-authenticated runtime DSN, S3 credentials and persisted
+`CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE` explicitly. The launcher
+no longer manufactures password DSNs, transient signing keys or plaintext S3
+bindings. Certificate replacement requires stopping and restarting the owned
+listeners so both the identity and trust snapshot change together.
+
+Canonical browser tests create fresh short-lived private identities, serve HTTPS
+and use a digest-pinned Chromium container with its own NSS trust database.
+Only public roots and the digest-pinned NSS tool enter that container. No host or
+Windows trust store is modified. The startup stack v8 and terminal diagnostics
+v3 reject superseded fixture identities; retained historical runs keep their
+original identities. Current development service provisioning and package
+qualification remain separate S23/S24 completion requirements.
+
+### Development service certificate provisioning
+
+`docker-compose.dev.yml` and the package share the fixed certificate-only
+PostgreSQL HBA, purpose mapping, password-disabled role provisioning and native
+SeaweedFS TLS setup under `deploy/mvp`. Provision the package’s documented
+certificate file set in a private absolute WSL guest directory and set
+`CARTULARY_TLS_DIR`. PostgreSQL exposes only the selected loopback port;
+SeaweedFS exposes only its loopback TLS upstream. No existing development volume
+is converted, reprovisioned or reset automatically.
+
+Supply explicit `CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN` and runtime
+DSNs using `sslmode=verify-full`, `require_auth=none`, absolute `sslrootcert`,
+`sslcert` and `sslkey` paths, and their distinct purpose identities. The backend
+also requires `CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH` and
+`CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH`; its private key must differ from
+the frontend and CORS proxy keys. Provision explicit S3 access/secret keys and
+trust the isolated CA through the already required proxy and frontend bindings.
+Ordinary `db-migrate` no longer reapplies provisioning before state admission;
+only fresh container initialization or the explicitly confirmed reset provisions
+roles. Keep historical development data with its matching release.

@@ -19,6 +19,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
+	tlstest "github.com/JochiRaider/cartulary/internal/testutil/tlstest/transport"
 )
 
 func testRuntime(handler http.Handler, closeRuntime func()) serverRuntime {
@@ -59,7 +61,7 @@ func TestServerRunnerClosesRuntimeAndMapsServeFailure(t *testing.T) {
 	var stderr bytes.Buffer
 	closed := false
 	runner := newServerRunner(&stdout, &stderr)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return testRuntime(http.NotFoundHandler(), func() { closed = true }), nil
 	}
@@ -79,7 +81,7 @@ func TestServerRunnerClosesRuntimeAndMapsServeFailure(t *testing.T) {
 func TestServerRunnerLogsPublicContractAdmissionWithoutRequestData(t *testing.T) {
 	var stdout bytes.Buffer
 	runner := newServerRunner(&stdout, io.Discard)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		runtime := testRuntime(http.NotFoundHandler(), nil)
 		runtime.PublicHTTP = httpapi.RouteDiagnostics{
@@ -119,7 +121,7 @@ func TestServerRunnerLogsPublicContractAdmissionWithoutRequestData(t *testing.T)
 func TestServerRunnerMapsListenerStartupFailureToExitTwo(t *testing.T) {
 	var stdout bytes.Buffer
 	runner := newServerRunner(&stdout, io.Discard)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return testRuntime(http.NotFoundHandler(), nil), nil
 	}
@@ -140,7 +142,7 @@ func TestServerRunnerFatalLossClosesAdmissionDrainsAndExitsSeventy(t *testing.T)
 	activated := false
 	closed := false
 	runner := newServerRunner(io.Discard, &stderr)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		runtime := testRuntime(http.NotFoundHandler(), func() { closed = true })
 		runtime.ActivatePublication = func() error { activated = true; return nil }
@@ -162,7 +164,7 @@ func TestServerRunnerFatalLossClosesAdmissionDrainsAndExitsSeventy(t *testing.T)
 
 func TestServerRunnerPublicationActivationFailureIsStartupFailure(t *testing.T) {
 	runner := newServerRunner(io.Discard, io.Discard)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		runtime := testRuntime(http.NotFoundHandler(), nil)
 		runtime.ActivatePublication = func() error { return errors.New("publication rejected") }
@@ -178,7 +180,7 @@ func TestServerRunnerPublicationActivationFailureIsStartupFailure(t *testing.T) 
 func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
 	var stdout bytes.Buffer
 	runner := newServerRunner(&stdout, io.Discard)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, errors.New("runtime unavailable")
 	}
@@ -193,7 +195,7 @@ func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
 func TestServerRunnerMapsFatalRuntimeSetupFailureToExitSeventy(t *testing.T) {
 	var stderr bytes.Buffer
 	runner := newServerRunner(io.Discard, &stderr)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, &stagedobjects.FatalIntegrityError{Cause: errors.New("private contradiction detail")}
 	}
@@ -222,7 +224,7 @@ func TestServerRunnerMapsTypedApplicationLeaseLossesToExitSeventy(t *testing.T) 
 		t.Run(name, func(t *testing.T) {
 			var stderr bytes.Buffer
 			runner := newServerRunner(io.Discard, &stderr)
-			runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+			runner.loadConfig = serverTestConfiguration(t)
 			runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 				return serverRuntime{}, tc.err
 			}
@@ -244,7 +246,7 @@ func TestServerRunnerMapsTypedLeaseAdmissionFailuresToExitTwo(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var stdout bytes.Buffer
 			runner := newServerRunner(&stdout, io.Discard)
-			runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+			runner.loadConfig = serverTestConfiguration(t)
 			runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 				return serverRuntime{}, admissionErr
 			}
@@ -262,7 +264,7 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	runner := newServerRunner(&stdout, &stderr)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	remediation := fakeServerRemediationFailure{
 		report: `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v2","from_version":30,"to_version":29,"findings":[{"field":"schema_migration_lineage","reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1."}]}`,
 	}
@@ -312,7 +314,7 @@ func TestServerRunnerWritesMigrationFailureDiagnostic(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	runner := newServerRunner(&stdout, &stderr)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, fakeServerMigrationFailure{reason: "schema_migration_execution_failed"}
 	}
@@ -336,7 +338,7 @@ func TestServerRunnerWritesMigrationFailureDiagnostic(t *testing.T) {
 func TestServerRunnerCancellationDuringRuntimeSetupReturnsSuccess(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	runner := newServerRunner(nil, nil)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		cancel()
 		return serverRuntime{}, context.Canceled
@@ -447,7 +449,7 @@ func TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed(t *testing.T)
 func TestSavedGraphAdmissionStartupDiagnostic(t *testing.T) {
 	var stderr bytes.Buffer
 	runner := newServerRunner(io.Discard, &stderr)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, &extensions.AdmissionValidationError{Findings: []extensions.AdmissionFinding{{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": "network_flow_activity", "phase": "profile_preflight", "algorithm_id": "network_flow_activity.saved_graph_cutover_v6", "timed_out": false, "timeout_seconds": int64(60)}}}}
 	}
@@ -460,5 +462,49 @@ func TestSavedGraphAdmissionStartupDiagnostic(t *testing.T) {
 	}
 	if err := json.Unmarshal(stderr.Bytes(), &diagnostic); err != nil || diagnostic.Code != "invalid_deployment_config" || len(diagnostic.Diagnostics) != 1 || diagnostic.Diagnostics[0].Details["timed_out"] != false {
 		t.Fatalf("startup diagnostic=%s err=%v", stderr.String(), err)
+	}
+}
+
+func serverTestConfiguration(t testing.TB) func() (configassembly.Loaded, error) {
+	t.Helper()
+	identity := tlstest.NewServer(t, "localhost", "127.0.0.1")
+	loaded := configtest.LoadFixture(t, []string{"config", "valid.toml"}, map[string]string{
+		"CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH": identity.CertificatePath,
+		"CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH": identity.PrivateKeyPath,
+	})
+	return func() (configassembly.Loaded, error) { return loaded, nil }
+}
+
+func TestServerRunnerRejectsTLSBeforeRuntime(t *testing.T) {
+	for _, name := range []string{"missing", "wrong host", "missing key"} {
+		t.Run(name, func(t *testing.T) {
+			var output bytes.Buffer
+			identity := tlstest.NewServer(t, "localhost")
+			overlays := map[string]string{
+				"CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH": identity.CertificatePath,
+				"CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH": identity.PrivateKeyPath,
+			}
+			switch name {
+			case "missing":
+				overlays["CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH"] = "/private/missing.crt"
+			case "wrong host":
+				overlays["CARTULARY__APPLICATION__PUBLIC_ORIGIN"] = "https://different.example"
+			case "missing key":
+				overlays["CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH"] = "/private/missing.key"
+			}
+			loaded := configtest.LoadFixture(t, []string{"config", "valid.toml"}, overlays)
+			runner := newServerRunner(io.Discard, &output)
+			runner.loadConfig = func() (configassembly.Loaded, error) { return loaded, nil }
+			runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+				t.Fatal("TLS rejection acquired application resources")
+				return serverRuntime{}, nil
+			}
+			if code := runner.run(context.Background()); code != 2 {
+				t.Fatalf("exit = %d", code)
+			}
+			if !strings.Contains(output.String(), "application_tls_invalid") || strings.Contains(output.String(), "/private/") {
+				t.Fatalf("unsafe or absent TLS diagnostic: %s", output.String())
+			}
+		})
 	}
 }

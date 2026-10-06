@@ -117,9 +117,13 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 	}
 	t.Cleanup(sourcePool.Close)
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix+"-target")
+	recoveryDSN, err := targetDB.DSNForPurpose(postgres.PurposeRecovery)
+	if err != nil {
+		t.Fatal(err)
+	}
 	targetPool, err := postgres.Setup(ctx, postgres.Settings{
 		BindingKind:  "managed_service",
-		DSN:          targetDB.DSN,
+		DSN:          recoveryDSN,
 		Purpose:      postgres.PurposeRecovery,
 		ExpectedRole: "cartulary_recovery",
 	})

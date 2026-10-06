@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -435,7 +436,7 @@ func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
 		}
 	}
 
-	flowtest.RequireBootstrapWebsocketRejected(t, server.HTTP.URL, incidentID, bootstrapToken)
+	flowtest.RequireBootstrapWebsocketRejected(t, http.DefaultClient, server.HTTP.URL, incidentID, bootstrapToken)
 
 	completeInitialEnrollment(
 		t,
@@ -578,7 +579,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		_ = adminID
 		adminSession, adminCSRF := loginLocalUser(t, server, "admin-reset@example.test", "ResetAdminPass123!", nil)
 
-		targetSecret := "JBSWY3DPEHPK3PXP"
+		targetSecret := "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-reset@example.test", "Target Reset", "TargetResetPass123!", true, false, targetSecret)
 		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-password-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-reset@example.test", "TargetResetPass123!", generateTOTPCode(t, targetSecret))
@@ -623,7 +624,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		seedLocalUserFlags(t, db, "admin-totp-reset@example.test", "TOTP Reset Admin", "TotpResetAdmin123!", false, true, true)
 		adminSession, adminCSRF := loginLocalUser(t, server, "admin-totp-reset@example.test", "TotpResetAdmin123!", nil)
 
-		targetSecret := "JBSWY3DPEHPK3QAA"
+		targetSecret := "BSSBKZHRDS77C7GTONCVUS5RFAJC5DBQCIBOEDGFXWOJFXHRSYSA"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-totp-reset@example.test", "Target TOTP Reset", "TargetTotpPass123!", true, false, targetSecret)
 		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-totp-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-totp-reset@example.test", "TargetTotpPass123!", generateTOTPCode(t, targetSecret))
@@ -659,7 +660,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		seedLocalUserFlags(t, db, "admin-revoke-all@example.test", "Revoke All Admin", "RevokeAllAdmin123!", false, true, true)
 		adminSession, adminCSRF := loginLocalUser(t, server, "admin-revoke-all@example.test", "RevokeAllAdmin123!", nil)
 
-		targetSecret := "JBSWY3DPEHPK3QAB"
+		targetSecret := "S4GWW6YHAXC6RLWWYI3NCCF2DRSYXEL5PJAPHEVCHL6HIZIQURZQ"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-revoke-all@example.test", "Target Revoke All", "TargetRevokePass123!", true, false, targetSecret)
 		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-revoke-all")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-revoke-all@example.test", "TargetRevokePass123!", generateTOTPCode(t, targetSecret))
@@ -977,7 +978,7 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 		adminID := seedLocalUserFlags(t, db, "scope-admin@example.test", "Scope Admin", "ScopeAdminPass1!", false, true, true)
 		adminSession, adminCSRF := loginLocalUser(t, server, "scope-admin@example.test", "ScopeAdminPass1!", nil)
 
-		targetID := seedLocalUserWithActiveTOTP(t, db, "scope-target@example.test", "Scope Target", "ScopeTargetPass1!", true, false, "JBSWY3DPEHPK3QAC")
+		targetID := seedLocalUserWithActiveTOTP(t, db, "scope-target@example.test", "Scope Target", "ScopeTargetPass1!", true, false, "XN4DOIDIW3XSJSME7ZVGXQWHYK74O2N5DZ5JGA7XDJI2XZSFFGJA")
 		incidentAdminID := seedLocalUserFlags(t, db, "incident-admin@example.test", "Incident Admin", "IncidentAdminPass1!", false, false, true)
 		incidentAdminSession, incidentAdminCSRF := loginLocalUser(t, server, "incident-admin@example.test", "IncidentAdminPass1!", nil)
 
@@ -1063,8 +1064,8 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 		adminID := seedLocalUserFlags(t, db, "audit-events-admin@example.test", "Audit Events Admin", "AuditEventsAdmin1!", false, true, true)
 		adminSession, adminCSRF := loginLocalUser(t, server, "audit-events-admin@example.test", "AuditEventsAdmin1!", nil)
 
-		totpTargetID := seedLocalUserWithActiveTOTP(t, db, "audit-events-totp@example.test", "Audit Events TOTP", "AuditEventsTotp1!", true, false, "JBSWY3DPEHPK3QAD")
-		revokeTargetID := seedLocalUserWithActiveTOTP(t, db, "audit-events-revoke@example.test", "Audit Events Revoke", "AuditEventsRevoke1!", true, false, "JBSWY3DPEHPK3QAE")
+		totpTargetID := seedLocalUserWithActiveTOTP(t, db, "audit-events-totp@example.test", "Audit Events TOTP", "AuditEventsTotp1!", true, false, "HBPQNSXK47RG42VSTSZPSWMRNG6AM5G6WBCW6RWHKVPDZ2J7PRWQ")
+		revokeTargetID := seedLocalUserWithActiveTOTP(t, db, "audit-events-revoke@example.test", "Audit Events Revoke", "AuditEventsRevoke1!", true, false, "I76DOTTEYB2O7I3HLEI6W3UYPEWKKV45RIGOEWI7VB7Y3FRFRR2Q")
 
 		totpReset := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+totpTargetID+"/mfa/totp/reset", map[string]any{
 			"base_user_version": 1,
@@ -1137,7 +1138,7 @@ func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	targetUserID := createData["user_id"].(string)
 
-	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, targetUserID), "CreateReplayTarget1!", "WrongCreateReplay1!")
+	requireCurrentPasswordHash(t, queryUserPasswordHash(t, db, targetUserID), "CreateReplayTarget1!", "WrongCreateReplay1!")
 
 	idempotency := lookupRouteIdempotency(t, db, "users.create", adminID, "actor", "txn-user-create-replay")
 	if idempotency.StatusCode != http.StatusCreated {
@@ -1213,8 +1214,8 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	server, db := startServer(t, runtime, "authentication-i-1-04-password-change-replay")
 	defer db.Close()
 
-	userID := seedLocalUserWithActiveTOTP(t, db, "password-replay@example.test", "Password Replay", "PasswordReplay1!", true, false, "JBSWY3DPEHPK3QBA")
-	initialLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplay1!", generateTOTPCode(t, "JBSWY3DPEHPK3QBA"))
+	userID := seedLocalUserWithActiveTOTP(t, db, "password-replay@example.test", "Password Replay", "PasswordReplay1!", true, false, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA")
+	initialLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplay1!", generateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"))
 	sessionCookie := initialLogin.sessionCookie
 	csrfCookie := initialLogin.csrfCookie
 
@@ -1225,7 +1226,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 		"second_factor": map[string]any{
 			"kind": "totp",
 			"assertion": map[string]any{
-				"code": generateTOTPCode(t, "JBSWY3DPEHPK3QBA"),
+				"code": generateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"),
 			},
 		},
 	}
@@ -1239,7 +1240,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	)
 	changeData := httptestx.RequireSuccessEnvelope(t, changeResp, http.StatusOK)["data"].(map[string]any)
 
-	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, userID), "PasswordReplayChanged1!", "PasswordReplay1!")
+	requireCurrentPasswordHash(t, queryUserPasswordHash(t, db, userID), "PasswordReplayChanged1!", "PasswordReplay1!")
 
 	idempotency := lookupRouteIdempotency(t, db, "auth.password.change", userID, "actor", "txn-password-change-replay")
 	if idempotency.StatusCode != http.StatusOK {
@@ -1248,7 +1249,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	requireJSONEquivalent(t, idempotency.Response, changeData)
 	securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
-	replayLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "JBSWY3DPEHPK3QBA"))
+	replayLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"))
 	replayResp := doJSON(
 		t,
 		http.MethodPost,
@@ -1260,7 +1261,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayData, changeData)
 
-	divergentLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "JBSWY3DPEHPK3QBA"))
+	divergentLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"))
 	divergentResp := doJSON(
 		t,
 		http.MethodPost,
@@ -1272,7 +1273,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 			"second_factor": map[string]any{
 				"kind": "totp",
 				"assertion": map[string]any{
-					"code": generateTOTPCode(t, "JBSWY3DPEHPK3QBA"),
+					"code": generateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"),
 				},
 			},
 		},
@@ -1314,7 +1315,7 @@ func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t 
 	)
 	resetData := httptestx.RequireSuccessEnvelope(t, resetResp, http.StatusOK)["data"].(map[string]any)
 
-	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, targetUserID), "TargetPasswordReplayChanged1!", "TargetPasswordReplay1!")
+	requireCurrentPasswordHash(t, queryUserPasswordHash(t, db, targetUserID), "TargetPasswordReplayChanged1!", "TargetPasswordReplay1!")
 
 	idempotency := lookupRouteIdempotency(t, db, "users.password.reset", adminID, scopeKey, "txn-admin-password-replay")
 	if idempotency.StatusCode != http.StatusOK {
@@ -1388,7 +1389,7 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 
 		adminID := seedLocalUserFlags(t, db, "admin-totp-replay@example.test", "Admin TOTP Replay", "AdminTotpReplay1!", false, true, true)
 		adminSession, adminCSRF := loginLocalUser(t, server, "admin-totp-replay@example.test", "AdminTotpReplay1!", nil)
-		targetUserID := seedLocalUserWithActiveTOTP(t, db, "target-totp-replay@example.test", "Target TOTP Replay", "TargetTotpReplay1!", true, false, "JBSWY3DPEHPK3QBB")
+		targetUserID := seedLocalUserWithActiveTOTP(t, db, "target-totp-replay@example.test", "Target TOTP Replay", "TargetTotpReplay1!", true, false, "Y3P3AV7KBVADLGZFAWIA3NR2HBSCS3FCPTWCF56FHC2ZBVSJC2WA")
 		scopeKey := targetUserID
 
 		resetRequest := map[string]any{
@@ -1554,7 +1555,7 @@ func startServerWithExtensionClaims(
 func seedLocalUser(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool) string {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
+	hash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -1573,7 +1574,7 @@ RETURNING id::text
 func seedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) string {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
+	hash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -1592,7 +1593,7 @@ RETURNING id::text
 func seedLocalUserWithActiveTOTP(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, secretBase32 string) string {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
+	hash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -1604,20 +1605,21 @@ func seedLocalUserWithActiveTOTP(t testing.TB, db *sql.DB, email string, display
 	if err != nil {
 		t.Fatalf("decode base32 totp secret: %v", err)
 	}
-	ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+	userID := uuid.New()
+	envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: userID, SubjectID: userID}, secretBytes)
 	if err != nil {
 		t.Fatalf("encrypt totp secret: %v", err)
 	}
 
-	var userID string
+	var returnedID string
 	if err := db.QueryRowContext(context.Background(), `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce)
-VALUES ($1, $2, $3, $4, true, $5, now(), $6, $7)
+INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, totp_enrolled_at, totp_secret_envelope)
+VALUES ($1, $2, $3, $4, $5, true, $6, now(), $7)
 RETURNING id::text
-`, email, displayName, hash, mfaRequired, isDeploymentAdmin, ciphertext, nonce).Scan(&userID); err != nil {
+`, userID, email, displayName, hash, mfaRequired, isDeploymentAdmin, envelope).Scan(&returnedID); err != nil {
 		t.Fatalf("seed local user with totp: %v", err)
 	}
-	return userID
+	return returnedID
 }
 
 func loginLocalUser(t testing.TB, server *httptestx.Server, username string, password string, headers func(*http.Request)) (*http.Cookie, *http.Cookie) {
@@ -1716,7 +1718,7 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 		Period:    30,
 		Skew:      1,
 		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
+		Algorithm: otp.AlgorithmSHA256,
 	})
 	if err != nil {
 		t.Fatalf("generate totp code: %v", err)
@@ -1726,7 +1728,7 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 
 func connectSessionSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *flowtest.SessionSocketClient {
 	t.Helper()
-	return flowtest.ConnectSessionSocket(t, server.HTTP.URL, incidentID, sessionToken)
+	return flowtest.ConnectSessionSocket(t, http.DefaultClient, server.HTTP.URL, incidentID, sessionToken)
 }
 
 func expectSessionRevoked(t testing.TB, conn *flowtest.SessionSocketClient, wantReasonCode string) {
@@ -2022,20 +2024,20 @@ SELECT password_hash
 	return passwordHash
 }
 
-func requireArgon2PasswordHash(t testing.TB, passwordHash string, acceptedPassword string, rejectedPassword string) {
+func requireCurrentPasswordHash(t testing.TB, passwordHash string, acceptedPassword string, rejectedPassword string) {
 	t.Helper()
 
-	if !strings.HasPrefix(passwordHash, "argon2id$v=19$m=65536,t=1,p=4$") {
-		t.Fatalf("expected argon2id password hash, got %q", passwordHash)
+	if !strings.HasPrefix(passwordHash, "pbkdf2-sha256$v=1$i=600000$") {
+		t.Fatalf("expected PBKDF2 password hash, got %q", passwordHash)
 	}
-	accepted, err := authn.VerifyPasswordHash(passwordHash, acceptedPassword)
+	accepted, err := authn.VerifyPasswordHash(context.Background(), passwordHash, acceptedPassword)
 	if err != nil {
 		t.Fatalf("verify accepted password hash: %v", err)
 	}
 	if !accepted {
 		t.Fatalf("expected password hash to accept %q", acceptedPassword)
 	}
-	rejected, err := authn.VerifyPasswordHash(passwordHash, rejectedPassword)
+	rejected, err := authn.VerifyPasswordHash(context.Background(), passwordHash, rejectedPassword)
 	if err != nil {
 		t.Fatalf("verify rejected password hash: %v", err)
 	}

@@ -24,6 +24,11 @@ const value = {
       "summary": "The supplied local username or password is not valid."
     },
     {
+      "code": "authentication_capacity_exhausted",
+      "http_status": 503,
+      "summary": "The bounded credential workflow capacity is exhausted; retry after one second. Details are empty and account existence is not disclosed."
+    },
+    {
       "code": "mfa_required",
       "http_status": 401,
       "summary": "The local credential pair is valid but an active TOTP assertion is still required."

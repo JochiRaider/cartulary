@@ -77,6 +77,21 @@ func validateConfigStructure(cfg *document, presence configPresence, inactivePol
 }
 
 func validateApplication(application *ApplicationConfig, diagnostics *[]Diagnostic) {
+	for _, binding := range []struct {
+		path  string
+		value *string
+	}{
+		{"application.tls_certificate_path", &application.TLSCertificatePath},
+		{"application.tls_private_key_path", &application.TLSPrivateKeyPath},
+	} {
+		if *binding.value == "" {
+			*diagnostics = append(*diagnostics, Diagnostic{Path: binding.path, ReasonCode: "missing_required_key", Message: "application TLS binding is required"})
+		} else if normalized, diagnostic := validateConfiguredAbsolutePOSIXPath(*binding.value, binding.path, "application TLS binding"); diagnostic != nil {
+			*diagnostics = append(*diagnostics, *diagnostic)
+		} else {
+			*binding.value = normalized
+		}
+	}
 	if strings.TrimSpace(application.PublicOrigin) == "" {
 		*diagnostics = append(*diagnostics, Diagnostic{
 			Path:       "application.public_origin",
@@ -91,19 +106,19 @@ func validateApplication(application *ApplicationConfig, diagnostics *[]Diagnost
 		*diagnostics = append(*diagnostics, Diagnostic{
 			Path:       "application.public_origin",
 			ReasonCode: "invalid_origin",
-			Message:    "application public origin must be an absolute http or https origin",
+			Message:    "application public origin must be an absolute https origin",
 		})
 		return
 	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+	if parsed.Scheme != "https" || parsed.Hostname() == "" {
 		*diagnostics = append(*diagnostics, Diagnostic{
 			Path:       "application.public_origin",
 			ReasonCode: "invalid_origin",
-			Message:    "application public origin scheme must be http or https",
+			Message:    "application public origin scheme must be https",
 		})
 		return
 	}
-	if parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || strings.Contains(application.PublicOrigin, "#") {
 		*diagnostics = append(*diagnostics, Diagnostic{
 			Path:       "application.public_origin",
 			ReasonCode: "invalid_origin",
@@ -115,9 +130,17 @@ func validateApplication(application *ApplicationConfig, diagnostics *[]Diagnost
 }
 
 func validateStartupFilesystemRoots(bindings RootBindings) []Diagnostic {
+	return validateFilesystemRoots(bindings, unix.W_OK|unix.X_OK)
+}
+
+func validateInspectionFilesystemRoots(bindings RootBindings) []Diagnostic {
+	return validateFilesystemRoots(bindings, unix.R_OK|unix.X_OK)
+}
+
+func validateFilesystemRoots(bindings RootBindings, access uint32) []Diagnostic {
 	roots := collectFilesystemRoots(bindings)
 	for i := range roots {
-		canonicalPath, diagnostic := canonicalizeFilesystemRoot(roots[i].Path, roots[i].ConfigPath)
+		canonicalPath, diagnostic := canonicalizeFilesystemRoot(roots[i].Path, roots[i].ConfigPath, access)
 		if diagnostic != nil {
 			return []Diagnostic{*diagnostic}
 		}
@@ -542,13 +565,19 @@ func collectFilesystemRoots(bindings RootBindings) []filesystemRoot {
 	return roots
 }
 
-func canonicalizeFilesystemRoot(root string, configPath string) (string, *Diagnostic) {
+func canonicalizeFilesystemRoot(root string, configPath string, access uint32) (string, *Diagnostic) {
+	reason := "path_not_readable"
+	capability := "readable"
+	if access&unix.W_OK != 0 {
+		reason = "path_not_writable"
+		capability = "writable"
+	}
 	cleaned := cleanPOSIXPath(root)
 	existingPrefix, exists, err := nearestExistingPath(cleaned)
 	if err != nil {
 		return "", &Diagnostic{
 			Path:       configPath,
-			ReasonCode: "path_not_writable",
+			ReasonCode: reason,
 			Message:    fmt.Sprintf("inspect filesystem root: %v", err),
 		}
 	}
@@ -556,8 +585,8 @@ func canonicalizeFilesystemRoot(root string, configPath string) (string, *Diagno
 	if !exists {
 		return "", &Diagnostic{
 			Path:       configPath,
-			ReasonCode: "path_not_writable",
-			Message:    "filesystem root must resolve under an existing writable parent",
+			ReasonCode: reason,
+			Message:    "filesystem root must resolve under an existing " + capability + " parent",
 		}
 	}
 
@@ -565,7 +594,7 @@ func canonicalizeFilesystemRoot(root string, configPath string) (string, *Diagno
 	if err != nil {
 		return "", &Diagnostic{
 			Path:       configPath,
-			ReasonCode: "path_not_writable",
+			ReasonCode: reason,
 			Message:    fmt.Sprintf("stat filesystem root: %v", err),
 		}
 	}
@@ -581,17 +610,17 @@ func canonicalizeFilesystemRoot(root string, configPath string) (string, *Diagno
 	if err != nil {
 		return "", &Diagnostic{
 			Path:       configPath,
-			ReasonCode: "path_not_writable",
+			ReasonCode: reason,
 			Message:    fmt.Sprintf("resolve filesystem root symlinks: %v", err),
 		}
 	}
 
 	resolvedPrefix = cleanPOSIXPath(resolvedPrefix)
-	if !isWritablePath(resolvedPrefix) {
+	if unix.Access(resolvedPrefix, access) != nil {
 		return "", &Diagnostic{
 			Path:       configPath,
-			ReasonCode: "path_not_writable",
-			Message:    "filesystem root is not writable at startup",
+			ReasonCode: reason,
+			Message:    "filesystem root is not " + capability + " for this operation",
 		}
 	}
 
@@ -642,10 +671,6 @@ func cleanPOSIXPath(value string) string {
 
 func isPOSIXAbsolutePath(value string) bool {
 	return strings.HasPrefix(value, "/")
-}
-
-func isWritablePath(path string) bool {
-	return unix.Access(path, unix.W_OK|unix.X_OK) == nil
 }
 
 func isValidDeploymentProfile(profile string) bool {

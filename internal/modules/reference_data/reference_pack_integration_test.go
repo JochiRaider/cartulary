@@ -31,7 +31,7 @@ import (
 func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-import")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	bundle := referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.host",
@@ -117,7 +117,7 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	t.Run("root rotation survives persisted transition evidence", testPersistedRootRotation)
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-lifecycle")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.host", "1", "txn-rp-asset-v1")
 	importReferencePack(t, harness, adminLogin, "type_registry.host", "2", "txn-rp-asset-v2")
@@ -192,7 +192,7 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-failures")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.host", "1", "txn-rp-prior-v1")
 	activate := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/1/activate", "txn-rp-prior-activate", "")
@@ -241,7 +241,7 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServerWithEnv(t, runtime, "extension_profile-reference-pack-async-admission", nil, barrier)
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-queued-import"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.host",
@@ -349,7 +349,7 @@ func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
 func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-refresh-replay")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	first := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
 		"client_txn_id": "txn-rp-refresh-omitted",
@@ -373,7 +373,7 @@ func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integratio
 	t.Run("streamed container limit", testOversizedUploadAdmission)
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-envelope-and-authz")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	beforeJobs := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_operations`)
 	badEnvelope := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{`, referencePackBundle(t, bundleOptions{
@@ -397,7 +397,7 @@ func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integratio
 		"mfa_required":     false,
 	}, csrfOptions(adminLogin)...)
 	httptestx.RequireSuccessEnvelope(t, createUser, http.StatusCreated)
-	sessionCookie, csrfCookie := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "rp-non-admin@example.test", "ReferencePackPass123!", nil)
+	sessionCookie, csrfCookie := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "rp-non-admin@example.test", "ReferencePackPass123!", nil)
 	nonAdminLogin := flowtest.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
 	sessionCheck := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(nonAdminLogin.SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, sessionCheck, http.StatusOK)
@@ -413,7 +413,7 @@ func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integratio
 func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-optional-degradation")
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	baselineViewSchemas := viewSchemaIDs(t, harness, adminLogin)
 	cases := []struct {
@@ -521,7 +521,7 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServerWithEnv(t, runtime, "extension_profile-reference-pack-job-authz", nil, barrier)
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-job-auth-import"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.host",
@@ -958,7 +958,7 @@ func putObject(t testing.TB, baseURL string, target map[string]any, payload []by
 func testPersistedRootRotation(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "retained-root-rotation")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	container := referencePackBundle(t, bundleOptions{PackKey: "enrichment.tor", PackVersion: "2", RootVersion: 2})
 	response := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, `{"client_txn_id":"rotation"}`, container, "rotation.zip", "application/zip")
 	job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)

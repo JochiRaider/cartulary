@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
@@ -23,6 +24,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
+
+const migrationEvidenceFixtureDSN = "postgres://fixture@db.example.test/cartulary?sslmode=verify-full&require_auth=none&sslrootcert=%2Ffixture%2Froot.pem&sslcert=%2Ffixture%2Fruntime.pem&sslkey=%2Ffixture%2Fruntime.key"
 
 func TestMigrationEvidenceTransport_Unit(t *testing.T) {
 	t.Run("parse and validate CLI flags", runMigrationEvidenceCaptureArgsParseAndValidate)
@@ -130,7 +133,7 @@ func captureMigrationEvidenceUnitAtManifest(t *testing.T, manifestPath string) m
 	t.Helper()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://unit-test")
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", migrationEvidenceFixtureDSN)
 	collectedAt := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
 	pool := newMigrationEvidenceFakePool(true, migrationEvidenceAppliedStates(migrationEvidenceManifestMaxVersionForTest(t, manifestPath), collectedAt))
 	runner := operatorRunner{
@@ -190,8 +193,11 @@ func runMigrationEvidenceCaptureTransport(t *testing.T) {
 		t.Fatalf("operator JSON must be one object followed by LF, got %d newlines: %s", got, capture.stdout)
 	}
 	for _, forbidden := range []string{
-		"postgres://cartulary:secret@db.example.test/cartulary",
-		"secret",
+		migrationEvidenceFixtureDSN,
+		"/fixture/root.pem",
+		"/fixture/runtime.pem",
+		"/fixture/runtime.key",
+		"%2Ffixture%2F",
 		"db.example.test",
 		"/srv/cartulary/secrets/postgres",
 		migrationEvidenceManifestPathForTest(t),
@@ -209,7 +215,7 @@ func runMigrationEvidenceCaptureTransport(t *testing.T) {
 func runMigrationEvidenceCaptureV2GoldenDigest(t *testing.T) {
 	capture := captureMigrationEvidenceUnit(t)
 	digest := sha256.Sum256([]byte(capture.stdout))
-	const wantDigest = "9925ebfb54dc9883d3fca57c01b9c0512c4a2cadd32d4ab18cf0f3e5d810890f"
+	const wantDigest = "9cdc19f52ff1be7ceb04f0c46d39d0baaa7825c2b3e37f014c369ed85d2e1e47"
 	if got := fmt.Sprintf("%x", digest); got != wantDigest {
 		t.Fatalf("v2 migration evidence digest = %s, want %s", got, wantDigest)
 	}
@@ -243,7 +249,7 @@ func runMigrationEvidenceRelocationInvariance(t *testing.T) {
 func runMigrationEvidenceManifestFailureRedaction(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://unit-test")
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", migrationEvidenceFixtureDSN)
 	secretPath := filepath.Join(t.TempDir(), "operator-private-manifest.json")
 	pool := newMigrationEvidenceFakePool(true, nil)
 	runner := operatorRunner{
@@ -326,7 +332,7 @@ func runMigrationEvidenceCaptureProjectionSemantics(t *testing.T) {
 func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://unit-test")
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", migrationEvidenceFixtureDSN)
 	pool := newMigrationEvidenceFakePool(false, nil)
 	manifestPath := migrationEvidenceManifestPathForTest(t)
 	runner := operatorRunner{
@@ -501,6 +507,14 @@ type migrationEvidenceFakeRows struct {
 	rows   [][]any
 	index  int
 	closed bool
+	types  *pgtype.Map
+}
+
+func (rows *migrationEvidenceFakeRows) TypeMap() *pgtype.Map {
+	if rows.types == nil {
+		rows.types = pgtype.NewMap()
+	}
+	return rows.types
 }
 
 func (rows *migrationEvidenceFakeRows) Close() {

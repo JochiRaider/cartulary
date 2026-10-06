@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	recoveryRegistrySchemaID           = "cartulary.recovery_contract_registry.v1"
+	recoveryRegistrySchemaID           = "cartulary.recovery_contract_registry.v2"
 	recoveryCatalogSchemaID            = "cartulary.recovery_state_catalog.v2"
 	recoveryGenerationRegistrySchemaID = "cartulary.recovery_generation_registry.v1"
 )
@@ -23,14 +23,14 @@ var (
 		"schema_id",
 		"canonicalization",
 		"current_schema_ids",
-		"historical_reader_schema_ids",
+		"retired_schema_ids",
 		"limits",
 		"schemas",
 		"canonical_fixtures",
 	)
 	recoverySchemaIDsByPath = map[string]string{
-		"backup-artifact-envelope.v2.schema.json":                        "cartulary.backup_artifact_envelope.v2",
-		"backup-integrity-manifest.v3.schema.json":                       "cartulary.backup_integrity_manifest.v3",
+		"backup-artifact-envelope.v3.schema.json":                        "cartulary.backup_artifact_envelope.v3",
+		"backup-integrity-manifest.v4.schema.json":                       "cartulary.backup_integrity_manifest.v4",
 		"common.v1.schema.json":                                          "cartulary.recovery_common.v1",
 		"graph-projection-restore-implementation-binding.v5.schema.json": "cartulary.graph_projection_restore_implementation_binding.v5",
 		"graph-projection-restore-rebuild-result.v4.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v4",
@@ -44,13 +44,13 @@ var (
 		"recovery-generation-registry.v1.schema.json":                    recoveryGenerationRegistrySchemaID,
 		"recovery-state-catalog.v2.schema.json":                          recoveryCatalogSchemaID,
 		"recovery-state-contribution.v1.schema.json":                     "cartulary.recovery_state_contribution.v1",
-		"restore-target-marker.v4.schema.json":                           "cartulary.restore_target_marker.v4",
-		"restore-verification.v4.schema.json":                            "cartulary.restore_verification.v4",
+		"restore-target-marker.v5.schema.json":                           "cartulary.restore_target_marker.v5",
+		"restore-verification.v5.schema.json":                            "cartulary.restore_verification.v5",
 		"restore-workbook-probe-registration.v1.schema.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	recoveryFixtureIDsByPath = map[string]string{
-		"fixtures/backup-artifact-envelope.v2.json":                        "cartulary.backup_artifact_envelope.v2",
-		"fixtures/backup-integrity-manifest.v3.json":                       "cartulary.backup_integrity_manifest.v3",
+		"fixtures/backup-artifact-envelope.v3.json":                        "cartulary.backup_artifact_envelope.v3",
+		"fixtures/backup-integrity-manifest.v4.json":                       "cartulary.backup_integrity_manifest.v4",
 		"fixtures/graph-projection-restore-implementation-binding.v5.json": "cartulary.graph_projection_restore_implementation_binding.v5",
 		"fixtures/graph-projection-restore-rebuild-result.v4.json":         "cartulary.graph_projection_restore_rebuild_result.v4",
 		"fixtures/graph-projection-restore-source-registry.v4.json":        "cartulary.graph_projection_restore_source_registry.v4",
@@ -63,8 +63,8 @@ var (
 		"fixtures/recovery-generation-registry.v1.json":                    recoveryGenerationRegistrySchemaID,
 		"fixtures/recovery-state-catalog.v2.json":                          recoveryCatalogSchemaID,
 		"fixtures/recovery-state-contribution.v1.json":                     "cartulary.recovery_state_contribution.v1",
-		"fixtures/restore-target-marker.v4.json":                           "cartulary.restore_target_marker.v4",
-		"fixtures/restore-verification.v4.json":                            "cartulary.restore_verification.v4",
+		"fixtures/restore-target-marker.v5.json":                           "cartulary.restore_target_marker.v5",
+		"fixtures/restore-verification.v5.json":                            "cartulary.restore_verification.v5",
 		"fixtures/restore-workbook-probe-registration.v1.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	createTablePattern = regexp.MustCompile(`(?i)\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
@@ -144,7 +144,7 @@ func validateRecoveryRegistry(value any) error {
 	}
 	for _, field := range []string{
 		"current_schema_ids",
-		"historical_reader_schema_ids",
+		"retired_schema_ids",
 		"schemas",
 		"canonical_fixtures",
 	} {
@@ -639,8 +639,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	if len(tables) != 142 {
-		return nil, fmt.Errorf("recovery catalog must classify exactly 142 authored tables, got %d", len(tables))
+	if len(tables) != 143 {
+		return nil, fmt.Errorf("recovery catalog must classify exactly 143 authored tables, got %d", len(tables))
 	}
 	catalogNames := make([]string, 0, len(tables))
 	requiredNames := []string{}

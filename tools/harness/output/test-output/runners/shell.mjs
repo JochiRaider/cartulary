@@ -247,7 +247,7 @@ function browserStartupDiagnosticFailureDetails(context) {
         try {
           const payload = JSON.parse(readFileSync(file, "utf8"));
           if (
-            payload?.schema_id === "cartulary.browser_startup_diagnostics.v2" &&
+            payload?.schema_id === "cartulary.browser_startup_diagnostics.v3" &&
             payload?.status === "failed" &&
             typeof payload?.failure_class === "string" &&
             typeof payload?.failure_reason === "string"

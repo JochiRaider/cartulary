@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -106,7 +106,17 @@ SELECT raw.created_at, projected.occurred_at, projected.changes
 		t.Fatalf("invalid projection left %d raw rows", unsafeRawCount)
 	}
 
-	if !recovery.IsAuthoritativePostgresSnapshotTable("administrative_audit_projections") {
-		t.Fatal("administrative audit projections must be included in deployment backup snapshots")
+	contribution := administrativeaudit.RecoveryStateContribution()
+	for _, table := range contribution.Tables {
+		if table.TableName != "administrative_audit_projections" {
+			continue
+		}
+		if contribution.OwnerID != "module.audit" || table.StateClass != recoverystate.StateAuthoritative ||
+			table.BackupInclusion != recoverystate.InclusionRequired || table.RestoreAction != recoverystate.RestoreState ||
+			table.CodecID == nil || *table.CodecID != recoverystate.PostgresUnitCodecID {
+			t.Fatal("administrative audit projections must be authoritative, required and restored with the current PostgreSQL unit codec")
+		}
+		return
 	}
+	t.Fatal("administrative audit projections are absent from the owner's Recovery contribution")
 }

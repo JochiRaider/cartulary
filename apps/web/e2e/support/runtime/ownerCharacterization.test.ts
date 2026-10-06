@@ -38,7 +38,7 @@ describe("reconcileSuiteAdminTotpState", () => {
 
     const secret = await reconcileSuiteAdminTotpState(
       client,
-      "JBSWY3DPEHPK3PXP",
+      "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
       {
         externalServerMode: true,
         sharedStateDir: "/tmp/cartulary-shared",
@@ -46,7 +46,7 @@ describe("reconcileSuiteAdminTotpState", () => {
       },
     );
 
-    expect(secret).toBe("JBSWY3DPEHPK3PXP");
+    expect(secret).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA");
     expect(client.loginLocal).toHaveBeenCalledOnce();
     expect(client.provisionTotpFromBootstrap).not.toHaveBeenCalled();
   });
@@ -59,7 +59,9 @@ describe("reconcileSuiteAdminTotpState", () => {
         code: "mfa_setup_required",
         details: { bootstrap_token: "bootstrap-token-123" },
       })),
-      provisionTotpFromBootstrap: vi.fn(async () => "JBSWY3DPEHPK3PXP"),
+      provisionTotpFromBootstrap: vi.fn(
+        async () => "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+      ),
     };
 
     const secret = await reconcileSuiteAdminTotpState(client, null, {
@@ -68,7 +70,7 @@ describe("reconcileSuiteAdminTotpState", () => {
       stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
     });
 
-    expect(secret).toBe("JBSWY3DPEHPK3PXP");
+    expect(secret).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA");
     expect(client.provisionTotpFromBootstrap).toHaveBeenCalledWith(
       "bootstrap-token-123",
     );

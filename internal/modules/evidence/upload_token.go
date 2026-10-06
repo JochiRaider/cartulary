@@ -1,12 +1,14 @@
 package evidence
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,9 +17,10 @@ import (
 )
 
 const (
-	objectUploadTokenPrefix  = "upl_"
-	objectUploadTokenPurpose = "evidence-object-upload-v2"
-	objectUploadTokenVersion = 2
+	objectUploadTokenPrefix       = "upl_"
+	objectUploadTokenPurpose      = "evidence-object-upload-v3"
+	objectUploadTokenVersion      = 3
+	objectUploadTokenMaximumBytes = 4096
 )
 
 var errInvalidObjectUploadToken = errors.New("invalid object upload token")
@@ -29,7 +32,7 @@ type objectUploadTokenClaims struct {
 	IncidentID             uuid.UUID `json:"incident_id"`
 	IssuingUserID          uuid.UUID `json:"issuing_user_id"`
 	IssuingSessionID       uuid.UUID `json:"issuing_session_id"`
-	StorageKey             string    `json:"storage_key"`
+	StorageKeyBinding      string    `json:"storage_key_binding"`
 	ByteSize               int64     `json:"byte_size"`
 	ExpectedSHA256Hex      string    `json:"expected_sha256_hex,omitempty"`
 	RequiredMethod         string    `json:"required_method"`
@@ -48,13 +51,19 @@ func encodeObjectUploadToken(keys authn.MasterKeys, claims objectUploadTokenClai
 		return "", fmt.Errorf("marshal object upload token claims: %w", err)
 	}
 	payloadSegment := base64.RawURLEncoding.EncodeToString(payload)
-	signature := signObjectUploadToken(keys, payloadSegment)
-	return objectUploadTokenPrefix + payloadSegment + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+	signature, err := signObjectUploadToken(keys, payloadSegment)
+	if err != nil {
+		return "", errInvalidObjectUploadToken
+	}
+	token := objectUploadTokenPrefix + payloadSegment + "." + base64.RawURLEncoding.EncodeToString(signature)
+	if len(token) > objectUploadTokenMaximumBytes {
+		return "", errInvalidObjectUploadToken
+	}
+	return token, nil
 }
 
 func decodeObjectUploadToken(keys authn.MasterKeys, token string) (objectUploadTokenClaims, error) {
-	token = strings.TrimSpace(token)
-	if !strings.HasPrefix(token, objectUploadTokenPrefix) {
+	if len(token) > objectUploadTokenMaximumBytes || !strings.HasPrefix(token, objectUploadTokenPrefix) {
 		return objectUploadTokenClaims{}, errInvalidObjectUploadToken
 	}
 	token = strings.TrimPrefix(token, objectUploadTokenPrefix)
@@ -62,25 +71,35 @@ func decodeObjectUploadToken(keys authn.MasterKeys, token string) (objectUploadT
 	if !ok || payloadSegment == "" || signatureSegment == "" {
 		return objectUploadTokenClaims{}, errInvalidObjectUploadToken
 	}
-	signature, err := base64.RawURLEncoding.DecodeString(signatureSegment)
-	if err != nil {
+	signature, err := base64.RawURLEncoding.Strict().DecodeString(signatureSegment)
+	if err != nil || len(signature) != sha256.Size || base64.RawURLEncoding.EncodeToString(signature) != signatureSegment {
 		return objectUploadTokenClaims{}, errInvalidObjectUploadToken
 	}
-	if !hmac.Equal(signature, signObjectUploadToken(keys, payloadSegment)) {
+	expected, err := signObjectUploadToken(keys, payloadSegment)
+	if err != nil || !hmac.Equal(signature, expected) {
 		return objectUploadTokenClaims{}, errInvalidObjectUploadToken
 	}
-	payload, err := base64.RawURLEncoding.DecodeString(payloadSegment)
-	if err != nil {
+	payload, err := base64.RawURLEncoding.Strict().DecodeString(payloadSegment)
+	if err != nil || base64.RawURLEncoding.EncodeToString(payload) != payloadSegment {
 		return objectUploadTokenClaims{}, errInvalidObjectUploadToken
 	}
 	var claims objectUploadTokenClaims
-	if err := json.Unmarshal(payload, &claims); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&claims); err != nil {
+		return objectUploadTokenClaims{}, errInvalidObjectUploadToken
+	}
+	if trailing, err := decoder.Token(); err != io.EOF || trailing != nil {
+		return objectUploadTokenClaims{}, errInvalidObjectUploadToken
+	}
+	binding, err := base64.RawURLEncoding.Strict().DecodeString(claims.StorageKeyBinding)
+	if err != nil || len(binding) != sha256.Size || base64.RawURLEncoding.EncodeToString(binding) != claims.StorageKeyBinding {
 		return objectUploadTokenClaims{}, errInvalidObjectUploadToken
 	}
 	if claims.Version != objectUploadTokenVersion ||
 		claims.LeaseID == uuid.Nil || claims.ObjectBlobID == uuid.Nil ||
 		claims.IncidentID == uuid.Nil || claims.IssuingUserID == uuid.Nil ||
-		claims.IssuingSessionID == uuid.Nil || claims.StorageKey == "" ||
+		claims.IssuingSessionID == uuid.Nil || claims.StorageKeyBinding == "" ||
 		claims.ByteSize < 0 || claims.RequiredMethod != "PUT" ||
 		len(claims.RequiredHeadersSHA256) != 64 || len(claims.AcceptedContractSHA256) != 64 ||
 		claims.IssuedAtUnixNano <= 0 || claims.ExpiresAtUnixNano <= claims.IssuedAtUnixNano {
@@ -103,9 +122,22 @@ func objectUploadBindingDigest(value any) ([]byte, string, error) {
 	return append([]byte(nil), digest[:]...), fmt.Sprintf("%x", digest[:]), nil
 }
 
-func signObjectUploadToken(keys authn.MasterKeys, payloadSegment string) []byte {
-	key := authn.DerivePurposeKey(keys, objectUploadTokenPurpose)
+func signObjectUploadToken(keys authn.MasterKeys, payloadSegment string) ([]byte, error) {
+	key, err := authn.DerivePurposeKey(keys, objectUploadTokenPurpose)
+	if err != nil {
+		return nil, err
+	}
 	mac := hmac.New(sha256.New, key[:])
 	_, _ = mac.Write([]byte(payloadSegment))
-	return mac.Sum(nil)
+	return mac.Sum(nil), nil
+}
+
+func objectUploadStorageBinding(keys authn.MasterKeys, storageKey string) (string, error) {
+	key, err := authn.DerivePurposeKey(keys, "evidence-object-storage-binding-v1")
+	if err != nil {
+		return "", err
+	}
+	mac := hmac.New(sha256.New, key[:])
+	_, _ = mac.Write([]byte(storageKey))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }

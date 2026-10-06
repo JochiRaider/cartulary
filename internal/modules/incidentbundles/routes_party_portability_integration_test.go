@@ -2,6 +2,7 @@ package incidentbundles_test
 
 import (
 	"encoding/json"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -15,8 +16,8 @@ func TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration(t *testing.T)
 	runtime := appsupport.StartRuntime(t)
 	sourceHarness := runtime.StartDefaultServer(t, "party-incident-bundle-current-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "party-incident-bundle-current-target")
-	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
-	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-party-bundle-current-source",
 		"incident_key":  "PARTY-BUNDLE-CURRENT",

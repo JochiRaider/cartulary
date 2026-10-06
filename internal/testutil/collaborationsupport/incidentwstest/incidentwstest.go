@@ -22,6 +22,7 @@ import (
 const waitTimeout = 5 * time.Second
 
 type ConnectOptions struct {
+	HTTPClient       *http.Client
 	SessionToken     string
 	Cookies          []*http.Cookie
 	Headers          http.Header
@@ -72,7 +73,7 @@ func ConnectAndHello(t testing.TB, serverURL string, incidentID string, options 
 
 	options = normalizeConnectOptions(incidentID, options)
 
-	rawClient := wstest.ConnectWithHeaders(t, serverURL, incidentPath(incidentID), connectHeaders(options))
+	rawClient := wstest.ConnectWithClient(t, options.HTTPClient, serverURL, incidentPath(incidentID), connectHeaders(options))
 
 	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
 	defer cancel()
@@ -116,7 +117,7 @@ func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options
 
 	options = normalizeConnectOptions(incidentID, options)
 
-	rawClient := wstest.ConnectWithHeaders(t, serverURL, incidentPath(incidentID), connectHeaders(options))
+	rawClient := wstest.ConnectWithClient(t, options.HTTPClient, serverURL, incidentPath(incidentID), connectHeaders(options))
 
 	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
 	defer cancel()
@@ -166,13 +167,17 @@ func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options
 }
 
 func TryConnect(serverURL string, incidentID string, options ConnectOptions) (*wstest.Client, *http.Response, error) {
-	return wstest.TryConnect(serverURL, incidentPath(incidentID), connectHeaders(options))
+	return wstest.TryConnectWithClient(options.HTTPClient, serverURL, incidentPath(incidentID), connectHeaders(options))
 }
 
 func RequireBootstrapTokenRejected(t testing.TB, serverURL string, incidentID string, bootstrapToken string) {
+	RequireBootstrapTokenRejectedWithClient(t, http.DefaultClient, serverURL, incidentID, bootstrapToken)
+}
+
+func RequireBootstrapTokenRejectedWithClient(t testing.TB, client *http.Client, serverURL string, incidentID string, bootstrapToken string) {
 	t.Helper()
 
-	_, resp, err := TryConnect(serverURL, incidentID, ConnectOptions{SessionToken: bootstrapToken})
+	_, resp, err := TryConnect(serverURL, incidentID, ConnectOptions{SessionToken: bootstrapToken, HTTPClient: client})
 	if err == nil {
 		t.Fatal("expected bootstrap-token canonical incident websocket dial to fail")
 	}

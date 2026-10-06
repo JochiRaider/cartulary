@@ -3,6 +3,7 @@ package configtest
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
@@ -21,9 +22,12 @@ type TempRoots struct {
 
 const revisionsConflictTokenFixtureSecret = "oVmbXT5kH1Q59Lur9tmdNgYUW3L41EGpcjT73_5CgSQ"
 
-func EnsureRevisionsConflictTokenTestEnvironment(env map[string]string) {
+func EnsureCryptographicTestEnvironment(env map[string]string) {
 	if env == nil {
 		return
+	}
+	if _, exists := env["CARTULARY_AUTH_MASTER_KEY"]; !exists {
+		env["CARTULARY_AUTH_MASTER_KEY"] = strings.TrimSpace(string(fixtures.MustRead("auth", "master-key.base64")))
 	}
 	if _, exists := env["CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH"]; !exists {
 		env["CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH"] = fixtures.Path("revisions", "conflict-token-key-ring.json")
@@ -41,7 +45,7 @@ func EffectiveConfigEnv(fixtureParts []string, overlays map[string]string) map[s
 	for key, value := range overlays {
 		env[key] = value
 	}
-	EnsureRevisionsConflictTokenTestEnvironment(env)
+	EnsureCryptographicTestEnvironment(env)
 	return env
 }
 
@@ -64,7 +68,7 @@ func LoadPath(t testing.TB, path string, overlays map[string]string) configassem
 	for key, value := range overlays {
 		env[key] = value
 	}
-	EnsureRevisionsConflictTokenTestEnvironment(env)
+	EnsureCryptographicTestEnvironment(env)
 	loaded, err := configassembly.Load(configassembly.LoadOptions{Path: path, Env: env})
 	if err != nil {
 		t.Fatalf("load config path %s: %v", path, err)

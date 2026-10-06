@@ -132,7 +132,7 @@ func ResolveSettings(binding Binding, purpose Purpose, env map[string]string) (S
 			return Settings{}, configurationError(ReasonSelectedCredentialInvalid)
 		}
 		dsn, ok := decodeDSNFile(payload)
-		if !ok || !validDSN(dsn) {
+		if !ok || inheritedPostgresSettings(env) || !validDSN(dsn) {
 			return Settings{}, configurationError(ReasonSelectedCredentialInvalid)
 		}
 		return Settings{
@@ -174,7 +174,7 @@ func ResolveSettings(binding Binding, purpose Purpose, env map[string]string) (S
 		if !present {
 			return Settings{}, configurationError(ReasonSelectedCredentialMissing)
 		}
-		if dsn == "" || !validDSN(dsn) {
+		if dsn == "" || inheritedPostgresSettings(env) || !validDSN(dsn) {
 			return Settings{}, configurationError(ReasonSelectedCredentialInvalid)
 		}
 		return Settings{
@@ -251,10 +251,16 @@ func Setup(ctx context.Context, settings Settings) (AdmittedPool, error) {
 	if !validSettingsPurpose(settings) {
 		return nil, configurationError(ReasonPurposeUnknown)
 	}
-	poolConfig, err := pgxpool.ParseConfig(settings.DSN)
+	driverDSN, tlsConfig, err := connectionInputs(settings.DSN)
+	if err != nil {
+		return nil, err
+	}
+	poolConfig, err := pgxpool.ParseConfig(driverDSN)
 	if err != nil {
 		return nil, configurationError(ReasonSelectedCredentialInvalid)
 	}
+	poolConfig.ConnConfig.TLSConfig = tlsConfig
+	poolConfig.ConnConfig.Fallbacks = nil
 	poolConfig.AfterConnect = connectionInitializer(settings, poolConfig.ConnConfig.User)
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
@@ -273,10 +279,16 @@ func OpenSQL(ctx context.Context, settings Settings) (*sql.DB, error) {
 	if !validSettingsPurpose(settings) {
 		return nil, configurationError(ReasonPurposeUnknown)
 	}
-	config, err := pgx.ParseConfig(settings.DSN)
+	driverDSN, tlsConfig, err := connectionInputs(settings.DSN)
+	if err != nil {
+		return nil, err
+	}
+	config, err := pgx.ParseConfig(driverDSN)
 	if err != nil {
 		return nil, configurationError(ReasonSelectedCredentialInvalid)
 	}
+	config.TLSConfig = tlsConfig
+	config.Fallbacks = nil
 	db := stdlib.OpenDB(*config, stdlib.OptionAfterConnect(connectionInitializer(settings, config.User)))
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
@@ -389,7 +401,7 @@ func decodeDSNFile(payload []byte) (string, bool) {
 }
 
 func validDSN(dsn string) bool {
-	_, err := pgx.ParseConfig(dsn)
+	_, err := parseCertificateDSN(dsn)
 	return err == nil
 }
 

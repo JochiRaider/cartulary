@@ -101,6 +101,18 @@ func ValidateSnapshotForStartup(snapshot Snapshot) error {
 	return nil
 }
 
+// ValidateSnapshotForInspection admits only read access to authoritative roots.
+// It retains canonicalization and overlap checks without requiring write grants.
+func ValidateSnapshotForInspection(snapshot Snapshot) error {
+	if !snapshot.admitted {
+		return errSnapshotNotAdmitted
+	}
+	if diagnostics := validateInspectionFilesystemRoots(snapshot.core.Roots); len(diagnostics) > 0 {
+		return newDiagnosticsError(diagnostics)
+	}
+	return nil
+}
+
 // Value returns one typed owner value.
 func Value[T any](snapshot Snapshot, key Key[T]) (T, error) {
 	var zero T

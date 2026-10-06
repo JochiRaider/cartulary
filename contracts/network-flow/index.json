@@ -10,7 +10,7 @@
     "errors": "contracts/network-flow/errors.v1.json",
     "import_facade_binding": "contracts/network-flow/import-facade-binding.v1.json",
     "import_owner_error": "contracts/network-flow/import-owner-error.v1.schema.json",
-    "key_rings": "contracts/network-flow/key-rings.v1.schema.json",
+    "key_rings": "contracts/network-flow/key-rings.v2.schema.json",
     "mapping_registry": "contracts/network-flow/mapping-registry.v2.json",
     "presentation": "contracts/network-flow/presentation.v2.json",
     "reporting_graph_source": "contracts/network-flow/reporting-graph-source.v2.schema.json",

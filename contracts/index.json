@@ -405,6 +405,19 @@
       "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Test-only Reference Pack fixtures, expectations and fixture schemas. Never a production runtime dependency."
+    },
+    {
+      "family_id": "cryptography",
+      "contract_root": "contracts/cryptography",
+      "generation_status": "active",
+      "go_name": "CryptographyArtifacts",
+      "output_order": 24,
+      "generated_outputs": [
+        "internal/gen/contractcryptography/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Core security cryptographic primitive framing and bounded-use projections."
     }
   ]
 }

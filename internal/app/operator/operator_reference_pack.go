@@ -112,6 +112,9 @@ func openReferencePackLocalRuntime(ctx context.Context, loaded configassembly.Lo
 			cleanup()
 		}
 	}()
+	if err := database_migrations.RequireApplicationCryptoFormat(ctx, pool.Pool()); err != nil {
+		return nil, nil, err
+	}
 	operationCtx, cancel := context.WithCancel(ctx)
 	cleanups = append(cleanups, cancel)
 	lease, err := processlease.AcquireApplicationRecoveryServing(operationCtx, pool.Pool(), time.Duration(cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds)*time.Second, time.Duration(cfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)

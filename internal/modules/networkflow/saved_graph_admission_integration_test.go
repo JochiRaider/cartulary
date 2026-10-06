@@ -25,7 +25,7 @@ import (
 func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-saved-graph-cutover")
-	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-saved-graph-incident",

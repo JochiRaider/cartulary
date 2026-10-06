@@ -45,13 +45,13 @@ func TestConsumerLossPublishesInvalidationAndAbortsSourceTransaction_Integration
 	ctx := context.Background()
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "reference-pack-consumer-integrity")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	storage, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer storage.Close()
-	codec := pagination.NewCodec([]byte(strings.Repeat("i", 32)))
+	codec := pagination.NewCodec([32]byte([]byte(strings.Repeat("i", 32))))
 	consumer, err := reference_data.NewConsumer(harness.Pool, storage, codec, time.Now, consumerIntegrityOptions(t))
 	if err != nil {
 		t.Fatal(err)
@@ -188,13 +188,13 @@ func TestRequiredBaseLossClearsSelectionAndBlocksReadiness_Integration(t *testin
 	ctx := context.Background()
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "reference-pack-base-loss")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	storage, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer storage.Close()
-	codec := pagination.NewCodec([]byte(strings.Repeat("b", 32)))
+	codec := pagination.NewCodec([32]byte([]byte(strings.Repeat("b", 32))))
 	consumer, err := reference_data.NewConsumer(harness.Pool, storage, codec, time.Now, consumerIntegrityOptions(t))
 	if err != nil {
 		t.Fatal(err)
@@ -273,13 +273,13 @@ func TestUnavailableBasePreservesHealthyReplacement_Integration(t *testing.T) {
 	ctx := context.Background()
 	runtime := appsupport.StartRuntime(t)
 	harness := startReferencePackServer(t, runtime, "reference-pack-inactive-base-loss")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	storage, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer storage.Close()
-	consumer, err := reference_data.NewConsumer(harness.Pool, storage, pagination.NewCodec([]byte(strings.Repeat("h", 32))), time.Now, consumerIntegrityOptions(t))
+	consumer, err := reference_data.NewConsumer(harness.Pool, storage, pagination.NewCodec([32]byte([]byte(strings.Repeat("h", 32)))), time.Now, consumerIntegrityOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}

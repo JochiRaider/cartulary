@@ -7,6 +7,9 @@ import (
 )
 
 func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
+	if err := ValidateSnapshotForInspection(Snapshot{}); !errors.Is(err, errSnapshotNotAdmitted) {
+		t.Fatalf("unadmitted inspection = %v", err)
+	}
 	if err := ValidateSnapshotForStartup(Snapshot{}); !errors.Is(err, errSnapshotNotAdmitted) {
 		t.Fatalf("unadmitted snapshot startup error = %v", err)
 	}

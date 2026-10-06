@@ -2,8 +2,10 @@ package serverprocess
 
 import (
 	"bytes"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -46,7 +48,7 @@ func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
 	}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
-	putObject(t, server.BaseURL, uploadTarget, payload, adminLogin)
+	putObject(t, server, uploadTarget, payload, adminLogin)
 
 	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
@@ -145,11 +147,26 @@ func requireTimelineEvidenceCount(t testing.TB, server *processtest.Server, logi
 	return nil
 }
 
-func putObject(t testing.TB, baseURL string, target map[string]any, payload []byte, login flowtest.LoginResult) {
+func putObject(t testing.TB, server *processtest.Server, target map[string]any, payload []byte, login flowtest.LoginResult) {
 	t.Helper()
 	href := target["href"].(string)
-	if strings.HasPrefix(href, "/") {
-		href = baseURL + href
+	applicationTarget := strings.HasPrefix(href, "/")
+	client := server.Client
+	if applicationTarget {
+		href = server.BaseURL + href
+	} else {
+		_, storage := sharedProcessHarnesses(t)
+		endpoint, err := url.Parse(href)
+		if err != nil || endpoint.Scheme != "https" {
+			t.Fatal("invalid upload endpoint")
+		}
+		config, err := cryptography.TLSClient(cryptography.TLSClientOptions{ServerName: endpoint.Hostname(), RootCertificatePath: storage.RootCertificatePath()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		transport := &http.Transport{TLSClientConfig: config}
+		t.Cleanup(transport.CloseIdleConnections)
+		client = &http.Client{Transport: transport, Timeout: processHTTPTimeout}
 	}
 	req, err := http.NewRequest(target["method"].(string), href, bytes.NewReader(payload))
 	if err != nil {
@@ -158,10 +175,12 @@ func putObject(t testing.TB, baseURL string, target map[string]any, payload []by
 	for name, rawValue := range target["headers"].(map[string]any) {
 		req.Header.Set(name, rawValue.(string))
 	}
-	req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
-	req.AddCookie(login.SessionCookie)
-	req.AddCookie(login.CSRFCookie)
-	resp, err := newProcessHTTPClient().Do(req)
+	if applicationTarget {
+		req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
+		req.AddCookie(login.SessionCookie)
+		req.AddCookie(login.CSRFCookie)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("upload object: %v", err)
 	}

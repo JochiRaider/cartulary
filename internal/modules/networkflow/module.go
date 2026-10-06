@@ -29,22 +29,21 @@ type ImportSourcePort interface {
 }
 
 type ModuleDependencies struct {
-	TableIDEntropy     io.Reader
-	CursorNonceEntropy io.Reader
-	Postgres           postgres.DB
-	ImportSources      ImportSourcePort
-	KeyRings           *KeyRings
-	EffectiveLimits    EffectiveLimits
-	Now                func() time.Time
-	IncidentLocks      IncidentLockPort
-	AuditAppender      AdministrativeAuditPort
-	Indicators         IndicatorParticipationPort
-	ResourceIntents    ResourceIntentAppender
-	GraphViewJobs      GraphViewJobTransactions
-	JobManager         GraphViewJobManager
-	JobRunner          GraphViewJobRunner
-	JobFinalizer       GraphViewJobFinalizer
-	GraphTelemetry     GraphTelemetryObserver
+	TableIDEntropy  io.Reader
+	Postgres        postgres.DB
+	ImportSources   ImportSourcePort
+	KeyRings        *KeyRings
+	EffectiveLimits EffectiveLimits
+	Now             func() time.Time
+	IncidentLocks   IncidentLockPort
+	AuditAppender   AdministrativeAuditPort
+	Indicators      IndicatorParticipationPort
+	ResourceIntents ResourceIntentAppender
+	GraphViewJobs   GraphViewJobTransactions
+	JobManager      GraphViewJobManager
+	JobRunner       GraphViewJobRunner
+	JobFinalizer    GraphViewJobFinalizer
+	GraphTelemetry  GraphTelemetryObserver
 }
 
 // Module is the single Network Flow composition facade. Transport and generic
@@ -98,7 +97,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		if err != nil {
 			return nil, err
 		}
-		cursorProtector, err = newCursorCodec(dependencies.KeyRings, now, dependencies.CursorNonceEntropy)
+		cursorProtector, err = newCursorCodec(dependencies.KeyRings, now)
 		if err != nil {
 			return nil, err
 		}

@@ -415,6 +415,23 @@ Contract tables. The tables in §3.3.2 through §3.3.2.2 are the compact owner-l
 | `invalid_second_factor` | `401` | Primary credentials are valid and a structurally valid TOTP assertion is wrong or expired | No session and no partial session state |
 
 
+**REQ-01-677**
+Every public route that creates or verifies a local password participates in
+Core 04 REQ-04-166's shared bounded derivation admission. This includes login,
+user creation/reset, password change and factor replacement. After ordinary
+cheap request and authorization checks, unavailable derivation capacity or an
+expired queue wait returns HTTP `503`, `error.code='authentication_capacity_exhausted'`,
+no error details and `Retry-After: 1`. The response MUST disclose neither
+account existence nor queue occupancy, create no session, and commit no
+credential or idempotency change. A completed idempotent replay remains a replay
+and does not need fresh password derivation. Login password inputs exceeding
+1024 Unicode scalar values fail `invalid_auth_request` before expensive work.
+Other routes retain their existing malformed-request families and the same bound.
+The Auth OpenAPI owner MUST project this response and the exact `SHA256` TOTP
+algorithm constant. Historical SHA1/Argon2 records and clients are unsupported
+after the fresh-deployment cutover; no algorithm negotiation is introduced.
+Profiles: base
+
 **REQ-01-025**
 `POST /api/v1/auth/login` MUST be the base-profile local-account login route. The request body MUST be a JSON object and MUST accept:
 
@@ -422,7 +439,7 @@ Contract tables. The tables in §3.3.2 through §3.3.2.2 are the compact owner-l
 - required `password`,
 - optional `second_factor`.
 
-`username` remains the v1 wire member name for this route. In the base profile, for the local-account login route, it is the user's email address. `username` MUST be non-null and MUST satisfy `string_contract_id=email_address_v1`. A supplied `username` value that normalizes to authoritative `null` under `email_address_v1`, or otherwise fails that contract, MUST fail with `400` and `error.code = invalid_auth_request` rather than `401` and `error.code = invalid_credentials`. Local-account lookup MUST use the same deterministic normalization and comparison substrate as the user-account contract and membership-by-email resolution. The base profile MUST NOT create, require, or infer a second persisted local-login identifier distinct from the authoritative user `email`. `password` MUST be a non-null non-empty string and MUST be compared exactly as supplied after JSON decoding. The server MUST NOT trim, case-fold, or Unicode-normalize `password`. For local-password verification, the server MUST encode the exact JSON-decoded `password` as UTF-8 without BOM before Argon2id verification.
+`username` remains the v1 wire member name for this route. In the base profile, for the local-account login route, it is the user's email address. `username` MUST be non-null and MUST satisfy `string_contract_id=email_address_v1`. A supplied `username` value that normalizes to authoritative `null` under `email_address_v1`, or otherwise fails that contract, MUST fail with `400` and `error.code = invalid_auth_request` rather than `401` and `error.code = invalid_credentials`. Local-account lookup MUST use the same deterministic normalization and comparison substrate as the user-account contract and membership-by-email resolution. The base profile MUST NOT create, require, or infer a second persisted local-login identifier distinct from the authoritative user `email`. `password` MUST be a non-null non-empty string and MUST be compared exactly as supplied after JSON decoding. The server MUST NOT trim, case-fold, or Unicode-normalize `password`. For local-password verification, the server MUST encode the exact JSON-decoded `password` as UTF-8 without BOM before PBKDF2-HMAC-SHA-256 verification.
 
 When `second_factor` is omitted, the request is a primary-credentials-only login attempt. When present, `second_factor` MUST be an object and MUST be non-null. `second_factor.kind` MUST be present and, in the base profile, MUST use the closed vocabulary `totp`. `second_factor.assertion` MUST be present, MUST be an object, and MUST be non-null. For `kind='totp'`, `second_factor.assertion` MUST use exactly this shape: `{ "code": "123456" }`. `code` MUST be a string of exactly six ASCII decimal digits with no spaces or separators.
 
@@ -718,7 +735,7 @@ Contract tables. The tables in §3.3.2.2 compact the credential-state, password-
 
 | Route | Required members | Additional required conditions | Replay and idempotency | Success summary | Primary failures |
 | --- | --- | --- | --- | --- | --- |
-| `POST /api/v1/auth/mfa/totp/begin` | `client_txn_id` | Exactly one auth mode: current session or valid `bootstrap_token`; current-session replacement requires `current_password` and `second_factor` when one active TOTP credential exists | Replay within the same auth scope and `client_txn_id` returns the original pending enrollment and seed while pending | Returns `enrollment_id`, `expires_at`, and `totp_setup` with `secret_base32`, `otpauth_uri`, `algorithm='SHA1'`, `digits=6`, and `period_seconds=30` | `credential_bootstrap_rejected`, `invalid_second_factor`, `client_txn_conflict`, ordinary malformed-request failures |
+| `POST /api/v1/auth/mfa/totp/begin` | `client_txn_id` | Exactly one auth mode: current session or valid `bootstrap_token`; current-session replacement requires `current_password` and `second_factor` when one active TOTP credential exists | Replay within the same auth scope and `client_txn_id` returns the original pending enrollment and seed while pending | Returns `enrollment_id`, `expires_at`, and `totp_setup` with `secret_base32`, `otpauth_uri`, `algorithm='SHA256'`, `digits=6`, and `period_seconds=30` | `credential_bootstrap_rejected`, `invalid_second_factor`, `client_txn_conflict`, ordinary malformed-request failures |
 | `POST /api/v1/auth/mfa/totp/complete` | `client_txn_id`, `enrollment_id`, `code` | Exactly one auth mode and it MUST match the begin route auth mode; `code` is exactly six ASCII decimal digits | Same auth-scope discipline as begin; stale or different replay does not create a second activation | Activates the pending TOTP secret, clears pending setup, consumes any bootstrap token used for the flow, and revokes all active sessions only when replacing an existing factor; first-time bootstrap completion never auto-issues a session | `totp_setup_not_pending`, `credential_bootstrap_rejected`, `client_txn_conflict`, ordinary malformed-request failures |
 
 **Table 3.3.2.2-E. Auth-family error and reason summary**
@@ -751,7 +768,7 @@ Profiles: base
 Verified by: AC-338, AC-339
 
 **REQ-01-525**
-`POST /api/v1/auth/mfa/totp/begin` MUST accept exactly one auth mode: either an authenticated current session or one valid `bootstrap_token`. The request body MUST be a JSON object and MUST accept required `client_txn_id`. When called with current-session auth and one existing active TOTP credential, it MUST also require `current_password` plus `second_factor` using the same TOTP assertion shape as the local-login route before issuing a replacement seed. On success it MUST return `enrollment_id`, `expires_at`, and a `totp_setup` object containing `secret_base32`, `otpauth_uri`, `algorithm='SHA1'`, `digits=6`, and `period_seconds=30`. `secret_base32` and `otpauth_uri` MUST appear only on this begin response and MUST NOT appear on later read routes, history payloads, WebSocket payloads, or safe user resources. For idempotency within the same auth scope and `client_txn_id`, replay of the same normalized request before enrollment expiry MUST return the original pending enrollment and the same seed material.
+`POST /api/v1/auth/mfa/totp/begin` MUST accept exactly one auth mode: either an authenticated current session or one valid `bootstrap_token`. The request body MUST be a JSON object and MUST accept required `client_txn_id`. When called with current-session auth and one existing active TOTP credential, it MUST also require `current_password` plus `second_factor` using the same TOTP assertion shape as the local-login route before issuing a replacement seed. On success it MUST return `enrollment_id`, `expires_at`, and a `totp_setup` object containing `secret_base32`, `otpauth_uri`, `algorithm='SHA256'`, `digits=6`, and `period_seconds=30`. `secret_base32` and `otpauth_uri` MUST appear only on this begin response and MUST NOT appear on later read routes, history payloads, WebSocket payloads, or safe user resources. For idempotency within the same auth scope and `client_txn_id`, replay of the same normalized request before enrollment expiry MUST return the original pending enrollment and the same seed material.
 Profiles: base
 Verified by: AC-336, AC-339
 
@@ -2431,7 +2448,7 @@ Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231, AC-312
 
 **REQ-01-120**
-In the base profile, `auth_kind` MUST be `local`. `email` is required and is bound to `string_contract_id=email_address_v1`. A supplied `email` value that normalizes to authoritative `null` under `email_address_v1`, or otherwise fails that contract, MUST fail create-time validation. Deployment uniqueness for local users MUST be enforced on the deterministic comparison form produced by `email_address_v1`. For `auth_kind='local'`, the created `email` becomes the only base-profile local login identifier. `display_name` MUST satisfy `display_name_line_v1` before create-time idempotency comparison or persistence. `initial_password` MUST satisfy `local_password_provision_v1` before create-time idempotency comparison or any password-hash derivation. For `auth_kind='local'`, the server MUST encode the validated `initial_password` as UTF-8 without BOM, derive `password_hash` with Argon2id from those exact bytes, persist only `password_hash`, and discard the cleartext secret after request processing. On successful create, the created user resource MUST initialize `is_active=true`. The public create contract MUST NOT permit the client to choose any different initial `is_active` state. The server MUST NOT expose `initial_password` or any equivalent secret in a response or event payload.
+In the base profile, `auth_kind` MUST be `local`. `email` is required and is bound to `string_contract_id=email_address_v1`. A supplied `email` value that normalizes to authoritative `null` under `email_address_v1`, or otherwise fails that contract, MUST fail create-time validation. Deployment uniqueness for local users MUST be enforced on the deterministic comparison form produced by `email_address_v1`. For `auth_kind='local'`, the created `email` becomes the only base-profile local login identifier. `display_name` MUST satisfy `display_name_line_v1` before create-time idempotency comparison or persistence. `initial_password` MUST satisfy `local_password_provision_v1` before create-time idempotency comparison or any password-hash derivation. For `auth_kind='local'`, the server MUST encode the validated `initial_password` as UTF-8 without BOM, derive `password_hash` with PBKDF2-HMAC-SHA-256 from those exact bytes, persist only `password_hash`, and discard the cleartext secret after request processing. On successful create, the created user resource MUST initialize `is_active=true`. The public create contract MUST NOT permit the client to choose any different initial `is_active` state. The server MUST NOT expose `initial_password` or any equivalent secret in a response or event payload.
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231, AC-312
 
@@ -4316,6 +4333,15 @@ Profiles: base
 Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238, AC-239, AC-240, AC-415, AC-416, AC-417, AC-438
 
 **REQ-01-241**
+Ordinary pagination cursors use `pagination.cursor.v2`: `pc2.` followed by
+canonical unpadded base64url of the Core 04 per-value sealed envelope. The
+purpose is `pagination.cursor.v2`, with `pc2.` authenticated as framing data.
+Old/unprefixed cursors reject before decryption; there is no legacy reader.
+Token decoding is bounded before allocation to the base64url length implied by
+the shared maximum plaintext and envelope overhead. Unsupported cursor modes,
+unknown payload members and trailing JSON reject. Key admission remains exactly
+32 bytes. Authorization and continuation interpretation remain route-owned.
+
 A `cursor_token` MUST be bound to the authenticated actor, route family, every route-scoping identifier present for that route, the normalized list search and filter state when the route defines a GET collection list-query contract, the normalized effective `sort[]`, the normalized `filters[]`, the optional normalized `group_by`, and the effective `limit` when the route defines a view-query contract. This includes binding history cursors to `record_id`, membership and saved-view cursors to `incident_id`, administrative audit cursors to their route, scope, normalized filters, ordering tuple, and effective limit, incident-list and user-list cursors to their normalized list-query state, and workbook-query cursors to `incident_id`, `view_schema_id`, and the normalized applied view-query contract. The server MUST reject a cursor that is replayed against a different bound route contract, including a different effective `limit`, rather than reinterpret it.
 Profiles: base
 Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-239, AC-416, AC-417, AC-438
@@ -4434,6 +4460,15 @@ capability MUST NOT be transferable across sessions, actors, incidents, blob
 slots, request methods, required-header contracts, sizes, expected hashes,
 expiry intervals, or upload leases. Current authorization at use time remains
 governed by Core 04 §2.0A and MUST NOT be frozen at issuance.
+The current internal capability version is v3, authenticated with HMAC-SHA-256
+under a domain-separated HKDF key. It MUST carry a separate HMAC binding for
+the private storage key rather than the locator itself. The upload owner MUST
+recompute that binding from the live blob before storage access. The complete
+token is at most 4096 ASCII bytes and uses canonical unpadded base64url
+segments; malformed, oversized, unknown-member and previous-version tokens
+reject through the existing concealed upload rejection. Public target shapes,
+expiry, single-use lease semantics and live authorization are unchanged.
+
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -7573,32 +7608,51 @@ Verified by: AC-398, AC-399, AC-401
 
 **REQ-01-648**
 The current logical-artifact realization MUST emit
-`cartulary.backup_integrity_manifest.v3`,
+`cartulary.backup_integrity_manifest.v4`,
 `cartulary.postgres_snapshot_artifact.v2`,
 `cartulary.postgres_snapshot_unit.v1`,
 `cartulary.object_store_backup_manifest.v2`,
 `cartulary.object_store_backup_summary.v2`, and
-`cartulary.backup_artifact_envelope.v2`. Structured rows MUST be emitted as
+`cartulary.backup_artifact_envelope.v3`. Structured rows MUST be emitted as
 canonical NDJSON units in catalog order and object bytes MUST be streamed;
 neither complete table contents nor complete object contents nor a complete
 backup may be required in memory.
 
-Envelope v2 uses fixed 4194304-byte plaintext chunks, a per-artifact AES-256
-key derived with HKDF-SHA256 from the recovery master key and a random 32-byte
-salt, and AES-GCM nonces consisting of one random 8-byte envelope prefix plus
-the big-endian unsigned 32-bit chunk index. Authenticated additional data binds
-the envelope schema ID, logical artifact reference, content type, chunk index,
-plaintext length, and final-chunk flag. A zero-byte artifact emits one
-authenticated final chunk. Wrong keys, corrupt or reordered chunks, duplicate
-indices, truncation, missing final chunks, and trailing data MUST fail closed
-before artifact use.
+Envelope v3 is the sole codec for both small and streamed artifacts. It uses
+4194304-byte plaintext chunks except the last, a per-artifact AES-256 key
+derived through Core 04 REQ-04-165 from the exact 32-byte Recovery master key and
+a fresh 32-byte salt, and module-generated AES-GCM nonces for every chunk. The
+caller does not generate a nonce prefix or counter nonce. Authenticated framing
+binds the application cryptographic-format identity, schema ID, logical artifact
+reference, content type, chunk index, plaintext length and final-chunk flag.
+There are at most 1048576 chunks including the final chunk per artifact key.
+A zero-byte artifact emits one authenticated final chunk. Wrong keys, corrupt,
+substituted, reordered or duplicate chunks, invalid indices/lengths/finality,
+truncation, missing final chunks and trailing data MUST fail without successful
+publication or restore-target admission.
+
+Complete content authentication precedes successful output or target admission.
+Bounded memory streaming MUST use an immutable verified input capability or a
+confined verified spool; verifying one read and later consuming different bytes
+is forbidden. Preserve export-root binding, confined storage, staged publication,
+interruption safety and accountable cleanup. No bytes from an incomplete or
+failed artifact may be published as a successful backup or admitted restore.
+
+Backup integrity manifests and restore proofs bind
+`cartulary.application_crypto_format.v1` independently of the module version.
+The affected restore marker and verification proof formats advance to v5 and
+reject v4. Recovery journal envelopes advance to v2 using the shared sealing
+primitive and authenticated owner, record and purpose context; the journal
+payload's existing lifecycle semantics remain unchanged. An old format cannot
+be made current by relabeling its schema or recomputing an unkeyed digest.
 
 Persisted artifact selection MUST use the exact schema ID and any required
-codec digest recorded by the enclosing manifest. A historical decoder is
-permitted only while retained backup metadata names it and only when its exact
-implementation remains packaged. New writers MUST NOT emit historical
-formats. Renamed-token aliases, normalization, best-effort fallback, and use of
-a current decoder for historical bytes are forbidden.
+codec digest recorded by the enclosing manifest. Historical envelopes and
+proofs require their matching historical release. This release MUST NOT ship a
+legacy decoder, format converter or dual writer. Renamed-token aliases,
+normalization, best-effort fallback, and use of a current decoder for historical
+bytes are forbidden. Incompatible backups and retained target state reject
+before journals, leases, reset, restore writes or readiness publication.
 Profiles: base
 Verified by: AC-398, AC-399, AC-401
 
@@ -7719,7 +7773,7 @@ query. Workbook validates the complete registry and executes the selected
 registration. Recovery selects the lexicographically lowest restored
 `incident_id` once, passes that exact identity to Workbook, and records the
 returned registration and view identity in
-`cartulary.restore_verification.v4`; Workbook MUST NOT reselect an incident.
+`cartulary.restore_verification.v5`; Workbook MUST NOT reselect an incident.
 Duplicate registration IDs, more than one Base default, or an unresolved view
 schema or executor MUST fail before verification execution.
 
@@ -7745,7 +7799,7 @@ after successful restore, rebuild, and invariant checks establish that the
 restored backup contains no incidents.
 
 For a current SeaweedFS S3 object-store realization, a
-`cartulary.restore_verification.v4` artifact is sufficient
+`cartulary.restore_verification.v5` artifact is sufficient
 restore-verification evidence only when it selects exactly one retained
 `backup_set`, binds the exact verification basis, catalog, codecs, selected
 incident, and executed workbook registration, restores Postgres and

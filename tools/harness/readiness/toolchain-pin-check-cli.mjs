@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { browserTrustTool } from "../browser/browser-trust.mjs";
+
 const toolchainPinsSchemaID = "cartulary.toolchain_pins.v1";
 
 function usage() {
@@ -56,6 +58,7 @@ function loadExpected(root) {
   const tools = requireObject(pins, "tools", file);
   return {
     uiReview: requireObject(pins, "ui_review", file),
+    cryptographicModule: requireObject(pins, "cryptographic_module", file),
     applicationBaseImage: requireString(pins, "application_base_image", file),
     modulePath: requireString(pins, "module_path", file),
     goVersion: requireString(pins, "go_version", file),
@@ -109,6 +112,7 @@ function checkEqual(mismatches, file, field, expectedValue, actualValue) {
 function checkMakefile(root, mismatches, expected) {
   const file = "Makefile";
   const makefile = readRepoFile(root, file);
+  checkEqual(mismatches, file, "GOFIPS140", expected.cryptographicModule.selector, parseMakeVariable(makefile, "GOFIPS140"));
   checkEqual(
     mismatches,
     file,
@@ -286,6 +290,7 @@ function checkBootstrapShellcheck(root, mismatches, expected) {
 function main() {
   const root = parseArgs(process.argv.slice(2));
   const expected = loadExpected(root);
+  browserTrustTool(root);
   const mismatches = [];
 
   if (!/^\S+@sha256:[a-f0-9]{64}$/.test(expected.applicationBaseImage)) {
@@ -296,6 +301,13 @@ function main() {
   checkMakefile(root, mismatches, expected);
   checkPackageJson(root, mismatches, expected);
   checkGoMod(root, mismatches, expected);
+  const cryptoFile = "internal/platform/cryptography/execution.go";
+  const cryptoSource = readRepoFile(root, cryptoFile);
+  for (const [name, value] of Object.entries({ Toolchain: expected.goToolchain, ModuleVersion: expected.cryptographicModule.service_version, ModuleSelector: expected.cryptographicModule.selector, ModuleArchiveSHA256: expected.cryptographicModule.archive_sha256 })) {
+    if (typeof value !== "string" || !value) throw new Error("cryptographic module pin is missing");
+    checkEqual(mismatches, cryptoFile, name, value, matchLine(cryptoSource, new RegExp(`\\b${name}\\s*=\\s*"([^"]+)"`)));
+  }
+  if (!/^v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]{8}$/.test(expected.cryptographicModule.selector) || !/^[a-f0-9]{64}$/.test(expected.cryptographicModule.archive_sha256)) throw new Error("cryptographic module pins must be exact");
   checkBootstrapNodeRuntime(root, mismatches, expected);
   checkBootstrapShellcheck(root, mismatches, expected);
 

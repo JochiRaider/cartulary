@@ -1,7 +1,7 @@
 {
-  "schema_id": "cartulary.network_flow_key_rings.v1",
+  "schema_id": "cartulary.network_flow_key_rings.v2",
   "cursor_key_ring": {
-    "algorithm": "aes_256_gcm_v1",
+    "algorithm": "hkdf_sha256_aes_256_gcm_v2",
     "keys": [
       {
         "cursor_key_id": "dev-cursor-2026-07",

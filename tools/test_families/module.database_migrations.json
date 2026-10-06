@@ -36,6 +36,39 @@
       ]
     },
     {
+      "row_id": "module.database_migrations.integration.cryptographic_state_admission",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "app.migrate"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestCryptoAdmissionCanceledEmptyRetry_Integration",
+          "TestCryptoAdmissionConnectionLossNeverPublishesIdentity_Integration",
+          "TestCryptoAdmissionExternalStateRecheck_Integration",
+          "TestCryptoAdmissionFreshConcurrentAndReadOnly_Integration",
+          "TestCryptoAdmissionInterruptedInitializationRejectsRetry_Integration",
+          "TestCryptoAdmissionRejectsRetainedState_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.database_migrations.integration.migration_evidence_database_semantics",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.integration",

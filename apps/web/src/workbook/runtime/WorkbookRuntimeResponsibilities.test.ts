@@ -263,7 +263,7 @@ describe("Workbook runtime responsibilities", () => {
     const conflicts = createWorkbookConflictStore();
     const registration = {
       conflict: {
-        conflict_token: "cft3.active.token",
+        conflict_token: "cft4.active.token",
         record_id: "record-1",
         field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge" as const,

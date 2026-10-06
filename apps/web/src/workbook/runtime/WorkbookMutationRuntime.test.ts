@@ -365,7 +365,7 @@ describe("WorkbookMutationRuntime", () => {
         errorEnvelope(
           "same_field_conflict",
           409,
-          conflict("cft3.active.fresh-token", "Remote saved"),
+          conflict("cft4.active.fresh-token", "Remote saved"),
         ),
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -412,7 +412,7 @@ describe("WorkbookMutationRuntime", () => {
     });
 
     const refreshed = runtime.getSnapshot().conflicts[0];
-    expect(refreshed?.conflict.conflict_token).toBe("cft3.active.fresh-token");
+    expect(refreshed?.conflict.conflict_token).toBe("cft4.active.fresh-token");
     expect(refreshed?.mergedDraft).toBe("Reviewed merged draft");
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain(

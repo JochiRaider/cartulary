@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -17,11 +18,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore/s3transport"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
@@ -29,7 +34,7 @@ import (
 )
 
 const (
-	seaweedFSS3Image                   = "docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9"
+	seaweedFSS3Image                   = "docker.io/chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d"
 	seaweedFSS3Port                    = "8333/tcp"
 	defaultSeaweedFSS3BrowserPortStart = 19000
 	defaultSeaweedFSS3BrowserPortEnd   = 19199
@@ -40,7 +45,7 @@ const (
 	objectStoreProbeCleanupTimeout     = 5 * time.Second
 	objectStoreFixtureCleanupTimeout   = 15 * time.Second
 	objectStoreAccessKey               = "cartulary-local"
-	objectStoreSecretKey               = "cartulary-local-secret"
+	objectStoreSecretKey               = "cartulary-disposable-local-secret-32"
 	objectStoreProbePayload            = "cartulary-object-store-readiness"
 )
 
@@ -49,11 +54,15 @@ func ContainerImage() string {
 }
 
 type Harness struct {
-	Container testcontainers.Container
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	Secure    bool
+	Container           testcontainers.Container
+	Endpoint            string
+	AccessKey           string
+	SecretKey           string
+	Secure              bool
+	tlsDirectory        string
+	RootCertificateFile string
+	clientMu            sync.Mutex
+	connection          *s3transport.Connection
 
 	suiteHash   string
 	processHash string
@@ -92,8 +101,8 @@ type objectStoreReadinessClient interface {
 	DeleteNamespace(context.Context, string) error
 }
 
-type minioReadinessClient struct {
-	client *minio.Client
+type s3ReadinessClient struct {
+	client *s3.Client
 }
 
 type objectStoreReadinessConfig struct {
@@ -130,7 +139,7 @@ var (
 		if err != nil {
 			return nil, err
 		}
-		return minioReadinessClient{client: client}, nil
+		return s3ReadinessClient{client: client}, nil
 	}
 	startPreflightFn             func(context.Context) (string, error)
 	startSleepFn                 func(context.Context, time.Duration) error
@@ -211,14 +220,15 @@ func StopShared(ctx context.Context) error {
 	sharedHarnessMu.Lock()
 	defer sharedHarnessMu.Unlock()
 
-	if sharedHarness == nil || sharedHarness.Container == nil {
+	if sharedHarness == nil {
 		sharedHarness = nil
 		return nil
 	}
 
-	container := sharedHarness.Container
+	harness := sharedHarness
 	sharedHarness = nil
-	return container.Terminate(ctx)
+	harness.shared = false
+	return harness.Close(ctx)
 }
 
 func startHarness(ctx context.Context, labels map[string]string) (*Harness, error) {
@@ -267,7 +277,7 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 	if err := waitReadyFn(ctx, harness); err != nil {
 		attachOwnedContainerDiagnostic(err, harness)
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cleanupErr := harness.Container.Terminate(cleanupCtx)
+		cleanupErr := harness.Close(cleanupCtx)
 		cancel()
 		setOwnedLaneCleanupOutcome(err, cleanupErr)
 		return nil, errors.Join(fmt.Errorf("wait for object-store readiness: %w", err), cleanupErr)
@@ -286,14 +296,25 @@ func seaweedFSS3AllowedOrigins() string {
 }
 
 func defaultSeaweedFSS3AllowedOrigins() string {
-	origins := []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+	origins := []string{"https://localhost:5173", "https://127.0.0.1:5173"}
 	for port := defaultSeaweedFSS3BrowserPortStart; port <= defaultSeaweedFSS3BrowserPortEnd; port++ {
-		origins = append(origins, fmt.Sprintf("http://localhost:%d", port), fmt.Sprintf("http://127.0.0.1:%d", port))
+		origins = append(origins, fmt.Sprintf("https://localhost:%d", port), fmt.Sprintf("https://127.0.0.1:%d", port))
 	}
 	return strings.Join(origins, ",")
 }
 
-func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (*Harness, error) {
+func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (_ *Harness, retErr error) {
+	req, directory, err := prepareObjectStoreTLS(req)
+	if err != nil {
+		return nil, err
+	}
+	attemptSucceeded := false
+	defer func() {
+		if !attemptSucceeded {
+			retErr = errors.Join(retErr, os.RemoveAll(directory))
+		}
+	}()
+
 	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
@@ -302,14 +323,13 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		return nil, err
 	}
 
-	attemptSucceeded := false
 	defer func() {
 		if attemptSucceeded {
 			return
 		}
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = container.Terminate(cleanupCtx)
+		retErr = errors.Join(retErr, container.Terminate(cleanupCtx))
 	}()
 
 	host, err := container.Host(ctx)
@@ -323,13 +343,14 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 	}
 
 	harness := &Harness{
-		Container:   container,
-		Endpoint:    host + ":" + port.Port(),
-		AccessKey:   objectStoreAccessKey,
-		SecretKey:   objectStoreSecretKey,
-		Secure:      false,
-		suiteHash:   resolveSuiteHash(),
-		processHash: suiteservices.ProcessHash(),
+		Container:    container,
+		Endpoint:     host + ":" + port.Port(),
+		AccessKey:    objectStoreAccessKey,
+		SecretKey:    objectStoreSecretKey,
+		Secure:       true,
+		tlsDirectory: directory,
+		suiteHash:    resolveSuiteHash(),
+		processHash:  suiteservices.ProcessHash(),
 	}
 
 	attemptSucceeded = true
@@ -352,19 +373,20 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 	}
 
 	secure, err := suiteservices.ParseBool(suiteservices.LookupEnvValue(nil, suiteservices.S3SecureEnv))
-	if err != nil {
-		return nil, false, fmt.Errorf("attach object-store harness: %w", err)
+	if err != nil || !secure {
+		return nil, false, errors.New("attach object-store harness: verified TLS is required")
 	}
 
 	harness := &Harness{
-		Endpoint:    endpoint,
-		AccessKey:   accessKey,
-		SecretKey:   secretKey,
-		Secure:      secure,
-		suiteHash:   resolveSuiteHash(),
-		processHash: suiteservices.ProcessHash(),
-		attached:    true,
-		probeBucket: strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3ProbeBucketEnv)),
+		Endpoint:            endpoint,
+		AccessKey:           accessKey,
+		SecretKey:           secretKey,
+		Secure:              secure,
+		RootCertificateFile: suiteservices.LookupEnvValue(nil, "SSL_CERT_FILE"),
+		suiteHash:           resolveSuiteHash(),
+		processHash:         suiteservices.ProcessHash(),
+		attached:            true,
+		probeBucket:         strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3ProbeBucketEnv)),
 	}
 	if err := verifyAttachedFn(ctx, harness); err != nil {
 		return nil, false, fmt.Errorf("attach object-store harness: authenticated readiness: %w", err)
@@ -640,7 +662,7 @@ func classifyObjectStoreReadinessCause(err error) string {
 		}
 		return "transport_unreachable"
 	}
-	var response minio.ErrorResponse
+	var response smithy.APIError
 	if errors.As(err, &response) {
 		return "service_error"
 	}
@@ -758,19 +780,19 @@ func runObjectStoreMutationProbe(ctx context.Context, client objectStoreReadines
 }
 
 func isNonRetryableObjectStoreReadinessError(err error) bool {
+	if errors.Is(err, cryptography.ErrTLSPeer) || errors.Is(err, cryptography.ErrTLSConfiguration) || errors.Is(err, s3transport.ErrConfiguration) {
+		return true
+	}
 	if err == nil {
 		return false
 	}
 
-	var response minio.ErrorResponse
+	var response smithy.APIError
 	if errors.As(err, &response) {
-		switch strings.ToLower(response.Code) {
+		switch strings.ToLower(response.ErrorCode()) {
 		case "accessdenied", "allaccessdisabled", "authorizationheadermalformed",
 			"invalidaccesskeyid", "invalidrequest", "methodnotallowed",
 			"notimplemented", "signaturedoesnotmatch", "xnotimplemented":
-			return true
-		}
-		if response.StatusCode == 401 || response.StatusCode == 403 || response.StatusCode == 405 || response.StatusCode == 501 {
 			return true
 		}
 	}
@@ -787,44 +809,53 @@ func isNoSuchObjectError(err error) bool {
 	if err == nil {
 		return false
 	}
-	response := minio.ToErrorResponse(err)
-	return strings.EqualFold(response.Code, "NoSuchKey") ||
-		strings.EqualFold(response.Code, "NoSuchObject") || strings.EqualFold(response.Code, "NotFound")
+	code := s3transport.ErrorCode(err)
+	return code == "NoSuchKey" || code == "NoSuchObject" || code == "NotFound"
 }
 
-func (h *Harness) Client(ctx context.Context) (*minio.Client, error) {
-	_ = ctx
-	return minio.New(h.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(h.AccessKey, h.SecretKey, ""),
-		Secure: h.Secure,
-	})
+func (h *Harness) Client(ctx context.Context) (*s3.Client, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	h.clientMu.Lock()
+	defer h.clientMu.Unlock()
+	if h.connection == nil {
+		if !h.Secure {
+			return nil, s3transport.ErrConfiguration
+		}
+		connection, err := s3transport.New(s3transport.Options{Endpoint: h.Endpoint, AccessKey: h.AccessKey, SecretKey: h.SecretKey, RootCertificatePath: h.RootCertificatePath()})
+		if err != nil {
+			return nil, err
+		}
+		h.connection = connection
+	}
+	return h.connection.Client, nil
 }
-
-func (c minioReadinessClient) ListBuckets(ctx context.Context) error {
-	_, err := c.client.ListBuckets(ctx)
+func (c s3ReadinessClient) ListBuckets(ctx context.Context) error {
+	_, err := c.client.ListBuckets(ctx, &s3.ListBucketsInput{})
 	return err
 }
-
-func (c minioReadinessClient) CreateNamespace(ctx context.Context, bucket string) error {
-	return c.client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{})
-}
-
-func (c minioReadinessClient) Put(ctx context.Context, bucket string, key string, payload []byte) error {
-	_, err := c.client.PutObject(ctx, bucket, key, bytes.NewReader(payload), int64(len(payload)), minio.PutObjectOptions{})
+func (c s3ReadinessClient) CreateNamespace(ctx context.Context, bucket string) error {
+	_, err := c.client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(bucket)})
 	return err
 }
-
-func (c minioReadinessClient) HeadSize(ctx context.Context, bucket string, key string) (int64, error) {
-	info, err := c.client.StatObject(ctx, bucket, key, minio.StatObjectOptions{})
-	return info.Size, err
+func (c s3ReadinessClient) Put(ctx context.Context, bucket, key string, payload []byte) error {
+	_, err := c.client.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(bucket), Key: aws.String(key), Body: bytes.NewReader(payload), ChecksumAlgorithm: types.ChecksumAlgorithmSha256})
+	return err
 }
-
-func (c minioReadinessClient) Delete(ctx context.Context, bucket string, key string) error {
-	return c.client.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+func (c s3ReadinessClient) HeadSize(ctx context.Context, bucket, key string) (int64, error) {
+	info, err := c.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
+	if err != nil {
+		return 0, err
+	}
+	return aws.ToInt64(info.ContentLength), nil
 }
-
-func (c minioReadinessClient) DeleteNamespace(ctx context.Context, bucket string) error {
-	err := c.client.RemoveBucket(ctx, bucket)
+func (c s3ReadinessClient) Delete(ctx context.Context, bucket, key string) error {
+	_, err := c.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
+	return err
+}
+func (c s3ReadinessClient) DeleteNamespace(ctx context.Context, bucket string) error {
+	_, err := c.client.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)})
 	if isNoSuchBucketError(err) {
 		return nil
 	}
@@ -900,8 +931,8 @@ func (h *Harness) createBucket(ctx context.Context, name string, reuseScope stri
 		return err
 	}
 
-	if err := client.MakeBucket(ctx, name, minio.MakeBucketOptions{}); err != nil {
-		exists, bucketErr := client.BucketExists(ctx, name)
+	if _, err := client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(name)}); err != nil {
+		exists, bucketErr := s3transport.BucketExists(ctx, client, name)
 		if bucketErr != nil || !exists {
 			return fmt.Errorf("create bucket %s: %w", name, err)
 		}
@@ -1048,18 +1079,18 @@ func (h *Harness) RoundTrip(ctx context.Context, bucket string, key string, payl
 		return nil, err
 	}
 
-	_, err = client.PutObject(ctx, bucket, key, bytes.NewReader(payload), int64(len(payload)), minio.PutObjectOptions{})
+	_, err = client.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(bucket), Key: aws.String(key), Body: bytes.NewReader(payload), ChecksumAlgorithm: types.ChecksumAlgorithmSha256})
 	if err != nil {
 		return nil, fmt.Errorf("put object %s/%s: %w", bucket, key, err)
 	}
 
-	object, err := client.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
+	object, err := client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
 	if err != nil {
 		return nil, fmt.Errorf("get object %s/%s: %w", bucket, key, err)
 	}
-	defer object.Close()
+	defer object.Body.Close()
 
-	data, err := io.ReadAll(object)
+	data, err := io.ReadAll(object.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read object %s/%s: %w", bucket, key, err)
 	}
@@ -1082,7 +1113,7 @@ func (h *Harness) cleanupBucketWithDetails(ctx context.Context, bucket string, r
 		return err
 	}
 
-	if err := client.RemoveBucket(ctx, bucket); err != nil && !isNoSuchBucketError(err) {
+	if _, err := client.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil && !isNoSuchBucketError(err) {
 		return fmt.Errorf("remove bucket %s: %w", bucket, err)
 	}
 	recordSuiteEvent(suiteservices.Event{
@@ -1151,15 +1182,19 @@ func (h *Harness) cleanupPrefix(ctx context.Context, bucket string, prefix strin
 		return err
 	}
 
-	for objectInfo := range client.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
-		if objectInfo.Err != nil {
-			if isNoSuchBucketError(objectInfo.Err) {
+	pages := s3.NewListObjectsV2Paginator(client, &s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(prefix)}, func(o *s3.ListObjectsV2PaginatorOptions) { o.StopOnDuplicateToken = true })
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			if isNoSuchBucketError(err) {
 				return nil
 			}
-			return fmt.Errorf("list bucket %s: %w", bucket, objectInfo.Err)
+			return fmt.Errorf("list bucket: %w", err)
 		}
-		if err := client.RemoveObject(ctx, bucket, objectInfo.Key, minio.RemoveObjectOptions{}); err != nil {
-			return fmt.Errorf("remove object %s/%s: %w", bucket, objectInfo.Key, err)
+		for _, item := range page.Contents {
+			if _, err := client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(bucket), Key: item.Key}); err != nil {
+				return fmt.Errorf("remove object: %w", err)
+			}
 		}
 	}
 
@@ -1170,17 +1205,17 @@ func isNoSuchBucketError(err error) bool {
 	if err == nil {
 		return false
 	}
-	response := minio.ToErrorResponse(err)
-	return strings.EqualFold(response.Code, "NoSuchBucket")
+	return s3transport.ErrorCode(err) == "NoSuchBucket"
 }
 
 func (h *Harness) Env(bucket string) map[string]string {
 	return map[string]string{
-		objectstore.EndpointEnv:  h.Endpoint,
-		objectstore.AccessKeyEnv: h.AccessKey,
-		objectstore.SecretKeyEnv: h.SecretKey,
-		objectstore.SecureEnv:    strconv.FormatBool(h.Secure),
-		objectstore.BucketEnv:    bucket,
+		objectstore.EndpointEnv:        h.Endpoint,
+		objectstore.AccessKeyEnv:       h.AccessKey,
+		objectstore.SecretKeyEnv:       h.SecretKey,
+		objectstore.SecureEnv:          strconv.FormatBool(h.Secure),
+		objectstore.BucketEnv:          bucket,
+		objectstore.RootCertificateEnv: h.RootCertificatePath(),
 	}
 }
 
@@ -1191,16 +1226,17 @@ func (h *Harness) EnvForServiceRef(serviceRef string, bucket string) map[string]
 	}
 
 	return map[string]string{
-		keys.Endpoint:  h.Endpoint,
-		keys.AccessKey: h.AccessKey,
-		keys.SecretKey: h.SecretKey,
-		keys.Secure:    strconv.FormatBool(h.Secure),
-		keys.Bucket:    bucket,
+		keys.Endpoint:            h.Endpoint,
+		keys.AccessKey:           h.AccessKey,
+		keys.SecretKey:           h.SecretKey,
+		keys.Secure:              strconv.FormatBool(h.Secure),
+		keys.Bucket:              bucket,
+		keys.RootCertificatePath: h.RootCertificatePath(),
 	}
 }
 
 func (h *Harness) Close(ctx context.Context) error {
-	if h == nil || h.Container == nil {
+	if h == nil {
 		return nil
 	}
 	// Shared harnesses stay alive until StopShared or test-process teardown.
@@ -1208,7 +1244,21 @@ func (h *Harness) Close(ctx context.Context) error {
 		return nil
 	}
 
-	return h.Container.Terminate(ctx)
+	h.clientMu.Lock()
+	if h.connection != nil {
+		_ = h.connection.Close()
+		h.connection = nil
+	}
+	h.clientMu.Unlock()
+	if h.Container != nil {
+		if err := h.Container.Terminate(ctx); err != nil {
+			return err
+		}
+	}
+	if h.tlsDirectory != "" {
+		return os.RemoveAll(h.tlsDirectory)
+	}
+	return nil
 }
 
 func (h *Harness) ContainerID() string {

@@ -3,8 +3,9 @@ import { existsSync, readdirSync, unlinkSync } from "node:fs";
 import { closeSync } from "node:fs";
 import path from "node:path";
 import { atomicLocalFile, privateDirectory, readLocalFile, openDirectory } from "./secure-local-files.mjs";
+import { validateRendererProof } from "./owned-renderer.mjs";
 
-const kinds = ["browser_stack", "managed_suite", "object_store_proxy", "preparation_process", "browser_process", "helper_process", "diagnostic_scope"];
+const kinds = ["browser_stack", "managed_suite", "object_store_proxy", "preparation_process", "browser_process", "browser_renderer", "helper_process", "diagnostic_scope"];
 const key = (kind, target) => `${kind}-${createHash("sha256").update(JSON.stringify(target)).digest("hex")}.json`;
 export function validateDiagnosticScope(scope) {
   if (!scope || Object.keys(scope).sort().join(",") !== "boot,start,token,uid" || typeof scope.boot !== "string" || !/^\d+$/u.test(scope.start) || !/^[a-f0-9]{64}$/u.test(scope.token) || scope.uid !== process.getuid()) throw new Error("unsafe runtime recovery proof");
@@ -12,6 +13,7 @@ export function validateDiagnosticScope(scope) {
 
 export function recordRuntimeResource(runtime, { kind, target, state = "acquired" }) {
   if (!kinds.includes(kind) || !["pending", "acquired", "released"].includes(state)) throw new Error("unsafe runtime recovery proof");
+  if (kind === "browser_renderer") validateRendererProof(target);
   if (["browser_stack", "managed_suite", "object_store_proxy"].includes(kind)) {
     const relative = typeof target === "string" ? path.relative(runtime.root, target) : "..";
     if (!relative || relative.startsWith("..") || path.isAbsolute(relative) || relative.split(path.sep).includes("recovery")) throw new Error("unsafe runtime recovery target");
@@ -31,6 +33,7 @@ export function runtimeRecoveryResources(runtime, { maximum = 64 } = {}) {
     const value = JSON.parse(readLocalFile(path.join(directory, name)));
     if (Object.keys(value).sort().join(",") !== "kind,lease_id,run_id,state,target" || !kinds.includes(value.kind) || !["pending", "acquired"].includes(value.state) || value.lease_id !== runtime.leaseID || value.run_id !== runtime.runID || name !== key(value.kind, value.target)) throw new Error("unsafe runtime recovery proof");
     if (value.kind === "diagnostic_scope") validateDiagnosticScope(value.target);
+    else if (value.kind === "browser_renderer") validateRendererProof(value.target);
     else if (value.kind.endsWith("_process")) {
       const proof = value.target;
       if (!proof || Object.keys(proof).sort().join(",") !== "boot,group,pid,start" || !Number.isSafeInteger(proof.pid) || proof.pid < 2 || typeof proof.group !== "boolean" || typeof proof.boot !== "string" || !/^\d+$/u.test(proof.start)) throw new Error("unsafe runtime recovery proof");

@@ -157,6 +157,7 @@ install_visual_renderer_image() {
 if [[ "${CARTULARY_PLAYWRIGHT_INSTALL_CHILD:-0}" == "1" ]]; then
   run_playwright_install
   install_visual_renderer_image
+  "$node_bin" tools/harness/browser/browser-trust.mjs prepare
   exit $?
 fi
 

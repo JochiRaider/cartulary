@@ -49,26 +49,26 @@ type AuditEventRecord struct {
 	After        map[string]any
 }
 
-func ProvisionBootstrapAdmin(t testing.TB, baseURL string) (LoginResult, string) {
+func ProvisionBootstrapAdmin(t testing.TB, client *http.Client, baseURL string) (LoginResult, string) {
 	t.Helper()
 
-	bootstrapToken := RequireBootstrapLogin(t, baseURL, "bootstrap-admin@example.test", "BootstrapPass1!")
-	begin := BeginTOTPEnrollment(t, baseURL, bootstrapToken, map[string]any{
+	bootstrapToken := RequireBootstrapLogin(t, client, baseURL, "bootstrap-admin@example.test", "BootstrapPass1!")
+	begin := BeginTOTPEnrollment(t, client, baseURL, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-bootstrap-admin-begin",
 	})
 	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
-	CompleteInitialEnrollment(t, baseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-bootstrap-admin-complete")
-	login := LoginLocalUserWithSecondFactor(t, baseURL, "bootstrap-admin@example.test", "BootstrapPass1!", GenerateTOTPCode(t, secretBase32))
+	CompleteInitialEnrollment(t, client, baseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-bootstrap-admin-complete")
+	login := LoginLocalUserWithSecondFactor(t, client, baseURL, "bootstrap-admin@example.test", "BootstrapPass1!", GenerateTOTPCode(t, secretBase32))
 
-	sessionResp := DoJSON(t, http.MethodGet, baseURL+"/api/v1/auth/session", nil, WithCookies(login.SessionCookie))
+	sessionResp := DoJSON(t, client, http.MethodGet, baseURL+"/api/v1/auth/session", nil, WithCookies(login.SessionCookie))
 	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	return login, sessionData["user_id"].(string)
 }
 
-func ProvisionBootstrapAdminUUID(t testing.TB, baseURL string) (LoginResult, uuid.UUID) {
+func ProvisionBootstrapAdminUUID(t testing.TB, client *http.Client, baseURL string) (LoginResult, uuid.UUID) {
 	t.Helper()
 
-	login, userID := ProvisionBootstrapAdmin(t, baseURL)
+	login, userID := ProvisionBootstrapAdmin(t, client, baseURL)
 	parsed, err := uuid.Parse(userID)
 	if err != nil {
 		t.Fatalf("parse bootstrap admin id: %v", err)
@@ -78,14 +78,14 @@ func ProvisionBootstrapAdminUUID(t testing.TB, baseURL string) (LoginResult, uui
 
 type SessionSocketClient = incidentwstest.Client
 
-func DoJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
+func DoJSON(t testing.TB, client *http.Client, method string, url string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
 
 	req := httptestx.NewJSONRequest(t, method, url, body)
 	for _, option := range options {
 		option(req)
 	}
-	return httptestx.Do(t, http.DefaultClient, req)
+	return httptestx.Do(t, client, req)
 }
 
 func WithCookies(cookies ...*http.Cookie) func(*http.Request) {
@@ -109,7 +109,7 @@ func WithTestRouteToken() func(*http.Request) {
 }
 
 func SetClockOffset(
-	t testing.TB,
+	t testing.TB, client *http.Client,
 	baseURL string,
 	offsetSeconds int64,
 	options ...func(*http.Request),
@@ -117,7 +117,7 @@ func SetClockOffset(
 	t.Helper()
 
 	resp := DoJSON(
-		t,
+		t, client,
 		http.MethodPost,
 		baseURL+"/api/v1/test/clock/set",
 		map[string]any{
@@ -129,24 +129,24 @@ func SetClockOffset(
 }
 
 func ResetClockOffset(
-	t testing.TB,
+	t testing.TB, client *http.Client,
 	baseURL string,
 	options ...func(*http.Request),
 ) {
 	t.Helper()
-	SetClockOffset(t, baseURL, 0, options...)
+	SetClockOffset(t, client, baseURL, 0, options...)
 }
 
 func WithClockOffset(
-	t testing.TB,
+	t testing.TB, client *http.Client,
 	baseURL string,
 	offsetSeconds int64,
 	options ...func(*http.Request),
 ) {
 	t.Helper()
-	SetClockOffset(t, baseURL, offsetSeconds, options...)
+	SetClockOffset(t, client, baseURL, offsetSeconds, options...)
 	t.Cleanup(func() {
-		ResetClockOffset(t, baseURL, options...)
+		ResetClockOffset(t, client, baseURL, options...)
 	})
 }
 
@@ -167,7 +167,7 @@ func SeedLocalUserRecord(
 ) authn.UserRecord {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
+	hash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -177,7 +177,7 @@ func SeedLocalUserRecord(
 INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, email, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
 `, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin).Scan(
 		&record.ID,
 		&record.Email,
@@ -193,8 +193,7 @@ RETURNING id, email, display_name, password_hash, password_changed_at, mfa_requi
 		&record.LastLoginAt,
 		&record.UserVersion,
 		&record.TOTPEnrolledAt,
-		&record.TOTPSecretCiphertext,
-		&record.TOTPSecretNonce,
+		&record.TOTPSecretEnvelope,
 	); err != nil {
 		t.Fatalf("seed local user with flags: %v", err)
 	}
@@ -242,7 +241,7 @@ func SeedLocalUserWithActiveTOTPRecord(
 ) authn.UserRecord {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
+	hash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -254,18 +253,19 @@ func SeedLocalUserWithActiveTOTPRecord(
 	if err != nil {
 		t.Fatalf("decode base32 totp secret: %v", err)
 	}
-	ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+	userID := uuid.New()
+	envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: userID, SubjectID: userID}, secretBytes)
 	if err != nil {
 		t.Fatalf("encrypt totp secret: %v", err)
 	}
 
 	var record authn.UserRecord
 	if err := db.QueryRowContext(context.Background(), `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce)
-VALUES ($1, $2, $3, $4, true, $5, now(), $6, $7)
+INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, totp_enrolled_at, totp_secret_envelope)
+VALUES ($1, $2, $3, $4, $5, true, $6, now(), $7)
 RETURNING id, email, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
-`, email, displayName, hash, mfaRequired, isDeploymentAdmin, ciphertext, nonce).Scan(
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
+`, userID, email, displayName, hash, mfaRequired, isDeploymentAdmin, envelope).Scan(
 		&record.ID,
 		&record.Email,
 		&record.DisplayName,
@@ -280,8 +280,7 @@ RETURNING id, email, display_name, password_hash, password_changed_at, mfa_requi
 		&record.LastLoginAt,
 		&record.UserVersion,
 		&record.TOTPEnrolledAt,
-		&record.TOTPSecretCiphertext,
-		&record.TOTPSecretNonce,
+		&record.TOTPSecretEnvelope,
 	); err != nil {
 		t.Fatalf("seed local user with totp: %v", err)
 	}
@@ -362,7 +361,8 @@ func SeedPendingTOTPEnrollment(
 ) authn.PendingTOTPEnrollmentRecord {
 	t.Helper()
 
-	ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+	enrollmentID := uuid.New()
+	envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: userID}, secretBytes)
 	if err != nil {
 		t.Fatalf("encrypt pending totp secret: %v", err)
 	}
@@ -375,28 +375,29 @@ func SeedPendingTOTPEnrollment(
 	var record authn.PendingTOTPEnrollmentRecord
 	if err := db.QueryRowContext(context.Background(), `
 INSERT INTO pending_totp_enrollments (
+    id,
     user_id,
     auth_scope_kind,
     auth_scope_session_id,
     auth_scope_bootstrap_token_id,
     client_txn_id,
-    secret_ciphertext,
-    secret_nonce,
+    secret_envelope,
+
     replaces_active,
     created_at,
     expires_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
-          secret_ciphertext, secret_nonce, replaces_active, created_at, expires_at, consumed_at
+          secret_envelope, replaces_active, created_at, expires_at, consumed_at
 `,
+		enrollmentID,
 		userID,
 		authScopeKind,
 		sessionID,
 		bootstrapTokenID,
 		clientTxnID,
-		ciphertext,
-		nonce,
+		envelope,
 		replacesActive,
 		now.UTC(),
 		now.UTC().Add(authn.PendingTOTPEnrollmentTTL),
@@ -407,8 +408,7 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 		&record.AuthScopeSessionID,
 		&record.AuthScopeBootstrapTokenID,
 		&record.ClientTxnID,
-		&record.SecretCiphertext,
-		&record.SecretNonce,
+		&record.SecretEnvelope,
 		&record.ReplacesActive,
 		&record.CreatedAt,
 		&record.ExpiresAt,
@@ -419,7 +419,7 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 	return record
 }
 
-func LoginLocalUser(t testing.TB, baseURL string, username string, password string, headers func(*http.Request)) (*http.Cookie, *http.Cookie) {
+func LoginLocalUser(t testing.TB, client *http.Client, baseURL string, username string, password string, headers func(*http.Request)) (*http.Cookie, *http.Cookie) {
 	t.Helper()
 
 	req := httptestx.NewJSONRequest(t, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
@@ -429,7 +429,7 @@ func LoginLocalUser(t testing.TB, baseURL string, username string, password stri
 	if headers != nil {
 		headers(req)
 	}
-	resp := httptestx.Do(t, http.DefaultClient, req)
+	resp := httptestx.Do(t, client, req)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("login failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
@@ -438,10 +438,10 @@ func LoginLocalUser(t testing.TB, baseURL string, username string, password stri
 	return authCookies.Session, authCookies.CSRF
 }
 
-func LoginLocalUserWithSecondFactor(t testing.TB, baseURL string, username string, password string, code string) LoginResult {
+func LoginLocalUserWithSecondFactor(t testing.TB, client *http.Client, baseURL string, username string, password string, code string) LoginResult {
 	t.Helper()
 
-	resp := DoJSON(t, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
+	resp := DoJSON(t, client, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 		"second_factor": map[string]any{
@@ -459,10 +459,10 @@ func LoginLocalUserWithSecondFactor(t testing.TB, baseURL string, username strin
 	return LoginResult{SessionCookie: authCookies.Session, CSRFCookie: authCookies.CSRF}
 }
 
-func RequireBootstrapLogin(t testing.TB, baseURL string, username string, password string) string {
+func RequireBootstrapLogin(t testing.TB, client *http.Client, baseURL string, username string, password string) string {
 	t.Helper()
 
-	resp := DoJSON(t, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
+	resp := DoJSON(t, client, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 	})
@@ -480,11 +480,11 @@ func RequireBootstrapLogin(t testing.TB, baseURL string, username string, passwo
 	return token
 }
 
-func BeginTOTPEnrollment(t testing.TB, baseURL string, bootstrapToken string, body map[string]any) map[string]any {
+func BeginTOTPEnrollment(t testing.TB, client *http.Client, baseURL string, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
 
 	resp := DoJSON(
-		t,
+		t, client,
 		http.MethodPost,
 		baseURL+"/api/v1/auth/mfa/totp/begin",
 		body,
@@ -493,11 +493,11 @@ func BeginTOTPEnrollment(t testing.TB, baseURL string, bootstrapToken string, bo
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func CompleteInitialEnrollment(t testing.TB, baseURL string, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
+func CompleteInitialEnrollment(t testing.TB, client *http.Client, baseURL string, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
 
 	resp := DoJSON(
-		t,
+		t, client,
 		http.MethodPost,
 		baseURL+"/api/v1/auth/mfa/totp/complete",
 		map[string]any{
@@ -517,7 +517,7 @@ func GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 		Period:    30,
 		Skew:      1,
 		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
+		Algorithm: otp.AlgorithmSHA256,
 	})
 	if err != nil {
 		t.Fatalf("generate totp code: %v", err)
@@ -525,11 +525,11 @@ func GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	return code
 }
 
-func ConnectSessionSocket(t testing.TB, serverURL string, incidentID string, sessionToken string) *SessionSocketClient {
+func ConnectSessionSocket(t testing.TB, client *http.Client, serverURL string, incidentID string, sessionToken string) *SessionSocketClient {
 	t.Helper()
 
 	return incidentwstest.ConnectAndHello(t, serverURL, incidentID, incidentwstest.ConnectOptions{
-		SessionToken: sessionToken,
+		SessionToken: sessionToken, HTTPClient: client,
 	})
 }
 
@@ -543,10 +543,10 @@ func ExpectSessionRevoked(t testing.TB, client *SessionSocketClient, wantReasonC
 	incidentwstest.ExpectSessionRevoked(t, client, wantReasonCode)
 }
 
-func RequireBootstrapWebsocketRejected(t testing.TB, serverURL string, incidentID string, bootstrapToken string) {
+func RequireBootstrapWebsocketRejected(t testing.TB, client *http.Client, serverURL string, incidentID string, bootstrapToken string) {
 	t.Helper()
 
-	incidentwstest.RequireBootstrapTokenRejected(t, serverURL, incidentID, bootstrapToken)
+	incidentwstest.RequireBootstrapTokenRejectedWithClient(t, client, serverURL, incidentID, bootstrapToken)
 }
 
 func QuerySessionRow(t testing.TB, db *sql.DB, userID string) SessionRow {

@@ -1,7 +1,7 @@
 package suiteservices
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -81,7 +81,7 @@ func ShortHash(value string, length int) string {
 	if strings.TrimSpace(value) == "" {
 		value = "cartulary"
 	}
-	sum := sha1.Sum([]byte(value))
+	sum := sha256.Sum256([]byte(value))
 	encoded := hex.EncodeToString(sum[:])
 	if length >= len(encoded) {
 		return encoded

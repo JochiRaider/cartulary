@@ -41,7 +41,8 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	env[suiteservices.S3EndpointEnv] = objectStoreHarness.Endpoint
 	env[suiteservices.S3AccessKeyEnv] = objectStoreHarness.AccessKey
 	env[suiteservices.S3SecretKeyEnv] = objectStoreHarness.SecretKey
-	env[suiteservices.S3SecureEnv] = "false"
+	env[suiteservices.S3SecureEnv] = "true"
+	env["SSL_CERT_FILE"] = objectStoreHarness.RootCertificatePath()
 	env["CARTULARY_TEST_RESULTS_DIR"] = t.TempDir()
 	env["CARTULARY_TEST_RUN_ID"] = "performance-fixture-integration"
 	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
@@ -88,6 +89,9 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		prepared, err := prepareWithProfile(ctx, cloneEnv, profile)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if !prepared.S3Secure || prepared.S3RootCertificatePath != objectStoreHarness.RootCertificatePath() {
+			t.Fatal("performance clone lost its verified object-store trust binding")
 		}
 		fixtures = append(fixtures, prepared)
 	}
@@ -170,7 +174,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 			CloneOrdinal:      prepared.CloneOrdinal,
 			RuntimeBundleRoot: prepared.RuntimeBundleRoot,
 		}
-		if err := cleanupLeaseWithProfile(ctx, env, profile, metadata, CleanupPorts{
+		ports := CleanupPorts{
 			CleanupSessions: RevokeSessions,
 			DetectLeaks:     func(context.Context, LeaseMetadata, map[string]string) error { return nil },
 			CleanupDatabase: func(ctx context.Context, metadata LeaseMetadata, _ map[string]string) error {
@@ -179,8 +183,11 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 			CleanupBucket: func(ctx context.Context, metadata LeaseMetadata, _ map[string]string) error {
 				return objectStoreHarness.CleanupBucket(ctx, metadata.Bucket)
 			},
-		}); err != nil {
-			t.Fatalf("cleanup clone %d: %v", index+1, err)
+		}
+		for attempt := 0; attempt < 2; attempt++ {
+			if err := cleanupLeaseWithProfile(ctx, env, profile, metadata, ports); err != nil {
+				t.Fatalf("cleanup clone %d attempt %d: %v", index+1, attempt+1, err)
+			}
 		}
 		if _, err := os.Lstat(prepared.RuntimeBundleRoot); !os.IsNotExist(err) {
 			t.Fatalf("clone %d retained its credential copy: %v", index+1, err)

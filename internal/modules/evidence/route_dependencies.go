@@ -25,7 +25,13 @@ type createdUploadTarget struct {
 
 func (service uploadCapabilityService) createTarget(
 	claims objectUploadTokenClaims,
+	storageKey string,
 ) (createdUploadTarget, error) {
+	binding, err := objectUploadStorageBinding(service.keys, storageKey)
+	if err != nil {
+		return createdUploadTarget{}, err
+	}
+	claims.StorageKeyBinding = binding
 	token, err := encodeObjectUploadToken(service.keys, claims)
 	if err != nil {
 		return createdUploadTarget{}, err

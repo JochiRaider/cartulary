@@ -53,7 +53,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { readCurrentSession } from "./support/auth/sessions";
@@ -454,6 +454,7 @@ async function seed(
   view: string,
   count: number,
   actorId: string,
+  afterCreated?: (recordId: string) => Promise<unknown>,
 ) {
   const fixture = fixtureFields[view];
   if (!fixture)
@@ -492,30 +493,55 @@ async function seed(
             : {}),
           ...(subject ? { "assessment.subject_ref": subject.record_id } : {}),
         };
-        await createViewRow(page, incident, view, payload);
+        const row = await createViewRow(page, incident, view, payload);
+        await afterCreated?.(row.record_id);
       }
     }),
   );
   return fixture;
 }
 
+const queryObserverCleanup = new WeakMap<Page, Array<() => Promise<void>>>();
+
+test.afterEach(async ({ page }) => {
+  // Finish only this observer's work before Playwright disposes fetched bodies.
+  // Deliberately held routes in other scenarios keep their own lifecycle.
+  for (const dispose of queryObserverCleanup.get(page) ?? []) await dispose();
+  queryObserverCleanup.delete(page);
+});
+
 async function observeQuery(page: Page, incident: string, view: string) {
   const reads: {
     request: QueryWorkbookViewRequest;
     response: QueryWorkbookViewResponse;
   }[] = [];
-  await page.route(
-    `**/incidents/${incident}/views/${view}/query`,
-    async (route) => {
-      const response = await route.fetch();
-      if (response.ok())
-        reads.push({
-          request: route.request().postDataJSON() as QueryWorkbookViewRequest,
-          response: (await response.json()) as QueryWorkbookViewResponse,
-        });
-      await route.fulfill({ response });
-    },
-  );
+  const pending = new Set<Promise<void>>();
+  const path = `**/incidents/${incident}/views/${view}/query`;
+  const read = async (route: Route) => {
+    const response = await route.fetch();
+    if (response.ok())
+      reads.push({
+        request: route.request().postDataJSON() as QueryWorkbookViewRequest,
+        response: (await response.json()) as QueryWorkbookViewResponse,
+      });
+    await route.fulfill({ response });
+  };
+  const handler = async (route: Route) => {
+    const completion = read(route);
+    pending.add(completion);
+    try {
+      await completion;
+    } finally {
+      pending.delete(completion);
+    }
+  };
+  await page.route(path, handler);
+  const cleanup = queryObserverCleanup.get(page) ?? [];
+  cleanup.push(async () => {
+    await page.unroute(path, handler);
+    await Promise.all(pending);
+  });
+  queryObserverCleanup.set(page, cleanup);
   return reads;
 }
 
@@ -569,7 +595,18 @@ async function exerciseSurface(page: Page, view: string, actorId: string) {
     uniqueIncidentKey("WQC"),
     `Workbook continuation ${view}`,
   );
-  const fixture = await seed(page, incident, view, count, actorId);
+  const url = `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(view)}`;
+  const fixtureSocket = installIncidentSocketMonitor(page, incident);
+  await page.goto(url);
+  await fixtureSocket.waitForAcceptedSocket();
+  // A committed fixture write may still await collaboration sequencing. Observe
+  // each publication before measuring a fresh page's bounded startup reads.
+  const fixture = await seed(page, incident, view, count, actorId, (recordId) =>
+    fixtureSocket.waitForMessage("record_changed", {
+      matches: (message) => message.payload.record_id === recordId,
+    }),
+  );
+  await page.goto("about:blank");
   const reads = await observeQuery(page, incident, view);
   await page.goto(
     `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(view)}`,

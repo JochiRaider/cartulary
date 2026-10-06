@@ -65,8 +65,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_startup_diagnostics.v2",
-      "path": "tools/schemas/cartulary.browser_startup_diagnostics.v2.schema.json",
+      "schema_id": "cartulary.browser_startup_diagnostics.v3",
+      "path": "tools/schemas/cartulary.browser_startup_diagnostics.v3.schema.json",
       "classification": "public_contract",
       "producer": "browser session lifecycle",
       "validation": "json-shape-check"
@@ -83,6 +83,13 @@
       "path": "tools/schemas/cartulary.browser_target_result.v4.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence finalizer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.browser_tls_trust.v1",
+      "path": "tools/schemas/cartulary.browser_tls_trust.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "owned browser renderer TLS trust",
       "validation": "json-shape-check"
     },
     {
@@ -499,22 +506,22 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.local_object_store_proxy_health.v1",
-      "path": "tools/schemas/cartulary.local_object_store_proxy_health.v1.schema.json",
+      "schema_id": "cartulary.local_object_store_proxy_health.v2",
+      "path": "tools/schemas/cartulary.local_object_store_proxy_health.v2.schema.json",
       "classification": "public_contract",
       "producer": "local development object-store proxy lifecycle",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.local_object_store_proxy_lease.v1",
-      "path": "tools/schemas/cartulary.local_object_store_proxy_lease.v1.schema.json",
+      "schema_id": "cartulary.local_object_store_proxy_lease.v2",
+      "path": "tools/schemas/cartulary.local_object_store_proxy_lease.v2.schema.json",
       "classification": "public_contract",
       "producer": "local development object-store proxy lifecycle",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.local_object_store_proxy_start_attempt.v1",
-      "path": "tools/schemas/cartulary.local_object_store_proxy_start_attempt.v1.schema.json",
+      "schema_id": "cartulary.local_object_store_proxy_start_attempt.v2",
+      "path": "tools/schemas/cartulary.local_object_store_proxy_start_attempt.v2.schema.json",
       "classification": "public_contract",
       "producer": "local development object-store proxy lifecycle",
       "validation": "json-shape-check"
@@ -859,6 +866,13 @@
       "schema_id": "cartulary.test.network_flow_randomness_control.v2",
       "path": "tools/schemas/cartulary.test.network_flow_randomness_control.v2.schema.json",
       "classification": "public_contract",
+      "producer": "historical Network Flow test-route artifacts; no active producer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.test.network_flow_randomness_control.v3",
+      "path": "tools/schemas/cartulary.test.network_flow_randomness_control.v3.schema.json",
+      "classification": "public_contract",
       "producer": "Network Flow test route",
       "validation": "json-shape-check"
     },
@@ -1144,8 +1158,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.web_e2e_backend_generation.v1",
-      "path": "tools/schemas/cartulary.web_e2e_backend_generation.v1.schema.json",
+      "schema_id": "cartulary.web_e2e_backend_generation.v2",
+      "path": "tools/schemas/cartulary.web_e2e_backend_generation.v2.schema.json",
       "classification": "public_contract",
       "producer": "browser reset lifecycle",
       "validation": "json-shape-check"
@@ -1158,8 +1172,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.web_e2e_stack.v7",
-      "path": "tools/schemas/cartulary.web_e2e_stack.v7.schema.json",
+      "schema_id": "cartulary.web_e2e_stack.v8",
+      "path": "tools/schemas/cartulary.web_e2e_stack.v8.schema.json",
       "classification": "public_contract",
       "producer": "browser session lifecycle",
       "validation": "json-shape-check"

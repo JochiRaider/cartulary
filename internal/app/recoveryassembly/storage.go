@@ -203,6 +203,13 @@ func (storage *FilesystemStorage) OpenStoredArtifact(
 	return reader, metadata.Size, nil
 }
 
+func (storage *FilesystemStorage) StageArtifact(ctx context.Context, maxBytes int64, write func(io.Writer) error) (io.ReadCloser, error) {
+	if storage == nil || storage.root == nil {
+		return nil, fmt.Errorf("stage backup artifact: storage is unavailable")
+	}
+	return storage.root.Stage(ctx, maxBytes, write)
+}
+
 func (storage *FilesystemStorage) ReadTargetMarker(maxMarkerBytes int64, maxGenerationBytes int64) ([]byte, []byte, error) {
 	if storage == nil || storage.root == nil {
 		return nil, nil, fmt.Errorf("read recovery marker: storage is unavailable")

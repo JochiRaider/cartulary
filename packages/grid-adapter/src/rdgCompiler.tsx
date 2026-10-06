@@ -1122,34 +1122,40 @@ function markSemanticDataCell(
 ) {
   const cell = node?.closest<HTMLElement>('[role="gridcell"]');
   if (cell === undefined || cell === null) return null;
+  const requiredClasses = new Set(
+    gridSemanticStateClassNames("cell", state)
+      .split(" ")
+      .filter((className) => className !== "cartulary-grid-cell"),
+  );
+  // Unchanged semantic state must not invalidate style/layout for every cell
+  // on each row update. Preserve vendor and range classes owned elsewhere.
   for (const className of [...cell.classList]) {
     if (
-      className.startsWith("cartulary-grid-cell-state-") ||
-      (className.startsWith("cartulary-grid-cell-is-") &&
-        !className.startsWith("cartulary-grid-cell-is-range-"))
+      (className.startsWith("cartulary-grid-cell-state-") ||
+        (className.startsWith("cartulary-grid-cell-is-") &&
+          !className.startsWith("cartulary-grid-cell-is-range-"))) &&
+      !requiredClasses.has(className)
     ) {
       cell.classList.remove(className);
     }
   }
-  cell.classList.add(
-    ...gridSemanticStateClassNames("cell", state)
-      .split(" ")
-      .filter((className) => className !== "cartulary-grid-cell"),
-  );
-  cell.dataset.gridPrimaryState = state.primary;
+  for (const className of requiredClasses) {
+    if (!cell.classList.contains(className)) cell.classList.add(className);
+  }
+  setSemanticAttribute(cell, "data-grid-primary-state", state.primary);
   setOptionalAriaBoolean(cell, "aria-busy", state.stateIds.includes("pending"));
   setOptionalAriaBoolean(
     cell,
     "aria-invalid",
     state.stateIds.includes("invalid"),
   );
-  cell.setAttribute(
+  setSemanticAttribute(
+    cell,
     "aria-readonly",
     String(state.stateIds.includes("read-only")),
   );
   setOptionalAriaBoolean(cell, "aria-selected", rangeSelected);
-  if (state.description === undefined) cell.removeAttribute("aria-description");
-  else cell.setAttribute("aria-description", state.description);
+  setSemanticAttribute(cell, "aria-description", state.description ?? null);
   return cell;
 }
 
@@ -1158,8 +1164,17 @@ function setOptionalAriaBoolean(
   attribute: "aria-busy" | "aria-invalid" | "aria-selected",
   value: boolean,
 ) {
-  if (value) element.setAttribute(attribute, "true");
-  else element.removeAttribute(attribute);
+  setSemanticAttribute(element, attribute, value ? "true" : null);
+}
+
+function setSemanticAttribute(
+  element: HTMLElement,
+  attribute: string,
+  value: string | null,
+) {
+  if (element.getAttribute(attribute) === value) return;
+  if (value === null) element.removeAttribute(attribute);
+  else element.setAttribute(attribute, value);
 }
 
 function markSemanticHeaderCell(

@@ -320,8 +320,8 @@ func TestTOTPBootstrapHelpers(t *testing.T) {
 		t.Fatal("/ws/v1/* must reject bootstrap_token")
 	}
 
-	setup := BuildTOTPSetup("JBSWY3DPEHPK3PXP", "analyst@example.test")
-	if got := setup["algorithm"]; got != "SHA1" {
+	setup := BuildTOTPSetup("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA", "analyst@example.test")
+	if got := setup["algorithm"]; got != "SHA256" {
 		t.Fatalf("unexpected TOTP algorithm: got %v", got)
 	}
 	if got := setup["digits"]; got != 6 {
@@ -330,7 +330,7 @@ func TestTOTPBootstrapHelpers(t *testing.T) {
 	if got := setup["period_seconds"]; got != 30 {
 		t.Fatalf("unexpected TOTP period_seconds: got %v", got)
 	}
-	if got := setup["secret_base32"]; got != "JBSWY3DPEHPK3PXP" {
+	if got := setup["secret_base32"]; got != "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA" {
 		t.Fatalf("unexpected TOTP secret_base32: got %v", got)
 	}
 	if got := ShouldRevokeSessionsOnTOTPComplete(false); got {

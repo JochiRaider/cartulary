@@ -1,8 +1,9 @@
 // Exercises shipped entry points. SQL is test observation and explicit loss
 // injection only; no alternate admission, verification, or recovery executor.
 import assert from "node:assert/strict";
+import {windowsProbe} from "./package-platform.mjs";
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -28,7 +29,7 @@ function command(binary, args, options = {}) {
 function deployment(directory, name, url) {
   const composeArgs = ["compose", "--project-name", name, "--env-file", path.join(directory, ".env"), "-f", path.join(directory, "docker-compose.yml"), "-f", path.join(directory, "reference-packs.yml")];
   const compose = (...args) => command("docker", [...composeArgs, ...args]);
-  const sql = (query, database = "cartulary") => compose("exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", "cartulary", "-d", database, "-Atc", query);
+  const sql = (query, database = "cartulary") => compose("exec", "-T", "--user", "postgres", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database, "-Atc", query);
   const cookies = new Map();
   async function request(route, body, { status = 200, bearer, upload } = {}) {
     const headers = {};
@@ -75,16 +76,21 @@ function deployment(directory, name, url) {
   }
   const post = (route, txn, extra = {}, options) => request(route, { client_txn_id: txn, ...extra }, options);
   const action = (version, operation, options) => post(`/api/v1/reference-packs/enrichment.tor/${version}/${operation}`, `${operation}-${version}`, { reason: "Disposable package qualification" }, options);
-  return { directory, name, url, compose, sql, request, ready, job, post, action };
+  return { directory, name, url, compose, sql, request, ready, job, post, action, cookieHeader: () => [...cookies].map(([key,value]) => `${key}=${value}`).join("; ") };
 }
-function totp(secret) {
+function totp(secret, now = Date.now()) {
+  assert.match(secret, /^[A-Z2-7]{52}$/u);
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const bits = [...secret.replace(/=+$/, "")].map((letter) => alphabet.indexOf(letter).toString(2).padStart(5, "0")).join("");
+  const bits = [...secret].map((letter) => alphabet.indexOf(letter).toString(2).padStart(5, "0")).join("");
   const bytes = Buffer.from(bits.match(/.{8}/g).map((byte) => Number.parseInt(byte, 2)));
-  const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
-  const hash = createHmac("sha1", bytes).update(counter).digest();
-  return String((hash.readUInt32BE(hash[19] & 15) & 0x7fffffff) % 1000000).padStart(6, "0");
+  assert.equal(bytes.length, 32);
+  assert.match(bits.slice(256), /^0+$/u);
+  const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(now / 30000)));
+  const hash = createHmac("sha256", bytes).update(counter).digest();
+  return String((hash.readUInt32BE(hash.at(-1) & 15) & 0x7fffffff) % 1000000).padStart(6, "0");
 }
+// RFC 6238 SHA-256 vector, reduced to the current six-digit owner contract.
+assert.equal(totp("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA", 59000), "119246");
 async function login(stack) {
   const credentials = { username: "admin@example.test", password: "ReplaceThisBootstrap1!" };
   const rejection = await stack.request("/api/v1/auth/login", credentials, { status: 401 });
@@ -113,6 +119,19 @@ assert.equal(source.sql("SELECT count(*) FROM reference_pack_operations o JOIN j
 assert.equal(source.sql("SELECT count(*) FROM reference_pack_current_set s JOIN reference_pack_set_members m USING(pack_set_id) WHERE m.pack_key='enrichment.tor'"), "0");
 completed("operator actor and staged-only import");
 
+// A symlink to a valid, already-admitted archive would replay successfully if
+// followed. The shipped operator must reject it before reading archive bytes.
+const confinedBefore = durable(source);
+symlinkSync("valid.tar", path.join(work,"reference-pack-incoming/symlink.tar"));
+const confined = spawnSync("docker", ["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"docker-compose.yml"),"-f",path.join(work,"reference-packs.yml"),"run","--rm","--no-deps","reference-pack-operator","reference-pack","import","symlink.tar"], {encoding:"utf8",timeout:30000});
+assert.equal(confined.status,3);
+const confinedResult=JSON.parse(confined.stdout);
+assert.equal(confinedResult.result,"failed");
+assert.equal(confinedResult.container_sha256,null);
+assert.equal(durable(source),confinedBefore);
+completed("guest filesystem rejects symlink before import admission");
+
+
 const beforeMalformed = durable(source);
 await source.post("/api/v1/reference-packs/import", "invalid-metadata", { activation_policy: "activate" }, { status: 400, upload: { bytes: file("valid.tar") } });
 assert.equal(durable(source), beforeMalformed, "pre-admission rejection mutated durable state");
@@ -128,6 +147,8 @@ await source.action(2, "activate");
 const selected = selection(source);
 const incident = await source.post("/api/v1/incidents", "incident", { incident_key: "PACK-QUALIFICATION", title: "Package reference history" }, { status: 201 });
 const incidentID = id(incident.incident_id);
+writeFileSync(path.join(artifacts,"windows-wss.json"), JSON.stringify(windowsProbe(work,origin,{cookie:source.cookieHeader(),incident:incidentID}),null,2));
+completed("Windows authenticated HTTPS/WSS with isolated trust and origin rejection");
 const snapshotJob = await source.post("/api/v1/snapshots", "snapshot", { incident_id: incidentID }, { status: 202 });
 const snapshot = id((await source.job(snapshotJob)).result_summary.resource_refs.find((ref) => ref.type === "snapshot" || ref.kind === "snapshot").id);
 const bindingSQL = `SELECT export_model_json->'reference_packs' FROM reporting_snapshots WHERE snapshot_id='${snapshot}'`;
@@ -174,7 +195,7 @@ completed("historical report rerender and pin-protected removal");
 // its own database, bucket, volumes, trust bootstrap and bootstrap administrator.
 const destinationWork = path.join(work, "destination");
 mkdirSync(destinationWork, { mode: 0o700 });
-for (const name of ["docker-compose.yml", "reference-packs.yml", "config.toml", "bootstrap-admin.json", "revisions-conflict-token-key-ring.json", "postgres-provision.sh", "reference-pack-trust.json"]) {
+for (const name of ["docker-compose.yml", "reference-packs.yml", "config.toml", "bootstrap-admin.json", "revisions-conflict-token-key-ring.json", "postgres-provision.sh", "postgres-provision.sql", "postgres-entrypoint.sh", "postgres-hba.conf", "postgres-ident.conf", "seaweed-entrypoint.sh", "reference-pack-trust.json"]) {
   copyFileSync(path.join(work, name), path.join(destinationWork, name));
 }
 mkdirSync(path.join(destinationWork, "reference-pack-incoming"), { mode: 0o755 });
@@ -182,7 +203,7 @@ const portServer = (await import("node:net")).createServer();
 await new Promise((resolve) => portServer.listen(0, "127.0.0.1", resolve));
 const destinationPort = portServer.address().port;
 await new Promise((resolve) => portServer.close(resolve));
-const destinationOrigin = `http://127.0.0.1:${destinationPort}`;
+const destinationOrigin = `https://127.0.0.1:${destinationPort}`;
 writeFileSync(path.join(destinationWork, ".env"), readFileSync(path.join(work, ".env"), "utf8").replace(/^CARTULARY_HTTP_PORT=.*$/m, `CARTULARY_HTTP_PORT=${destinationPort}`).replace(/^CARTULARY_PUBLIC_ORIGIN=.*$/m, `CARTULARY_PUBLIC_ORIGIN=${destinationOrigin}`));
 const destination = deployment(destinationWork, `${project}destination`, destinationOrigin);
 destination.compose("up", "-d", "app"); await destination.ready(); await login(destination);

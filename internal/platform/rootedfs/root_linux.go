@@ -103,6 +103,33 @@ func (root *Root) Check() error {
 	return root.checkReady("check")
 }
 
+func (root *Root) isEmpty() (bool, error) {
+	root.mu.RLock()
+	defer root.mu.RUnlock()
+	if err := root.checkReady("inspect"); err != nil {
+		return false, err
+	}
+	// Open a separate directory description so inspection cannot change offsets
+	// on the retained root or consume an unbounded listing.
+	fd, err := unix.Openat(root.fd, ".", directoryOpenFlags, 0)
+	if err != nil {
+		return false, operationError("inspect", Reference{}, "directory is unavailable", err)
+	}
+	file := os.NewFile(uintptr(fd), "root-inspection")
+	entries, readErr := file.ReadDir(1)
+	closeErr := file.Close()
+	if readErr != nil && !errors.Is(readErr, io.EOF) {
+		return false, operationError("inspect", Reference{}, "directory read failed", readErr)
+	}
+	if closeErr != nil {
+		return false, operationError("inspect", Reference{}, "directory close failed", closeErr)
+	}
+	if err := root.checkRootIdentity(); err != nil {
+		return false, err
+	}
+	return len(entries) == 0, nil
+}
+
 // Exists reports whether a rooted object exists without opening or reading the
 // object. The final component is inspected with no-follow semantics, so callers
 // can safely perform presence-only policy checks for regular files, symlinks,

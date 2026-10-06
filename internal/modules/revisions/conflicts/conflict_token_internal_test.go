@@ -2,13 +2,11 @@ package conflicts
 
 import (
 	"crypto/sha256"
-	"errors"
-	"io"
 	"testing"
 	"time"
 )
 
-func TestConflictTokenV3PropagatesEntropyFailure(t *testing.T) {
+func TestConflictTokenV4RejectsUnadmittedKeys(t *testing.T) {
 	now := time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
 	key := sha256.Sum256([]byte("revisions-conflict-token-entropy-failure"))
 	ring := &ConflictTokenKeyRing{
@@ -20,7 +18,6 @@ func TestConflictTokenV3PropagatesEntropyFailure(t *testing.T) {
 	codec, err := NewConflictTokenCodec(
 		ring,
 		WithClock(func() time.Time { return now }),
-		withEntropySource(failingEntropyReader{}),
 	)
 	if err != nil {
 		t.Fatalf("construct codec: %v", err)
@@ -35,11 +32,23 @@ func TestConflictTokenV3PropagatesEntropyFailure(t *testing.T) {
 		CurrentRowVersion:       2,
 		RequestHash:             RequestHashTokenValue([]byte("request")),
 	}
-	if _, err := codec.Issue(claims); !errors.Is(err, errConflictTokenUnavailable) {
-		t.Fatalf("entropy failure = %v, want closed unavailable error", err)
+	token, err := codec.Issue(claims)
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+	for _, size := range []int{0, 16, 24, 31, 33, 64} {
+		ring.keys["active"] = conflictTokenKeyMaterial{key: make([]byte, size), state: conflictTokenKeyStateActive}
+		if _, err := NewConflictTokenCodec(ring); err == nil {
+			t.Fatalf("admitted %d-byte key", size)
+		}
+	}
+	other := sha256.Sum256([]byte("other key"))
+	ring.keys["active"] = conflictTokenKeyMaterial{key: other[:], state: conflictTokenKeyStateActive}
+	wrong, err := NewConflictTokenCodec(ring, WithClock(func() time.Time { return now }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := wrong.Parse(token); ok {
+		t.Fatal("wrong key accepted")
 	}
 }
-
-type failingEntropyReader struct{}
-
-func (failingEntropyReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/url"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -65,11 +65,11 @@ func ContainerImage() string {
 }
 
 type Harness struct {
-	Container testcontainers.Container
-	Host      string
-	Port      string
-	User      string
-	Password  string
+	Container    testcontainers.Container
+	Host         string
+	Port         string
+	User         string
+	tlsDirectory string
 
 	adminDSN    string
 	dsnTemplate string
@@ -146,6 +146,7 @@ var (
 	startSleepFn              func(context.Context, time.Duration) error
 	pingAdminDSNFn            = pingAdminDSN
 	migrateDatabaseFn         = database_migrations.Apply
+	initializeDatabaseFn      = InitializeFreshDatabase
 	applyMigrationsThrough    = applyCanonicalMigrationsThrough
 	rollbackMigrationsThrough = rollbackCanonicalMigrationsThrough
 	createDatabaseFn          = createDatabase
@@ -216,9 +217,11 @@ func StopShared(ctx context.Context) error {
 		return nil
 	}
 
-	container := sharedHarness.Container
+	if err := sharedHarness.closeOwned(ctx); err != nil {
+		return err
+	}
 	sharedHarness = nil
-	return container.Terminate(ctx)
+	return nil
 }
 
 func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
@@ -230,7 +233,7 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 			"POSTGRES_DB":          "postgres",
 			"POSTGRES_USER":        "cartulary",
 			"POSTGRES_PASSWORD":    "cartulary",
-			"POSTGRES_INITDB_ARGS": "--data-checksums --auth-host=scram-sha-256",
+			"POSTGRES_INITDB_ARGS": "--data-checksums --auth-host=reject",
 		},
 		WaitingFor: postgresPortWaitStrategy(),
 	}
@@ -258,7 +261,17 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 	return harness, nil
 }
 
-func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (*Harness, error) {
+func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (_ *Harness, retErr error) {
+	req, tlsDirectory, err := preparePostgresTLS(req)
+	if err != nil {
+		return nil, err
+	}
+	attemptSucceeded := false
+	defer func() {
+		if !attemptSucceeded {
+			retErr = errors.Join(retErr, os.RemoveAll(tlsDirectory))
+		}
+	}()
 	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
@@ -267,14 +280,13 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		return nil, err
 	}
 
-	attemptSucceeded := false
 	defer func() {
 		if attemptSucceeded {
 			return
 		}
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = container.Terminate(cleanupCtx)
+		retErr = errors.Join(retErr, container.Terminate(cleanupCtx))
 	}()
 
 	host, err := container.Host(ctx)
@@ -288,14 +300,14 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 	}
 
 	harness := &Harness{
-		Container:   container,
-		Host:        host,
-		Port:        port.Port(),
-		User:        "cartulary",
-		Password:    "cartulary",
-		schemaHash:  pgschema.MustHash(),
-		suiteHash:   resolveSuiteHash(),
-		processHash: suiteservices.ProcessHash(),
+		Container:    container,
+		Host:         host,
+		Port:         port.Port(),
+		User:         "cartulary",
+		tlsDirectory: tlsDirectory,
+		schemaHash:   pgschema.MustHash(),
+		suiteHash:    resolveSuiteHash(),
+		processHash:  suiteservices.ProcessHash(),
 	}
 	harness.adminDSN = harness.dsnFor("postgres")
 
@@ -538,7 +550,7 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 	if err != nil {
 		return nil, fmt.Errorf("load migration source: %w", err)
 	}
-	err = migrateDatabaseFn(ctx, db, source)
+	err = initializeDatabaseFn(ctx, db, testDB.DSN, source)
 	if err != nil {
 		return nil, err
 	}
@@ -584,7 +596,7 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
 		return fmt.Errorf("load migration source: %w", err)
 	}
-	if err := migrateDatabaseFn(ctx, db, source); err != nil {
+	if err := initializeDatabaseFn(ctx, db, templateDSN, source); err != nil {
 		var appliedVersion int64
 		_ = db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version_id), 0) FROM public.goose_db_version WHERE is_applied`).Scan(&appliedVersion)
 		_ = db.Close()
@@ -935,7 +947,17 @@ func (h *Harness) Close(ctx context.Context) error {
 		return nil
 	}
 
-	return h.Container.Terminate(ctx)
+	return h.closeOwned(ctx)
+}
+
+func (h *Harness) closeOwned(ctx context.Context) error {
+	if err := h.Container.Terminate(ctx); err != nil {
+		return err
+	}
+	if h.tlsDirectory != "" {
+		return os.RemoveAll(h.tlsDirectory)
+	}
+	return nil
 }
 
 func (h *Harness) ContainerID() string {
@@ -988,7 +1010,7 @@ func (h *Harness) dsnFor(database string) string {
 	if h.dsnTemplate != "" {
 		return strings.ReplaceAll(h.dsnTemplate, "{database}", database)
 	}
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", h.User, h.Password, h.Host, h.Port, database)
+	return certificateDSN(h.Host, h.Port, database, h.User, h.tlsDirectory)
 }
 
 func sanitizeIdentifier(value string) string {
@@ -1185,26 +1207,22 @@ func OpenPurposeDatabase(dsn string, purpose postgres.Purpose) (*sql.DB, error) 
 }
 
 type testPurposeContract struct {
-	login    string
-	password string
-	role     string
+	login string
+	role  string
 }
 
 var testPurposeContracts = map[postgres.Purpose]testPurposeContract{
 	postgres.PurposeRuntime: {
-		login:    "cartulary_runtime_login",
-		password: "cartulary-runtime",
-		role:     "cartulary_runtime",
+		login: "cartulary_runtime_login",
+		role:  "cartulary_runtime",
 	},
 	postgres.PurposeMigration: {
-		login:    "cartulary_migration_login",
-		password: "cartulary-migration",
-		role:     "cartulary_schema_owner",
+		login: "cartulary_migration_login",
+		role:  "cartulary_schema_owner",
 	},
 	postgres.PurposeRecovery: {
-		login:    "cartulary_recovery_login",
-		password: "cartulary-recovery",
-		role:     "cartulary_recovery",
+		login: "cartulary_recovery_login",
+		role:  "cartulary_recovery",
 	},
 }
 
@@ -1213,15 +1231,7 @@ func purposeDSN(dsn string, purpose postgres.Purpose) (string, error) {
 	if !ok {
 		return "", errors.New("unsupported test postgres purpose")
 	}
-	parsed, err := url.Parse(dsn)
-	if err != nil {
-		return "", errors.New("parse test postgres binding")
-	}
-	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
-		return "", errors.New("test postgres binding must be a URI")
-	}
-	parsed.User = url.UserPassword(contract.login, contract.password)
-	return parsed.String(), nil
+	return purposeCertificateDSN(dsn, contract.login)
 }
 
 // ProvisionDatabase establishes the administrator-owned PostgreSQL
@@ -1334,22 +1344,22 @@ BEGIN
         CREATE ROLE cartulary_recovery NOLOGIN;
     END IF;
 	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_migration_login') THEN
-		CREATE ROLE cartulary_migration_login LOGIN PASSWORD 'cartulary-migration';
+		CREATE ROLE cartulary_migration_login LOGIN PASSWORD NULL;
 	END IF;
 	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_runtime_login') THEN
-		CREATE ROLE cartulary_runtime_login LOGIN PASSWORD 'cartulary-runtime';
+		CREATE ROLE cartulary_runtime_login LOGIN PASSWORD NULL;
 	END IF;
 	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_recovery_login') THEN
-		CREATE ROLE cartulary_recovery_login LOGIN PASSWORD 'cartulary-recovery';
+		CREATE ROLE cartulary_recovery_login LOGIN PASSWORD NULL;
 	END IF;
 END
 $cartulary_roles$;
 ALTER ROLE cartulary_schema_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 ALTER ROLE cartulary_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 ALTER ROLE cartulary_recovery NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-ALTER ROLE cartulary_migration_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD 'cartulary-migration';
-ALTER ROLE cartulary_runtime_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD 'cartulary-runtime';
-ALTER ROLE cartulary_recovery_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD 'cartulary-recovery';
+ALTER ROLE cartulary_migration_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD NULL;
+ALTER ROLE cartulary_runtime_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD NULL;
+ALTER ROLE cartulary_recovery_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD NULL;
 GRANT cartulary_schema_owner TO cartulary_migration_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
 GRANT cartulary_runtime TO cartulary_runtime_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
 GRANT cartulary_recovery TO cartulary_recovery_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;

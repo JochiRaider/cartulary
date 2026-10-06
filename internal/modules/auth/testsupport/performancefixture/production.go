@@ -40,7 +40,7 @@ func (a *ProductionApplication) CreateBackgroundAnalyst(ctx context.Context, req
 	if _, err := authn.ValidatePasswordProvision(request.InitialPassword); err != nil {
 		return Account{}, err
 	}
-	passwordHash, err := authn.HashPassword(request.InitialPassword)
+	passwordHash, err := authn.HashPassword(ctx, request.InitialPassword)
 	if err != nil {
 		return Account{}, err
 	}

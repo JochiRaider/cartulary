@@ -3,8 +3,11 @@ package objectstore_test
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
+	"github.com/JochiRaider/cartulary/internal/testutil/tlstest"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -85,7 +88,7 @@ func requireObjectStoreAdapterRetryAlgorithm(t *testing.T) {
 	var mu sync.Mutex
 	headAttempts := map[string]int{}
 	putAttempts := map[string]int{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bucketMatched, key := adapterContractS3Key(r, bucket)
 		switch {
 		case r.Method == http.MethodHead && bucketMatched && key == "":
@@ -124,14 +127,41 @@ func requireObjectStoreAdapterRetryAlgorithm(t *testing.T) {
 			writeS3Error(w, http.StatusNotFound, "NoSuchKey")
 		}
 	}))
+	ca, err := tlstest.NewAuthority()
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := ca.Issue("s3", []string{"127.0.0.1"}, x509.ExtKeyUsageServerAuth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	root, err := tlstest.WriteFile(directory, "root.pem", ca.CertificatePEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate, err := tlstest.WriteFile(directory, "server.pem", identity.CertificatePEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := tlstest.WriteFile(directory, "server.key", identity.PrivateKeyPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.TLS, err = cryptography.TLSServer("127.0.0.1", certificate, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.StartTLS()
 	defer server.Close()
 
 	store, err := setupObjectStore(context.Background(), managedObjectStoreConfig(t), map[string]string{
-		"CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT":          strings.TrimPrefix(server.URL, "http://"),
-		"CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID":     "object-store-access",
-		"CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY": "object-store-secret",
-		"CARTULARY_S3_OBJECT_PRIMARY_SECURE":            "false",
-		"CARTULARY_S3_OBJECT_PRIMARY_BUCKET":            bucket,
+		"CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT":              strings.TrimPrefix(server.URL, "https://"),
+		"CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID":         "object-store-access",
+		"CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY":     "object-store-secret",
+		"CARTULARY_S3_OBJECT_PRIMARY_SECURE":                "true",
+		"CARTULARY_S3_OBJECT_PRIMARY_ROOT_CERTIFICATE_PATH": root,
+		"CARTULARY_S3_OBJECT_PRIMARY_BUCKET":                bucket,
 	})
 	if err != nil {
 		t.Fatalf("setup fake S3 store: %v", err)

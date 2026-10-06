@@ -107,7 +107,7 @@ export async function importCanonical(request) {
     const session = one(target.sessions.filter((entry) => entry.browser_session_id === group.browser_session_id));
     if (session.runtime_profile_id !== group.runtime_profile_id || session.service_requirement !== group.service_requirement || JSON.stringify(session.artifacts) !== JSON.stringify(group.session_artifacts)) throw new ReviewFailure("invalid_artifact");
     const stackRef = one(group.session_artifacts.filter((entry) => entry.kind === "stack_v7"));
-    const stack = readJSON(containedFile(root, stackRef.ref), "cartulary.web_e2e_stack.v7", stackRef.sha256).value;
+    const stack = readJSON(containedFile(root, stackRef.ref), "cartulary.web_e2e_stack.v8", stackRef.sha256).value;
     if (stack.browser_session_id !== group.browser_session_id || stack.runtime_profile_id !== group.runtime_profile_id) throw new ReviewFailure("invalid_artifact");
     const receipt = readJSON(containedFile(root, stack.frontend.build_artifact_ref), "cartulary.frontend_build_artifact.v1", stack.frontend.build_receipt_sha256).value;
     if (receipt.run_id !== manifest.run_id || receipt.source_digest !== manifest.source_digest || receipt.toolchain_digest !== manifest.toolchain_digest || receipt.content_digest !== stack.frontend.build_artifact_sha256) throw new ReviewFailure("invalid_artifact");

@@ -9,6 +9,16 @@
           "reason_code": "missing_required_key"
         },
         {
+          "message": "application TLS binding is required",
+          "path": "application.tls_certificate_path",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "application TLS binding is required",
+          "path": "application.tls_private_key_path",
+          "reason_code": "missing_required_key"
+        },
+        {
           "message": "config_schema_id is required",
           "path": "config_schema_id",
           "reason_code": "missing_required_key"

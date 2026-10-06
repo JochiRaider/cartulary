@@ -40,8 +40,11 @@ const serviceEnvironmentNames = [
   "CARTULARY_S3TEST_ACCESS_KEY_ID",
   "CARTULARY_S3TEST_ENDPOINT",
   "CARTULARY_S3TEST_PROBE_BUCKET",
+  "CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH",
+  "CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH",
   "CARTULARY_S3TEST_SECRET_ACCESS_KEY",
   "CARTULARY_S3TEST_SECURE",
+  "SSL_CERT_FILE",
 ];
 const configInputs = ["db/migrations", "go.mod", "go.sum", "tools/toolchain_pins.json"];
 const identityPattern = /^[A-Za-z0-9_.-]+$/u;

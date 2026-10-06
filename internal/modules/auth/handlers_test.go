@@ -28,7 +28,7 @@ func TestLoginNormalizationAndPasswordExactness_Unit(t *testing.T) {
 	userID := uuid.MustParse("10000000-0000-0000-0000-000000000091")
 	sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000092")
 	password := "  Exact Login Secret  "
-	passwordHash, err := authn.HashPassword(password)
+	passwordHash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash login password: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestLoginCreatesSessionAndResource_Unit(t *testing.T) {
 		uuid.MustParse("10000000-0000-0000-0000-000000000106"),
 	}
 	password := "  Exact Login Secret  "
-	passwordHash, err := authn.HashPassword(password)
+	passwordHash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash login password: %v", err)
 	}
@@ -536,7 +536,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		if recorder.Code != http.StatusCreated {
 			t.Fatalf("unexpected create status: got %d want %d", recorder.Code, http.StatusCreated)
 		}
-		if ok, err := authn.VerifyPasswordHash(capturedPasswordHash, initialPassword); err != nil || !ok {
+		if ok, err := authn.VerifyPasswordHash(context.Background(), capturedPasswordHash, initialPassword); err != nil || !ok {
 			t.Fatalf("captured password hash must verify initial password, ok=%v err=%v", ok, err)
 		}
 		expectedHash := hashRequestPayload(map[string]any{
@@ -825,7 +825,7 @@ func TestPasswordChangeRouteContracts_Unit(t *testing.T) {
 		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000132")
 		token := "password-change-exact-token"
 		currentPassword := "  Exact Current  "
-		passwordHash, err := authn.HashPassword(currentPassword)
+		passwordHash, err := authn.HashPassword(context.Background(), currentPassword)
 		if err != nil {
 			t.Fatalf("hash current password: %v", err)
 		}
@@ -971,10 +971,10 @@ func TestPasswordChangeRouteContracts_Unit(t *testing.T) {
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("unexpected password change status: got %d want %d", recorder.Code, http.StatusOK)
 		}
-		if ok, err := authn.VerifyPasswordHash(capturedNewPasswordHash, newPassword); err != nil || !ok {
+		if ok, err := authn.VerifyPasswordHash(context.Background(), capturedNewPasswordHash, newPassword); err != nil || !ok {
 			t.Fatalf("new password hash must verify the replacement password, ok=%v err=%v", ok, err)
 		}
-		if ok, err := authn.VerifyPasswordHash(capturedNewPasswordHash, currentPassword); err != nil {
+		if ok, err := authn.VerifyPasswordHash(context.Background(), capturedNewPasswordHash, currentPassword); err != nil {
 			t.Fatalf("verifying old password against replacement hash: %v", err)
 		} else if ok {
 			t.Fatal("replacement hash must not accept the current password")
@@ -1009,7 +1009,7 @@ func TestPasswordChangeRouteContracts_Unit(t *testing.T) {
 		token := "password-change-replay-token"
 		currentPassword := "Replay Current Password!"
 		newPassword := "Replay Replacement Password!"
-		passwordHash, err := authn.HashPassword(currentPassword)
+		passwordHash, err := authn.HashPassword(context.Background(), currentPassword)
 		if err != nil {
 			t.Fatalf("hash replay current password: %v", err)
 		}
@@ -1055,6 +1055,14 @@ func TestPasswordChangeRouteContracts_Unit(t *testing.T) {
 			},
 		}
 		service := newUnitService(t, store, &hubStub{}, keys, now)
+		// A committed replay must work even when both derivation slots are held.
+		for range authn.PasswordActiveWorkflows {
+			workflow, err := authn.BeginPasswordWorkflow(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer workflow.Close()
+		}
 
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/password/change", `{
@@ -1119,7 +1127,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 					ExpiresAt: now.Add(9 * time.Minute),
 				}, activeUserRecord(userID, "mixed@example.test"), nil
 			},
-			beginTOTPEnrollmentFunc: func(context.Context, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
+			beginTOTPEnrollmentFunc: func(context.Context, uuid.UUID, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
 				beginCalls++
 				return authn.PendingTOTPEnrollmentRecord{}, false, nil
 			},
@@ -1174,7 +1182,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 				t.Fatal("complete must not load pending enrollment when auth modes are mixed")
 				return nil, nil
 			},
-			activateTOTPEnrollmentFunc: func(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error) {
+			activateTOTPEnrollmentFunc: func(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, []byte, []byte, time.Time) (authn.TOTPCompleteResult, error) {
 				completeCalls++
 				return authn.TOTPCompleteResult{}, nil
 			},
@@ -1202,8 +1210,8 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		bootstrapTokenID := uuid.MustParse("10000000-0000-0000-0000-000000000172")
 		bootstrapToken := "totp-begin-only-bootstrap-token"
 		enrollmentID := uuid.MustParse("10000000-0000-0000-0000-000000000173")
-		secretBytes := []byte("01234567890123456789")
-		ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+		secretBytes := []byte("01234567890123456789012345678901")
+		envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: userID}, secretBytes)
 		if err != nil {
 			t.Fatalf("encrypt totp secret: %v", err)
 		}
@@ -1227,7 +1235,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 					ExpiresAt: now.Add(9 * time.Minute),
 				}, activeUserRecord(userID, "bootstrap@example.test"), nil
 			},
-			beginTOTPEnrollmentFunc: func(_ context.Context, gotUserID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, clientTxnID string, _, _ []byte, replacesActive bool, createdAt time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
+			beginTOTPEnrollmentFunc: func(_ context.Context, gotEnrollmentID uuid.UUID, gotUserID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, clientTxnID string, _ []byte, replacesActive bool, createdAt time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
 				if gotUserID != userID {
 					t.Fatalf("unexpected bootstrap begin user: got %s want %s", gotUserID, userID)
 				}
@@ -1250,14 +1258,13 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 					t.Fatalf("unexpected bootstrap begin time: got %s want %s", createdAt, now)
 				}
 				return authn.PendingTOTPEnrollmentRecord{
-					ID:               enrollmentID,
-					UserID:           userID,
-					AuthScopeKind:    authScopeKind,
-					ClientTxnID:      clientTxnID,
-					SecretCiphertext: ciphertext,
-					SecretNonce:      nonce,
-					CreatedAt:        now,
-					ExpiresAt:        now.Add(10 * time.Minute),
+					ID:             enrollmentID,
+					UserID:         userID,
+					AuthScopeKind:  authScopeKind,
+					ClientTxnID:    clientTxnID,
+					SecretEnvelope: envelope,
+					CreatedAt:      now,
+					ExpiresAt:      now.Add(10 * time.Minute),
 				}, false, nil
 			},
 		}
@@ -1293,8 +1300,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		bootstrapToken := "totp-begin-replay-bootstrap-token"
 		enrollmentID := uuid.MustParse("10000000-0000-0000-0000-000000000176")
 		beginCalls := 0
-		var storedCiphertext []byte
-		var storedNonce []byte
+		var storedEnvelope []byte
 		store := &authStoreStub{
 			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
 				if bytes.Equal(fingerprint, authn.FingerprintToken(keys, bootstrapToken)) {
@@ -1314,7 +1320,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 					ExpiresAt: now.Add(9 * time.Minute),
 				}, activeUserRecord(userID, "replay-begin@example.test"), nil
 			},
-			beginTOTPEnrollmentFunc: func(_ context.Context, gotUserID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, clientTxnID string, secretCiphertext []byte, secretNonce []byte, replacesActive bool, createdAt time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
+			beginTOTPEnrollmentFunc: func(_ context.Context, gotEnrollmentID uuid.UUID, gotUserID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, clientTxnID string, secretEnvelope []byte, replacesActive bool, createdAt time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
 				beginCalls++
 				if gotUserID != userID || authScopeKind != "bootstrap_token" || sessionID != nil {
 					t.Fatalf("unexpected replay begin scope: user=%s scope=%q session=%v", gotUserID, authScopeKind, sessionID)
@@ -1331,8 +1337,8 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 				switch clientTxnID {
 				case "txn-begin-replay":
 					if beginCalls == 1 {
-						storedCiphertext = append([]byte(nil), secretCiphertext...)
-						storedNonce = append([]byte(nil), secretNonce...)
+						storedEnvelope = append([]byte(nil), secretEnvelope...)
+						enrollmentID = gotEnrollmentID
 					}
 					return authn.PendingTOTPEnrollmentRecord{
 						ID:                        enrollmentID,
@@ -1340,8 +1346,7 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 						AuthScopeKind:             "bootstrap_token",
 						AuthScopeBootstrapTokenID: &bootstrapTokenID,
 						ClientTxnID:               clientTxnID,
-						SecretCiphertext:          storedCiphertext,
-						SecretNonce:               storedNonce,
+						SecretEnvelope:            storedEnvelope,
 						CreatedAt:                 now,
 						ExpiresAt:                 now.Add(10 * time.Minute),
 					}, beginCalls > 1, nil
@@ -1394,9 +1399,9 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		bootstrapTokenID := uuid.MustParse("10000000-0000-0000-0000-000000000182")
 		enrollmentID := uuid.MustParse("10000000-0000-0000-0000-000000000183")
 		bootstrapToken := "totp-complete-bootstrap-token"
-		secretBytes := []byte("01234567890123456789")
+		secretBytes := []byte("01234567890123456789012345678901")
 		secretBase32 := authn.EncodeSecretBase32(secretBytes)
-		ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+		envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: userID}, secretBytes)
 		if err != nil {
 			t.Fatalf("encrypt pending totp secret: %v", err)
 		}
@@ -1431,13 +1436,12 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 					AuthScopeKind:             "bootstrap_token",
 					AuthScopeBootstrapTokenID: &bootstrapTokenID,
 					ClientTxnID:               "txn-begin-bootstrap",
-					SecretCiphertext:          ciphertext,
-					SecretNonce:               nonce,
+					SecretEnvelope:            envelope,
 					CreatedAt:                 now,
 					ExpiresAt:                 now.Add(10 * time.Minute),
 				}, nil
 			},
-			activateTOTPEnrollmentFunc: func(_ context.Context, user authn.UserRecord, gotEnrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, completedAt time.Time) (authn.TOTPCompleteResult, error) {
+			activateTOTPEnrollmentFunc: func(_ context.Context, user authn.UserRecord, gotEnrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, pendingEnvelope, activeEnvelope []byte, completedAt time.Time) (authn.TOTPCompleteResult, error) {
 				if user.ID != userID {
 					t.Fatalf("unexpected bootstrap complete user: got %s want %s", user.ID, userID)
 				}
@@ -1490,9 +1494,9 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		bootstrapTokenID := uuid.MustParse("10000000-0000-0000-0000-000000000185")
 		enrollmentID := uuid.MustParse("10000000-0000-0000-0000-000000000186")
 		bootstrapToken := "totp-complete-consume-bootstrap-token"
-		secretBytes := []byte("klmnopqrst0123456789")
+		secretBytes := []byte("klmnopqrst0123456789012345678901")
 		secretBase32 := authn.EncodeSecretBase32(secretBytes)
-		ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+		envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: userID}, secretBytes)
 		if err != nil {
 			t.Fatalf("encrypt bootstrap-consumption secret: %v", err)
 		}
@@ -1534,13 +1538,12 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 					AuthScopeKind:             "bootstrap_token",
 					AuthScopeBootstrapTokenID: &bootstrapTokenID,
 					ClientTxnID:               "txn-complete-consume",
-					SecretCiphertext:          ciphertext,
-					SecretNonce:               nonce,
+					SecretEnvelope:            envelope,
 					CreatedAt:                 now,
 					ExpiresAt:                 now.Add(10 * time.Minute),
 				}, nil
 			},
-			activateTOTPEnrollmentFunc: func(_ context.Context, user authn.UserRecord, gotEnrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, completedAt time.Time) (authn.TOTPCompleteResult, error) {
+			activateTOTPEnrollmentFunc: func(_ context.Context, user authn.UserRecord, gotEnrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, pendingEnvelope, activeEnvelope []byte, completedAt time.Time) (authn.TOTPCompleteResult, error) {
 				if user.ID != userID || gotEnrollmentID != enrollmentID || authScopeKind != "bootstrap_token" || sessionID != nil {
 					t.Fatalf("unexpected bootstrap-consumption activation scope: user=%s enrollment=%s scope=%q session=%v", user.ID, gotEnrollmentID, authScopeKind, sessionID)
 				}
@@ -1588,9 +1591,9 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 		otherSessionID := uuid.MustParse("10000000-0000-0000-0000-000000000193")
 		enrollmentID := uuid.MustParse("10000000-0000-0000-0000-000000000194")
 		token := "totp-complete-session-token"
-		secretBytes := []byte("abcdefghij0123456789")
+		secretBytes := []byte("abcdefghij0123456789012345678901")
 		secretBase32 := authn.EncodeSecretBase32(secretBytes)
-		ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+		envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: userID}, secretBytes)
 		if err != nil {
 			t.Fatalf("encrypt replacement totp secret: %v", err)
 		}
@@ -1612,14 +1615,13 @@ func TestTOTPRouteContracts_Unit(t *testing.T) {
 					UserID:             userID,
 					AuthScopeKind:      "session",
 					AuthScopeSessionID: &currentSessionID,
-					SecretCiphertext:   ciphertext,
-					SecretNonce:        nonce,
+					SecretEnvelope:     envelope,
 					ReplacesActive:     true,
 					CreatedAt:          now,
 					ExpiresAt:          now.Add(10 * time.Minute),
 				}, nil
 			},
-			activateTOTPEnrollmentFunc: func(_ context.Context, user authn.UserRecord, gotEnrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, bootstrapTokenID *uuid.UUID, completedAt time.Time) (authn.TOTPCompleteResult, error) {
+			activateTOTPEnrollmentFunc: func(_ context.Context, user authn.UserRecord, gotEnrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, bootstrapTokenID *uuid.UUID, pendingEnvelope, activeEnvelope []byte, completedAt time.Time) (authn.TOTPCompleteResult, error) {
 				if user.ID != userID {
 					t.Fatalf("unexpected replacement complete user: got %s want %s", user.ID, userID)
 				}
@@ -1777,7 +1779,7 @@ func TestAdminCredentialActionGuards_Unit(t *testing.T) {
 				if len(requestHash) == 0 || requestID != "" || !changedAt.Equal(now) {
 					t.Fatalf("unexpected password reset routing metadata: hash=%x request_id=%q changed_at=%s", requestHash, requestID, changedAt)
 				}
-				if ok, err := authn.VerifyPasswordHash(newPasswordHash, "Replacement passphrase 1"); err != nil || !ok {
+				if ok, err := authn.VerifyPasswordHash(context.Background(), newPasswordHash, "Replacement passphrase 1"); err != nil || !ok {
 					t.Fatalf("password reset hash must verify replacement password, ok=%v err=%v", ok, err)
 				}
 				return authn.AdminPasswordResetResult{
@@ -1910,8 +1912,8 @@ type authStoreStub struct {
 	getBootstrapTokenByFingerprintFunc  func(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error)
 	getPendingTOTPEnrollmentForUserFunc func(context.Context, uuid.UUID, time.Time) (*authn.PendingTOTPEnrollmentRecord, error)
 	getPendingTOTPEnrollmentByIDFunc    func(context.Context, uuid.UUID) (*authn.PendingTOTPEnrollmentRecord, error)
-	beginTOTPEnrollmentFunc             func(context.Context, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error)
-	activateTOTPEnrollmentFunc          func(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
+	beginTOTPEnrollmentFunc             func(context.Context, uuid.UUID, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error)
+	activateTOTPEnrollmentFunc          func(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, []byte, []byte, time.Time) (authn.TOTPCompleteResult, error)
 	getRouteIdempotencyFunc             func(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	changePasswordFunc                  func(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
 	listUsersFunc                       func(context.Context, authn.UserListFilter) ([]authn.UserRecord, error)
@@ -1922,7 +1924,7 @@ type authStoreStub struct {
 	adminRevokeAllSessionsFunc          func(context.Context, authn.UserRecord, uuid.UUID, string, []byte, string, time.Time) (authn.AdminRevokeAllResult, error)
 	listEnterpriseAuthProvidersFunc     func(context.Context) ([]authn.EnterpriseAuthProviderRecord, error)
 	getEnterpriseAuthProviderByKeyFunc  func(context.Context, string) (authn.EnterpriseAuthProviderRecord, error)
-	createEnterpriseAuthTxnFunc         func(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, []byte, []byte, *string, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	createEnterpriseAuthTxnFunc         func(context.Context, uuid.UUID, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, []byte, *string, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	getOIDCEnterpriseAuthTxnFunc        func(context.Context, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	getSAMLEnterpriseAuthTxnFunc        func(context.Context, string, string, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	completeOIDCEnterpriseAuthTxnFunc   func(context.Context, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
@@ -1978,6 +1980,9 @@ func (s *authStoreStub) GetBootstrapTokenByFingerprint(ctx context.Context, fing
 }
 
 func (s *authStoreStub) GetPendingTOTPEnrollmentForUser(ctx context.Context, userID uuid.UUID, now time.Time) (*authn.PendingTOTPEnrollmentRecord, error) {
+	if s.getPendingTOTPEnrollmentForUserFunc == nil {
+		return nil, nil
+	}
 	return callStub2Ptr(s.getPendingTOTPEnrollmentForUserFunc, ctx, userID, now)
 }
 
@@ -1985,15 +1990,18 @@ func (s *authStoreStub) GetPendingTOTPEnrollmentByID(ctx context.Context, enroll
 	return callStub1(s.getPendingTOTPEnrollmentByIDFunc, ctx, enrollmentID)
 }
 
-func (s *authStoreStub) BeginTOTPEnrollment(ctx context.Context, userID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, bootstrapTokenID *uuid.UUID, clientTxnID string, secretCiphertext []byte, secretNonce []byte, replacesActive bool, now time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
-	return callStub9Result2(s.beginTOTPEnrollmentFunc, ctx, userID, authScopeKind, sessionID, bootstrapTokenID, clientTxnID, secretCiphertext, secretNonce, replacesActive, now)
+func (s *authStoreStub) BeginTOTPEnrollment(ctx context.Context, enrollmentID uuid.UUID, userID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, bootstrapTokenID *uuid.UUID, clientTxnID string, secretEnvelope []byte, replacesActive bool, now time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
+	return callStub9Result2(s.beginTOTPEnrollmentFunc, ctx, enrollmentID, userID, authScopeKind, sessionID, bootstrapTokenID, clientTxnID, secretEnvelope, replacesActive, now)
 }
 
-func (s *authStoreStub) ActivateTOTPEnrollment(ctx context.Context, user authn.UserRecord, enrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, bootstrapTokenID *uuid.UUID, now time.Time) (authn.TOTPCompleteResult, error) {
-	return callStub6(s.activateTOTPEnrollmentFunc, ctx, user, enrollmentID, authScopeKind, sessionID, bootstrapTokenID, now)
+func (s *authStoreStub) ActivateTOTPEnrollment(ctx context.Context, user authn.UserRecord, enrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, bootstrapTokenID *uuid.UUID, pendingEnvelope, activeEnvelope []byte, now time.Time) (authn.TOTPCompleteResult, error) {
+	return callStub8(s.activateTOTPEnrollmentFunc, ctx, user, enrollmentID, authScopeKind, sessionID, bootstrapTokenID, pendingEnvelope, activeEnvelope, now)
 }
 
 func (s *authStoreStub) GetRouteIdempotency(ctx context.Context, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	if s.getRouteIdempotencyFunc == nil {
+		return authn.RouteIdempotencyRecord{}, authn.ErrNotFound
+	}
 	return callStub1(s.getRouteIdempotencyFunc, ctx, key)
 }
 
@@ -2059,11 +2067,11 @@ func (s *authStoreStub) GetEnterpriseAuthProviderByKey(ctx context.Context, prov
 	return s.getEnterpriseAuthProviderByKeyFunc(ctx, providerKey)
 }
 
-func (s *authStoreStub) CreateEnterpriseAuthTransaction(ctx context.Context, provider authn.EnterpriseAuthProviderRecord, returnTo string, state *string, nonce *string, pkceVerifierHash []byte, pkceVerifierCiphertext []byte, pkceVerifierNonce []byte, relayState *string, samlRequestID *string, browserBindingHash []byte, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
+func (s *authStoreStub) CreateEnterpriseAuthTransaction(ctx context.Context, transactionID uuid.UUID, provider authn.EnterpriseAuthProviderRecord, returnTo string, state *string, nonce *string, pkceVerifierHash []byte, pkceVerifierEnvelope []byte, relayState *string, samlRequestID *string, browserBindingHash []byte, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
 	if s.createEnterpriseAuthTxnFunc == nil {
 		return authn.EnterpriseAuthTransactionRecord{}, nil
 	}
-	return s.createEnterpriseAuthTxnFunc(ctx, provider, returnTo, state, nonce, pkceVerifierHash, pkceVerifierCiphertext, pkceVerifierNonce, relayState, samlRequestID, browserBindingHash, now)
+	return s.createEnterpriseAuthTxnFunc(ctx, transactionID, provider, returnTo, state, nonce, pkceVerifierHash, pkceVerifierEnvelope, relayState, samlRequestID, browserBindingHash, now)
 }
 
 func (s *authStoreStub) GetOIDCEnterpriseAuthTransactionForCallback(ctx context.Context, providerKey string, state string, browserBindingHash []byte, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
@@ -2144,7 +2152,10 @@ func (h *hubStub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 
 func newUnitService(t testing.TB, store authStore, revocations sessionRevocationPublisher, keys authn.MasterKeys, now time.Time) *Service {
 	t.Helper()
-	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+	cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
+	if err != nil {
+		t.Fatal(err)
+	}
 	return &Service{
 		loginStore:              store,
 		sessionStore:            store,
@@ -2156,7 +2167,7 @@ func newUnitService(t testing.TB, store authStore, revocations sessionRevocation
 		enterpriseStore:         store,
 		revocations:             revocations,
 		keys:                    keys,
-		cursorCodec:             pagination.NewCodec(cursorKey[:]),
+		cursorCodec:             pagination.NewCodec(cursorKey),
 		publicOrigin:            "https://cartulary.example.test",
 		now:                     func() time.Time { return now },
 	}
@@ -2376,27 +2387,26 @@ func deploymentAdminUserRecord(userID uuid.UUID, email string) authn.UserRecord 
 
 func activeTOTPUserRecord(t testing.TB, keys authn.MasterKeys, userID uuid.UUID, email string, password string, now time.Time) (authn.UserRecord, string) {
 	t.Helper()
-	passwordHash, err := authn.HashPassword(password)
+	passwordHash, err := authn.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("hash active totp password: %v", err)
 	}
-	secretBytes := []byte("01234567890123456789")
+	secretBytes := []byte("01234567890123456789012345678901")
 	secretBase32 := authn.EncodeSecretBase32(secretBytes)
-	ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+	envelope, err := authn.SealSecret(keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: userID, SubjectID: userID}, secretBytes)
 	if err != nil {
 		t.Fatalf("encrypt active totp secret: %v", err)
 	}
 	enrolledAt := now.Add(-time.Hour)
 	return authn.UserRecord{
-		ID:                   userID,
-		Email:                email,
-		DisplayName:          "User",
-		PasswordHash:         passwordHash,
-		MFARequired:          true,
-		IsActive:             true,
-		TOTPEnrolledAt:       &enrolledAt,
-		TOTPSecretCiphertext: ciphertext,
-		TOTPSecretNonce:      nonce,
+		ID:                 userID,
+		Email:              email,
+		DisplayName:        "User",
+		PasswordHash:       passwordHash,
+		MFARequired:        true,
+		IsActive:           true,
+		TOTPEnrolledAt:     &enrolledAt,
+		TOTPSecretEnvelope: envelope,
 	}, secretBase32
 }
 
@@ -2406,7 +2416,7 @@ func generateTOTPCodeAt(t testing.TB, secretBase32 string, now time.Time) string
 		Period:    30,
 		Skew:      1,
 		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
+		Algorithm: otp.AlgorithmSHA256,
 	})
 	if err != nil {
 		t.Fatalf("generate totp code: %v", err)

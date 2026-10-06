@@ -20,7 +20,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-membership-replay")
 
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-membership-replay@example.test", "Replay Target", "ReplayTarget1!", false, false, true)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-replay-incident",
@@ -121,7 +121,7 @@ func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-incident-audit")
 
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-incident-audit-create",
 		"incident_key":  "IR-IAUDIT",
@@ -177,7 +177,7 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-membership-audit")
 
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-membership-audit@example.test", "Audit Target", "AuditTarget1!", false, false, true)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-audit-incident",

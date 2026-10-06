@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const operatorObjectStoreInitResultSchemaID = "cartulary.operator.object_store_init_result.v1"
@@ -23,6 +25,7 @@ type operatorObjectStoreInitResult struct {
 }
 
 type objectStoreExecutor struct {
+	setupPostgres           func(context.Context, postgres.Settings) (operatorPostgresPool, error)
 	transport               operatorTransport
 	loadConfig              func(string) (configassembly.Loaded, error)
 	ensureObjectStoreBucket func(context.Context, objectstore.Settings) (objectstore.EnsureBucketResult, error)
@@ -53,6 +56,20 @@ func (executor objectStoreExecutor) initialize(ctx context.Context, parsed objec
 	settings, err := objectstore.ResolveSettings(configassembly.ObjectStoreBinding(cfg), nil)
 	if err != nil {
 		return sanitizeObjectStoreInitError(err)
+	}
+	dbSettings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), postgres.PurposeRecovery, nil)
+	if err != nil {
+		return sanitizeObjectStoreInitError(err)
+	}
+	if executor.setupPostgres == nil {
+		return database_migrations.ErrIncompatibleCryptoState
+	}
+	pool, err := executor.setupPostgres(ctx, dbSettings)
+	if err != nil {
+		return sanitizeObjectStoreInitError(err)
+	}
+	if pool != nil {
+		defer pool.Close()
 	}
 	result, err := executor.ensureObjectStoreBucket(ctx, settings)
 	if err != nil {
@@ -92,6 +109,9 @@ func operatorObjectStoreInitResultCode(result objectstore.EnsureBucketResult) st
 func sanitizeObjectStoreInitError(err error) error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, database_migrations.ErrIncompatibleCryptoState) {
+		return database_migrations.ErrIncompatibleCryptoState
 	}
 	reasonCode := "dependency_unavailable"
 	var diagnosticsErr *config.DiagnosticsError

@@ -1,12 +1,10 @@
 [Unit]
-Description=Run Cartulary MVP backup create every 6 hours
+Description=Cartulary backup capture while operator-started operation is active
 
 [Timer]
-OnBootSec=15min
+OnActiveSec=6h
 OnUnitActiveSec=6h
-RandomizedDelaySec=5min
-Persistent=true
 Unit=cartulary-backup.service
 
-[Install]
-WantedBy=timers.target
+# Intentionally no Install section: start explicitly after restart checks;
+# do not enable at guest boot or add Windows startup automation.

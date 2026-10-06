@@ -1,0 +1,20 @@
+{
+  "schema_id": "cartulary.cryptographic_vectors.v1",
+  "provenance": {
+    "hkdf": "RFC 5869 implemented independently with Python standard-library hmac/sha256",
+    "aead": "Python cryptography 46.0.5 AESGCM (OpenSSL), fixed test nonce only"
+  },
+  "master_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "purpose": "auth.totp",
+  "binding": [
+    "pending",
+    "record-42"
+  ],
+  "aad_hex": "6f776e65722d6d65746164617461",
+  "plaintext_hex": "696e646570656e64656e74206f70656e696e6720766563746f72",
+  "envelope_hex": "01202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000102030405060708090a0b359683b7530e87e29b6daeff5c727f29ec9df2ad06e1e37bc83827aaa05c25001a2308ffb2d8f3dc34d6",
+  "purpose_key_hex": "49fa4c54b954716be53d9cadf0e3b4b2d5d1d38f9b5225631f8c68761a441966",
+  "message_key_hex": "5606ead59de4b20feff2c4ef75a1ae00256600aef211de7ca2e3c3b84d14c85b",
+  "artifact_salt_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+  "artifact_ciphertext_hex": "000102030405060708090a0b287d8207d8928c4c72d7a409b8f4685eb988a2b02f318f96e7a1fc552c54194318828b137f86baaf05e3"
+}

@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"os"
 	"strings"
@@ -32,8 +31,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 )
-
-const otlpExporterGoVersion = "v1.41.0"
 
 type Runtime struct {
 	enabled           bool
@@ -176,7 +173,11 @@ func (r *Runtime) ResourceIdentity() ResourceIdentity {
 }
 
 func (r *Runtime) activateOTLP(ctx context.Context, cfg telemetryconfiguration.Config, identity ResourceIdentity, resolvedHeaders map[string]string) error {
-	userAgent, err := ExporterUserAgent(cfg.Resource.ServiceVersion, otlpExporterGoVersion)
+	version, err := exporterDependencyVersion(cfg.Exporter.Kind, "traces")
+	if err != nil {
+		return err
+	}
+	userAgent, err := ExporterUserAgent(cfg.Resource.ServiceVersion, version)
 	if err != nil {
 		return config.NewDiagnosticsError(config.Diagnostic{
 			Path:       "telemetry.exporter.user_agent",
@@ -192,13 +193,20 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg telemetryconfiguration.C
 			Message:    err.Error(),
 		})
 	}
+	transport, err := newExporterTransport(cfg.Exporter.Endpoint, durationMS(cfg.Processor.ExportTimeoutMS))
+	if err != nil {
+		return config.NewDiagnosticsError(config.Diagnostic{Path: "telemetry.exporter.endpoint", ReasonCode: "invalid_telemetry_config", Message: "telemetry TLS configuration rejected"})
+	}
+	r.shutdowns = append(r.shutdowns, func(context.Context) error { transport.close(); return nil })
 	res := sdkresource.NewSchemaless(identity.Attributes...)
 	r.exporterKind = cfg.Exporter.Kind
 	r.exporterEndpoint = cfg.Exporter.Endpoint
 	r.diagnosticHeaders = copyStringMap(headerPlan.DiagnosticHeaders)
+	// Exporter library versions differ by signal; each request carries its own identity.
+	delete(r.diagnosticHeaders, "user-agent")
 
 	if cfg.Traces.Enabled {
-		traceExporter, err := newTraceExporter(ctx, cfg, headerPlan, userAgent)
+		traceExporter, err := newTraceExporter(ctx, cfg, headerPlan, transport)
 		if err != nil {
 			return err
 		}
@@ -221,7 +229,7 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg telemetryconfiguration.C
 	}
 
 	if cfg.Metrics.Enabled {
-		metricExporter, err := newMetricExporter(ctx, cfg, headerPlan, userAgent)
+		metricExporter, err := newMetricExporter(ctx, cfg, headerPlan, transport)
 		if err != nil {
 			return err
 		}
@@ -243,7 +251,7 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg telemetryconfiguration.C
 
 	selfMetrics := newTelemetrySelfMetrics(cfg)
 	if cfg.Logs.BridgeEnabled {
-		logExporter, err := newLogExporter(ctx, cfg, headerPlan, userAgent)
+		logExporter, err := newLogExporter(ctx, cfg, headerPlan, transport)
 		if err != nil {
 			return err
 		}
@@ -270,7 +278,18 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg telemetryconfiguration.C
 	return nil
 }
 
-func newTraceExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdktrace.SpanExporter, error) {
+func newTraceExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, transport exporterTransport) (sdktrace.SpanExporter, error) {
+	version, err := exporterDependencyVersion(cfg.Exporter.Kind, "traces")
+	if err != nil {
+		return nil, err
+	}
+	userAgent, err := ExporterUserAgent(cfg.Resource.ServiceVersion, version)
+	if err != nil {
+		return nil, err
+	}
+	headerPlan.RequestHeaders = copyStringMap(headerPlan.RequestHeaders)
+	headerPlan.RequestHeaders["user-agent"] = userAgent
+
 	switch cfg.Exporter.Kind {
 	case "otlp_http":
 		urls, err := BuildOTLPHTTPURLs(cfg.Exporter.Endpoint)
@@ -278,6 +297,7 @@ func newTraceExporter(ctx context.Context, cfg telemetryconfiguration.Config, he
 			return nil, err
 		}
 		opts := []otlptracehttp.Option{
+			otlptracehttp.WithHTTPClient(transport.client),
 			otlptracehttp.WithEndpointURL(urls.Traces),
 			otlptracehttp.WithHeaders(sdkHTTPHeaders(headerPlan)),
 			otlptracehttp.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
@@ -297,13 +317,9 @@ func newTraceExporter(ctx context.Context, cfg telemetryconfiguration.Config, he
 			otlptracegrpc.WithHeaders(sdkGRPCHeaders(headerPlan)),
 			otlptracegrpc.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlptracegrpc.WithRetry(otlptracegrpc.RetryConfig(exporterRetryConfig(cfg))),
-			otlptracegrpc.WithDialOption(grpc.WithUserAgent(userAgent)),
+			otlptracegrpc.WithDialOption(grpc.WithUserAgent(userAgent), grpc.WithNoProxy()),
 		}
-		if target.Secure {
-			opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
-		} else {
-			opts = append(opts, otlptracegrpc.WithInsecure())
-		}
+		opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(transport.tls.Clone())))
 		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlptracegrpc.WithCompressor("gzip"))
 		}
@@ -313,7 +329,18 @@ func newTraceExporter(ctx context.Context, cfg telemetryconfiguration.Config, he
 	}
 }
 
-func newMetricExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdkmetric.Exporter, error) {
+func newMetricExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, transport exporterTransport) (sdkmetric.Exporter, error) {
+	version, err := exporterDependencyVersion(cfg.Exporter.Kind, "metrics")
+	if err != nil {
+		return nil, err
+	}
+	userAgent, err := ExporterUserAgent(cfg.Resource.ServiceVersion, version)
+	if err != nil {
+		return nil, err
+	}
+	headerPlan.RequestHeaders = copyStringMap(headerPlan.RequestHeaders)
+	headerPlan.RequestHeaders["user-agent"] = userAgent
+
 	switch cfg.Exporter.Kind {
 	case "otlp_http":
 		urls, err := BuildOTLPHTTPURLs(cfg.Exporter.Endpoint)
@@ -321,6 +348,7 @@ func newMetricExporter(ctx context.Context, cfg telemetryconfiguration.Config, h
 			return nil, err
 		}
 		opts := []otlpmetrichttp.Option{
+			otlpmetrichttp.WithHTTPClient(transport.client),
 			otlpmetrichttp.WithEndpointURL(urls.Metrics),
 			otlpmetrichttp.WithHeaders(sdkHTTPHeaders(headerPlan)),
 			otlpmetrichttp.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
@@ -340,13 +368,9 @@ func newMetricExporter(ctx context.Context, cfg telemetryconfiguration.Config, h
 			otlpmetricgrpc.WithHeaders(sdkGRPCHeaders(headerPlan)),
 			otlpmetricgrpc.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlpmetricgrpc.WithRetry(otlpmetricgrpc.RetryConfig(exporterRetryConfig(cfg))),
-			otlpmetricgrpc.WithDialOption(grpc.WithUserAgent(userAgent)),
+			otlpmetricgrpc.WithDialOption(grpc.WithUserAgent(userAgent), grpc.WithNoProxy()),
 		}
-		if target.Secure {
-			opts = append(opts, otlpmetricgrpc.WithTLSCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
-		} else {
-			opts = append(opts, otlpmetricgrpc.WithInsecure())
-		}
+		opts = append(opts, otlpmetricgrpc.WithTLSCredentials(credentials.NewTLS(transport.tls.Clone())))
 		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlpmetricgrpc.WithCompressor("gzip"))
 		}
@@ -356,7 +380,18 @@ func newMetricExporter(ctx context.Context, cfg telemetryconfiguration.Config, h
 	}
 }
 
-func newLogExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdklog.Exporter, error) {
+func newLogExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, transport exporterTransport) (sdklog.Exporter, error) {
+	version, err := exporterDependencyVersion(cfg.Exporter.Kind, "logs")
+	if err != nil {
+		return nil, err
+	}
+	userAgent, err := ExporterUserAgent(cfg.Resource.ServiceVersion, version)
+	if err != nil {
+		return nil, err
+	}
+	headerPlan.RequestHeaders = copyStringMap(headerPlan.RequestHeaders)
+	headerPlan.RequestHeaders["user-agent"] = userAgent
+
 	switch cfg.Exporter.Kind {
 	case "otlp_http":
 		urls, err := BuildOTLPHTTPURLs(cfg.Exporter.Endpoint)
@@ -364,6 +399,7 @@ func newLogExporter(ctx context.Context, cfg telemetryconfiguration.Config, head
 			return nil, err
 		}
 		opts := []otlploghttp.Option{
+			otlploghttp.WithHTTPClient(transport.client),
 			otlploghttp.WithEndpointURL(urls.Logs),
 			otlploghttp.WithHeaders(sdkHTTPHeaders(headerPlan)),
 			otlploghttp.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
@@ -383,13 +419,9 @@ func newLogExporter(ctx context.Context, cfg telemetryconfiguration.Config, head
 			otlploggrpc.WithHeaders(sdkGRPCHeaders(headerPlan)),
 			otlploggrpc.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlploggrpc.WithRetry(otlploggrpc.RetryConfig(exporterRetryConfig(cfg))),
-			otlploggrpc.WithDialOption(grpc.WithUserAgent(userAgent)),
+			otlploggrpc.WithDialOption(grpc.WithUserAgent(userAgent), grpc.WithNoProxy()),
 		}
-		if target.Secure {
-			opts = append(opts, otlploggrpc.WithTLSCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
-		} else {
-			opts = append(opts, otlploggrpc.WithInsecure())
-		}
+		opts = append(opts, otlploggrpc.WithTLSCredentials(credentials.NewTLS(transport.tls.Clone())))
 		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlploggrpc.WithCompressor("gzip"))
 		}

@@ -108,7 +108,8 @@ func TestMVPObjectStoreInitOperatorTransport(t *testing.T) {
 		}
 	})
 
-	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary", postgres.PurposeRecovery)
+	testDB := pgtest.Start(t).PrepareIsolatedDatabaseT(t, "object_store_admission")
+	configFixture := operatorManagedS3Config(t, testDB.DSN, "object_primary", postgres.PurposeRecovery)
 	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("object_primary", bucket))
 	operatorBin := injectedOperatorBinary(t)
 	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, env, "object-store", "init", "-config", configFixture.path)
@@ -137,7 +138,8 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 		}
 	}()
 
-	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary", postgres.PurposeRecovery)
+	testDB := pgtest.Start(t).PrepareIsolatedDatabaseT(t, "object_store_admission")
+	configFixture := operatorManagedS3Config(t, testDB.DSN, "object_primary", postgres.PurposeRecovery)
 	cfg := loadOperatorConfig(t, configFixture.path)
 	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("object_primary", bucket))
 	if _, err := appsupport.OpenObjectStore(ctx, cfg, env); err == nil {
@@ -1060,7 +1062,7 @@ SELECT
     COALESCE(reason_code, ''),
     envelope_schema_id,
     encryption_mode,
-    octet_length(ciphertext)::int
+    octet_length(sealed_payload)::int
 FROM operator_recovery_journal
 WHERE operation_id = $1::uuid AND operation = $2
 ORDER BY created_at ASC, operator_recovery_journal_id ASC
@@ -1165,8 +1167,8 @@ SELECT
     encryption_mode,
     key_fingerprint_sha256,
     payload_sha256,
-    nonce,
-    ciphertext
+    operator_recovery_journal_id::text,
+    sealed_payload
 FROM operator_recovery_journal
 WHERE operation_id = $1::uuid AND operation = 'restore_verify_due'
 ORDER BY created_at ASC, operator_recovery_journal_id ASC
@@ -1196,8 +1198,8 @@ ORDER BY created_at ASC, operator_recovery_journal_id ASC
 			&envelope.EncryptionMode,
 			&envelope.KeyFingerprintSHA256,
 			&envelope.PayloadSHA256,
-			&envelope.Nonce,
-			&envelope.Ciphertext,
+			&envelope.RecordID,
+			&envelope.SealedPayload,
 		); err != nil {
 			t.Fatalf("scan due attempt journal evidence: %v", err)
 		}
@@ -1572,12 +1574,13 @@ func writeRestoreTargetMarker(t testing.TB, cfg configassembly.Deployment, purpo
 		},
 	})
 	body, err := json.Marshal(application.RestoreTargetMarker{
-		SchemaID:           application.RestoreTargetMarkerSchemaID,
-		Purpose:            purpose,
-		TargetGenerationID: generationID.String(),
-		BindingDigests:     digests,
-		IssuedAt:           now.Add(-time.Minute).Format(time.RFC3339Nano),
-		ExpiresAt:          now.Add(time.Hour).Format(time.RFC3339Nano),
+		ApplicationCryptoFormat: recovery.ApplicationCryptoFormatID,
+		SchemaID:                application.RestoreTargetMarkerSchemaID,
+		Purpose:                 purpose,
+		TargetGenerationID:      generationID.String(),
+		BindingDigests:          digests,
+		IssuedAt:                now.Add(-time.Minute).Format(time.RFC3339Nano),
+		ExpiresAt:               now.Add(time.Hour).Format(time.RFC3339Nano),
 	})
 	if err != nil {
 		t.Fatalf("encode restore target marker: %v", err)

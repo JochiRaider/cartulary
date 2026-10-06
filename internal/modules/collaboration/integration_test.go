@@ -89,10 +89,10 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, concurrencyUser.ID.String(), concurrencyUser.Email, "editor")
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, member.ID.String(), member.Email, "editor")
 
-	logoutSession, logoutCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, logoutUser.Email, "CollaborationLogoutPass1!", nil)
-	expirySession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, expiryUser.Email, "CollaborationExpiryPass1!", nil)
-	concurrencySession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, concurrencyUser.Email, "CollaborationConcurrencyPass1!", nil)
-	memberSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, member.Email, "CollaborationMemberPass1!", nil)
+	logoutSession, logoutCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, logoutUser.Email, "CollaborationLogoutPass1!", nil)
+	expirySession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, expiryUser.Email, "CollaborationExpiryPass1!", nil)
+	concurrencySession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, concurrencyUser.Email, "CollaborationConcurrencyPass1!", nil)
+	memberSession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, member.Email, "CollaborationMemberPass1!", nil)
 
 	t.Run("current session logout", func(t *testing.T) {
 		logoutSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -402,7 +402,7 @@ func setupSocketIncidentWithAdminID(t testing.TB, runtime *appsupport.Runtime, p
 		Dependencies:  httpapi.DependencySet{},
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-	admin, adminID := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	admin, adminID := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-" + prefix,
 		"incident_key":  "IR-" + prefix,

@@ -1,0 +1,37 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v6",
+  "owner_id": "platform.pagination",
+  "rows": [
+    {
+      "row_id": "platform.pagination.unit.cursor_contract",
+      "owner_id": "platform.pagination",
+      "family_id": "platform.pagination.unit",
+      "collaborator_ids": [
+        "module.auth",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "platform.pagination.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/pagination",
+        "tests": [
+          "TestCodecRejectsTamperedCursor",
+          "TestCursorVersionKeyAndFramingRejection",
+          "TestPageRawMessagesUsesSignedOffsetCursorWithoutRetainingRows",
+          "TestResolveRequestReusesCursorBoundLimitAndValidatesBindings",
+          "TestResolveViewQueryReportsContractMismatch"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    }
+  ]
+}

@@ -94,7 +94,7 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hash canonical source: %v", err)
 	}
-	const wantHash = "9052cea15514ace7ede6cbc4d214c585c27c3ced742595b7b9bfd5269e6176f3"
+	const wantHash = "5111d8c8b6d5d70fdba0e4c664bb980daadccfa51b105976096cf02cf2c20061"
 	if hash != wantHash {
 		t.Fatalf("canonical source hash = %s, want %s", hash, wantHash)
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -121,6 +122,18 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 	if artifact.CleanupState != "complete" || !artifact.cleanupComplete("credential_copy") || !artifact.cleanupComplete("database") || !artifact.cleanupComplete("bucket") || !artifact.cleanupComplete("session") || !artifact.cleanupComplete("process") {
 		t.Fatalf("incomplete lease artifact: %#v", artifact)
 	}
+	if status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile}, env, deps.dependencies); status != 0 {
+		t.Fatalf("repeated owned cleanup status = %d", status)
+	}
+	repeated, err := os.ReadFile(artifactFile)
+	if err != nil || !bytes.Equal(raw, repeated) {
+		t.Fatalf("repeated cleanup rewrote its immutable evidence: %v", err)
+	}
+	metadata.CloneLeaseID = "different-lease"
+	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata); err == nil {
+		t.Fatal("different lease identity reused retained cleanup evidence")
+	}
+
 }
 
 func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t *testing.T) {
@@ -179,6 +192,25 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 	if artifact.CleanupState != "failed" || artifact.FailureCode != "database_cleanup_failed" || !artifact.cleanupComplete("credential_copy") || !artifact.cleanupComplete("bucket") {
 		t.Fatalf("cleanup failure artifact lost causal state: %#v", artifact)
 	}
+	deps.cleanupWebE2EDB = func(context.Context, webE2EMetadata, map[string]string) error { return nil }
+	bucketAttempted = false
+	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata); err == nil {
+		t.Fatal("successful retry erased an earlier cleanup failure")
+	}
+	if !bucketAttempted {
+		t.Fatal("retained failure prevented retrying active cleanup")
+	}
+	repeated, err := os.ReadFile(artifactFile)
+	if err != nil || !bytes.Equal(raw, repeated) {
+		t.Fatalf("retry rewrote original failed evidence: %v", err)
+	}
+
+	metadata.RowID = "module.timeline.measurement.incomplete_process_row"
+	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "0"
+	if err := cleanupPerformanceFixtureLease(context.Background(), deps.dependencies, env, metadata); err == nil {
+		t.Fatal("incomplete process cleanup returned success")
+	}
+
 }
 
 func performanceFixtureTestProfile(t *testing.T) performancefixtureprofile.Profile {

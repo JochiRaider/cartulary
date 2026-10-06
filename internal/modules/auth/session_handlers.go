@@ -20,20 +20,26 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	workflow := beginPasswordWorkflow(w, r)
+	if workflow == nil {
+		return
+	}
+	defer workflow.Close()
+
 	user, err := s.loginStore.GetUserByNormalizedEmail(r.Context(), request.Username)
 	if err != nil || !user.IsActive {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
 		return
 	}
 
-	ok, err := authn.VerifyPasswordHash(user.PasswordHash, request.Password)
+	ok, err := workflow.Verify(user.PasswordHash, request.Password)
 	if err != nil || !ok {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
 		return
 	}
 
 	if user.MFARequired {
-		hasActiveTOTP := user.TOTPEnrolledAt != nil && len(user.TOTPSecretCiphertext) > 0 && len(user.TOTPSecretNonce) > 0
+		hasActiveTOTP := user.TOTPEnrolledAt != nil && len(user.TOTPSecretEnvelope) > 0
 		if !hasActiveTOTP {
 			bootstrapToken, bootstrapExpiresAt, err := s.issueBootstrapToken(r.Context(), user.ID)
 			if err != nil {
@@ -63,7 +69,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		secretBytes, err := authn.DecryptSecret(s.keys, user.TOTPSecretCiphertext, user.TOTPSecretNonce)
+		secretBytes, err := authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.ActiveTOTPSecret, RecordID: user.ID, SubjectID: user.ID}, user.TOTPSecretEnvelope)
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return

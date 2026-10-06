@@ -2,6 +2,7 @@ package operator
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -11,7 +12,9 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -50,7 +53,15 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 		return loaded, nil
 	}
 	setupPostgres := func(ctx context.Context, settings postgres.Settings) (operatorPostgresPool, error) {
-		return postgres.Setup(ctx, settings)
+		pool, err := postgres.Setup(ctx, settings)
+		if err != nil {
+			return nil, err
+		}
+		if err := database_migrations.RequireApplicationCryptoFormat(ctx, pool.Pool()); err != nil {
+			pool.Close()
+			return nil, err
+		}
+		return pool, nil
 	}
 	setupObjectStore := func(ctx context.Context, settings objectstore.Settings, instrumentation objectstore.Instrumentation) (objectstore.Store, error) {
 		return objectstore.Setup(ctx, settings, instrumentation)
@@ -89,6 +100,7 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 			transport:               transport,
 			loadConfig:              loadConfig,
 			ensureObjectStoreBucket: ensureObjectStoreBucket,
+			setupPostgres:           setupPostgres,
 		},
 		referencePacks: referencePackExecutor{transport: transport, loadConfig: loadConfig, newOperationID: uuid.New, open: openReferencePackLocalRuntime},
 		collaboration: collaborationExecutor{
@@ -103,6 +115,10 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 }
 
 func (runner operatorRunner) runCLI(ctx context.Context, args []string) int {
+	if err := cryptography.AdmitExecution(); err != nil {
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(runner.stderr), err)
+		return 1
+	}
 	registry, err := runner.commandRegistry()
 	if err != nil {
 		operatorLogger(runner.stderr).Error("operator command registry is invalid", "error", err)

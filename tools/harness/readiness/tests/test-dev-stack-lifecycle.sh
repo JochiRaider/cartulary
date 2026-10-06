@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export CARTULARY_AUTH_MASTER_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+export CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY"
+export CARTULARY_DEV_TLS_ROOT_CERTIFICATE=/fixture/ca.pem
+export CARTULARY_DEV_TLS_CERTIFICATE=/fixture/frontend.crt
+export CARTULARY_DEV_TLS_PRIVATE_KEY=/fixture/frontend.key
+export CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH=/fixture/backend.crt
+export CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH=/fixture/backend.key
+export SEAWEEDFS_S3_ACCESS_KEY_ID=fixture-access
+export SEAWEEDFS_S3_SECRET_ACCESS_KEY=fixture-secret-for-isolated-test
+export CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN='postgresql://cartulary_runtime_login@localhost:5432/cartulary?sslmode=verify-full&sslrootcert=%2Ffixture%2Fca.pem&sslcert=%2Ffixture%2Fclient.crt&sslkey=%2Ffixture%2Fclient.key'
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 DEV_STACK_SCRIPT="$ROOT_DIR/tools/harness/readiness/dev-stack.sh"
@@ -316,7 +326,7 @@ assert_equals "$env_status" "1" "env status"
 backend_env="$(cat "$env_dir/backend.env")"
 assert_contains "$backend_env" "CARTULARY_CONFIG_FILE=$ROOT_DIR/configs/dev/config.toml" "env dev config"
 assert_contains "$backend_env" "CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH=$ROOT_DIR/configs/dev/bootstrap-admin.json" "env bootstrap manifest"
-assert_contains "$backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN=postgres://cartulary_runtime_login:cartulary-runtime@localhost:5432/cartulary?sslmode=disable" "env managed postgres runtime dsn"
+assert_contains "$backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN=postgresql://cartulary_runtime_login@localhost:5432/cartulary?sslmode=verify-full&sslrootcert=%2Ffixture%2Fca.pem&sslcert=%2Ffixture%2Fclient.crt&sslkey=%2Ffixture%2Fclient.key" "env managed postgres runtime dsn"
 assert_contains "$backend_env" "CARTULARY_S3_OBJECT_PRIMARY_BUCKET=cartulary" "env managed object bucket"
 assert_not_contains "$backend_env" "CARTULARY_POSTGRES_DSN=" "env e2e dsn"
 assert_not_contains "$backend_env" "CARTULARY_ENABLE_TEST_ROUTES=" "env test routes"
@@ -332,7 +342,7 @@ backend_command="$(printf 'PID_FILE=%q TERM_FILE=%q ENV_FILE=%q MODE=exit_after 
   "$custom_env_dir/backend.env" \
   "$signal_recorder")"
 frontend_command="$(make_command "$signal_recorder" "$custom_env_dir/frontend.pid" "$custom_env_dir/frontend.term")"
-if CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN='postgres://custom:secret@db.example:15432/customdb?sslmode=require' \
+if CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN='postgresql://cartulary_runtime_login@custom.example:15432/customdb?sslmode=verify-full&sslrootcert=%2Ffixture%2Fca.pem&sslcert=%2Ffixture%2Fclient.crt&sslkey=%2Ffixture%2Fclient.key' \
   CARTULARY_DEV_STACK_BACKEND_COMMAND="$backend_command" \
   CARTULARY_DEV_STACK_FRONTEND_COMMAND="$frontend_command" \
   run_dev_stack_case "$custom_env_dir"; then
@@ -342,5 +352,5 @@ else
 fi
 assert_equals "$custom_env_status" "1" "custom env status"
 custom_backend_env="$(cat "$custom_env_dir/backend.env")"
-assert_contains "$custom_backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN=postgres://custom:secret@db.example:15432/customdb?sslmode=require" "custom env preserves managed postgres runtime dsn"
-assert_not_contains "$custom_backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN=postgres://cartulary_runtime_login:cartulary-runtime@localhost:5432/cartulary?sslmode=disable" "custom env does not force default runtime dsn"
+assert_contains "$custom_backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN=postgresql://cartulary_runtime_login@custom.example:15432/customdb?sslmode=verify-full&sslrootcert=%2Ffixture%2Fca.pem&sslcert=%2Ffixture%2Fclient.crt&sslkey=%2Ffixture%2Fclient.key" "custom env preserves managed postgres runtime dsn"
+assert_not_contains "$custom_backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN=postgresql://cartulary_runtime_login@localhost:5432/cartulary?sslmode=verify-full&sslrootcert=%2Ffixture%2Fca.pem&sslcert=%2Ffixture%2Fclient.crt&sslkey=%2Ffixture%2Fclient.key" "custom env does not force default runtime dsn"

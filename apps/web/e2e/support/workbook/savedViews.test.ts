@@ -22,6 +22,11 @@ describe("saved-view workbook support", () => {
     selector.dataset.activeViewSchemaId = timelineViewSchemaId;
     selector.dataset.selectedSheetRefKind = "view_schema";
     selector.dataset.selectedSavedViewId = "";
+    let selectionRequested = false;
+    let observeSelection!: () => void;
+    const selectionObserved = new Promise<void>((resolve) => {
+      observeSelection = resolve;
+    });
     const page = {
       getByTestId(testId: string) {
         expect([
@@ -32,15 +37,17 @@ describe("saved-view workbook support", () => {
           click: async () => {
             if (testId === savedViewSelectorTestId(timelineViewSchemaId))
               selector.setAttribute("aria-expanded", "true");
-            else {
-              selector.dataset.selectedSheetRefKind = "saved_view";
-              selector.dataset.selectedSavedViewId = "saved-view-1";
-            }
+            else selectionRequested = true;
           },
           evaluate: async (
             callback: (element: Element, argument?: unknown) => unknown,
             argument?: unknown,
-          ) => callback(selector, argument),
+          ) => {
+            const result = callback(selector, argument);
+            if (selectionRequested && typeof result === "object")
+              observeSelection();
+            return result;
+          },
           fill: async () => undefined,
           selectOption: async (savedViewId: string | readonly string[]) => {
             selector.dataset.selectedSheetRefKind = "saved_view";
@@ -50,7 +57,19 @@ describe("saved-view workbook support", () => {
       },
     };
 
-    await selectSavedView(page, timelineViewSchemaId, "saved-view-1");
+    let settled = false;
+    const selection = selectSavedView(
+      page,
+      timelineViewSchemaId,
+      "saved-view-1",
+    ).then(() => {
+      settled = true;
+    });
+    await selectionObserved;
+    expect(settled).toBe(false);
+    selector.dataset.selectedSheetRefKind = "saved_view";
+    selector.dataset.selectedSavedViewId = "saved-view-1";
+    await selection;
 
     await expect(
       readSavedViewSelectionState(page, timelineViewSchemaId),

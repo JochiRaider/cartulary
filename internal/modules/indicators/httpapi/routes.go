@@ -97,8 +97,11 @@ func newService(deps platformhttpapi.DependencySet, owner ownerApplication, reco
 	}
 	codec := deps.CursorCodec
 	if codec == nil {
-		key := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
-		codec = pagination.NewCodec(key[:])
+		key, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
+		if err != nil {
+			return nil, err
+		}
+		codec = pagination.NewCodec(key)
 	}
 	return &service{
 		owner: owner, incidents: incidents, records: recordEnvelopes,

@@ -13,11 +13,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
 const (
-	RestoreTargetMarkerSchemaID         = "cartulary.restore_target_marker.v4"
+	RestoreTargetMarkerSchemaID         = "cartulary.restore_target_marker.v5"
 	RestoreTargetMarkerMaximumBytes     = int64(65536)
 	RestoreTargetGenerationMaximumBytes = int64(64)
 	RestoreTargetMarkerMaximumLifetime  = 24 * time.Hour
@@ -44,12 +45,13 @@ type TargetBindingDigests struct {
 }
 
 type RestoreTargetMarker struct {
-	SchemaID           string               `json:"schema_id"`
-	Purpose            string               `json:"purpose"`
-	TargetGenerationID string               `json:"target_generation_id"`
-	BindingDigests     TargetBindingDigests `json:"binding_digests"`
-	IssuedAt           string               `json:"issued_at"`
-	ExpiresAt          string               `json:"expires_at"`
+	ApplicationCryptoFormat string               `json:"application_crypto_format"`
+	SchemaID                string               `json:"schema_id"`
+	Purpose                 string               `json:"purpose"`
+	TargetGenerationID      string               `json:"target_generation_id"`
+	BindingDigests          TargetBindingDigests `json:"binding_digests"`
+	IssuedAt                string               `json:"issued_at"`
+	ExpiresAt               string               `json:"expires_at"`
 }
 
 type TargetServingAdmission interface {
@@ -87,7 +89,7 @@ func AdmitRestoreTargetMarker(material TargetMarkerMaterial, purpose string, exp
 	if err := decoder.Decode(&marker); err != nil {
 		return uuid.Nil, fmt.Errorf("decode restore target marker: %w", err)
 	}
-	if marker.SchemaID != RestoreTargetMarkerSchemaID || marker.Purpose != purpose {
+	if marker.ApplicationCryptoFormat != recovery.ApplicationCryptoFormatID || marker.SchemaID != RestoreTargetMarkerSchemaID || marker.Purpose != purpose {
 		return uuid.Nil, errors.New("restore target marker has the wrong schema or purpose")
 	}
 	generationText := strings.TrimSpace(string(material.GenerationBody))

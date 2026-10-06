@@ -24,6 +24,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { requestTLS12, withTLSProbe } from "./support/runtime/fixtureTLS";
 import { publishIndependentFrontendBuild } from "./support/runtime/frontendBuild";
 import { waitForLoadedVendoredFonts } from "./support/runtime/visualRenderer";
 import { seedVisualTimelineInvestigation } from "./support/timeline/timelineInvestigation";
@@ -53,6 +54,29 @@ import {
   activateCommittedGridCell,
   openTimelineInspector,
 } from "./support/workbook/rowMutations";
+
+test("browser fixture trust accepts its authority and rejects foreign authorities and hostnames", async ({
+  page,
+}) => {
+  await withTLSProbe("trusted", async (origin) => {
+    const response = await page.goto(origin);
+    expect(response?.status()).toBe(200);
+    expect((await response?.securityDetails())?.protocol).toBe("TLS 1.3");
+  });
+  for (const [kind, reason] of [
+    ["untrusted", "ERR_CERT_AUTHORITY_INVALID"],
+    ["wrong-name", "ERR_CERT_COMMON_NAME_INVALID"],
+  ] as const) {
+    await withTLSProbe(kind, async (origin) => {
+      await expect(page.goto(origin)).rejects.toThrow(reason);
+    });
+  }
+  for (const endpoint of ["frontend", "backend"] as const) {
+    await expect(requestTLS12(endpoint)).rejects.toThrow(
+      /alert protocol version/i,
+    );
+  }
+});
 
 test("rich Timeline recipe preserves owner states and source text during capture preparation", async ({
   workerAdminPage: page,

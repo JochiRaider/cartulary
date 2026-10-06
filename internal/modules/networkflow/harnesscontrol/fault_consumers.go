@@ -130,7 +130,6 @@ type faultJobFinalizer struct {
 
 func (c *Controls) ConfigureNetworkFlow(d networkflow.ModuleDependencies) networkflow.ModuleDependencies {
 	d.TableIDEntropy = c.TableIDEntropy()
-	d.CursorNonceEntropy = c.CursorNonceEntropy()
 	canceler, _ := d.JobManager.(jobCanceler)
 	if d.JobRunner != nil {
 		d.JobRunner = &faultJobRunner{d.JobRunner, c}

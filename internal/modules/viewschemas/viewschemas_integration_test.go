@@ -15,11 +15,11 @@ import (
 func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "view-schemas-discovery")
-	login, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	t.Run("allows any active authenticated deployment user", func(t *testing.T) {
 		flowtest.SeedLocalUserFlags(t, harness.DB, "analyst@example.test", "Analyst", "AnalystPass1!", false, false, true)
-		sessionCookie, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "analyst@example.test", "AnalystPass1!", nil)
+		sessionCookie, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "analyst@example.test", "AnalystPass1!", nil)
 
 		resp := httptestx.DoJSON(
 			t,

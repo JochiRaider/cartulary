@@ -33,7 +33,20 @@ This revision records behavior-affecting closure for deployment administration e
 
 Contract-owner coverage for repeated families is complete in Core 00 §5.1. Appendix E is roadmap, historical source-question material, and future-only editorial backlog; it is not a live source of unresolved current-profile contract decisions. Any later typo, formatting, link, or similar non-substantive correction is corpus maintenance only and does not reopen current-profile design status, conformance scope, or profile boundaries.
 
-The remaining hardening work for this corpus is editorial normalization only after this behavior-affecting closure. It does not reopen current-profile runtime behavior, profile boundaries, or implementation-conformance scope.
+The application cryptographic cutover in Core 04 §1.3 is a subsequent
+behavior-affecting source amendment coordinated with Core 01, Reference Pack,
+OpenTelemetry and Testing Harness owners. It defines fresh-state compatibility,
+credential/sealed formats, certificate authentication, transport and execution
+qualification; its implementation and qualification must be established before
+claiming the revised behavior. It does not alter Reference Pack signed bytes or
+method identity, adopt a draft subsystem owner, qualify an operating environment,
+or approve deployment. Source amendment, implementation completion, package
+qualification and production adoption retain separate recorded dispositions.
+The current implementation/release target for this cutover is WSL2 under
+Windows 11; native-Linux deployment and qualification are deferred indefinitely.
+This target decision does not grant formal CMVP applicability to WSL2. The
+engineering reference profile and its evidence are owned by Core 04 §1.3 and
+Testing Harness §§13.7–14, independently of formal deployment claims.
 
 Current-profile workbook-surface identity and registry closure, including pack-dependent surface constraints, are owned by Core 01 §7.4 and Core 03 §2. Appendices may describe future candidates but do not define current-profile workbook surfaces.
 

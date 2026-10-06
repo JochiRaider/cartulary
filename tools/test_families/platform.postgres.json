@@ -3,6 +3,36 @@
   "owner_id": "platform.postgres",
   "rows": [
     {
+      "row_id": "platform.postgres.integration.fresh_fixture_admission",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.integration",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/pgtest",
+        "tests": [
+          "TestHarnessStartsPostgresAndRunsCurrentMigrationPath",
+          "TestPrepareIsolatedDatabaseTReturnsMigratedDatabase"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "platform.postgres.integration.purpose_identity_roles_and_acl",
       "owner_id": "platform.postgres",
       "family_id": "platform.postgres.integration",
@@ -33,6 +63,60 @@
       ]
     },
     {
+      "row_id": "platform.postgres.support_unit.certificate_authentication_policy_rejects_passwo_d477ceca4c",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestPostgresDriverCertificateAuthenticationPolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.postgres.support_unit.certificate_fixture_lifecycle",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.support_unit",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/pgtest",
+        "tests": [
+          "TestOwnedPostgresAppliesContainerLabels",
+          "TestOwnedPostgresDoesNotRetryAuthenticationReadinessFailure",
+          "TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt",
+          "TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "platform.postgres.support_unit.root_bound_dsn_is_bounded_and_no_follow_5c8a0a293d",
       "owner_id": "platform.postgres",
       "family_id": "platform.postgres.support_unit",
@@ -48,6 +132,7 @@
         "tests": [
           "TestAdmissionErrorRedactsUnderlyingFailure",
           "TestAdmissionFactsRequireExactEngineAndSecurityPosture",
+          "TestPostgresCertificateDSNPolicy",
           "TestPostgresDiagnosticsAreOpaque",
           "TestPostgresFilesystemCredentialSafety",
           "TestPostgresPurposeContracts",

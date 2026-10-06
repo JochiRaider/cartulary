@@ -229,7 +229,7 @@ endpoint = "https://collector.example.test:4318/otel"
 		validGRPC := string(fixturesConfigValid(t)) + `
 [telemetry.exporter]
 kind = "otlp_grpc"
-endpoint = "http://collector.example.test:4317/"
+endpoint = "https://collector.example.test:4317/"
 `
 		if _, err := configassembly.Load(configassembly.LoadOptions{Path: writeTelemetryTempConfig(t, validGRPC)}); err != nil {
 			t.Fatalf("load valid OTLP/gRPC endpoint: %v", err)

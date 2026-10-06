@@ -398,10 +398,12 @@ const backupIntegrity = buildBackupIntegrityCoverage({
 });
 assert.equal(backupIntegrity.result, "pass");
 assert.equal(backupIntegrity.schema_id, "cartulary.seaweedfs_backup_integrity_coverage.v1");
-assert.equal(
-  backupIntegrity.required_schema_ids.includes("cartulary.backup_integrity_manifest.v3"),
-  true,
-);
+assert.deepEqual(backupIntegrity.required_schema_ids, [
+  "cartulary.backup_artifact_envelope.v3",
+  "cartulary.backup_integrity_manifest.v4",
+  "cartulary.object_store_backup_manifest.v2",
+  "cartulary.object_store_backup_summary.v2",
+]);
 
 const redactionMissingCurrent = buildRedactionLeakageScan({
   generatedAt: "2026-06-04T00:00:00.000Z",

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
@@ -18,22 +20,23 @@ import (
 )
 
 type PreparedFixture struct {
-	DatabaseName      string
-	DSN               string
-	Bucket            string
-	S3Endpoint        string
-	S3AccessKey       string
-	S3SecretKey       string
-	S3Secure          bool
-	FixtureProfileID  string
-	SnapshotKey       string
-	BuilderUnitID     string
-	RowID             string
-	PredicateID       string
-	CloneLeaseID      string
-	CloneOrdinal      int
-	RuntimeBundlePath string
-	RuntimeBundleRoot string
+	DatabaseName          string
+	DSN                   string
+	Bucket                string
+	S3Endpoint            string
+	S3AccessKey           string
+	S3SecretKey           string
+	S3Secure              bool
+	S3RootCertificatePath string
+	FixtureProfileID      string
+	SnapshotKey           string
+	BuilderUnitID         string
+	RowID                 string
+	PredicateID           string
+	CloneLeaseID          string
+	CloneOrdinal          int
+	RuntimeBundlePath     string
+	RuntimeBundleRoot     string
 }
 
 type LeaseMetadata struct {
@@ -128,22 +131,23 @@ func prepareWithProfile(ctx context.Context, env map[string]string, profile perf
 		return PreparedFixture{}, err
 	}
 	return PreparedFixture{
-		DatabaseName:      cloneName,
-		DSN:               dsn,
-		Bucket:            bucket,
-		S3Endpoint:        s3Harness.Endpoint,
-		S3AccessKey:       s3Harness.AccessKey,
-		S3SecretKey:       s3Harness.SecretKey,
-		S3Secure:          s3Harness.Secure,
-		FixtureProfileID:  profile.FixtureProfileID,
-		SnapshotKey:       key,
-		BuilderUnitID:     builderID,
-		RowID:             rowID,
-		PredicateID:       predicateID,
-		CloneLeaseID:      leaseID,
-		CloneOrdinal:      ordinal,
-		RuntimeBundlePath: bundlePath,
-		RuntimeBundleRoot: destinationRoot,
+		DatabaseName:          cloneName,
+		DSN:                   dsn,
+		Bucket:                bucket,
+		S3Endpoint:            s3Harness.Endpoint,
+		S3AccessKey:           s3Harness.AccessKey,
+		S3SecretKey:           s3Harness.SecretKey,
+		S3Secure:              s3Harness.Secure,
+		S3RootCertificatePath: s3Harness.RootCertificatePath(),
+		FixtureProfileID:      profile.FixtureProfileID,
+		SnapshotKey:           key,
+		BuilderUnitID:         builderID,
+		RowID:                 rowID,
+		PredicateID:           predicateID,
+		CloneLeaseID:          leaseID,
+		CloneOrdinal:          ordinal,
+		RuntimeBundlePath:     bundlePath,
+		RuntimeBundleRoot:     destinationRoot,
 	}, nil
 }
 
@@ -195,7 +199,11 @@ func cleanupLeaseWithProfile(ctx context.Context, env map[string]string, profile
 		boolCleanupOutcome(processClean),
 		cleanupOutcome(sessionErr),
 	)
-	if sessionErr != nil || credentialErr != nil || databaseErr != nil || bucketErr != nil || !processClean {
+	var processErr error
+	if !processClean {
+		processErr = errors.New("performance fixture process cleanup is incomplete")
+	}
+	if sessionErr != nil || credentialErr != nil || databaseErr != nil || bucketErr != nil || processErr != nil {
 		artifact.CleanupState = "failed"
 		switch {
 		case sessionErr != nil:
@@ -209,7 +217,7 @@ func cleanupLeaseWithProfile(ctx context.Context, env map[string]string, profile
 		default:
 			artifact.FailureCode = "process_cleanup_failed"
 		}
-		return errors.Join(sessionErr, credentialErr, databaseErr, bucketErr, writeLeaseArtifact(env, profile, artifact))
+		return errors.Join(sessionErr, credentialErr, databaseErr, bucketErr, processErr, writeLeaseArtifact(env, profile, artifact))
 	}
 	artifact.CleanupState = "complete"
 	return writeLeaseArtifact(env, profile, artifact)
@@ -240,8 +248,13 @@ func RevokeSessions(ctx context.Context, env map[string]string, databaseName str
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `UPDATE user_sessions SET revoked_at = COALESCE(revoked_at, now())`); err != nil {
-		_ = db.Close()
-		return fmt.Errorf("revoke performance fixture sessions: %w", err)
+		closeErr := db.Close()
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "3D000" {
+			// A previous owned cleanup already dropped this exact clone.
+			return closeErr
+		}
+		return errors.Join(fmt.Errorf("revoke performance fixture sessions: %w", err), closeErr)
 	}
 	return db.Close()
 }

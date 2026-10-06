@@ -6,12 +6,12 @@ remove_package_workspace() {
   [[ "$owned_project" =~ ^cartularymvpsmoke[0-9]+(destination)?$ || "$owned_project" =~ ^cartularymvprecoverysmk[0-9]+$ ]] || return 1
   case "$(basename "$workspace")" in cartulary-standup-package-smoke.*|cartulary-standup-recovery-smoke.*) ;; *) return 1 ;; esac
   [[ -d "$workspace" && ! -L "$workspace" ]] || return 1
-  if [[ -d "$workspace/runtime" ]]; then
-    # Recovery deliberately writes private roots as container UID 65532.
-    # Restore ownership of this disposable allocation before host deletion.
+  if [[ -d "$workspace" ]]; then
+    # Recovery writes private roots as UID 65532; Compose can also create root-owned
+    # directories for rejected absent binds. Reclaim only this owned allocation.
     docker run --rm --label "com.docker.compose.project=${owned_project}" \
-      --user 0:0 --entrypoint sh --mount "type=bind,source=${workspace}/runtime,target=/cleanup" \
-      "$helper_image" -c 'chown -R "$1" /cleanup' sh "$(id -u):$(id -g)" >/dev/null 2>&1 || return 1
+      --user 0:0 --entrypoint sh --mount "type=bind,source=${workspace},target=/cleanup" \
+      "$helper_image" -c 'chown -Rh "$1" /cleanup' sh "$(id -u):$(id -g)" >/dev/null 2>&1 || return 1
   fi
   rm -rf "$workspace"
   [[ ! -e "$workspace" ]]

@@ -1,9 +1,12 @@
-import { act, renderHook } from "@testing-library/react";
+import { workbookLayoutMetrics } from "@cartulary/ui-contracts";
+import { act, render, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { WorkbookQueryBrowsingProvider } from "../query/WorkbookQueryBrowsingContext";
 import {
   currentWorkbookViewportSize,
   useWorkbookResponsiveLayout,
 } from "./useWorkbookResponsiveLayout";
+import { WorkbookSurfaceLayout } from "./WorkbookSurfaceLayout";
 
 const originalVisualViewport = Object.getOwnPropertyDescriptor(
   window,
@@ -57,6 +60,45 @@ describe("workbook responsive viewport", () => {
       blockMode: "short_height",
       chromeMode: "below_supported_minimum",
     });
+
+    let width = 1280;
+    let widthReads = 0;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      get: () => {
+        widthReads += 1;
+        return width;
+      },
+    });
+    const frame = (feedback: string) => (
+      <WorkbookQueryBrowsingProvider>
+        <WorkbookSurfaceLayout
+          viewSchemaId="viewport-test"
+          primaryGrid={<div>Grid</div>}
+          inspector={<div>Inspector</div>}
+          viewBar={<div>View bar</div>}
+          statusStrip={<div>Status</div>}
+          workAreaFeedback={<div>{feedback}</div>}
+        />
+      </WorkbookQueryBrowsingProvider>
+    );
+    const surface = render(frame("Ready"));
+    const initialReads = widthReads;
+    surface.rerender(frame("Saved"));
+    expect(widthReads).toBe(initialReads);
+    width = 768;
+    act(() => window.dispatchEvent(new Event("resize")));
+    expect(
+      surface
+        .getByRole("separator", { name: "Resize inspector" })
+        .getAttribute("aria-valuemax"),
+    ).toBe(
+      String(workbookLayoutMetrics(width).inspectorEffectiveMaxWidthCssPx),
+    );
+    const resizedReads = widthReads;
+    surface.rerender(frame("Updated"));
+    expect(widthReads).toBe(resizedReads);
+    surface.unmount();
   });
 
   it("uses the effective root inline size for zoomed workbook chrome", () => {
@@ -67,7 +109,7 @@ describe("workbook responsive viewport", () => {
     document.documentElement.style.zoom = "200%";
 
     expect(currentWorkbookViewportSize()).toEqual({
-      height: 900,
+      height: 450,
       width: 720,
     });
     const { result } = renderHook(() => useWorkbookResponsiveLayout());

@@ -16,7 +16,7 @@ import (
 func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-finalize-source")
-	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-finalize-source",
 		"incident_key":  "BUNDLE-FINALIZE",
@@ -55,11 +55,11 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"))
-			targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+			targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)
 			sequenceBefore := snapshotRecordRevisionSequence(t, targetHarness.DB)
 			observerPassword := "ExtensionProfileImportObserverPass!"
 			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "extension_profile-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Enterprise integration Import Observer", observerPassword, false, true, true)
-			observerCookies, observerCSRF := flowtest.LoginLocalUser(t, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
+			observerCookies, observerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
 			observerLogin := flowtest.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
 
 			resp := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`, bundleBytes, "bundle.zip")
@@ -101,7 +101,7 @@ SELECT last_value, is_called
 
 func TestImportEnvelopeFailuresCreateNoDurableState_Integration(t *testing.T) {
 	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-envelope-failures")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	validFile := []byte("not a bundle but parser-valid bytes")
 	cases := []struct {
 		name           string

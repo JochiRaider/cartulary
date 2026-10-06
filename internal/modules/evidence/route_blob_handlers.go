@@ -2,6 +2,7 @@ package evidence
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -87,7 +88,6 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		IncidentID:             request.IncidentID,
 		IssuingUserID:          principal.User.ID,
 		IssuingSessionID:       principal.Session.ID,
-		StorageKey:             storageKey,
 		ByteSize:               request.ByteSize,
 		ExpectedSHA256Hex:      expectedSHA256Hex,
 		RequiredMethod:         http.MethodPut,
@@ -95,7 +95,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		AcceptedContractSHA256: acceptedContractDigestHex,
 		IssuedAtUnixNano:       now.UnixNano(),
 		ExpiresAtUnixNano:      targetExpiresAt.UnixNano(),
-	})
+	}, storageKey)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -197,7 +197,12 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	blob := lease.Blob
-	if blob.IncidentID != claims.IncidentID || blob.StorageKey != claims.StorageKey || blob.ByteSize != claims.ByteSize {
+	storageBinding, err := objectUploadStorageBinding(s.keys, blob.StorageKey)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if blob.IncidentID != claims.IncidentID || !hmac.Equal([]byte(storageBinding), []byte(claims.StorageKeyBinding)) || blob.ByteSize != claims.ByteSize {
 		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "upload_contract_mismatch", nil))
 		return
 	}

@@ -48,22 +48,21 @@ type Store struct {
 }
 
 type UserRecord struct {
-	ID                   uuid.UUID
-	Email                string
-	DisplayName          string
-	PasswordHash         string
-	PasswordChangedAt    time.Time
-	MFARequired          bool
-	IsActive             bool
-	IsDeploymentAdmin    bool
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	UpdatedByUserID      *uuid.UUID
-	LastLoginAt          *time.Time
-	UserVersion          int64
-	TOTPEnrolledAt       *time.Time
-	TOTPSecretCiphertext []byte
-	TOTPSecretNonce      []byte
+	ID                 uuid.UUID
+	Email              string
+	DisplayName        string
+	PasswordHash       string
+	PasswordChangedAt  time.Time
+	MFARequired        bool
+	IsActive           bool
+	IsDeploymentAdmin  bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	UpdatedByUserID    *uuid.UUID
+	LastLoginAt        *time.Time
+	UserVersion        int64
+	TOTPEnrolledAt     *time.Time
+	TOTPSecretEnvelope []byte
 }
 
 type UserListFilter struct {
@@ -112,12 +111,12 @@ type PendingTOTPEnrollmentRecord struct {
 	AuthScopeSessionID        *uuid.UUID
 	AuthScopeBootstrapTokenID *uuid.UUID
 	ClientTxnID               string
-	SecretCiphertext          []byte
-	SecretNonce               []byte
-	ReplacesActive            bool
-	CreatedAt                 time.Time
-	ExpiresAt                 time.Time
-	ConsumedAt                *time.Time
+	SecretEnvelope            []byte
+
+	ReplacesActive bool
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
+	ConsumedAt     *time.Time
 }
 
 type RouteIdempotencyRecord struct {
@@ -228,24 +227,24 @@ type EnterpriseAuthSAMLSubjectSource struct {
 }
 
 type EnterpriseAuthTransactionRecord struct {
-	ID                     uuid.UUID
-	ProviderID             uuid.UUID
-	ProviderKey            string
-	ProviderType           string
-	ReturnTo               string
-	State                  *string
-	Nonce                  *string
-	RelayState             *string
-	BrowserBindingHash     []byte
-	PKCEVerifierCiphertext []byte
-	PKCEVerifierNonce      []byte
-	SAMLRequestID          *string
-	SAMLCompletionHash     []byte
-	SAMLSubject            *string
-	SAMLStagedAt           *time.Time
-	CreatedAt              time.Time
-	ExpiresAt              time.Time
-	ConsumedAt             *time.Time
+	ID                   uuid.UUID
+	ProviderID           uuid.UUID
+	ProviderKey          string
+	ProviderType         string
+	ReturnTo             string
+	State                *string
+	Nonce                *string
+	RelayState           *string
+	BrowserBindingHash   []byte
+	PKCEVerifierEnvelope []byte
+
+	SAMLRequestID      *string
+	SAMLCompletionHash []byte
+	SAMLSubject        *string
+	SAMLStagedAt       *time.Time
+	CreatedAt          time.Time
+	ExpiresAt          time.Time
+	ConsumedAt         *time.Time
 }
 
 type EnterpriseAuthProviderDefinition struct {
@@ -301,7 +300,7 @@ func NewStore(pool postgres.DB) *Store {
 func (s *Store) GetUserByNormalizedEmail(ctx context.Context, email string) (UserRecord, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
   FROM users
  WHERE email = $1
 `, email)
@@ -315,7 +314,7 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 func (s *Store) GetUserByID(ctx context.Context, userID uuid.UUID) (UserRecord, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
   FROM users
  WHERE id = $1
 `, userID)
@@ -367,7 +366,7 @@ SELECT s.id, s.user_id, s.authenticated_at, s.last_qualifying_activity_at, s.idl
        s.session_expires_at, s.revoked_at, s.revoke_reason_code, s.created_at, s.updated_at, s.provider_type, s.auth_binding_id,
        u.id, u.email::text, u.display_name, u.password_hash, u.password_changed_at, u.mfa_required, u.is_active,
        u.is_deployment_admin, u.created_at, u.updated_at, u.updated_by_user_id, u.last_login_at, u.user_version,
-       u.totp_enrolled_at, u.totp_secret_ciphertext, u.totp_secret_nonce
+       u.totp_enrolled_at, u.totp_secret_envelope
   FROM user_sessions s
   JOIN users u ON u.id = s.user_id
  WHERE s.token_fingerprint = $1
@@ -403,8 +402,7 @@ SELECT s.id, s.user_id, s.authenticated_at, s.last_qualifying_activity_at, s.idl
 		&user.LastLoginAt,
 		&user.UserVersion,
 		&user.TOTPEnrolledAt,
-		&user.TOTPSecretCiphertext,
-		&user.TOTPSecretNonce,
+		&user.TOTPSecretEnvelope,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SessionRecord{}, UserRecord{}, ErrNotFound
@@ -706,7 +704,7 @@ func (s *Store) GetBootstrapTokenByFingerprint(ctx context.Context, fingerprint 
 SELECT b.id, b.user_id, b.issued_at, b.expires_at, b.consumed_at, b.superseded_at,
        u.id, u.email::text, u.display_name, u.password_hash, u.password_changed_at, u.mfa_required, u.is_active,
        u.is_deployment_admin, u.created_at, u.updated_at, u.updated_by_user_id, u.last_login_at, u.user_version,
-       u.totp_enrolled_at, u.totp_secret_ciphertext, u.totp_secret_nonce
+       u.totp_enrolled_at, u.totp_secret_envelope
   FROM bootstrap_tokens b
   JOIN users u ON u.id = b.user_id
  WHERE b.token_fingerprint = $1
@@ -735,8 +733,7 @@ SELECT b.id, b.user_id, b.issued_at, b.expires_at, b.consumed_at, b.superseded_a
 		&user.LastLoginAt,
 		&user.UserVersion,
 		&user.TOTPEnrolledAt,
-		&user.TOTPSecretCiphertext,
-		&user.TOTPSecretNonce,
+		&user.TOTPSecretEnvelope,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return BootstrapTokenRecord{}, UserRecord{}, ErrNotFound
@@ -747,7 +744,7 @@ SELECT b.id, b.user_id, b.issued_at, b.expires_at, b.consumed_at, b.superseded_a
 func (s *Store) GetPendingTOTPEnrollmentForUser(ctx context.Context, userID uuid.UUID, now time.Time) (*PendingTOTPEnrollmentRecord, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
-       secret_ciphertext, secret_nonce, replaces_active, created_at, expires_at, consumed_at
+       secret_envelope, replaces_active, created_at, expires_at, consumed_at
   FROM pending_totp_enrollments
  WHERE user_id = $1
    AND consumed_at IS NULL
@@ -768,7 +765,7 @@ SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap
 func (s *Store) GetPendingTOTPEnrollmentByID(ctx context.Context, enrollmentID uuid.UUID) (*PendingTOTPEnrollmentRecord, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
-       secret_ciphertext, secret_nonce, replaces_active, created_at, expires_at, consumed_at
+       secret_envelope, replaces_active, created_at, expires_at, consumed_at
   FROM pending_totp_enrollments
  WHERE id = $1
 `, enrollmentID)
@@ -784,13 +781,13 @@ SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap
 
 func (s *Store) BeginTOTPEnrollment(
 	ctx context.Context,
+	enrollmentID uuid.UUID,
 	userID uuid.UUID,
 	authScopeKind string,
 	sessionID *uuid.UUID,
 	bootstrapTokenID *uuid.UUID,
 	clientTxnID string,
-	secretCiphertext []byte,
-	secretNonce []byte,
+	secretEnvelope []byte,
 	replacesActive bool,
 	now time.Time,
 ) (PendingTOTPEnrollmentRecord, bool, error) {
@@ -804,7 +801,7 @@ func (s *Store) BeginTOTPEnrollment(
 
 	row := tx.QueryRow(ctx, `
 SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
-       secret_ciphertext, secret_nonce, replaces_active, created_at, expires_at, consumed_at
+       secret_envelope, replaces_active, created_at, expires_at, consumed_at
   FROM pending_totp_enrollments
  WHERE user_id = $1
    AND consumed_at IS NULL
@@ -838,21 +835,20 @@ SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap
 	var created PendingTOTPEnrollmentRecord
 	if err := tx.QueryRow(ctx, `
 INSERT INTO pending_totp_enrollments (
-    user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
-    secret_ciphertext, secret_nonce, replaces_active, expires_at
+    id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
+    secret_envelope, replaces_active, expires_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
-          secret_ciphertext, secret_nonce, replaces_active, created_at, expires_at, consumed_at
-`, userID, authScopeKind, sessionID, bootstrapTokenID, clientTxnID, secretCiphertext, secretNonce, replacesActive, now.UTC().Add(PendingTOTPEnrollmentTTL)).Scan(
+          secret_envelope, replaces_active, created_at, expires_at, consumed_at
+`, enrollmentID, userID, authScopeKind, sessionID, bootstrapTokenID, clientTxnID, secretEnvelope, replacesActive, now.UTC().Add(PendingTOTPEnrollmentTTL)).Scan(
 		&created.ID,
 		&created.UserID,
 		&created.AuthScopeKind,
 		&created.AuthScopeSessionID,
 		&created.AuthScopeBootstrapTokenID,
 		&created.ClientTxnID,
-		&created.SecretCiphertext,
-		&created.SecretNonce,
+		&created.SecretEnvelope,
 		&created.ReplacesActive,
 		&created.CreatedAt,
 		&created.ExpiresAt,
@@ -900,6 +896,8 @@ func (s *Store) ActivateTOTPEnrollment(
 	authScopeKind string,
 	sessionID *uuid.UUID,
 	bootstrapTokenID *uuid.UUID,
+	pendingEnvelope []byte,
+	activeEnvelope []byte,
 	now time.Time,
 ) (TOTPCompleteResult, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -912,7 +910,7 @@ func (s *Store) ActivateTOTPEnrollment(
 
 	row := tx.QueryRow(ctx, `
 SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
-       secret_ciphertext, secret_nonce, replaces_active, created_at, expires_at, consumed_at
+       secret_envelope, replaces_active, created_at, expires_at, consumed_at
   FROM pending_totp_enrollments
  WHERE id = $1
  FOR UPDATE
@@ -938,17 +936,20 @@ SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap
 		return TOTPCompleteResult{}, ErrSubjectMismatch
 	}
 
+	if !bytes.Equal(pending.SecretEnvelope, pendingEnvelope) || len(activeEnvelope) == 0 {
+		return TOTPCompleteResult{}, ErrSubjectMismatch
+	}
 	enrolledAt := now.UTC()
 	if _, err := tx.Exec(ctx, `
 UPDATE users
    SET totp_enrolled_at = $2,
-       totp_secret_ciphertext = $3,
-       totp_secret_nonce = $4,
+       totp_secret_envelope = $3,
+
        updated_at = $2,
        updated_by_user_id = $1,
        user_version = user_version + 1
  WHERE id = $1
-`, user.ID, enrolledAt, pending.SecretCiphertext, pending.SecretNonce); err != nil {
+`, user.ID, enrolledAt, activeEnvelope); err != nil {
 		return TOTPCompleteResult{}, fmt.Errorf("activate totp secret: %w", err)
 	}
 
@@ -1158,7 +1159,7 @@ UPDATE users
        user_version = user_version + 1
  WHERE id = $1
 RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
 `, actor.ID, displayName, now.UTC()).Scan(
 			&updated.ID,
 			&updated.Email,
@@ -1174,8 +1175,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 			&updated.LastLoginAt,
 			&updated.UserVersion,
 			&updated.TOTPEnrolledAt,
-			&updated.TOTPSecretCiphertext,
-			&updated.TOTPSecretNonce,
+			&updated.TOTPSecretEnvelope,
 		); err != nil {
 			return AccountProfilePatchResult{}, err
 		}
@@ -1505,7 +1505,7 @@ func (s *Store) ListUsers(ctx context.Context, filter UserListFilter) ([]UserRec
 	}
 	rows, err := s.pool.Query(ctx, `
 SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
   FROM users
  WHERE ($1::boolean IS NULL OR is_active = $1)
    AND ($2::boolean IS NULL OR is_deployment_admin = $2)
@@ -1579,7 +1579,7 @@ INSERT INTO users (
 )
 VALUES ($1, $2, $3, $4, true, $5, $6, $7)
 RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
 `, email, displayName, passwordHash, mfaRequired, isDeploymentAdmin, actor.ID, now.UTC()).Scan(
 		&created.ID,
 		&created.Email,
@@ -1595,8 +1595,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		&created.LastLoginAt,
 		&created.UserVersion,
 		&created.TOTPEnrolledAt,
-		&created.TOTPSecretCiphertext,
-		&created.TOTPSecretNonce,
+		&created.TOTPSecretEnvelope,
 	); err != nil {
 		return UserCreateResult{}, err
 	}
@@ -1716,7 +1715,7 @@ UPDATE users
        user_version = user_version + 1
  WHERE id = $8
 RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
 `, actor.ID, nextEmail, nextDisplayName, nextIsActive, nextMFARequired, nextIsDeploymentAdmin, now.UTC(), targetUserID).Scan(
 		&updated.ID,
 		&updated.Email,
@@ -1732,8 +1731,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		&updated.LastLoginAt,
 		&updated.UserVersion,
 		&updated.TOTPEnrolledAt,
-		&updated.TOTPSecretCiphertext,
-		&updated.TOTPSecretNonce,
+		&updated.TOTPSecretEnvelope,
 	); err != nil {
 		return UserRecord{}, nil, err
 	}
@@ -1848,7 +1846,7 @@ UPDATE users
        user_version = user_version + 1
  WHERE id = $4
 RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
 `, actor.ID, newPasswordHash, changedAt, targetUserID).Scan(
 		&updated.ID,
 		&updated.Email,
@@ -1864,8 +1862,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		&updated.LastLoginAt,
 		&updated.UserVersion,
 		&updated.TOTPEnrolledAt,
-		&updated.TOTPSecretCiphertext,
-		&updated.TOTPSecretNonce,
+		&updated.TOTPSecretEnvelope,
 	); err != nil {
 		return AdminPasswordResetResult{}, err
 	}
@@ -2016,14 +2013,14 @@ UPDATE bootstrap_tokens
 	if err := tx.QueryRow(ctx, `
 UPDATE users
    SET totp_enrolled_at = NULL,
-       totp_secret_ciphertext = NULL,
-       totp_secret_nonce = NULL,
+       totp_secret_envelope = NULL,
+
        updated_at = $2,
        updated_by_user_id = $1,
        user_version = user_version + 1
  WHERE id = $3
 RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
 `, actor.ID, changedAt, targetUserID).Scan(
 		&updated.ID,
 		&updated.Email,
@@ -2039,8 +2036,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		&updated.LastLoginAt,
 		&updated.UserVersion,
 		&updated.TOTPEnrolledAt,
-		&updated.TOTPSecretCiphertext,
-		&updated.TOTPSecretNonce,
+		&updated.TOTPSecretEnvelope,
 	); err != nil {
 		return AdminTOTPResetResult{}, err
 	}
@@ -2201,8 +2197,7 @@ func scanUser(scanner interface{ Scan(...any) error }) (UserRecord, error) {
 		&user.LastLoginAt,
 		&user.UserVersion,
 		&user.TOTPEnrolledAt,
-		&user.TOTPSecretCiphertext,
-		&user.TOTPSecretNonce,
+		&user.TOTPSecretEnvelope,
 	)
 	return user, err
 }
@@ -2236,8 +2231,7 @@ func scanPendingTOTPEnrollment(scanner interface{ Scan(...any) error }) (Pending
 		&record.AuthScopeSessionID,
 		&record.AuthScopeBootstrapTokenID,
 		&record.ClientTxnID,
-		&record.SecretCiphertext,
-		&record.SecretNonce,
+		&record.SecretEnvelope,
 		&record.ReplacesActive,
 		&record.CreatedAt,
 		&record.ExpiresAt,
@@ -2260,7 +2254,7 @@ func uuidPointersEqual(left *uuid.UUID, right *uuid.UUID) bool {
 func fetchUserForUpdate(ctx context.Context, tx pgx.Tx, userID uuid.UUID) (UserRecord, error) {
 	row := tx.QueryRow(ctx, `
 SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
   FROM users
  WHERE id = $1
  FOR UPDATE

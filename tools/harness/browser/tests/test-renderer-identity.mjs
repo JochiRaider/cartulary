@@ -6,6 +6,7 @@ import { resolvePlaywrightPackages } from "../../readiness/playwright-packages.m
 import { loadVisualRendererProfile, verifyRendererFonts, validateRendererAttestation, sha256 } from "../visual-renderer-profile.mjs";
 import { rendererRelease, verifyRendererImage, startVisualRendererLease } from "../visual-renderer-lease.mjs";
 import { removePlaywrightWorkingTraces } from "../playwright-output-cleanup.mjs";
+import { removeOwnedRenderer, validateRendererProof } from "../../runtime/owned-renderer.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const profile = loadVisualRendererProfile(root);
@@ -80,12 +81,33 @@ assert.throws(release, /removal failed/u);
 present = false; release(); const count = calls.length; release(); assert.equal(calls.length, count);
 assert.ok(calls.every((args) => args.includes("owned-id") || args.includes("id=owned-id")));
 
+const proof = { daemon_id: "fixture-daemon", image_id: `sha256:${"a".repeat(64)}`, token: "b".repeat(32), name: `cartulary-visual-123-${"b".repeat(12)}` };
+for (const changed of [{ token: "../escape" }, { name: "borrowed-container" }, { image_id: "mutable:latest" }, { extra: true }]) assert.throws(() => validateRendererProof({ ...proof, ...changed }));
+for (const fault of [null, "absent", "daemon", "ambiguous", "image", "label", "name", "removal"]) {
+  let live = fault !== "absent", removals = 0;
+  const id = "c".repeat(64);
+  const run = (args) => {
+    if (args[0] === "info") return fault === "daemon" ? "unrelated-daemon" : proof.daemon_id;
+    if (args[0] === "ps") {
+      assert.ok(args.includes(`name=^/${proof.name}$`) && args.includes(`label=cartulary.visual-owner=${proof.token}`));
+      return live ? fault === "ambiguous" ? `${id}\n${"d".repeat(64)}` : id : "";
+    }
+    if (args[0] === "inspect") return JSON.stringify([{ Id: id, Name: fault === "name" ? "/borrowed" : `/${proof.name}`, Image: fault === "image" ? "wrong-image" : proof.image_id, Config: { Labels: { "cartulary.visual-owner": fault === "label" ? "wrong-owner" : proof.token } } }]);
+    if (args[0] === "rm") { assert.equal(args.at(-1), id); removals++; if (fault === "removal") throw new Error("injected removal failure"); live = false; return ""; }
+    assert.fail("unexpected Docker operation");
+  };
+  if (fault && fault !== "absent") assert.throws(() => removeOwnedRenderer(proof, run));
+  else { removeOwnedRenderer(proof, run); removeOwnedRenderer(proof, run); assert.equal(live, false); }
+  assert.equal(removals, fault === null || fault === "removal" ? 1 : 0);
+}
+
 for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "browser", "package", "revision"]) {
   calls = []; present = false;
   const run = (args) => {
     calls.push(args);
     if (args[0] === "create" && failAt === "create") { present = true; throw new Error("injected acquisition failure"); }
     if (args[0] === failAt) throw new Error("injected acquisition failure");
+    if (args[0] === "info") return "fixture-daemon";
     if (args[0] === "image") return JSON.stringify([{ Id: `sha256:${"a".repeat(64)}`, Os: "linux", Architecture: "amd64", RepoDigests: [profile.container_image] }]);
     if (args[0] === "create") { present = true; return "owned-id"; }
     if (args[0] === "exec") return JSON.stringify({ playwright: profile.playwright_version, core: failAt === "package" ? "0.0.0" : profile.playwright_version, revision: failAt === "revision" ? "0" : profile.chromium_revision, version: profile.chromium_version });
@@ -94,7 +116,8 @@ for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "browser
     if (args[0] === "ps" && present && failAt === "create") return "a".repeat(64);
     return "";
   };
-  const start = () => startVisualRendererLease({ root, environment: {}, run, endpointReady: async () => "ws://127.0.0.1:1/private", connect: async () => failAt === "browser" ? "0.0.0.0" : profile.chromium_version });
+  const resources = [];
+  const start = () => startVisualRendererLease({ root, environment: {}, onOwnedResource: (resource) => resources.push(resource), run, trust: () => ({ attestation: { schema_id: "cartulary.browser_tls_trust.v1" }, initialize() {} }), endpointReady: async () => "ws://127.0.0.1:1/private", connect: async () => failAt === "browser" ? "0.0.0.0" : profile.chromium_version });
   if (failAt) await assert.rejects(start, /injected acquisition failure|mismatch/u);
   else {
     const lease = await start(); assert.equal(lease.attestation.observed.chromium_version, profile.chromium_version); assert.ok(lease.attestation.observed.font_files.length);
@@ -108,6 +131,8 @@ for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "browser
     lease.cleanup(); lease.cleanup();
   }
   assert.equal(present, false);
+  assert.equal(resources[0].state, "pending");
+  assert.equal(resources.at(-1).state, "released");
   const create = calls.find((args) => args[0] === "create");
   assert.match(create[create.indexOf("--publish") + 1], /^127\.0\.0\.1:/u);
   assert.equal(create[create.indexOf("--user") + 1], "pwuser");

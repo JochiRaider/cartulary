@@ -1,8 +1,10 @@
 package processtest
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"net"
 	"net/http"
 	"os"
@@ -57,7 +59,7 @@ func TestStartServerFinalizesEnvironmentFromInheritedListener(t *testing.T) {
 	if callbackBaseURL != server.BaseURL {
 		t.Fatalf("FinalizeEnv base URL got %q want %q", callbackBaseURL, server.BaseURL)
 	}
-	if got := "http://" + clientAddress(stringAddress(callbackEnv[httpAddrEnv])); got != server.BaseURL {
+	if got := "https://" + clientAddress(stringAddress(callbackEnv[httpAddrEnv])); got != server.BaseURL {
 		t.Fatalf("authoritative listener address got %q want %q", got, server.BaseURL)
 	}
 	if got := callbackEnv[httpListenFDEnv]; got != "3" {
@@ -348,7 +350,7 @@ func serveInheritedListener(ignoreTermination bool, withDescendant bool) int {
 	}
 
 	if expected := os.Getenv(helperExpectedBaseURLEnv); expected != "" {
-		actual := "http://" + clientAddress(listener.Addr())
+		actual := "https://" + clientAddress(listener.Addr())
 		if expected != actual || os.Getenv(httpAddrEnv) != listener.Addr().String() || os.Getenv(httpListenFDEnv) != "3" || os.Getenv("CALLBACK_MARKER") != "finalized" || os.Getenv("CALLER_OWNED") != "original" {
 			_, _ = fmt.Fprintf(os.Stderr, `{"error":{"code":"invalid_final_environment","expected":%q,"actual":%q}}`, expected, actual)
 			return 2
@@ -397,7 +399,11 @@ func serveInheritedListener(ignoreTermination bool, withDescendant bool) int {
 			_ = server.Close()
 		}()
 	}
-	if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+	identity, err := cryptography.TLSServer("127.0.0.1", os.Getenv("CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH"), os.Getenv("CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH"))
+	if err != nil {
+		return 2
+	}
+	if err := server.Serve(tls.NewListener(listener, identity)); err != nil && err != http.ErrServerClosed {
 		_, _ = fmt.Fprintf(os.Stderr, "serve inherited listener: %v\n", err)
 		return 2
 	}

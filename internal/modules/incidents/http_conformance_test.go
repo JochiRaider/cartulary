@@ -25,7 +25,7 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-02")
 
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	createResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
@@ -65,11 +65,11 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 	}
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u202-viewer@example.test", "IncidentMembership U202 Viewer", "IncidentMembershipU202Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "incident_membership-u202-viewer@example.test", "IncidentMembershipU202Viewer1!", nil)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-viewer@example.test", "IncidentMembershipU202Viewer1!", nil)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u202-reviewer@example.test", "IncidentMembership U202 Reviewer", "IncidentMembershipU202Reviewer1!", false, false, true)
-	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "incident_membership-u202-reviewer@example.test", "IncidentMembershipU202Reviewer1!", nil)
+	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-reviewer@example.test", "IncidentMembershipU202Reviewer1!", nil)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u202-nonmember@example.test", "IncidentMembership U202 Nonmember", "IncidentMembershipU202Nonmember1!", false, false, true)
-	nonMemberSession, nonMemberCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "incident_membership-u202-nonmember@example.test", "IncidentMembershipU202Nonmember1!", nil)
+	nonMemberSession, nonMemberCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-nonmember@example.test", "IncidentMembershipU202Nonmember1!", nil)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-u-2-02-viewer",
 		"user_id":       viewerID,
@@ -228,7 +228,7 @@ func TestIncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) 
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-03")
 
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	createResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
@@ -252,7 +252,7 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-04")
 
-	firstActor, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	firstActor, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	firstCreate := httptestx.DoJSON(
 		t,
 		http.MethodPost,
@@ -285,7 +285,7 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 	}
 
 	flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u204@example.test", "IncidentMembership U204", "IncidentMembershipU204Pass!", false, false, true)
-	secondSession, secondCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "incident_membership-u204@example.test", "IncidentMembershipU204Pass!", nil)
+	secondSession, secondCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u204@example.test", "IncidentMembershipU204Pass!", nil)
 	secondCreate := httptestx.DoJSON(
 		t,
 		http.MethodPost,
@@ -323,7 +323,7 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-06")
 
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-u-2-06-incident",
 		"incident_key":  "IR-U206",
@@ -431,7 +431,7 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-07")
 
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-u-2-07-incident",
 		"incident_key":  "IR-U207",
@@ -599,7 +599,7 @@ func requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t *te
 				true,
 			)
 			deploymentSession, deploymentCSRF := flowtest.LoginLocalUser(
-				t,
+				t, http.DefaultClient,
 				fixtureCtx.harness.Server.HTTP.URL,
 
 				deploymentEmail+"@example.test",

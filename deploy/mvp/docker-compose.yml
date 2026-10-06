@@ -1,43 +1,143 @@
 services:
   postgres:
     image: docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+    entrypoint: ["/etc/cartulary-postgres/entrypoint.sh"]
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/cartulary-postgres/pg_hba.conf
+      - -c
+      - ident_file=/etc/cartulary-postgres/pg_ident.conf
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/run/cartulary-postgres/server.crt
+      - -c
+      - ssl_key_file=/run/cartulary-postgres/server.key
+      - -c
+      - ssl_ca_file=/etc/cartulary-postgres/tls/ca.pem
+      - -c
+      - ssl_min_protocol_version=TLSv1.3
+      - -c
+      - ssl_max_protocol_version=TLSv1.3
+      - -c
+      - ssl_ecdh_curve=prime256v1
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-cartulary}
-      POSTGRES_USER: ${POSTGRES_USER:-cartulary}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/mvp/.env}
-      CARTULARY_POSTGRES_MIGRATION_PASSWORD: ${CARTULARY_POSTGRES_MIGRATION_PASSWORD:?set CARTULARY_POSTGRES_MIGRATION_PASSWORD in deploy/mvp/.env}
-      CARTULARY_POSTGRES_RUNTIME_PASSWORD: ${CARTULARY_POSTGRES_RUNTIME_PASSWORD:?set CARTULARY_POSTGRES_RUNTIME_PASSWORD in deploy/mvp/.env}
-      CARTULARY_POSTGRES_RECOVERY_PASSWORD: ${CARTULARY_POSTGRES_RECOVERY_PASSWORD:?set CARTULARY_POSTGRES_RECOVERY_PASSWORD in deploy/mvp/.env}
+      POSTGRES_USER: postgres
       PGDATA: /var/lib/postgresql/18/docker
-      POSTGRES_INITDB_ARGS: --data-checksums --auth-host=scram-sha-256
+      POSTGRES_INITDB_ARGS: --data-checksums --auth-local=peer --auth-host=reject
+    tmpfs:
+      - /run/cartulary-postgres
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"",
+          "gosu postgres pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"",
         ]
       interval: 5s
       timeout: 5s
       retries: 20
     volumes:
       - cartulary-postgres-data-v18:/var/lib/postgresql
-      - ./postgres-provision.sh:/docker-entrypoint-initdb.d/010-cartulary-provision.sh:ro
+      - type: bind
+        source: ./postgres-entrypoint.sh
+        target: /etc/cartulary-postgres/entrypoint.sh
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./postgres-hba.conf
+        target: /etc/cartulary-postgres/pg_hba.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./postgres-ident.conf
+        target: /etc/cartulary-postgres/pg_ident.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./postgres-provision.sql
+        target: /etc/cartulary-postgres/provision.sql
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./postgres-provision.sh
+        target: /docker-entrypoint-initdb.d/010-cartulary-provision.sh
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
+        target: /etc/cartulary-postgres/tls/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/postgres.crt
+        target: /etc/cartulary-postgres/tls/server.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/postgres.key
+        target: /etc/cartulary-postgres/tls/server.key
+        read_only: true
+        bind:
+          create_host_path: false
 
   seaweedfs-s3:
-    image: docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9
+    image: docker.io/chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    entrypoint: ["/etc/cartulary-seaweed/entrypoint.sh"]
+    tmpfs:
+      - /run/cartulary-seaweed
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9333/cluster/healthz"]
+      interval: 2s
+      timeout: 7s
+      retries: 30
+      start_period: 2s
     command:
       - server
       - -dir=/data
+      - -ip=seaweedfs-s3
+      - -ip.bind=0.0.0.0
+      - -master.telemetry=false
       - -s3
       - -s3.port=8333
-      - -s3.allowedOrigins=${CARTULARY_PUBLIC_ORIGIN:-http://localhost:8080}
+      - -s3.port.https=0
+      - -s3.cert.file=/run/cartulary-seaweed/server.crt
+      - -s3.key.file=/run/cartulary-seaweed/server.key
+      - -s3.allowedOrigins=${CARTULARY_PUBLIC_ORIGIN:-https://localhost:8080}
       - -s3.port.iceberg=0
+      - -s3.port.lance=0
       - -webdav=false
     environment:
       AWS_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
       AWS_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
     volumes:
       - cartulary-seaweedfs-data:/data
+      - type: bind
+        source: ./seaweed-entrypoint.sh
+        target: /etc/cartulary-seaweed/entrypoint.sh
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/seaweed.crt
+        target: /etc/cartulary-seaweed/server.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/seaweed.key
+        target: /etc/cartulary-seaweed/server.key
+        read_only: true
+        bind:
+          create_host_path: false
 
   migrate:
     image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
@@ -47,12 +147,42 @@ services:
     entrypoint: ["/usr/local/bin/cartulary-migrate"]
     command: ["up"]
     environment:
+      CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
+      CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_SECURE: "true"
+      CARTULARY_S3_PRIMARY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
-      CARTULARY_POSTGRES_PRIMARY_MIGRATION_DSN: postgresql://cartulary_migration_login:${CARTULARY_POSTGRES_MIGRATION_PASSWORD:?set CARTULARY_POSTGRES_MIGRATION_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY_POSTGRES_PRIMARY_MIGRATION_DSN: postgresql://cartulary_migration_login@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
     depends_on:
+      seaweedfs-s3:
+        condition: service_healthy
       postgres:
         condition: service_healthy
     volumes:
+      - cartulary-backups:/var/lib/cartulary/backups:ro
+      - cartulary-reference-packs:/var/lib/cartulary/reference-packs:ro
+      - cartulary-tmp:/var/lib/cartulary/tmp:ro
+      - cartulary-exports:/var/lib/cartulary/exports:ro
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
+        target: /etc/cartulary/tls/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/migration.crt
+        target: /etc/cartulary/tls/pg.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/migration.key
+        target: /etc/cartulary/tls/pg.key
+        read_only: true
+        bind:
+          create_host_path: false
       - ./config.toml:/etc/cartulary/config.toml:ro
     restart: "no"
 
@@ -61,31 +191,72 @@ services:
     entrypoint: ["/usr/local/bin/cartulary-operator"]
     command: ["object-store", "init"]
     environment:
+      CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
       CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
       CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
-      CARTULARY_S3_PRIMARY_SECURE: "false"
+      CARTULARY_S3_PRIMARY_SECURE: "true"
+      CARTULARY_S3_PRIMARY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       seaweedfs-s3:
-        condition: service_started
+        condition: service_healthy
     volumes:
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
+        target: /etc/cartulary/tls/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/recovery.crt
+        target: /etc/cartulary/tls/pg.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/recovery.key
+        target: /etc/cartulary/tls/pg.key
+        read_only: true
+        bind:
+          create_host_path: false
       - ./config.toml:/etc/cartulary/config.toml:ro
-    restart: on-failure
+    restart: "no"
 
   recovery-operator:
     image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
-      CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login:${CARTULARY_POSTGRES_RECOVERY_PASSWORD:?set CARTULARY_POSTGRES_RECOVERY_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
       CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
       CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
-      CARTULARY_S3_PRIMARY_SECURE: "false"
+      CARTULARY_S3_PRIMARY_SECURE: "true"
+      CARTULARY_S3_PRIMARY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
       CARTULARY_RECOVERY_MASTER_KEY: ${CARTULARY_RECOVERY_MASTER_KEY:?set CARTULARY_RECOVERY_MASTER_KEY in deploy/mvp/.env}
     volumes:
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
+        target: /etc/cartulary/tls/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/recovery.crt
+        target: /etc/cartulary/tls/pg.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/recovery.key
+        target: /etc/cartulary/tls/pg.key
+        read_only: true
+        bind:
+          create_host_path: false
       - ./config.toml:/etc/cartulary/config.toml:ro
       - cartulary-backups:/var/lib/cartulary/backups
       - cartulary-reference-packs:/var/lib/cartulary/reference-packs
@@ -96,28 +267,85 @@ services:
   restore-verify-migrate:
     image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
     environment:
+      CARTULARY_S3_RESTORE_VERIFY_ENDPOINT: ${CARTULARY_S3_RESTORE_VERIFY_ENDPOINT:?set CARTULARY_S3_RESTORE_VERIFY_ENDPOINT in deploy/mvp/.env}
+      CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID: ${CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID:?set CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID in deploy/mvp/.env}
+      CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY: ${CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY:?set CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY in deploy/mvp/.env}
+      CARTULARY_S3_RESTORE_VERIFY_BUCKET: ${CARTULARY_S3_RESTORE_VERIFY_BUCKET:?set CARTULARY_S3_RESTORE_VERIFY_BUCKET in deploy/mvp/.env}
+      CARTULARY_S3_RESTORE_VERIFY_SECURE: "true"
+      CARTULARY_S3_RESTORE_VERIFY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
       CARTULARY_CONFIG_FILE: /etc/cartulary/restore-verification-target.toml
-      CARTULARY_POSTGRES_RESTORE_VERIFY_MIGRATION_DSN: postgresql://cartulary_migration_login:${CARTULARY_POSTGRES_MIGRATION_PASSWORD:?set CARTULARY_POSTGRES_MIGRATION_PASSWORD in deploy/mvp/.env}@postgres:5432/${RESTORE_VERIFY_POSTGRES_DB:-cartulary_restore_verify}?sslmode=disable
+      CARTULARY_POSTGRES_RESTORE_VERIFY_MIGRATION_DSN: postgresql://cartulary_migration_login@postgres:5432/${RESTORE_VERIFY_POSTGRES_DB:-cartulary_restore_verify}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
+    volumes:
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
+        target: /etc/cartulary/tls/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/restore-migration.crt
+        target: /etc/cartulary/tls/pg.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/restore-migration.key
+        target: /etc/cartulary/tls/pg.key
+        read_only: true
+        bind:
+          create_host_path: false
     restart: "no"
 
   restore-verify-operator:
     image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/restore-verification-target.toml
-      CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login:${CARTULARY_POSTGRES_RECOVERY_PASSWORD:?set CARTULARY_POSTGRES_RECOVERY_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
-      CARTULARY_POSTGRES_RESTORE_VERIFY_RECOVERY_DSN: postgresql://cartulary_recovery_login:${CARTULARY_POSTGRES_RECOVERY_PASSWORD:?set CARTULARY_POSTGRES_RECOVERY_PASSWORD in deploy/mvp/.env}@postgres:5432/${RESTORE_VERIFY_POSTGRES_DB:-cartulary_restore_verify}?sslmode=disable
+      CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
+      CARTULARY_POSTGRES_RESTORE_VERIFY_RECOVERY_DSN: postgresql://cartulary_recovery_login@postgres:5432/${RESTORE_VERIFY_POSTGRES_DB:-cartulary_restore_verify}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/restore-pg.crt&sslkey=/etc/cartulary/tls/restore-pg.key
       CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
       CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
-      CARTULARY_S3_PRIMARY_SECURE: "false"
+      CARTULARY_S3_PRIMARY_SECURE: "true"
+      CARTULARY_S3_PRIMARY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
       CARTULARY_S3_RESTORE_VERIFY_ENDPOINT: ${CARTULARY_S3_RESTORE_VERIFY_ENDPOINT:?set CARTULARY_S3_RESTORE_VERIFY_ENDPOINT in deploy/mvp/.env}
       CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID: ${CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID:?set CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID in deploy/mvp/.env}
       CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY: ${CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY:?set CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY in deploy/mvp/.env}
       CARTULARY_S3_RESTORE_VERIFY_BUCKET: ${CARTULARY_S3_RESTORE_VERIFY_BUCKET:?set CARTULARY_S3_RESTORE_VERIFY_BUCKET in deploy/mvp/.env}
-      CARTULARY_S3_RESTORE_VERIFY_SECURE: ${CARTULARY_S3_RESTORE_VERIFY_SECURE:-false}
+      CARTULARY_S3_RESTORE_VERIFY_SECURE: "true"
+      CARTULARY_S3_RESTORE_VERIFY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
       CARTULARY_RECOVERY_MASTER_KEY: ${CARTULARY_RECOVERY_MASTER_KEY:?set CARTULARY_RECOVERY_MASTER_KEY in deploy/mvp/.env}
     volumes:
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
+        target: /etc/cartulary/tls/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/recovery.crt
+        target: /etc/cartulary/tls/pg.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/recovery.key
+        target: /etc/cartulary/tls/pg.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/restore-recovery.crt
+        target: /etc/cartulary/tls/restore-pg.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/restore-recovery.key
+        target: /etc/cartulary/tls/restore-pg.key
+        read_only: true
+        bind:
+          create_host_path: false
       - cartulary-backups:/var/lib/cartulary/backups
       - cartulary-reference-packs:/var/lib/cartulary/reference-packs
       - cartulary-tmp:/var/lib/cartulary/tmp
@@ -132,13 +360,14 @@ services:
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
       CARTULARY_HTTP_ADDR: :8080
-      CARTULARY__APPLICATION__PUBLIC_ORIGIN: ${CARTULARY_PUBLIC_ORIGIN:-http://localhost:8080}
-      CARTULARY_POSTGRES_PRIMARY_RUNTIME_DSN: postgresql://cartulary_runtime_login:${CARTULARY_POSTGRES_RUNTIME_PASSWORD:?set CARTULARY_POSTGRES_RUNTIME_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY__APPLICATION__PUBLIC_ORIGIN: ${CARTULARY_PUBLIC_ORIGIN:-https://localhost:8080}
+      CARTULARY_POSTGRES_PRIMARY_RUNTIME_DSN: postgresql://cartulary_runtime_login@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
       CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
       CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
-      CARTULARY_S3_PRIMARY_SECURE: "false"
+      CARTULARY_S3_PRIMARY_SECURE: "true"
+      CARTULARY_S3_PRIMARY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
       CARTULARY_AUTH_MASTER_KEY: ${CARTULARY_AUTH_MASTER_KEY:?set CARTULARY_AUTH_MASTER_KEY in deploy/mvp/.env}
       CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE: ${CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE:?set CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE in deploy/mvp/.env}
     depends_on:
@@ -149,6 +378,36 @@ services:
     ports:
       - "127.0.0.1:${CARTULARY_HTTP_PORT:-8080}:8080"
     volumes:
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
+        target: /etc/cartulary/tls/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/runtime.crt
+        target: /etc/cartulary/tls/pg.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/runtime.key
+        target: /etc/cartulary/tls/pg.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/application.crt
+        target: /etc/cartulary/tls/application.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/application.key
+        target: /etc/cartulary/tls/application.key
+        read_only: true
+        bind:
+          create_host_path: false
       - ./config.toml:/etc/cartulary/config.toml:ro
       - ./bootstrap-admin.json:/etc/cartulary/bootstrap-admin.json:ro
       - ./revisions-conflict-token-key-ring.json:/etc/cartulary/revisions-conflict-token-key-ring.json:ro
@@ -156,7 +415,7 @@ services:
       - cartulary-reference-packs:/var/lib/cartulary/reference-packs
       - cartulary-tmp:/var/lib/cartulary/tmp
       - cartulary-exports:/var/lib/cartulary/exports
-    restart: unless-stopped
+    restart: "no"
 
 volumes:
   cartulary-postgres-data-v18:

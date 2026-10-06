@@ -2,6 +2,7 @@ package httpruntime
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +22,8 @@ const (
 )
 
 type Options struct {
+	// TLS is the immutable identity admitted before application resource acquisition.
+	TLS               *tls.Config
 	Address           string
 	InheritedFD       string
 	ReadHeaderTimeout time.Duration
@@ -45,11 +48,15 @@ func Serve(ctx context.Context, handler http.Handler, options Options) error {
 	}
 
 	options = normalizeOptions(options)
+	if options.TLS == nil {
+		return &StartupError{Err: errors.New("admitted application TLS identity is required")}
+	}
 	listener, inherited, err := openListener(options)
 	if err != nil {
 		return &StartupError{Err: err}
 	}
 	defer listener.Close()
+	listener = tls.NewListener(listener, options.TLS.Clone())
 
 	server := &http.Server{
 		Addr:              listener.Addr().String(),

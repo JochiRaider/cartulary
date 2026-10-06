@@ -40,6 +40,7 @@ compose() {
 
 require_command docker
 docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not available"
+docker info >/dev/null 2>&1 || fail "Docker Desktop WSL2 backend is unavailable; start Docker Desktop and retry"
 require_file "$ENV_FILE"
 require_file "$SOURCE_CONFIG_HOST"
 
@@ -48,9 +49,13 @@ set -a
 source "$ENV_FILE"
 set +a
 
+was_running="$(compose ps --status running -q app)"
+if [[ -n "$was_running" && ! "$was_running" =~ ^[0-9a-f]{64}$ ]]; then
+  fail "ambiguous application container identity"
+fi
 cleanup() {
   local status=$?
-  if ! compose up -d app >/dev/null; then
+  if [[ -n "$was_running" ]] && ! docker start "$was_running" >/dev/null; then
     echo "cartulary backup create failed: application restart failed" >&2
     status=1
   fi
@@ -58,7 +63,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-compose stop app >/dev/null
+if [[ -n "$was_running" ]]; then docker stop "$was_running" >/dev/null; fi
 
 compose run --rm --no-deps \
   --entrypoint /usr/local/bin/cartulary-operator \

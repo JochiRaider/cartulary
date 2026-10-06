@@ -14,6 +14,48 @@ import (
 func TestManagedServiceObjectStoreBinding(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
+	t.Run("admission inspection never initializes and detects retained objects", func(t *testing.T) {
+		ctx := context.Background()
+		bucket := fmt.Sprintf("readonly-admission-%d", time.Now().UnixNano())
+		settings, err := objectstore.ResolveSettings(objectstore.Binding{BindingKind: "managed_service", ServiceRef: "object_primary"}, s3Harness.EnvForServiceRef("object_primary", bucket))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if empty, err := objectstore.InspectEmpty(ctx, settings); err != nil || !empty {
+			t.Fatalf("missing: %t %v", empty, err)
+		}
+		if _, err := objectstore.Setup(ctx, settings, objectstore.Instrumentation{}); err == nil {
+			t.Fatal("inspection created bucket")
+		}
+		if err := s3Harness.CreateBucket(ctx, bucket); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := s3Harness.CleanupBucket(ctx, bucket); err != nil {
+				t.Error(err)
+			}
+		})
+		if empty, err := objectstore.InspectEmpty(ctx, settings); err != nil || !empty {
+			t.Fatalf("empty: %t %v", empty, err)
+		}
+		store, err := objectstore.Setup(ctx, settings, objectstore.Instrumentation{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer store.Close()
+		if err := store.PutObject(ctx, "retained", strings.NewReader("value"), 5, "text/plain"); err != nil {
+			t.Fatal(err)
+		}
+		if empty, err := objectstore.InspectEmpty(ctx, settings); err != nil || empty {
+			t.Fatalf("retained: %t %v", empty, err)
+		}
+		cancelled, cancel := context.WithCancel(ctx)
+		cancel()
+		if empty, err := objectstore.InspectEmpty(cancelled, settings); err == nil || empty {
+			t.Fatalf("cancelled: %t %v", empty, err)
+		}
+	})
+
 	t.Run("derives managed-service settings from roots.object_storage.service_ref", func(t *testing.T) {
 		bucket := fmt.Sprintf("bootstrap-support-managed-object-%d", time.Now().UnixNano())
 		defer func() {

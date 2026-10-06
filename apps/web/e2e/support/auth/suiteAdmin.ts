@@ -68,7 +68,7 @@ export function generateTotpCode(secretBase32: string) {
   const counter = Math.floor(Date.now() / 1000 / 30);
   const counterBuffer = Buffer.alloc(8);
   counterBuffer.writeBigUInt64BE(BigInt(counter));
-  const digest = createHmac("sha1", secret).update(counterBuffer).digest();
+  const digest = createHmac("sha256", secret).update(counterBuffer).digest();
   const offsetSource = digest.at(-1);
   if (offsetSource === undefined) {
     throw new Error("empty TOTP digest");

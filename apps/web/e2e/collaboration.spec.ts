@@ -588,7 +588,7 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
     const refreshedConflictEnvelope = await (await refreshedConflict).json();
     expect(refreshedConflictEnvelope.error.code).toBe("same_field_conflict");
     expect(refreshedConflictEnvelope.error.conflict.conflict_token).toMatch(
-      /^cft3\./,
+      /^cft4\./,
     );
     await expect(
       page.getByTestId(workbookConflictControlTestId("merged-value")),

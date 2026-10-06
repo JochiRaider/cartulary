@@ -12,6 +12,7 @@ import (
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
+	tlstransport "github.com/JochiRaider/cartulary/internal/testutil/tlstest/transport"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -72,10 +73,13 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 		_ = conn.Close(websocket.StatusPolicyViolation, "session_revoked")
 	})
 
-	server := httptest.NewServer(mux)
+	identity := tlstransport.NewServer(t, "127.0.0.1")
+	server := httptest.NewUnstartedServer(mux)
+	server.TLS = identity.TLS
+	server.StartTLS()
 	t.Cleanup(server.Close)
 
-	client := ConnectSessionSocket(t, server.URL, incidentID, "session-token")
+	client := ConnectSessionSocket(t, identity.Client(t, "127.0.0.1"), server.URL, incidentID, "session-token")
 
 	if err := client.Send(context.Background(), platformws.Message{Type: "trigger_session_revoked"}); err != nil {
 		t.Fatalf("send trigger_session_revoked: %v", err)

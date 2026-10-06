@@ -19,7 +19,7 @@ const (
 	CatalogSchemaID      = "cartulary.recovery_state_catalog.v2"
 	PostgresUnitCodecID  = "cartulary.postgres_snapshot_unit.v1"
 
-	AuthoredTableCount  = 142
+	AuthoredTableCount  = 143
 	RequiredTableCount  = 111
 	ContributionCount   = 30
 	ObjectFamilyCount   = 6
@@ -374,24 +374,6 @@ func (catalog *Catalog) ValidateDatabaseTableNames(actual []string) error {
 	actual = append([]string(nil), actual...)
 	sort.Strings(actual)
 	return compareStrings(expected, actual, "database tables and frozen catalog")
-}
-
-func (catalog *Catalog) ValidateLegacyShadowTables(actual []string) error {
-	if catalog == nil {
-		return fmt.Errorf("%w: frozen catalog is unavailable", ErrInvalidCatalog)
-	}
-	expected := catalog.RequiredTableNames()
-	expected = append(expected,
-		"collaboration_event_intents",
-		"collaboration_incident_stream_cursors",
-		"collaboration_replay_events",
-		"collaboration_resume_tokens",
-		"enterprise_auth_transactions",
-	)
-	sort.Strings(expected)
-	actual = append([]string(nil), actual...)
-	sort.Strings(actual)
-	return compareStrings(expected, actual, "legacy snapshot and catalog shadow")
 }
 
 func algorithmTables(

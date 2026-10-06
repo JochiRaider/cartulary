@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -351,7 +352,7 @@ func setupSocketIncident(t testing.TB, runtime *appsupport.Runtime, prefix strin
 		Dependencies:  httpapi.DependencySet{},
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-	admin, _ := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-" + prefix,
 		"incident_key":  "IR-" + strings.ToUpper(strings.ReplaceAll(prefix, "-", "")),

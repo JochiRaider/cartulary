@@ -2776,7 +2776,22 @@ Reference Pack performance measurements are engineering information unless Core 
 # 30. Assumptions, blockers, and future-only areas
 
 **RP-REQ-261**
-The current v1 trust profile assumes Ed25519 is permitted. If a FIPS-validated cryptographic module requirement applies, `RP-GATE-010` fails and this document MUST be revised with a new verification-method ID and exact cryptographic profile. An implementation MUST NOT silently substitute ECDSA or RSA under `tuf_1_0_35_offline_bundle_v1`.
+The v1 trust profile retains Ed25519 and `tuf_1_0_35_offline_bundle_v1`.
+A validated-module requirement is an execution-qualification requirement under
+Core 04 §1.3, not a reason to change signature semantics or issue new pack
+identities. `RP-GATE-010` fails unless the actual shipped bootstrap, full TUF,
+threshold, root-rotation, replay, historical-validation and destination-portability
+paths execute with the pinned module, supported service parameters and qualified
+operating environment. Canonical bytes and digests, trust history, immutable
+provenance and malformed/unsupported-algorithm rejection remain unchanged.
+No signature substitution, algorithm negotiation or reissued identity is allowed.
+Primitive-only tests, enabled mode, a certificate number or a container image
+label do not establish verifier qualification or specification adoption.
+The active engineering target is the Windows 11 / WSL2 profile in Core 04 and
+the Testing Harness owner. Its complete verifier evidence can establish that
+target's engineering acceptance, but does not by itself close `RP-GATE-010` or
+establish formal CMVP applicability. Native-Linux qualification is indefinitely
+deferred and is not a prerequisite for producing WSL2 engineering evidence.
 
 **RP-REQ-262**
 The deployment clock assertion is the current contract in RP-REQ-075: `reference_packs.clock_trusted` defaults to `false`. While false, fresh operator TUF verification and activation MUST reject with `reference_pack_operation_rejected/clock_untrusted`. Packaged Base verification, historical consumption and a zero-cohort refresh remain available; false does not condemn retained content. No time-service health inference or later trusted-time contract is required to configure this explicit assertion.
@@ -2802,7 +2817,6 @@ The following areas are future-only. Their current omission behavior is closed:
 | Cross-repository dependency resolution | Dependencies resolve only against the one active deployment set. |
 | Multi-pack activation request | One target per activation request. |
 | Algorithm negotiation | Exact v1 algorithms only. |
-| FIPS verification profile | Unsupported until a new method is adopted. |
 | Raw source-profile execution | Runtime never executes it. |
 | Remote provider-managed repositories | Unsupported. |
 | Automatic optional-pack fallback | No fallback occurs. |

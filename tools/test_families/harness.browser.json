@@ -263,6 +263,38 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.https_trust",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/visual-harness.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_browser_https_trust"
+        ],
+        "titles": [
+          "browser fixture trust accepts its authority and rejects foreign authorities and hostnames"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "harness.browser.boundary_support.incidentsocket_suite_6db375c4ec",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -911,6 +943,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.integration.object_store_fixture_roundtrip",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/s3test",
+        "tests": [
+          "TestCleanupPrefixPreservesSiblingObjects",
+          "TestHarnessStartsSeaweedFSS3AndRoundTripsObjects"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "object_store_namespace",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store"
+      ]
+    },
+    {
       "row_id": "harness.browser.integration.performance_fixture_snapshot_lifecycle",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
@@ -1069,6 +1128,32 @@
       ]
     },
     {
+      "row_id": "harness.browser.unit.fixture_tls",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/browserpki",
+        "tests": [
+          "TestBrowserPKIRequiresFreshPrivateState"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "object_store_namespace",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store"
+      ]
+    },
+    {
       "row_id": "harness.browser.unit.object_store_fixture_admission",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -1109,6 +1194,30 @@
       "service_dependencies": [
         "object_store"
       ]
+    },
+    {
+      "row_id": "harness.browser.unit.object_store_secure_origins",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/s3test",
+        "tests": [
+          "TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "harness.browser.unit.performance_fixture_lifecycle",
@@ -1183,6 +1292,32 @@
         "tests": [
           "TestSnapshotKeyMatchesCrossLanguageVectors",
           "TestSnapshotKeyRejectsNonCanonicalOrUnsupportedInput"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.unit.recovery_fixture_server_lifecycle",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/recoverybrowsertest",
+        "tests": [
+          "TestRuntimeServerCloseCancelsHTTPAndWebSocketRequests"
         ]
       },
       "evidence_class": "unit",

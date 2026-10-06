@@ -49,7 +49,7 @@ func newRouteFixture(t testing.TB, prefix string) *RouteFixture {
 	slug := FixtureSlug(prefix)
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, slug)
-	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	candidateID := flowtest.SeedLocalUserFlags(
 		t,

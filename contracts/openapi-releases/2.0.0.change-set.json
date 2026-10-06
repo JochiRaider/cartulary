@@ -2288,6 +2288,72 @@
       "classification": "non_behavioral",
       "owner_id": "module.reference_data",
       "rationale": "Specify the synchronous container-byte admission rejection with an inline bounded validation summary; retain HTTP 409 and the existing verification-failure code, without creating a Job or changing other conflict responses."
+    },
+    {
+      "fingerprint": "e9239802e1ae7b3d8fabc9f3f71243560226c242a416e443de34c6b967a104b5",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "4eb15ea6dbc9f2fbb9e2c97fd1268fd043616dc8b17c52ee797bf18747ffdbb0",
+      "classification": "breaking",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "c267280b62d3713508ce5549595925f1c5bde984fa080ccd196a9e23de915569",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "a4d65ae4618318ba742ae9607067dcb599a15fa93593f5282be3d5fc99351c95",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "df64200b652227f5919c1de2e22b331624da299d41112ebb4eed12ae669a0622",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "5de3329466976a50799c5a8046a8ee3e65bc144bb3410657cabc5118fe309fd3",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "956f070237d93f1d872cf5353252864fe56b551e56164cb04d8c620585835c0f",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "51e1d41b5838291183f3fe517ed0047f8135788390a3eee88492ecae31cc5ab5",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "fedab2a8bb252464a6011a3cbcf9005f1cc392d124acf2396f39d636c50d33d8",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "b56f18f13797ad1a2fa6998960ca8020c64a7fd77fd8b95947564d1ffe632400",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "d25e386b78d1f49aae72b061d73900074fd25c22bf2dbbabf5d8b33f4440cf5f",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
     }
   ]
 }

@@ -1,8 +1,6 @@
 package workbook
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
@@ -10,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/google/uuid"
 )
@@ -17,7 +16,7 @@ import (
 func TestNoteAssociationListRequestAdmission_Unit(t *testing.T) {
 	actor := uuid.New()
 	target := RecordTarget{RecordID: uuid.New(), IncidentID: uuid.New()}
-	key := []byte("01234567890123456789012345678901")
+	key := [32]byte([]byte("01234567890123456789012345678901"))
 	codec := pagination.NewCodec(key)
 	for _, test := range []struct{ name, raw, code, reason string }{
 		{"bad encoding precedes duplicates", "kind=source&x=1&x=2&bad=%zz", "invalid_list_query", "malformed_query"},
@@ -119,11 +118,7 @@ func TestNoteAssociationListRequestAdmission_Unit(t *testing.T) {
 	}
 	// Construct authenticated but unsupported-version input independently of
 	// Codec.Encode, which always issues the supported version.
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	aead, err := cipher.NewGCM(block)
+	master, err := cryptography.AdmitKey(key[:])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,15 +128,17 @@ func TestNoteAssociationListRequestAdmission_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nonce := make([]byte, aead.NonceSize())
-	sealed := aead.Seal(nonce, nonce, payload, []byte(pagination.CursorVersion))
+	sealed, err := master.Seal(pagination.CursorVersion, nil, payload, []byte("pc2."))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tamper := range []bool{false, true} {
 		t.Run(map[bool]string{false: "unsupported version", true: "failed token authentication"}[tamper], func(t *testing.T) {
 			input := append([]byte(nil), sealed...)
 			if tamper {
 				input[len(input)-1] ^= 1
 			}
-			_, failure := decodeNoteAssociationListRequest("kind=source&cursor_token="+base64.RawURLEncoding.EncodeToString(input), actor, target, codec)
+			_, failure := decodeNoteAssociationListRequest("kind=source&cursor_token=pc2."+base64.RawURLEncoding.EncodeToString(input), actor, target, codec)
 			if failure == nil || failure.Code != "invalid_pagination_request" || !reflect.DeepEqual(failure.Details, map[string]any{"reason_code": "invalid_cursor_token"}) {
 				t.Fatalf("unsafe token failure = %#v", failure)
 			}

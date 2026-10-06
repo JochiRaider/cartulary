@@ -47,7 +47,8 @@
         "tests": [
           "TestBootstrapActivatesExplicitOTLPHTTPExport",
           "TestBootstrapIgnoresHostileOTelEnvironment",
-          "TestBootstrapNoSDKExportDisabled"
+          "TestBootstrapNoSDKExportDisabled",
+          "TestExporterDependencyIdentity"
         ]
       },
       "evidence_class": "security",
@@ -252,6 +253,32 @@
           "TestSafeAttributesOmitNullEquivalentAndUnknownCartularyKeys",
           "TestSafeAttributesOmitsForbiddenValueFamiliesBeforeRecording",
           "TestSafeAttributesPreservesAdoptedLowCardinalityAttributes"
+        ]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "release",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.telemetry.unit.qualified_transports",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": [
+        "platform.cryptography"
+      ],
+      "verification_ids": [
+        "platform.telemetry.verification.current_conformance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": [
+          "TestQualifiedTelemetryTransports"
         ]
       },
       "evidence_class": "security",

@@ -30,11 +30,11 @@ func TestBuildOTLPHTTPURLs(t *testing.T) {
 		},
 		{
 			name:     "root prefix",
-			endpoint: "http://collector.example.test:4318/",
+			endpoint: "https://collector.example.test:4318/",
 			want: OTLPHTTPURLs{
-				Traces:  "http://collector.example.test:4318/v1/traces",
-				Metrics: "http://collector.example.test:4318/v1/metrics",
-				Logs:    "http://collector.example.test:4318/v1/logs",
+				Traces:  "https://collector.example.test:4318/v1/traces",
+				Metrics: "https://collector.example.test:4318/v1/metrics",
+				Logs:    "https://collector.example.test:4318/v1/logs",
 			},
 		},
 		{
@@ -72,6 +72,7 @@ func TestBuildOTLPHTTPURLs(t *testing.T) {
 
 func TestBuildOTLPHTTPURLsRejectsUnsupportedEndpointShapes(t *testing.T) {
 	for _, endpoint := range []string{
+		"http://collector.example.test:4318",
 		"https://collector.example.test",
 		"grpc://collector.example.test:4318",
 		"https://user:pass@collector.example.test:4318/otel",
@@ -99,15 +100,15 @@ func TestBuildOTLPGRPCTarget(t *testing.T) {
 	}{
 		{
 			endpoint: "https://COLLECTOR.example.test:4317",
-			want:     OTLPGRPCTarget{Target: "collector.example.test:4317", Secure: true},
+			want:     OTLPGRPCTarget{Target: "collector.example.test:4317"},
 		},
 		{
-			endpoint: "http://collector.example.test:4317/",
-			want:     OTLPGRPCTarget{Target: "collector.example.test:4317", Secure: false},
+			endpoint: "https://collector.example.test:4317/",
+			want:     OTLPGRPCTarget{Target: "collector.example.test:4317"},
 		},
 		{
 			endpoint: "https://[2001:db8::2]:4317",
-			want:     OTLPGRPCTarget{Target: "[2001:db8::2]:4317", Secure: true},
+			want:     OTLPGRPCTarget{Target: "[2001:db8::2]:4317"},
 		},
 	}
 
@@ -126,6 +127,7 @@ func TestBuildOTLPGRPCTarget(t *testing.T) {
 
 func TestBuildOTLPGRPCTargetRejectsPerSignalOrPathDivergence(t *testing.T) {
 	for _, endpoint := range []string{
+		"http://collector.example.test:4318",
 		"https://collector.example.test:4317/v1/traces",
 		"https://collector.example.test:4317/otel",
 		"collector.example.test:4317",
@@ -390,7 +392,7 @@ func TestExportFailureMetricUsesSafeRegistryAttributes(t *testing.T) {
 	}
 	if _, _, ok := ExportFailureMetric(ExportFailure{
 		SignalKind:   "trace-10000000-0000-4000-8000-000000000001",
-		ExporterKind: "http://collector.example.test:4318",
+		ExporterKind: "https://collector.example.test:4318",
 		ErrorClass:   "select",
 	}); ok {
 		t.Fatal("unsafe export failure attributes must not produce a metric")

@@ -26,7 +26,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-provenance")
 
-	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-incident",
 		"incident_key":  "IR-REPORTING-01",
@@ -325,12 +325,12 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-lifecycle")
 
-	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-reviewer@example.test", "Report Reviewer", "ReviewerPass1!", false, false, true)
 	editorID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-editor@example.test", "Report Editor", "EditorPass1!", false, false, true)
-	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "report-reviewer@example.test", "ReviewerPass1!", nil)
+	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "report-reviewer@example.test", "ReviewerPass1!", nil)
 	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
-	editorSession, editorCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "report-editor@example.test", "EditorPass1!", nil)
+	editorSession, editorCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "report-editor@example.test", "EditorPass1!", nil)
 	editorLogin := flowtest.LoginResult{SessionCookie: editorSession, CSRFCookie: editorCSRF}
 
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -469,7 +469,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-idempotency")
 
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-idempotency-incident",
 		"incident_key":  "IR-REPORTING-03",
@@ -654,15 +654,15 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-shape-auth")
 
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "shape-outsider@example.test", "Shape Outsider", "ShapeOutsider1!", false, false, true)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "shape-deployment-admin@example.test", "Shape Deployment Admin", "ShapeDeployAdmin1!", false, true, true)
-	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "shape-reviewer@example.test", "ShapeReviewer1!", nil)
+	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-reviewer@example.test", "ShapeReviewer1!", nil)
 	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
-	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "shape-outsider@example.test", "ShapeOutsider1!", nil)
+	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-outsider@example.test", "ShapeOutsider1!", nil)
 	outsiderLogin := flowtest.LoginResult{SessionCookie: outsiderSession, CSRFCookie: outsiderCSRF}
-	deploymentAdminSession, deploymentAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "shape-deployment-admin@example.test", "ShapeDeployAdmin1!", nil)
+	deploymentAdminSession, deploymentAdminCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-deployment-admin@example.test", "ShapeDeployAdmin1!", nil)
 	deploymentAdminLogin := flowtest.LoginResult{SessionCookie: deploymentAdminSession, CSRFCookie: deploymentAdminCSRF}
 
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{

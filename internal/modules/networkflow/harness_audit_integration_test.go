@@ -27,7 +27,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 	ctx := context.Background()
 	controls := hc.NewControls()
 	h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-audit-controls", "", controls)
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, h.Server.HTTP.URL)
+	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	actor := uuid.MustParse(actorText)
 	incidentText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "audit-incident", "incident_key": "IR-NF-AUDIT", "title": "Committed audit"})["incident_id"].(string)
 	incident := uuid.MustParse(incidentText)
@@ -145,7 +145,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 	})
 	t.Run("concurrent actor and incident isolation", func(t *testing.T) {
 		otherActorText := flowtest.SeedLocalUser(t, h.DB, "audit-other@example.test", "Other actor", "AuditOtherPass!", false)
-		cookie, _ := flowtest.LoginLocalUser(t, h.Server.HTTP.URL, "audit-other@example.test", "AuditOtherPass!", nil)
+		cookie, _ := flowtest.LoginLocalUser(t, http.DefaultClient, h.Server.HTTP.URL, "audit-other@example.test", "AuditOtherPass!", nil)
 		otherText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "audit-other-incident", "incident_key": "IR-NF-AUDIT-OTHER", "title": "Other audit incident"})["incident_id"].(string)
 		otherIncident := uuid.MustParse(otherText)
 		otherActor := uuid.MustParse(otherActorText)

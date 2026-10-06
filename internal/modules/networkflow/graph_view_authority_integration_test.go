@@ -27,7 +27,7 @@ import (
 func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "saved-graph-publication-role")
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	actorID := uuid.MustParse(actorText)
 	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "authority-incident", "incident_key": "IR-SG-AUTHORITY", "title": "Saved graph authority",

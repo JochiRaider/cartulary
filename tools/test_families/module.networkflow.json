@@ -1643,9 +1643,9 @@
         "tests": [
           "TestNetworkFlowRandomnessRegistryClearRemovesArmedRandomness",
           "TestNetworkFlowRandomnessRouteArmsDeterministicCollisionStream",
-          "TestNetworkFlowRandomnessRouteConsumesHexBytes",
           "TestNetworkFlowRandomnessRouteDisabledByDefault",
           "TestNetworkFlowRandomnessRouteRejectsInvalidRequests",
+          "TestNetworkFlowRandomnessRouteRejectsRetiredNonceControl",
           "TestNetworkFlowRandomnessRouteRejectsSecondArmWhileStreamRegistered",
           "TestNetworkFlowRandomnessRouteRequiresHarnessAuthorization",
           "TestNetworkFlowRandomnessValueValidationDoesNotAcceptBinaryBodies"
@@ -1738,6 +1738,32 @@
         "tests": [
           "TestNetworkFlowConfigurationContribution_Unit",
           "TestNetworkFlowEffectiveResourceLimits_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.current_cursor_digest_lifecycle",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowKeyRingValidationRejectsPurposeReuseAndNull",
+          "TestNetworkFlowKeyRingsAndCursorRotation",
+          "TestNetworkFlowSafeDigestRingPurgesInactiveEpoch"
         ]
       },
       "evidence_class": "unit",

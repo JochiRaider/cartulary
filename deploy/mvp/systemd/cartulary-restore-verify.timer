@@ -1,11 +1,10 @@
 [Unit]
-Description=Run Cartulary MVP restore verification daily
+Description=Cartulary due restore verification while operator-started operation is active
 
 [Timer]
-OnCalendar=daily
-RandomizedDelaySec=30min
-Persistent=true
+OnActiveSec=24h
+OnUnitActiveSec=24h
 Unit=cartulary-restore-verify.service
 
-[Install]
-WantedBy=timers.target
+# Intentionally no Install section: start explicitly after restart checks;
+# do not enable at guest boot or add Windows startup automation.

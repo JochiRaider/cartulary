@@ -221,7 +221,7 @@ func (composedMergeTimelineEffects) RefreshTimelineProjectionRowsTx(context.Cont
 
 func seedComposedMergeUser(t testing.TB, db postgres.DB) authn.UserRecord {
 	t.Helper()
-	hash, err := authn.HashPassword("MergeProtectedPass1!")
+	hash, err := authn.HashPassword(context.Background(), "MergeProtectedPass1!")
 	if err != nil {
 		t.Fatalf("hash merge protected-set password: %v", err)
 	}

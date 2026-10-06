@@ -961,7 +961,9 @@ async function verifySavedViewPersistenceReplay(
   await expect(page).toHaveURL(
     new RegExp(`sheet_ref_id=${savedView.saved_view_id}`),
   );
-  expect(await visibleRecordIds(page)).toEqual([String(beta.record_id)]);
+  await expect
+    .poll(() => visibleRecordIds(page))
+    .toEqual([String(beta.record_id)]);
   await expect(
     page.getByTestId(
       gridGroupRowTestId(
@@ -981,6 +983,9 @@ async function verifySavedViewPersistenceReplay(
   await page.reload();
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   expect(readPostBody(await reloadQueryRequest)).toEqual(replayedQuery);
+  await expect
+    .poll(() => visibleRecordIds(page))
+    .toEqual([String(beta.record_id)]);
   expect(
     rowIDs(
       await queryViewRows(

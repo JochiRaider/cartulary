@@ -1,17 +1,17 @@
 package pagination
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 )
 
 const (
@@ -20,7 +20,8 @@ const (
 )
 
 const (
-	CursorVersion = "pagination.cursor.v1"
+	CursorVersion = "pagination.cursor.v2"
+	cursorPrefix  = "pc2."
 
 	ModeOffset = "offset"
 	ModeKeyset = "keyset"
@@ -61,21 +62,19 @@ type Cursor struct {
 	Position    map[string]string `json:"position,omitempty"`
 }
 
-type Codec struct {
-	aead cipher.AEAD
+type Codec struct{ key cryptography.MasterKey }
+
+// A fixed-size key makes unsupported lengths unrepresentable at this boundary.
+// Configuration/key-purpose owners admit and derive the supplied material.
+func NewCodec(key [32]byte) *Codec {
+	admitted, err := cryptography.AdmitKey(key[:])
+	if err != nil {
+		panic(err)
+	} // the primitive contract admits every exact 32-byte key
+	return &Codec{key: admitted}
 }
 
-func NewCodec(key []byte) *Codec {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		panic(fmt.Sprintf("pagination: invalid cursor key: %v", err))
-	}
-	aead, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(fmt.Sprintf("pagination: initialize cursor AEAD: %v", err))
-	}
-	return &Codec{aead: aead}
-}
+var maximumCursorBytes = len(cursorPrefix) + base64.RawURLEncoding.EncodedLen(cryptography.MaxPlaintextBytes+cryptography.EnvelopeOverhead)
 
 func ParseQuery(values url.Values) (Query, string) {
 	for _, key := range []string{"page", "offset", "page_size", "block_size"} {
@@ -157,42 +156,51 @@ func (c *Codec) ResolveQuery(query Query, route string, actorUserID string, scop
 
 func (c *Codec) Encode(cursor Cursor) (string, error) {
 	cursor.Version = CursorVersion
+	if !cursor.valid() {
+		return "", ErrInvalidCursorToken
+	}
 	payload, err := json.Marshal(cursor)
 	if err != nil {
 		return "", err
 	}
-	nonce := make([]byte, c.aead.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
+	sealed, err := c.key.Seal(CursorVersion, nil, payload, []byte(cursorPrefix))
+	if err != nil {
+		return "", ErrInvalidCursorToken
 	}
-	sealed := c.aead.Seal(nonce, nonce, payload, []byte(CursorVersion))
-	return base64.RawURLEncoding.EncodeToString(sealed), nil
+	return cursorPrefix + base64.RawURLEncoding.EncodeToString(sealed), nil
 }
 
 func (c *Codec) Decode(token string) (Cursor, error) {
-	sealed, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil {
+	if len(token) > maximumCursorBytes || !strings.HasPrefix(token, cursorPrefix) {
 		return Cursor{}, ErrInvalidCursorToken
 	}
-	nonceSize := c.aead.NonceSize()
-	if len(sealed) <= nonceSize {
+	encoded := strings.TrimPrefix(token, cursorPrefix)
+	sealed, err := base64.RawURLEncoding.Strict().DecodeString(encoded)
+	if err != nil || base64.RawURLEncoding.EncodeToString(sealed) != encoded {
 		return Cursor{}, ErrInvalidCursorToken
 	}
-	nonce := sealed[:nonceSize]
-	ciphertext := sealed[nonceSize:]
-	payload, err := c.aead.Open(nil, nonce, ciphertext, []byte(CursorVersion))
+	payload, err := c.key.Open(CursorVersion, nil, sealed, []byte(cursorPrefix))
 	if err != nil {
 		return Cursor{}, ErrInvalidCursorToken
 	}
 
 	var cursor Cursor
-	if err := json.Unmarshal(payload, &cursor); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&cursor); err != nil {
 		return Cursor{}, ErrInvalidCursorToken
 	}
-	if cursor.Version != CursorVersion || cursor.Mode == "" || cursor.Route == "" || cursor.ActorUserID == "" || cursor.Limit < 1 || cursor.Limit > MaxLimit {
+	if trailing, err := decoder.Token(); err != io.EOF || trailing != nil {
+		return Cursor{}, ErrInvalidCursorToken
+	}
+	if !cursor.valid() {
 		return Cursor{}, ErrInvalidCursorToken
 	}
 	return cursor, nil
+}
+
+func (c Cursor) valid() bool {
+	return c.Version == CursorVersion && (c.Mode == ModeOffset || c.Mode == ModeKeyset) && c.Route != "" && c.ActorUserID != "" && c.Limit >= 1 && c.Limit <= MaxLimit
 }
 
 func (c Cursor) Validate(binding Binding) error {

@@ -101,8 +101,8 @@ type sessionMembershipSummaryReader interface {
 type credentialLifecycleStore interface {
 	GetPendingTOTPEnrollmentForUser(context.Context, uuid.UUID, time.Time) (*authn.PendingTOTPEnrollmentRecord, error)
 	GetPendingTOTPEnrollmentByID(context.Context, uuid.UUID) (*authn.PendingTOTPEnrollmentRecord, error)
-	BeginTOTPEnrollment(context.Context, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error)
-	ActivateTOTPEnrollment(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
+	BeginTOTPEnrollment(context.Context, uuid.UUID, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error)
+	ActivateTOTPEnrollment(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, []byte, []byte, time.Time) (authn.TOTPCompleteResult, error)
 	GetRouteIdempotency(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	ChangePassword(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
 }
@@ -131,7 +131,7 @@ type deploymentAuditReader interface {
 type enterpriseAuthStore interface {
 	ListEnterpriseAuthProviders(context.Context) ([]authn.EnterpriseAuthProviderRecord, error)
 	GetEnterpriseAuthProviderByKey(context.Context, string) (authn.EnterpriseAuthProviderRecord, error)
-	CreateEnterpriseAuthTransaction(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, []byte, []byte, *string, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	CreateEnterpriseAuthTransaction(context.Context, uuid.UUID, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, []byte, *string, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	GetOIDCEnterpriseAuthTransactionForCallback(context.Context, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	GetSAMLEnterpriseAuthTransactionForACS(context.Context, string, string, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	CompleteOIDCEnterpriseAuthTransaction(context.Context, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
@@ -281,8 +281,11 @@ func newService(deps httpapi.DependencySet, enterpriseAdmitted bool, publicOrigi
 	}
 	cursorCodec := deps.CursorCodec
 	if cursorCodec == nil {
-		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
-		cursorCodec = pagination.NewCodec(cursorKey[:])
+		cursorKey, err := authn.DerivePurposeKey(keys, "pagination-cursor-v2")
+		if err != nil {
+			return nil, err
+		}
+		cursorCodec = pagination.NewCodec(cursorKey)
 	}
 
 	oidcVerifier := enterpriseOIDCVerifier(enterpriseauth.UnconfiguredOIDCVerifier{})

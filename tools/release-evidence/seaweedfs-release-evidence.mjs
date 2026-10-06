@@ -1066,8 +1066,8 @@ function buildBackupIntegrityCoverage({
   const registry = readJSON(recoveryContractRegistryPath);
   const currentSchemaIDs = new Set(registry.current_schema_ids ?? []);
   const requiredSchemaIDs = [
-    "cartulary.backup_artifact_envelope.v2",
-    "cartulary.backup_integrity_manifest.v3",
+    "cartulary.backup_artifact_envelope.v3",
+    "cartulary.backup_integrity_manifest.v4",
     "cartulary.object_store_backup_manifest.v2",
     "cartulary.object_store_backup_summary.v2",
   ];

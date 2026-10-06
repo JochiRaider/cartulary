@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN='postgres://cartulary_migration_login@localhost:5432/cartulary?sslmode=verify-full&require_auth=none&sslrootcert=/fixture/ca.pem&sslcert=/fixture/migration.crt&sslkey=/fixture/migration.key'
+export OBJECT_STORE_CORS_PROXY_TLS_ROOT_CERTIFICATE=/fixture/ca.pem
+export SEAWEEDFS_S3_ACCESS_KEY_ID=fixture-access
+export SEAWEEDFS_S3_SECRET_ACCESS_KEY=fixture-secret
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-dev-services.XXXXXX")"
 fake_bin="$tmp_dir/bin"
@@ -285,13 +290,14 @@ assert_file_not_contains "$docker_log" "CREATE DATABASE cartulary;" "db-migrate 
 assert_file_not_contains "$docker_log" "seaweedfs-s3" "db-migrate does not start object store"
 assert_file_contains "$go_log" "run ./cmd/migrate up" "db-migrate runs migrations"
 assert_file_contains "$go_log" "config=$repo_root/configs/dev/config.toml" "db-migrate passes default config"
-assert_file_contains "$go_log" "managed_dsn=postgres://cartulary_migration_login:cartulary-migration@localhost:5432/cartulary?sslmode=disable" "db-migrate passes derived default dsn"
+assert_file_contains "$go_log" "managed_dsn=$CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN" "db-migrate passes the explicit purpose binding"
+assert_file_not_contains "$docker_log" "provision.sh" "ordinary migration does not reprovision retained state"
 
 reset_logs
-run_service db_migrate_custom_dsn env CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN='postgres://custom:secret@db.example:15432/customdb?sslmode=require' bash tools/harness/readiness/dev-services.sh db-migrate
-assert_status 0
-assert_file_contains "$go_log" "managed_dsn=postgres://custom:secret@db.example:15432/customdb?sslmode=require" "db-migrate preserves caller dsn"
-assert_file_not_contains "$go_log" "managed_dsn=postgres://cartulary_migration_login:cartulary-migration@localhost:5432/cartulary?sslmode=disable" "db-migrate does not overwrite caller dsn"
+run_service db_migrate_missing_dsn env -u CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN bash tools/harness/readiness/dev-services.sh db-migrate
+[[ "$run_status" != 0 ]] || fail "missing migration identity accepted"
+assert_log_empty "$docker_log" "missing migration identity fails before service acquisition"
+assert_log_empty "$go_log" "missing migration identity fails before migration"
 
 reset_logs
 run_service db_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=db-reset bash tools/harness/readiness/dev-services.sh db-reset

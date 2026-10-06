@@ -3,6 +3,34 @@
   "owner_id": "app.migrate",
   "rows": [
     {
+      "row_id": "app.migrate.integration.fresh_state_admission",
+      "owner_id": "app.migrate",
+      "family_id": "app.migrate.integration",
+      "collaborator_ids": [
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "app.migrate.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/migrate",
+        "tests": [
+          "TestMigrateFacadeFreshStateAdmission_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "app.migrate.unit.migrate_facade_contract",
       "owner_id": "app.migrate",
       "family_id": "app.migrate.unit",
@@ -16,6 +44,7 @@
       "selector": {
         "package": "./internal/app/migrate",
         "tests": [
+          "TestFreshStorageAdmissionIsReadOnly",
           "TestMigrateRunnerAcceptsOnlyExplicitUp",
           "TestMigrateRunnerConfigLoadFailure",
           "TestMigrateRunnerDBOpenFailure",

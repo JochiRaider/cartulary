@@ -25,8 +25,9 @@ import {
   currentUserSlotStyle,
   shellIncidentIdentityStyle,
   shellTopBarActionsStyle,
+  shellTopBarControlsStyle,
   shellTopBarStyle,
-  shellTopBarUnsupportedStyle,
+  shellTopBarUnsupportedControlsStyle,
   surfaceMenuTriggerStyle,
   surfacesMenuFrameStyle,
   surfacesMenuItemSelectedStyle,
@@ -146,12 +147,7 @@ export function WorkbookShellTopBar({
   return (
     <WorkbookShellSlotRegion
       slot="top-bar"
-      style={{
-        ...shellTopBarStyle,
-        ...(layout.chromeMode === "below_supported_minimum"
-          ? shellTopBarUnsupportedStyle
-          : null),
-      }}
+      style={shellTopBarStyle}
       viewSchemaId={surface}
     >
       <style>
@@ -159,257 +155,273 @@ export function WorkbookShellTopBar({
         {builtInSurfaceFocusStyles}
       </style>
       <div
-        data-testid={workbookIncidentIdentityTestId()}
-        style={shellIncidentIdentityStyle}
-        title={
-          incidentIdentity === null
-            ? (incidentIdentityError ?? "Loading incident")
-            : `${incidentIdentity.incident_key} ${incidentIdentity.title}`
+        style={
+          layout.chromeMode === "below_supported_minimum"
+            ? shellTopBarUnsupportedControlsStyle
+            : shellTopBarControlsStyle
         }
       >
-        <WorkbookIncidentIdentityDisclosure
-          key={incidentKeyLabel}
-          incidentKey={incidentKeyLabel}
-          title={incidentTitleLabel}
-        />
-      </div>
-      <span
-        aria-hidden="true"
-        data-testid={workbookResponsiveBandTestId()}
-        data-workbook-block-mode={layout.blockMode}
-        data-workbook-responsive-band={layout.chromeMode}
-        hidden
-      />
-      {layout.chromeMode === "base" ? (
         <div
-          data-grid-editor-external-action="true"
-          aria-label="Built-in workbook surfaces"
-          role="tablist"
-          aria-orientation="horizontal"
-          style={tabStripStyle}
-          onBlur={(event) => {
-            if (
-              event.relatedTarget instanceof Node &&
-              event.currentTarget.contains(event.relatedTarget)
-            )
-              return;
-            setFocusedSurface(null);
-            if (event.relatedTarget !== null) selectorFocus.current = null;
-          }}
+          data-testid={workbookIncidentIdentityTestId()}
+          style={shellIncidentIdentityStyle}
+          title={
+            incidentIdentity === null
+              ? (incidentIdentityError ?? "Loading incident")
+              : `${incidentIdentity.incident_key} ${incidentIdentity.title}`
+          }
         >
-          {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId, index) => {
-            const contract = requireViewContract(viewSchemaId);
-            const selected = !networkAnalysisActive && surface === viewSchemaId;
-            return (
-              <button
-                aria-selected={selected}
-                aria-controls={builtInWorkbookSurfacePanelId(viewSchemaId)}
-                id={surfaceTabTestId(viewSchemaId)}
-                role="tab"
-                data-testid={surfaceTabTestId(viewSchemaId)}
-                data-view-schema-id={viewSchemaId}
-                data-workbook-tab-index={String(index)}
-                key={viewSchemaId}
-                ref={(element) => {
-                  if (element)
-                    surfaceControls.current.set(viewSchemaId, element);
-                  else surfaceControls.current.delete(viewSchemaId);
-                }}
-                tabIndex={
-                  (focusedSurface ?? entrySurface) === viewSchemaId ? 0 : -1
-                }
-                onFocus={(event) => {
-                  selectorFocus.current = event.currentTarget;
-                  setFocusedSurface(viewSchemaId);
-                }}
-                onKeyDown={(event) => {
-                  if (
-                    event.defaultPrevented ||
-                    event.nativeEvent.isComposing ||
-                    event.altKey ||
-                    event.ctrlKey ||
-                    event.metaKey ||
-                    event.shiftKey
-                  )
-                    return;
-                  const index =
-                    requiredBuiltInWorkbookSurfaceIds.indexOf(viewSchemaId);
-                  const count = requiredBuiltInWorkbookSurfaceIds.length;
-                  // Manual activation; wrapping and Home/End follow local roving precedent.
-                  const next =
-                    event.key === "ArrowRight"
-                      ? (index + 1) % count
-                      : event.key === "ArrowLeft"
-                        ? (index + count - 1) % count
-                        : event.key === "Home"
-                          ? 0
-                          : event.key === "End"
-                            ? count - 1
-                            : null;
-                  if (next === null) return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  const target = requiredBuiltInWorkbookSurfaceIds[next];
-                  if (target)
-                    surfaceControls.current
-                      .get(target)
-                      ?.focus({ preventScroll: true });
-                }}
-                onClick={() => selectExplicitSurface(viewSchemaId)}
-                style={{
-                  ...surfaceTabStyle,
-                  ...(selected ? surfaceTabActiveStyle : null),
-                }}
-                type="button"
-              >
-                {contract.title}
-              </button>
-            );
-          })}
+          <WorkbookIncidentIdentityDisclosure
+            key={incidentKeyLabel}
+            incidentKey={incidentKeyLabel}
+            title={incidentTitleLabel}
+          />
         </div>
-      ) : (
-        <div
-          data-grid-editor-external-action="true"
-          style={surfacesMenuFrameStyle}
-          onFocusCapture={(event) => {
-            selectorFocus.current = event.target as HTMLElement;
-          }}
-          onBlurCapture={(event) => {
-            if (
-              event.relatedTarget !== null &&
-              !(
+        <span
+          aria-hidden="true"
+          data-testid={workbookResponsiveBandTestId()}
+          data-workbook-block-mode={layout.blockMode}
+          data-workbook-responsive-band={layout.chromeMode}
+          hidden
+        />
+        {layout.chromeMode === "base" ? (
+          <div
+            data-grid-editor-external-action="true"
+            aria-label="Built-in workbook surfaces"
+            role="tablist"
+            aria-orientation="horizontal"
+            style={tabStripStyle}
+            onBlur={(event) => {
+              if (
                 event.relatedTarget instanceof Node &&
                 event.currentTarget.contains(event.relatedTarget)
               )
-            )
-              selectorFocus.current = null;
-          }}
-        >
-          <button
-            aria-controls={
-              surfacesMenuOpen ? workbookSurfacesMenuTestId() : undefined
-            }
-            aria-expanded={surfacesMenuOpen}
-            aria-haspopup="menu"
-            data-testid={workbookSurfacesMenuTriggerTestId()}
-            ref={surfacesMenuTriggerRef}
-            style={surfaceMenuTriggerStyle}
-            type="button"
-            onClick={() => {
-              if (surfacesMenuOpen) {
-                surfacesMenuNavigation.close({ restoreTriggerFocus: false });
                 return;
-              }
-              surfacesMenuNavigation.prepareOpen(
-                requiredBuiltInWorkbookSurfaceIds.includes(surface)
-                  ? surface
-                  : requiredBuiltInWorkbookSurfaceIds[0],
-              );
-              setSurfacesMenuOpen(true);
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== "ArrowDown") return;
-              event.preventDefault();
-              event.stopPropagation();
-              surfacesMenuNavigation.prepareOpen(
-                requiredBuiltInWorkbookSurfaceIds.includes(surface)
-                  ? surface
-                  : requiredBuiltInWorkbookSurfaceIds[0],
-              );
-              setSurfacesMenuOpen(true);
+              setFocusedSurface(null);
+              if (event.relatedTarget !== null) selectorFocus.current = null;
             }}
           >
-            Surfaces
-          </button>
-          {surfacesMenuOpen ? (
-            <div
-              data-testid={workbookSurfacesMenuTestId()}
-              id={workbookSurfacesMenuTestId()}
-              role="menu"
-              style={surfacesMenuStyle}
-              tabIndex={-1}
-              onBlur={surfacesMenuNavigation.onOverlayBlur}
-              onKeyDown={(event) => {
-                if (
-                  event.defaultPrevented ||
-                  surfacesMenuNavigation.activeKey === null
-                ) {
+            {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId, index) => {
+              const contract = requireViewContract(viewSchemaId);
+              const selected =
+                !networkAnalysisActive && surface === viewSchemaId;
+              return (
+                <button
+                  aria-selected={selected}
+                  aria-controls={builtInWorkbookSurfacePanelId(viewSchemaId)}
+                  id={surfaceTabTestId(viewSchemaId)}
+                  role="tab"
+                  data-testid={surfaceTabTestId(viewSchemaId)}
+                  data-view-schema-id={viewSchemaId}
+                  data-workbook-tab-index={String(index)}
+                  key={viewSchemaId}
+                  ref={(element) => {
+                    if (element)
+                      surfaceControls.current.set(viewSchemaId, element);
+                    else surfaceControls.current.delete(viewSchemaId);
+                  }}
+                  tabIndex={
+                    (focusedSurface ?? entrySurface) === viewSchemaId ? 0 : -1
+                  }
+                  onFocus={(event) => {
+                    selectorFocus.current = event.currentTarget;
+                    setFocusedSurface(viewSchemaId);
+                  }}
+                  onKeyDown={(event) => {
+                    if (
+                      event.defaultPrevented ||
+                      event.nativeEvent.isComposing ||
+                      event.altKey ||
+                      event.ctrlKey ||
+                      event.metaKey ||
+                      event.shiftKey
+                    )
+                      return;
+                    const index =
+                      requiredBuiltInWorkbookSurfaceIds.indexOf(viewSchemaId);
+                    const count = requiredBuiltInWorkbookSurfaceIds.length;
+                    // Manual activation; wrapping and Home/End follow local roving precedent.
+                    const next =
+                      event.key === "ArrowRight"
+                        ? (index + 1) % count
+                        : event.key === "ArrowLeft"
+                          ? (index + count - 1) % count
+                          : event.key === "Home"
+                            ? 0
+                            : event.key === "End"
+                              ? count - 1
+                              : null;
+                    if (next === null) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const target = requiredBuiltInWorkbookSurfaceIds[next];
+                    if (target)
+                      surfaceControls.current
+                        .get(target)
+                        ?.focus({ preventScroll: true });
+                  }}
+                  onClick={() => selectExplicitSurface(viewSchemaId)}
+                  style={{
+                    ...surfaceTabStyle,
+                    ...(selected ? surfaceTabActiveStyle : null),
+                  }}
+                  type="button"
+                >
+                  {contract.title}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div
+            data-grid-editor-external-action="true"
+            style={surfacesMenuFrameStyle}
+            onFocusCapture={(event) => {
+              selectorFocus.current = event.target as HTMLElement;
+            }}
+            onBlurCapture={(event) => {
+              if (
+                event.relatedTarget !== null &&
+                !(
+                  event.relatedTarget instanceof Node &&
+                  event.currentTarget.contains(event.relatedTarget)
+                )
+              )
+                selectorFocus.current = null;
+            }}
+          >
+            <button
+              aria-controls={
+                surfacesMenuOpen ? workbookSurfacesMenuTestId() : undefined
+              }
+              aria-expanded={surfacesMenuOpen}
+              aria-haspopup="menu"
+              data-testid={workbookSurfacesMenuTriggerTestId()}
+              ref={surfacesMenuTriggerRef}
+              style={surfaceMenuTriggerStyle}
+              type="button"
+              onClick={() => {
+                if (surfacesMenuOpen) {
+                  surfacesMenuNavigation.close({ restoreTriggerFocus: false });
                   return;
                 }
-                surfacesMenuNavigation.onItemKeyDown(
-                  event,
-                  surfacesMenuNavigation.activeKey,
+                surfacesMenuNavigation.prepareOpen(
+                  requiredBuiltInWorkbookSurfaceIds.includes(surface)
+                    ? surface
+                    : requiredBuiltInWorkbookSurfaceIds[0],
                 );
+                setSurfacesMenuOpen(true);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowDown") return;
+                event.preventDefault();
+                event.stopPropagation();
+                surfacesMenuNavigation.prepareOpen(
+                  requiredBuiltInWorkbookSurfaceIds.includes(surface)
+                    ? surface
+                    : requiredBuiltInWorkbookSurfaceIds[0],
+                );
+                setSurfacesMenuOpen(true);
               }}
             >
-              {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId) => {
-                const contract = requireViewContract(viewSchemaId);
-                const selected =
-                  !networkAnalysisActive && surface === viewSchemaId;
-                return (
-                  <button
-                    aria-checked={selected}
-                    data-testid={workbookSurfacesMenuOptionTestId(viewSchemaId)}
-                    data-view-schema-id={viewSchemaId}
-                    key={viewSchemaId}
-                    onClick={() => {
-                      surfacesMenuNavigation.close({
-                        restoreTriggerFocus: false,
-                      });
-                      selectExplicitSurface(viewSchemaId);
-                    }}
-                    onKeyDown={(event) => {
-                      surfacesMenuNavigation.onItemKeyDown(event, viewSchemaId);
-                    }}
-                    ref={surfacesMenuNavigation.registerItem(viewSchemaId)}
-                    role="menuitemradio"
-                    style={{
-                      ...surfacesMenuItemStyle,
-                      ...(selected ? surfacesMenuItemSelectedStyle : null),
-                    }}
-                    tabIndex={surfacesMenuNavigation.tabIndexFor(viewSchemaId)}
-                    type="button"
-                  >
-                    {contract.title}
-                  </button>
-                );
-              })}
-            </div>
+              Surfaces
+            </button>
+            {surfacesMenuOpen ? (
+              <div
+                data-testid={workbookSurfacesMenuTestId()}
+                id={workbookSurfacesMenuTestId()}
+                role="menu"
+                style={surfacesMenuStyle}
+                tabIndex={-1}
+                onBlur={surfacesMenuNavigation.onOverlayBlur}
+                onKeyDown={(event) => {
+                  if (
+                    event.defaultPrevented ||
+                    surfacesMenuNavigation.activeKey === null
+                  ) {
+                    return;
+                  }
+                  surfacesMenuNavigation.onItemKeyDown(
+                    event,
+                    surfacesMenuNavigation.activeKey,
+                  );
+                }}
+              >
+                {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId) => {
+                  const contract = requireViewContract(viewSchemaId);
+                  const selected =
+                    !networkAnalysisActive && surface === viewSchemaId;
+                  return (
+                    <button
+                      aria-checked={selected}
+                      data-testid={workbookSurfacesMenuOptionTestId(
+                        viewSchemaId,
+                      )}
+                      data-view-schema-id={viewSchemaId}
+                      key={viewSchemaId}
+                      onClick={() => {
+                        surfacesMenuNavigation.close({
+                          restoreTriggerFocus: false,
+                        });
+                        selectExplicitSurface(viewSchemaId);
+                      }}
+                      onKeyDown={(event) => {
+                        surfacesMenuNavigation.onItemKeyDown(
+                          event,
+                          viewSchemaId,
+                        );
+                      }}
+                      ref={surfacesMenuNavigation.registerItem(viewSchemaId)}
+                      role="menuitemradio"
+                      style={{
+                        ...surfacesMenuItemStyle,
+                        ...(selected ? surfacesMenuItemSelectedStyle : null),
+                      }}
+                      tabIndex={surfacesMenuNavigation.tabIndexFor(
+                        viewSchemaId,
+                      )}
+                      type="button"
+                    >
+                      {contract.title}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        )}
+        <div
+          style={{
+            ...systemViewSlotStyle,
+            ...(layout.chromeMode === "below_supported_minimum"
+              ? { minWidth: "min-content" }
+              : {}),
+          }}
+        >
+          {recovery}
+          {networkAnalysisAvailable ? (
+            <button
+              aria-current={networkAnalysisActive ? "page" : undefined}
+              data-testid={networkAnalysisTestId("tab")}
+              onClick={onSelectNetworkAnalysis}
+              style={{
+                ...surfaceTabStyle,
+                ...(networkAnalysisActive ? surfaceTabActiveStyle : null),
+              }}
+              type="button"
+            >
+              Network Analysis
+            </button>
+          ) : null}
+          <SystemViewSwitcher
+            activeViewSchemaId={surface}
+            onSelect={selectExplicitSurface}
+          />
+          {activeSystemSurfaceTitle ? (
+            <span style={activeSystemViewTitleStyle}>
+              {activeSystemSurfaceTitle}
+            </span>
           ) : null}
         </div>
-      )}
-      <div
-        style={{
-          ...systemViewSlotStyle,
-          ...(layout.chromeMode === "below_supported_minimum"
-            ? { minWidth: "min-content" }
-            : {}),
-        }}
-      >
-        {recovery}
-        {networkAnalysisAvailable ? (
-          <button
-            aria-current={networkAnalysisActive ? "page" : undefined}
-            data-testid={networkAnalysisTestId("tab")}
-            onClick={onSelectNetworkAnalysis}
-            style={{
-              ...surfaceTabStyle,
-              ...(networkAnalysisActive ? surfaceTabActiveStyle : null),
-            }}
-            type="button"
-          >
-            Network Analysis
-          </button>
-        ) : null}
-        <SystemViewSwitcher
-          activeViewSchemaId={surface}
-          onSelect={selectExplicitSurface}
-        />
-        {activeSystemSurfaceTitle ? (
-          <span style={activeSystemViewTitleStyle}>
-            {activeSystemSurfaceTitle}
-          </span>
-        ) : null}
       </div>
       <div style={shellTopBarActionsStyle}>
         {layout.chromeMode === "base" ||

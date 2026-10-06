@@ -69,13 +69,13 @@ SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive
 
 func (s *Store) CreateEnterpriseAuthTransaction(
 	ctx context.Context,
+	transactionID uuid.UUID,
 	provider EnterpriseAuthProviderRecord,
 	returnTo string,
 	state *string,
 	nonce *string,
 	pkceVerifierHash []byte,
-	pkceVerifierCiphertext []byte,
-	pkceVerifierNonce []byte,
+	pkceVerifierEnvelope []byte,
 	relayState *string,
 	samlRequestID *string,
 	browserBindingHash []byte,
@@ -84,16 +84,16 @@ func (s *Store) CreateEnterpriseAuthTransaction(
 	var record EnterpriseAuthTransactionRecord
 	if err := s.pool.QueryRow(ctx, `
 INSERT INTO enterprise_auth_transactions (
-    provider_id, provider_key, provider_type, return_to, state, nonce, pkce_verifier_hash,
-    pkce_verifier_ciphertext, pkce_verifier_nonce, relay_state, saml_request_id,
+    id, provider_id, provider_key, provider_type, return_to, state, nonce, pkce_verifier_hash,
+    pkce_verifier_envelope, relay_state, saml_request_id,
     browser_binding_hash, created_at, expires_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-          browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+          browser_binding_hash, pkce_verifier_envelope, saml_request_id,
           saml_completion_hash, saml_subject, saml_staged_at,
           created_at, expires_at, consumed_at
-`, provider.ID, provider.ProviderKey, provider.ProviderType, returnTo, state, nonce, pkceVerifierHash, pkceVerifierCiphertext, pkceVerifierNonce, relayState, samlRequestID, browserBindingHash, now.UTC(), now.UTC().Add(EnterpriseAuthTransactionTTL)).Scan(
+`, transactionID, provider.ID, provider.ProviderKey, provider.ProviderType, returnTo, state, nonce, pkceVerifierHash, pkceVerifierEnvelope, relayState, samlRequestID, browserBindingHash, now.UTC(), now.UTC().Add(EnterpriseAuthTransactionTTL)).Scan(
 		&record.ID,
 		&record.ProviderID,
 		&record.ProviderKey,
@@ -103,8 +103,7 @@ RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce,
 		&record.Nonce,
 		&record.RelayState,
 		&record.BrowserBindingHash,
-		&record.PKCEVerifierCiphertext,
-		&record.PKCEVerifierNonce,
+		&record.PKCEVerifierEnvelope,
 		&record.SAMLRequestID,
 		&record.SAMLCompletionHash,
 		&record.SAMLSubject,
@@ -242,7 +241,7 @@ UPDATE enterprise_auth_providers
 func (s *Store) GetOIDCEnterpriseAuthTransactionForCallback(ctx context.Context, providerKey string, state string, browserBindingHash []byte, now time.Time) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       browser_binding_hash, pkce_verifier_envelope, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
  FROM enterprise_auth_transactions
@@ -286,7 +285,7 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 func (s *Store) getOIDCEnterpriseAuthTransactionByBrowserBinding(ctx context.Context, browserBindingHash []byte) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       browser_binding_hash, pkce_verifier_envelope, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
@@ -302,7 +301,7 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 func (s *Store) GetSAMLEnterpriseAuthTransactionForACS(ctx context.Context, providerKey string, relayState string, now time.Time) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       browser_binding_hash, pkce_verifier_envelope, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
@@ -332,7 +331,7 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 func (s *Store) getSAMLEnterpriseAuthTransactionByRelayState(ctx context.Context, relayState string) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       browser_binding_hash, pkce_verifier_envelope, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
@@ -436,7 +435,7 @@ UPDATE enterprise_auth_transactions
        saml_staged_at = $4
  WHERE id = $1
 RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-          browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+          browser_binding_hash, pkce_verifier_envelope, saml_request_id,
           saml_completion_hash, saml_subject, saml_staged_at,
           created_at, expires_at, consumed_at
 `, transaction.ID, completionHash, providerSubject, stagedAt))
@@ -1056,8 +1055,7 @@ func scanEnterpriseAuthTransaction(scanner interface{ Scan(...any) error }) (Ent
 		&record.Nonce,
 		&record.RelayState,
 		&record.BrowserBindingHash,
-		&record.PKCEVerifierCiphertext,
-		&record.PKCEVerifierNonce,
+		&record.PKCEVerifierEnvelope,
 		&record.SAMLRequestID,
 		&record.SAMLCompletionHash,
 		&record.SAMLSubject,
@@ -1088,7 +1086,7 @@ SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive
 func fetchEnterpriseTransactionByCorrelationTx(ctx context.Context, tx pgx.Tx, providerType string, correlation string) (EnterpriseAuthTransactionRecord, error) {
 	query := `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       browser_binding_hash, pkce_verifier_envelope, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
@@ -1097,7 +1095,7 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 	if providerType == "saml" {
 		query = `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       browser_binding_hash, pkce_verifier_envelope, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
@@ -1114,7 +1112,7 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 func fetchEnterpriseTransactionByBrowserBindingTx(ctx context.Context, tx pgx.Tx, providerType string, browserBindingHash []byte) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       browser_binding_hash, pkce_verifier_envelope, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
@@ -1131,7 +1129,7 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 func fetchEnterpriseTransactionByCompletionHashTx(ctx context.Context, tx pgx.Tx, completionHash []byte) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       browser_binding_hash, pkce_verifier_envelope, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
@@ -1282,7 +1280,7 @@ UPDATE users
        user_version = user_version + 1
  WHERE id = $3
 RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
-          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
 `, actorID, changedAt, userID).Scan(
 		&updated.ID,
 		&updated.Email,
@@ -1298,8 +1296,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		&updated.LastLoginAt,
 		&updated.UserVersion,
 		&updated.TOTPEnrolledAt,
-		&updated.TOTPSecretCiphertext,
-		&updated.TOTPSecretNonce,
+		&updated.TOTPSecretEnvelope,
 	); err != nil {
 		return UserRecord{}, err
 	}

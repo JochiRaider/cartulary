@@ -242,6 +242,11 @@
       "status": "active"
     },
     {
+      "owner_id": "platform.cryptography",
+      "manifest_path": "tools/test_families/platform.cryptography.json",
+      "status": "active"
+    },
+    {
       "owner_id": "platform.httpruntime",
       "manifest_path": "tools/test_families/platform.httpruntime.json",
       "status": "active"
@@ -259,6 +264,11 @@
     {
       "owner_id": "platform.openapi",
       "manifest_path": "tools/test_families/platform.openapi.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.pagination",
+      "manifest_path": "tools/test_families/platform.pagination.json",
       "status": "active"
     },
     {

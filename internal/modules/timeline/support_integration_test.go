@@ -18,7 +18,7 @@ func TestAuthorizationMatrix(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "timeline_mutation-support-auth")
 
-	adminLogin, _ := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-timeline_mutation-auth-incident",
 		"incident_key":  "IR-SUPPORT-AUTH",
@@ -34,9 +34,9 @@ func TestAuthorizationMatrix(t *testing.T) {
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, adminLogin, incidentID, editorUser.ID.String(), editorUser.Email, "editor")
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, adminLogin, incidentID, reviewerUser.ID.String(), reviewerUser.Email, "reviewer")
 
-	editorSession, editorCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, editorUser.Email, "TimelineMutationEditorPass1!", nil)
-	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, reviewerUser.Email, "TimelineMutationReviewerPass1!", nil)
-	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "timeline_mutation-outsider@example.test", "TimelineMutationOutsiderPass1!", nil)
+	editorSession, editorCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, editorUser.Email, "TimelineMutationEditorPass1!", nil)
+	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, reviewerUser.Email, "TimelineMutationReviewerPass1!", nil)
+	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "timeline_mutation-outsider@example.test", "TimelineMutationOutsiderPass1!", nil)
 
 	editorLogin := flowtest.LoginResult{SessionCookie: editorSession, CSRFCookie: editorCSRF}
 	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}

@@ -2,9 +2,6 @@ package conflicts
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -13,15 +10,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 )
 
 const (
-	conflictTokenVersion    = 3
+	conflictTokenVersion    = 4
 	conflictTokenTTL        = 30 * time.Minute
 	conflictTokenClockSkew  = 60 * time.Second
 	conflictTokenMaximumLen = 4096
-	conflictTokenPrefix     = "cft3."
-	conflictTokenPurpose    = "cartulary.conflict-token.v3"
+	conflictTokenPrefix     = "cft4."
+	conflictTokenPurpose    = "cartulary.conflict-token.v4"
 )
 
 var errConflictTokenUnavailable = errors.New("conflict token unavailable")
@@ -41,7 +40,7 @@ type ConflictTokenClaims struct {
 }
 
 type conflictTokenCipher struct {
-	aead          cipher.AEAD
+	key           cryptography.MasterKey
 	state         string
 	deactivatedAt *time.Time
 	retireAt      *time.Time
@@ -51,7 +50,6 @@ type ConflictTokenCodec struct {
 	activeKeyID string
 	keys        map[string]conflictTokenCipher
 	now         func() time.Time
-	entropy     io.Reader
 }
 
 type CodecOption func(*ConflictTokenCodec)
@@ -59,12 +57,6 @@ type CodecOption func(*ConflictTokenCodec)
 func WithClock(now func() time.Time) CodecOption {
 	return func(codec *ConflictTokenCodec) {
 		codec.now = now
-	}
-}
-
-func withEntropySource(entropy io.Reader) CodecOption {
-	return func(codec *ConflictTokenCodec) {
-		codec.entropy = entropy
 	}
 }
 
@@ -76,27 +68,22 @@ func NewConflictTokenCodec(ring *ConflictTokenKeyRing, options ...CodecOption) (
 		activeKeyID: ring.activeKeyID,
 		keys:        make(map[string]conflictTokenCipher, len(ring.keys)),
 		now:         func() time.Time { return time.Now().UTC() },
-		entropy:     rand.Reader,
 	}
 	for _, option := range options {
 		if option != nil {
 			option(&codec)
 		}
 	}
-	if codec.now == nil || codec.entropy == nil {
+	if codec.now == nil {
 		return ConflictTokenCodec{}, errConflictTokenUnavailable
 	}
 	for keyID, material := range ring.keys {
-		block, err := aes.NewCipher(material.key)
+		key, err := cryptography.AdmitKey(material.key)
 		if err != nil {
 			return ConflictTokenCodec{}, errConflictTokenUnavailable
 		}
-		aead, err := cipher.NewGCM(block)
-		if err != nil || aead.NonceSize() != 12 {
-			return ConflictTokenCodec{}, errConflictTokenUnavailable
-		}
 		codec.keys[keyID] = conflictTokenCipher{
-			aead:          aead,
+			key:           key,
 			state:         material.state,
 			deactivatedAt: cloneTime(material.deactivatedAt),
 			retireAt:      cloneTime(material.retireAt),
@@ -111,7 +98,7 @@ func RequestHashTokenValue(requestHash []byte) string {
 
 func (c ConflictTokenCodec) Issue(claims ConflictTokenClaims) (string, error) {
 	key, ok := c.keys[c.activeKeyID]
-	if !ok || key.state != conflictTokenKeyStateActive || c.now == nil || c.entropy == nil {
+	if !ok || key.state != conflictTokenKeyStateActive || c.now == nil {
 		return "", errConflictTokenUnavailable
 	}
 	now := c.now().UTC()
@@ -125,11 +112,10 @@ func (c ConflictTokenCodec) Issue(claims ConflictTokenClaims) (string, error) {
 	if err != nil {
 		return "", errConflictTokenUnavailable
 	}
-	nonce := make([]byte, key.aead.NonceSize())
-	if _, err := io.ReadFull(c.entropy, nonce); err != nil {
+	sealed, err := key.key.Seal(conflictTokenPurpose, []string{c.activeKeyID}, payload, []byte(conflictTokenPrefix))
+	if err != nil {
 		return "", errConflictTokenUnavailable
 	}
-	sealed := key.aead.Seal(nonce, nonce, payload, conflictTokenAAD(c.activeKeyID))
 	token := conflictTokenPrefix + c.activeKeyID + "." + base64.RawURLEncoding.EncodeToString(sealed)
 	if len(token) > conflictTokenMaximumLen {
 		return "", errConflictTokenUnavailable
@@ -158,11 +144,11 @@ func (c ConflictTokenCodec) Parse(token string) (ConflictTokenClaims, bool) {
 	if key.retireAt != nil && !now.Before(*key.retireAt) {
 		return ConflictTokenClaims{}, false
 	}
-	sealed, err := base64.RawURLEncoding.DecodeString(remainder[separator+1:])
-	if err != nil || len(sealed) <= key.aead.NonceSize() {
+	sealed, err := base64.RawURLEncoding.Strict().DecodeString(remainder[separator+1:])
+	if err != nil || base64.RawURLEncoding.EncodeToString(sealed) != remainder[separator+1:] {
 		return ConflictTokenClaims{}, false
 	}
-	payload, err := key.aead.Open(nil, sealed[:key.aead.NonceSize()], sealed[key.aead.NonceSize():], conflictTokenAAD(keyID))
+	payload, err := key.key.Open(conflictTokenPurpose, []string{keyID}, sealed, []byte(conflictTokenPrefix))
 	if err != nil {
 		return ConflictTokenClaims{}, false
 	}
@@ -182,10 +168,6 @@ func (c ConflictTokenCodec) Parse(token string) (ConflictTokenClaims, bool) {
 		return ConflictTokenClaims{}, false
 	}
 	return claims, true
-}
-
-func conflictTokenAAD(keyID string) []byte {
-	return []byte(conflictTokenPurpose + "\x00" + keyID)
 }
 
 func validConflictTokenClaims(claims ConflictTokenClaims) bool {

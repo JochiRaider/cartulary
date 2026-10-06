@@ -15,14 +15,14 @@ func TestDecodeContractRejectsDuplicateJSONMembers(t *testing.T) {
 
 func TestValidateRecoveryRegistryRejectsUnsortedSchemaIDs(t *testing.T) {
 	registry := map[string]any{
-		"$schema":                      contractDraft202012Schema,
-		"schema_id":                    recoveryRegistrySchemaID,
-		"canonicalization":             "cartulary.recovery_canonical_json.v1",
-		"current_schema_ids":           []any{"cartulary.z.v1", "cartulary.a.v1"},
-		"historical_reader_schema_ids": []any{"cartulary.historical.v1"},
-		"limits":                       map[string]any{"maximum_tables": json.Number("4096")},
-		"schemas":                      []any{"schema.v1.schema.json"},
-		"canonical_fixtures":           []any{"fixtures/schema.v1.json"},
+		"$schema":            contractDraft202012Schema,
+		"schema_id":          recoveryRegistrySchemaID,
+		"canonicalization":   "cartulary.recovery_canonical_json.v1",
+		"current_schema_ids": []any{"cartulary.z.v1", "cartulary.a.v1"},
+		"retired_schema_ids": []any{"cartulary.historical.v1"},
+		"limits":             map[string]any{"maximum_tables": json.Number("4096")},
+		"schemas":            []any{"schema.v1.schema.json"},
+		"canonical_fixtures": []any{"fixtures/schema.v1.json"},
 	}
 	requireErrorContains(
 		t,

@@ -14,13 +14,14 @@ import (
 )
 
 const (
-	RestoreVerificationArtifactSchemaID = "cartulary.restore_verification.v4"
+	RestoreVerificationArtifactSchemaID = "cartulary.restore_verification.v5"
 	VNextBackupMechanismID              = "logical_streaming_backup.v2"
 )
 
 var recoveryIdentifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$`)
 
 type RestoreVerificationBasis struct {
+	ApplicationCryptoFormat           string `json:"application_crypto_format"`
 	MechanismID                       string `json:"mechanism_id"`
 	DatabaseBindingSHA256             string `json:"database_binding_sha256"`
 	ObjectStoreBindingSHA256          string `json:"object_store_binding_sha256"`
@@ -44,6 +45,9 @@ func (basis RestoreVerificationBasis) SHA256() (string, error) {
 }
 
 func (basis RestoreVerificationBasis) Validate() error {
+	if basis.ApplicationCryptoFormat != ApplicationCryptoFormatID {
+		return ErrInvalidVerificationBasis
+	}
 	if !recoveryIdentifierPattern.MatchString(basis.MechanismID) {
 		return fmt.Errorf("%w: mechanism_id is invalid", ErrInvalidVerificationBasis)
 	}
@@ -92,22 +96,22 @@ func EncodeRestoreVerificationArtifact(artifact RestoreVerificationArtifact) ([]
 	if err := ValidateRestoreVerificationArtifact(artifact); err != nil {
 		return nil, err
 	}
-	return canonicalRestoreVerificationArtifactV4Bytes(artifact), nil
+	return canonicalRestoreVerificationArtifactV5Bytes(artifact), nil
 }
 
 func DecodeRestoreVerificationArtifact(body []byte) (RestoreVerificationArtifact, error) {
 	if err := rejectDuplicateJSONKeys(body); err != nil {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification v4 JSON keys must be unique: %v", ErrInvalidBackupArtifact, err)
+		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification v5 JSON keys must be unique: %v", ErrInvalidBackupArtifact, err)
 	}
 	var artifact RestoreVerificationArtifact
 	if err := decodeStrictJSON(body, &artifact); err != nil {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: decode restore verification v4: %v", ErrInvalidBackupArtifact, err)
+		return RestoreVerificationArtifact{}, fmt.Errorf("%w: decode restore verification v5: %v", ErrInvalidBackupArtifact, err)
 	}
 	if err := ValidateRestoreVerificationArtifact(artifact); err != nil {
 		return RestoreVerificationArtifact{}, err
 	}
-	if !bytes.Equal(body, canonicalRestoreVerificationArtifactV4Bytes(artifact)) {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification v4 is not canonical JSON", ErrInvalidBackupArtifact)
+	if !bytes.Equal(body, canonicalRestoreVerificationArtifactV5Bytes(artifact)) {
+		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification v5 is not canonical JSON", ErrInvalidBackupArtifact)
 	}
 	return artifact, nil
 }
@@ -182,7 +186,7 @@ func ValidateRestoreVerificationArtifact(artifact RestoreVerificationArtifact) e
 	return nil
 }
 
-func canonicalRestoreVerificationArtifactV4Bytes(artifact RestoreVerificationArtifact) []byte {
+func canonicalRestoreVerificationArtifactV5Bytes(artifact RestoreVerificationArtifact) []byte {
 	workbookProbe := map[string]any{
 		"status": artifact.WorkbookProbe.Status,
 	}
@@ -199,6 +203,7 @@ func canonicalRestoreVerificationArtifactV4Bytes(artifact RestoreVerificationArt
 		"backup_set_id":           artifact.BackupSetID,
 		"consistency_point_at":    artifact.ConsistencyPointAt,
 		"verification_basis": map[string]any{
+			"application_crypto_format":             artifact.VerificationBasis.ApplicationCryptoFormat,
 			"mechanism_id":                          artifact.VerificationBasis.MechanismID,
 			"database_binding_sha256":               artifact.VerificationBasis.DatabaseBindingSHA256,
 			"object_store_binding_sha256":           artifact.VerificationBasis.ObjectStoreBindingSHA256,

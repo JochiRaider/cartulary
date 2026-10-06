@@ -234,7 +234,7 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 		Prefix:        "workbook_interaction-collaboration-coordination-saved-views",
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-	login, actorID := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	login, actorID := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentResource := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-collaboration-saved-views-incident",
 		"incident_key":  "IR-COLLABORATION-SAVED-VIEWS",

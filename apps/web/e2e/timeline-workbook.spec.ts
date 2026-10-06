@@ -88,6 +88,8 @@ async function openTimelineCreateFixture(page: Page, name: string) {
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  await expect(page.getByRole("grid")).toHaveAttribute("aria-busy", "false");
+  await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
   return { incidentId, createPath, creates };
 }
 
@@ -1067,6 +1069,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
     const endpoint = `**/api/v1/records/${target.record_id}/${scenario.action}`;
     const requests: { url: string; method: string; body: string | null }[] = [];
     const receipts: Record<string, unknown>[] = [];
+    let firstLossObserved = false;
     await page.route(endpoint, async (route) => {
       requests.push({
         url: route.request().url(),
@@ -1075,6 +1078,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
       });
       if (requests.length === 1 && scenario.loss === "before") {
         await route.abort("failed");
+        firstLossObserved = true;
         return;
       }
       const response = await route.fetch();
@@ -1091,6 +1095,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
             }),
           });
         else await route.abort("failed");
+        firstLossObserved = true;
       } else await route.fulfill({ response });
     });
     await page.goto(`/?incident_id=${incidentId}`);
@@ -1135,6 +1140,9 @@ test("Timeline exact action recovery preserves committed transitions change sets
       await page
         .getByTestId(timelineRowMarkReviewedButtonTestId(target.record_id))
         .press("Enter");
+    // Keep the reviewed editor alive until preflight has dispatched the action
+    // and the intended loss has occurred; navigation cancels unsubmitted work.
+    await expect.poll(() => firstLossObserved).toBe(true);
     // Background settlement publishes recovery without opening its panel.
     await expect(recoveryEntry(page)).toHaveText("Recovery (1)");
     await openRecoveryItem(page, /^Timeline action ·/);

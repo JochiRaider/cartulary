@@ -51,7 +51,7 @@ export function pageSource({ mode, profile, workspaceDigest, runID, prepared, br
   return freeze({ binding, fonts, attest: async () => {
     if (mode === "dev") return { source: freeze({ kind: "live_unattested", workspace_digest: workspaceDigest, browser_version: browserVersion }) };
     await prepared.check();
-    const stack = readJSON(prepared.attached.CARTULARY_WEB_E2E_STACK_JSON_FILE, "cartulary.web_e2e_stack.v7").value;
+    const stack = readJSON(prepared.attached.CARTULARY_WEB_E2E_STACK_JSON_FILE, "cartulary.web_e2e_stack.v8").value;
     const receipt = readJSON(containedFile(prepared.runRoot, stack.frontend.build_artifact_ref), "cartulary.frontend_build_artifact.v1", stack.frontend.build_receipt_sha256);
     if (receipt.value.run_id !== runID || receipt.value.source_digest.replace(/^sha256:/u, "") !== workspaceDigest) throw new ReviewFailure("invalid_artifact");
     return { receipt: receipt.bytes, source: freeze({ kind: "sealed_review", workspace_digest: workspaceDigest, served_source_digest: receipt.value.source_digest.slice(7), frontend_receipt: artifact("frontend-receipt.json", receipt.bytes, "application/json"), browser_version: browserVersion, runtime_profile_id: profile }) };

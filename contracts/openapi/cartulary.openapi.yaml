@@ -480,6 +480,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [],
@@ -557,6 +560,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [
@@ -691,6 +697,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [
@@ -8200,6 +8209,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [
@@ -8580,6 +8592,9 @@
           },
           "500": {
             "$ref": "#/components/responses/AuthInternalErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
         "security": [
@@ -8879,6 +8894,28 @@
         "description": "Cookie-authenticated mutation failed CSRF verification",
         "x-cartulary-error-codes": [
           "csrf_verification_failed"
+        ]
+      },
+      "AuthCapacityExhaustedResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthCapacityExhaustedEnvelope"
+            }
+          }
+        },
+        "description": "Credential workflow capacity exhausted. No credential, session or durable idempotency effect; retry after one second.",
+        "headers": {
+          "Retry-After": {
+            "required": true,
+            "schema": {
+              "const": "1",
+              "type": "string"
+            }
+          }
+        },
+        "x-cartulary-error-codes": [
+          "authentication_capacity_exhausted"
         ]
       },
       "AuthCredentialRejectedResponse": {
@@ -10261,6 +10298,44 @@
           "actions"
         ],
         "type": "object"
+      },
+      "AuthCapacityExhaustedEnvelope": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ErrorEnvelope"
+          },
+          {
+            "properties": {
+              "error": {
+                "properties": {
+                  "code": {
+                    "const": "authentication_capacity_exhausted",
+                    "type": "string"
+                  },
+                  "details": {
+                    "additionalProperties": false,
+                    "maxProperties": 0,
+                    "type": "object"
+                  },
+                  "retryable": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "const": 503,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "code",
+                  "details"
+                ],
+                "type": "object"
+              }
+            },
+            "type": "object"
+          }
+        ]
       },
       "AuthoredText": {
         "additionalProperties": false,
@@ -19885,7 +19960,7 @@
         "additionalProperties": false,
         "properties": {
           "algorithm": {
-            "const": "SHA1"
+            "const": "SHA256"
           },
           "digits": {
             "const": 6
@@ -19898,6 +19973,9 @@
             "const": 30
           },
           "secret_base32": {
+            "maxLength": 52,
+            "minLength": 52,
+            "pattern": "^[A-Z2-7]{51}[AQ]$",
             "type": "string"
           }
         },

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { Agent } from "node:https";
 import path from "node:path";
 
 import react from "@vitejs/plugin-react";
@@ -14,19 +16,50 @@ const browserUnitIncludes = [
 
 const harnessNodeIncludes = ["e2e/**/*.test.ts"];
 const e2eAPIOrigin =
-  process.env.CARTULARY_WEB_E2E_API_ORIGIN ?? "http://127.0.0.1:8080";
+  process.env.CARTULARY_WEB_E2E_API_ORIGIN ??
+  process.env.CARTULARY_DEV_API_ORIGIN ??
+  "https://127.0.0.1:8080";
+const tlsRoot =
+  process.env.CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE ??
+  process.env.CARTULARY_DEV_TLS_ROOT_CERTIFICATE;
+const tlsCertificate =
+  process.env.CARTULARY_WEB_E2E_TLS_CERTIFICATE ??
+  process.env.CARTULARY_DEV_TLS_CERTIFICATE;
+const tlsPrivateKey =
+  process.env.CARTULARY_WEB_E2E_TLS_PRIVATE_KEY ??
+  process.env.CARTULARY_DEV_TLS_PRIVATE_KEY;
+const fixtureTLS =
+  tlsCertificate && tlsPrivateKey
+    ? {
+        cert: readFileSync(tlsCertificate),
+        key: readFileSync(tlsPrivateKey),
+        minVersion: "TLSv1.3" as const,
+        maxVersion: "TLSv1.3" as const,
+      }
+    : undefined;
+const backendAgent = tlsRoot
+  ? new Agent({
+      ca: readFileSync(tlsRoot),
+      minVersion: "TLSv1.3",
+      maxVersion: "TLSv1.3",
+    })
+  : undefined;
 const e2eBackendProxy = {
   "/healthz": {
     target: e2eAPIOrigin,
+    ...(backendAgent ? { agent: backendAgent } : {}),
   },
   "/readyz": {
     target: e2eAPIOrigin,
+    ...(backendAgent ? { agent: backendAgent } : {}),
   },
   "/api": {
     target: e2eAPIOrigin,
+    ...(backendAgent ? { agent: backendAgent } : {}),
   },
   "/ws": {
     target: e2eAPIOrigin,
+    ...(backendAgent ? { agent: backendAgent } : {}),
     ws: true,
   },
 };
@@ -64,12 +97,14 @@ export default defineConfig(({ mode }) => ({
     },
   },
   server: {
+    ...(fixtureTLS ? { https: fixtureTLS } : {}),
     fs: {
       allow: [path.resolve(__dirname, "..", "..")],
     },
     proxy: e2eBackendProxy,
   },
   preview: {
+    ...(fixtureTLS ? { https: fixtureTLS } : {}),
     proxy: e2eBackendProxy,
   },
   test: {

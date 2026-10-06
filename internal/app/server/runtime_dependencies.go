@@ -19,6 +19,7 @@ import (
 )
 
 type runtimeDependencies struct {
+	requireCryptoState             func(context.Context, *pgxpool.Pool) error
 	newJobsManager                 func(jobs.ManagerOptions) (*jobs.Manager, error)
 	setupPostgres                  func(context.Context, postgres.Settings) (postgres.AdmittedPool, error)
 	ensureSchemaReady              func(context.Context, *pgxpool.Pool, *database_migrations.Source) error
@@ -35,6 +36,12 @@ type secureDocumentReader func(string, int64) (securefile.Document, error)
 
 func productionRuntimeDependencies() runtimeDependencies {
 	return runtimeDependencies{
+		requireCryptoState: func(ctx context.Context, pool *pgxpool.Pool) error {
+			if pool == nil {
+				return database_migrations.ErrIncompatibleCryptoState
+			}
+			return database_migrations.RequireApplicationCryptoFormat(ctx, pool)
+		},
 		newJobsManager:                 jobs.NewManager,
 		setupPostgres:                  postgres.Setup,
 		ensureSchemaReady:              database_migrations.EnsureSchemaReady,

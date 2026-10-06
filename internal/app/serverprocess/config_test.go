@@ -3,6 +3,7 @@ package serverprocess
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -118,7 +119,7 @@ func requireBoundedProcessIOContract(t *testing.T) {
 	if !errors.Is(ctx.Err(), context.Canceled) {
 		t.Fatalf("cleanup context cancellation got %v", ctx.Err())
 	}
-	if got := newProcessHTTPClient().Timeout; got != processHTTPTimeout {
+	if got := newProcessHTTPClient(http.DefaultClient).Timeout; got != processHTTPTimeout {
 		t.Fatalf("process HTTP timeout got %s want %s", got, processHTTPTimeout)
 	}
 	probe := new(cleanupReporterProbe)

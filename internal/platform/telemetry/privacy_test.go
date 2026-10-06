@@ -17,6 +17,8 @@ func TestSafeAttributesPreservesAdoptedLowCardinalityAttributes(t *testing.T) {
 		attribute.String("cartulary.operation", "query"),
 		attribute.String("cartulary.result", "success"),
 		attribute.String("cartulary.error_class", "authorization"),
+		attribute.String("cartulary.error_class", "capacity_exhausted"),
+		attribute.String("cartulary.error_code", "authentication_capacity_exhausted"),
 		attribute.String("cartulary.profile.claims", "base,import,network_flow_activity"),
 		attribute.String("cartulary.incident.hash64", "0123456789abcdef"),
 		attribute.String("cartulary.job_kind", "import.discovery_v1"),
@@ -29,7 +31,7 @@ func TestSafeAttributesPreservesAdoptedLowCardinalityAttributes(t *testing.T) {
 		attribute.String("cartulary.graph_object_kind", "projection_result"),
 	)
 
-	if len(attrs) != 18 {
+	if len(attrs) != 20 {
 		t.Fatalf("expected all adopted attributes to be preserved, got %#v", attrs)
 	}
 }

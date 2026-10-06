@@ -937,6 +937,9 @@ test(
         await expect(
           stalePage.getByTestId(timelineMutationSubstrateReadyTestId()),
         ).toBeVisible();
+        await expect(
+          gridSavedRows(stalePage, timelineViewSchemaId),
+        ).toHaveCount(2);
         const visibleStaleRecordIds = (
           await gridSavedRows(stalePage, timelineViewSchemaId).evaluateAll(
             (rows) =>

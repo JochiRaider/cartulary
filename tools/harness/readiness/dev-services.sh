@@ -4,26 +4,22 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 COMPOSE_FILE="${CARTULARY_COMPOSE_FILE:-$ROOT_DIR/docker-compose.dev.yml}"
 POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
-LOCAL_POSTGRES_HOST="${CARTULARY_LOCAL_POSTGRES_HOST:-localhost}"
-LOCAL_POSTGRES_PORT="${CARTULARY_LOCAL_POSTGRES_PORT:-5432}"
 LOCAL_POSTGRES_DATABASE="${CARTULARY_LOCAL_POSTGRES_DATABASE:-cartulary}"
-LOCAL_POSTGRES_USER="${CARTULARY_LOCAL_POSTGRES_USER:-cartulary}"
-LOCAL_POSTGRES_SSLMODE="${CARTULARY_LOCAL_POSTGRES_SSLMODE:-disable}"
-POSTGRES_PRIMARY_MIGRATION_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN:-postgres://cartulary_migration_login:cartulary-migration@${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DATABASE}?sslmode=${LOCAL_POSTGRES_SSLMODE}}"
+POSTGRES_PRIMARY_MIGRATION_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN:-}"
 OBJECT_STORE_READY_TIMEOUT_SECONDS="${CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS:-120}"
 SEAWEEDFS_S3_PORT="${SEAWEEDFS_S3_PORT:-8333}"
 SEAWEEDFS_S3_UPSTREAM_PORT="${SEAWEEDFS_S3_UPSTREAM_PORT:-18333}"
 OBJECT_STORE_ENDPOINT="${OBJECT_STORE_ENDPOINT:-127.0.0.1:${SEAWEEDFS_S3_PORT}}"
 OBJECT_STORE_BUCKET="${OBJECT_STORE_BUCKET:-cartulary}"
-SEAWEEDFS_S3_ACCESS_KEY_ID="${SEAWEEDFS_S3_ACCESS_KEY_ID:-cartulary-local}"
-SEAWEEDFS_S3_SECRET_ACCESS_KEY="${SEAWEEDFS_S3_SECRET_ACCESS_KEY:-cartulary-local-secret}"
-OBJECT_STORE_SECURE="${OBJECT_STORE_SECURE:-false}"
-OBJECT_STORE_CORS_ORIGIN="${OBJECT_STORE_CORS_ORIGIN:-http://localhost:5173}"
+SEAWEEDFS_S3_ACCESS_KEY_ID="${SEAWEEDFS_S3_ACCESS_KEY_ID:-}"
+SEAWEEDFS_S3_SECRET_ACCESS_KEY="${SEAWEEDFS_S3_SECRET_ACCESS_KEY:-}"
+OBJECT_STORE_SECURE="${OBJECT_STORE_SECURE:-true}"
+OBJECT_STORE_CORS_ORIGIN="${OBJECT_STORE_CORS_ORIGIN:-https://localhost:5173}"
 OBJECT_STORE_CORS_ALLOWED_ORIGINS="${OBJECT_STORE_CORS_ALLOWED_ORIGINS:-$OBJECT_STORE_CORS_ORIGIN}"
 OBJECT_STORE_CORS_PROXY_LISTEN="${OBJECT_STORE_CORS_PROXY_LISTEN:-127.0.0.1:${SEAWEEDFS_S3_PORT}}"
-OBJECT_STORE_CORS_PROXY_UPSTREAM="${OBJECT_STORE_CORS_PROXY_UPSTREAM:-http://127.0.0.1:${SEAWEEDFS_S3_UPSTREAM_PORT}}"
-SEAWEEDFS_S3_IMAGE="${SEAWEEDFS_S3_IMAGE:-docker.io/chrislusf/seaweedfs:4.17}"
-SEAWEEDFS_S3_IMAGE_DIGEST="${SEAWEEDFS_S3_IMAGE_DIGEST:-sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9}"
+OBJECT_STORE_CORS_PROXY_UPSTREAM="${OBJECT_STORE_CORS_PROXY_UPSTREAM:-https://127.0.0.1:${SEAWEEDFS_S3_UPSTREAM_PORT}}"
+SEAWEEDFS_S3_IMAGE="${SEAWEEDFS_S3_IMAGE:-docker.io/chrislusf/seaweedfs:4.48}"
+SEAWEEDFS_S3_IMAGE_DIGEST="${SEAWEEDFS_S3_IMAGE_DIGEST:-sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d}"
 GO_BIN="${GO:-go}"
 GO_CACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 GO_MOD_CACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
@@ -93,7 +89,7 @@ wait_postgres() {
   local health="unknown"
 
   while (( SECONDS - start_time < POSTGRES_READY_TIMEOUT_SECONDS )); do
-    if compose exec -T postgres pg_isready -U cartulary -d postgres >/dev/null 2>&1; then
+    if compose exec -T postgres pg_isready -U postgres -d postgres >/dev/null 2>&1; then
       return 0
     fi
 
@@ -113,17 +109,16 @@ wait_postgres() {
 }
 
 provision_postgres_database() {
-  compose exec -T postgres psql \
-    -U "$LOCAL_POSTGRES_USER" \
-    -d "$LOCAL_POSTGRES_DATABASE" \
-    -f /docker-entrypoint-initdb.d/010-cartulary-provision.sql
+  compose exec -T --user postgres -e "PGDATABASE=$LOCAL_POSTGRES_DATABASE" postgres \
+    /docker-entrypoint-initdb.d/010-cartulary-provision.sh
 }
 
 probe_object_store() {
   local mode="${1:-probe}"
 
   cd "$ROOT_DIR"
-  env GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" GOTMPDIR="$GO_TMP" \
+  env SSL_CERT_FILE="${OBJECT_STORE_CORS_PROXY_TLS_ROOT_CERTIFICATE:?set the object-store trust bundle}" \
+    GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" GOTMPDIR="$GO_TMP" \
     "$GO_BIN" run ./tools/objectstoreprobe \
       --mode "$mode" \
       --endpoint "$OBJECT_STORE_ENDPOINT" \
@@ -377,7 +372,6 @@ init_object_store() {
 services_up() {
   compose up -d --remove-orphans postgres seaweedfs-s3
   wait_postgres
-  provision_postgres_database
   wait_object_store
 }
 
@@ -403,6 +397,7 @@ run_local_migrate() {
   local go_mod_cache="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
   local go_tmp="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 
+  : "${POSTGRES_PRIMARY_MIGRATION_DSN:?set the explicit certificate-authenticated migration DSN}"
   cd "$ROOT_DIR"
   env CARTULARY_CONFIG_FILE="$config_file" \
     CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN="$POSTGRES_PRIMARY_MIGRATION_DSN" \
@@ -411,9 +406,9 @@ run_local_migrate() {
 }
 
 db_migrate() {
+  : "${POSTGRES_PRIMARY_MIGRATION_DSN:?set the explicit certificate-authenticated migration DSN}"
   compose up -d postgres
   wait_postgres
-  provision_postgres_database
   printf '%s\n' 'db-migrate: applying local database migrations only; object storage is not reset.'
   run_local_migrate
 }
@@ -426,11 +421,12 @@ db_reset() {
     return 0
   fi
 
+  : "${POSTGRES_PRIMARY_MIGRATION_DSN:?set the explicit certificate-authenticated migration DSN}"
   compose up -d postgres
   wait_postgres
   printf '%s\n' 'db-reset: database reset only; object storage is not reset.'
-  compose exec -T postgres psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS cartulary;"
-  compose exec -T postgres psql -U cartulary -d postgres -c "CREATE DATABASE cartulary;"
+  compose exec -T --user postgres postgres psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS cartulary;"
+  compose exec -T --user postgres postgres psql -U postgres -d postgres -c "CREATE DATABASE cartulary;"
   provision_postgres_database
   run_local_migrate
 }

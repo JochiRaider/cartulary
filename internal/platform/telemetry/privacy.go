@@ -219,6 +219,7 @@ var (
 var safeErrorClasses = []string{
 	"request_invalid",
 	"authentication",
+	"capacity_exhausted",
 	"authorization",
 	"capability_unavailable",
 	"concurrency_conflict",

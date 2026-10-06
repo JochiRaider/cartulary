@@ -151,7 +151,7 @@ export async function diagnosticSnapshot({ owner, runtime, operationID, signal, 
     process.env.XDG_CACHE_HOME = registryRoot;
     stage = "binding";
     bound = true;
-    ({ endpoint } = await owner.browser.bind(session, { host: "127.0.0.1", port: 0, workspaceDir: directory }));
+    ({ endpoint } = await owner.bindDiagnostic(session, directory));
     if (!/^ws:\/\/127\.0\.0\.1:\d+\/[A-Za-z0-9_-]+$/u.test(endpoint)) throw new ReviewFailure("target_unavailable");
     stage = "probe";
     const probe = await chromium.connect(endpoint, { timeout: limits.action });

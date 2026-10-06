@@ -413,10 +413,9 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	startPostgresHarnessWithOptions = func(ctx context.Context, options pgtest.StartOptions) (*pgtest.Harness, error) {
 		postgresAttemptTimeout = options.AttemptTimeout
 		return &pgtest.Harness{
-			Host:     "127.0.0.1",
-			Port:     "5432",
-			User:     "cartulary",
-			Password: "cartulary",
+			Host: "127.0.0.1",
+			Port: "5432",
+			User: "cartulary",
 		}, nil
 	}
 	startObjectStoreHarnessWithOptions = func(ctx context.Context, options s3test.StartOptions) (*s3test.Harness, error) {
@@ -842,7 +841,7 @@ func TestRunRecordsObjectStoreStartupFailureWithStructuredSummary(t *testing.T) 
 		return objectStoreService{}, &testcontainersx.StartFailure{
 			Operation:             "start",
 			Service:               "object-store testcontainer",
-			Image:                 "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
+			Image:                 "docker.io/chrislusf/seaweedfs:4.48:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
 			DockerEndpoint:        "unix:///var/run/docker.sock",
 			AttemptsStarted:       1,
 			MaxAttempts:           2,

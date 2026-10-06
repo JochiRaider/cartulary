@@ -2,9 +2,7 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -126,18 +124,18 @@ func newSecureBootstrapManifestFS() bootstrapManifestFS {
 }
 
 func Preflight(ctx context.Context, settings Settings, pool *pgxpool.Pool) error {
-	return bootstrapPreflight(ctx, settings, postgresBootstrapStore{pool: pool}, newSecureBootstrapManifestFS(), deriveBootstrapPasswordHash)
+	return bootstrapPreflight(ctx, settings, postgresBootstrapStore{pool: pool}, newSecureBootstrapManifestFS(), authn.HashPassword)
 }
 
 func PreflightTx(ctx context.Context, settings Settings, tx pgx.Tx) error {
-	return bootstrapPreflight(ctx, settings, txBootstrapStore{tx: tx}, newSecureBootstrapManifestFS(), deriveBootstrapPasswordHash)
+	return bootstrapPreflight(ctx, settings, txBootstrapStore{tx: tx}, newSecureBootstrapManifestFS(), authn.HashPassword)
 }
 
 type Settings struct {
 	ManifestPath string
 }
 
-func bootstrapPreflight(ctx context.Context, settings Settings, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {
+func bootstrapPreflight(ctx context.Context, settings Settings, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(context.Context, string) (string, error)) error {
 	state, err := store.ReadBootstrapState(ctx)
 	if err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "query bootstrap state", err)
@@ -185,7 +183,7 @@ func bootstrapPreflight(ctx context.Context, settings Settings, store bootstrapS
 		return err
 	}
 
-	passwordHash, err := hashPassword(manifest.InitialPassword)
+	passwordHash, err := hashPassword(ctx, manifest.InitialPassword)
 	if err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "derive bootstrap password hash", err)
 	}
@@ -326,20 +324,6 @@ func manifestSHA256(raw []byte) ([]byte, error) {
 	data := make([]byte, len(sum))
 	copy(data, sum[:])
 	return data, nil
-}
-
-func deriveBootstrapPasswordHash(password string) (string, error) {
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("generate password salt: %w", err)
-	}
-
-	hash := authn.DerivePasswordHash([]byte(password), salt)
-	return fmt.Sprintf(
-		"argon2id$v=19$m=65536,t=1,p=4$%s$%s",
-		base64.RawStdEncoding.EncodeToString(salt),
-		base64.RawStdEncoding.EncodeToString(hash),
-	), nil
 }
 
 func (s postgresBootstrapStore) ReadBootstrapState(ctx context.Context) (bootstrapState, error) {
@@ -555,24 +539,8 @@ func normalizeBootstrapDisplayName(value string) (string, error) {
 }
 
 func validateBootstrapPassword(value string) error {
-	if hasControlRunes(value) {
-		return errors.New("initial_password must not contain control characters")
-	}
-	if utf8.RuneCountInString(value) < 12 {
-		return errors.New("initial_password must be at least 12 Unicode scalar values")
-	}
-	if utf8.RuneCountInString(value) > 1024 {
-		return errors.New("initial_password must not exceed 1024 Unicode scalar values")
-	}
-	allWhitespace := true
-	for _, r := range value {
-		if !unicode.IsSpace(r) {
-			allWhitespace = false
-			break
-		}
-	}
-	if allWhitespace {
-		return errors.New("initial_password must not be all whitespace")
+	if _, err := authn.ValidatePasswordProvision(value); err != nil {
+		return fmt.Errorf("invalid initial_password: %w", err)
 	}
 	return nil
 }

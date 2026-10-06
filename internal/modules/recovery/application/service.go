@@ -632,7 +632,7 @@ func (service Service) runRestoreVerifyDueAttempt(
 		}
 	}
 
-	if resetErr := recovery.ResetRestoreVerificationTarget(admission.Context(), target.RestoreTarget, service.ExtensionBackups); resetErr != nil {
+	if resetErr := recovery.ResetRestoreVerificationTarget(admission.Context(), target.RestoreTarget, service.ExtensionBackups, service.RecoveryStateCatalog); resetErr != nil {
 		attemptErr = dueAttemptContextFailure(
 			admission.Context(),
 			NewFailure(FailureVerificationInvariantCheck, fmt.Errorf("reset disposable restore verification target: %w", resetErr)),
@@ -1147,6 +1147,7 @@ func (service Service) restoreVerificationBasisForConfigs(
 		return recovery.RestoreVerificationBasis{}, recoverystate.ErrInvalidCatalog
 	}
 	basis := recovery.RestoreVerificationBasis{
+		ApplicationCryptoFormat:           recovery.ApplicationCryptoFormatID,
 		MechanismID:                       recovery.VNextBackupMechanismID,
 		CodecRegistrySHA256:               recovery.VNextCodecRegistrySHA256(),
 		RecoveryStateCatalogSHA256:        service.RecoveryStateCatalog.DigestSHA256(),

@@ -4,6 +4,10 @@ import path from "node:path";
 import { spawnSync } from "../workspace/child-process.mjs";
 import { pathToFileURL } from "node:url";
 
+import { redactString } from "../contract/index.mjs";
+import { stageBrowserTrust } from "./browser-trust.mjs";
+import { validateRendererProof, removeOwnedRenderer } from "../runtime/owned-renderer.mjs";
+
 import { resolvePlaywrightPackages } from "../readiness/playwright-packages.mjs";
 import { loadVisualRendererProfile, verifyRendererFonts, validateRendererAttestation, sha256 } from "./visual-renderer-profile.mjs";
 export { loadVisualRendererProfile, visualRendererProfilePath } from "./visual-renderer-profile.mjs";
@@ -22,7 +26,9 @@ function docker(args, options = {}) {
     ...options,
   });
   if (result.status !== 0) {
-    throw new Error(`pinned visual renderer lifecycle failed at docker ${args[0]}`);
+    const operation = args[0] === "exec" ? `exec ${path.basename(args[2] ?? "")}` : args[0];
+    const diagnostic = args[0] === "exec" && ["dpkg-deb", "certutil", "mkdir"].includes(path.basename(args[2] ?? "")) ? `: ${redactString(String(result.stderr ?? "").slice(-2048))}` : "";
+    throw new Error(`pinned browser renderer lifecycle failed at docker ${operation} (exit ${result.status})${diagnostic}`);
   }
   return String(result.stdout ?? "").trim();
 }
@@ -107,7 +113,9 @@ async function verifyRemoteBrowser(packages, endpoint, profile) {
   }
 }
 
-export async function startVisualRendererLease({ root, environment, run = docker, connect = verifyRemoteBrowser, endpointReady = waitForEndpoint }) {
+export function recoverVisualRenderer(proof, run = docker) { removeOwnedRenderer(proof, run); }
+
+export async function startVisualRendererLease({ root, environment, diagnostics = false, onOwnedResource = () => {}, run = docker, connect = verifyRemoteBrowser, endpointReady = waitForEndpoint, trust = stageBrowserTrust }) {
   assertVisualRendererEnvironmentIsPrivate(environment);
   const profile = loadVisualRendererProfile(root);
   const image = verifyRendererImage(profile, run);
@@ -115,10 +123,13 @@ export async function startVisualRendererLease({ root, environment, run = docker
   if (packages.version !== profile.playwright_version || packages.chromium.revision !== profile.chromium_revision || packages.chromium.browserVersion !== profile.chromium_version) throw new Error("renderer package descriptor mismatch");
   const fonts = verifyRendererFonts(root, profile);
   const port = await allocateLoopbackPort();
+  let diagnosticPort = diagnostics ? await allocateLoopbackPort() : null;
+  while (diagnosticPort === port) diagnosticPort = await allocateLoopbackPort();
   const endpointToken = randomUUID().replaceAll("-", "");
   const containerName = `cartulary-visual-${process.pid}-${endpointToken.slice(0, 12)}`;
+  const proof = validateRendererProof({ name: containerName, token: endpointToken, image_id: image.image_id, daemon_id: run(["info", "--format", "{{.ID}}"]) });
   let containerID = "";
-  let release, creationAttempted = false;
+  let release, creationAttempted = false, published = false;
   const cleanup = () => {
     if (!release && creationAttempted) {
       const acquired = run(["ps", "--all", "--no-trunc", "--filter", `name=^/${containerName}$`, "--filter", `label=cartulary.visual-owner=${endpointToken}`, "--format", "{{.ID}}"]);
@@ -128,11 +139,14 @@ export async function startVisualRendererLease({ root, environment, run = docker
       }
     }
     release?.();
+    if (published) { onOwnedResource({ kind: "browser_renderer", target: proof, state: "released" }); published = false; }
   };
   const interrupt = () => { try { cleanup(); } catch { process.stderr.write("visual renderer cleanup failed (cleanup_error)\n"); } process.exit(130); };
   const terminate = () => { try { cleanup(); } catch { process.stderr.write("visual renderer cleanup failed (cleanup_error)\n"); } process.exit(143); };
   process.once("SIGINT", interrupt); process.once("SIGTERM", terminate);
   try {
+    published = true;
+    onOwnedResource({ kind: "browser_renderer", target: proof, state: "pending" });
     creationAttempted = true;
     containerID = run([
       "create",
@@ -144,6 +158,7 @@ export async function startVisualRendererLease({ root, environment, run = docker
       profile.platform,
       "--publish",
       `127.0.0.1:${port}:${port}`,
+      ...(diagnosticPort ? ["--publish", `127.0.0.1:${diagnosticPort}:${diagnosticPort}`] : []),
       "--ipc",
       "host",
       "--init",
@@ -153,6 +168,8 @@ export async function startVisualRendererLease({ root, environment, run = docker
       "LANG=en_US.UTF-8",
       "--env",
       "NODE_PATH=/home/pwuser",
+      "--env",
+      "NODE_EXTRA_CA_CERTS=/home/pwuser/trust.pem",
       profile.container_image,
       "node",
       "/home/pwuser/playwright/cli.js",
@@ -165,12 +182,16 @@ export async function startVisualRendererLease({ root, environment, run = docker
       `/${endpointToken}`,
     ]);
     release = rendererRelease(containerID, run);
+    onOwnedResource({ kind: "browser_renderer", target: proof, state: "acquired" });
     run(["cp", packages.playwrightPath, `${containerID}:/home/pwuser/playwright`]);
     run(["cp", packages.corePath, `${containerID}:/home/pwuser/playwright-core`]);
+    const stagedTrust = trust({ root, environment, containerID, run });
     run(["start", containerID]);
+    stagedTrust.initialize();
     const observed = JSON.parse(run(["exec", containerID, "node", "-e", `const p=require('/home/pwuser/playwright/package.json'); const c=require('/home/pwuser/playwright-core/package.json'); const b=require('/home/pwuser/playwright-core/browsers.json').browsers.find(x=>x.name==='chromium'); process.stdout.write(JSON.stringify({playwright:p.version,core:c.version,revision:b.revision,version:b.browserVersion}));`]));
     if (observed.playwright !== profile.playwright_version || observed.core !== profile.playwright_version || observed.revision !== profile.chromium_revision || observed.version !== profile.chromium_version) throw new Error("container package identity mismatch");
     if (run(["inspect", containerID, "--format", "{{.Image}}"]) !== image.image_id) throw new Error("container image mismatch");
+    const trustAttestation = stagedTrust.attestation;
     const endpoint = await endpointReady(containerID, port, run);
     const browserVersion = await connect(packages, endpoint, profile);
     const attestation = validateRendererAttestation({ schema_id: "cartulary.frontend_visual_renderer_attestation.v1", profile, observed: {
@@ -180,6 +201,8 @@ export async function startVisualRendererLease({ root, environment, run = docker
     return {
       profile,
       attestation,
+      trustAttestation,
+      diagnosticPort,
       environment: {
         CARTULARY_VISUAL_RENDERER_ATTESTED: "1",
         CARTULARY_VISUAL_RENDERER_PROFILE_ID: profile.profile_id,

@@ -33,7 +33,7 @@ func TestHarnessRuntimeRoutesEnableOnlyForExactOneInServerProcess(t *testing.T) 
 	}
 
 	t.Run("exact-one", func(t *testing.T) {
-		publicOrigin := "http://127.0.0.1:4173"
+		publicOrigin := "https://127.0.0.1:4173"
 		server := startHarnessRuntimeServerProcess(t, "test-runtime-enable-value-exact-one", map[string]string{
 			"CARTULARY_ENABLE_TEST_ROUTES":    "1",
 			"CARTULARY_TEST_RUNTIME_MARKER":   "harness-owned",
@@ -81,7 +81,7 @@ func TestHarnessRuntimeRoutesFailClosedDuringServerStartup(t *testing.T) {
 }
 
 func TestHarnessRuntimeRoutesPreserveServerProcessSecurityWithoutResetEndpoint(t *testing.T) {
-	publicOrigin := "http://127.0.0.1:4173"
+	publicOrigin := "https://127.0.0.1:4173"
 	server := startHarnessRuntimeServerProcess(t, "test-runtime-security", map[string]string{
 		"CARTULARY_ENABLE_TEST_ROUTES":    "1",
 		"CARTULARY_TEST_RUNTIME_MARKER":   "harness-owned",
@@ -206,7 +206,7 @@ func doHarnessRuntimeJSON(t testing.TB, server *processtest.Server, method strin
 		req.Host = host
 	}
 
-	resp, err := newProcessHTTPClient().Do(req)
+	resp, err := newProcessHTTPClient(server.Client).Do(req)
 	if err != nil {
 		t.Fatalf("do %s %s: %v", method, path, err)
 	}

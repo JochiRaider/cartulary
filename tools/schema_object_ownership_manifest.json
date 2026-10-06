@@ -322,6 +322,44 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.application-crypto-format.application-crypto-format-pkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.application_crypto_format.application_crypto_format_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "database_migrations",
+      "migration_version": 64,
+      "migration_file": "00064_application_crypto_format.sql",
+      "dependency_object_ids": [
+        "table.public.application-crypto-format"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.application-crypto-format.application-crypto-format-singleton-check",
+      "object_kind": "constraint",
+      "qualified_name": "public.application_crypto_format.application_crypto_format_singleton_check",
+      "management_class": "cartulary_authored",
+      "source_owner": "database_migrations",
+      "migration_version": 64,
+      "migration_file": "00064_application_crypto_format.sql",
+      "dependency_object_ids": [
+        "table.public.application-crypto-format"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.artifact-findings.artifact-findings-confidence-score-check",
       "object_kind": "constraint",
       "qualified_name": "public.artifact_findings.artifact_findings_confidence_score_check",
@@ -3281,6 +3319,25 @@
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
       "extension_profile_id": "enterprise_authentication",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.enterprise-auth-transactions.enterprise-pkce-envelope-check",
+      "object_kind": "constraint",
+      "qualified_name": "public.enterprise_auth_transactions.enterprise_pkce_envelope_check",
+      "management_class": "cartulary_authored",
+      "source_owner": "auth",
+      "migration_version": 65,
+      "migration_file": "00065_auth_secret_envelopes.sql",
+      "dependency_object_ids": [
+        "table.public.enterprise-auth-transactions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -12367,8 +12424,8 @@
       "qualified_name": "public.operator_recovery_journal.operator_recovery_journal_envelope_schema_id_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 4,
-      "migration_file": "00004_recovery.sql",
+      "migration_version": 66,
+      "migration_file": "00066_recovery_journal_envelopes.sql",
       "dependency_object_ids": [
         "table.public.operator-recovery-journal"
       ],
@@ -12464,6 +12521,25 @@
       "source_owner": "recovery",
       "migration_version": 4,
       "migration_file": "00004_recovery.sql",
+      "dependency_object_ids": [
+        "table.public.operator-recovery-journal"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.operator-recovery-journal.operator-recovery-journal-sealed-payload-check",
+      "object_kind": "constraint",
+      "qualified_name": "public.operator_recovery_journal.operator_recovery_journal_sealed_payload_check",
+      "management_class": "cartulary_authored",
+      "source_owner": "recovery",
+      "migration_version": 66,
+      "migration_file": "00066_recovery_journal_envelopes.sql",
       "dependency_object_ids": [
         "table.public.operator-recovery-journal"
       ],
@@ -12842,6 +12918,25 @@
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.pending-totp-enrollments.pending-totp-secret-envelope-check",
+      "object_kind": "constraint",
+      "qualified_name": "public.pending_totp_enrollments.pending_totp_secret_envelope_check",
+      "management_class": "cartulary_authored",
+      "source_owner": "auth",
+      "migration_version": 65,
+      "migration_file": "00065_auth_secret_envelopes.sql",
+      "dependency_object_ids": [
+        "table.public.pending-totp-enrollments"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
       "approval": null
     },
     {
@@ -20324,6 +20419,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.users.users-totp-secret-envelope-check",
+      "object_kind": "constraint",
+      "qualified_name": "public.users.users_totp_secret_envelope_check",
+      "management_class": "cartulary_authored",
+      "source_owner": "auth",
+      "migration_version": 65,
+      "migration_file": "00065_auth_secret_envelopes.sql",
+      "dependency_object_ids": [
+        "table.public.users"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.users.users-updated-by-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.users.users_updated_by_user_id_fkey",
@@ -20430,6 +20544,26 @@
       "dependency_object_ids": [
         "constraint.public.administrative-audit-projections.administrative-audit-projections-pkey",
         "table.public.administrative-audit-projections"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.application-crypto-format-pkey",
+      "object_kind": "index",
+      "qualified_name": "public.application_crypto_format_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "database_migrations",
+      "migration_version": 64,
+      "migration_file": "00064_application_crypto_format.sql",
+      "dependency_object_ids": [
+        "constraint.public.application-crypto-format.application-crypto-format-pkey",
+        "table.public.application-crypto-format"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
@@ -31679,6 +31813,23 @@
       "recovery_access_class": "table_restore",
       "extension_profile_id": null,
       "recovery_classification": "authoritative_required",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "table.public.application-crypto-format",
+      "object_kind": "table",
+      "qualified_name": "public.application_crypto_format",
+      "management_class": "cartulary_authored",
+      "source_owner": "database_migrations",
+      "migration_version": 64,
+      "migration_file": "00064_application_crypto_format.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "migration_ledger_read",
+      "recovery_access_class": "migration_ledger_read",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
       "approval": null

@@ -198,6 +198,10 @@
       "contract_path": "contracts/verification/owners/platform.config.json"
     },
     {
+      "owner_id": "platform.cryptography",
+      "contract_path": "contracts/verification/owners/platform.cryptography.json"
+    },
+    {
       "owner_id": "platform.httpruntime",
       "contract_path": "contracts/verification/owners/platform.httpruntime.json"
     },
@@ -212,6 +216,10 @@
     {
       "owner_id": "platform.openapi",
       "contract_path": "contracts/verification/owners/platform.openapi.json"
+    },
+    {
+      "owner_id": "platform.pagination",
+      "contract_path": "contracts/verification/owners/platform.pagination.json"
     },
     {
       "owner_id": "platform.postgres",

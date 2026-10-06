@@ -677,9 +677,10 @@ function shellFixture(url: string, method: string) {
         enrollment_id: "00000000-0000-4000-8000-000000000002",
         expires_at: timestamp,
         totp_setup: {
-          secret_base32: "JBSWY3DPEHPK3PXP",
-          otpauth_uri: "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
-          algorithm: "SHA1",
+          secret_base32: "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+          otpauth_uri:
+            "otpauth://totp/Cartulary?secret=RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+          algorithm: "SHA256",
           digits: 6,
           period_seconds: 30,
         },

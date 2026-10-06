@@ -1,0 +1,36 @@
+{
+  "schema_id": "cartulary.cryptographic_primitives.v1",
+  "master_key_bytes": 32,
+  "salt_bytes": 32,
+  "kdf": "hkdf_sha256",
+  "key_bytes": 32,
+  "aead": "aes_256_gcm_module_random_nonce",
+  "envelope_version": 1,
+  "envelope_fields": [
+    "version_u8",
+    "salt_32",
+    "nonce_12",
+    "ciphertext",
+    "tag_16"
+  ],
+  "envelope_overhead_bytes": 61,
+  "plaintext_max_bytes": 16777216,
+  "context_max_bytes": 65536,
+  "binding_component_max_count": 16384,
+  "artifact_max_seals": 1048576,
+  "field_length_encoding": "uint32_big_endian",
+  "context_fields": [
+    "construction",
+    "purpose",
+    "binding_count_u32",
+    "binding_components"
+  ],
+  "authenticated_fields": [
+    "encoded_context",
+    "header_or_artifact_salt",
+    "caller_aad"
+  ],
+  "derivation_construction": "cartulary.derivation.v1",
+  "message_construction": "cartulary.message.v1",
+  "artifact_construction": "cartulary.artifact.v1"
+}

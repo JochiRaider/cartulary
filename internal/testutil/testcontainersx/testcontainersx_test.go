@@ -205,7 +205,7 @@ func TestStartWithRetryRetriesCustomClassifiedStartupError(t *testing.T) {
 
 	value, err := StartWithRetry(context.Background(), StartConfig{
 		Service:      "object-store testcontainer",
-		Image:        "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
+		Image:        "docker.io/chrislusf/seaweedfs:4.48:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
 		MaxAttempts:  DefaultMaxAttempts,
 		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
@@ -247,7 +247,7 @@ func TestStartWithRetryReportsCustomRetryMetadataAfterExhaustion(t *testing.T) {
 
 	_, err := StartWithRetry(context.Background(), StartConfig{
 		Service:      "object-store testcontainer",
-		Image:        "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
+		Image:        "docker.io/chrislusf/seaweedfs:4.48:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
 		MaxAttempts:  3,
 		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
@@ -298,7 +298,7 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 
 	_, err := StartWithRetry(ctx, StartConfig{
 		Service:      "object-store testcontainer",
-		Image:        "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
+		Image:        "docker.io/chrislusf/seaweedfs:4.48:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
 		MaxAttempts:  DefaultMaxAttempts,
 		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
@@ -348,7 +348,7 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 	message := err.Error()
 	for _, want := range []string{
 		"start object-store testcontainer",
-		"image docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
+		"image docker.io/chrislusf/seaweedfs:4.48:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
 		"docker endpoint unix:///var/run/docker.sock",
 		"after 1/2 attempt(s)",
 		"retry blocked by context: context deadline exceeded",
@@ -455,7 +455,7 @@ func TestStartWithRetryFormatsFinalFailureWithContext(t *testing.T) {
 
 	_, err := StartWithRetry(context.Background(), StartConfig{
 		Service:      "object-store testcontainer",
-		Image:        "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
+		Image:        "docker.io/chrislusf/seaweedfs:4.48:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
 		MaxAttempts:  DefaultMaxAttempts,
 		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
@@ -474,7 +474,7 @@ func TestStartWithRetryFormatsFinalFailureWithContext(t *testing.T) {
 	message := err.Error()
 	for _, want := range []string{
 		"start object-store testcontainer",
-		"image docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
+		"image docker.io/chrislusf/seaweedfs:4.48:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
 		"docker endpoint unix:///var/run/docker.sock",
 		"after 2/2 attempt(s)",
 		"connection refused",

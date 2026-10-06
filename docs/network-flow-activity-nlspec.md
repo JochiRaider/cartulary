@@ -2983,13 +2983,13 @@ overlay grammar.
 
 **NF-REQ-172b**
 The selected file MUST be UTF-8 JSON no larger than `65536` bytes and MUST
-validate as `cartulary.network_flow_key_rings.v1`. Duplicate object members,
+validate as `cartulary.network_flow_key_rings.v2`. Duplicate object members,
 unknown members, and explicit `null` are invalid at every object boundary. The
 top-level object contains exactly `schema_id`, `cursor_key_ring`, and
 `safe_digest_key_ring`.
 
 `cursor_key_ring` contains exactly `algorithm` and `keys`. `algorithm` is
-`aes_256_gcm_v1`. `keys` contains `1..8` objects with exactly
+`hkdf_sha256_aes_256_gcm_v2`. `keys` contains `1..8` objects with exactly
 `cursor_key_id`, `state`, `secret_ref`, and the state-dependent time members.
 Exactly one key has `state='active'`; it MUST omit `deactivated_at` and
 `retire_at`. A key with `state='decrypt_only'` MUST contain both timestamps in
@@ -3028,7 +3028,7 @@ Rotation is restart-applied in this revision; live manifest reload is not
 defined. All claimed nodes serving one deployment MUST use the same manifest
 epoch. Previously persisted safe digests are retained with their original key
 IDs and MUST NOT be rewritten. Cursor tokens produced by an implementation
-before the `nfc2` envelope are unsupported and fail through
+before the current `nfc3` envelope are unsupported and fail through
 `network_flow_cursor_invalid`.
 
 **NF-REQ-173**

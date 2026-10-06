@@ -69,7 +69,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		t.Fatal("historical Base index rebuild", err)
 	}
 	t.Run("publication and backup retention guards", func(t *testing.T) { testPublicationCollectionAndBackupGuards(t, pool, storage) })
-	consumer, err := reference_data.NewConsumer(pool, storage, pagination.NewCodec([]byte(strings.Repeat("k", 32))), func() time.Time { return at }, consumerIntegrityOptions(t))
+	consumer, err := reference_data.NewConsumer(pool, storage, pagination.NewCodec([32]byte([]byte(strings.Repeat("k", 32)))), func() time.Time { return at }, consumerIntegrityOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		}
 	})
 	t.Run("registry usage shares publication guards and transaction visibility", func(t *testing.T) {
-		assignments, err := reference_data.NewRegistryAssignments(pool, storage, pagination.NewCodec([]byte(strings.Repeat("r", 32))), func() time.Time { return at }, consumerIntegrityOptions(t))
+		assignments, err := reference_data.NewRegistryAssignments(pool, storage, pagination.NewCodec([32]byte([]byte(strings.Repeat("r", 32)))), func() time.Time { return at }, consumerIntegrityOptions(t))
 		if err != nil {
 			t.Fatal(err)
 		}

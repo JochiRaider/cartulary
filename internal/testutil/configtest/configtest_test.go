@@ -10,7 +10,7 @@ func TestLoadFixture(t *testing.T) {
 	roots := SetupTempRoots(t)
 	cfg := LoadFixture(t, []string{"config", "valid.toml"}, roots.Paths).Deployment()
 
-	if cfg.ConfigSchemaID != "cartulary.deployment_config.v2" {
+	if cfg.ConfigSchemaID != "cartulary.deployment_config.v3" {
 		t.Fatalf("unexpected config schema id: %q", cfg.ConfigSchemaID)
 	}
 	if cfg.DeploymentProfile != "disconnected" {

@@ -21,7 +21,7 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 	controls := hc.NewControls()
 	h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-worker-faults", "", controls)
 	httptestx.SetClockFixed(t, h.Server, time.Now())
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, h.Server.HTTP.URL)
+	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	actor := uuid.MustParse(actorText)
 	incidentText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "worker-fault-incident", "incident_key": "IR-NF-WORKER-FAULTS", "title": "Worker faults"})["incident_id"].(string)
 	incident := uuid.MustParse(incidentText)

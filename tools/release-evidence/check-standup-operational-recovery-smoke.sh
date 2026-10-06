@@ -44,7 +44,7 @@ work_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-standup-recovery-smoke.XXXXXX")
 project="cartularymvprecoverysmk$(date +%s)$$"
 image="cartulary/mvp-recovery-smoke:${project}"
 port="$(pick_port)" || fail "no free loopback port found for operational recovery smoke"
-public_origin="http://127.0.0.1:${port}"
+public_origin="https://127.0.0.1:${port}"
 compose_file="$work_dir/docker-compose.yml"
 capture_json="$work_dir/backup-capture.json"
 latest_json="$work_dir/latest-backup.json"
@@ -84,8 +84,9 @@ trap 'exit 143' TERM
 
 sed "s#context: ../..#context: ${ROOT_DIR}#g" "$PACKAGE_DIR/docker-compose.yml" >"$compose_file"
 cp "$PACKAGE_DIR/config.toml.example" "$work_dir/config.toml"
-cp "$PACKAGE_DIR/postgres-provision.sh" "$work_dir/postgres-provision.sh"
-chmod 0755 "$work_dir/postgres-provision.sh"
+# shellcheck source=tools/release-evidence/package-fixture-tls.sh
+source "$ROOT_DIR/tools/release-evidence/package-fixture-tls.sh"
+provision_package_fixture_tls "$ROOT_DIR" "$PACKAGE_DIR" "$work_dir"
 cp "$PACKAGE_DIR/bootstrap-admin.json.example" "$work_dir/bootstrap-admin.json"
 cp "$PACKAGE_DIR/revisions-conflict-token-key-ring.json.example" "$work_dir/revisions-conflict-token-key-ring.json"
 cp "$PACKAGE_DIR/restore-verification-target.toml.example" "$work_dir/restore-verification-target.toml"
@@ -105,11 +106,7 @@ CARTULARY_HTTP_PORT=${port}
 CARTULARY_PUBLIC_ORIGIN=${public_origin}
 
 POSTGRES_DB=cartulary
-POSTGRES_USER=cartulary
-POSTGRES_PASSWORD=cartulary-postgres-smoke-password
-CARTULARY_POSTGRES_MIGRATION_PASSWORD=cartulary-migration-smoke-password
-CARTULARY_POSTGRES_RUNTIME_PASSWORD=cartulary-runtime-smoke-password
-CARTULARY_POSTGRES_RECOVERY_PASSWORD=cartulary-recovery-smoke-password
+CARTULARY_TLS_DIR=${work_dir}/tls
 
 CARTULARY_AUTH_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 CARTULARY_RECOVERY_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
@@ -120,17 +117,19 @@ CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY=cartulary-local-secret
 CARTULARY_S3_PRIMARY_BUCKET=cartulary-mvp-smoke
 
 RESTORE_VERIFY_POSTGRES_DB=cartulary_restore_verify
-CARTULARY_POSTGRES_RESTORE_VERIFY_MIGRATION_DSN=postgresql://cartulary_migration_login:cartulary-migration-smoke-password@postgres:5432/cartulary_restore_verify?sslmode=disable
-CARTULARY_POSTGRES_RESTORE_VERIFY_RECOVERY_DSN=postgresql://cartulary_recovery_login:cartulary-recovery-smoke-password@postgres:5432/cartulary_restore_verify?sslmode=disable
 CARTULARY_S3_RESTORE_VERIFY_ENDPOINT=seaweedfs-s3:8333
 CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID=cartulary-local
 CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY=cartulary-local-secret
 CARTULARY_S3_RESTORE_VERIFY_BUCKET=cartulary-mvp-restore-verify-smoke
-CARTULARY_S3_RESTORE_VERIFY_SECURE=false
 EOF
 
+"${NODE_BIN:-node}" "$ROOT_DIR/tools/release-evidence/package-platform.mjs" prepare "$work_dir" "$artifact_dir" "$project" "$public_origin"
+
 compose build app >/dev/null
-compose up -d app >/dev/null
+compose up -d app >/dev/null || {
+  compose logs --no-color --tail 80 postgres seaweedfs-s3 migrate object-store-init >&2 || true
+  fail "package initialization failed"
+}
 
 wait_for_http_status() {
   local path="$1"
@@ -139,7 +138,7 @@ wait_for_http_status() {
   local start_time="$SECONDS"
   local status="000"
   while ((SECONDS - start_time < 180)); do
-    status="$(curl -sS -o "$output" -w '%{http_code}' "${public_origin}${path}" || true)"
+    status="$(curl --cacert "$work_dir/tls/ca.pem" --tlsv1.3 -sS -o "$output" -w '%{http_code}' "${public_origin}${path}" || true)"
     if [[ "$status" == "$want" ]]; then
       return 0
     fi
@@ -150,7 +149,12 @@ wait_for_http_status() {
 }
 
 wait_for_http_status "/readyz" "200" "$ready_body" || fail "/readyz did not become ready"
+"${NODE_BIN:-node}" "$ROOT_DIR/tools/release-evidence/package-platform.mjs" observe "$work_dir" "$artifact_dir" "$project" "$public_origin"
+
 grep -Fq '"status":"ready"' "$ready_body" || fail "/readyz did not report structured ready status"
+"${NODE_BIN:-node}" "$ROOT_DIR/tools/release-evidence/recovery-interruption.mjs" "$work_dir" "$project" "$artifact_dir"
+wait_for_http_status "/readyz" "200" "$ready_body" || fail "interrupted package did not become ready"
+
 
 CARTULARY_MVP_DIR="$work_dir" \
   CARTULARY_MVP_ENV_FILE="$work_dir/.env" \
@@ -246,19 +250,21 @@ for (const ref of due.artifact_refs) {
 }
 EOF
 
-"$NODE" - "$public_origin" "$route_json" <<'EOF'
+"$NODE" - "$public_origin" "$route_json" "$work_dir/tls/ca.pem" <<'EOF'
 const fs = require("node:fs");
-const http = require("node:http");
+const https = require("node:https");
+const ca = fs.readFileSync(process.argv[4]);
 const base = new URL(process.argv[2]);
 const output = process.argv[3];
 const httpPaths = ["/api/v1/backups", "/api/v1/restores", "/api/v1/restore-verifications"];
 const wsPaths = ["/ws/v1/backups", "/ws/v1/restores", "/ws/v1/restore-verifications"];
 function request(path, headers = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request(new URL(path, base), { method: "GET", headers }, (res) => {
+    const req = https.request(new URL(path, base), { method: "GET", headers, ca, minVersion: "TLSv1.3", maxVersion: "TLSv1.3", timeout: 5000 }, (res) => {
       res.resume();
       res.on("end", () => resolve(res.statusCode));
     });
+    req.on("timeout", () => req.destroy(new Error("package HTTPS probe timed out")));
     req.on("error", reject);
     req.end();
   });

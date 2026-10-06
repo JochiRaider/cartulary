@@ -369,6 +369,8 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
+          "TestApplicationHTTPSBoundary_Process",
+          "TestApplicationTLSAdmission_Process",
           "TestReadyState_Process"
         ]
       },
@@ -744,6 +746,7 @@
           "TestServerRunnerLogsPublicContractAdmissionWithoutRequestData",
           "TestServerRunnerMapsRuntimeSetupFailure",
           "TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad",
+          "TestServerRunnerRejectsTLSBeforeRuntime",
           "TestServerRunnerWritesDiagnosticsAndReturnsFailure",
           "TestServerRunnerWritesMigrationFailureDiagnostic",
           "TestServerRunnerWritesMigrationRemediationToStderr"

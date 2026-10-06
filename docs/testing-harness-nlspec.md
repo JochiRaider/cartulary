@@ -564,7 +564,8 @@ Verified by: TH-HARNESS-AC-094
 The disposable PostgreSQL migration capability MUST use the Production DDL
 Rebaseline v2 catalog and exact PostgreSQL 18.6 identified by
 `server_version_num=180006`, with data checksums enabled and host
-authentication restricted to SCRAM-SHA-256. It MUST provision the exact
+application authentication restricted to verified TLS client certificates under
+Core 04 REQ-04-153. It MUST provision the exact
 administrator-owned `public` schema, `pgcrypto` 1.3 and `citext` 1.6
 prerequisites, fixed roles, deployment logins, memberships, database grants,
 schema ownership, extension privilege cleanup, and default privileges required
@@ -1240,10 +1241,10 @@ Each completed build retains one closed
 `<build-target>/frontend-artifact.json`. It binds the current run, artifact
 profile, producer unit, source and toolchain digests, and complete content digest.
 Private filesystem locations are resolved through the current suite runtime
-lease and MUST NOT appear in this receipt. Browser stack v7 binds the exact
+lease and MUST NOT appear in this receipt. Browser stack v8 binds the exact
 run-relative receipt and its digest plus the frontend content digest. Attachment
 MUST reject profile, producer, source, toolchain, receipt, or content mismatch
-before product work. Stack v6 is historical only; aliases and fallback readers
+before product work. Stacks v6 and v7 are historical only; aliases and fallback readers
 are forbidden. A missing or invalid artifact is `artifact_error` (exit 11).
 
 The receipt MUST be atomically published last, after payload validation and
@@ -1364,11 +1365,11 @@ owners are joined without duplicating authority.
 
 For a managed browser session, the suite-scoped browser lifecycle adapter is the
 only owner of backend and frontend startup, readiness, startup events,
-terminal startup diagnostics, v7 stack publication, and teardown. The
+terminal startup diagnostics, v8 stack publication, and teardown. The
 Playwright-facing adapter is attach-only. Before workers start it MUST validate
-an exact `cartulary.web_e2e_stack.v7`, the suite/session/profile identities, all
+an exact `cartulary.web_e2e_stack.v8`, the suite/session/profile identities, all
 referenced byte digests, the active schema/template/bucket/endpoint identities,
-the frontend build digest, and live backend/frontend process proofs.
+the frontend build digest, the exact public fixture CA-bundle digest, and live backend/frontend process proofs. The current terminal diagnostic is `cartulary.browser_startup_diagnostics.v3`. All application, frontend proxy, object-store and readiness hops MUST use verified HTTPS; application-facing listeners MUST require TLS 1.3. Each browser group MUST use the pinned isolated renderer with public fixture roots installed through the pinned NSS tool in its owned container. The Node driver MUST receive the same explicit roots before startup. Host/Windows trust changes, ignored certificate errors and plaintext positive evidence are forbidden. Retain `cartulary.browser_tls_trust.v1` evidence binding tool, bundle and authority digests; private keys MUST remain outside the browser container.
 Missing, stale, v3-only, profile-mismatched, digest-mismatched, development-stack,
 or incomplete attachment evidence MUST fail before Playwright assertions.
 Canonical Playwright configuration MUST NOT start a web server, reuse an
@@ -1382,12 +1383,12 @@ Only the session lifecycle adapter may write them. A ready terminal requires
 the complete ordered state graph `initializing`, `service_attached`,
 `fixture_ready`, `backend_ready`, `frontend_ready`, `ready`; `failed` may close
 any nonterminal state and can never regress. The terminal ready diagnostic MUST
-be published before one immutable v7 stack binds its exact digest together with
+be published before one immutable v8 stack binds its exact digest together with
 the compact service-admission proof, lease, database, object-store namespace, fixture,
 process, and frontend-build identities. Group and target results MUST carry
 ordered run-relative session artifact references and SHA-256 digests. Shared or
 multi-profile target projections MUST consume those artifacts without gaining
-write authority. V3 stack and v1 diagnostic schemas are historical-validation
+write authority. V3/V7 stacks and v1/v2 diagnostic schemas are historical-validation
 inputs only and MUST NOT be active-run admission fallbacks.
 
 The `browser-e2e-stateful` public target MAY use generated `stateful_partition` groups when each partition declares explicit semantic row IDs and an explicit browser session group. Partitioning MUST preserve the same row inventory as the unpartitioned target. An empty adapter invocation MUST be omitted rather than represented as product success. Direct execution MUST reset between selector-file partitions. Scheduler execution MUST serialize stateful partitions that share a browser session group in authored order, and each partition's reset MUST complete before the next partition starts. Distinct browser session groups MAY overlap only when each group owns an isolated retained lifecycle. The `network_flow_claimed` profile MUST always have a distinct startup session for stateful, accessibility, visual, measurement, and webserver-backed evidence. Partitioning MUST NOT remove reset, taint, teardown, route-token, runtime identity, evidence-accounting, or target-summary evidence.
@@ -1495,7 +1496,7 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 | Browser target execution and group dispatch. | `browser_target_execution` | Browser graph and single-group runner boundary. | `owner_facade` | Target selection, group execution, broker-owned stack attachment, resets, canonical group/row results, cleanup, and public failure mapping. |
 | Browser Playwright selection, webserver-batch execution, report parsing, and selection artifacts. | `browser_playwright_execution` | Browser Playwright execution plus test-output adapter boundary; current stable adapter `tools/harness/output/test-output/playwright-artifacts.mjs`. | `owner_facade` | Exact catalog row and scenario selection, Playwright runner report interpretation, selected-test title/file indexing, merged report behavior, owner summaries, stdout/stderr/output artifact paths, and failure normalization. |
 | Browser estimated-work and performance accounting. | `browser_duration_accounting` | Work-graph cost model and canonical performance boundary. | `owner_facade` | Exact group and row identities, event-derived intervals, readiness attribution, accepted performance windows, and no hidden shell-batch timing. |
-| Browser owned-stack lifecycle, runtime identity proof, and reset controller. | `browser_lifecycle_adapter` | Browser lifecycle/test-route adapter boundary; current entrypoints `tools/harness/browser/start-web-e2e.sh` and `tools/harness/browser/reset-web-e2e-stack.sh`. | `owner_facade` | `cartulary.web_e2e_stack.v7`, `cartulary.web_e2e_backend_generation.v1`, per-session startup event and terminal-diagnostic ownership, immutable attachment evidence, preview-mode startup, port ownership, runtime root/session files, process-group cleanup, runtime identity proof, backend replacement, reset diagnostics/taint, and Playwright state cleanup. |
+| Browser owned-stack lifecycle, runtime identity proof, and reset controller. | `browser_lifecycle_adapter` | Browser lifecycle/test-route adapter boundary; current entrypoints `tools/harness/browser/start-web-e2e.sh` and `tools/harness/browser/reset-web-e2e-stack.sh`. | `owner_facade` | `cartulary.web_e2e_stack.v8`, `cartulary.web_e2e_backend_generation.v2`, per-session startup event and terminal-diagnostic ownership, immutable attachment evidence, preview-mode startup, port ownership, runtime root/session files, process-group cleanup, runtime identity proof, backend replacement, reset diagnostics/taint, and Playwright state cleanup. |
 | Browser accessibility evidence summaries. | `browser_accessibility_evidence` | Browser helper boundary; current canonical path `tools/harness/browser/browser-catalog-group-cli.mjs`. | `owner_facade` | Accessibility summary schema, contrast record handling, retained Playwright runner references, and browser a11y target artifact paths. |
 | Browser visual snapshot update helper. | `browser_visual_update_helper` | Work-graph browser compiler plus current single-group entrypoint `tools/harness/browser/browser-catalog-group-cli.mjs`. | `owner_facade` | Helper-only visual update target posture, snapshot-update mode propagation, authorized authored snapshot write path, retained browser evidence, and exclusion from default `check`, `test`, `ci`, and release gates unless separately declared. |
 
@@ -2878,15 +2879,15 @@ parity-checked with every harness-public row in this table.
 | `cartulary.frontend_build_artifact.v1` | `tools/schemas/cartulary.frontend_build_artifact.v1.schema.json` | present | Frontend build producer | Before admitting any frontend artifact consumer. |
 | `cartulary.harness_command_failure.v1` | `tools/schemas/cartulary.harness_command_failure.v1.schema.json` | present | Private command failure channel | Before accepting invocation-scoped failure attribution; not a retained result. |
 | `cartulary.frontend_visual_capture_intent.v2` | `tools/schemas/cartulary.frontend_visual_capture_intent.v2.schema.json` | present | Visual capture helper | Before reconciliation accepts a capture. |
-| `cartulary.web_e2e_stack.v7`                    | `tools/schemas/cartulary.web_e2e_stack.v7.schema.json`                    | present           | Browser session lifecycle | Before browser target starts Playwright. |
-| `cartulary.web_e2e_backend_generation.v1`       | `tools/schemas/cartulary.web_e2e_backend_generation.v1.schema.json`       | present           | Browser reset lifecycle  | Before a replacement backend is attached. |
+| `cartulary.web_e2e_stack.v8`                    | `tools/schemas/cartulary.web_e2e_stack.v8.schema.json`                    | present           | Browser session lifecycle | Before browser target starts Playwright. |
+| `cartulary.web_e2e_backend_generation.v2`       | `tools/schemas/cartulary.web_e2e_backend_generation.v2.schema.json`       | present           | Browser reset lifecycle  | Before a replacement backend is attached. |
 | `cartulary.browser_startup_event.v1`             | `tools/schemas/cartulary.browser_startup_event.v1.schema.json`             | present           | Browser session lifecycle | For each append-only startup transition. |
 | `cartulary.browser_startup_diagnostics.v2`       | `tools/schemas/cartulary.browser_startup_diagnostics.v2.schema.json`       | present           | Browser session lifecycle | Once at terminal ready or failed state. |
 | `cartulary.browser_group_result.v6`              | `tools/schemas/cartulary.browser_group_result.v6.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
 | `cartulary.browser_target_result.v4`             | `tools/schemas/cartulary.browser_target_result.v4.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
-| `cartulary.local_object_store_proxy_start_attempt.v1` | `tools/schemas/cartulary.local_object_store_proxy_start_attempt.v1.schema.json` | present | Local development proxy lifecycle | Before a startup attempt is recovered or promoted. |
-| `cartulary.local_object_store_proxy_lease.v1`    | `tools/schemas/cartulary.local_object_store_proxy_lease.v1.schema.json`    | present           | Local development proxy lifecycle | Before reuse or signaling. |
-| `cartulary.local_object_store_proxy_health.v1`   | `tools/schemas/cartulary.local_object_store_proxy_health.v1.schema.json`   | present           | Local development proxy lifecycle | During ownership and configuration proof. |
+| `cartulary.local_object_store_proxy_start_attempt.v2` | `tools/schemas/cartulary.local_object_store_proxy_start_attempt.v2.schema.json` | present | Local development proxy lifecycle | Before a startup attempt is recovered or promoted. |
+| `cartulary.local_object_store_proxy_lease.v2`    | `tools/schemas/cartulary.local_object_store_proxy_lease.v2.schema.json`    | present           | Local development proxy lifecycle | Before reuse or signaling. |
+| `cartulary.local_object_store_proxy_health.v2`   | `tools/schemas/cartulary.local_object_store_proxy_health.v2.schema.json`   | present           | Local development proxy lifecycle | During ownership and configuration proof. |
 | `cartulary.test.runtime_identity.v1`             | `tools/schemas/cartulary.test.runtime_identity.v1.schema.json`             | present           | Browser stack            | During backend identity readiness probing. |
 | `cartulary.test.database_reset_diagnostic.v1`   | `tools/schemas/cartulary.test.database_reset_diagnostic.v1.schema.json`   | present           | Recovery reset controller | Before database reset success or failure is accepted. |
 | `cartulary.browser_acquisition.v1` | `tools/schemas/cartulary.browser_acquisition.v1.schema.json` | private | Browser acquisition owner | Before launch and every settlement/recovery read. |
@@ -2894,7 +2895,7 @@ parity-checked with every harness-public row in this table.
 | `cartulary.test.clock_control.v1`               | `tools/schemas/cartulary.test.clock_control.v1.schema.json`               | present           | Test clock route         | Before a fixed, offset, reset, or state clock-control response is accepted. |
 | `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
 | `cartulary.test.network_flow_fault_control.v2`  | `tools/schemas/cartulary.test.network_flow_fault_control.v2.schema.json`  | present           | Network Flow fault-control route | Before an armed Network Flow commit or worker fault is accepted. |
-| `cartulary.test.network_flow_randomness_control.v2` | `tools/schemas/cartulary.test.network_flow_randomness_control.v2.schema.json` | present       | Network Flow randomness-control route | Before an armed deterministic Network Flow random stream is accepted. |
+| `cartulary.test.network_flow_randomness_control.v3` | `tools/schemas/cartulary.test.network_flow_randomness_control.v3.schema.json` | present       | Network Flow randomness-control route | Before an armed deterministic Network Flow random stream is accepted. |
 | `cartulary.test.network_flow_auth_transition_control.v2` | `tools/schemas/cartulary.test.network_flow_auth_transition_control.v2.schema.json` | present | Network Flow auth-transition control route | Before an armed Network Flow auth-transition control is accepted. |
 | `cartulary.test.network_flow_audit_assertion_control.v2` | `tools/schemas/cartulary.test.network_flow_audit_assertion_control.v2.schema.json` | present | Network Flow audit-assertion control route | Before an armed Network Flow audit-count or replay assertion is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
@@ -3056,7 +3057,7 @@ Reconciliation MUST derive expected paths from runtime capture intent plus the s
 
 Reconciliation MUST fail with `status=fail` when an active intent has no committed golden, an expected or committed path maps ambiguously, a selected assertion/catalog/scenario/project reference does not resolve exactly, or a declared registry fixture/path does not resolve. An `orphan` classification MUST identify a committed PNG with zero Playwright and zero declared non-Playwright consumers; it is a review input and MUST block blind refresh or movement but MAY proceed to an authorized deletion slice. The artifact remains implementation-readiness evidence and MUST NOT satisfy product conformance, design conformance, release, or Core 05 publication gates.
 
-The one executable visual renderer profile is image `mcr.microsoft.com/playwright@sha256:bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7` on `linux/amd64`, Playwright `1.63.0`, Chromium revision `1243` and version `153.0.8010.12`, vendored-font manifest SHA-256 `c21f8663e6c8fe72681b2be644aa8398538afc59a0f0cda06b94d46d5fbba5fe`, locale `en-US`, device scale factor `1`, and default color scheme `light`. Existing per-capture viewport, zoom, and reduced-motion settings remain capture-owned. Visual validation and refresh MUST use a harness-owned Playwright server from that digest-pinned container. The server MUST run non-root without a repository mount, publish only its unguessable endpoint on host loopback, expose the client loopback through Playwright's remote-network forwarding only for the harness-owned local services, retain no server log containing page data, and be stopped on success, failure, cancellation, or signal. The observed image architecture, Playwright/Chromium identity, and font manifest MUST match the profile before a test begins. Docker/image absence, renderer death, profile mismatch, or user-supplied endpoint/profile input is a fail-closed harness error. Nonvisual browser targets retain the host Playwright browser.
+The one executable visual renderer profile is image `mcr.microsoft.com/playwright@sha256:bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7` on `linux/amd64`, Playwright `1.63.0`, Chromium revision `1243` and version `153.0.8010.12`, vendored-font manifest SHA-256 `c21f8663e6c8fe72681b2be644aa8398538afc59a0f0cda06b94d46d5fbba5fe`, locale `en-US`, device scale factor `1`, and default color scheme `light`. Existing per-capture viewport, zoom, and reduced-motion settings remain capture-owned. Visual validation and refresh MUST use a harness-owned Playwright server from that digest-pinned container. The server MUST run non-root without a repository mount, publish only its unguessable endpoint on host loopback, expose the client loopback through Playwright's remote-network forwarding only for the harness-owned local services, retain no server log containing page data, and be stopped on success, failure, cancellation, or signal. The observed image architecture, Playwright/Chromium identity, and font manifest MUST match the profile before a test begins. Docker/image absence, renderer death, profile mismatch, or user-supplied endpoint/profile input is a fail-closed harness error. All canonical browser targets use their own pinned renderer lease and isolated fixture trust, including nonvisual groups.
 
 `browser-e2e-visual-update` MUST use the same visual row selection, runtime-profile session grouping, renderer profile, and service lifecycle as direct `browser-e2e-visual`, with Playwright snapshot update mode enabled for every selected group. Other renderer profiles are unsupported for committed refreshes. The target MUST remain helper-only, MUST NOT be selected by `check`, `test`, `ci`, release gates, or either owner-slice command, and MUST NOT emit passing `browser-e2e-visual` target or owner-accounting evidence. An update MUST copy the complete committed snapshot directory into run-scoped scratch space and write only there while groups execute. The harness MUST validate all selected groups, reconciliation v3, the complete candidate golden manifest, schema shape, and renderer identity before atomically promoting the candidate snapshot directory and manifest. Failure at any earlier point MUST leave tracked bytes unchanged; promotion failure MUST restore the prior directory and manifest. Its authored writes are limited to committed Playwright visual goldens under `apps/web/e2e/workbook.visual.spec.ts-snapshots/` and `tools/frontend_visual_golden_manifest.json`. A refresh record MUST name its accepted trigger, affected row and fixture IDs, changed golden paths, capture-contract changes or their explicit absence, reviewer outcome, and the later ordinary visual validation root. A refresh is complete only after changed images are reviewed and two fresh later `browser-e2e-visual` runs pass with screenshot comparisons active against the same manifest. Refresh artifacts remain implementation-readiness evidence and MUST NOT satisfy product conformance, design conformance, release, or Core 05 publication gates.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-022
@@ -3410,16 +3411,16 @@ Verified by: TH-HARNESS-AC-135
 | Browser service admission                            | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/service-admission.json` | `cartulary.test_services.browser_admission.v1` | Suite/session identity, readiness generation, required services, container proof, source digest, and service-scope digest | Retained for the session; contains no exhaustive service inventory. |
 | Browser startup events                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-events.jsonl` | `cartulary.browser_startup_event.v1` | Exact suite/session/profile identity and validated append-only state transitions | Retained for the session; lifecycle adapter is sole writer. |
 | Browser startup diagnostics                          | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-diagnostics.json` | `cartulary.browser_startup_diagnostics.v2` | Immutable terminal state, event reference/digest, classification, redaction-safe message, origins, and artifact references | Retained for the session; group and target evidence consume by reference. |
-| Browser stack metadata                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/stack-v7.json` | `cartulary.web_e2e_stack.v7` | Immutable suite/session/mode/profile identity, compact service admission, database, object-store namespace, backend/frontend process proofs, build digest, fixture, diagnostic, lease, and readiness bindings | Retained for current-run attach admission. |
-| Browser backend generation                           | Browser reset lifecycle                         | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/backend-generations/<reset-id>.json` | `cartulary.web_e2e_backend_generation.v1` | Reset ID, monotonic generation, unchanged runtime/config identity, base stack reference/digest, and replacement backend process proof | Immutable current-run attachment overlay. |
+| Browser stack metadata                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/stack-v7.json` | `cartulary.web_e2e_stack.v8` | Immutable suite/session/mode/profile identity, compact service admission, database, object-store namespace, backend/frontend process proofs, build digest, fixture, diagnostic, lease, and readiness bindings | Retained for current-run attach admission. |
+| Browser backend generation                           | Browser reset lifecycle                         | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/backend-generations/<reset-id>.json` | `cartulary.web_e2e_backend_generation.v2` | Reset ID, monotonic generation, unchanged runtime/config identity, base stack reference/digest, and replacement backend process proof | Immutable current-run attachment overlay. |
 | Browser group result                                 | Browser evidence adapter                        | `<target>/browser-groups/<group-id>/browser-group-result.json` | `cartulary.browser_group_result.v6` | Exact selected rows, terminal observations, lease reference, and ordered session artifact references/digests | Retained for target accounting. |
 | Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v4` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
-| Local object-store proxy attempt, lease, and health  | Local development proxy lifecycle               | owner-only `.cartulary/runtime/object-store-proxy/` state and loopback health endpoint | `cartulary.local_object_store_proxy_start_attempt.v1`, `cartulary.local_object_store_proxy_lease.v1`, `cartulary.local_object_store_proxy_health.v1` | Canonical nonsecret configuration, instance identity, boot-aware process proof, and readiness state | Development-only; never browser or product evidence. |
+| Local object-store proxy attempt, lease, and health  | Local development proxy lifecycle               | owner-only `.cartulary/runtime/object-store-proxy/` state and loopback health endpoint | `cartulary.local_object_store_proxy_start_attempt.v2`, `cartulary.local_object_store_proxy_lease.v2`, `cartulary.local_object_store_proxy_health.v2` | Canonical nonsecret configuration, instance identity, boot-aware process proof, and readiness state | Development-only; never browser or product evidence. |
 | Database reset diagnostic                            | Recovery reset controller                       | `<target>/reset-boundary/<label>.database-reset.json`            | `cartulary.test.database_reset_diagnostic.v1`                 | Reset ID, attempt one, closed stage, nullable SQLSTATE, timeout flag, duration, sorted table/count proofs, and normalized failure | Retained; excludes raw SQL, DSNs, database names, credentials, backend IDs, and raw errors. |
 | Browser reset attempt                                | Browser reset lifecycle                         | `<target>/reset-boundary/<label>.attempt.json`                   | `cartulary.browser_reset_attempt.v1`                          | Ordered lifecycle outcome, old/new backend generations, database diagnostic reference, persistent/browser reset proof, taint, and terminal classification | Authoritative lifecycle-unit failure evidence. |
 | Test clock-control response                          | Test clock route                               | clock-control transcript or target-owned clock-control dir       | `cartulary.test.clock_control.v1`                             | Clock mode, current RFC3339 timestamp, offset seconds, and fixed timestamp when mode is fixed | Retained only by the target or fixture transcript that controls the clock; never production API evidence. |
 | Network Flow fault-control response                  | Network Flow fault-control route                | Network Flow fixture transcript or target-owned fault-control dir | `cartulary.test.network_flow_fault_control.v2`                | Fault ID, exact boundary token, fault kind, optional safe error code, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms the fault; never production API evidence. |
-| Network Flow randomness-control response             | Network Flow randomness-control route           | Network Flow fixture transcript or target-owned randomness-control dir | `cartulary.test.network_flow_randomness_control.v2`           | Control ID, exact stream token, value kind, value count, remaining count, `consume_once=true`, and `exhaustion="fail_closed"` | Retained only by the target or fixture transcript that arms deterministic fixture randomness; never production API evidence. |
+| Network Flow randomness-control response             | Network Flow randomness-control route           | Network Flow fixture transcript or target-owned randomness-control dir | `cartulary.test.network_flow_randomness_control.v3`           | Control ID, exact stream token, value kind, value count, remaining count, `consume_once=true`, and `exhaustion="fail_closed"` | Retained only by the target or fixture transcript that arms deterministic fixture randomness; never production API evidence. |
 | Network Flow auth-transition-control response        | Network Flow auth-transition-control route      | Network Flow fixture transcript or target-owned auth-transition-control dir | `cartulary.test.network_flow_auth_transition_control.v2`      | Control ID, exact boundary token, transition kind, actor ref, incident ref, resource kind/ref, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms route-time authorizations; never production API evidence. |
 | Network Flow audit-assertion-control response        | Network Flow audit-assertion-control route      | Network Flow fixture transcript or target-owned audit-assertion-control dir | `cartulary.test.network_flow_audit_assertion_control.v2`     | Assertion ID, assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms exact-count or replay-silence assertions; never product audit evidence by itself. |
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v4`                  | Active `rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
@@ -5664,14 +5665,14 @@ State publication uses an owner-only temporary file, file `fsync`, atomic
 rename, and parent-directory `fsync`.
 
 The launcher MUST publish a secure
-`cartulary.local_object_store_proxy_start_attempt.v1` before spawn. The child
+`cartulary.local_object_store_proxy_start_attempt.v2` before spawn. The child
 MUST synchronously bind the exact loopback listener, then publish its instance
 identity and full process proof before serving normal proxy traffic. The proof
 contains Linux boot ID, PID, `/proc/<pid>/stat` start-time ticks, effective UID,
 executable device and inode, and SHA-256 of `/proc/<pid>/exe`. Promotion to
-`cartulary.local_object_store_proxy_lease.v1` is atomic and permitted only after
+`cartulary.local_object_store_proxy_lease.v2` is atomic and permitted only after
 the five-second bind/identity handshake, closed
-`cartulary.local_object_store_proxy_health.v1` identity, and the separately
+`cartulary.local_object_store_proxy_health.v2` identity, and the separately
 bounded object-store plus exact-CORS probe all pass.
 
 Recovery or reuse requires matching process, executable, health, listener,
@@ -5684,9 +5685,18 @@ termination through the pidfd. Unsupported pidfd behavior fails closed without
 PID-only fallback. A startup attempt abandoned before process proof may be
 discarded only when no listener occupies the configured endpoint.
 
-The upstream origin is canonicalized and MUST reject userinfo, query, and
-fragment; listener configuration MUST be an explicit loopback IP. Configuration
-fingerprints include only canonical nonsecret values. Development proxy health
+The upstream and allowed browser origins use HTTPS and MUST reject userinfo,
+query, fragment and non-origin paths; the listener uses an explicit loopback
+IP. Listener, upstream and ownership-health transport follow Core 04's TLS
+policy. The proxy requires explicit absolute certificate, private-key and root
+bundle paths; the listener has a separate key from SeaweedFS. No global trust
+store is changed. Configuration fingerprints include canonical nonsecret
+values, certificate/root digests and file bindings, never private-key bytes.
+Certificate replacement requires stopping the proven owned process before
+replacing files and starting a newly admitted instance. Version 1 lifecycle
+records cannot authorize the current proxy. A run-scoped compatibility probe
+may use the same helper with private suite identities and the ordinary owned
+resource lifecycle; it must never reuse the development listener or state. Development proxy health
 is loopback-only implementation support and MUST NOT become a product API,
 production deployment surface, browser attachment input, or product evidence.
 Verified by: TH-HARNESS-AC-007, TH-HARNESS-AC-010
@@ -5723,10 +5733,18 @@ mechanics, not the product theme. Seeded scenario presentation comes from the
 existing product-owned preference fixture; dev captures observe actual presentation.
 Review capture MUST NOT switch product theme or persist account settings implicitly.
 
-Browser review uses the host browser installed for the pinned repo Playwright.
-It does not attach the private canonical visual-renderer endpoint. A host review
-screenshot MUST NOT be labeled canonical or used to refresh a golden. Canonical
-comparison and refresh remain exclusive to their existing public targets.
+Seeded review uses a fresh review-owned lease of the pinned renderer image, with
+its admitted fixture CA bundle installed before Node or Chromium requests. Seeding
+and actor authentication MUST use verified HTTPS, current SHA-256 TOTP, and the
+existing public application operations. The renderer ownership proof MUST be
+published before acquisition and bind the exact daemon, random owner token,
+container name and image identity; interruption and recovery MUST remove only
+that resource. Diagnostic attachment may publish a separate unguessable endpoint
+on host loopback for the already-owned page, never a second browser. Dev review
+uses the host browser installed for the pinned repo Playwright and remains
+live/unattested. Neither mode attaches a canonical run's private renderer endpoint.
+Review screenshots MUST NOT be labeled canonical or used to refresh a golden.
+Canonical comparison and refresh remain exclusive to their existing public targets.
 
 Verified by: TH-HARNESS-AC-104, TH-HARNESS-AC-105, TH-HARNESS-AC-106, TH-HARNESS-AC-129
 
@@ -6074,7 +6092,7 @@ Verified by: TH-HARNESS-AC-050
 ### 12.2.6 Network Flow Deterministic Randomness Control
 
 **TH-HARNESS-REQ-465**
-`POST /api/v1/test/runtime/network-flow-randomness` is a harness test route with the same enablement, host/origin, and token authorization predicates as the runtime identity route. The route MAY arm one deterministic random stream for opted-in Network Flow fixture code that needs repeatable IDs, nonces, key IDs, digest salts, or intentional collision values. It MUST NOT be exposed as production API behavior, MUST NOT be listed in production OpenAPI, MUST NOT accept ordinary session, role, CSRF, bearer, bootstrap-token, or `deployment_admin` authorization as a substitute for the test-route token, and MUST fail host/origin or token checks before decoding the body or arming any stream.
+`POST /api/v1/test/runtime/network-flow-randomness` is a harness test route with the same enablement, host/origin, and token authorization predicates as the runtime identity route. The route MAY arm one deterministic random stream for opted-in Network Flow fixture code that needs repeatable table IDs or intentional table-ID collision values. It MUST NOT be exposed as production API behavior, MUST NOT be listed in production OpenAPI, MUST NOT accept ordinary session, role, CSRF, bearer, bootstrap-token, or `deployment_admin` authorization as a substitute for the test-route token, and MUST fail host/origin or token checks before decoding the body or arming any stream.
 Verified by: TH-HARNESS-AC-052
 
 **TH-HARNESS-REQ-466**
@@ -6083,7 +6101,6 @@ Network Flow deterministic-randomness streams are closed harness tokens. They id
 | Stream token | Real consumer |
 | --- | --- |
 | `network_flow.table_id` | Table allocation; canonical UUID values map to 16 entropy bytes. |
-| `network_flow.cursor_nonce` | Cursor encryption; hex bytes must have the AEAD nonce length (12 bytes). |
 
 Verified by: TH-HARNESS-AC-052
 
@@ -6093,16 +6110,16 @@ The request body MUST be a JSON object with exactly the fields below.
 | Field          | Required | Behavior |
 | -------------- | -------- | -------- |
 | `stream`       | yes      | One of the closed Network Flow stream tokens in TH-HARNESS-REQ-466. |
-| `value_kind`   | yes      | `uuid` for table IDs; `hex_bytes` for cursor nonces. No other pairing is accepted. |
+| `value_kind`   | yes      | `uuid` for table IDs. No other value kind is accepted. |
 | `values`       | yes      | Ordered deterministic values, length `1..256`; duplicate values are allowed only to exercise collision behavior. |
 | `consume_once` | yes      | Must be `true`; persistent or multi-consume values are not accepted. |
 | `exhaustion`   | yes      | Must be `fail_closed`; an armed stream exhausted by fixture code MUST fail the fixture rather than silently falling back to production randomness. |
 
-For `value_kind="uuid"`, each value MUST be canonical lowercase UUID text. For `value_kind="hex_bytes"`, each value MUST be exactly 24 lowercase hexadecimal characters encoding the 12-byte cursor nonce. No other value kind is supported.
+For `value_kind="uuid"`, each value MUST be canonical lowercase UUID text. Cryptographic nonce, key and salt injection is forbidden. The retired `network_flow.cursor_nonce` stream and `hex_bytes` kind MUST reject; cursor tests use ordinary module randomness and verify opacity, binding, tamper rejection and distinct envelopes.
 Verified by: TH-HARNESS-AC-052
 
 **TH-HARNESS-REQ-468**
-Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported stream, unsupported value kind, an empty or oversized `values` array, a value that does not match the selected `value_kind`, `consume_once` other than `true`, or `exhaustion` other than `fail_closed` MUST fail with `400`, `error.code=invalid_network_flow_randomness_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_randomness_control.v2` in the standard success envelope. The response MUST include a generated `control_id`, exact `stream`, exact `value_kind`, `value_count`, `remaining_count`, `consume_once=true`, and `exhaustion="fail_closed"`. The response MUST NOT include deterministic values, the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, production secret material, raw fixture source paths, or private runtime state.
+Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported stream, unsupported value kind, an empty or oversized `values` array, a value that does not match the selected `value_kind`, `consume_once` other than `true`, or `exhaustion` other than `fail_closed` MUST fail with `400`, `error.code=invalid_network_flow_randomness_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_randomness_control.v3` in the standard success envelope. The response MUST include a generated `control_id`, exact `stream`, exact `value_kind`, `value_count`, `remaining_count`, `consume_once=true`, and `exhaustion="fail_closed"`. The response MUST NOT include deterministic values, the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, production secret material, raw fixture source paths, or private runtime state.
 Verified by: TH-HARNESS-AC-052
 
 **TH-HARNESS-REQ-469**
@@ -6616,6 +6633,67 @@ successful owned cleanup, validated terminal publication and retained-boundary s
 
 Verified by: TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-125, TH-HARNESS-AC-127
 
+### 13.7 Application cryptographic qualification evidence
+
+The harness MUST project Core 04 §1.3 through authored build, fixture, diagnostic
+and release inputs, never through Markdown reads. Go build/cache identities and
+semantic fingerprints include the exact toolchain, module selector, module archive
+digest, compiler settings and effective mode. Stale cache entries MUST NOT
+silently supply ordinary, differently pinned or disabled-mode application binaries.
+Build receipts and package results include actual binary hashes and resolved
+build/module identities; caller-provided labels are not substitutes.
+
+Existing package, Reference Pack and operational Recovery smokes MUST cover the
+three shipped binaries, positive fresh initialization, incompatible binary/state
+rejection before effects, certificate authentication and rotation, credential/MFA
+and token lifecycles, actual pack verification and actual backup/restore. Negative
+PostgreSQL scenarios challenge forbidden authentication mechanisms before
+dispatch, independently of post-authentication role checks. Fixture servers use
+isolated certificate authorities and purpose-specific credentials, with ordinary
+secret redaction and accountable cleanup. A synthetic protocol test alone does
+not qualify mTLS or a production connection.
+
+Targeted `fips140=only` runs are diagnostic evidence with explicit dispositions
+for reachable services and the WebSocket protocol-only SHA-1 exception. Production
+qualification uses enabled mode and supported service/purpose parameters. The
+diagnostic route must be authored in the public task surface before use; runtime
+enforcement cannot depend on a diagnostic result or bypass.
+
+Package engineering qualification runs on Windows 11 x64 with WSL2, Ubuntu
+x86_64 and Docker Desktop's WSL2 backend. Canonical evidence records Windows
+edition/build, WSL version and kernel, guest distribution, CPU/features, effective
+VM and measured-container limits, Docker Desktop/Engine/Compose versions, daemon
+kernel/context, storage filesystem and network mode. It also records the image
+index/resolved Linux platform image, binary hashes, module selector and archive
+digest. Source success or a Debian image label cannot substitute for this record.
+
+Use the complete acceptance matrix and Core 04's fixed password-work measurement
+parameters on this target. Keep sources, caches, private keys, confined storage,
+recovery staging and service volumes on Linux filesystems in the WSL2/Docker
+environment. Windows-mounted storage is outside the reference profile. Package
+scenarios cover Windows-client HTTPS/WSS, separate Windows/guest trust stores,
+guest/container TLS, certificate replacement and owned-service interruption with
+safe restart/recovery. Guest-browser evidence MUST NOT be labeled Windows-client
+evidence. Windows-client probes use a Make-built test helper with isolated CA
+trust, without changing global Windows trust or firewall settings. Operator-started
+restart scenarios check backup age and execute due verification; guest scheduling
+checks Docker Desktop availability rather than assuming a guest docker.service.
+Runtime identity collection and scenario routing belong to authored
+machine inputs; they MUST NOT consume this specification or a handoff tracker.
+
+Normal smoke cleanup MUST NOT shut down the whole WSL VM, reboot Windows or
+modify global trust/firewall settings. Host sleep/shutdown and Windows/WSL/Docker
+update procedures belong in the operational handoff, with revalidation of changed
+execution identities. Interrupted performance runs cannot supply acceptance.
+
+One complete final-candidate WSL2 release and all cleanup must pass; historical
+or partial runs cannot be combined into a current success. Native-Linux-only
+deployment and qualification remain indefinitely deferred, outside current
+completion dependencies. Formal CMVP applicability to the exact WSL2 stack
+requires separate supporting authority and MUST be recorded as unestablished
+until obtained; an engineering pass does not imply that claim. Owner adoption
+and customer deployment approval remain separate dispositions.
+
 ## 14. Platform and CI Support
 
 **TH-HARNESS-REQ-550**
@@ -6656,8 +6734,8 @@ Verified by: TH-HARNESS-AC-092
 
 | Environment/tool                                   | Current conformance status                 | Required evidence                                                                                                                             |
 | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Linux x86_64 with Docker Engine and Docker Compose | required                                   | Full acceptance matrix.                                                                                                                       |
-| WSL2 Ubuntu with Docker Desktop integration        | supported compatibility profile            | `doctor`, `test-fast`, `check`, browser E2E smoke.                                                                                            |
+| Windows 11 x64 / WSL2 Ubuntu x86_64 / Docker Desktop WSL2 backend | required reference profile | Full acceptance matrix, including all three package smokes and one complete final-candidate release; §13.7 environment and boundary evidence. |
+| Pure/native Linux x86_64 with Docker Engine and Docker Compose | deferred indefinitely | No current release dependency or fresh qualification claim; reactivation requires an explicit scope decision. Existing Linux guest/container code is retained for WSL2. |
 | macOS                                              | unsupported for current conformance        | None.                                                                                                                                         |
 | Windows native                                     | unsupported                                | None; use WSL2 profile.                                                                                                                       |
 | Hosted CI provider                                 | provider-neutral only                      | `make ci`; no annotation/upload claims.                                                                                                       |
@@ -6718,7 +6796,8 @@ an unavailable release tool is a visible cleanup failure, not a reason to skip
 independent detail cleanup. No ambient tool fallback is permitted. Start and
 data-producing commands retain the complete core profile.
 
-Supported execution remains Linux/WSL2 amd64. Package updates require explicit
+Current reference execution is Linux/amd64 inside Windows 11 / WSL2, as defined
+in Section 14; pure/native Linux qualification is deferred. Package updates require explicit
 qualification of action, PNG, transparency, accessibility, privacy, and lifecycle
 contracts before changing pins. A browser/image change adopts a new canonical
 renderer identity; unchanged verified font bytes retain their digest.
@@ -7161,9 +7240,9 @@ Verified by: TH-HARNESS-AC-051
 
 **TH-HARNESS-REQ-660**
 Network Flow deterministic-randomness evidence is harness mechanics for
-exercising adopted product-owned identity, nonce, digest, collision, ordering,
+exercising adopted product-owned table identity, collision, ordering,
 and replay behavior. A fixture or target MAY use
-`cartulary.test.network_flow_randomness_control.v2` only from a row routed
+`cartulary.test.network_flow_randomness_control.v3` only from a row routed
 through the Network Flow behavior verification. Stream names, value kinds,
 collision values, response counts, and fail-closed exhaustion behavior MUST
 NOT be cited as independent product semantics, public API compatibility, Core

@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v2",
-  "catalog_digest_sha256": "ff769efe796c3ac9194cbe6e531e82084d39d3d48b181d63b43f07840f40264b",
+  "catalog_digest_sha256": "75eb3c368cc34bced58d829bf0fe07d858464968f3cef62b9256d6f880e83e71",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -24,7 +24,7 @@
     },
     {
       "owner_id": "module.database_migrations",
-      "sha256": "06f9e0d0c7d5fd86173dd1f185df4a5d9976a3e55372797506c5b1a47628f9d6"
+      "sha256": "f42d4d8e5c7f8bcc9fe36021f8cba699b20bd2abad9641f661a2e8fd688f56d6"
     },
     {
       "owner_id": "module.deployment_admin",
@@ -140,6 +140,15 @@
       "backup_inclusion": "authoritative_required",
       "restore_action": "restore",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.database_migrations",
+      "table_name": "application_crypto_format",
+      "state_class": "migration_metadata",
+      "backup_inclusion": "excluded_schema_metadata",
+      "restore_action": "ignore",
+      "codec_id": null,
       "algorithm_id": null
     },
     {

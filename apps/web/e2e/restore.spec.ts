@@ -70,7 +70,11 @@ test("restore recovers workbook surface and executes a built-in workbook query",
       ),
     ).toBe(true);
   } finally {
-    await stopRestoreTarget(target.process);
+    try {
+      if (!page.isClosed()) await page.goto("about:blank");
+    } finally {
+      await stopRestoreTarget(target.process);
+    }
   }
 });
 
@@ -105,6 +109,7 @@ async function startRestoreTarget(runtimeRoot: string): Promise<{
     ["run", "./tools/recoverybrowserrestore", "--runtime-root", runtimeRoot],
     {
       cwd: repoRoot,
+      detached: true,
       env: process.env,
       stdio: ["pipe", "pipe", "pipe"],
     },
@@ -112,68 +117,110 @@ async function startRestoreTarget(runtimeRoot: string): Promise<{
 
   let stdout = "";
   let stderr = "";
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      child.kill("SIGTERM");
-      reject(new Error(`restore restore target timed out\n${stderr}`));
-    }, 90_000);
+  try {
+    return await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`restore target timed out\n${stderr}`));
+      }, 90_000);
 
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf8");
-      const newline = stdout.indexOf("\n");
-      if (newline < 0) {
-        return;
-      }
-      clearTimeout(timeout);
-      const line = stdout.slice(0, newline);
-      try {
-        resolve({
-          process: child,
-          ready: JSON.parse(line) as RestoreTarget,
-        });
-      } catch (error) {
-        child.kill("SIGTERM");
+      child.stderr.on("data", (chunk: Buffer) => {
+        stderr = (stderr + chunk.toString("utf8")).slice(-32_768);
+      });
+      child.stdout.on("data", (chunk: Buffer) => {
+        stdout += chunk.toString("utf8");
+        const newline = stdout.indexOf("\n");
+        if (newline < 0) {
+          return;
+        }
+        clearTimeout(timeout);
+        const line = stdout.slice(0, newline);
+        try {
+          resolve({
+            process: child,
+            ready: JSON.parse(line) as RestoreTarget,
+          });
+        } catch (error) {
+          reject(
+            new Error(
+              `decode restore target ready payload: ${String(error)}\nstderr=${stderr}`,
+            ),
+          );
+        }
+      });
+      child.once("exit", (code, signal) => {
+        clearTimeout(timeout);
+        if (stdout.includes("\n")) {
+          return;
+        }
         reject(
           new Error(
-            `decode restore restore target ready payload: ${String(error)}\nstdout=${stdout}\nstderr=${stderr}`,
+            `restore target exited before ready code=${code} signal=${signal}\nstderr=${stderr}`,
           ),
         );
-      }
+      });
+      child.once("error", (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
     });
-    child.once("exit", (code, signal) => {
-      clearTimeout(timeout);
-      if (stdout.includes("\n")) {
-        return;
-      }
-      reject(
-        new Error(
-          `restore restore target exited before ready code=${code} signal=${signal}\nstderr=${stderr}`,
-        ),
+  } catch (error) {
+    try {
+      await stopRestoreTarget(child);
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        "Restore fixture startup and cleanup failed",
       );
-    });
-    child.once("error", (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-  });
+    }
+    throw error;
+  }
 }
 
 async function stopRestoreTarget(child: ChildProcessWithoutNullStreams) {
+  if (child.pid === undefined) {
+    return;
+  }
+  const exited = () => child.exitCode !== null || child.signalCode !== null;
+  if (!exited()) {
+    // The helper owns cleanup; EOF reaches it through the go-run supervisor.
+    child.stdin.end();
+    // Two five-second HTTP drains and two ten-second database retirements,
+    // plus bounded runtime closure. Forced retirement remains a failed fixture.
+    await waitForExit(child, 35_000);
+  }
+  if (!exited()) {
+    // Retire the whole owned process group, including a go-run child.
+    process.kill(-child.pid, "SIGTERM");
+    await waitForExit(child, 5_000);
+    if (!exited()) {
+      process.kill(-child.pid, "SIGKILL");
+      await waitForExit(child, 5_000);
+    }
+    throw new Error(
+      "Restore fixture did not finish its cleanup before the deadline",
+    );
+  }
+  if (child.exitCode !== 0) {
+    throw new Error(
+      `Restore fixture cleanup failed code=${child.exitCode} signal=${child.signalCode}`,
+    );
+  }
+}
+
+async function waitForExit(
+  child: ChildProcessWithoutNullStreams,
+  timeoutMs: number,
+) {
   if (child.exitCode !== null || child.signalCode !== null) {
     return;
   }
-  const done = new Promise<void>((resolve) => {
-    child.once("exit", () => resolve());
+  await new Promise<void>((resolve) => {
+    const finish = () => {
+      clearTimeout(timeout);
+      child.off("exit", finish);
+      resolve();
+    };
+    const timeout = setTimeout(finish, timeoutMs);
+    child.once("exit", finish);
   });
-  child.kill("SIGTERM");
-  await Promise.race([
-    done,
-    new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
-  ]);
-  if (child.exitCode === null && child.signalCode === null) {
-    child.kill("SIGKILL");
-  }
 }

@@ -72,9 +72,22 @@ export function WorkbookSurfaceLayout({
   );
   const inspectorIsAdjacent = chromeMode === "base";
   const backgroundIsInert = inspectorOpen && !inspectorIsAdjacent;
-  const layoutMetrics = workbookLayoutMetrics(
-    window.visualViewport?.width ?? window.innerWidth,
+  const [viewportWidth, setViewportWidth] = useState(
+    () => window.visualViewport?.width ?? window.innerWidth,
   );
+  useLayoutEffect(() => {
+    const viewport = window.visualViewport;
+    const updateWidth = () =>
+      setViewportWidth(viewport?.width ?? window.innerWidth);
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    viewport?.addEventListener("resize", updateWidth);
+    return () => {
+      window.removeEventListener("resize", updateWidth);
+      viewport?.removeEventListener("resize", updateWidth);
+    };
+  }, []);
+  const layoutMetrics = workbookLayoutMetrics(viewportWidth);
   const [inspectorWidth, setInspectorWidth] = useState(
     layoutMetrics.inspectorDefaultWidthCssPx,
   );

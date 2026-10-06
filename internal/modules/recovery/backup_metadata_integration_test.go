@@ -25,7 +25,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testing.T) {
@@ -35,8 +34,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 		"backup_restore-i-10-01-metadata",
 	)
 	ctx := context.Background()
-	sourceDB := &pgtest.TestDatabase{DSN: harness.Pool.Config().ConnConfig.ConnString()}
-	recoveryDSN, err := sourceDB.DSNForPurpose(postgres.PurposeRecovery)
+	recoveryDSN, err := harness.Database.DSNForPurpose(postgres.PurposeRecovery)
 	if err != nil {
 		t.Fatalf("resolve source Recovery DSN: %v", err)
 	}
@@ -268,7 +266,7 @@ SELECT count(*)
 	if err := json.Unmarshal(manifestBody.Bytes(), &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.SchemaID != recovery.BackupIntegrityManifestV3SchemaID || manifest.BackupSetID != latestID.String() || reloaded.IntegrityManifestSHA256 != latestCaptured.IntegrityProof.PlaintextSHA256 {
+	if manifest.SchemaID != recovery.BackupIntegrityManifestV4SchemaID || manifest.BackupSetID != latestID.String() || reloaded.IntegrityManifestSHA256 != latestCaptured.IntegrityProof.PlaintextSHA256 {
 		t.Fatalf("persisted integrity manifest does not match reloaded metadata: %#v", manifest)
 	}
 	if err := recovery.NewBackupCatalog(reopenedStore, backupStorage, testExtensionBackupCatalog(t), stateCatalog).VerifyBackupSetDurability(ctx, reloaded); err != nil {

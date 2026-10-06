@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
@@ -91,6 +93,10 @@ func (runner serverRunner) run(ctx context.Context) int {
 		return 0
 	}
 	logger := slog.New(slog.NewTextHandler(runner.stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	if err := cryptography.AdmitExecution(); err != nil {
+		runner.writeStartupError(err, logger, "admit cryptographic execution")
+		return 2
+	}
 	if err := runner.profile.validateEnvironment(runner.lookupEnv); err != nil {
 		runner.writeStartupError(err, logger, "validate server profile")
 		return 2
@@ -99,6 +105,18 @@ func (runner serverRunner) run(ctx context.Context) int {
 	cfg, err := runner.loadConfig()
 	if err != nil {
 		runner.writeStartupError(err, logger, "load config")
+		return 2
+	}
+
+	application := cfg.Deployment().Application
+	origin, err := url.Parse(application.PublicOrigin)
+	if err != nil || origin.Scheme != "https" || origin.Hostname() == "" {
+		runner.writeStartupError(applicationTLSDiagnostic(), logger, "admit application TLS")
+		return 2
+	}
+	tlsIdentity, err := cryptography.TLSServer(origin.Hostname(), application.TLSCertificatePath, application.TLSPrivateKeyPath)
+	if err != nil {
+		runner.writeStartupError(applicationTLSDiagnostic(), logger, "admit application TLS")
 		return 2
 	}
 
@@ -140,6 +158,7 @@ func (runner serverRunner) run(ctx context.Context) int {
 	serveDone := make(chan error, 1)
 	go func() {
 		serveDone <- runner.profile.serve(serveCtx, runtime.Handler, httpruntime.Options{
+			TLS:             tlsIdentity,
 			Address:         address,
 			InheritedFD:     runner.profile.inheritedListenerFD(runner.lookupEnv),
 			Logger:          logger,
@@ -168,6 +187,12 @@ func (runner serverRunner) run(ctx context.Context) int {
 		runner.writeFatalDiagnostic(processlifecycle.FatalSignal{ReasonCode: "published_component_lost", ExitCode: 70})
 		return 70
 	}
+}
+
+func applicationTLSDiagnostic() error {
+	return config.NewDiagnosticsError(config.Diagnostic{
+		Path: "application", ReasonCode: "application_tls_invalid", Message: "Application TLS identity admission failed.",
+	})
 }
 
 func (runner serverRunner) awaitDrain(serveDone <-chan error, timeout time.Duration) {

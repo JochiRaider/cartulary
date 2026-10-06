@@ -256,6 +256,7 @@ export function AuthGateway(props: AuthGatewayProps) {
                   aria-invalid={state.fieldErrors.username ? true : undefined}
                   autoComplete="username"
                   data-testid={authTestId("login-username")}
+                  readOnly={bootstrapState === "loading"}
                   id="auth-login-username"
                   type="email"
                   value={state.flow.username}
@@ -293,6 +294,7 @@ export function AuthGateway(props: AuthGatewayProps) {
                     aria-invalid={state.fieldErrors.password ? true : undefined}
                     autoComplete="current-password"
                     data-testid={authTestId("login-password")}
+                    readOnly={bootstrapState === "loading"}
                     id="auth-login-password"
                     aria-labelledby="auth-login-password-label"
                     type={state.flow.passwordVisible ? "text" : "password"}

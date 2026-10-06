@@ -250,7 +250,7 @@ func (c *packConsumer) LookupPackEntries(ctx context.Context, request LookupPack
 	position := ""
 	if request.Cursor != nil {
 		cursor, err := c.codec.Decode(*request.Cursor)
-		if err != nil || cursor.Route != "reference_pack.lookup.v1" || cursor.Mode != "reference_pack_entry" || cursor.ActorUserID != "reference_pack_consumer" || len(cursor.Scope) != 4 || len(cursor.Position) != 3 || cursor.Limit < 1 || cursor.Limit > 200 {
+		if err != nil || cursor.Route != "reference_pack.lookup.v1" || cursor.Mode != pagination.ModeKeyset || cursor.ActorUserID != "reference_pack_consumer" || len(cursor.Scope) != 4 || len(cursor.Position) != 3 || cursor.Limit < 1 || cursor.Limit > 200 {
 			return bad("cursor_invalid")
 		}
 		issued, e1 := time.Parse(time.RFC3339Nano, cursor.Position["issued"])
@@ -279,7 +279,7 @@ func (c *packConsumer) LookupPackEntries(ctx context.Context, request LookupPack
 	page := PackEntryPage{Items: []json.RawMessage{}, Provenance: provenance}
 	if len(rows) > limit {
 		rows = rows[:limit]
-		token, err := c.codec.Encode(pagination.Cursor{Mode: "reference_pack_entry", Route: "reference_pack.lookup.v1", ActorUserID: "reference_pack_consumer", Limit: limit, Scope: scope, Position: map[string]string{"after": rows[len(rows)-1].Position, "issued": now.Format(time.RFC3339Nano), "expires": now.Add(900 * time.Second).Format(time.RFC3339Nano)}})
+		token, err := c.codec.Encode(pagination.Cursor{Mode: pagination.ModeKeyset, Route: "reference_pack.lookup.v1", ActorUserID: "reference_pack_consumer", Limit: limit, Scope: scope, Position: map[string]string{"after": rows[len(rows)-1].Position, "issued": now.Format(time.RFC3339Nano), "expires": now.Add(900 * time.Second).Format(time.RFC3339Nano)}})
 		if err != nil {
 			return consumerFailure[PackEntryPage](err)
 		}

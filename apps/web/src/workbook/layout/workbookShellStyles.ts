@@ -31,7 +31,19 @@ export const shellTopBarStyle = {
   overflow: "visible",
 };
 
-export const shellTopBarUnsupportedStyle = {
+export const shellTopBarControlsStyle = {
+  display: "contents" as const,
+};
+
+// Only the local workbook controls scroll below the supported minimum width.
+// Global account navigation has a separate, stable area in the top bar.
+export const shellTopBarUnsupportedControlsStyle = {
+  display: "flex" as const,
+  alignItems: "center",
+  gap: "0.55rem",
+  flex: "1 1 0",
+  minInlineSize: 0,
+  blockSize: "100%",
   overflowX: "auto" as const,
 };
 

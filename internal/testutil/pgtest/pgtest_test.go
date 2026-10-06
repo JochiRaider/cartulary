@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -196,9 +198,11 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 	waitReadyFn = func(context.Context, *Harness) error { return nil }
 
 	labels := map[string]string{"cartulary.test": "suite"}
-	if _, err := StartOwnedWithLabels(context.Background(), labels); err != nil {
+	harness, err := StartOwnedWithLabels(context.Background(), labels)
+	if err != nil {
 		t.Fatalf("start labeled postgres: %v", err)
 	}
+	t.Cleanup(func() { _ = harness.Close(context.Background()) })
 	if gotRequest.Labels["cartulary.test"] != "suite" {
 		t.Fatalf("container labels not applied: %#v", gotRequest.Labels)
 	}
@@ -206,9 +210,32 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 		t.Fatalf("postgres image mismatch: request=%q exported=%q want=%q", gotRequest.Image, ContainerImage(), postgresImage)
 	}
 	if gotRequest.Env["PGDATA"] != "/var/lib/postgresql/18/docker" ||
-		gotRequest.Env["POSTGRES_INITDB_ARGS"] != "--data-checksums --auth-host=scram-sha-256" {
+		gotRequest.Env["POSTGRES_INITDB_ARGS"] != "--data-checksums --auth-host=reject" {
 		t.Fatalf("postgres initialization environment mismatch: %#v", gotRequest.Env)
 	}
+	if !strings.Contains(strings.Join(gotRequest.Cmd, " "), "ssl_min_protocol_version=TLSv1.3") ||
+		!strings.Contains(strings.Join(gotRequest.Cmd, " "), "hba_file=") {
+		t.Fatal("fixture omitted TLS and certificate-only HBA")
+	}
+	for _, purpose := range []postgres.Purpose{postgres.PurposeRuntime, postgres.PurposeMigration, postgres.PurposeRecovery} {
+		dsn, err := (&TestDatabase{DSN: harness.dsnFor("fixture")}).DSNForPurpose(purpose)
+		if err != nil {
+			t.Fatal(err)
+		}
+		settings, err := postgres.ResolveSettings(postgres.Binding{BindingKind: "managed_service", ServiceRef: "primary"}, purpose, map[string]string{mustPurposeKey(t, purpose): dsn})
+		if err != nil || settings.DSN != dsn {
+			t.Fatalf("fixture purpose admission: %v", err)
+		}
+	}
+}
+
+func mustPurposeKey(t *testing.T, purpose postgres.Purpose) string {
+	t.Helper()
+	key, err := postgres.EnvKeyForServiceRef("primary", purpose)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return key
 }
 
 func TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.T) {
@@ -218,12 +245,14 @@ func TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testi
 	terminations := 0
 	readinessChecks := 0
 	var events []testcontainersx.StartEvent
+	var directories []string
 	ports := []network.Port{
 		network.MustParsePort("5433/tcp"),
 		network.MustParsePort("5434/tcp"),
 	}
 	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
 		starts++
+		directories = append(directories, filepath.Dir(req.Files[0].HostFilePath))
 		return fakePostgresContainer{
 			host: "127.0.0.1",
 			port: ports[starts-1],
@@ -252,6 +281,7 @@ func TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testi
 	if err != nil {
 		t.Fatalf("expected retry success, got %v", err)
 	}
+	t.Cleanup(func() { _ = harness.Close(context.Background()) })
 	if starts != 2 {
 		t.Fatalf("expected two container attempts, got %d", starts)
 	}
@@ -266,6 +296,18 @@ func TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testi
 	}
 	if !observedRetry(events) {
 		t.Fatalf("expected observer to record retryable attempt and retry decision, got %#v", events)
+	}
+	if len(directories) != 2 || directories[0] == directories[1] {
+		t.Fatal("retry reused fixture certificate state")
+	}
+	if _, err := os.Stat(directories[0]); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("failed-attempt credentials retained: %v", err)
+	}
+	if err := harness.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(directories[1]); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("successful-attempt credentials retained after cleanup: %v", err)
 	}
 }
 
@@ -344,16 +386,17 @@ func TestPostgresWaitReadyRespectsContextCancellation(t *testing.T) {
 }
 
 func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 	t.Setenv(suiteservices.SuiteIDEnv, "suite-template-mode")
 	t.Setenv(suiteservices.TargetEnv, "backend-store")
 	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
 	t.Setenv("CARTULARY_TEST_RUN_ID", "template-mode")
 
 	oldCreate := createDatabaseFn
-	oldMigrate := migrateDatabaseFn
+	oldMigrate := initializeDatabaseFn
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
-		migrateDatabaseFn = oldMigrate
+		initializeDatabaseFn = oldMigrate
 	})
 
 	var createCalls []struct {
@@ -372,7 +415,7 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 
 	migrateCalls := 0
-	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
+	initializeDatabaseFn = func(ctx context.Context, db *sql.DB, _ string, source *database_migrations.Source) error {
 		migrateCalls++
 		return nil
 	}
@@ -845,7 +888,7 @@ func TestMigrationDatabaseTargetedOperationValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hash canonical migration catalog: %v", err)
 	}
-	const wantHash = "9052cea15514ace7ede6cbc4d214c585c27c3ced742595b7b9bfd5269e6176f3"
+	const wantHash = "5111d8c8b6d5d70fdba0e4c664bb980daadccfa51b105976096cf02cf2c20061"
 	if hash != wantHash {
 		t.Fatalf("canonical migration schema hash = %s, want %s", hash, wantHash)
 	}
@@ -958,6 +1001,10 @@ SELECT EXISTS (
 	if !exists {
 		t.Fatal("expected PrepareIsolatedDatabaseT to return a migrated database")
 	}
+	var format string
+	if err := db.QueryRowContext(context.Background(), `SELECT format_id FROM public.application_crypto_format WHERE singleton`).Scan(&format); err != nil || format != database_migrations.ApplicationCryptoFormat {
+		t.Fatalf("fresh fixture format admission = %q, %v", format, err)
+	}
 }
 
 func TestBeginRollbackDBTIsolatesRowsPerTransaction(t *testing.T) {
@@ -1033,6 +1080,11 @@ func authorizePGSuite(t *testing.T) {
 
 func stubOwnedPostgresStartup(t testing.TB) {
 	t.Helper()
+	// These unit scenarios substitute every service-starting operation. Their
+	// certificate workspace belongs to the individual fake lifecycle, not to
+	// an attached suite service or a retained result artifact.
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
+	t.Setenv(suiteservices.SuiteIDEnv, "")
 
 	oldStartContainer := startContainerFn
 	oldWaitReady := waitReadyFn

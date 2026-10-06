@@ -29,6 +29,9 @@ func TestRecoveryStateDatabaseCoverageRejectsUnclassifiedTableBeforeAdmission_In
 	if _, err := pool.Exec(context.Background(), `CREATE TABLE unclassified_future_table (id bigint PRIMARY KEY)`); err != nil {
 		t.Fatalf("create unclassified future table: %v", err)
 	}
+	if _, err := pool.Exec(context.Background(), `SET ROLE cartulary_recovery`); err != nil {
+		t.Fatal(err)
+	}
 	if err := ValidateRecoveryStateDatabaseCoverage(context.Background(), pool, catalog); !errors.Is(err, recoverystate.ErrInvalidCatalog) {
 		t.Fatalf("unclassified database table error = %v, want ErrInvalidCatalog", err)
 	}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.backup_artifact_envelope.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "logical_ref",
+    "content_type",
+    "kdf",
+    "cipher",
+    "salt_base64",
+    "chunk_plaintext_bytes",
+    "chunks",
+    "application_crypto_format"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.backup_artifact_envelope.v3"
+    },
+    "logical_ref": {
+      "$ref": "common.v1.schema.json#/$defs/logical_ref"
+    },
+    "content_type": {
+      "$ref": "common.v1.schema.json#/$defs/content_type"
+    },
+    "kdf": {
+      "const": "hkdf_sha256_v2"
+    },
+    "cipher": {
+      "const": "aes_256_gcm_random_nonce_chunked_v2"
+    },
+    "salt_base64": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{43}=$"
+    },
+    "chunk_plaintext_bytes": {
+      "const": 4194304
+    },
+    "chunks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1048576,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "plaintext_length",
+          "final",
+          "ciphertext_base64"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1048575
+          },
+          "plaintext_length": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4194304
+          },
+          "final": {
+            "type": "boolean"
+          },
+          "ciphertext_base64": {
+            "type": "string",
+            "minLength": 40,
+            "maxLength": 5592444,
+            "pattern": "^[A-Za-z0-9+/]*={0,2}$"
+          }
+        }
+      }
+    },
+    "application_crypto_format": {
+      "const": "cartulary.application_crypto_format.v1"
+    }
+  }
+}

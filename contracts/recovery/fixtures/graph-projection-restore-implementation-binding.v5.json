@@ -6,7 +6,7 @@
   "semantic_query_schema_ids": [
     "cartulary.network_flow.graph_semantic_query.v2"
   ],
-  "recovery_state_catalog_sha256": "ff769efe796c3ac9194cbe6e531e82084d39d3d48b181d63b43f07840f40264b",
+  "recovery_state_catalog_sha256": "75eb3c368cc34bced58d829bf0fe07d858464968f3cef62b9256d6f880e83e71",
   "source_registry_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634",
   "graph_table_ids": [
     "graph_projection_result_edges",

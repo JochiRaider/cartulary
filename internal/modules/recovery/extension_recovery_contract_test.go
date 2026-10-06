@@ -219,7 +219,7 @@ func TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Int
 			if err != nil {
 				t.Fatal(err)
 			}
-			manifest.ManifestSHA256 = digestHex(append([]byte("CARTULARY-BACKUP-INTEGRITY-MANIFEST-V3\n"), preimage...))
+			manifest.ManifestSHA256 = digestHex(append([]byte("CARTULARY-BACKUP-INTEGRITY-MANIFEST-V4\n"), preimage...))
 			body, err := json.Marshal(manifest)
 			if err != nil {
 				t.Fatalf("encode rewritten manifest: %v", err)

@@ -2036,7 +2036,7 @@ func loadTimelineTestUser(t testing.TB, harness *scenariotest.ServerHarness, use
 func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResult, string) {
 	t.Helper()
 
-	login, userID := flowtest.ProvisionBootstrapAdminUUID(t, server.HTTP.URL)
+	login, userID := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, server.HTTP.URL)
 	return loginResult{
 		sessionCookie: login.SessionCookie,
 		csrfCookie:    login.CSRFCookie,
@@ -2076,7 +2076,7 @@ func seedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName stri
 func loginLocalUser(t testing.TB, server *httptestx.Server, username string, password string) (*http.Cookie, *http.Cookie) {
 	t.Helper()
 
-	return flowtest.LoginLocalUser(t, server.HTTP.URL, username, password, nil)
+	return flowtest.LoginLocalUser(t, http.DefaultClient, server.HTTP.URL, username, password, nil)
 }
 
 func connectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *scenariotest.TimelineSocketClient {

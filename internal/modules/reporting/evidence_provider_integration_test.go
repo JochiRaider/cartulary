@@ -23,7 +23,7 @@ import (
 func TestReportingEvidenceProviderRedaction_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "reporting-evidence-provider-redaction")
-	admin, actorID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	admin, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-reporting-evidence-provider-incident",
 		"incident_key":  "RPT-EVIDENCE-PROVIDER",

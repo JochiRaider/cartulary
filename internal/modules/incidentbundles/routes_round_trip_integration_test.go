@@ -28,8 +28,8 @@ func TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration(t 
 		testEmbeddedReferenceDestinationVerification(t, runtime, startIsolatedIncidentBundleServer(t, runtime, "embedded-reference-source"))
 	})
 	target := startIsolatedIncidentBundleServer(t, runtime, "reference-catalog-target")
-	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, source.Server.HTTP.URL)
-	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, target.Server.HTTP.URL)
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "reference-catalog-incident", "incident_key": "REFERENCE-CATALOG", "title": "Portable reference history"})
 	id := incident["incident_id"].(string)
 	container := exportBundleBytes(t, source, sourceAdmin, id, "reference-catalog-export")
@@ -57,8 +57,8 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 	runtime := appsupport.StartRuntime(t)
 	source := runtime.StartDefaultServer(t, "native-reference-source")
 	target := startIsolatedIncidentBundleServer(t, runtime, "native-reference-target")
-	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, source.Server.HTTP.URL)
-	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, target.Server.HTTP.URL)
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "native-reference-incident", "incident_key": "NATIVE-REFERENCES", "title": "Retained native snapshot references"})
 	id := incident["incident_id"].(string)
 	for _, txn := range []string{"snapshot-one", "snapshot-two"} {
@@ -90,8 +90,8 @@ func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-supersede-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-supersede-target")
-	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
-	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-supersede-source",
 		"incident_key":  "BUNDLE-SUPERSEDE",
@@ -143,8 +143,8 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-failure-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-failure-target")
-	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
-	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-failure-source",
 		"incident_key":  "BUNDLE-FAILURES",
@@ -162,7 +162,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 
 	t.Run("export missing blob", func(t *testing.T) {
 		brokenHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-export-missing-blob")
-		brokenAdmin, brokenAdminID := flowtest.ProvisionBootstrapAdmin(t, brokenHarness.Server.HTTP.URL)
+		brokenAdmin, brokenAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, brokenHarness.Server.HTTP.URL)
 		brokenIncident := scenariotest.CreateIncident(t, brokenHarness.Server, brokenAdmin, map[string]any{
 			"client_txn_id": "txn-incident-bundle-export-missing-blob",
 			"incident_key":  "BUNDLE-MISSING-BLOB",
@@ -372,7 +372,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 
 	t.Run("safe directory entries import", func(t *testing.T) {
 		directoryHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-directory-import")
-		directoryAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, directoryHarness.Server.HTTP.URL)
+		directoryAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, directoryHarness.Server.HTTP.URL)
 		terminal := importBundleAndWait(t, directoryHarness.Server, directoryAdmin, appendZipDirectoryMembers(t, bundleBytes, "data/", "integrity/", "ext/"), "txn-import-safe-directories")
 		if terminal["status"] != "succeeded" {
 			encoded, _ := json.MarshalIndent(terminal, "", "  ")
@@ -393,14 +393,14 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "extension_profile-incident-bundle-extracted-limit", map[string]string{
 			"CARTULARY__LIMITS__INCIDENT_BUNDLES__MAX_EXTRACTED_BYTES": "1",
 		})
-		limitAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, limitHarness.Server.HTTP.URL)
+		limitAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, limitHarness.Server.HTTP.URL)
 		assertImportFailureLeavesState(t, limitHarness, limitAdmin, incidentID, "txn-import-extracted-limit", bundleBytes, "archive_extracted_bytes_exceeded")
 	})
 	t.Run("archive member count limit", func(t *testing.T) {
 		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "extension_profile-incident-bundle-member-limit", map[string]string{
 			"CARTULARY__LIMITS__ARCHIVES__MAX_MEMBERS": "20",
 		})
-		limitAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, limitHarness.Server.HTTP.URL)
+		limitAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, limitHarness.Server.HTTP.URL)
 		assertImportFailureLeavesState(t, limitHarness, limitAdmin, incidentID, "txn-import-member-limit", bundleBytes, "archive_member_count_exceeded")
 	})
 
