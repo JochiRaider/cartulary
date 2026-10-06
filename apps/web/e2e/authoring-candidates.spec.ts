@@ -64,6 +64,230 @@ function button(scope: Locator | Page, name: string) {
   return scope.getByRole("button", { name, exact: true });
 }
 
+test("Boolean support filters stage typed queries and retain selected identities across pages", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("BOOL-SUPPORT"),
+    "Boolean support filtering",
+  );
+  const ids = await seed(
+    page,
+    incident,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
+  let submissions = 0;
+  await page.route(
+    `**/incidents/${incident}/views/${assessmentsViewSchemaId}/rows`,
+    async (route) => {
+      submissions++;
+      await route.continue();
+    },
+  );
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${assessmentsViewSchemaId}`,
+  );
+  await page
+    .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
+    .click();
+  await page
+    .getByTestId(assessmentCreateControlTestId("rationale"))
+    .fill("Independent boolean support draft");
+  await button(page, "Choose support").click();
+  const support = page.getByRole("group", {
+    name: "Choose assessment support",
+    exact: true,
+  });
+  const candidates = support.getByRole("listbox", {
+    name: "Timeline support candidates",
+    exact: true,
+  });
+  await expect(candidates.getByRole("option")).toHaveCount(100);
+  const first = await chooseFirst(candidates, true);
+  expect(ids).toContain(first);
+  await button(support, "Next candidates").click();
+  await expect(candidates.getByRole("option")).toHaveCount(5);
+  const second = await chooseFirst(candidates, true);
+  expect(ids).toContain(second);
+  expect(first).not.toBe(second);
+  const selected = support.getByRole("button", {
+    name: /^Remove selected Timeline support candidates /,
+  });
+  const identities = await selected.allTextContents();
+  const queries: { filters?: unknown }[] = [];
+  const accepted: unknown[] = [];
+  let failNext = false;
+  await page.route(
+    `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      queries.push(route.request().postDataJSON());
+      if (failNext) {
+        failNext = false;
+        await route.abort("failed");
+        return;
+      }
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      accepted.push((await response.json()).meta.query.filters);
+      await route.fulfill({ response });
+    },
+  );
+  await page.setViewportSize({ width: 768, height: 640 });
+  await support
+    .getByText("Timeline support candidates ordering and filters", {
+      exact: true,
+    })
+    .click();
+  await support
+    .getByRole("combobox", {
+      name: "Timeline support candidates filter field",
+      exact: true,
+    })
+    .selectOption("timeline.has_evidence");
+  const mode = support.getByRole("combobox", {
+    name: "Timeline support candidates equality operand",
+    exact: true,
+  });
+  await mode.selectOption("values");
+  await expect(button(support, "Add filter")).toBeDisabled();
+  const trueChoice = support.getByRole("checkbox", {
+    name: "true",
+    exact: true,
+  });
+  const falseChoice = support.getByRole("checkbox", {
+    name: "false",
+    exact: true,
+  });
+  await trueChoice.focus();
+  await page.keyboard.press("Tab");
+  await expect(falseChoice).toBeFocused();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("Tab");
+  await expect(button(support, "Add filter")).toBeFocused();
+  await page.keyboard.press("Enter");
+  expect(queries).toHaveLength(0);
+  await expect(candidates.getByRole("option")).toHaveCount(5);
+  await button(support, "Apply candidate query").click();
+  await expect(candidates.getByRole("option")).toHaveCount(100);
+  const filters = [
+    { field_key: "timeline.has_evidence", op: "eq", arg: { values: [false] } },
+  ];
+  expect(queries).toHaveLength(1);
+  expect(queries[0]?.filters).toEqual(filters);
+  expect(accepted[0]).toEqual(filters);
+  expect(await selected.allTextContents()).toEqual(identities);
+  await falseChoice.uncheck();
+  await trueChoice.check();
+  await button(support, "Add filter").click();
+  expect(queries).toHaveLength(1);
+  failNext = true;
+  await button(support, "Apply candidate query").click();
+  await expect(button(support, "Retry candidates")).toBeVisible();
+  expect(await selected.allTextContents()).toEqual(identities);
+  await button(support, "Retry candidates").click();
+  await expect(candidates.getByRole("option")).toHaveCount(0);
+  expect(queries.at(-1)?.filters).toEqual([
+    { field_key: "timeline.has_evidence", op: "eq", arg: { values: [true] } },
+  ]);
+  expect(await selected.allTextContents()).toEqual(identities);
+  await button(support, "Apply support selection").click();
+  await expect(button(page, "Choose support")).toBeFocused();
+  await expect(
+    page.getByRole("region", {
+      name: "Assessment supporting records",
+      exact: true,
+    }),
+  ).toContainText("Supporting records (2/64)");
+  await button(page, "Choose support").click();
+  await candidates.selectOption([]);
+  await candidates.press("Escape");
+  await expect(button(page, "Choose support")).toBeFocused();
+  await expect(
+    page.getByRole("region", {
+      name: "Assessment supporting records",
+      exact: true,
+    }),
+  ).toContainText("Supporting records (2/64)");
+  expect(submissions).toBe(0);
+});
+
+test("Ordinary reference boolean filtering preserves the selected source until explicit acceptance", async ({
+  page,
+}) => {
+  const f = await openNoteFixture(page);
+  await f.form
+    .getByRole("textbox", { name: "Title", exact: true })
+    .fill("Boolean reference draft");
+  await button(f.form, "Choose source").click();
+  const picker = f.form.getByRole("region", {
+    name: "Choose Note source",
+    exact: true,
+  });
+  const select = picker.getByRole("combobox", {
+    name: "Note source",
+    exact: true,
+  });
+  await expect(select).toHaveValue(f.source.record_id);
+  const selected = picker.getByRole("button", {
+    name: /^Remove selected Note source /,
+  });
+  const selection = await selected.allTextContents();
+  const queries: { filters?: unknown }[] = [];
+  const canonical: unknown[] = [];
+  let writes = 0;
+  await page.route(
+    `**/records/${f.source.record_id}/linked-notes`,
+    async (route) => {
+      writes++;
+      await route.continue();
+    },
+  );
+  await page.route(
+    `**/incidents/${f.incident}/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      queries.push(route.request().postDataJSON());
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      canonical.push((await response.json()).meta.query.filters);
+      await route.fulfill({ response });
+    },
+  );
+  await picker
+    .getByText("Note source ordering and filters", { exact: true })
+    .click();
+  await picker
+    .getByRole("combobox", { name: "Note source filter field", exact: true })
+    .selectOption("timeline.has_evidence");
+  const value = picker.getByRole("combobox", {
+    name: "Note source filter value",
+    exact: true,
+  });
+  await expect(value).toHaveValue("");
+  await expect(button(picker, "Add filter")).toBeDisabled();
+  await value.selectOption("true");
+  await button(picker, "Add filter").click();
+  expect(queries).toHaveLength(0);
+  await button(picker, "Apply candidate query").click();
+  await expect(picker).toContainText("No candidates match this query.");
+  expect(queries[0]?.filters).toEqual([
+    { field_key: "timeline.has_evidence", op: "eq", arg: { value: true } },
+  ]);
+  expect(canonical[0]).toEqual(queries[0]?.filters);
+  expect(await selected.allTextContents()).toEqual(selection);
+  await button(picker, "Cancel source").click();
+  await expect(button(f.form, "Choose source")).toBeFocused();
+  await button(f.form, "Choose source").click();
+  await expect(select).toHaveValue(f.source.record_id);
+  await button(picker, "Apply source").click();
+  await expect(button(f.form, "Choose source")).toBeFocused();
+  await expect(
+    f.form.getByRole("textbox", { name: "Title", exact: true }),
+  ).toHaveValue("Boolean reference draft");
+  expect(writes).toBe(0);
+});
+
 test("Assessment Timeline support enum filtering preserves staged selection", async ({
   page,
 }) => {

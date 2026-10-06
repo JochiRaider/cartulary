@@ -4,6 +4,13 @@ import {
   type ViewContract,
 } from "@cartulary/view-contracts";
 import type { WorkbookProtocolQueryViewRequest } from "../adapters/workbookProtocolTypes";
+import {
+  type BooleanFilterOperandDraft,
+  booleanFilterOperandDecision,
+  emptyBooleanFilterOperand,
+  isBooleanEqualityFilter,
+  restoreBooleanFilterOperand,
+} from "./workbookBooleanFilterOperand";
 import { isWorkbookColumnWidth } from "./workbookColumnSizing";
 
 export type WorkbookFilter = {
@@ -99,7 +106,7 @@ export type WorkbookSavedViewLayoutJson = {
 
 export type FilterDraft =
   | {
-      readonly booleanValue: "" | "false" | "true";
+      readonly booleanOperand?: BooleanFilterOperandDraft;
       readonly fieldKey: string;
       readonly op: "eq";
       readonly operandKind: "null" | "value" | "values";
@@ -130,13 +137,6 @@ export type FilterDraft =
       readonly op: "full_text";
       readonly query: string;
     };
-
-export type FilterInputMode =
-  | "boolean"
-  | "date"
-  | "tagset"
-  | "text"
-  | "timestamp";
 
 export type FilterDraftControl =
   | "field"
@@ -170,6 +170,36 @@ export function validateFilterDraft(
   const field = contract.fieldMap[draft.fieldKey];
   if (!field?.filterOps.includes(draft.op)) {
     return invalid("Select a supported operator for this field.", ["operator"]);
+  }
+  if (
+    isBooleanEqualityFilter(contract, draft.fieldKey, draft.op) &&
+    draft.op === "eq"
+  ) {
+    if (draft.valueType !== "boolean") {
+      return invalid(
+        "Choose a boolean value for this field: true, false, or empty.",
+        ["value"],
+      );
+    }
+    const decision = booleanFilterOperandDecision(
+      draft.operandKind,
+      draft.booleanOperand,
+    );
+    return decision.kind === "invalid"
+      ? invalid(decision.message, ["value"])
+      : {
+          kind: "valid",
+          filter: { fieldKey: draft.fieldKey, op: "eq", arg: decision.arg },
+        };
+  }
+  if (
+    draft.op === "eq" &&
+    draft.valueType === "boolean" &&
+    field.readKind !== "boolean"
+  ) {
+    return invalid("Select this field again to use its declared value type.", [
+      "field",
+    ]);
   }
   const filter = buildFilterFromDraft(draft);
   if (field.readKind === "date" && draft.op === "range") {
@@ -295,16 +325,35 @@ export function filterDraftForField(
       return { fieldKey, op, query: "" };
     case "eq":
       return {
-        booleanValue: "",
+        ...(isBooleanEqualityFilter(contract, fieldKey, op)
+          ? { booleanOperand: emptyBooleanFilterOperand() }
+          : {}),
         fieldKey,
         op,
         operandKind: "value",
         value: "",
-        valueType:
-          filterInputMode(fieldKey) === "boolean" ? "boolean" : "string",
+        valueType: isBooleanEqualityFilter(contract, fieldKey, op)
+          ? "boolean"
+          : "string",
         values: "",
       };
   }
+}
+
+/** Mode changes keep independently authored values; malformed restoration needs replacement. */
+export function changeFilterDraftOperandKind(
+  draft: Extract<FilterDraft, { readonly op: "eq" }>,
+  operandKind: "value" | "values" | "null",
+): Extract<FilterDraft, { readonly op: "eq" }> {
+  return {
+    ...draft,
+    operandKind,
+    ...(draft.booleanOperand?.invalidRestoredArg === undefined
+      ? {}
+      : {
+          booleanOperand: emptyBooleanFilterOperand(),
+        }),
+  };
 }
 
 export function filterDraftFromFilter(
@@ -343,6 +392,21 @@ export function filterDraftFromFilter(
         query: typeof filter.arg.query === "string" ? filter.arg.query : "",
       };
     case "eq": {
+      if (isBooleanEqualityFilter(contract, filter.fieldKey, filter.op)) {
+        return {
+          fieldKey: filter.fieldKey,
+          op: "eq",
+          valueType: "boolean",
+          operandKind: Object.hasOwn(filter.arg, "values")
+            ? "values"
+            : filter.arg.value === null
+              ? "null"
+              : "value",
+          booleanOperand: restoreBooleanFilterOperand(filter.arg),
+          value: "",
+          values: "",
+        };
+      }
       const values = Array.isArray(filter.arg.values)
         ? contract.fieldMap[filter.fieldKey]?.readKind === "enum"
           ? filter.arg.values.map(String)
@@ -350,10 +414,6 @@ export function filterDraftFromFilter(
         : "";
       const rawValue = filter.arg.value;
       return {
-        booleanValue:
-          typeof rawValue === "boolean"
-            ? (String(rawValue) as "false" | "true")
-            : "",
         fieldKey: filter.fieldKey,
         op: "eq",
         operandKind: Array.isArray(filter.arg.values)
@@ -365,12 +425,7 @@ export function filterDraftFromFilter(
           typeof rawValue === "string" || typeof rawValue === "number"
             ? String(rawValue)
             : "",
-        valueType:
-          typeof rawValue === "boolean"
-            ? "boolean"
-            : typeof rawValue === "number"
-              ? "number"
-              : "string",
+        valueType: typeof rawValue === "number" ? "number" : "string",
         values,
       };
     }
@@ -382,7 +437,9 @@ export function clearFilterDraftValue(draft: FilterDraft): FilterDraft {
     case "eq":
       return {
         ...draft,
-        booleanValue: "",
+        ...(draft.booleanOperand
+          ? { booleanOperand: emptyBooleanFilterOperand() }
+          : {}),
         value: "",
         values: typeof draft.values === "string" ? "" : [],
       };
@@ -699,28 +756,6 @@ export function filterChipLabel(
   return `${label}: ${stringifyFilterValue(filter)}`;
 }
 
-export function filterInputMode(fieldKey: string): FilterInputMode {
-  if (
-    fieldKey === "timeline.has_evidence" ||
-    fieldKey === "timeline.has_unresolved_mentions"
-  ) {
-    return "boolean";
-  }
-  if (fieldKey === "timeline.date_entered_sort_day") {
-    return "date";
-  }
-  if (
-    fieldKey === "indicator.first_observed_at" ||
-    fieldKey === "indicator.last_observed_at"
-  ) {
-    return "timestamp";
-  }
-  if (fieldKey === "timeline.tags") {
-    return "tagset";
-  }
-  return "text";
-}
-
 function savedViewSortFromQueryJson(
   contract: ViewContract,
   value: unknown,
@@ -934,6 +969,15 @@ export function buildFilterFromDraft(
   }
   switch (draft.op) {
     case "eq": {
+      if (draft.valueType === "boolean") {
+        const decision = booleanFilterOperandDecision(
+          draft.operandKind,
+          draft.booleanOperand,
+        );
+        return decision.kind === "valid"
+          ? { arg: decision.arg, fieldKey: draft.fieldKey, op: "eq" }
+          : null;
+      }
       if (draft.operandKind === "null") {
         return { arg: { value: null }, fieldKey: draft.fieldKey, op: "eq" };
       }
@@ -946,15 +990,6 @@ export function buildFilterFromDraft(
         return values.length === 0
           ? null
           : { arg: { values }, fieldKey: draft.fieldKey, op: "eq" };
-      }
-      if (draft.valueType === "boolean") {
-        return draft.booleanValue === ""
-          ? null
-          : {
-              arg: { value: draft.booleanValue === "true" },
-              fieldKey: draft.fieldKey,
-              op: "eq",
-            };
       }
       const value = draft.value.trim();
       if (value === "") return null;

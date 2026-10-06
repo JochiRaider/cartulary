@@ -13,6 +13,7 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 
 | File | Responsibility |
 | --- | --- |
+| [WorkbookBooleanFilterOperand.tsx](WorkbookBooleanFilterOperand.tsx) | Shared native boolean select and checkbox choices over FilterDraft; no query or retained state owner. |
 | [WorkbookEnumFilterOperand.tsx](WorkbookEnumFilterOperand.tsx) | Shared native enum equality choices and explicit literal editor over FilterDraft; local disclosure only. |
 | [ActiveSurfaceSavedViewSelector.test.tsx](ActiveSurfaceSavedViewSelector.test.tsx) | Tests saved-view dialog focus restoration and late confirmation after surface changes. |
 | [ActiveSurfaceSavedViewSelector.tsx](ActiveSurfaceSavedViewSelector.tsx) | Saved-view selector for the active workbook surface. |

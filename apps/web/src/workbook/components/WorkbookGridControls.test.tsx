@@ -56,6 +56,162 @@ afterEach(() => {
 });
 
 describe("WorkbookGridControls", () => {
+  it("reopens boolean sets and null with typed explicit choices", async () => {
+    const user = userEvent.setup();
+    const applied = vi.fn();
+    render(
+      <EnumGridControls
+        applied={applied}
+        initial={{
+          ...emptyWorkbookQueryState(),
+          filters: [
+            {
+              fieldKey: "timeline.has_evidence",
+              op: "eq",
+              arg: { values: [false] },
+            },
+          ],
+        }}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Filter 1, Has Evidence, equals false",
+      }),
+    );
+    const falseChoice = screen.getByRole("checkbox", { name: "false" });
+    expect((falseChoice as HTMLInputElement).checked).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied.mock.calls[0]?.[0]?.arg).toEqual({ values: [false] });
+    await user.click(
+      screen.getByRole("button", {
+        name: "Filter 1, Has Evidence, equals false",
+      }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Equality operand kind"),
+      "null",
+    );
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied.mock.calls[1]?.[0]?.arg).toEqual({ value: null });
+    await user.click(
+      screen.getByRole("button", { name: /Filter 1, Has Evidence/ }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Equality operand kind"),
+      "value",
+    );
+    const value = screen.getByRole("combobox", { name: "Value" });
+    expect((value as HTMLSelectElement).value).toBe("");
+    await user.selectOptions(value, "false");
+    expect(applied).toHaveBeenCalledTimes(2);
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied.mock.calls[2]?.[0]?.arg).toEqual({ value: false });
+  });
+  it("keeps boolean feedback local and reconciles native keyboard focus without applying", async () => {
+    const user = userEvent.setup();
+    const applied = vi.fn();
+    render(
+      <EnumGridControls
+        applied={applied}
+        initial={{
+          ...emptyWorkbookQueryState(),
+          filters: [
+            {
+              fieldKey: "timeline.has_evidence",
+              op: "eq",
+              arg: { values: ["false", true] },
+            },
+          ],
+        }}
+      />,
+    );
+    const chip = screen.getByRole("button", { name: /Filter 1, Has Evidence/ });
+    await user.click(chip);
+    const apply = screen.getByRole("button", { name: "Apply" });
+    const trueChoice = screen.getByRole("checkbox", { name: "true" });
+    const falseChoice = screen.getByRole("checkbox", { name: "false" });
+    expect((trueChoice as HTMLInputElement).checked).toBe(false);
+    expect(apply.hasAttribute("disabled")).toBe(true);
+    expect(falseChoice.getAttribute("aria-invalid")).toBe("true");
+    expect(
+      document.getElementById(
+        falseChoice.getAttribute("aria-describedby") ?? "",
+      )?.textContent,
+    ).toContain("restored filter");
+    falseChoice.focus();
+    await user.keyboard(" ");
+    expect(apply.hasAttribute("disabled")).toBe(false);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(trueChoice);
+    await user.tab();
+    expect(document.activeElement).toBe(falseChoice);
+    expect(applied).not.toHaveBeenCalled();
+    const matching = screen.getByLabelText("Equality operand kind");
+    fireEvent.change(matching, { target: { value: "null" } });
+    expect(document.activeElement).toBe(matching);
+    await user.selectOptions(matching, "value");
+    const scalar = screen.getByRole("combobox", { name: "Value" });
+    expect((scalar as HTMLSelectElement).value).toBe("");
+    expect(apply.hasAttribute("disabled")).toBe(true);
+    scalar.focus();
+    const arrow = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    });
+    scalar.dispatchEvent(arrow);
+    expect(arrow.defaultPrevented).toBe(false);
+    await user.keyboard("{Escape}");
+    expect(document.activeElement).toBe(chip);
+    expect(applied).not.toHaveBeenCalled();
+    cleanup();
+    render(
+      <WorkbookCandidateQueryControl
+        view={timelineSurface}
+        label="Candidates"
+        query={emptyWorkbookQueryState()}
+        onApply={applied}
+      />,
+    );
+    await user.click(screen.getByText("Candidates ordering and filters"));
+    await user.selectOptions(
+      screen.getByLabelText("Candidates filter field"),
+      "timeline.has_evidence",
+    );
+    const add = screen.getByRole("button", { name: "Add filter" });
+    expect(add.hasAttribute("disabled")).toBe(true);
+    await user.selectOptions(
+      screen.getByLabelText("Candidates equality operand"),
+      "values",
+    );
+    const choices = screen.getAllByRole("checkbox");
+    choices[0]?.focus();
+    await user.tab();
+    expect(document.activeElement).toBe(choices[1]);
+    await user.keyboard(" ");
+    await user.tab();
+    expect(document.activeElement).toBe(add);
+    await user.click(add);
+    const candidateMode = screen.getByLabelText("Candidates equality operand");
+    choices[1]?.focus();
+    fireEvent.change(candidateMode, { target: { value: "null" } });
+    expect(document.activeElement).toBe(candidateMode);
+    const candidateApply = screen.getByRole("button", {
+      name: "Apply candidate query",
+    });
+    candidateApply.focus();
+    fireEvent.change(candidateMode, { target: { value: "value" } });
+    expect(document.activeElement).toBe(candidateApply);
+    expect(applied).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
+    );
+    expect(applied.mock.calls[0]?.[0]?.filters).toEqual([
+      { fieldKey: "timeline.has_evidence", op: "eq", arg: { values: [false] } },
+    ]);
+  });
+
   it("offers ordered enum choices without implicit admission and preserves null and set shapes", async () => {
     const user = userEvent.setup();
     const applied = vi.fn();
@@ -511,6 +667,18 @@ describe("WorkbookGridControls", () => {
     expect(onApplyFilter).toHaveBeenCalledOnce();
     expect(screen.getByRole("dialog", { name: "Add filter" })).toBeTruthy();
     expect(value.value).toBe(" 2026-04-18 ");
+    fireEvent.change(
+      screen.getByTestId(gridFilterFieldTestId(timelineSurface)),
+      { target: { value: "timeline.has_evidence" } },
+    );
+    const boolean = screen.getByRole("combobox", {
+      name: "Value",
+    }) as HTMLSelectElement;
+    fireEvent.change(boolean, { target: { value: "false" } });
+    fireEvent.click(screen.getByTestId(gridFilterApplyTestId(timelineSurface)));
+    expect(onApplyFilter).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("dialog", { name: "Add filter" })).toBeTruthy();
+    expect(boolean.value).toBe("false");
   });
 
   it("excludes invalid date candidates from staging and keeps feedback instance local", () => {
@@ -1396,7 +1564,6 @@ describe("WorkbookGridControls", () => {
     const contract = requireViewContract(timelineSurface);
     const onApplyFilter = vi.fn(admitFilter);
     const invalidDraft: FilterDraft = {
-      booleanValue: "",
       fieldKey: "Capture State",
       op: "eq",
       operandKind: "value",
@@ -1487,7 +1654,7 @@ describe("WorkbookGridControls", () => {
     );
     fireEvent.click(screen.getByTestId(gridFilterApplyTestId(timelineSurface)));
     expect(onApplyFilter).toHaveBeenCalledWith({
-      booleanValue: "false",
+      booleanOperand: { value: false, values: [] },
       fieldKey: "timeline.has_evidence",
       op: "eq",
       operandKind: "value",

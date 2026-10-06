@@ -5,7 +5,6 @@ import type { FilterDraft } from "../models/workbookQuery";
 import { useWorkbookQueryController } from "./useWorkbookQueryController";
 
 const impossibleDateDraft: FilterDraft = {
-  booleanValue: "",
   fieldKey: "timeline.date_entered_sort_day",
   op: "eq",
   operandKind: "value",
@@ -58,7 +57,11 @@ function QueryControllerHarness({
   );
 }
 
-function FilterQueryHarness() {
+function FilterQueryHarness({
+  draft = impossibleDateDraft,
+}: {
+  readonly draft?: FilterDraft;
+}) {
   const controller = useWorkbookQueryController({
     surface: "cartulary.view.timeline.v2",
   });
@@ -67,9 +70,7 @@ function FilterQueryHarness() {
       <button
         type="button"
         onClick={() =>
-          controller.snapshot.activeQueryControls.onFilterDraftChange(
-            impossibleDateDraft,
-          )
+          controller.snapshot.activeQueryControls.onFilterDraftChange(draft)
         }
       >
         Draft impossible date
@@ -77,9 +78,7 @@ function FilterQueryHarness() {
       <button
         type="button"
         onClick={() =>
-          controller.snapshot.activeQueryControls.onApplyFilter(
-            impossibleDateDraft,
-          )
+          controller.snapshot.activeQueryControls.onApplyFilter(draft)
         }
       >
         Apply impossible date
@@ -148,6 +147,31 @@ describe("useWorkbookQueryController", () => {
     expect(
       JSON.parse(screen.getByLabelText("raw-filter-draft").textContent ?? "{}"),
     ).toEqual(impossibleDateDraft);
+  });
+
+  it("refuses direct unset boolean admission and preserves the authored draft and query", () => {
+    const draft: FilterDraft = {
+      fieldKey: "timeline.has_evidence",
+      op: "eq",
+      operandKind: "values",
+      valueType: "boolean",
+      booleanOperand: { value: undefined, values: [] },
+      value: "",
+      values: "",
+    };
+    render(<FilterQueryHarness draft={draft} />);
+    fireEvent.click(screen.getByRole("button", { name: "Seed query" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Draft impossible date" }),
+    );
+    const before = screen.getByLabelText("requested-query").textContent;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply impossible date" }),
+    );
+    expect(screen.getByLabelText("requested-query").textContent).toBe(before);
+    expect(
+      JSON.parse(screen.getByLabelText("raw-filter-draft").textContent ?? "{}"),
+    ).toEqual(JSON.parse(JSON.stringify(draft)));
   });
 
   it("applies consecutive filter edits to the latest requested query", () => {

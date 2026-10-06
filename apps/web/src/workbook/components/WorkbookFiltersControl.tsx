@@ -13,17 +13,21 @@ import { SlidersHorizontal } from "lucide-react";
 import { type AriaAttributes, type RefObject, useId } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import {
+  booleanFilterControlKeys,
+  isBooleanEqualityFilter,
+} from "../models/workbookBooleanFilterOperand";
+import {
   enumFilterChoices,
   enumFilterControlKeys,
 } from "../models/workbookEnumFilterOperand";
 import {
   parseDeclaredFieldKey,
-  parseWorkbookBooleanDraftValue,
   type WorkbookGridQueryCommand,
   type WorkbookGridQueryControlProjection,
   type WorkbookRequestedFilterChange,
 } from "../models/workbookGridQueryControls";
 import {
+  changeFilterDraftOperandKind,
   type FilterDraft,
   type FilterDraftControl,
   type FilterDraftValidation,
@@ -32,6 +36,7 @@ import {
   validateFilterDraft,
   type WorkbookFilter,
 } from "../models/workbookQuery";
+import { WorkbookBooleanFilterOperand } from "./WorkbookBooleanFilterOperand";
 import {
   useEnumLiteralDisclosure,
   WorkbookEnumFilterOperand,
@@ -101,6 +106,7 @@ export function WorkbookFiltersControl({
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const feedbackId = useId();
+  const isBoolean = isBooleanEqualityFilter(contract, draft.fieldKey, draft.op);
   const enumChoices = enumFilterChoices(contract, draft);
   const enumDisclosure = useEnumLiteralDisclosure(
     `${surface}:${isOpen}:${editingFieldKey}:${draft.fieldKey}:${draft.op}:${draft.op === "eq" ? draft.operandKind : ""}`,
@@ -115,11 +121,13 @@ export function WorkbookFiltersControl({
       : draft.op === "eq"
         ? [
             "operand_kind",
-            ...(enumChoices
-              ? enumFilterControlKeys(draft, enumChoices, enumDisclosure.open)
-              : draft.operandKind === "null"
-                ? []
-                : ["value"]),
+            ...(isBoolean
+              ? booleanFilterControlKeys(draft.operandKind)
+              : enumChoices
+                ? enumFilterControlKeys(draft, enumChoices, enumDisclosure.open)
+                : draft.operandKind === "null"
+                  ? []
+                  : ["value"]),
           ]
         : ["value"]),
     ...requestedChanges.flatMap((change) =>
@@ -152,6 +160,12 @@ export function WorkbookFiltersControl({
     onRequestClose: onClose,
     preferredReturnFocusRef: returnFocusRef,
     reconcileItems: true,
+    reconcileItemKey: (key, _previous, eligible) =>
+      isBoolean &&
+      (key === "value" || key.startsWith("boolean_choice:")) &&
+      eligible.includes("operand_kind")
+        ? "operand_kind"
+        : null,
     subjectKey: surface,
     trapTab: true,
     triggerRef,
@@ -268,6 +282,7 @@ export function WorkbookFiltersControl({
           <FilterOperandControl
             enumChoices={enumChoices}
             enumDisclosure={enumDisclosure}
+            isBoolean={isBoolean}
             isDate={field?.readKind === "date"}
             feedbackFor={feedbackFor}
             draft={draft}
@@ -355,6 +370,7 @@ function FilterOperandControl({
   enumDisclosure,
   draft,
   isDate,
+  isBoolean,
   feedbackFor,
   navigation,
   onChangeDraft,
@@ -364,6 +380,7 @@ function FilterOperandControl({
   readonly enumDisclosure: ReturnType<typeof useEnumLiteralDisclosure>;
   readonly draft: FilterDraft;
   readonly isDate: boolean;
+  readonly isBoolean: boolean;
   readonly feedbackFor: FilterFeedbackFor;
   readonly navigation: ReturnType<typeof useRegisteredOverlayNavigation>;
   readonly onChangeDraft: (draft: FilterDraft) => void;
@@ -377,6 +394,7 @@ function FilterOperandControl({
           <select
             ref={navigation.registerItem("operand_kind")}
             aria-label="Equality operand kind"
+            {...(draft.operandKind === "null" ? feedbackFor("value") : {})}
             style={selectStyle}
             value={draft.operandKind}
             onChange={(event) => {
@@ -388,7 +406,7 @@ function FilterOperandControl({
               ) {
                 return;
               }
-              onChangeDraft({ ...draft, operandKind });
+              onChangeDraft(changeFilterDraftOperandKind(draft, operandKind));
             }}
           >
             <option value="value">Equals value</option>
@@ -396,7 +414,15 @@ function FilterOperandControl({
             <option value="null">Is empty</option>
           </select>
         </label>
-        {enumChoices ? (
+        {isBoolean ? (
+          <WorkbookBooleanFilterOperand
+            draft={draft}
+            onChange={onChangeDraft}
+            feedback={feedbackFor("value")}
+            registerItem={navigation.registerItem}
+            valueTestId={gridFilterValueTestId(surface)}
+          />
+        ) : enumChoices ? (
           <WorkbookEnumFilterOperand
             draft={draft}
             choices={enumChoices}
@@ -424,29 +450,6 @@ function FilterOperandControl({
                 : draft.values.join(", ")
             }
           />
-        ) : draft.valueType === "boolean" ? (
-          <label style={stackedLabelStyle}>
-            Value
-            <select
-              ref={navigation.registerItem("value")}
-              {...feedbackFor("value")}
-              data-testid={gridFilterValueTestId(surface)}
-              style={selectStyle}
-              value={draft.booleanValue}
-              onChange={(event) => {
-                const booleanValue = parseWorkbookBooleanDraftValue(
-                  event.currentTarget.value,
-                );
-                if (booleanValue !== null) {
-                  onChangeDraft({ ...draft, booleanValue });
-                }
-              }}
-            >
-              <option value="">Select value</option>
-              <option value="true">true</option>
-              <option value="false">false</option>
-            </select>
-          </label>
         ) : (
           <TextOperand
             draft={draft}

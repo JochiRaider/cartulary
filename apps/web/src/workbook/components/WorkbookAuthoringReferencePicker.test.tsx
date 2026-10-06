@@ -95,6 +95,77 @@ function readGate() {
   return { promise, resolve };
 }
 describe("authoring candidate presentation", () => {
+  it("stages boolean reference filters before an explicit typed read", async () => {
+    const user = userEvent.setup();
+    const { props, reader, onApply } = setup();
+    const targetView = "cartulary.view.task_requests.v1";
+    const task = {
+      recordId: "task-a",
+      displayText: "Selected task",
+      viewSchemaId: targetView,
+    };
+    vi.mocked(reader.availableViews).mockResolvedValue({
+      kind: "accepted",
+      value: [targetView],
+    });
+    vi.mocked(reader.page)
+      .mockResolvedValueOnce({
+        kind: "accepted",
+        value: { candidates: [task], nextCursor: null, hasMore: false },
+      })
+      .mockResolvedValueOnce({
+        kind: "rejected",
+        failure: { kind: "retryable", message: "Unavailable" },
+      })
+      .mockResolvedValue({
+        kind: "accepted",
+        value: { candidates: [], nextCursor: null, hasMore: false },
+      });
+    render(
+      <WorkbookAuthoringReferencePicker
+        {...props}
+        label="Task references"
+        views={[targetView]}
+      />,
+    );
+    await screen.findByRole("option", { name: "Selected task" });
+    await user.selectOptions(
+      screen.getByRole("listbox", { name: "Task references" }),
+      task.recordId,
+    );
+    await user.click(screen.getByText("Task references ordering and filters"));
+    await user.selectOptions(
+      screen.getByLabelText("Task references filter field"),
+      "task.no_owner",
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Task references filter value" }),
+      "false",
+    );
+    await user.click(screen.getByRole("button", { name: "Add filter" }));
+    expect(reader.page).toHaveBeenCalledTimes(1);
+    expect(onApply).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
+    );
+    await screen.findByRole("button", { name: "Retry candidates" });
+    expect(
+      vi.mocked(reader.page).mock.calls[1]?.[0].queryState.filters,
+    ).toEqual([{ fieldKey: "task.no_owner", op: "eq", arg: { value: false } }]);
+    await user.click(screen.getByRole("button", { name: "Retry candidates" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("option", { name: "Selected task" }),
+      ).toBeNull(),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Remove selected Task references Selected task",
+      }),
+    ).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Apply references" }));
+    expect(onApply.mock.calls[0]?.[0]).toEqual([task]);
+  });
   it("reconciles a retained member label locally and applies the exact identity without moving focus", async () => {
     const { props, reader, onApply, onCancel } = setup();
     const member = {

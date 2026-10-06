@@ -105,6 +105,217 @@ const schemas = [
   assessmentsViewSchemaId,
 ];
 
+test("Boolean filters preserve typed saved and accepted operands across matching modes", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("BOOL-QUERY"),
+    "Typed boolean filters",
+  );
+  const row = await createViewRow(page, incident, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("bool-timeline"),
+    "timeline.activity_synopsis_text": "Boolean fixture without evidence",
+  });
+  await createViewRow(page, incident, taskRequestsViewSchemaId, {
+    client_txn_id: uniqueTxn("bool-task"),
+    "task.title": "Boolean task fixture",
+    "task.task_kind": "question",
+  });
+  const field = "timeline.has_evidence";
+  const savedSet = await createSavedView(page, incident, {
+    display_name: "Boolean set",
+    view_schema_id: timelineViewSchemaId,
+    query_json: {
+      filters: [
+        { field_key: field, op: "eq", arg: { values: [true, false, true] } },
+      ],
+      sort: [],
+    },
+  });
+  const savedNull = await createSavedView(page, incident, {
+    display_name: "Boolean empty",
+    view_schema_id: timelineViewSchemaId,
+    query_json: {
+      filters: [{ field_key: field, op: "eq", arg: { value: null } }],
+      sort: [],
+    },
+  });
+  const lifecycle = await currentLifecycle(page, incident);
+  expect(
+    (
+      await lifecycleAction(page, incident, "closeIncident", {
+        client_txn_id: uniqueTxn("bool-close"),
+        base_incident_version: lifecycle.incident_version,
+        reason: "Boolean filtering requires read access only",
+      })
+    ).ok,
+  ).toBe(true);
+  const reads = await observeQuery(page, incident, timelineViewSchemaId);
+  let requests = 0;
+  page.on("request", (request) => {
+    if (request.url().endsWith(`/views/${timelineViewSchemaId}/query`))
+      requests++;
+  });
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${timelineViewSchemaId}`,
+  );
+  const browsing = page.getByRole("group", { name: "Workbook browsing" });
+  await expect(browsing).toContainText(
+    "1 records loaded; end of current results.",
+  );
+  const trigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+  );
+  const apply = page.getByTestId(gridFilterApplyTestId(timelineViewSchemaId));
+  const mode = page.getByRole("combobox", {
+    name: "Equality operand kind",
+    exact: true,
+  });
+  const chip = page.getByTestId(
+    workbookQueryEntryTestId(timelineViewSchemaId, "filter", field),
+  );
+  const accept = async (arg: Record<string, unknown>, count: number) => {
+    await expect
+      .poll(() => reads.at(-1)?.request.filters?.[0]?.arg)
+      .toEqual(arg);
+    await expect
+      .poll(() => reads.at(-1)?.response.meta.query.filters[0]?.arg)
+      .toEqual(arg);
+    await expect(browsing).toContainText(
+      `${count} records loaded; end of current results.`,
+    );
+  };
+  await trigger.click();
+  await page
+    .getByTestId(gridFilterFieldTestId(timelineViewSchemaId))
+    .selectOption(field);
+  const before = requests;
+  await expect(
+    page.getByTestId(gridFilterValueTestId(timelineViewSchemaId)),
+  ).toHaveValue("");
+  await expect(apply).toBeDisabled();
+  await mode.selectOption("values");
+  const trueChoice = page.getByRole("checkbox", { name: "true", exact: true });
+  const falseChoice = page.getByRole("checkbox", {
+    name: "false",
+    exact: true,
+  });
+  await expect(apply).toBeDisabled();
+  await trueChoice.focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("Tab");
+  await expect(falseChoice).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(trueChoice).toBeFocused();
+  expect(requests).toBe(before);
+  await apply.click();
+  await accept({ values: [true] }, 0);
+  await expect(trigger).toBeFocused();
+  await chip.click();
+  await expect(trueChoice).toBeChecked();
+  await trueChoice.uncheck();
+  await expect(apply).toBeDisabled();
+  await falseChoice.check();
+  await apply.click();
+  await accept({ values: [false] }, 1);
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, row.record_id)),
+  ).toBeVisible();
+  await chip.click();
+  await falseChoice.uncheck();
+  await trueChoice.check();
+  await page.route(
+    `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
+    (route) => route.abort("failed"),
+    { times: 1 },
+  );
+  await apply.click();
+  await expect(
+    browsing.getByRole("button", { name: "Retry", exact: true }),
+  ).toBeVisible();
+  await expect(chip).toContainText("false");
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, row.record_id)),
+  ).toBeVisible();
+  await trigger.click();
+  await page
+    .getByRole("button", { name: /Edit unapplied.*Has Evidence/i })
+    .click();
+  await expect(trueChoice).toBeChecked();
+  await expect(falseChoice).not.toBeChecked();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await browsing.getByRole("button", { name: "Revert", exact: true }).click();
+  await selectSavedView(page, timelineViewSchemaId, savedSet.saved_view_id);
+  // The server owns deduplication and false-before-true canonical ordering.
+  await expect
+    .poll(() => reads.at(-1)?.response.meta.query.filters[0]?.arg)
+    .toEqual({ values: [false, true] });
+  await chip.click();
+  await expect(trueChoice).toBeChecked();
+  await expect(falseChoice).toBeChecked();
+  await apply.click();
+  await accept({ values: [false, true] }, 1);
+  await selectSavedView(page, timelineViewSchemaId, savedNull.saved_view_id);
+  await accept({ value: null }, 0);
+  await chip.click();
+  await expect(mode).toHaveValue("null");
+  await mode.selectOption("value");
+  const scalar = page.getByTestId(gridFilterValueTestId(timelineViewSchemaId));
+  await expect(scalar).toHaveValue("");
+  await expect(apply).toBeDisabled();
+  await scalar.selectOption("false");
+  await apply.click();
+  await accept({ value: false }, 1);
+  await page.setViewportSize({ width: 768, height: 640 });
+  await trigger.click();
+  await page
+    .getByRole("button", { name: /^Edit Filter 1, Has Evidence/ })
+    .click();
+  await mode.selectOption("values");
+  await expect(apply).toBeDisabled();
+  await falseChoice.check();
+  await apply.focus();
+  await expect(apply).toBeInViewport();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    page.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const tasks = await observeQuery(page, incident, taskRequestsViewSchemaId);
+  await switchOrdinarySheet(page, taskRequestsViewSchemaId);
+  await expect(browsing).toContainText(
+    "1 records loaded; end of current results.",
+  );
+  await page
+    .getByTestId(workbookFilterPopoverTriggerTestId(taskRequestsViewSchemaId))
+    .click();
+  await page
+    .getByTestId(gridFilterFieldTestId(taskRequestsViewSchemaId))
+    .selectOption("task.no_owner");
+  const taskValue = page.getByTestId(
+    gridFilterValueTestId(taskRequestsViewSchemaId),
+  );
+  await expect(taskValue).toHaveValue("");
+  await taskValue.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(taskValue).toHaveValue("true");
+  await page
+    .getByTestId(gridFilterApplyTestId(taskRequestsViewSchemaId))
+    .click();
+  await expect
+    .poll(() => tasks.at(-1)?.request.filters?.[0]?.arg)
+    .toEqual({ value: true });
+  await expect
+    .poll(() => tasks.at(-1)?.response.meta.query.filters[0]?.arg)
+    .toEqual({ value: true });
+  await expect(
+    browsing.getByRole("button", { name: "Retry", exact: true }),
+  ).toHaveCount(0);
+});
+
 test("Enum equality choices remain explicit and preserve custom queries", async ({
   page,
 }) => {

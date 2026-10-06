@@ -54,6 +54,66 @@ function expectCandidatePageStatus(message: string) {
 }
 
 describe("Assessment discovery", () => {
+  it("stages typed boolean support filters without changing selected identities", async () => {
+    const user = userEvent.setup();
+    const support = vi
+      .fn()
+      .mockResolvedValueOnce(page(["a", "b"]))
+      .mockResolvedValue(page(["b"]));
+    const update = vi.fn();
+    render(
+      <AssessmentSupportPicker
+        reader={{ subjects: vi.fn(async () => page([])), support }}
+        draft={initialAssessmentDraft(
+          requireViewContract(assessmentsViewSchemaId),
+        )}
+        disabled={false}
+        revision={0}
+        update={update}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Choose support" }));
+    await screen.findByRole("option", { name: "Record a" });
+    await user.selectOptions(
+      screen.getByRole("listbox", { name: "Timeline support candidates" }),
+      "a",
+    );
+    await user.click(
+      screen.getByText("Timeline support candidates ordering and filters"),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Timeline support candidates filter field"),
+      "timeline.has_evidence",
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Timeline support candidates equality operand"),
+      "values",
+    );
+    await user.click(screen.getByRole("checkbox", { name: "false" }));
+    await user.click(screen.getByRole("button", { name: "Add filter" }));
+    expect(support).toHaveBeenCalledTimes(1);
+    expect(update).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
+    );
+    await waitFor(() => expect(support).toHaveBeenCalledTimes(2));
+    expect(support.mock.calls[1]?.[0].queryState.filters).toEqual([
+      { fieldKey: "timeline.has_evidence", op: "eq", arg: { values: [false] } },
+    ]);
+    expect(
+      screen.getByRole("button", {
+        name: /Remove selected Timeline support candidates Record a/,
+      }),
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", { name: "Apply support selection" }),
+    );
+    expect(
+      update.mock.calls[0]?.[0](
+        initialAssessmentDraft(requireViewContract(assessmentsViewSchemaId)),
+      ).supportRecordIds,
+    ).toEqual(["a"]);
+  });
   it("keeps support identities independent from enum draft staging failed reads and cancellation", async () => {
     const user = userEvent.setup();
     const support = vi

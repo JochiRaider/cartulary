@@ -1,8 +1,10 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { type AriaAttributes, useId, useState } from "react";
+import { type AriaAttributes, useId, useRef, useState } from "react";
+import { isBooleanEqualityFilter } from "../models/workbookBooleanFilterOperand";
 import { enumFilterChoices } from "../models/workbookEnumFilterOperand";
 import {
   applyFilterDraft,
+  changeFilterDraftOperandKind,
   defaultFilterDraft,
   emptyWorkbookQueryState,
   type FilterDraft,
@@ -12,6 +14,7 @@ import {
   type WorkbookFilterOperator,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
+import { WorkbookBooleanFilterOperand } from "./WorkbookBooleanFilterOperand";
 import {
   useEnumLiteralDisclosure,
   WorkbookEnumFilterOperand,
@@ -150,6 +153,11 @@ export function WorkbookCandidateQueryControl({
               draft={draft}
               onChange={setDraft}
               feedbackFor={feedbackFor}
+              isBoolean={isBooleanEqualityFilter(
+                contract,
+                draft.fieldKey,
+                draft.op,
+              )}
               isDate={contract.fieldMap[draft.fieldKey]?.readKind === "date"}
             />
             <button
@@ -238,6 +246,7 @@ function Operand({
   onChange,
   feedbackFor,
   isDate,
+  isBoolean,
 }: {
   readonly enumChoices: readonly string[] | null;
   readonly enumDisclosure: ReturnType<typeof useEnumLiteralDisclosure>;
@@ -248,7 +257,9 @@ function Operand({
     control: FilterDraftControl,
   ) => Pick<AriaAttributes, "aria-invalid" | "aria-describedby">;
   readonly isDate: boolean;
+  readonly isBoolean: boolean;
 }) {
+  const booleanControls = useRef<HTMLDivElement>(null);
   const text = (
     name: string,
     value: string,
@@ -327,12 +338,18 @@ function Operand({
           Value matching
           <select
             aria-label={`${label} equality operand`}
+            {...(draft.operandKind === "null" ? feedbackFor("value") : {})}
             style={inputStyle}
             value={draft.operandKind}
             onChange={(event) => {
               const value = event.currentTarget.value;
+              if (
+                isBoolean &&
+                booleanControls.current?.contains(document.activeElement)
+              )
+                event.currentTarget.focus();
               if (value === "value" || value === "values" || value === "null")
-                onChange({ ...draft, operandKind: value });
+                onChange(changeFilterDraftOperandKind(draft, value));
             }}
           >
             <option value="value">One value</option>
@@ -340,7 +357,16 @@ function Operand({
             <option value="null">Empty</option>
           </select>
         </label>
-        {enumChoices ? (
+        {isBoolean ? (
+          <div ref={booleanControls}>
+            <WorkbookBooleanFilterOperand
+              draft={draft}
+              onChange={onChange}
+              feedback={feedbackFor("value")}
+              valueLabel={`${label} filter value`}
+            />
+          </div>
+        ) : enumChoices ? (
           <WorkbookEnumFilterOperand
             draft={draft}
             choices={enumChoices}
@@ -358,29 +384,6 @@ function Operand({
               : draft.values.join(", "),
             (values) => onChange({ ...draft, values }),
           )
-        ) : draft.valueType === "boolean" ? (
-          <label style={stackedLabelStyle}>
-            Value
-            <select
-              aria-label={`${label} filter value`}
-              {...feedbackFor("value")}
-              style={inputStyle}
-              value={draft.booleanValue}
-              onChange={(event) => {
-                const booleanValue = event.currentTarget.value;
-                if (
-                  booleanValue === "" ||
-                  booleanValue === "true" ||
-                  booleanValue === "false"
-                )
-                  onChange({ ...draft, booleanValue });
-              }}
-            >
-              <option value="">Choose a value</option>
-              <option value="true">true</option>
-              <option value="false">false</option>
-            </select>
-          </label>
         ) : (
           text("Value", draft.value, (value) => onChange({ ...draft, value }))
         )}

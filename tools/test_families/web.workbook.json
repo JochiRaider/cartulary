@@ -248,7 +248,8 @@
           "Assessment discovery preserves an explicitly selected subject absent from refreshed candidate pages",
           "Assessment discovery reads only the authorized selected view and reduces minimal Timeline rows with opaque paging",
           "Assessment discovery rejects cyclic paging and ignores an obsolete filter response",
-          "Assessment discovery stages support selection and cancels with Escape without changing the draft"
+          "Assessment discovery stages support selection and cancels with Escape without changing the draft",
+          "Assessment discovery stages typed boolean support filters without changing selected identities"
         ]
       },
       "evidence_class": "unit",
@@ -424,6 +425,7 @@
           "authoring candidate presentation retains a reviewed source version and captures only source identity metadata for explicit replacement",
           "authoring candidate presentation retains selected identities across twelve evicted pages with bounded options and reduced payloads",
           "authoring candidate presentation retires held read focus after outside interaction scope replacement and authority loss",
+          "authoring candidate presentation stages boolean reference filters before an explicit typed read",
           "authoring candidate presentation starts and cleans up scoped reads under StrictMode without requesting record filters for membership",
           "authoring candidate presentation uses an accessible field fallback when the sole candidate selector is disabled",
           "authoring candidate presentation uses prior identity order for first middle last and sole removals",
@@ -2115,6 +2117,7 @@
           "WorkbookGridControls excludes invalid date candidates from staging and keeps feedback instance local",
           "WorkbookGridControls exposes add, direction, priority, boundary, removal, and limit recovery actions",
           "WorkbookGridControls gives the active-query region one Tab stop with roving navigation",
+          "WorkbookGridControls keeps boolean feedback local and reconciles native keyboard focus without applying",
           "WorkbookGridControls keeps column commands available when every data column is hidden",
           "WorkbookGridControls keeps focus in Sort when Add replaces its control and a boundary move disables",
           "WorkbookGridControls keeps focus on a semantic column action when movement or freezing disables its invoker",
@@ -2131,6 +2134,7 @@
           "WorkbookGridControls offers ordered enum choices without implicit admission and preserves null and set shapes",
           "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
           "WorkbookGridControls parses filter controls exactly and restores focus on Escape",
+          "WorkbookGridControls reopens boolean sets and null with typed explicit choices",
           "WorkbookGridControls reopens custom enum sets keeps literal slots and reconciles the complete keyboard order",
           "WorkbookGridControls replaces an older draft on Fit and follows passive width only while untouched",
           "WorkbookGridControls retains a locally valid editor when the admission callback refuses it",
@@ -6331,7 +6335,8 @@
         "titles": [
           "useWorkbookQueryController applies consecutive filter edits to the latest requested query",
           "useWorkbookQueryController keeps query state isolated by exact view_schema_id",
-          "useWorkbookQueryController refuses direct invalid date admission and preserves raw input and requested intent"
+          "useWorkbookQueryController refuses direct invalid date admission and preserves raw input and requested intent",
+          "useWorkbookQueryController refuses direct unset boolean admission and preserves the authored draft and query"
         ]
       },
       "evidence_class": "unit",
@@ -6954,15 +6959,17 @@
           "workbookQuery builds every declared filter operator without losing argument shape",
           "workbookQuery builds tag and boolean filters from the client-local draft state",
           "workbookQuery describes filter chip labels from contract metadata",
-          "workbookQuery initializes filter drafts from the contract and resolves input modes",
+          "workbookQuery initializes filter drafts from the declared contract operators",
           "workbookQuery keeps a full semantic layout permutation while compiling visible columns",
           "workbookQuery keeps grouping separate from authored sorting and cleared overrides",
           "workbookQuery keeps non-date and timestamp operands unchanged and rejects wrong-schema dates",
           "workbookQuery preserves date equality sets null encoding and exact raw input",
           "workbookQuery projects active enum metadata and preserves exact set literals on reopening",
           "workbookQuery refuses impossible date drafts without replacing query state",
+          "workbookQuery rejects malformed boolean operands without coercion and preserves contract overrides",
           "workbookQuery rejects structural layout keys and out-of-range widths",
           "workbookQuery retains enum custom literals case variants and mixed equality shapes",
+          "workbookQuery round trips declared boolean scalar set and null operands without changing JSON types",
           "workbookQuery supports ordered additive sort cycles and enforces the owner limit",
           "workbookQuery validates calendar dates for every declared date filter",
           "workbookQuery validates one-sided date ranges and inclusive boundaries"

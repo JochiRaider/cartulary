@@ -284,12 +284,6 @@ export function applyWorkbookSortCommand(
   }
 }
 
-export function parseWorkbookBooleanDraftValue(
-  value: string,
-): "" | "false" | "true" | null {
-  return value === "" || value === "false" || value === "true" ? value : null;
-}
-
 export function parseDeclaredFieldKey(
   value: string,
   declaredFieldKeys: readonly string[],

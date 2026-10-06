@@ -21,6 +21,7 @@ import {
   buildFilterFromDraft,
   buildQueryRequest,
   buildSavedViewQueryJson,
+  changeFilterDraftOperandKind,
   compareWorkbookGroupValues,
   cycleWorkbookSortField,
   defaultFilterDraft,
@@ -29,7 +30,6 @@ import {
   filterChipLabel,
   filterDraftForField,
   filterDraftFromFilter,
-  filterInputMode,
   toggleSortField,
   updateGroupBy,
   validateFilterDraft,
@@ -42,6 +42,193 @@ import {
 } from "./workbookSurfaceQueryRuntime";
 
 describe("workbookQuery", () => {
+  it("round trips declared boolean scalar set and null operands without changing JSON types", () => {
+    const consumers = listViewContracts().flatMap((contract) =>
+      contract.fields
+        .filter(
+          (field) =>
+            field.readKind === "boolean" &&
+            contract.filterFields.includes(field.fieldKey) &&
+            field.filterOps.includes("eq"),
+        )
+        .map((field) => ({ contract, field })),
+    );
+    expect(consumers.length).toBeGreaterThan(0);
+    for (const { contract, field } of consumers) {
+      const initial = filterDraftForField(contract, field.fieldKey, "eq");
+      expect(initial).toMatchObject({ valueType: "boolean" });
+      expect(validateFilterDraft(contract, initial).kind).toBe("invalid");
+      for (const arg of [
+        { value: true },
+        { value: false },
+        { values: [true] },
+        { values: [false] },
+        { values: [false, true] },
+        { value: null },
+      ]) {
+        const filter = { fieldKey: field.fieldKey, op: "eq" as const, arg };
+        const state = { ...emptyWorkbookQueryState(), filters: [filter] };
+        const saved = buildSavedViewQueryJson(contract, state);
+        const restored = workbookQueryStateFromSavedViewQueryJson(
+          contract,
+          saved,
+        );
+        expect(restored.filters).toEqual([filter]);
+        const draft = filterDraftFromFilter(contract, filter);
+        expect(draft).toMatchObject({ valueType: "boolean" });
+        expect(validateFilterDraft(contract, draft)).toEqual({
+          kind: "valid",
+          filter,
+        });
+        expect(
+          buildQueryRequest(
+            contract,
+            applyFilterDraft(contract, emptyWorkbookQueryState(), draft),
+          ).filters,
+        ).toEqual(saved.filters);
+        if (draft.op !== "eq") throw new Error("Expected equality");
+        if (arg.value === null) {
+          expect(
+            validateFilterDraft(contract, { ...draft, operandKind: "value" })
+              .kind,
+          ).toBe("invalid");
+          expect(
+            validateFilterDraft(contract, { ...draft, operandKind: "values" })
+              .kind,
+          ).toBe("invalid");
+        }
+      }
+    }
+  });
+  it("rejects malformed boolean operands without coercion and preserves contract overrides", () => {
+    const contract = requireViewContract("cartulary.view.task_requests.v1");
+    const fieldKey = "task.no_owner";
+    const field = contract.fieldMap[fieldKey];
+    if (!field) throw new Error("Missing declared Task Requests boolean");
+    const draft = filterDraftForField(contract, fieldKey, "eq");
+    if (draft.op !== "eq") throw new Error("Expected equality");
+    const state = {
+      ...emptyWorkbookQueryState(),
+      filters: [{ fieldKey, op: "eq" as const, arg: { value: false } }],
+    };
+    for (const arg of [
+      { value: "true" },
+      { value: "false" },
+      { value: 0 },
+      { value: 1 },
+      { values: [] },
+      { values: Array(1) },
+      { values: ["true"] },
+      { values: [false, "false"] },
+      { values: [true, null] },
+      { values: [false, 0] },
+      { values: "false" },
+      { value: false, values: [true] },
+      { value: null, extra: true },
+      {},
+    ]) {
+      const filter = { fieldKey, op: "eq" as const, arg };
+      const saved = buildSavedViewQueryJson(contract, {
+        ...state,
+        filters: [filter],
+      });
+      const restored = workbookQueryStateFromSavedViewQueryJson(
+        contract,
+        saved,
+      );
+      expect(restored.filters).toEqual([filter]);
+      const invalid = filterDraftFromFilter(contract, filter);
+      expect(validateFilterDraft(contract, invalid).kind).toBe("invalid");
+      expect(applyFilterDraft(contract, state, invalid)).toBe(state);
+      expect(buildFilterFromDraft(invalid)).toBeNull();
+      if (invalid.op !== "eq") throw new Error("Expected equality");
+      expect(invalid.booleanOperand?.invalidRestoredArg).toEqual(arg);
+      expect(
+        validateFilterDraft(
+          contract,
+          changeFilterDraftOperandKind(invalid, "null"),
+        ),
+      ).toEqual({
+        kind: "valid",
+        filter: { fieldKey, op: "eq", arg: { value: null } },
+      });
+    }
+    for (const operandKind of ["value", "values", "null"] as const) {
+      for (const valueType of ["string", "number"] as const) {
+        const invalid = {
+          ...draft,
+          operandKind,
+          valueType,
+          value: "false",
+          values: ["true"],
+          booleanOperand: { value: false, values: [true] },
+        };
+        expect(validateFilterDraft(contract, invalid).kind).toBe("invalid");
+        expect(applyFilterDraft(contract, state, invalid)).toBe(state);
+      }
+    }
+    for (const booleanOperand of [
+      undefined,
+      { value: "false", values: [] },
+      { value: false, values: [false, "true"] },
+      { value: 0, values: [true, null] },
+    ]) {
+      for (const operandKind of ["value", "values"] as const) {
+        const invalid = {
+          ...draft,
+          operandKind,
+          booleanOperand,
+        } as FilterDraft;
+        if (operandKind === "value" && booleanOperand?.value === false)
+          continue;
+        expect(validateFilterDraft(contract, invalid).kind).toBe("invalid");
+        expect(applyFilterDraft(contract, state, invalid)).toBe(state);
+      }
+    }
+    const duplicate = {
+      ...draft,
+      operandKind: "values" as const,
+      booleanOperand: { value: undefined, values: [true, false, true, false] },
+    };
+    expect(validateFilterDraft(contract, duplicate)).toMatchObject({
+      kind: "valid",
+      filter: { arg: { values: [true, false, true, false] } },
+    });
+    expect(
+      buildQueryRequest(contract, applyFilterDraft(contract, state, duplicate))
+        .filters?.[0]?.arg,
+    ).toEqual({ values: [true, false, true, false] });
+    for (const overridden of [
+      {
+        ...contract,
+        filterFields: contract.filterFields.filter((key) => key !== fieldKey),
+      },
+      {
+        ...contract,
+        fieldMap: {
+          ...contract.fieldMap,
+          [fieldKey]: { ...field, filterOps: [] },
+        },
+      },
+      {
+        ...contract,
+        fieldMap: {
+          ...contract.fieldMap,
+          [fieldKey]: {
+            ...field,
+            readKind: "string" as const,
+          },
+        },
+      },
+    ]) {
+      expect(validateFilterDraft(overridden, duplicate).kind).toBe("invalid");
+      expect(applyFilterDraft(overridden, state, duplicate)).toBe(state);
+      expect(filterDraftForField(overridden, fieldKey, "eq")).not.toMatchObject(
+        { valueType: "boolean" },
+      );
+    }
+  });
+
   it("projects active enum metadata and preserves exact set literals on reopening", () => {
     for (const contract of listViewContracts()) {
       for (const field of contract.fields.filter(
@@ -271,7 +458,7 @@ describe("workbookQuery", () => {
       validateFilterDraft(contract, {
         ...draft,
         valueType: "boolean",
-        booleanValue: "true",
+        booleanOperand: { value: true, values: [] },
       }).kind,
     ).toBe("invalid");
   });
@@ -380,7 +567,6 @@ describe("workbookQuery", () => {
         requireViewContract("cartulary.view.timeline.v2"),
         state,
         {
-          booleanValue: "",
           fieldKey: "timeline.date_entered_sort_day",
           op: "eq",
           operandKind: "value",
@@ -395,7 +581,6 @@ describe("workbookQuery", () => {
   it("builds every declared filter operator without losing argument shape", () => {
     const filters = [
       buildFilterFromDraft({
-        booleanValue: "",
         fieldKey: "eq",
         op: "eq",
         operandKind: "null",
@@ -481,7 +666,7 @@ describe("workbookQuery", () => {
         requireViewContract("cartulary.view.timeline.v2"),
         emptyWorkbookQueryState(),
         {
-          booleanValue: "true",
+          booleanOperand: { value: true, values: [] },
           fieldKey: "timeline.has_evidence",
           op: "eq",
           operandKind: "value",
@@ -589,13 +774,11 @@ describe("workbookQuery", () => {
     ).toBe("Capture State: reviewed");
   });
 
-  it("initializes filter drafts from the contract and resolves input modes", () => {
+  it("initializes filter drafts from the declared contract operators", () => {
     const contract = requireViewContract("cartulary.view.timeline.v2");
     expect(defaultFilterDraft(contract).fieldKey).toBe(
       "timeline.date_entered_sort_day",
     );
-    expect(filterInputMode("timeline.date_entered_sort_day")).toBe("date");
-    expect(filterInputMode("timeline.tags")).toBe("tagset");
     expect(workbookQuerySurfaceSlot("cartulary.view.timeline.v2")).toBe(
       "timeline",
     );

@@ -6,7 +6,6 @@ import {
   createWorkbookGridControlsTransientState,
   parseDeclaredFieldKey,
   parseDeclaredGroupField,
-  parseWorkbookBooleanDraftValue,
   projectWorkbookGridQueryControls,
   projectWorkbookRequestedFilterChanges,
   reduceWorkbookGridControlsTransientState,
@@ -439,7 +438,6 @@ describe("workbookGridQueryControls", () => {
     const contract = requireViewContract(surface);
     expect(
       validateFilterDraft(contract, {
-        booleanValue: "",
         fieldKey: "timeline.date_entered_sort_day",
         op: "eq",
         operandKind: "value",
@@ -462,8 +460,6 @@ describe("workbookGridQueryControls", () => {
 
   it("parses controlled values exactly and rejects malformed filter drafts", () => {
     const contract = requireViewContract(surface);
-    expect(parseWorkbookBooleanDraftValue("true")).toBe("true");
-    expect(parseWorkbookBooleanDraftValue("truthy")).toBeNull();
     expect(
       parseDeclaredFieldKey("timeline.capture_state", contract.groupingFields),
     ).toBe("timeline.capture_state");
@@ -478,7 +474,6 @@ describe("workbookGridQueryControls", () => {
     ).toBeNull();
     expect(
       validateFilterDraft(contract, {
-        booleanValue: "",
         fieldKey: "Capture State",
         op: "eq",
         operandKind: "value",

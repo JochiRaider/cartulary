@@ -1153,6 +1153,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.boolean_support_filters_stage_typed_queries_and_7785af35c2",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/authoring-candidates.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "assessment_boolean_support_filters"
+        ],
+        "titles": [
+          "Boolean support filters stage typed queries and retain selected identities across pages"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -4231,6 +4266,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.ordinary_reference_boolean_filtering_preserves_t_b9997d12f7",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/authoring-candidates.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "ordinary_boolean_reference_filters"
+        ],
+        "titles": [
+          "Ordinary reference boolean filtering preserves the selected source until explicit acceptance"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.preferences_1",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -4997,6 +5067,41 @@
       "evidence_class": "browser",
       "runtime_profile_id": "default",
       "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser_stateful.boolean_filters_preserve_typed_saved_and_accepte_221721fc9a",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "workbook_boolean_filter_roundtrip"
+        ],
+        "titles": [
+          "Boolean filters preserve typed saved and accepted operands across matching modes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",

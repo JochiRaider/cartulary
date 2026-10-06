@@ -74,7 +74,6 @@ describe("workbook query controls", () => {
       "timeline.capture_state",
     );
     const filtered = applyFilterDraft(contract, grouped, {
-      booleanValue: "",
       fieldKey: "timeline.capture_state",
       op: "eq",
       operandKind: "value",
@@ -132,7 +131,6 @@ describe("workbook query controls", () => {
     expect(invalidGroup).toBe(grouped);
 
     const filtered = applyFilterDraft(contract, grouped, {
-      booleanValue: "",
       fieldKey: "timeline.capture_state",
       op: "eq",
       operandKind: "value",
@@ -223,7 +221,6 @@ describe("workbook query controls", () => {
       "timeline.capture_state",
     );
     const withStateFilter = applyFilterDraft(contract, withGroup, {
-      booleanValue: "",
       fieldKey: "timeline.capture_state",
       op: "eq",
       operandKind: "value",
