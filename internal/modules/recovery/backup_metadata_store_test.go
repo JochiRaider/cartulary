@@ -327,6 +327,18 @@ func TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit(t *testing.T) {
 	if diagnostic.BackupSetID != newer.BackupSetID || diagnostic.Code != "artifact_missing" {
 		t.Fatalf("unexpected redacted durability diagnostic: %#v", diagnostic)
 	}
+	boundary := older.ConsistencyPointAt.Add(24 * time.Hour)
+	if _, err := catalog.RestoreCandidateBackupSelection(ctx, boundary); err != nil {
+		t.Fatal("24 hour boundary rejected", err)
+	}
+	if _, err := catalog.RestoreCandidateBackupSelection(ctx, boundary.Add(time.Nanosecond)); !errors.Is(err, recovery.ErrLatestSuccessfulBackupStale) {
+		t.Fatal("stale operating selection accepted", err)
+	}
+	intact, err := catalog.IntactRetainedBackupSelection(ctx, boundary.Add(time.Hour))
+	if err != nil || intact.BackupSet.BackupSetID != older.BackupSetID {
+		t.Fatal("intact stale backup unavailable for export", err)
+	}
+
 }
 
 func TestRetentionFloorRejectsShortMetadataAndArtifacts_Unit(t *testing.T) {

@@ -207,6 +207,47 @@ func TestRootedFSOperationContainment_Unit(t *testing.T) {
 }
 
 func TestRootedFSAtomicLifecycleAndRootIdentity_Unit(t *testing.T) {
+	t.Run("complete sibling directory publication", func(t *testing.T) {
+		parent := t.TempDir()
+		stage := filepath.Join(parent, "stage")
+		staged, err := OpenOrCreate(stage)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer staged.Close()
+		if err := staged.CreateExclusive(context.Background(), MustParseReference("payload"), func(w io.Writer) error { _, err := w.Write([]byte("complete")); return err }); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(filepath.Join(parent, "occupied"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := staged.PublishSiblingExclusive(MustParseReference("occupied")); err == nil {
+			t.Fatal("occupied directory replaced")
+		}
+		if err := staged.PublishSiblingExclusive(MustParseReference("nested/name")); err == nil {
+			t.Fatal("non-sibling admitted")
+		}
+		if err := staged.PublishSiblingExclusive(MustParseReference("published")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(stage); !errors.Is(err, os.ErrNotExist) {
+			t.Fatal("staging path remains", err)
+		}
+		body, _, err := staged.ReadRegular(MustParseReference("payload"), 100)
+		if err != nil || string(body) != "complete" {
+			t.Fatal("published capability lost contents", err)
+		}
+		if err := os.Rename(filepath.Join(parent, "published"), filepath.Join(parent, "moved")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(filepath.Join(parent, "published"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := staged.PublishSiblingExclusive(MustParseReference("substituted")); err == nil {
+			t.Fatal("changed source identity published")
+		}
+	})
+
 	t.Run("operational sealing failure overrides writer rejection", func(t *testing.T) {
 		root, err := OpenOrCreate(t.TempDir())
 		if err != nil {

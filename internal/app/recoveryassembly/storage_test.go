@@ -1,8 +1,10 @@
 package recoveryassembly
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +16,34 @@ import (
 )
 
 func TestRecoveryFilesystemStorageContainment_Unit(t *testing.T) {
+	t.Run("target issuance preserves interrupted generation and rejects replacement", func(t *testing.T) {
+		storage, err := NewFilesystemStorage(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer storage.Close()
+		generation := []byte("00000000-0000-0000-0000-000000000001\n")
+		if err := storage.root.CreateExclusive(context.Background(), rootedfs.MustParseReference("restore-target-generation"), func(w io.Writer) error { _, err := w.Write(generation); return err }); err != nil {
+			t.Fatal(err)
+		}
+		marker, observed, err := storage.ReadTargetMarker(65536, 64)
+		if !errors.Is(err, os.ErrNotExist) || len(marker) != 0 || !bytes.Equal(observed, generation) {
+			t.Fatal("partial identity not retained", err)
+		}
+		if err := storage.WriteTargetMarker(context.Background(), nil, generation, []byte("first"), generation); err != nil {
+			t.Fatal(err)
+		}
+		if err := storage.WriteTargetMarker(context.Background(), nil, generation, []byte("replacement"), generation); err == nil {
+			t.Fatal("stale proof replaced")
+		}
+		if err := storage.WriteTargetMarker(context.Background(), []byte("first"), generation, []byte("renewed"), generation); err != nil {
+			t.Fatal(err)
+		}
+		marker, observed, err = storage.ReadTargetMarker(65536, 64)
+		if err != nil || string(marker) != "renewed" || !bytes.Equal(observed, generation) {
+			t.Fatal("renewal changed identity", err)
+		}
+	})
 	t.Run("publishes private exclusive root-free artifacts and bounded reads", func(t *testing.T) {
 		rootPath := filepath.Join(t.TempDir(), "backups")
 		storage, err := NewFilesystemStorage(rootPath)

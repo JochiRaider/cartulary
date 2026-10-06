@@ -3,6 +3,7 @@ package database_migrations_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
@@ -11,15 +12,30 @@ import (
 
 func TestSchemaBootstrap_Integration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	db := postgresHarness.MigrationDatabaseT(t).SQL()
+	for _, boundary := range []int64{0, canonicalRepositoryHead(t) - 1} {
+		t.Run(fmt.Sprintf("from_%d", boundary), func(t *testing.T) {
+			var database *pgtest.MigrationDatabase
+			if boundary == 0 {
+				database = emptyMigrationDatabase(t, postgresHarness)
+			} else {
+				database = postgresHarness.MigrationDatabaseThroughT(t, boundary)
+			}
+			assertSchemaBootstrap(t, database.SQL())
+		})
+	}
+}
+
+func assertSchemaBootstrap(t *testing.T, db *sql.DB) {
 	source := canonicalMigrationSource(t)
 
-	assertCount(t, db, `SELECT COUNT(*) FROM pg_extension WHERE extname IN ('pgcrypto', 'citext')`, 2)
-	assertCount(t, db, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'deployment_bootstrap_state', 'deployment_admin_audit_events')`, 3)
-
 	if err := database_migrations.Apply(context.Background(), db, source); err != nil {
-		t.Fatalf("run second schema bootstrap: %v", err)
+		t.Fatalf("apply canonical head: %v", err)
 	}
+	if err := database_migrations.Apply(context.Background(), db, source); err != nil {
+		t.Fatalf("repeat canonical head apply: %v", err)
+	}
+	assertCount(t, db, `SELECT COUNT(*) FROM schema_migration_lineage WHERE lineage_id = 'cartulary.prod_ddl_rebaseline.v2'`, 1)
+
 	if err := db.PingContext(context.Background()); err != nil {
 		t.Fatalf("borrowed database handle was closed by migration apply: %v", err)
 	}

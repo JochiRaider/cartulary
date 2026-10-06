@@ -43,7 +43,7 @@ docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not ava
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-standup-package-smoke.XXXXXX")"
 project="cartularymvpsmoke$(date +%s)$$"
-image="cartulary/mvp-smoke:${project}"
+image=""
 port="$(pick_port)" || fail "no free loopback port found for package smoke"
 public_origin="https://127.0.0.1:${port}"
 compose_file="$work_dir/docker-compose.yml"
@@ -75,27 +75,34 @@ cleanup() {
   set +e
   if ! cleanup_package_workspace "$project" "$work_dir" "$postgres_image" "$artifact_dir/workspace-cleanup.json"; then status=1; fi
   if ! cleanup_package_resources "${project}destination" "" "$artifact_dir/destination-cleanup.json"; then status=1; fi
-  if ! cleanup_package_resources "$project" "$image" "$artifact_dir/cleanup.json"; then status=1; fi
+  if ! cleanup_package_resources "$project" "" "$artifact_dir/cleanup.json"; then status=1; fi
   exit "$status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-sed "s#context: ../..#context: ${ROOT_DIR}#g" "$PACKAGE_DIR/docker-compose.yml" >"$compose_file"
+# shellcheck source=tools/release-evidence/consume-package.sh
+source "$ROOT_DIR/tools/release-evidence/consume-package.sh"
+consume_package_release "$ROOT_DIR" "$work_dir" "$artifact_dir"
+image="$package_image"
+postgres_image="$package_postgres_image"
+compose_file="$PACKAGE_DIR/docker-compose.yml"
 cp "$PACKAGE_DIR/config.toml.example" "$work_dir/config.toml"
 cp "$PACKAGE_DIR/bootstrap-admin.json.example" "$work_dir/bootstrap-admin.json"
 cp "$PACKAGE_DIR/revisions-conflict-token-key-ring.json.example" "$work_dir/revisions-conflict-token-key-ring.json"
 # shellcheck source=tools/release-evidence/package-fixture-tls.sh
 source "$ROOT_DIR/tools/release-evidence/package-fixture-tls.sh"
 provision_package_fixture_tls "$ROOT_DIR" "$PACKAGE_DIR" "$work_dir"
-chmod 0644 "$work_dir/config.toml" "$work_dir/bootstrap-admin.json" "$work_dir/revisions-conflict-token-key-ring.json"
+chmod 0644 "$work_dir/restore-verification-target.toml" "$work_dir/config.toml" "$work_dir/bootstrap-admin.json" "$work_dir/revisions-conflict-token-key-ring.json"
 cat >"$work_dir/.env" <<EOF
-CARTULARY_IMAGE=${image}
 CARTULARY_HTTP_PORT=${port}
 CARTULARY_PUBLIC_ORIGIN=${public_origin}
 
 POSTGRES_DB=cartulary
+RESTORE_VERIFY_POSTGRES_DB=cartulary_restore_verify
+CARTULARY_MVP_COMPOSE_PROJECT_NAME=${project}
+CARTULARY_REFERENCE_PACKS_ENABLED=false
 CARTULARY_TLS_DIR=${work_dir}/tls
 
 CARTULARY_AUTH_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
@@ -133,7 +140,6 @@ fi
 
 "${NODE_BIN:-node}" "$ROOT_DIR/tools/release-evidence/package-platform.mjs" prepare "$work_dir" "$artifact_dir" "$project" "$public_origin"
 
-compose build app >/dev/null
 
 container_id="$(docker create --label "com.docker.compose.project=${project}" "$image")"
 docker export "$container_id" | tar -tf - >"$image_listing"
@@ -188,10 +194,12 @@ for binary in server migrate operator; do
   grep -Fq 'cryptographic execution policy rejected' "$artifact_dir/${binary}-disabled.log" || fail "$binary disabled mode rejected at wrong boundary"
 done
 
-compose up -d --build app >/dev/null || {
+CARTULARY_MVP_DIR="$work_dir" "$PACKAGE_DIR/scripts/package.sh" start >"$work_dir/startup.log" || {
   compose logs --no-color --tail 80 postgres seaweedfs-s3 migrate object-store-init >&2 || true
   fail "package initialization failed"
 }
+
+if [[ "$qualification" == credential-capacity ]]; then compose up -d --no-deps --force-recreate app >/dev/null; fi
 
 wait_for_http_status() {
   local path="$1"
@@ -234,18 +242,10 @@ fi
 curl --cacert "$work_dir/tls/ca.pem" --tlsv1.3 -fsS "${public_origin}${asset_path}" -o "$asset_body" || fail "embedded asset ${asset_path} did not load"
 [[ -s "$asset_body" ]] || fail "embedded asset ${asset_path} was empty"
 
-assert_completed_zero() {
-  local service="$1"
-  local id
-  id="$(compose ps -a -q "$service")"
-  [[ -n "$id" ]] || fail "missing compose container for $service"
-  local exit_code
-  exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$id")"
-  [[ "$exit_code" == "0" ]] || fail "$service exited with $exit_code"
-}
-
-assert_completed_zero migrate
-assert_completed_zero object-store-init
+# Startup already checked both one-shot exit codes and removed their containers.
+# Observe retained migration state and repeat idempotent bucket admission.
+compose run --rm --no-deps object-store-init >"$work_dir/repeated-object-init.json"
+jq -e '.already_exists == true and .created == false' "$work_dir/repeated-object-init.json" >/dev/null
 
 migration_count="$(compose exec -T --user postgres postgres psql -U postgres -d cartulary -Atc "SELECT COUNT(*) FROM goose_db_version WHERE is_applied = true;" | tr -d '[:space:]')"
 [[ "$migration_count" =~ ^[0-9]+$ ]] || fail "migration count was not numeric"
@@ -292,6 +292,8 @@ assert_volume_mount app /var/lib/cartulary/exports
 assert_bind_mount_not_from_source_tree app
 
 # Migration must inspect the same authoritative volumes, through read-only mounts.
+# Creation alone inspects the shipped service mounts without running a migration.
+compose create --no-recreate migrate >/dev/null
 docker inspect --format '{{json .Mounts}}' "$(compose ps -a -q migrate)" "$(compose ps -q app)" >"$work_dir/storage-mounts.json"
 "${NODE_BIN:-node}" - "$work_dir/storage-mounts.json" <<'EOF'
 const assert = require("node:assert/strict");
@@ -323,7 +325,7 @@ trusted_status="$(curl --cacert "$work_dir/tls/ca.pem" --tlsv1.3 -sS -o "$work_d
 [[ "$trusted_status" != "403" ]] || fail "configured WebSocket Origin was rejected with 403"
 
 # Qualify the optional shipped administration setup against the same binaries.
-cp "$PACKAGE_DIR/docker-compose.reference-packs.yml" "$work_dir/reference-packs.yml"
+# The exact optional overlay is part of the installed manifest.
 "${NODE_BIN:-node}" --input-type=module - "$ROOT_DIR" "$work_dir/reference-pack-incoming" <<'EOF'
 import { pathToFileURL } from "node:url";
 const [root, destination] = process.argv.slice(2);
@@ -334,7 +336,8 @@ chmod 0755 "$work_dir/reference-pack-incoming"
 chmod 0644 "$work_dir/reference-pack-incoming/"*.tar
 compose stop app >/dev/null
 cat "$PACKAGE_DIR/reference-pack-administration.toml.example" >>"$work_dir/config.toml"
-compose_overlay+=(-f "$work_dir/reference-packs.yml")
+compose_overlay+=(-f "$PACKAGE_DIR/docker-compose.reference-packs.yml")
+sed -i 's/^CARTULARY_REFERENCE_PACKS_ENABLED=false$/CARTULARY_REFERENCE_PACKS_ENABLED=true/' "$work_dir/.env"
 if compose run --rm --no-deps app >"$work_dir/missing-trust.log" 2>&1; then
   fail "claimed package accepted a missing trust mount"
 fi
@@ -374,6 +377,8 @@ cp "$work_dir/import.json" "$artifact_dir/reference-pack-import.json"
 
 if [[ "$qualification" == reference-pack ]]; then
   NODE_EXTRA_CA_CERTS="$work_dir/tls/ca.pem" "${NODE_BIN:-node}" "$ROOT_DIR/tools/release-evidence/standup-reference-pack-scenarios.mjs" "$ROOT_DIR" "$work_dir" "$project" "$public_origin" "$artifact_dir"
+  echo "standup-reference-pack-smoke verified installed package and independent recovery"
+  exit 0
 fi
 
 # Corrupt only this disposable deployment after all positive scenarios. Never repair

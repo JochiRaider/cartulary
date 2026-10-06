@@ -34,13 +34,15 @@ export function refreshBlocksWorkbookPendingRecord(
   pending: WorkbookPendingQueueRuntime,
   recordId: string | null,
 ): boolean {
-  if (pending.resetRefreshInFlight !== true) {
+  // A fresh create has no committed predecessor to refresh. Existing-record
+  // writes still wait for the authoritative version required by their owner.
+  if (recordId === null || pending.resetRefreshInFlight !== true) {
     return false;
   }
   if (pending.refreshReplayBlockAllCount > 0) {
     return true;
   }
-  return recordId !== null && pending.refreshBlockedRecordIds.has(recordId);
+  return pending.refreshBlockedRecordIds.has(recordId);
 }
 
 export function refreshBlocksWorkbookPendingUnit(

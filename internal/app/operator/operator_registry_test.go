@@ -5,6 +5,10 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 func TestOperatorCommandRegistryRejectsDuplicateAndPrefixAmbiguousPaths(t *testing.T) {
@@ -85,13 +89,48 @@ func TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures(t *test
 }
 
 func TestOperatorCommandRegistryContainsCanonicalPaths(t *testing.T) {
+	t.Run("package physical bindings", func(t *testing.T) {
+		source := application.Deployment{
+			DatabaseStorage: application.RootBinding{ServiceRef: "primary"}, ObjectStorage: application.RootBinding{ServiceRef: "primary"},
+			BackupStorage: application.RootBinding{Path: "/var/lib/cartulary/backups"}, ReferencePackStorage: application.RootBinding{Path: "/var/lib/cartulary/reference-packs"}, ExportOutputs: application.RootBinding{Path: "/var/lib/cartulary/exports"},
+			PostgresSettings: postgres.Settings{DSN: "postgres://source@postgres/source"}, ObjectSettings: objectstore.Settings{Endpoint: "seaweedfs-s3:8333", Bucket: "source"},
+		}
+		target := application.Deployment{
+			DatabaseStorage: application.RootBinding{ServiceRef: "restore_verify"}, ObjectStorage: application.RootBinding{ServiceRef: "restore_verify"},
+			BackupStorage: application.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/backups"}, ReferencePackStorage: application.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/reference-packs"}, ExportOutputs: application.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/exports"},
+			PostgresSettings: postgres.Settings{DSN: "postgres://target@postgres/target"}, ObjectSettings: objectstore.Settings{Endpoint: "seaweedfs-s3:8333", Bucket: "target"},
+		}
+		if !packageBindingsValid(source, target) {
+			t.Fatal("separate package bindings rejected")
+		}
+		aliased := target
+		aliased.PostgresSettings.DSN = "postgres://different-user@postgres/source?application_name=other"
+		if packageBindingsValid(source, aliased) {
+			t.Fatal("same physical database admitted under different credentials")
+		}
+		aliased = target
+		aliased.ObjectSettings.Bucket = source.ObjectSettings.Bucket
+		if packageBindingsValid(source, aliased) {
+			t.Fatal("same physical object namespace admitted")
+		}
+		aliased = target
+		aliased.ExportOutputs.Path = source.ExportOutputs.Path
+		if packageBindingsValid(source, aliased) {
+			t.Fatal("source export root admitted as target")
+		}
+	})
+
 	registry, err := (operatorRunner{}).commandRegistry()
 	if err != nil {
 		t.Fatalf("build operator registry: %v", err)
 	}
 	want := []string{
+		"package readiness",
+		"package preflight",
 		"backup inspect latest",
+		"backup export latest",
 		"backup create",
+		"restore bundle",
 		"restore latest",
 		"restore-verify latest",
 		"restore-verify due",

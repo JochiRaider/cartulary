@@ -9459,7 +9459,10 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
       name: "System views",
       exact: true,
     });
-    await expectDecisionControlReachable(page, systemViews);
+    // The toolbar owns focus reveal; do not scroll the control from the test.
+    await systemViews.focus();
+    await expect(systemViews).toBeFocused();
+    await expectVisibleFocus(systemViews);
     await expect(systemViews).toBeInViewport({ ratio: 1 });
     await expect(account).toBeInViewport({ ratio: 1 });
     const systemBounds = await systemViews.boundingBox();
@@ -9468,6 +9471,10 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
     expect(systemBounds.x + systemBounds.width).toBeLessThanOrEqual(
       accountBounds.x,
     );
+    await testInfo.attach("ordinary-toolbar-focus-390", {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
     await expectDecisionControlReachable(page, account);
     await account.press("Enter");
     await expect(

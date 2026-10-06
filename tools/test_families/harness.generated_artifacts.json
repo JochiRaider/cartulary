@@ -45,6 +45,27 @@
       "fixture_capability": "none",
       "minimum_tier": "standard",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.support.migration_input_integrity",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.behavior_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.migration_input_drift.v2"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
     }
   ]
 }

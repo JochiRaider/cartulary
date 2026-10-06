@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.operator_recovery_progress.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "operation_id",
+    "phase",
+    "completed",
+    "total",
+    "emitted_at"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.operator_recovery_progress.v2"
+    },
+    "operation_id": {
+      "$ref": "common.v2.schema.json#/$defs/uuid"
+    },
+    "phase": {
+      "enum": [
+        "preflight",
+        "catalog_select",
+        "artifact_validate",
+        "postgres_backup",
+        "object_backup",
+        "attestation_write",
+        "postgres_restore",
+        "object_restore",
+        "projection_rebuild",
+        "invariant_check",
+        "workbook_probe",
+        "attestation_update",
+        "transfer_copy",
+        "journal_write",
+        "finalize"
+      ]
+    },
+    "completed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        }
+      ]
+    },
+    "emitted_at": {
+      "$ref": "common.v2.schema.json#/$defs/timestamp"
+    }
+  }
+}

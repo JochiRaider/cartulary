@@ -616,11 +616,52 @@ Profiles: base
 Verified by: AC-441
 
 **REQ-04-106**
-The Base Profile recovery operator interface is a deployment-local CLI only. It MUST run as a local process and MUST create no network listener. Invocation authority is possession of deployment-local OS execution permission plus access to the effective source deployment configuration, any required target deployment configuration, and required recovery secret references. Browser sessions, incident roles, `deployment_admin`, CSRF tokens, browser `Origin` values, cookies, bearer tokens, common-job authorization, and WebSocket authorization MUST NOT authorize the recovery CLI. CSRF and browser-origin rules are not applicable to the recovery CLI because the interface has no browser, HTTP, or WebSocket surface.
+The Base Profile recovery operator interface is a deployment-local CLI only. It MUST run as a local process and MUST create no network listener. Invocation authority is possession of deployment-local OS execution permission plus access to the effective deployment configuration required by the operation and required recovery secret references. Portable restore requires only target configuration, authenticated transfer storage and separately provisioned keys; source configuration and source services are not invocation prerequisites. Browser sessions, incident roles, `deployment_admin`, CSRF tokens, browser `Origin` values, cookies, bearer tokens, common-job authorization, and WebSocket authorization MUST NOT authorize the recovery CLI. CSRF and browser-origin rules are not applicable to the recovery CLI because the interface has no browser, HTTP, or WebSocket surface.
 
 Operator output, progress records, logs, recovery journal records, and administrative-audit summaries for recovery operations MUST NOT contain credentials, secret references, raw DSNs, endpoint hosts, bucket names, object keys, raw storage paths, recovery keys, or incident content. Safe references MAY identify an operation, command, non-secret artifact schema, non-secret logical artifact reference, `backup_set_id`, `consistency_point_at`, result token, error code, or error reason code.
 Profiles: base
 Verified by: AC-402, AC-427, AC-428
+
+**REQ-04-167**
+The supported WSL2 package MUST read package settings as literal data, reject
+unknown or duplicate keys and unresolved placeholders, and use one admitted
+configuration and overlay selection for all operations. Ambient environment
+values MUST NOT silently override package settings. Application configuration
+parsing and purpose credential interpretation remain with their existing owners.
+Before provisioning, the package MUST prove source/target physical database and
+object namespace separation and canonical filesystem non-overlap; different
+service-reference names alone are insufficient proof.
+
+Package lifecycle operations MUST share deployment-scoped exclusion acquired
+before service changes. Nested operations reuse that exclusion; Recovery's own
+operation and serving locks remain authoritative. Cleanup may restart only the
+exact container this operation stopped. It MUST never create a replacement or
+modify borrowed resources. Operation, restart and cleanup outcomes remain
+separate, and any failed required stage makes the package invocation fail.
+
+Accepted startup requires a fresh successful backup, completed due verification
+and verified HTTPS readiness. Missing or stale backup triggers capture under the
+same package exclusion. Initial bootstrap runs without a published application
+port; capture-sensitive activity stops before the first backup. Only after
+recovery checks pass may the package publish normal serving. Failed startup
+leaves the application stopped. Guest timers remain explicitly operator-started;
+Windows startup automation and automatic historical-state reset remain excluded.
+Profiles: base
+Verified by: AC-540
+
+**REQ-04-168**
+Portable recovery uses Core 01 §12.2.1.1 with the current cryptographic policy.
+The encrypted transfer manifest uses a dedicated purpose and authenticated
+binding. Deployment keys and private provisioning material MUST be held
+separately from the transfer. Recovery issues and renews target proof under
+REQ-04-113; package composition provisions services but cannot stamp compatibility.
+Portable restore uses target-local exclusion and durable encrypted operation
+evidence. Its cross-storage terminal publication must reconcile matching evidence
+without re-executing restore; partial completion never authorizes serving.
+Restored operation remains stale until a new successful fresh backup and required
+checks pass. Source retention expiry is not cryptographic transfer expiry.
+Profiles: base
+Verified by: AC-538, AC-539, AC-540
 
 **REQ-04-151**
 The Collaboration stream-quarantine requeue interface is a deployment-local
@@ -674,12 +715,12 @@ Profiles: base
 Verified by: AC-536
 
 **REQ-04-113**
-The deployment recovery-operation exclusion boundary is a deployment-local mutual-exclusion boundary over admitted mutating recovery operations. `backup_create`, `restore_latest`, `restore_verify_latest`, and each selected verification inside `restore_verify_due` MUST acquire this boundary before candidate allocation, source backup publication work, target database mutation, or target object-namespace mutation. `backup_inspect_latest` is non-mutating and MUST NOT require this boundary. `restore_verify_due` with no due backups returns `no_op` and need not acquire this boundary. If the boundary is unavailable, the operation MUST fail before mutation with `code='recovery_operation_in_progress'`, `reason_code='operation_lock_unavailable'`, and exit code `3` under REQ-01-595.
+The deployment recovery-operation exclusion boundary is a deployment-local mutual-exclusion boundary over admitted mutating recovery operations. `backup_create`, `backup_export_latest`, `restore_latest`, `restore_bundle`, `restore_verify_latest`, and each selected verification inside `restore_verify_due` MUST acquire this boundary before candidate allocation, source backup publication work, target database mutation, or target object-namespace mutation. `backup_inspect_latest` is non-mutating and MUST NOT require this boundary. `restore_verify_due` with no due backups returns `no_op` and need not acquire this boundary. If the boundary is unavailable, the operation MUST fail before mutation with `code='recovery_operation_in_progress'`, `reason_code='operation_lock_unavailable'`, and exit code `3` under REQ-01-595.
 
-Before `restore_latest`, `restore_verify_latest`, or any selected verification inside `restore_verify_due` mutates a target database or target object namespace, the implementation MUST prove all target preflight conditions below:
+Before `restore_latest`, `restore_bundle`, `restore_verify_latest`, or any selected verification inside `restore_verify_due` mutates a target database or target object namespace, the implementation MUST prove all target preflight conditions below:
 
-1. source and target database bindings are distinct;
-2. source and target object-store bindings are distinct; source and target Reference Pack and export-output filesystem roots are distinct and do not overlap each other or another admitted source/target storage root;
+1. for live-source operations, source and target database bindings are distinct; for portable restore, transfer storage is immutable and isolated from every target writable root;
+2. for live-source operations, source and target object-store bindings are distinct; source and target Reference Pack and export-output filesystem roots are distinct and do not overlap each other or another admitted source/target storage root;
 3. the target database is fresh, meaning it contains no application-owned Cartulary data except schema or migration bookkeeping required to admit the operation;
 4. the target object namespace, Reference Pack root and export-output root are fresh, meaning they contain no retained object members;
 5. the operator holds the target's exclusive serving lease, proving that no
@@ -690,7 +731,7 @@ Before `restore_latest`, `restore_verify_latest`, or any selected verification i
    issuance time, and expiry bind it to this exact admitted target;
 7. required recovery keys, backup artifacts, and integrity proofs for the selected backup are available.
 
-Recovery MUST capture and restore published Incident Bundle files through the admitted export-output root, preserving their logical references and exact bytes. Object-family ownership selects the storage capability; an object key MUST NOT select a filesystem root. Current recovery journal completions use `cartulary.operator_recovery_journal_payload.v5`; older v4 records require their matching historical release and cannot authorize replay into a current target. Current restore verification uses `cartulary.restore_verification.v5` and binds the export-output storage digest alongside the other target bindings. An older marker or verification basis does not establish the current target admission or verification.
+Recovery MUST capture and restore published Incident Bundle files through the admitted export-output root, preserving their logical references and exact bytes. Object-family ownership selects the storage capability; an object key MUST NOT select a filesystem root. Current recovery journal completions use `cartulary.operator_recovery_journal_payload.v6`; older v4 records require their matching historical release and cannot authorize replay into a current target. Current restore verification uses `cartulary.restore_verification.v5` and binds the export-output storage digest alongside the other target bindings. An older marker or verification basis does not establish the current target admission or verification.
 
 Every application server process MUST acquire and hold the shared counterpart
 of the serving lease before starting HTTP or WebSocket listeners and MUST
@@ -715,15 +756,22 @@ implementations MAY reuse owner-neutral session, advisory-lock, renewal, and
 continuity mechanics, but MUST NOT reuse one lock identifier or translate one
 owner's failure token into another's.
 
-`restore_latest` markers use `purpose='restore_target'`.
+`restore_latest` and `restore_bundle` markers use `purpose='restore_target'`.
 `restore_verify_latest` and each verification admitted by
 `restore_verify_due` use `purpose='restore_verification_target'`. The
 database- and object-binding digests are SHA-256 over the admitted normalized
 non-secret binding identities; they MUST NOT contain or be computed from raw
-credentials. The marker lifetime MUST be positive and no greater than 24
-hours. A version 1 marker, wrong purpose, wrong generation, wrong binding,
-expired marker, missing marker, unavailable exclusive lease, or active shared
-lease fails before target mutation using the existing
+credentials. Database identity includes the resolved host, port and database in addition to the logical owner binding; object identity includes the resolved endpoint, transport mode and bucket or canonical filesystem root. A logical service reference alone cannot establish namespace identity. The marker lifetime MUST be positive and no greater than 24
+hours. Recovery MUST issue a missing marker or renew an expired otherwise matching
+marker only after exclusive target admission and complete actual-state freshness
+inspection. A new marker has a 24-hour lifetime; renewal preserves its generation.
+A valid existing marker MUST remain byte-identical on an exact retry. Wrong
+purpose, wrong generation, wrong binding, partial initialization, unsupported
+format, unavailable exclusive lease or active shared lease fails before target
+mutation. Recovery owns atomic marker/generation publication and interruption
+reconciliation; shell-authored binding overrides are unsupported. A no-due
+verification invocation MUST NOT issue, renew or rewrite target proof.
+Unresolved proof defects fail using the existing
 `unsafe_restore_target` registry: marker defects map to
 `target_marker_missing` or `target_marker_invalid`, and serving-lease
 contention maps to `target_serving_traffic`.
@@ -737,9 +785,9 @@ verification MUST leave the target not-ready for application traffic, and that
 target MUST be reinitialized before reuse.
 
 Every admitted mutating recovery operation MUST append an encrypted
-`cartulary.operator_recovery_journal_payload.v5` admission record and terminal
+`cartulary.operator_recovery_journal_payload.v6` admission record and terminal
 record before its terminal result is considered durable. `backup_create`,
-`restore_latest`, `restore_verify_latest`, and each selected verification
+`backup_export_latest`, `restore_latest`, `restore_bundle`, `restore_verify_latest`, and each selected verification
 inside `restore_verify_due` are mutating recovery operations.
 `backup_inspect_latest` is non-mutating. A `restore_verify_due` no-op MUST
 append safe admission and terminal evidence for the scheduler invocation but
@@ -748,7 +796,7 @@ terminal state is a new row rather than an overwrite.
 
 When an admitted restore includes the Graph participant, the implementation
 MUST propagate the admitted operation ID and the target-generation ID parsed
-from the validated v2 target marker. Recovery and Graph MUST NOT mint a second
+from the validated current v5 target marker. Recovery and Graph MUST NOT mint a second
 operation or generation identity. Exclusive serving-lease ownership MUST be
 proved continuously through Graph mutation, committed-postcondition
 validation, terminal journal publication, readiness aggregation, and any
@@ -757,9 +805,8 @@ indeterminate target outcome and requires target reinitialization.
 
 The encrypted terminal evidence format MUST be versioned to retain the Graph
 completion tuple and durable participant result from Graph Projection NLSpec
-§11.9. Historical v2 journal payloads remain readable only through their
-strict historical decoder and MUST NOT be rewritten or interpreted as Graph
-completion evidence. Matching current terminal evidence MUST support response
+§11.9. Historical journal payloads require their matching release and MUST NOT be
+read, rewritten or interpreted as current Graph completion evidence. Matching current terminal evidence MUST support response
 replay without a second Graph mutation. The safe administrative-audit summary
 shape below remains unchanged; it MUST NOT expose Graph digests, identifiers
 beyond its existing identities, source values, configuration, SQL, database
@@ -775,15 +822,18 @@ are forbidden.
 
 Once a writable database exists for the operation, the implementation MUST
 also write one safe
-`cartulary.operator_recovery_audit_summary.v2` derivative containing exactly
+`cartulary.operator_recovery_audit_summary.v3` derivative containing exactly
 operation ID, operation token, attempt ID, result, started and completed
 timestamps, nullable backup ID, nullable consistency point, sorted safe
 artifact kinds and counts, and nullable error code and reason code. The
-terminal encrypted journal record and its administrative-audit derivative MUST
-commit in one database transaction or neither may commit. Failure of that
+terminal encrypted journal record and its administrative-audit derivative for
+live-source operations MUST commit in one database transaction or neither may
+commit. Portable restore instead uses the target-local durable publication and
+reconciliation protocol in Core 01 REQ-01-679 because restoring the database
+cannot also be the storage boundary for its in-progress operation evidence. Failure of that
 transaction prevents a successful terminal result and maps through the
-existing `journal_write_failed` transport reason. Historical journal rows
-remain readable forensic evidence and MUST NOT be rewritten. Neither record
+existing `journal_write_failed` transport reason. Historical journal rows require their matching release for forensic inspection
+and MUST NOT be rewritten. Neither record
 may contain the forbidden values in REQ-04-106.
 Profiles: base
 Verified by: AC-428, AC-534
@@ -3532,6 +3582,19 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 
 ### 9.14 Additional Base Profile criteria for backup and restore contract
 
+- **AC-538**: Portable export selects the newest intact retained backup independently of age, includes every catalog-required encrypted artifact and authenticated identity, enforces manifest/member/path bounds, rejects missing/substituted/truncated/linked inputs, excludes deployment keys, and publishes only a fully validated set atomically without replacement. Cancellation and publication/journal failures do not alter source backup success or expose incomplete successful output.
+
+- **AC-539**: Portable restore succeeds with original source services/configuration/volumes unavailable, verifies the complete immutable transfer before target data mutation, rejects wrong key/release/catalog/confirmation, requires exact acknowledgement beyond 24 hours, permits intact export restore after source retention expiry, preserves authoritative state and Reference Pack historical trust, rebuilds projections and passes invariants. Target-local evidence supports exact response-loss replay without repeated mutation; interrupted targets remain isolated and fresh post-restore backup is required for accepted operation.
+
+- **AC-540**: Installed package entrypoints reject unsafe literal configuration before provisioning, serialize conflicting and nested lifecycle operations, preserve exact-container cleanup ownership, distinguish primary/restart/cleanup outcomes, bootstrap without a published port, repair missing/stale backups before readiness, run due verification, and prove repeated/no-op proof identity and safe interrupted-target behavior. Timers and manual calls select the same deployment and overlays. No secret-bearing rendered configuration enters retained evidence.
+
+Package provisioning may repeat the idempotent object initialization operation within a
+120-second wall-clock bound only after its owner reports exhausted transient metadata
+attempts. Configuration and cryptographic failures are terminal. This readiness wait
+MUST NOT repeat Recovery capture, verification, or restore operations. Failed startup
+MUST identify its gate separately from restart and cleanup outcomes and leave serving
+stopped; an unresolved live child remains owned and blocks another operation.
+
 - **AC-398**: `operator backup create` can create one successful retained `backup_set` with one `backup_set_id`, one `consistency_point_at`, default `verification_state='unverified'`, `last_verified_restore_at=null`, `retained_until >= created_at + 30 days`, readable Postgres and object-store restore artifacts or anchors, and matching persisted integrity proofs; a deployment-local operator can determine structured metadata for the most recent successful retained `backup_set`, including `backup_set_id`, `consistency_point_at`, `created_at`, `retained_until`, `verification_state`, `last_verified_restore_at`, `postgres_restore_anchor`, and `object_store_restore_anchor`; `verification_state` uses only `unverified`, `verified`, or `failed`; `last_verified_restore_at` is `null` only while `verification_state='unverified'`; the latest successful retained `backup_set` has `consistency_point_at` no older than 24 hours; each successful retained `backup_set` shows `retained_until >= created_at + 30 days`; a metadata row is not represented as successful unless the required Postgres artifact, object-store artifact, and integrity proof are still readable from backup storage and match the persisted proofs; and a failed new backup candidate is not published as successful, does not change latest-successful-retained selection, and cannot replace, invalidate, or sort ahead of the prior successful retained backup while that prior backup still satisfies freshness, retention, artifact, and proof checks.
   - Verifies: REQ-01-572..REQ-01-573, REQ-01-596
 - **AC-399**: Restoring the latest successful retained `backup_set` into a fresh environment restores Postgres and object-store contents from that same `backup_set`, rebuilds projections, opens at least one incident normally, executes at least one built-in workbook query when incident data is present, and preserves authoritative `incident_id`, `record_id`, `row_version`, change-set count, blob hashes, and evidence/blob lifecycle consistency.
@@ -3542,7 +3605,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-572, REQ-01-578
 - **AC-402**: The public route inventory under `/api/v1/` and `/ws/v1/` exposes no backup, restore, restore-verification, or backup-inspection family; no browser, workbook, incident, common-job, HTTP, WebSocket, or session-authorized surface can create backups, inspect retained backup metadata, restore backups, or run restore verification; recovery CLI invocation is not classified as a runtime `deployment_admin` capability; and CSRF or browser-origin controls are inapplicable because the recovery CLI has no browser or HTTP surface.
   - Verifies: REQ-01-570, REQ-04-106
-- **AC-428**: Operator recovery conformance evidence maps the implementation-owned executable or wrapper to exactly the five logical commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`; proves `operator backup create` follows the Core 01 admission/publication algorithm, acquires the recovery-operation exclusion boundary, and maps Postgres artifact failure, object-store artifact failure, integrity-proof failure, artifact-readback failure, attestation-write failure, publication failure, journal-write failure, and timeout to the closed operator result and error vocabulary; proves failed `backup_create` results before candidate allocation emit `backup_set_id=null` and `consistency_point_at=null`; proves failed `backup_create` results after candidate allocation identify any allocated candidate only as diagnostic state and never make it selectable for restore, inspection, restore verification, or latest-successful-retained backup selection; proves `--output` omission defaults to `json` and any non-`json` value fails; proves stdout emits exactly one `cartulary.operator_recovery_result.v1` JSON object followed by LF with no extra stdout bytes; proves omitted `--progress` emits no progress records and `--progress=jsonl` emits only `cartulary.operator_recovery_progress.v1` JSONL records on stderr with operation-closed phase tokens; proves timeout defaults, allowed ranges, per-verification `restore_verify_due` behavior, `operation_timed_out`, and exit codes `0`, `2`, `3`, and `4`; proves required `--target-config-file` handling, absolute-path validation, and `restore_latest` `--confirm-backup-set-id` equality against the selected latest retained backup; proves invalid invocation, unknown flags, interactive confirmation, operator-supplied timestamp restore, unsupported backup selectors, and any operator-supplied backup scheduler flag fail closed with the required operator error codes and reason codes; proves `restore_verify_due` orders due backups by `consistency_point_at ASC, backup_set_id ASC` and returns deterministic `no_op` output when none are due; proves restore-target preflight rejects shared database bindings, shared object-store bindings, non-fresh target database or object namespace, target listeners serving traffic, missing or invalid target markers, missing recovery keys, missing artifacts, and failed integrity proofs before target mutation; proves timed-out restore targets remain not-ready and require reinitialization; proves admitted mutating recovery operations append encrypted operator recovery journal records; proves a writable database receives the safe administrative-audit summary; and proves outputs, progress, logs, journal records, and audit summaries omit credentials, secret references, raw DSNs, endpoint hosts, bucket names, object keys, raw storage paths, recovery keys, and incident content.
+- **AC-428**: Operator recovery conformance evidence maps the implementation-owned executable or wrapper to exactly the seven logical commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, `operator restore-verify due`, `operator backup export latest`, and `operator restore bundle`; proves `operator backup create` follows the Core 01 admission/publication algorithm, acquires the recovery-operation exclusion boundary, and maps Postgres artifact failure, object-store artifact failure, integrity-proof failure, artifact-readback failure, attestation-write failure, publication failure, journal-write failure, and timeout to the closed operator result and error vocabulary; proves failed `backup_create` results before candidate allocation emit `backup_set_id=null` and `consistency_point_at=null`; proves failed `backup_create` results after candidate allocation identify any allocated candidate only as diagnostic state and never make it selectable for restore, inspection, restore verification, or latest-successful-retained backup selection; proves `--output` omission defaults to `json` and any non-`json` value fails; proves stdout emits exactly one `cartulary.operator_recovery_result.v2` JSON object followed by LF with no extra stdout bytes; proves omitted `--progress` emits no progress records and `--progress=jsonl` emits only `cartulary.operator_recovery_progress.v2` JSONL records on stderr with operation-closed phase tokens; proves timeout defaults, allowed ranges, per-verification `restore_verify_due` behavior, `operation_timed_out`, and exit codes `0`, `2`, `3`, and `4`; proves required `--target-config-file` handling, absolute-path validation, and `restore_latest` `--confirm-backup-set-id` equality against the selected latest retained backup; proves invalid invocation, unknown flags, interactive confirmation, operator-supplied timestamp restore, unsupported backup selectors, and any operator-supplied backup scheduler flag fail closed with the required operator error codes and reason codes; proves `restore_verify_due` orders due backups by `consistency_point_at ASC, backup_set_id ASC` and returns deterministic `no_op` output when none are due; proves restore-target preflight rejects shared database bindings, shared object-store bindings, non-fresh target database or object namespace, target listeners serving traffic, invalid or unissuable target markers, missing recovery keys, missing artifacts, and failed integrity proofs before target mutation; proves timed-out restore targets remain not-ready and require reinitialization; proves admitted mutating recovery operations append encrypted operator recovery journal records; proves a writable database receives the safe administrative-audit summary; and proves outputs, progress, logs, journal records, and audit summaries omit credentials, secret references, raw DSNs, endpoint hosts, bucket names, object keys, raw storage paths, recovery keys, and incident content.
   - Verifies: REQ-01-593..REQ-01-595, REQ-01-596, REQ-04-106, REQ-04-113
 - **AC-535**: Collaboration requeue conformance maps exactly one implementation-owned command to `operator collaboration requeue`; proves the strict long-flag grammar, canonical non-zero UUID rule, literal absolute config path rule, config discovery precedence, timeout default/range, help-only exception, exact v2 member set/order/LF, closed code/reason/exit registry, caller-cancelled versus timeout behavior, and post-commit delivery exception; proves no v1 or parser alias remains; locks and validates the quarantined cursor and every pending intent; rejects an unrepaired payload without mutation; resets only the declared retry/quarantine fields; preserves payload/event/dispatch/sequencing identity; appends one safe raw non-public operator journal row atomically; rolls back all effects on journal or transaction failure; reports commit failure as outcome unknown; permits exactly one concurrent winner; makes a second invocation reject; closes all resources; and exposes no public route, browser, workbook, WebSocket, job, incident action, public audit projection, secret, raw DSN, endpoint, SQL, constraint, payload, record content, object key, storage path, or upstream error text.
   - Verifies: REQ-00-068, REQ-01-655, REQ-03-307, REQ-04-151

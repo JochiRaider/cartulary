@@ -404,6 +404,12 @@
       "filename": "00067_application_crypto_format_privileges.sql",
       "sha256": "fef14a51a3772a811f0c82e099ae6b4a8100acd3708621d09a00fd35d164b6b4",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 68,
+      "filename": "00068_recovery_transfer_operations.sql",
+      "sha256": "45a4e0e4c11912cda595430a31ab909b52e585e59f9e84158748ffb81a33fc16",
+      "historical_phase_shaped": false
     }
   ]
 }

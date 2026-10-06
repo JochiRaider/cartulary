@@ -49,7 +49,12 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 		executor.transport.stderr,
 		executor.now,
 		application.Service{
-			LoadDeployment: executor.loadDeployment,
+			NewTransferDirectory:  recoveryassembly.NewTransferDirectory,
+			OpenTransferDirectory: recoveryassembly.OpenTransferDirectory,
+			OpenPortableJournal:   recoveryassembly.OpenPortableJournal,
+			LoadRecoveryKey:       func() (recovery.RecoveryEncryptionKey, error) { return recovery.LoadRecoveryEncryptionKey(nil) },
+			ReleaseIdentity:       recoveryassembly.OperatorReleaseIdentity,
+			LoadDeployment:        executor.loadDeployment,
 			ReadTargetMarker: func(bindingKind string, rootPath string) (application.TargetMarkerMaterial, error) {
 				if bindingKind != "filesystem_root" {
 					return application.TargetMarkerMaterial{}, application.ErrTargetMarkerRequiresFilesystemStorage
@@ -67,6 +72,14 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 					MarkerBody:     markerBody,
 					GenerationBody: generationBody,
 				}, err
+			},
+			WriteTargetMarker: func(ctx context.Context, rootPath string, previous, next application.TargetMarkerMaterial) error {
+				storage, err := recoveryassembly.NewFilesystemStorage(rootPath)
+				if err != nil {
+					return err
+				}
+				defer storage.Close()
+				return storage.WriteTargetMarker(ctx, previous.MarkerBody, previous.GenerationBody, next.MarkerBody, next.GenerationBody)
 			},
 			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 				return projectionassembly.NewRecoveryServices(db)

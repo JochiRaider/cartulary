@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	resultSchemaID   = "cartulary.operator_recovery_result.v1"
-	progressSchemaID = "cartulary.operator_recovery_progress.v1"
+	resultSchemaID   = "cartulary.operator_recovery_result.v2"
+	progressSchemaID = "cartulary.operator_recovery_progress.v2"
 )
 
 type result struct {
@@ -57,17 +57,20 @@ type progressRecord struct {
 }
 
 type command struct {
-	OperationID        string
-	Handled            bool
-	Invalid            bool
-	Operation          string
-	SourceConfigPath   string
-	TargetConfigPath   string
-	ConfirmBackupSetID string
-	Output             string
-	Progress           string
-	TimeoutSeconds     int
-	Err                *errorPayload
+	BundleDirectory        string
+	AcknowledgeStaleBackup string
+	OutputDirectory        string
+	OperationID            string
+	Handled                bool
+	Invalid                bool
+	Operation              string
+	SourceConfigPath       string
+	TargetConfigPath       string
+	ConfirmBackupSetID     string
+	Output                 string
+	Progress               string
+	TimeoutSeconds         int
+	Err                    *errorPayload
 }
 
 type runner struct {
@@ -158,6 +161,10 @@ func (runner runner) run(ctx context.Context, args []string) (bool, int) {
 			Error:              errPayload,
 		}, exitCode)
 	}
+	if outcome.StartedAt != nil && outcome.CompletedAt != nil {
+		startedAt = outcome.StartedAt.UTC()
+		completedAt = outcome.CompletedAt.UTC()
+	}
 	resultCode := string(outcome.Status)
 	if resultCode == "" {
 		resultCode = "succeeded"
@@ -190,10 +197,14 @@ func parseCommand(args []string) command {
 		}
 	}
 	switch {
+	case args[0] == "backup" && args[1] == "export" && len(args) >= 3 && args[2] == "latest":
+		return parseFlags("backup_export_latest", args[3:], false, false)
 	case args[0] == "backup" && args[1] == "inspect" && len(args) >= 3 && args[2] == "latest":
 		return parseFlags("backup_inspect_latest", args[3:], false, false)
 	case args[0] == "backup" && args[1] == "create":
 		return parseFlags("backup_create", args[2:], false, false)
+	case args[0] == "restore" && args[1] == "bundle":
+		return parseFlags("restore_bundle", args[2:], true, true)
 	case args[0] == "restore" && args[1] == "latest":
 		return parseFlags("restore_latest", args[2:], true, true)
 	case args[0] == "restore-verify" && args[1] == "latest":
@@ -210,6 +221,9 @@ func parseCommand(args []string) command {
 func parseFlags(operation string, args []string, requiresTarget bool, requiresConfirm bool) command {
 	flags := flag.NewFlagSet("operator "+operation, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
+	bundleDirectory := flags.String("bundle-directory", "", "absolute encrypted bundle directory")
+	acknowledgeStaleBackup := flags.String("acknowledge-stale-backup", "", "exact stale backup UUID")
+	outputDirectory := flags.String("output-directory", "", "absolute export directory")
 	output := flags.String("output", "json", "output mode")
 	progress := flags.String("progress", "", "progress mode")
 	timeoutRaw := flags.String("timeout-seconds", "", "operation timeout")
@@ -233,6 +247,32 @@ func parseFlags(operation string, args []string, requiresTarget bool, requiresCo
 	if errPayload != nil {
 		return command{Handled: true, Invalid: true, Operation: operation, Err: errPayload}
 	}
+	if operation == "backup_export_latest" {
+		if *outputDirectory == "" {
+			return invalidCommand(operation, "missing_required_flag", "output-directory is required")
+		}
+		if validateTargetConfigPath(*outputDirectory) != nil {
+			return invalidCommand(operation, "invalid_flag_value", "output-directory must be a literal absolute path")
+		}
+	} else if *outputDirectory != "" {
+		return invalidCommand(operation, "invalid_flag_value", "output-directory is only valid for export")
+	}
+	if operation == "restore_bundle" {
+		if *bundleDirectory == "" {
+			return invalidCommand(operation, "missing_required_flag", "bundle-directory is required")
+		}
+		if validateTargetConfigPath(*bundleDirectory) != nil || *sourceConfig != "" {
+			return invalidCommand(operation, "invalid_flag_value", "portable restore requires a literal bundle path and target configuration only")
+		}
+		if *acknowledgeStaleBackup != "" {
+			id, err := uuid.Parse(*acknowledgeStaleBackup)
+			if err != nil || id == uuid.Nil || id.String() != *acknowledgeStaleBackup {
+				return invalidCommand(operation, "invalid_flag_value", "acknowledge-stale-backup must be an exact canonical UUID")
+			}
+		}
+	} else if *bundleDirectory != "" || *acknowledgeStaleBackup != "" {
+		return invalidCommand(operation, "invalid_flag_value", "bundle flags require restore bundle")
+	}
 	target := strings.TrimSpace(*targetConfig)
 	if requiresTarget {
 		if target == "" {
@@ -247,7 +287,7 @@ func parseFlags(operation string, args []string, requiresTarget bool, requiresCo
 		if confirm == "" {
 			return invalidCommand(operation, "missing_required_flag", "confirm-backup-set-id is required")
 		}
-		if _, err := uuid.Parse(confirm); err != nil {
+		if id, err := uuid.Parse(confirm); err != nil || id == uuid.Nil || id.String() != confirm {
 			return invalidCommand(operation, "invalid_flag_value", "confirm-backup-set-id must be an exact UUID")
 		}
 	}
@@ -259,15 +299,18 @@ func parseFlags(operation string, args []string, requiresTarget bool, requiresCo
 		}
 	}
 	return command{
-		Handled:            true,
-		Operation:          operation,
-		OperationID:        operationID,
-		SourceConfigPath:   strings.TrimSpace(*sourceConfig),
-		TargetConfigPath:   target,
-		ConfirmBackupSetID: confirm,
-		Output:             *output,
-		Progress:           *progress,
-		TimeoutSeconds:     timeout,
+		OutputDirectory:        *outputDirectory,
+		BundleDirectory:        *bundleDirectory,
+		AcknowledgeStaleBackup: *acknowledgeStaleBackup,
+		Handled:                true,
+		Operation:              operation,
+		OperationID:            operationID,
+		SourceConfigPath:       strings.TrimSpace(*sourceConfig),
+		TargetConfigPath:       target,
+		ConfirmBackupSetID:     confirm,
+		Output:                 *output,
+		Progress:               *progress,
+		TimeoutSeconds:         timeout,
 	}
 }
 
@@ -293,7 +336,7 @@ func timeoutBounds(operation string) (int, int, int) {
 	switch operation {
 	case "backup_inspect_latest":
 		return 30, 1, 3600
-	case "backup_create", "restore_latest", "restore_verify_latest", "restore_verify_due":
+	case "restore_bundle", "backup_export_latest", "backup_create", "restore_latest", "restore_verify_latest", "restore_verify_due":
 		return 14400, 60, 86400
 	default:
 		return 30, 1, 3600
@@ -360,6 +403,14 @@ func (runner runner) runOperation(ctx context.Context, operationID uuid.UUID, pa
 		)
 	}
 	switch parsed.Operation {
+	case "restore_bundle":
+		acknowledged := uuid.Nil
+		if parsed.AcknowledgeStaleBackup != "" {
+			acknowledged = uuid.MustParse(parsed.AcknowledgeStaleBackup)
+		}
+		return runner.facade.RestoreBundle(ctx, application.RestoreBundleRequest{OperationID: operationID, BundleDirectory: parsed.BundleDirectory, TargetConfigPath: parsed.TargetConfigPath, ConfirmedBackupSet: uuid.MustParse(parsed.ConfirmBackupSetID), AcknowledgedStaleBackup: acknowledged}, progress)
+	case "backup_export_latest":
+		return runner.facade.BackupExportLatest(ctx, application.BackupExportLatestRequest{OperationID: operationID, SourceConfigPath: parsed.SourceConfigPath, OutputDirectory: parsed.OutputDirectory}, progress)
 	case "backup_inspect_latest":
 		return runner.facade.BackupInspectLatest(ctx, application.BackupInspectLatestRequest{
 			OperationID:      operationID,
@@ -427,8 +478,20 @@ func FailureEvidenceFields(kind application.FailureKind) (string, string) {
 
 func failureMappingForKind(kind application.FailureKind) (failureMapping, bool) {
 	switch kind {
+	case application.FailureTransferInvalid:
+		return failureMapping{"backup_integrity_failed", "transfer_invalid", "invalid encrypted transfer bundle", 3}, true
+	case application.FailureTransferReleaseMismatch:
+		return failureMapping{"backup_integrity_failed", "release_mismatch", "matching release is required", 3}, true
+	case application.FailureTransferCopy:
+		return failureMapping{"backup_export_failed", "transfer_copy_failed", "encrypted transfer copy failed", 4}, true
+	case application.FailureTransferPublication:
+		return failureMapping{"backup_export_failed", "transfer_publication_failed", "encrypted transfer publication failed", 4}, true
+	case application.FailureExportJournalWrite:
+		return failureMapping{"backup_export_failed", "journal_write_failed", "transfer evidence publication failed", 4}, true
+	case application.FailureStaleBackupUnacknowledged:
+		return failureMapping{"invalid_operator_request", "stale_backup_unacknowledged", "stale backup requires acknowledgement", 2}, true
 	case application.FailureConfirmationMismatch:
-		return failureMapping{"invalid_operator_request", "confirmation_mismatch", "confirmed backup_set_id does not match latest retained backup", 2}, true
+		return failureMapping{"invalid_operator_request", "confirmation_mismatch", "confirmed backup_set_id does not match selected backup", 2}, true
 	case application.FailureLocalConfigInvalid:
 		return failureMapping{"invalid_operator_request", "local_config_invalid", "local configuration is invalid", 2}, true
 	case application.FailureSecretReferenceMissing:
@@ -512,11 +575,13 @@ func failureMappingForKind(kind application.FailureKind) (failureMapping, bool) 
 
 func fallbackFailureKind(operation string) application.FailureKind {
 	switch operation {
+	case "backup_export_latest":
+		return application.FailureTransferCopy
 	case "backup_inspect_latest":
 		return application.FailureArtifactMissing
 	case "backup_create":
 		return application.FailureBackupPublication
-	case "restore_latest":
+	case "restore_bundle", "restore_latest":
 		return application.FailureRestoreInvariantCheck
 	case "restore_verify_latest", "restore_verify_due":
 		return application.FailureVerificationInvariantCheck
@@ -554,7 +619,7 @@ func wireResultFields(result application.Result) (*string, *time.Time, []artifac
 }
 
 func sortedArtifactRefs(refs []artifactRef) []artifactRef {
-	if refs == nil {
+	if len(refs) == 0 {
 		return []artifactRef{}
 	}
 	out := append([]artifactRef(nil), refs...)

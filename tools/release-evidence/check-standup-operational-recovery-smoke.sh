@@ -42,7 +42,6 @@ docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not ava
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-standup-recovery-smoke.XXXXXX")"
 project="cartularymvprecoverysmk$(date +%s)$$"
-image="cartulary/mvp-recovery-smoke:${project}"
 port="$(pick_port)" || fail "no free loopback port found for operational recovery smoke"
 public_origin="https://127.0.0.1:${port}"
 compose_file="$work_dir/docker-compose.yml"
@@ -72,17 +71,22 @@ cleanup() {
   for artifact in "$capture_json" "$latest_json" "$restore_verify_json" "$route_json" "$summary_json"; do
     if [[ -f "$artifact" ]] && ! cp "$artifact" "$artifact_dir/"; then status=1; fi
   done
-  local helper_image
-  helper_image="$(sed -n 's/^    image: \(docker.io\/library\/postgres:.*\)$/\1/p' "$PACKAGE_DIR/docker-compose.yml")"
-  if [[ -z "$helper_image" ]] || ! cleanup_package_workspace "$project" "$work_dir" "$helper_image" "$artifact_dir/workspace-cleanup.json"; then status=1; fi
-  if ! cleanup_package_resources "$project" "$image" "$artifact_dir/cleanup.json"; then status=1; fi
+  local helper_image="${package_postgres_image:-}"
+  if [[ -z "$helper_image" ]] && rmdir -- "$work_dir"; then
+    printf '{"cleanup":"passed","empty_preinstallation_workspace":true}\n' >"$artifact_dir/workspace-cleanup.json"
+  elif [[ -z "$helper_image" ]] || ! cleanup_package_workspace "$project" "$work_dir" "$helper_image" "$artifact_dir/workspace-cleanup.json"; then status=1; fi
+  if ! cleanup_package_resources "${project}destination" "" "$artifact_dir/destination-cleanup.json"; then status=1; fi
+  if ! cleanup_package_resources "$project" "" "$artifact_dir/cleanup.json"; then status=1; fi
   exit "$status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-sed "s#context: ../..#context: ${ROOT_DIR}#g" "$PACKAGE_DIR/docker-compose.yml" >"$compose_file"
+# shellcheck source=tools/release-evidence/consume-package.sh
+source "$ROOT_DIR/tools/release-evidence/consume-package.sh"
+consume_package_release "$ROOT_DIR" "$work_dir" "$artifact_dir"
+compose_file="$PACKAGE_DIR/docker-compose.yml"
 cp "$PACKAGE_DIR/config.toml.example" "$work_dir/config.toml"
 # shellcheck source=tools/release-evidence/package-fixture-tls.sh
 source "$ROOT_DIR/tools/release-evidence/package-fixture-tls.sh"
@@ -90,18 +94,14 @@ provision_package_fixture_tls "$ROOT_DIR" "$PACKAGE_DIR" "$work_dir"
 cp "$PACKAGE_DIR/bootstrap-admin.json.example" "$work_dir/bootstrap-admin.json"
 cp "$PACKAGE_DIR/revisions-conflict-token-key-ring.json.example" "$work_dir/revisions-conflict-token-key-ring.json"
 cp "$PACKAGE_DIR/restore-verification-target.toml.example" "$work_dir/restore-verification-target.toml"
-cp "$PACKAGE_DIR/restore-verification-target.marker.json.example" "$work_dir/restore-verification-target.marker.json.example"
 chmod 0644 \
   "$work_dir/config.toml" \
   "$work_dir/bootstrap-admin.json" \
   "$work_dir/revisions-conflict-token-key-ring.json" \
-  "$work_dir/restore-verification-target.toml" \
-  "$work_dir/restore-verification-target.marker.json.example"
-mkdir -p "$work_dir/runtime/restore-verification-target"
-chmod 0777 "$work_dir/runtime/restore-verification-target"
+  "$work_dir/restore-verification-target.toml"
 
 cat >"$work_dir/.env" <<EOF
-CARTULARY_IMAGE=${image}
+CARTULARY_MVP_COMPOSE_PROJECT_NAME=${project}
 CARTULARY_HTTP_PORT=${port}
 CARTULARY_PUBLIC_ORIGIN=${public_origin}
 
@@ -125,8 +125,8 @@ EOF
 
 "${NODE_BIN:-node}" "$ROOT_DIR/tools/release-evidence/package-platform.mjs" prepare "$work_dir" "$artifact_dir" "$project" "$public_origin"
 
-compose build app >/dev/null
-compose up -d app >/dev/null || {
+CARTULARY_MVP_DIR="$work_dir" CARTULARY_MVP_ENV_FILE="$work_dir/.env" \
+  "$PACKAGE_DIR/scripts/package.sh" start >"$work_dir/startup.log" || {
   compose logs --no-color --tail 80 postgres seaweedfs-s3 migrate object-store-init >&2 || true
   fail "package initialization failed"
 }
@@ -158,10 +158,7 @@ wait_for_http_status "/readyz" "200" "$ready_body" || fail "interrupted package 
 
 CARTULARY_MVP_DIR="$work_dir" \
   CARTULARY_MVP_ENV_FILE="$work_dir/.env" \
-  CARTULARY_MVP_COMPOSE_FILE="$compose_file" \
-  CARTULARY_MVP_COMPOSE_PROJECT_NAME="$project" \
-  CARTULARY_SOURCE_CONFIG="$work_dir/config.toml" \
-  "$PACKAGE_DIR/scripts/backup-capture.sh" >"$capture_json"
+  "$PACKAGE_DIR/scripts/package.sh" backup-create >"$capture_json"
 
 compose run --rm --no-deps \
   --entrypoint /usr/local/bin/cartulary-operator \
@@ -178,7 +175,7 @@ function fail(message) {
   process.exit(1);
 }
 function requireRecoveryResult(payload, operation) {
-  if (payload.schema_id !== "cartulary.operator_recovery_result.v1") {
+  if (payload.schema_id !== "cartulary.operator_recovery_result.v2") {
     fail(`unexpected ${operation} schema_id ${payload.schema_id}`);
   }
   if (payload.operation !== operation || payload.result !== "succeeded" || payload.error !== null) {
@@ -217,12 +214,23 @@ EOF
 
 CARTULARY_MVP_DIR="$work_dir" \
   CARTULARY_MVP_ENV_FILE="$work_dir/.env" \
-  CARTULARY_MVP_COMPOSE_FILE="$compose_file" \
-  CARTULARY_MVP_COMPOSE_PROJECT_NAME="$project" \
-  CARTULARY_SOURCE_CONFIG="$work_dir/config.toml" \
-  CARTULARY_RESTORE_VERIFY_TARGET_CONFIG="$work_dir/restore-verification-target.toml" \
-  CARTULARY_RESTORE_VERIFY_TARGET_ROOT="$work_dir/runtime/restore-verification-target" \
-  "$PACKAGE_DIR/scripts/restore-verify-due.sh" >"$restore_verify_json"
+  "$PACKAGE_DIR/scripts/package.sh" restore-verify-due >"$restore_verify_json"
+
+# Repeated no-due maintenance must preserve the owner-issued proof exactly.
+proof_digest() {
+  compose run --rm --no-deps --user 0 \
+    --volume "$work_dir/runtime/restore-verification-target:/target:ro" \
+    --entrypoint /bin/sh postgres -c 'sha256sum /target/backups/restore-target-marker.json /target/backups/restore-target-generation'
+}
+proof_before="$(proof_digest)"
+CARTULARY_MVP_DIR="$work_dir" CARTULARY_MVP_ENV_FILE="$work_dir/.env" \
+  "$PACKAGE_DIR/scripts/package.sh" restore-verify-due >"$work_dir/repeated-verification.json"
+[[ "$proof_before" == "$(proof_digest)" ]] || fail "no-op verification changed target proof"
+"$NODE" - "$work_dir/repeated-verification.json" <<'EOF'
+const fs = require("node:fs");
+const result = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+if (result.result !== "no_op") throw new Error("repeated due verification was not a no-op");
+EOF
 
 "$NODE" - "$restore_verify_json" <<'EOF'
 const fs = require("node:fs");
@@ -231,7 +239,7 @@ function fail(message) {
   console.error(message);
   process.exit(1);
 }
-if (due.schema_id !== "cartulary.operator_recovery_result.v1") {
+if (due.schema_id !== "cartulary.operator_recovery_result.v2") {
   fail(`unexpected due schema_id ${due.schema_id}`);
 }
 if (due.operation !== "restore_verify_due" || due.result !== "succeeded" || due.error !== null) {
@@ -297,6 +305,8 @@ function request(path, headers = {}) {
   process.exit(1);
 });
 EOF
+
+"$NODE" "$ROOT_DIR/tools/release-evidence/portable-package-recovery.mjs" "$work_dir" "$project" "$public_origin" "$artifact_dir"
 
 "$NODE" - "$capture_json" "$latest_json" "$restore_verify_json" "$route_json" "$summary_json" <<'EOF'
 const fs = require("node:fs");

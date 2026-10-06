@@ -38,6 +38,11 @@ export const shellTopBarControlsStyle = {
 // Only the local workbook controls scroll below the supported minimum width.
 // Global account navigation has a separate, stable area in the top bar.
 export const shellTopBarUnsupportedControlsStyle = {
+  // Reserve the outline and its offset at both scroll edges. Native focus reveal
+  // must have real scrollable space beyond the first and last control.
+  boxSizing: "border-box" as const,
+  paddingInline: "var(--ct-spacing-xs)",
+  scrollPaddingInline: "var(--ct-spacing-xs)",
   display: "flex" as const,
   alignItems: "center",
   gap: "0.55rem",

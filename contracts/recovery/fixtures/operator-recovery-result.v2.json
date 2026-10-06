@@ -1,0 +1,19 @@
+{
+  "schema_id": "cartulary.operator_recovery_result.v2",
+  "operation_id": "00000000-0000-0000-0000-000000000203",
+  "operation": "backup_export_latest",
+  "result": "succeeded",
+  "started_at": "2026-08-16T12:00:00Z",
+  "completed_at": "2026-08-16T12:00:00Z",
+  "backup_set_id": "00000000-0000-0000-0000-000000000203",
+  "consistency_point_at": "2026-08-16T12:00:00Z",
+  "artifact_refs": [
+    {
+      "kind": "recovery_transfer",
+      "schema_id": "cartulary.recovery_transfer_manifest.v1",
+      "ref_id": "recovery_transfer:00000000-0000-0000-0000-000000000203",
+      "backup_set_id": "00000000-0000-0000-0000-000000000203"
+    }
+  ],
+  "error": null
+}

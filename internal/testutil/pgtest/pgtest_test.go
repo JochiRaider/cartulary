@@ -18,7 +18,6 @@ import (
 
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -884,15 +883,6 @@ func TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase(t *testing.T
 }
 
 func TestMigrationDatabaseTargetedOperationValidation(t *testing.T) {
-	hash, err := pgschema.Hash()
-	if err != nil {
-		t.Fatalf("hash canonical migration catalog: %v", err)
-	}
-	const wantHash = "5111d8c8b6d5d70fdba0e4c664bb980daadccfa51b105976096cf02cf2c20061"
-	if hash != wantHash {
-		t.Fatalf("canonical migration schema hash = %s, want %s", hash, wantHash)
-	}
-
 	oldApply := applyMigrationsThrough
 	oldRollback := rollbackMigrationsThrough
 	t.Cleanup(func() {

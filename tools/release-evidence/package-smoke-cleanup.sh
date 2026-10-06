@@ -3,7 +3,7 @@
 # and the allocation's unique image tag authorize cleanup.
 remove_package_workspace() {
   local owned_project="$1" workspace="$2" helper_image="$3"
-  [[ "$owned_project" =~ ^cartularymvpsmoke[0-9]+(destination)?$ || "$owned_project" =~ ^cartularymvprecoverysmk[0-9]+$ ]] || return 1
+  [[ "$owned_project" =~ ^cartularymvpsmoke[0-9]+(destination)?$ || "$owned_project" =~ ^cartularymvprecoverysmk[0-9]+(destination)?$ ]] || return 1
   case "$(basename "$workspace")" in cartulary-standup-package-smoke.*|cartulary-standup-recovery-smoke.*) ;; *) return 1 ;; esac
   [[ -d "$workspace" && ! -L "$workspace" ]] || return 1
   if [[ -d "$workspace" ]]; then
@@ -27,7 +27,7 @@ cleanup_package_workspace() {
 cleanup_package_resources() {
   local owned_project="$1" owned_image="$2" evidence="$3"
   local errors=0 remaining=0 kind ids id
-  [[ "$owned_project" =~ ^cartularymvpsmoke[0-9]+(destination)?$ || "$owned_project" =~ ^cartularymvprecoverysmk[0-9]+$ ]] || return 1
+  [[ "$owned_project" =~ ^cartularymvpsmoke[0-9]+(destination)?$ || "$owned_project" =~ ^cartularymvprecoverysmk[0-9]+(destination)?$ ]] || return 1
   if [[ -n "$owned_image" && "${owned_image##*:}" != "$owned_project" ]]; then return 1; fi
   for kind in container volume network; do
     local listing=(docker "$kind" ls -q --filter "label=com.docker.compose.project=${owned_project}")

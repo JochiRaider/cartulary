@@ -1084,40 +1084,9 @@ func (service *VNextRestoreService) Restore(
 	if err := service.validatePostgresArtifact(integrity, generation, postgresArtifact, proofs); err != nil {
 		return err
 	}
-	objectBody, err := service.readJSONArtifact(ctx, streamProof(objectManifestProof), 1<<30)
+	objectManifest, objectProofs, err := service.readObjectClosure(ctx, integrity, generation, objectManifestProof)
 	if err != nil {
 		return err
-	}
-	var objectManifest VNextObjectStoreBackupManifest
-	if err := strictDecodeJSON(objectBody, &objectManifest); err != nil {
-		return fmt.Errorf("%w: decode object manifest: %v", ErrVNextBackup, err)
-	}
-	if err := service.validateObjectManifest(integrity, generation, objectManifest); err != nil {
-		return err
-	}
-	objectProofs := make(map[string]BackupArtifactStreamProof, len(objectManifest.Objects))
-	// Object envelopes are not top-level integrity artifacts, so restore needs
-	// their exact envelope digests. V2 object entries deliberately omit that
-	// field; resolve it through the storage proof resolver capability.
-	resolver, ok := service.storage.(VNextObjectProofResolver)
-	if len(objectManifest.Objects) != 0 && !ok {
-		return fmt.Errorf("%w: object proof resolver is required", ErrVNextBackup)
-	}
-	for _, object := range objectManifest.Objects {
-		proof, err := resolver.ResolveObjectProof(ctx, object)
-		if err != nil {
-			return err
-		}
-		if proof.LogicalRef != object.ArtifactRef ||
-			proof.PlaintextBytes != object.PlaintextBytes ||
-			proof.PlaintextSHA256 != object.PlaintextSHA256 ||
-			proof.ContentType != object.ContentType {
-			return fmt.Errorf("%w: resolved object proof mismatch", ErrVNextBackup)
-		}
-		if err := service.storage.ReadArtifactStream(ctx, proof, io.Discard); err != nil {
-			return fmt.Errorf("preflight vNext object %s: %w", object.ArtifactRef, err)
-		}
-		objectProofs[object.ArtifactRef] = proof
 	}
 
 	return target.WithAtomicRestore(ctx, generation.stateCatalog, func(mutation VNextRestoreMutation) error {
@@ -1527,17 +1496,10 @@ func selectVNextBackupSetGeneration(
 		objectProof.PlaintextSHA256 != backupSet.ObjectStoreArtifactSHA256 {
 		return nil, fmt.Errorf("%w: object metadata proof mismatch", ErrVNextBackup)
 	}
-	objectBody, err := restore.readJSONArtifact(ctx, streamProof(objectProof), 1<<30)
-	if err != nil {
+	if _, _, err := restore.readObjectClosure(ctx, integrity, generation, objectProof); err != nil {
 		return nil, err
 	}
-	var objectManifest VNextObjectStoreBackupManifest
-	if err := strictDecodeJSON(objectBody, &objectManifest); err != nil {
-		return nil, fmt.Errorf("%w: decode object manifest: %v", ErrVNextBackup, err)
-	}
-	if err := restore.validateObjectManifest(integrity, generation, objectManifest); err != nil {
-		return nil, err
-	}
+
 	return generation, nil
 }
 
@@ -1615,4 +1577,46 @@ func readVNextBackupSetGeneration(
 	return vNextBackupGenerationSelection{
 		restore: restore, integrity: integrity, generation: generation, proofs: proofs,
 	}, nil
+}
+
+// readObjectClosure is the single authenticated traversal of private object
+// manifests used by restore, durability admission and portable distribution.
+func (service *VNextRestoreService) readObjectClosure(ctx context.Context, integrity VNextBackupIntegrityManifest, generation *vNextRecoveryGeneration, objectManifestProof VNextArtifactProof) (VNextObjectStoreBackupManifest, map[string]BackupArtifactStreamProof, error) {
+	objectBody, err := service.readJSONArtifact(ctx, streamProof(objectManifestProof), 1<<30)
+	if err != nil {
+		return VNextObjectStoreBackupManifest{}, nil, err
+	}
+	var objectManifest VNextObjectStoreBackupManifest
+	if err := strictDecodeJSON(objectBody, &objectManifest); err != nil {
+		return VNextObjectStoreBackupManifest{}, nil, fmt.Errorf("%w: decode object manifest: %v", ErrVNextBackup, err)
+	}
+	if err := service.validateObjectManifest(integrity, generation, objectManifest); err != nil {
+		return VNextObjectStoreBackupManifest{}, nil, err
+	}
+	objectProofs := make(map[string]BackupArtifactStreamProof, len(objectManifest.Objects))
+	// Object envelopes are not top-level integrity artifacts, so restore needs
+	// their exact envelope digests. V2 object entries deliberately omit that
+	// field; resolve it through the storage proof resolver capability.
+	resolver, ok := service.storage.(VNextObjectProofResolver)
+	if len(objectManifest.Objects) != 0 && !ok {
+		return VNextObjectStoreBackupManifest{}, nil, fmt.Errorf("%w: object proof resolver is required", ErrVNextBackup)
+	}
+	for _, object := range objectManifest.Objects {
+		proof, err := resolver.ResolveObjectProof(ctx, object)
+		if err != nil {
+			return VNextObjectStoreBackupManifest{}, nil, err
+		}
+		if proof.LogicalRef != object.ArtifactRef ||
+			proof.PlaintextBytes != object.PlaintextBytes ||
+			proof.PlaintextSHA256 != object.PlaintextSHA256 ||
+			proof.ContentType != object.ContentType {
+			return VNextObjectStoreBackupManifest{}, nil, fmt.Errorf("%w: resolved object proof mismatch", ErrVNextBackup)
+		}
+		if err := service.storage.ReadArtifactStream(ctx, proof, io.Discard); err != nil {
+			return VNextObjectStoreBackupManifest{}, nil, fmt.Errorf("preflight vNext object %s: %w", object.ArtifactRef, err)
+		}
+		objectProofs[object.ArtifactRef] = proof
+	}
+
+	return objectManifest, objectProofs, nil
 }

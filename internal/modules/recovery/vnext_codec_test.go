@@ -29,24 +29,19 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	body := bytes.Repeat([]byte("owner-object\n"), 1024)
 	digest := sha256.Sum256(body)
 	providers := make([]recovery.VNextObjectInventoryProvider, 0)
-	for index, family := range stateCatalog.Document().ObjectFamilies {
+	for _, family := range stateCatalog.Document().ObjectFamilies {
 		family := family
 		inventory := func(context.Context, recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
-			return []recovery.VNextObjectMember{}, nil
-		}
-		if index == 0 {
-			inventory = func(context.Context, recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
-				return []recovery.VNextObjectMember{{
-					LogicalObjectID: "fixture-object",
-					StorageKey:      "owners/fixture-object",
-					ContentType:     "application/octet-stream",
-					PlaintextBytes:  int64(len(body)),
-					PlaintextSHA256: hex.EncodeToString(digest[:]),
-					Open: func(context.Context) (io.ReadCloser, error) {
-						return io.NopCloser(bytes.NewReader(body)), nil
-					},
-				}}, nil
-			}
+			return []recovery.VNextObjectMember{{
+				LogicalObjectID: "fixture-object",
+				StorageKey:      "owners/" + family.ObjectFamilyID + "/fixture-object",
+				ContentType:     "application/octet-stream",
+				PlaintextBytes:  int64(len(body)),
+				PlaintextSHA256: hex.EncodeToString(digest[:]),
+				Open: func(context.Context) (io.ReadCloser, error) {
+					return io.NopCloser(bytes.NewReader(body)), nil
+				},
+			}}, nil
 		}
 		providers = append(providers, recovery.NewVNextObjectInventoryProvider(
 			family.OwnerID,
@@ -148,6 +143,8 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 		t.Fatalf("fresh backup catalog = %q; want current catalog %q", captured.IntegrityManifest.RecoveryStateCatalogSHA256, stateCatalog.DigestSHA256())
 	}
 
+	exerciseTransferClosure(t, byteStorage, key, stateCatalog, captured)
+
 	algorithmIDs := recovery.RequiredVNextRestoreAlgorithmIDs(stateCatalog)
 	algorithms, err := recovery.NewVNextRestoreAlgorithmCatalog(stateCatalog, algorithmIDs...)
 	if err != nil {
@@ -174,8 +171,10 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if got := string(target.rows[firstTable][0]); got != `{"a":"first","z":"last"}` {
 		t.Fatalf("canonical restored row = %s", got)
 	}
-	if got := target.objects["owners/fixture-object"]; !bytes.Equal(got, body) {
-		t.Fatalf("restored object differs")
+	for _, family := range stateCatalog.Document().ObjectFamilies {
+		if got := target.objects["owners/"+family.ObjectFamilyID+"/fixture-object"]; !bytes.Equal(got, body) {
+			t.Fatalf("restored owner object differs: %s", family.ObjectFamilyID)
+		}
 	}
 	if got := target.rows["network_flow_graph_views"]; len(got) != len(currentGraphRows) ||
 		string(got[0]) != string(currentGraphRows[0]) {

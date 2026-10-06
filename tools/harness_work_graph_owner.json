@@ -472,6 +472,7 @@
         "go-gosec-audit",
         "harness-contract",
         "license-report",
+        "package-inspect",
         "sbom",
         "seaweedfs-release-gate",
         "standup-operational-recovery-smoke",
@@ -546,7 +547,7 @@
     },
     "standup-operational-recovery-smoke": {
       "needs": [
-        "deployable-shape"
+        "package-release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
@@ -558,7 +559,7 @@
     },
     "standup-package-smoke": {
       "needs": [
-        "deployable-shape"
+        "package-release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
@@ -629,7 +630,7 @@
     },
     "standup-reference-pack-smoke": {
       "needs": [
-        "deployable-shape"
+        "package-release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
@@ -650,7 +651,7 @@
     },
     "credential-capacity-assessment": {
       "needs": [
-        "deployable-shape"
+        "package-release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
@@ -659,6 +660,34 @@
         "object_store",
         "postgres"
       ]
+    },
+    "package-release": {
+      "needs": [
+        "deployable-shape",
+        "syft-toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 120000,
+      "resource_profile_id": "package_qualification",
+      "service_dependencies": []
+    },
+    "package-inspect": {
+      "needs": [
+        "package-release"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 20000,
+      "resource_profile_id": "package_qualification",
+      "service_dependencies": []
+    },
+    "syft-toolchain": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     }
   },
   "evidence_estimates_ms": {

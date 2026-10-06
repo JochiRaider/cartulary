@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +21,8 @@ const requiredProjections = [
   "go-gosec-audit",
   "harness-contract",
   "license-report",
+  "package-inspect",
+  "package-release",
   "release-readiness-evidence",
   "sbom",
   "seaweedfs-release-gate",
@@ -44,6 +46,11 @@ function main() {
     // partial run or write a parallel release-evidence format.
     if (!existsSync(path.join(runRoot, "run-manifest.json"))) {
       throw new Error("release readiness marker has no canonical run manifest");
+    }
+    const producer = JSON.parse(readFileSync(path.join(runRoot,"package-release/artifacts/package.json"),"utf8"));
+    for (const consumer of ["standup-package-smoke","standup-reference-pack-smoke","standup-operational-recovery-smoke","credential-capacity-assessment"]) {
+      const receipt = JSON.parse(readFileSync(path.join(runRoot,consumer,"artifacts/package.json"),"utf8"));
+      for (const key of ["manifest_sha256","archive_sha256"]) if (receipt[key] !== producer[key]) throw new Error(`${consumer}: package identity mismatch`);
     }
     process.stdout.write("release readiness closure reached; canonical projection pending\n");
     return;

@@ -584,6 +584,34 @@ func (root *Root) RenameExclusive(source Reference, destination Reference) error
 	return nil
 }
 
+// PublishSiblingExclusive atomically publishes this admitted directory under a
+// new sibling name. The same capability remains valid for readback and cleanup.
+// Its parent must already exist; occupied destinations are never replaced.
+func (root *Root) PublishSiblingExclusive(destination Reference) error {
+	root.mu.Lock()
+	defer root.mu.Unlock()
+	if err := root.checkReady("publish-directory"); err != nil {
+		return err
+	}
+	if err := validateReference(destination.value); err != nil || strings.Contains(destination.value, "/") || validateReference(root.name) != nil {
+		return operationError("publish-directory", destination, "publication requires a sibling name", err)
+	}
+	previous := root.name
+	if err := unix.Renameat2(root.parentFD, previous, root.parentFD, destination.value, unix.RENAME_NOREPLACE); err != nil {
+		return operationError("publish-directory", destination, "exclusive directory publication failed", err)
+	}
+	root.name = destination.value
+	if err := root.checkRootIdentity(); err != nil {
+		_ = unix.Renameat2(root.parentFD, destination.value, root.parentFD, previous, unix.RENAME_NOREPLACE)
+		root.name = previous
+		return err
+	}
+	if err := unix.Fsync(root.parentFD); err != nil {
+		return operationError("publish-directory", destination, "parent synchronization failed", err)
+	}
+	return nil
+}
+
 func (root *Root) RemoveRegular(reference Reference) error {
 	return root.remove(reference, false)
 }

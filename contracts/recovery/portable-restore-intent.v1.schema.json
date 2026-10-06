@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.portable_restore_intent.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "operation_id",
+    "backup_set_id",
+    "consistency_point_at",
+    "transfer_sha256",
+    "target_generation_id",
+    "target_binding_digests",
+    "started_at"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.portable_restore_intent.v1"
+    },
+    "operation_id": {
+      "$ref": "common.v2.schema.json#/$defs/uuid"
+    },
+    "backup_set_id": {
+      "$ref": "common.v2.schema.json#/$defs/uuid"
+    },
+    "consistency_point_at": {
+      "$ref": "common.v2.schema.json#/$defs/timestamp"
+    },
+    "transfer_sha256": {
+      "$ref": "common.v2.schema.json#/$defs/sha256"
+    },
+    "target_generation_id": {
+      "$ref": "common.v2.schema.json#/$defs/uuid"
+    },
+    "target_binding_digests": {
+      "$ref": "common.v2.schema.json#/$defs/binding_digests_v3"
+    },
+    "started_at": {
+      "$ref": "common.v2.schema.json#/$defs/timestamp"
+    }
+  }
+}

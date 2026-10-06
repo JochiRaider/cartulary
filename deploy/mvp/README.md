@@ -1,69 +1,84 @@
-# Cartulary MVP On-Prem Stand-Up Package
+# Cartulary local package — Windows 11 / WSL2
 
-This package targets operator-started Windows 11 / WSL2 Ubuntu with Docker Desktop’s WSL2 backend. Native Linux qualification is deferred indefinitely. It runs one Cartulary application image with companion Postgres and SeaweedFS S3-compatible object-storage services.
+The supported package runs on operator-started Windows 11 with WSL2 Ubuntu and
+Docker Desktop's WSL2 backend. It contains one application image (server,
+migrate, operator) and pinned PostgreSQL and SeaweedFS images. Native Linux
+qualification, registry publication and automatic upgrades are outside scope.
 
-It is not disconnected-profile conformance. Operational recovery for this package is deployment-local and operator-facing; it is not exposed through public backup, restore, or restore-verification route families.
+## Install the matching release
 
-## Contents
+Obtain the archive and its expected SHA-256 through your trusted delivery
+channel. A checksum establishes identity; a checksum supplied alongside an
+untrusted archive does not establish trust. Keep that exact archive with each
+independent backup set. No checkout, Go, Node, pnpm or network image pull is
+required to install it. The WSL guest needs Bash, Docker/Compose, jq, curl,
+GNU coreutils/findutils/tar, util-linux (`flock`) and a running Docker Desktop
+linux/amd64 backend. Provision those host prerequisites before offline use.
 
-- `Containerfile` builds the app image from Make-built `server`, `migrate`, and `operator` binaries under `build/bin`.
-- `docker-compose.yml` starts `app`, `postgres`, `seaweedfs-s3`, one-shot `migrate`, and one-shot `object-store-init`.
-- `config.toml.example` is the deployment config template mounted at `/etc/cartulary/config.toml`.
-- `revisions-conflict-token-key-ring.json.example` is the dedicated sealed conflict-token key-ring template.
-- `.env.example` carries service-binding environment names and placeholder values.
-- `bootstrap-admin.json.example` is the first deployment-admin bootstrap manifest template.
-- `scripts/backup-capture.sh` runs deployment-local backup creation through the package image.
-- `scripts/restore-verify-due.sh` runs due restore verification against an isolated target.
-- `restore-verification-target.toml.example` and `restore-verification-target.marker.json.example` are the isolated target examples.
-- `systemd/` contains non-secret service and timer templates for package-local scheduling.
-
-## Configure
+Verify the delivered archive checksum before extraction. Extract into a private,
+empty directory on the WSL filesystem, then run the installer from that archive:
 
 ```sh
-cp deploy/mvp/.env.example deploy/mvp/.env
-cp deploy/mvp/config.toml.example deploy/mvp/config.toml
-cp deploy/mvp/bootstrap-admin.json.example deploy/mvp/bootstrap-admin.json
-cp deploy/mvp/revisions-conflict-token-key-ring.json.example deploy/mvp/revisions-conflict-token-key-ring.json
-cp deploy/mvp/restore-verification-target.toml.example deploy/mvp/restore-verification-target.toml
+sha256sum /absolute/delivery/PACKAGE_SHA256.tar
+tar --no-same-owner --same-permissions -xf /absolute/delivery/PACKAGE_SHA256.tar -C /absolute/private/extraction
+/absolute/private/extraction/release/assets/scripts/install.sh /opt/cartulary
 ```
 
-Before starting, replace the S3 credentials, `CARTULARY_AUTH_MASTER_KEY`, `CARTULARY_RECOVERY_MASTER_KEY`, `CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE`, bootstrap admin password, and restore-verification target values. The authentication master key must decode to exactly 32 bytes. The Recovery key also targets exactly 32 bytes in the current-format release; historical Recovery state requires its matching release. The Revisions conflict-token secret must be unpadded base64url that decodes to exactly 32 bytes and must not reuse authentication, recovery, storage, or another subsystem's material.
+Use an existing canonical parent and an unoccupied installation path. The installer
+verifies all bound assets, inventories and receipts, loads the included images,
+checks their identities and platform, and publishes a new installation. It rejects
+occupied destinations and contaminated immutable image references. Failed attempts
+never replace an existing installation. Loaded immutable images may remain for a
+retry; they are release artifacts, not application state.
 
-The config template uses `deployment_profile = "on_prem"` with managed service refs:
+`/opt/cartulary/release/` contains immutable payload bytes. Do not edit them or
+substitute images. `/opt/cartulary/.env`, configuration, bootstrap/key-ring files,
+TLS material and `/opt/cartulary/runtime/` are installation state outside that
+payload. Keep the release manifest, image archives, receipts and inventories.
+Every package operation verifies the release again before changing services.
 
-- `roots.database_storage.service_ref = "primary"` selects
-  `CARTULARY_POSTGRES_PRIMARY_MIGRATION_DSN`,
-  `CARTULARY_POSTGRES_PRIMARY_RUNTIME_DSN`, or
-  `CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN` according to the process purpose.
-- `roots.object_storage.service_ref = "primary"` selects `CARTULARY_S3_PRIMARY_*`.
+For maintainers, `make package-release` produces a manifest-addressed archive under
+`.cartulary/release-artifacts/packages/`; its canonical run receipt is
+`package-release/artifacts/package.json`. `make package-inspect` rehearses the
+installer against that exact producer output. Consult `make help-all` for the
+current public qualification routes. Qualification evidence stays outside the
+release manifest, avoiding circular identity. These commands never read this guide.
 
-The compose file mounts `config.toml` and the Revisions key-ring manifest under `/etc/cartulary` and sets absolute `CARTULARY_CONFIG_FILE=/etc/cartulary/config.toml`. Conflict-token rotation requires exactly one `active` key and at most seven `decrypt_only` keys. A decrypt-only entry records canonical UTC `deactivated_at` and `retire_at`; `retire_at` must be at least 31 minutes later and remain in the future. Replace active material by adding the old key as decrypt-only with its unchanged key ID and secret reference, adding a new active key, and restarting. Outstanding tokens expire after 30 minutes; only cft4 tokens and key-ring v2 are accepted.
+## Configure one deployment
 
-The Auth and Recovery master keys are deployment bindings, not rotating key rings.
-Do not replace either environment value in place and expect existing sealed MFA,
-enterprise transactions or backups to remain readable. This release has no master
-key conversion or overlapping legacy reader. Provision independent random keys on
-a fresh deployment when changing these bindings, and retain the old release and
-keys in the separately secured environment that owns its historical backups.
-Use supported domain export/import only for data it explicitly carries; it does
-not transfer authentication credentials or make old encrypted backups compatible.
-Network Flow and Revisions key-ring rotation follows their owner-specific active
-and decrypt-only lifetimes; clients reload when short-lived tokens expire.
+The installer copies examples to the installation root. Replace all placeholders
+before first start: separate random authentication and Recovery master keys,
+Revisions token material, S3 credentials, first administrator credentials, public
+origin, purpose TLS identities and source/verification namespace names. Protect
+settings and keys with owner-only host permissions and the specific container
+read permissions described below. Do not ship configured secrets in a release.
 
-The restore-verification target template uses separate `restore_verify` service
-refs for Postgres and object storage. Keep `RESTORE_VERIFY_POSTGRES_DB` and
-`CARTULARY_S3_RESTORE_VERIFY_*` isolated from the source database and source
-bucket. Compose derives purpose-specific target migration and Recovery DSNs
-from the target database name and distinct client certificate bindings. Passwords,
-passfiles, service files and inherited `PG*` connection variables are rejected.
+Mounted configuration, bootstrap and key-ring files must be readable by container
+GID 65532 (for example owner:65532 with mode 0640). Keep the installation directory
+private and `.env` owner-only; it is read by the host entrypoint, not mounted.
 
-Administrators must provision the fixed `NOLOGIN` roles
-`cartulary_schema_owner`, `cartulary_runtime`, and `cartulary_recovery`, plus
-one `NOINHERIT` deployment login for each purpose. The package provisioning
-script also installs exact `public` prerequisites `pgcrypto` 1.3 and `citext`
-1.6, transfers `public` to the schema owner, and closes database, schema,
-extension, and default privileges before migration. Application migrations
-validate these prerequisites but never create extensions or roles.
+Settings are literal `KEY=value` lines in `.env`, with blank lines and whole-line
+`#` comments. Never source this file. Shell expansion, duplicate or unknown keys,
+placeholder values and ambient overrides are rejected. There is no configurable
+application tag, arbitrary Compose-file override, or compatibility parser.
+Set `CARTULARY_MVP_COMPOSE_PROJECT_NAME` once to a unique deployment name;
+changing it selects different state. Use distinct `POSTGRES_DB` and
+`RESTORE_VERIFY_POSTGRES_DB`, distinct source/verification buckets, the shipped
+`primary` and `restore_verify` bindings, and canonical non-overlapping roots.
+Preflight loads application configuration through its owner before provisioning.
+
+`CARTULARY_REFERENCE_PACKS_ENABLED=true` selects the shipped Reference Pack
+overlay for every operation. Configure its administration settings and approved
+`reference-pack-trust.json` in the installation root before enabling it. No test
+trust is shipped. Required built-in packs, approved historical trust, provenance
+and pins retain their existing owner semantics; this package adds no UI workflow.
+
+The authentication and Recovery master keys each decode to 32 bytes. Keep them
+separate from each other and from service credentials. Revisions token material
+is unpadded base64url encoding of 32 independent random bytes. Database connections
+use certificate-only purpose logins; password, passfile, service-file and inherited
+`PG*` fallbacks are rejected. Do not bypass owner admission to initialize retained
+or partially initialized state.
 
 ## Certificates and fresh provisioning
 
@@ -76,7 +91,7 @@ certificate. Each private key is distinct:
 
 | File stem | Purpose and certificate identity |
 | --- | --- |
-| `application` | Server authentication; SAN covers the operator’s HTTPS/WSS origin. |
+| `application` | Server authentication; SAN includes `localhost` for package readiness and the operator’s HTTPS/WSS origin hostname. |
 | `postgres` | Server authentication; SAN includes `postgres`. |
 | `seaweed` | Server authentication; SAN includes `seaweedfs-s3`. |
 | `migration` | Client authentication; exact CN `migration`. |
@@ -114,368 +129,191 @@ Compose waits for the container-local master readiness probe before admitting S3
 dependencies; S3 transport is independently verified over TLS by the application.
 
 For certificate renewal, issue replacement identities with the same purpose and
-required SANs, verify validity and chain, stop the affected service, replace the
-files atomically, and recreate that service so bind mounts and captured TLS
-identities are renewed. A root rotation first deploys an overlapping root bundle,
+required SANs, verify validity and chain, stop maintenance timers and run the
+installed `package.sh stop`. Replace the files atomically, then run `package.sh start`.
+Under its deployment lock, startup recreates the companion containers with their
+existing named volumes and reopens certificate bind files before protection and
+readiness gates. Resume timers only after successful verified readiness. A root rotation first deploys an overlapping root bundle,
 then replaces leaves, then removes the retired root. Use the restart checks below.
 Expired, untrusted, wrong-name or wrong-purpose identities fail closed. Never
 substitute a verification bypass. Test-only PKI is short-lived and is destroyed
 with its disposable workspace; it is not production provisioning.
 
-## Build
+## Start, stop and first protection
 
-Run from the repository root after configuration:
-
-```sh
-make build
-docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml build app
-```
-
-Supported Make builds pin Go 1.27.1 and cryptographic module selector
-`v1.0.0-c2097c7c`, verify the archive digest, and write a binary-bound
-`.crypto.json` receipt. Each facade independently admits its actual executable
-identity and enabled mode before loading configuration or opening services.
-`GODEBUG=fips140=off`, ordinary builds and mismatched metadata reject; there is
-no runtime bypass. Strict mode is a diagnostic, not the deployment policy.
-
-`migrate up` establishes `cartulary.application_crypto_format.v1` only after
-serialized fresh initialization, with read-only inspection of the actual database,
-object bucket and all four filesystem roots before any migration writes. The same
-exclusion remains held through migration and identity commit. Server and operator
-commands require this committed identity; they never create or repair it.
-A missing identity with retained state, including an interrupted initialization,
-rejects before leases, bootstrap, bucket creation or jobs. Preserve that state for
-investigation or its matching historical release; provision a separate fresh
-target. An interruption that left the entire target empty may retry. Module
-upgrades require renewed qualification and never redefine the stored-format ID.
-
-The final image contains only `cartulary-server`, `cartulary-migrate`, and `cartulary-operator` plus runtime base image files. It must not contain Node, pnpm, Vite, `apps/web`, `db/migrations` source files, or a repository checkout.
-
-## Start
-
-The `app` service depends on healthy Postgres, successful migration, and successful object-store initialization. Starting `app` is the normal package path:
-
-The packaged database baseline is exact PostgreSQL 18.6 from
-`docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2`.
-Compose mounts the versioned `cartulary-postgres-data-v18` volume at the
-PostgreSQL parent directory `/var/lib/postgresql`, while the server stores the
-cluster under `PGDATA=/var/lib/postgresql/18/docker`. Initialization enables
-data checksums and certificate-only host authentication over verified TLS 1.3; platform admission rejects a
-different server patch, checksums-off cluster, or wrong-purpose login before
-startup work proceeds.
+Use the installed entrypoint for lifecycle and maintenance:
 
 ```sh
-docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml up -d app
+/opt/cartulary/release/assets/scripts/package.sh start
+/opt/cartulary/release/assets/scripts/package.sh stop
 ```
 
-After startup, check:
+Object initialization waits at most 120 seconds for exhausted transient metadata
+attempts; configuration and cryptographic rejection remain immediate. Failed
+startup reports its gate and cleanup outcome and leaves serving stopped.
+
+Startup acquires deployment-scoped exclusion, admits configuration and release
+identity, provisions dependencies, and privately initializes/bootstrap-checks the
+application without publishing its port. It stops capture-sensitive work, creates
+a missing or stale backup, runs due verification, then starts serving and requires
+verified HTTPS readiness. A failed gate leaves serving stopped and identifies the
+failed operation. A missing or older-than-24-hour backup is never accepted as a
+successful start. This includes first installation and startup after an outage.
+
+The application port publishes only after these gates pass. Use the configured
+HTTPS origin in Windows; WSS uses that same trusted origin. Install the intended
+public CA trust through your organization's Windows process. Expired certificates,
+wrong names or disabled cryptographic execution must be corrected at their owners.
+
+Stop the application before intentionally stopping WSL or Docker Desktop. After
+sleep, host restart or Docker restart, start Docker Desktop and WSL explicitly,
+then run `package.sh start` and inspect its result and HTTPS readiness. Guest timers
+do not wake Windows or turn WSL into an unattended appliance. Keep intended service
+and volume identities stable across restarts; do not delete retained state to
+conceal a failed readiness or compatibility check.
+
+## Routine maintenance and failed operations
 
 ```sh
-curl --cacert "$CARTULARY_TLS_DIR/ca.pem" --tlsv1.3 -fsS https://localhost:8080/healthz
-curl --cacert "$CARTULARY_TLS_DIR/ca.pem" --tlsv1.3 -fsS https://localhost:8080/readyz
-curl --cacert "$CARTULARY_TLS_DIR/ca.pem" --tlsv1.3 -fsS https://localhost:8080/
+/opt/cartulary/release/assets/scripts/package.sh backup-create
+/opt/cartulary/release/assets/scripts/package.sh restore-verify-due
 ```
 
-`/healthz` is process liveness. `/readyz` is structured readiness and returns HTTP 200 only when active dependencies are ready.
+Backup creation stops the exact running application container, captures through
+Recovery, then restarts only that container if it was running originally.
+An initially stopped application remains stopped. Capture, restart and cleanup
+outcomes are separate in the terminal package result. A published successful backup
+remains valid when a later service restart fails; inspect both results before retrying.
 
-To rerun the deployment-local object-store initialization explicitly:
+All installed lifecycle operations share one deployment lock. Recovery also owns
+its database/target exclusions. Concurrent operations reject. After process death,
+the pending operation record blocks overlap with any surviving operation container.
+Inspect the owned container and finish or stop that exact operation before retrying;
+never delete its pending record merely to force another operation through.
+Cancellation cannot authorize a second capture or reset an indeterminate restore.
+
+Recovery issues and renews target proofs after actual state inspection under its
+exclusive target lease. A matching retry keeps generation identity; a due no-op
+does not rewrite proof. Successfully verified disposable targets may be reset by
+the existing lease-controlled Recovery path. Partial or indeterminate targets are
+preserved for investigation. There is no supported marker/hash override or manual
+proof construction. Use a separate fresh target when admission rejects retained state.
+
+Copy the non-secret service/timer templates from `release/assets/systemd/` to your
+WSL systemd configuration and adjust the installation path if necessary. Enable
+timers only for the intended operator-started guest session. Their commands use
+this same entrypoint and settings. Stop maintenance timers during certificate or
+configuration replacement. Keep secrets in the protected installation file, not
+in systemd unit text. Review the timer results after resuming the host.
+
+## Key custody and supported rotation
+
+Keep the Recovery key and matching release separately from exported backups.
+An intact encrypted backup without its key is unusable. Keep the authentication
+key needed by restored sealed authentication state, and the other owner-required
+keys/configuration in separately secured custody. A bundle deliberately excludes
+provisioning credentials and deployment keys. Test access to both independent
+storage and key custody before a real incident.
+
+Auth and Recovery master keys are deployment bindings, not rotating key rings.
+This release provides no in-place master-key converter or historical reader.
+Replacing their environment values does not re-encrypt existing MFA, transactions
+or backups. Retain original keys and the exact original release for retained backups.
+A fresh deployment using new bindings needs an explicit owner-supported data
+migration; domain pack export/import does not transfer authentication credentials.
+
+Revisions key-ring v2 permits exactly one active key and at most seven decrypt-only
+keys. Preserve the old key ID/material and add canonical UTC deactivation/retirement
+metadata when making it decrypt-only; retirement must be at least 31 minutes later
+and still in the future. Add independent active material and restart through the
+normal protection gates. Outstanding cft4 tokens expire after 30 minutes. Follow
+Network Flow's owner rules for its own active/decrypt-only lifetimes. No package
+command bypasses these owners or adds legacy emission modes.
+
+## Export an independent encrypted backup
+
+Create an existing private destination parent on genuinely independent storage,
+then choose a new absolute directory name:
 
 ```sh
-docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml run --rm object-store-init
+/opt/cartulary/release/assets/scripts/package.sh backup-export /absolute/offline-storage/new-bundle
 ```
 
-This command creates or confirms the configured bucket. App startup still fails closed when the configured managed-service bucket is missing.
+The export selects the newest intact successful retained backup, regardless of
+operational age. It copies complete existing encrypted artifacts and authenticates
+selection, release/catalog/codec identities, sizes and digests in a versioned
+manifest. It validates readback and atomically publishes a complete directory;
+occupied destinations reject. Failed export cannot change retained source selection.
+Copy the entire completed bundle. Never rearrange members or edit the manifest.
 
-## Stop
+The destination must be writable by the application container's nonroot identity
+(UID/GID 65532) while remaining private. Source retention expiry does not invalidate
+a completed export. A second volume or directory in the same WSL/Docker storage is
+not independent disaster protection. Place exports and a verified copy of the exact
+release archive outside that failure domain, and test a restore with source services
+unavailable. Export success proves byte closure, not the physical independence of
+a customer's storage choice.
+
+## Restore after source loss
+
+Install the exact matching archive into a new installation with isolated database,
+object and filesystem namespaces. Provision fresh target credentials/certificates
+and the separately retained keys/configuration. Leave the application stopped.
+Do not run normal startup first: that would bootstrap application state into the
+otherwise fresh restore target. Use the backup UUID from the completed export
+result and a recorded operation UUID for all retries of this attempt:
 
 ```sh
-docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml down
+/opt/cartulary/release/assets/scripts/package.sh restore-bundle /absolute/offline-storage/bundle BACKUP_UUID --operation-id OPERATION_UUID
 ```
 
-Use `docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml down -v` only when intentionally deleting package data volumes.
+For a consistency point strictly older than 24 hours, explicitly acknowledge that
+exact backup ID by adding `--acknowledge-stale-backup BACKUP_UUID`. Acknowledgement
+accepts data loss since that point; it never bypasses integrity, release, key,
+confirmation or target admission. Exactly 24 hours does not require acknowledgement.
+Incorrect confirmation or acknowledgement rejects. Completed exports remain usable
+after their original source retention deadline.
 
-## Persistent Roots
+Portable restore opens transfer storage and admitted target resources only. Source
+database, object service, source configuration and original volumes may all be lost.
+Restoration invalidates existing login sessions. Sign in again with your retained
+credentials and enrolled MFA factor after the fresh-backup readiness gate passes.
+Recovery first authenticates and captures immutable input, then uses its one restore
+engine. It restores authoritative state and complete object families, rebuilds
+projections, and probes workbook usability. Its encrypted local intent/completion
+journal stays outside restored database contents. Successful completion reconciles
+safe target audit evidence. Preserve that journal and target generation.
 
-The package persists state in Docker-managed named volumes:
+Repeat the identical bundle, target, backup ID and operation ID after a lost response.
+A completed retry returns original terminal evidence without repeating committed
+restore work. Missing/corrupt terminal evidence or incompatible generation may leave
+an indeterminate target isolated; preserve it and provision another fresh target.
+Never restamp or partially clear a target to make its proof look compatible.
 
-- `cartulary-postgres-data-v18`
-- `cartulary-seaweedfs-data`
-- `cartulary-backups`
-- `cartulary-reference-packs`
-- `cartulary-tmp`
-- `cartulary-exports`
+A successful restore leaves the application stopped. Run the normal `package.sh start`
+to establish a new fresh backup and required verification before serving. Restore
+does not renew the exported consistency point or manufacture fresh verification.
+Retain the original bundle and keys until the new installation's independent backup
+protection has been checked.
 
-These roots are persistent package storage, not source-tree runtime paths.
+## Replacement and acceptance
 
-The image contains empty nonroot-owned runtime-root directories so Docker named volumes are writable by the nonroot app process. Its package-specific build context excludes source-control `.keep` files. Migration receives those same volumes read-only and the source object-store binding for compatibility inspection; it never treats private image paths as deployment storage. Restore-target migration likewise receives the target storage binding and a read-only target-root mount.
+Retain the matching release archive for every retained backup generation. There is
+no automatic release switching, historical upgrade/converter or compatibility alias.
+Replacing lost infrastructure with the same release is a fresh installation followed
+by admitted restore. Moving to a different release requires an explicit future
+owner-defined migration and renewed qualification; editing tags or receipts is not
+an upgrade mechanism.
 
-## Fresh database provisioning and rejected state
+Inventories scan actual shipped image archives with the pinned Syft tool. Notice
+files are included when discoverable; unknown license metadata and unresolved
+component/notice association remain explicit review findings. Technical inventory
+completeness does not grant distribution permission or replace security/licensing
+review. A missing/stale inventory fails technical acceptance.
 
-This release requires a fresh exact PostgreSQL 18.6 target and current application
-cryptographic-format identity. It has no in-place PostgreSQL cutover, historical
-application-state conversion or compatibility stamping procedure. Keep historical
-deployments and their backups with their matching release and keys.
-
-When startup rejects an existing or interrupted target, preserve its bounded
-error and state for investigation. Correct provisioning inputs and create a
-separate, genuinely empty target. Do not run a historical baseline-reset procedure,
-relabel a format record, or reuse nonempty object and filesystem roots to bypass
-admission. Delete failed initialization state only when it is explicitly disposable
-and every database, volume and bucket is confirmed to belong to that attempt.
-Ordinary startup never performs this deletion.
-
-Current-format logical Recovery artifacts restore only into pristine targets
-admitted by the current release, with separate purpose certificates and confined
-storage. A PostgreSQL data directory is never an application recovery artifact.
-
-## Optional Reference Pack Administration
-
-Base registries load without claiming administration. To enable administration,
-append `reference-pack-administration.toml.example` to `config.toml` once and
-supply `reference-pack-trust.json` using the
-`cartulary.reference_pack_trust_bootstrap.v1` contract. Install only roots whose
-repository identity and signing keys you have independently approved. The
-package ships no trust roots or signing keys. Set `clock_trusted = true` only
-after establishing trusted UTC; the example deliberately leaves it false.
-
-Use `docker-compose.reference-packs.yml` together with the base Compose file
-for every operation on this deployment. Create `reference-pack-incoming` before
-running the operator. Trust, config, and incoming files must be regular files,
-readable by container UID 65532; incoming directories must be traversable by
-that UID. Grant only the required read access. Bind mounts reject absent host
-paths; trust and incoming bundles are read-only inside the containers. Published
-content and temporary work use the same named volumes as the server.
-
-```sh
-docker compose --env-file deploy/mvp/.env \
-  -f deploy/mvp/docker-compose.yml \
-  -f deploy/mvp/docker-compose.reference-packs.yml up -d app
-
-docker compose --env-file deploy/mvp/.env \
-  -f deploy/mvp/docker-compose.yml \
-  -f deploy/mvp/docker-compose.reference-packs.yml run --rm --no-deps \
-  reference-pack-operator reference-pack import approved-pack.zip
-```
-
-The server must be running and ready: its durable Job worker verifies admitted
-imports. The operator accepts a confined bundle filename from the incoming
-mount, observes that Job, and returns `cartulary.reference_pack_operator_result.v1`.
-Import does not activate a pack. An authorized administrator must explicitly
-activate a verified version through the existing administration interface.
-
-For backup/restore wrapper scripts, set `CARTULARY_MVP_COMPOSE_OVERLAY` to the
-absolute overlay path in the deployment environment so app restart preserves
-these mounts. Stop and restart with the same Compose file pair. Retain the
-configured roots, trust history, and backup artifacts together; removing a
-claim or changing bootstrap roots is not a conversion of retained state.
-
-## Operational Recovery
-
-Backup creation and restore verification run through `cartulary-operator` inside the package image using the Core logical commands. They require `CARTULARY_RECOVERY_MASTER_KEY`; recovery CLI invocation is deployment-local operator behavior and is not authorized through a runtime `deployment_admin`.
-
-All encrypted backup artifacts, including small metadata files, use
-`cartulary.backup_artifact_envelope.v3`. Each artifact derives a fresh key;
-4-MiB chunks authenticate order, length and finality, with at most 1,048,576
-chunks. Reads authenticate one complete input into private confined staging
-before exposing content. The backup filesystem must support private unnamed
-files; the reference profile uses guest ext4, not a Windows-mounted path.
-
-Integrity manifests use v4, target markers and verification proofs use v5,
-and journal envelopes use v2 with payload v5. All current proofs bind
-`cartulary.application_crypto_format.v1`. Historical backups, deployments and
-keys must stay with their matching release. There is no converter, legacy
-reader or in-place upgrade. Relabeling a marker or manifest cannot establish
-compatibility. Preserve the release image and key material needed to read each
-retained backup. Replacing a Recovery key requires a separately provisioned
-fresh deployment/storage set and a new verified backup; do not discard the
-old key while its matching backups remain retained.
-
-The logical PostgreSQL payload keeps
-`cartulary.postgres_snapshot_artifact.v2` inside the current authenticated
-format. That inner schema does not make historical envelopes compatible and
-does not promise cross-engine portability. Target engine, checksum, and purpose-role admission completes before the
-first restore mutation. A rejected or interrupted target remains non-serving
-and must be cleaned or reinitialized before reuse.
-
-Manual backup creation:
-
-```sh
-mkdir -p deploy/mvp/runtime
-deploy/mvp/scripts/backup-capture.sh > deploy/mvp/runtime/backup-capture.json
-```
-
-The backup script stops the `app` service, runs `operator backup create --source-config-file /etc/cartulary/config.toml`, and restarts the same stopped `app` container in cleanup only if it was running on entry. The JSON result is a single `cartulary.operator_recovery_result.v1` object with the `backup_set_id`, `consistency_point_at`, and non-secret logical artifact references. If the recovery key is missing, if existing encrypted backup artifacts cannot be read with the supplied key, or if publication fails before success, the operator fails closed and any candidate remains diagnostic-only rather than a successful retained backup.
-
-Inspect latest backup metadata:
-
-```sh
-set -a
-. deploy/mvp/.env
-set +a
-
-docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml run --rm --no-deps \
-  --entrypoint /usr/local/bin/cartulary-operator \
-  recovery-operator backup inspect latest \
-  --source-config-file /etc/cartulary/config.toml
-```
-
-Manual due restore verification:
-
-```sh
-mkdir -p deploy/mvp/runtime
-deploy/mvp/scripts/restore-verify-due.sh > deploy/mvp/runtime/restore-verify-due.json
-```
-
-The restore-verification script creates or confirms the target database,
-migrates and admits the fresh target database, initializes the target object-store bucket, and
-then writes a fresh target-generation proof plus a bound
-`cartulary.restore_target_marker.v5` under the target backup root before it
-runs `cartulary-operator restore-verify due`. The target config, target root,
-target database, and target bucket must remain isolated from production state.
-The v5 marker binds the application cryptographic format, database, object store, Reference Pack storage, and export-output storage.
-For a customized target reference root, set
-`CARTULARY_RESTORE_VERIFY_REFERENCE_PACK_BINDING_IDENTITY` to
-`filesystem_root:` followed by its canonical container path. Unsafe, expired,
-wrongly bound, or unmarked targets are rejected before mutation.
-
-If wrapper scripts must join an existing non-default Compose project, set `CARTULARY_MVP_COMPOSE_PROJECT_NAME` before invoking them.
-
-## Systemd Scheduling
-
-The systemd templates are examples and contain no secrets. Adjust `/opt/cartulary/deploy/mvp` paths if the package is installed elsewhere, and store the secret environment file outside the repository checkout:
-
-```sh
-sudo install -D -m 0600 deploy/mvp/.env /etc/cartulary/mvp.env
-sudo install -D -m 0644 deploy/mvp/systemd/cartulary-backup.service /etc/systemd/system/cartulary-backup.service
-sudo install -D -m 0644 deploy/mvp/systemd/cartulary-backup.timer /etc/systemd/system/cartulary-backup.timer
-sudo install -D -m 0644 deploy/mvp/systemd/cartulary-restore-verify.service /etc/systemd/system/cartulary-restore-verify.service
-sudo install -D -m 0644 deploy/mvp/systemd/cartulary-restore-verify.timer /etc/systemd/system/cartulary-restore-verify.timer
-sudo systemctl daemon-reload
-sudo systemctl start cartulary-backup.timer cartulary-restore-verify.timer
-systemctl list-timers 'cartulary-*'
-```
-
-`cartulary-backup.timer` runs backup creation every 6 hours. That interval is recommended operator practice, not a Core conformance interval. Deployment-owned scheduling must still run `operator backup create` or this package wrapper often enough to keep at least one successful retained backup no older than 24 hours. `cartulary-restore-verify.timer` runs due restore verification daily.
-
-## Operator restart and overdue work
-
-The timers have no boot-install target; start them explicitly for each operating
-session after checks pass. They do not depend on a guest `docker.service`.
-Stop both timers before intentionally stopping the package. Do not configure
-Windows startup tasks, cron or automatic guest boot launch for this package.
-Docker Desktop must already be running with WSL integration available.
-
-After sleep, shutdown, guest restart or Docker Desktop interruption, run:
-
-```sh
-deploy/mvp/scripts/operation-start.sh
-```
-
-This starts the selected package, checks `operator backup inspect latest` and
-runs due restore verification. It returns failure if either owner check fails;
-downtime does not extend the 24-hour successful-backup freshness limit. On a
-fresh deployment, capture the first backup and rerun the checks before starting
-timers. On an overdue or failed deployment, inspect the bounded owner error,
-resolve the cause, capture a current backup when needed and rerun due verification.
-A returned failure is not an accepted operating state. Do not delete old backups
-or advance verification records to clear the failure. Historical backups require
-their matching release; the current codec has no legacy reader or converter.
-
-Tests interrupt only services they own. They never reboot Windows, shut down the
-user’s WSL VM, or alter global Windows trust or firewall settings.
-
-## Package Validation
-
-The package-shape smoke gate is:
-
-```sh
-make standup-package-smoke
-```
-
-It builds the image, runs the Compose topology, applies migrations, initializes the object store, checks `/healthz` and `/readyz`, verifies embedded `/` and `/assets/*`, checks persistent Docker-volume roots, proves no Vite/source-tree runtime dependency, and checks WebSocket Origin behavior. It is package smoke evidence only. It is not disconnected-profile conformance and is not backup/restore conformance.
-
-`make deployable-shape` remains the narrower static deployable-shape check.
-
-The operational recovery smoke gate is:
-
-```sh
-make standup-operational-recovery-smoke
-```
-
-It builds and runs the MVP Compose package, creates a backup, inspects latest metadata through the canonical result envelope, runs due restore verification against an isolated target, proves the public backup/restore route families are absent, and retains summary artifacts. It is operational package evidence only and is not disconnected-profile conformance.
-
-## Troubleshooting
-
-- If `app` restarts with `path_not_writable`, confirm the package image is current and the runtime roots are Docker named volumes, not host paths from the source tree.
-- If `object-store-init` fails, check `CARTULARY_S3_PRIMARY_ENDPOINT`, `CARTULARY_S3_PRIMARY_SECURE`, credentials, and whether `seaweedfs-s3` is running.
-- If `/readyz` returns a non-200 response, inspect the structured readiness status and the `postgres` and `seaweedfs-s3` service health.
-- If migration fails, inspect `docker compose logs migrate postgres` and verify
-  `CARTULARY_POSTGRES_PRIMARY_MIGRATION_DSN` resolves to the package Postgres
-  service. A `prod_ddl_rebaseline_v2` report rejects an incompatible database; preserve
-  retained state with its matching release and provision a separate fresh target.
-  A server-version or checksum admission error requires a fresh exact
-  PostgreSQL 18.6 baseline, not a compatibility override.
-- If browser WebSocket requests fail with HTTP 403, verify `CARTULARY_PUBLIC_ORIGIN` exactly matches the browser origin used to reach the app.
-- If startup reports a `revisions_conflict_token_*` diagnostic, verify the key-ring mount, exact manifest schema, one-active-key rotation state, unique IDs and secret references, and the 32-byte unpadded-base64url secret. Startup intentionally fails before listeners when this credential is unavailable.
-- If backup creation fails, inspect the script stderr and confirm the Recovery certificate has the correct purpose, the app service can be stopped and restarted, and `CARTULARY_RECOVERY_MASTER_KEY` matches existing encrypted backup artifacts.
-- If restore verification fails before mutation, confirm the target config
-  differs from the source config, the target database and object-store bucket
-  are isolated, and both `restore-target-marker.json` and
-  `restore-target-generation` are present under the target backup root.
-- If restore verification reports a failed item, retain the JSON output and inspect the target `postgres`, object-store, migration, and operator logs before deleting target state.
-
-Restore verification markers bind the database, object store, Reference Pack root, and export-output root. Create current markers only for freshly initialized, admitted targets; historical state and markers require their matching release. A custom export root uses `CARTULARY_RESTORE_VERIFY_EXPORT_BINDING_IDENTITY` with its `filesystem_root:` identity. Recovery captures exported Incident Bundles from the configured export root and restores them into the isolated target export root.
-
-## Windows 11 / WSL2 qualification and upgrades
-
-Run the repository's full `make release-check` on the selected Windows 11 host,
-Ubuntu guest and Docker Desktop WSL2 backend. Native Linux qualification is
-indefinitely deferred. The release requires all three package smokes, actual
-binary admission and fixed credential-capacity assessments, plus the full owner,
-browser, accessibility, visual and release membership. The configured Markdown
-lint does not include this README or the remediation handoff; review them directly.
-
-Package evidence records Windows build, WSL/kernel, Ubuntu, CPU features, observed
-VM/container limits, Docker Desktop/Engine/Compose/daemon identity, guest ext4
-storage, WSL network mode, resolved images and the three binary/module/archive
-receipts. Zero container limits mean no narrower container limit than the observed
-VM; the credential assessment separately requires effective two-CPU/two-GiB
-cgroup limits. The Make-built Windows executable uses only an in-memory private CA
-pool supplied over stdin. Its HTTPS/WSS evidence is separate from Linux browser
-results. It tests chain/name/expiry and TLS-version rejection without changing
-Windows trust or the host clock. Qualification replaces purpose certificates and
-recreates only disposable owned services, then checks current-state operation.
-
-Keep the checkout, private key material and package storage on the guest ext4
-filesystem, outside Windows-mounted drives. Docker Desktop named volumes reside
-in the recorded daemon's managed storage. Back up through the application's
-current authenticated codec; copying live database or object-store directories
-is not a recovery procedure. Preserve the exact release and key material with
-historical backups. Do not stamp, migrate or reset a rejected retained deployment
-with this release; use its matching historical release in a separately isolated
-environment. If fresh initialization was interrupted after any retained state
-was created, diagnose the failure and provision a genuinely new, empty target.
-Only explicitly disposable failed-initialization state may be destroyed.
-
-After host sleep or shutdown, first confirm Docker Desktop availability and
-Windows/guest time synchronization. Run the operator-started checks above before
-starting guest timers. A stale backup or failed due verification blocks accepted
-operation; downtime grants no freshness exception. Renewal requires new keys and
-purpose-correct certificates, renewed mounts and service recreation. Root changes
-require an overlap period and verification from both Windows and guest clients.
-
-Any Windows, WSL, Docker Desktop, daemon platform, PostgreSQL, SeaweedFS, Go or
-module upgrade creates a new qualification candidate. Verify upstream identity
-and support, update authored pins and downstream generation, then repeat the
-service/verifier/package and complete release gates on fresh disposable state.
-Keep application-format identity independent of module version. One successful
-source test or image label cannot qualify a platform upgrade. The current single
-policy permits certificate-only PostgreSQL with TLS 1.3, HTTPS S3 with SigV4 and
-SHA-256 checksums, the bounded OIDC/SAML algorithms, and verified HTTPS telemetry;
-there is no password, plaintext, legacy codec or disabled-module fallback.
-
-Engineering completion, WSL2 package acceptance, formal CMVP applicability,
-specification adoption and customer deployment approval are separate decisions.
-A package pass does not establish formal CMVP applicability or authorize a customer
-deployment. Formal applicability remains unestablished unless independently
-reviewed for the exact module, approved services and observed environment.
+Record implementation completion, Windows/WSL2 package acceptance, formal CMVP
+applicability, specification adoption and customer deployment approval separately.
+An enabled cryptographic module and passing engineering tests do not establish
+formal environment applicability. This guide is operating support; the controlling
+remediation tracker records actual candidate identities, failures, cleanup and
+readiness dispositions. No new customer deployment is automatically approved.

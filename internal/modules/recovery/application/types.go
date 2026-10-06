@@ -16,6 +16,8 @@ type Operation string
 const (
 	OperationBackupInspectLatest Operation = "backup_inspect_latest"
 	OperationBackupCreate        Operation = "backup_create"
+	OperationBackupExportLatest  Operation = "backup_export_latest"
+	OperationRestoreBundle       Operation = "restore_bundle"
 	OperationRestoreLatest       Operation = "restore_latest"
 	OperationRestoreVerifyLatest Operation = "restore_verify_latest"
 	OperationRestoreVerifyDue    Operation = "restore_verify_due"
@@ -24,6 +26,12 @@ const (
 type BackupInspectLatestRequest struct {
 	OperationID      uuid.UUID
 	SourceConfigPath string
+}
+
+type BackupExportLatestRequest struct {
+	OperationID      uuid.UUID
+	SourceConfigPath string
+	OutputDirectory  string
 }
 
 type BackupCreateRequest struct {
@@ -51,7 +59,17 @@ type RestoreVerifyDueRequest struct {
 	AttemptTimeout   time.Duration
 }
 
+type RestoreBundleRequest struct {
+	OperationID             uuid.UUID
+	BundleDirectory         string
+	TargetConfigPath        string
+	ConfirmedBackupSet      uuid.UUID
+	AcknowledgedStaleBackup uuid.UUID
+}
+
 type Facade interface {
+	RestoreBundle(context.Context, RestoreBundleRequest, ProgressSink) (Result, error)
+	BackupExportLatest(context.Context, BackupExportLatestRequest, ProgressSink) (Result, error)
 	BackupInspectLatest(context.Context, BackupInspectLatestRequest, ProgressSink) (Result, error)
 	BackupCreate(context.Context, BackupCreateRequest, ProgressSink) (Result, error)
 	RestoreLatest(context.Context, RestoreLatestRequest, ProgressSink) (Result, error)
@@ -68,6 +86,8 @@ const (
 )
 
 type Result struct {
+	StartedAt                 *time.Time
+	CompletedAt               *time.Time
 	BackupSetID               *uuid.UUID
 	ConsistencyPointAt        *time.Time
 	ArtifactRefs              []ArtifactRef
@@ -115,6 +135,12 @@ func IntPtr(value int) *int {
 type FailureKind string
 
 const (
+	FailureTransferInvalid               FailureKind = "transfer_invalid"
+	FailureTransferReleaseMismatch       FailureKind = "release_mismatch"
+	FailureTransferCopy                  FailureKind = "transfer_copy_failed"
+	FailureTransferPublication           FailureKind = "transfer_publication_failed"
+	FailureExportJournalWrite            FailureKind = "export_journal_write_failed"
+	FailureStaleBackupUnacknowledged     FailureKind = "stale_backup_unacknowledged"
 	FailureConfirmationMismatch          FailureKind = "confirmation_mismatch"
 	FailureLocalConfigInvalid            FailureKind = "local_config_invalid"
 	FailureSecretReferenceMissing        FailureKind = "secret_reference_missing"
@@ -157,6 +183,7 @@ const (
 )
 
 var allFailureKinds = []FailureKind{
+	FailureTransferInvalid, FailureTransferReleaseMismatch, FailureTransferCopy, FailureTransferPublication, FailureExportJournalWrite, FailureStaleBackupUnacknowledged,
 	FailureConfirmationMismatch,
 	FailureLocalConfigInvalid,
 	FailureSecretReferenceMissing,

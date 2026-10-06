@@ -3,7 +3,7 @@ services:
   app:
     volumes:
       - type: bind
-        source: ./reference-pack-trust.json
+        source: ${CARTULARY_INSTALLATION_DIR:?installation required}/reference-pack-trust.json
         target: /etc/cartulary/reference-pack-trust.json
         read_only: true
         bind:
@@ -12,7 +12,7 @@ services:
   recovery-operator:
     volumes:
       - type: bind
-        source: ./reference-pack-trust.json
+        source: ${CARTULARY_INSTALLATION_DIR:?installation required}/reference-pack-trust.json
         target: /etc/cartulary/reference-pack-trust.json
         read_only: true
         bind:
@@ -21,7 +21,7 @@ services:
   restore-verify-operator:
     volumes:
       - type: bind
-        source: ./reference-pack-trust.json
+        source: ${CARTULARY_INSTALLATION_DIR:?installation required}/reference-pack-trust.json
         target: /etc/cartulary/reference-pack-trust.json
         read_only: true
         bind:
@@ -29,7 +29,8 @@ services:
 
   reference-pack-operator:
     profiles: [reference-pack-administration]
-    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    image: ${CARTULARY_PACKAGE_APPLICATION_IMAGE:?immutable release required}
+    pull_policy: never
     entrypoint: ["/usr/local/bin/cartulary-operator"]
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
@@ -57,13 +58,13 @@ services:
         bind:
           create_host_path: false
       - type: bind
-        source: ./config.toml
+        source: ${CARTULARY_INSTALLATION_DIR:?installation required}/config.toml
         target: /etc/cartulary/config.toml
         read_only: true
         bind:
           create_host_path: false
       - type: bind
-        source: ./reference-pack-trust.json
+        source: ${CARTULARY_INSTALLATION_DIR:?installation required}/reference-pack-trust.json
         target: /etc/cartulary/reference-pack-trust.json
         read_only: true
         bind:
@@ -71,7 +72,7 @@ services:
       - cartulary-reference-packs:/var/lib/cartulary/reference-packs
       - cartulary-tmp:/var/lib/cartulary/tmp
       - type: bind
-        source: ./reference-pack-incoming
+        source: ${CARTULARY_INSTALLATION_DIR:?installation required}/reference-pack-incoming
         target: /var/lib/cartulary/reference-packs/incoming
         read_only: true
         bind:

@@ -80,3 +80,5 @@ func (*Root) RemoveRegular(Reference) error {
 func (*Root) RemoveEmptyDir(Reference) error {
 	return ErrUnsupportedPlatform
 }
+
+func (*Root) PublishSiblingExclusive(Reference) error { return ErrUnsupportedPlatform }

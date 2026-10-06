@@ -155,6 +155,17 @@ export function WorkbookShellTopBar({
         {builtInSurfaceFocusStyles}
       </style>
       <div
+        onFocusCapture={(event) => {
+          if (
+            layout.chromeMode === "below_supported_minimum" &&
+            event.target instanceof HTMLElement
+          ) {
+            event.target.scrollIntoView?.({
+              block: "nearest",
+              inline: "nearest",
+            });
+          }
+        }}
         style={
           layout.chromeMode === "below_supported_minimum"
             ? shellTopBarUnsupportedControlsStyle

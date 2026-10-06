@@ -7807,7 +7807,7 @@ object-store contents from that same set and same `consistency_point_at`,
 verifies manifest size and SHA-256 proofs for every manifest object, rebuilds
 or invalidates catalog state, verifies authoritative evidence/blob lifecycle
 invariants, and records `result='pass'` only when all required checks pass.
-Version 1 remains a strict historical reader for retained evidence only.
+Retired verification formats require their matching historical release; no historical reader is supported by the current release.
 Profiles: base
 Verified by: AC-401
 
@@ -7820,13 +7820,15 @@ The Base Profile recovery operator interface is a deployment-local logical CLI. 
 | --- | --- | --- |
 | `operator backup inspect latest` | `backup_inspect_latest` | Inspect and validate the latest successful retained backup. |
 | `operator backup create` | `backup_create` | Create and publish one successful retained `backup_set` through §12.1. |
+| `operator backup export latest` | `backup_export_latest` | Export the newest intact successful retained backup as a complete encrypted portable set. |
+| `operator restore bundle` | `restore_bundle` | Restore an explicitly confirmed authenticated portable set without the original deployment. |
 | `operator restore latest` | `restore_latest` | Restore the latest successful retained backup into a fresh target. |
 | `operator restore-verify latest` | `restore_verify_latest` | Verify the latest successful retained backup in an isolated target. |
 | `operator restore-verify due` | `restore_verify_due` | Select and verify every retained backup due by verification age or verification-basis change. |
 
-The source deployment is the deployment identified by the effective deployment configuration selected under Core 04 §12. Implementation-owned source-config selection flags MAY exist only when they resolve to the same Core 04 configuration contract and do not change the logical command grammar. A recovery invocation that is not one of the five logical commands above is negative evidence only and MUST NOT create backup creation behavior, backup selection behavior, scheduler behavior, output schemas, exit-code mappings, or public route surfaces.
+The source deployment is the deployment identified by the effective deployment configuration selected under Core 04 §12. Implementation-owned source-config selection flags MAY exist only when they resolve to the same Core 04 configuration contract and do not change the logical command grammar. A recovery invocation that is not one of the seven logical commands above is negative evidence only and MUST NOT create backup creation behavior, backup selection behavior, scheduler behavior, output schemas, exit-code mappings, or public route surfaces.
 
-`--output` is optional. Omission resolves to `json`. If supplied, the only valid value is exactly `json`. For every invocation that reaches the operator process, stdout MUST contain exactly one final UTF-8 JSON object conforming to `cartulary.operator_recovery_result.v1` followed by LF and no other stdout bytes. `--progress` is optional. Omission means no progress records are emitted. If supplied, the only valid value is exactly `jsonl`, and progress records MUST be emitted to stderr as UTF-8 JSON Lines conforming to `cartulary.operator_recovery_progress.v1`.
+`--output` is optional. Omission resolves to `json`. If supplied, the only valid value is exactly `json`. For every invocation that reaches the operator process, stdout MUST contain exactly one final UTF-8 JSON object conforming to `cartulary.operator_recovery_result.v2` followed by LF and no other stdout bytes. `--progress` is optional. Omission means no progress records are emitted. If supplied, the only valid value is exactly `jsonl`, and progress records MUST be emitted to stderr as UTF-8 JSON Lines conforming to `cartulary.operator_recovery_progress.v2`.
 
 `--timeout-seconds` is optional, MUST be an integer decimal value when supplied, and resolves by operation as follows:
 
@@ -7834,6 +7836,8 @@ The source deployment is the deployment identified by the effective deployment c
 | --- | ---: | ---: |
 | `backup_inspect_latest` | `30` | `1..3600` |
 | `backup_create` | `14400` | `60..86400` |
+| `backup_export_latest` | `14400` | `60..86400` |
+| `restore_bundle` | `14400` | `60..86400` |
 | `restore_latest` | `14400` | `60..86400` |
 | `restore_verify_latest` | `14400` | `60..86400` |
 | `restore_verify_due` | `14400` per selected verification | `60..86400` per selected verification |
@@ -7848,18 +7852,18 @@ not authorize a different operation, backup, attempt, consistency point,
 catalog, or target generation; any mismatch fails closed and executes no
 replay.
 
-Unknown flags, missing flag values, unsupported output modes, unsupported progress modes, non-integer timeouts, out-of-range timeouts, interactive confirmation prompts, interactive `yes` substitutes, operator-supplied timestamp restore, and operator-supplied backup selectors other than the `restore_latest` confirmation ID are invalid. The current profile provides no operator-supplied timestamp point-in-time restore.
+Unknown flags, missing flag values, unsupported output modes, unsupported progress modes, non-integer timeouts, out-of-range timeouts, interactive confirmation prompts, interactive `yes` substitutes, operator-supplied timestamp restore, and operator-supplied backup selectors other than the `restore_latest` confirmation ID and the portable-set arguments in §12.2.1.1 are invalid. The current profile provides no operator-supplied timestamp point-in-time restore.
 Profiles: base
 Verified by: AC-428
 
 **REQ-01-594**
-The final result object schema ID MUST be exactly `cartulary.operator_recovery_result.v1`. The object MUST contain exactly these top-level members:
+The final result object schema ID MUST be exactly `cartulary.operator_recovery_result.v2`. The object MUST contain exactly these top-level members:
 
 | Member | Contract |
 | --- | --- |
-| `schema_id` | Exact string `cartulary.operator_recovery_result.v1`. |
+| `schema_id` | Exact string `cartulary.operator_recovery_result.v2`. |
 | `operation_id` | Stable non-secret operation identifier, retained across an exact retry when `--operation-id` is supplied. |
-| `operation` | One of `backup_inspect_latest`, `backup_create`, `restore_latest`, `restore_verify_latest`, `restore_verify_due`, or `unknown`. `unknown` is valid only for unparsable invocations. |
+| `operation` | One of `backup_inspect_latest`, `backup_create`, `restore_latest`, `restore_verify_latest`, `restore_verify_due`, `backup_export_latest`, `restore_bundle`, or `unknown`. `unknown` is valid only for unparsable invocations. |
 | `result` | One of `succeeded`, `no_op`, or `failed`. |
 | `started_at` | RFC 3339 UTC timestamp for operation start. |
 | `completed_at` | RFC 3339 UTC timestamp for terminal result emission. |
@@ -7874,12 +7878,14 @@ For failed `backup_create` results before candidate allocation, `backup_set_id` 
 
 `operator_recovery_error_v1`, when non-null, MUST contain exactly `{ "code", "reason_code", "message" }`. `message` is diagnostic text for the local operator and is not a stable comparison key. `code` and `reason_code` MUST follow the closed registry in REQ-01-595.
 
-The progress record schema ID MUST be exactly `cartulary.operator_recovery_progress.v1`. Each JSONL progress record MUST contain exactly `schema_id`, `operation_id`, `phase`, `completed`, `total`, and `emitted_at`. `schema_id` MUST equal `cartulary.operator_recovery_progress.v1`. `completed` MUST be a non-negative integer. `total` MUST be a non-negative integer or JSON `null`; when non-null, `completed <= total`. `emitted_at` MUST be an RFC 3339 UTC timestamp. Progress phase tokens are closed as follows:
+The progress record schema ID MUST be exactly `cartulary.operator_recovery_progress.v2`. Each JSONL progress record MUST contain exactly `schema_id`, `operation_id`, `phase`, `completed`, `total`, and `emitted_at`. `schema_id` MUST equal `cartulary.operator_recovery_progress.v2`. `completed` MUST be a non-negative integer. `total` MUST be a non-negative integer or JSON `null`; when non-null, `completed <= total`. `emitted_at` MUST be an RFC 3339 UTC timestamp. Progress phase tokens are closed as follows:
 
 | Operation token | Allowed `phase` values |
 | --- | --- |
 | `backup_inspect_latest` | `preflight`, `catalog_select`, `artifact_validate`, `finalize` |
 | `backup_create` | `preflight`, `postgres_backup`, `object_backup`, `attestation_write`, `journal_write`, `finalize` |
+| `backup_export_latest` | `preflight`, `catalog_select`, `artifact_validate`, `transfer_copy`, `journal_write`, `finalize` |
+| `restore_bundle` | `preflight`, `artifact_validate`, `postgres_restore`, `object_restore`, `projection_rebuild`, `invariant_check`, `journal_write`, `finalize` |
 | `restore_latest` | `preflight`, `postgres_restore`, `object_restore`, `projection_rebuild`, `invariant_check`, `journal_write`, `finalize` |
 | `restore_verify_latest` | `preflight`, `postgres_restore`, `object_restore`, `projection_rebuild`, `invariant_check`, `workbook_probe`, `attestation_update`, `journal_write`, `finalize` |
 | `restore_verify_due` | `preflight`, `postgres_restore`, `object_restore`, `projection_rebuild`, `invariant_check`, `workbook_probe`, `attestation_update`, `journal_write`, `finalize` |
@@ -7918,14 +7924,15 @@ Operator recovery errors MUST use only the following `code` and `reason_code` co
 
 | `code` | Exit code | Allowed `reason_code` values |
 | --- | ---: | --- |
-| `invalid_operator_request` | `2` | `unknown_command`, `missing_required_flag`, `invalid_flag_value`, `unsupported_output_mode`, `unsupported_progress_mode`, `timeout_below_minimum`, `timeout_above_maximum`, `timestamp_restore_not_supported`, `backup_selector_not_supported`, `confirmation_mismatch`, `local_config_invalid` |
+| `invalid_operator_request` | `2` | `unknown_command`, `missing_required_flag`, `invalid_flag_value`, `unsupported_output_mode`, `unsupported_progress_mode`, `timeout_below_minimum`, `timeout_above_maximum`, `timestamp_restore_not_supported`, `backup_selector_not_supported`, `confirmation_mismatch`, `stale_backup_unacknowledged`, `local_config_invalid` |
 | `recovery_key_unavailable` | `3` | `secret_reference_missing`, `secret_reference_unresolved`, `recovery_key_invalid` |
 | `backup_set_not_found` | `3` | `no_successful_retained_backup`, `selected_backup_not_retained` |
-| `backup_integrity_failed` | `3` | `artifact_missing`, `integrity_proof_missing`, `checksum_mismatch`, `attestation_invalid` |
+| `backup_integrity_failed` | `3` | `artifact_missing`, `integrity_proof_missing`, `checksum_mismatch`, `attestation_invalid`, `transfer_invalid`, `release_mismatch` |
 | `unsafe_restore_target` | `3` | `same_database_binding`, `same_object_store_binding`, `target_database_not_fresh`, `target_object_namespace_not_fresh`, `target_serving_traffic`, `target_marker_missing`, `target_marker_invalid` |
 | `recovery_operation_in_progress` | `3` | `operation_lock_unavailable` |
 | `operation_timed_out` | `4` | `timeout_elapsed` |
 | `backup_create_failed` | `4` | `postgres_backup_failed`, `object_backup_failed`, `integrity_proof_failed`, `artifact_readback_failed`, `attestation_write_failed`, `backup_publication_failed`, `journal_write_failed` |
+| `backup_export_failed` | `4` | `transfer_copy_failed`, `transfer_publication_failed`, `journal_write_failed` |
 | `restore_failed` | `4` | `postgres_restore_failed`, `object_restore_failed`, `projection_rebuild_failed`, `invariant_check_failed`, `journal_write_failed` |
 | `verification_failed` | `4` | `postgres_restore_failed`, `object_restore_failed`, `projection_rebuild_failed`, `invariant_check_failed`, `workbook_probe_failed`, `attestation_update_failed`, `journal_write_failed` |
 
@@ -7939,6 +7946,78 @@ maps to the existing operation-specific `journal_write_failed` reason.
 
 Profiles: base
 Verified by: AC-428
+
+### 12.2.1.1 Portable recovery sets
+
+**REQ-01-678**
+`operator backup export latest` requires `--output-directory <absolute-path>`.
+The destination MUST be absent and its parent MUST be an admitted directory.
+Selection uses the same deterministic newest-intact-retained ordering as ordinary
+Recovery selection, but MUST NOT reject a backup solely because its consistency
+point is older than 24 hours. Source retention is checked at selection. Export
+MUST hold the source recovery-operation exclusion through artifact readback and
+publication so retention cannot remove selected inputs during transfer.
+
+The current transfer format is `cartulary.recovery_transfer_manifest.v1`. One
+portable directory contains an authenticated encrypted manifest and all encrypted
+artifacts selected by the frozen Recovery catalog and its integrity manifest.
+The transfer MUST preserve encrypted artifact bytes, include catalog and codec
+bindings, complete owner contributions, backup metadata and the exact release
+identity, and exclude deployment master keys and provisioning credentials. The
+manifest MUST bind every member's confined relative locator, byte length and
+SHA-256. No source filesystem locator is a transfer member locator. The manifest
+is bounded to 16 MiB and 4096 artifact references; artifact streaming retains
+current Recovery chunk limits. Duplicate, missing, extra, escaping, linked or
+non-regular members, incompatible identities and incomplete streams MUST reject.
+Unknown fields and unsupported transfer versions MUST reject.
+
+Export MUST stage within the destination parent using an operation-owned private
+directory, verify the complete staged transfer by readback, and publish using an
+atomic no-replace rename. Cancellation or failure cannot publish a successful
+partial set or alter the source backup. Export journal failure prevents a success
+result; an already published complete set remains diagnostic/retry material.
+An exact retry accepts only matching immutable operation and transfer evidence.
+Profiles: base
+Verified by: AC-538
+
+**REQ-01-679**
+`operator restore bundle` requires `--bundle-directory <absolute-path>`,
+`--target-config-file <absolute-path>` and `--confirm-backup-set-id <canonical-uuid>`.
+It MUST NOT accept or load source deployment configuration. Directory arguments
+use the literal absolute-path rules in REQ-01-593. It MUST authenticate the
+manifest, validate the complete immutable encrypted member set and confirm the
+backup ID before target data mutation. Transfer storage MUST not overlap target
+writable roots. Release, application format, catalog and codec identities must
+match; older formats require their original release rather than conversion.
+
+If the consistency point is strictly older than 24 hours at admission, the
+operator MUST supply `--acknowledge-stale-backup <same-backup-id>`. Omission or
+mismatch rejects with `invalid_operator_request/stale_backup_unacknowledged`.
+Future consistency points reject. Original source retention expiry MUST NOT
+invalidate an already completed authenticated export. Neither acknowledgement
+nor restore resets backup freshness or implies restore verification success.
+
+Live and portable inputs MUST use the same catalog-resolved restore execution,
+source-owner storage capabilities, projection rebuilds and invariant checks.
+Portable restore MUST open no source database, object store or source journal.
+The admitted target owns an encrypted append-only operation journal outside the
+restored database contents, binding the operation ID, transfer digest, backup,
+consistency point, target generation, target bindings and participant completion.
+Once restored target storage permits it, terminal completion MUST publish the
+safe administrative-audit derivative. Success requires both durable terminal
+records; response-loss retry reconciles only matching completion and MUST NOT
+repeat committed restore mutations. Interrupted or indeterminate mutation leaves
+the target isolated and requires explicitly provisioned replacement state.
+The immutable intent schema is `cartulary.portable_restore_intent.v1`, with exactly
+`schema_id`, `operation_id`, `backup_set_id`, `consistency_point_at`,
+`transfer_sha256`, `target_generation_id`, `target_binding_digests` and `started_at`.
+Intent and current v6 terminal payloads use the current journal envelope and
+operation/record-kind authenticated context, bounded to 16 MiB per sealed record.
+A completed exact retry validates the unchanged proof at its original admission
+instant under a new exclusive lease; expiry alone neither invalidates completion
+nor authorizes renewal of a non-pristine target.
+Profiles: base
+Verified by: AC-539
 
 ### 12.2.2 Deployment-local Collaboration requeue CLI contract
 

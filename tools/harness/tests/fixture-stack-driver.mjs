@@ -8,6 +8,10 @@ import { ownedProcess } from "../runtime/owned-process.mjs";
 
 import { createAcquisitionLaunch, recordAcquisitionProcess } from "../browser/browser-acquisition.mjs";
 
+if (process.env.CARTULARY_FIXTURE_PARENT_ONLY !== undefined) {
+  throw new Error("parent-only binding leaked into the owned fixture");
+}
+
 const args = process.argv.slice(2);
 if (args[0] === "serve") {
   recordAcquisitionProcess(process.env.CARTULARY_BROWSER_ACQUISITION_FILE, args[2]);

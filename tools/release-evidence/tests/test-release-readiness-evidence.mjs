@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import "./test-package-smoke-cleanup.mjs";
 import "./test-package-operation.mjs";
+import "./test-package-release.mjs";
 import path from "node:path";
 
 import { WorkGraphCompiler } from "../../harness/scheduler/work-graph/index.mjs";
@@ -35,7 +36,7 @@ for (const target of ["standup-package-smoke", "standup-operational-recovery-smo
   assert.ok(unit.resource_claims.object_store >= 2 && unit.resource_claims.postgres >= 2, "admit both isolated deployments");
   assert.equal(unit.resource_claims.volume, 1, "serialize package-owned volume allocation");
   assert.equal(unit.cache_policy, "none", "package qualification needs fresh execution evidence");
-  assert.ok(unit.needs.includes("target:deployable-shape"), "qualify the built deployable");
+  assert.ok(unit.needs.includes("target:package-release"), "qualify the immutable producer output");
 }
 
 for (const target of ["credential-capacity-assessment", "cryptographic-policy-assessment"]) {
@@ -43,4 +44,4 @@ for (const target of ["credential-capacity-assessment", "cryptographic-policy-as
   assert.ok(plan.projections["release-check"].includes(`target:${target}`));
   assert.equal(units.get(`target:${target}`).cache_policy,"none");
 }
-assert.ok(units.get("target:credential-capacity-assessment").needs.includes("target:deployable-shape"));
+assert.ok(units.get("target:credential-capacity-assessment").needs.includes("target:package-release"));

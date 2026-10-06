@@ -57,6 +57,19 @@ func (catalog *BackupCatalog) RestoreCandidateBackup(ctx context.Context, asOf t
 }
 
 func (catalog *BackupCatalog) RestoreCandidateBackupSelection(ctx context.Context, asOf time.Time) (BackupCatalogSelection, error) {
+	selection, err := catalog.IntactRetainedBackupSelection(ctx, asOf)
+	if err != nil {
+		return selection, err
+	}
+	asOf = normalizeAsOf(asOf)
+	if selection.BackupSet.ConsistencyPointAt.Before(asOf.Add(-LatestSuccessfulBackupMaxAge)) {
+		return BackupCatalogSelection{}, &LatestSuccessfulBackupStaleError{BackupSet: selection.BackupSet, AsOf: asOf, MaxAge: LatestSuccessfulBackupMaxAge}
+	}
+	return selection, nil
+}
+
+// IntactRetainedBackupSelection separates recoverability from operating freshness.
+func (catalog *BackupCatalog) IntactRetainedBackupSelection(ctx context.Context, asOf time.Time) (BackupCatalogSelection, error) {
 	if catalog == nil || catalog.store == nil || catalog.storage == nil || catalog.extensionBackups == nil {
 		return BackupCatalogSelection{}, fmt.Errorf("%w: backup catalog requires store and backup storage", ErrInvalidBackupMetadata)
 	}
@@ -85,13 +98,10 @@ func (catalog *BackupCatalog) RestoreCandidateBackupSelection(ctx context.Contex
 			})
 			continue
 		}
-		if candidate.ConsistencyPointAt.Before(asOf.Add(-LatestSuccessfulBackupMaxAge)) {
-			return BackupCatalogSelection{}, &LatestSuccessfulBackupStaleError{
-				BackupSet: candidate,
-				AsOf:      asOf,
-				MaxAge:    LatestSuccessfulBackupMaxAge,
-			}
+		if candidate.ConsistencyPointAt.After(asOf) {
+			continue
 		}
+
 		return BackupCatalogSelection{
 			BackupSet:             candidate,
 			DurabilityDiagnostics: diagnostics,

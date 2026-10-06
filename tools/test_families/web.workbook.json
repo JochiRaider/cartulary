@@ -5093,6 +5093,7 @@
         "file": "apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts",
         "titles": [
           "coalesces only undispatched capture revisions and preserves an explicit clear before capture",
+          "creates from a local draft during query refresh but retains the dependent patch until refresh completes",
           "promotes newer retained capture authoring after detached acknowledgement",
           "retains admission-refused capture authoring through acceptance at queue capacity",
           "retains capture authoring through suspension and retires it before late incident or account receipts",

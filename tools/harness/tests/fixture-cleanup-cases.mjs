@@ -304,6 +304,8 @@ export async function assertProductionCleanupCases(repoRoot) {
         }
       },
     }) });
+    const priorParentBinding = process.env.CARTULARY_FIXTURE_PARENT_ONLY;
+    process.env.CARTULARY_FIXTURE_PARENT_ONLY = "unowned-parent-binding";
     try {
       const result = await runWorkGraph({ graph: buildWorkGraph([workUnit()]), capacities: new Map([["cpu", 1]]),
         cwd: fixtureRoot, environment: {}, fixtureBroker: broker,
@@ -338,6 +340,8 @@ export async function assertProductionCleanupCases(repoRoot) {
       });
       assert.equal(connected, false, "the exact owned listener must be gone after cleanup/recovery");
     } finally {
+      if (priorParentBinding === undefined) delete process.env.CARTULARY_FIXTURE_PARENT_ONLY;
+      else process.env.CARTULARY_FIXTURE_PARENT_ONLY = priorParentBinding;
       if (leaseFile && existsSync(leaseFile)) {
         await settleBrowserAcquisition({ root: fixtureRoot, file: leaseFile, runtime, environment, recovery: true });
         recordRuntimeResource(runtime, { kind: "browser_stack", target: leaseFile, state: "released" });

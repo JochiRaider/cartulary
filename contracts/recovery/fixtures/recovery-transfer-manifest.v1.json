@@ -1,0 +1,41 @@
+{
+  "schema_id": "cartulary.recovery_transfer_manifest.v1",
+  "application_crypto_format": "cartulary.application_crypto_format.v1",
+  "release_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "generation": {
+    "recovery_state_catalog_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "codec_registry_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "graph_source_registry_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "graph_implementation_binding_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "graph_algorithm_id": "graphprojection.restore_rebuild.v4"
+  },
+  "selection": {
+    "backup_set_id": "00000000-0000-0000-0000-000000000203",
+    "consistency_point_at": "2026-08-16T12:00:00Z",
+    "created_at": "2026-08-16T12:00:00Z",
+    "retained_until": "2026-09-16T12:00:00Z",
+    "postgres": {
+      "reference": "backup-stream-v3://backup/fixture",
+      "size_bytes": 1,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "objects": {
+      "reference": "backup-stream-v3://backup/fixture",
+      "size_bytes": 1,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "integrity": {
+      "reference": "backup-stream-v3://backup/fixture",
+      "size_bytes": 1,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  },
+  "artifacts": [
+    {
+      "reference": "backup/fixture.envelope.json",
+      "size_bytes": 1,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "exported_at": "2026-08-16T12:00:00Z"
+}

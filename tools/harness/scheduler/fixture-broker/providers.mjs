@@ -63,7 +63,9 @@ async function acquireProcess(command, args, { cwd, environment, signal, onChild
   try {
     signal?.throwIfAborted();
     diagnostic = ["ensure", "installed_only"].includes(environment.CARTULARY_PREPARATION_POLICY) ? createCommandFailureContext({ repoRoot: cwd, environment, unitID: "review:browser_stack", commandID: environment.CARTULARY_PREPARATION_POLICY === "installed_only" ? "cartulary.harness.command.ui_review.v1" : "cartulary.harness.command.browser_design_review.v1" }) : null;
-    child = spawn(command, args, { cwd, env: { ...process.env, ...environment, ...diagnostic?.environment }, stdio: "ignore", detached: true });
+    // The caller owns the complete child environment, including intentional
+    // removal of ambient parent-graph and browser bindings.
+    child = spawn(command, args, { cwd, env: { ...environment, ...diagnostic?.environment }, stdio: "ignore", detached: true });
     const closed = new Promise((resolve) => {
       child.once("error", (error) => { primary ??= error; });
       child.once("close", resolve);

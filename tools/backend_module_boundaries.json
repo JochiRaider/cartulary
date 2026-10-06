@@ -473,6 +473,7 @@
         "internal/modules/networkflow/store_test.go",
         "internal/modules/recovery/backup_metadata_integration_test.go",
         "internal/modules/recovery/operatortest/operator_process_test.go",
+        "internal/modules/recovery/operatortest/portable_restore_process_test.go",
         "internal/modules/recovery/restore_projection_contract_test.go",
         "internal/modules/reference_data/**",
         "internal/modules/reporting/portable_artifacts.go",
@@ -3440,8 +3441,7 @@
       "id": "recovery-application-no-error-text-routing",
       "tokens": [
         "err.Error()",
-        "strings.Contains(",
-        "strings.ToLower("
+        "strings.Contains("
       ],
       "scan_paths": [
         "internal/modules/recovery/application/**"

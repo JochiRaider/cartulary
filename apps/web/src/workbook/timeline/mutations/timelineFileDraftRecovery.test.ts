@@ -15,6 +15,10 @@ import type {
   WorkbookBatchTransport,
   WorkbookBatchTransportOutcome,
 } from "../../runtime/workbookBatchOperation";
+import {
+  beginWorkbookPendingRefreshBlock,
+  finishWorkbookPendingRefreshBlock,
+} from "../../runtime/workbookPendingReplayRuntime";
 import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { createTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { buildCreatePayload } from "../models/timelineMutationIntents";
@@ -186,6 +190,31 @@ function fixture() {
     ports,
   };
 }
+it("creates from a local draft during query refresh but retains the dependent patch until refresh completes", async () => {
+  const f = fixture();
+  const pending = f.runtime.pendingQueue();
+  const scope = { kind: "all" as const };
+  beginWorkbookPendingRefreshBlock(pending, scope);
+  f.type(undefined, "First capture");
+  await waitFor(() => expect(f.execute).toHaveBeenCalledOnce());
+  expect(f.execute.mock.calls[0]?.[0].unit.kind).toBe("create");
+  f.type(undefined, "Follow-on authoring");
+  f.acknowledgement.resolve({ kind: "accepted", value: f.receipt });
+  await waitFor(() =>
+    expect(pending.model.snapshot().units[0]?.kind).toBe("patch"),
+  );
+  expect(f.execute).toHaveBeenCalledOnce();
+  expect(pending.model.snapshot().units[0]?.recordId).toBe(recordId);
+  finishWorkbookPendingRefreshBlock(pending, scope);
+  f.runtime.notifyPendingChanged();
+  f.runtime.requestDrain();
+  await waitFor(() => expect(f.execute).toHaveBeenCalledTimes(2));
+  expect(f.execute.mock.calls[1]?.[0]).toMatchObject({
+    committedRowVersion: 1,
+    unit: { kind: "patch", recordId },
+  });
+});
+
 it("settles a valid empty capture without clearing authoring added after dispatch", async () => {
   const f = fixture();
   f.owner.fileDrafts.attachEvidence(f.row.key, evidenceId);

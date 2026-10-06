@@ -12,7 +12,8 @@ function command(binary,args,options={}) {
   if(r.error || r.status!==0) {
     const diagnostic = /^Windows boundary probe failed: [a-zA-Z0-9 :_-]+$/.test(r.stderr?.trim() || "") ? `: ${r.stderr.trim()}` : "";
     const reasons = [...`${r.stdout || ""}\n${r.stderr || ""}`.matchAll(/(?:"reason_code"\s*:\s*"|reason_code=)([a-z0-9_]+)/g)].map(match => match[1]);
-    throw new Error(`package platform command failed: ${path.basename(binary)} ${args[0] || ""} (status ${r.status}; reasons ${[...new Set(reasons)].join(",")})${diagnostic}`);
+    const gate=[...`${r.stderr || ""}`.matchAll(/"gate":"([a-z_]+)"/g)].at(-1)?.[1] || "unspecified";
+    throw new Error(`package platform command failed: ${path.basename(binary)} ${args[0] || ""} (status ${r.status}; gate ${gate}; reasons ${[...new Set(reasons)].join(",")})${diagnostic}`);
   }
   return r.stdout.trim();
 }
@@ -34,7 +35,7 @@ async function main() {
  assert.match(project,/^cartulary(?:mvpsmoke|mvprecoverysmk)[0-9]+$/);
  const go=process.env.GO || "go", policy=pins();
  const env={...process.env,GOTOOLCHAIN:policy.go_toolchain,GOFIPS140:policy.cryptographic_module.selector,CGO_ENABLED:"0",GOCACHE:process.env.GO_CACHE_DIR,GOMODCACHE:process.env.GO_MOD_CACHE_DIR,GOTMPDIR:process.env.GO_TMP_DIR};
- const compose=(...args)=>command("docker",["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"docker-compose.yml"),...args]);
+ const compose=(...args)=>command("docker",["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"release/assets/docker-compose.yml"),...args]);
  if(operation==="prepare") {
    verifyArchive(go,env);
    const client=path.join(work,"windows-probe.exe");
@@ -62,34 +63,28 @@ async function main() {
    save(artifacts,"windows-https.json",windowsProbe(work,origin));
    return;
  }
+ const operate=(action)=>command(path.join(work,"release/assets/scripts/package.sh"),[action],{env:{...process.env,CARTULARY_MVP_DIR:work},timeout:300000});
  const stages=[];
  const checkpoint=(stage)=>{stages.push(stage);save(artifacts,"certificate-replacement-progress.json",{completed:stages});};
  const before=windowsProbe(work,origin);
  const formatIdentity=()=>compose("exec","-T","--user","postgres","postgres","psql","-U","postgres","-d","cartulary","-Atc","SELECT format_id FROM application_crypto_format");
  const admittedFormat=formatIdentity();
  assert.equal(admittedFormat,"cartulary.application_crypto_format.v1");
- compose("stop","app");
+ operate("stop");
  for(const name of ["postgres","seaweed","application","migration","runtime","recovery","restore-migration","restore-recovery"]) for(const suffix of ["crt","key"]) {
    const target=path.join(work,"tls",`${name}.${suffix}`);
    copyFileSync(path.join(work,"tls",`${name}.replacement.${suffix}`),target+".next");renameSync(target+".next",target);
  }
- compose("up","-d","--no-deps","--force-recreate","postgres","seaweedfs-s3");
- for(const service of ["postgres","seaweedfs-s3"]) {
-   let ready=false;
-   for(let attempt=0;attempt<90;attempt++) {
-     const id=compose("ps","-q",service);
-     if(id && command("docker",["inspect","--format","{{.State.Health.Status}}",id])==="healthy") {ready=true;break;}
-     await delay(1000);
-   }
-   assert.ok(ready,`renewed ${service} did not become healthy`);
- }
+ operate("start");
+ checkpoint("installed startup renewed service transports");
+ operate("stop");
  // A valid certificate for a different database role must fail authentication.
  for(const suffix of ["crt","key"]) {
    const target=path.join(work,"tls",`runtime.${suffix}`);
    copyFileSync(target,target+".admitted");
    copyFileSync(path.join(work,"tls",`migration.${suffix}`),target+".next");renameSync(target+".next",target);
  }
- const wrongPurpose=spawnSync("docker",["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"docker-compose.yml"),"run","--rm","--no-deps","app"],{encoding:"utf8",timeout:30000,maxBuffer:1024*1024});
+ const wrongPurpose=spawnSync("docker",["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"release/assets/docker-compose.yml"),"run","--rm","--no-deps","app"],{encoding:"utf8",timeout:30000,maxBuffer:1024*1024});
  for(const suffix of ["crt","key"]) {
    const target=path.join(work,"tls",`runtime.${suffix}`);renameSync(target+".admitted",target);
  }
@@ -102,7 +97,7 @@ async function main() {
  let initialized;
  try { initialized=JSON.parse(compose("run","--rm","--no-deps","object-store-init")); }
  catch(error) {
-   const log=spawnSync("docker",["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"docker-compose.yml"),"logs","--no-color","--tail","120","seaweedfs-s3"],{encoding:"utf8",timeout:10000,maxBuffer:1024*1024});
+   const log=spawnSync("docker",["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"release/assets/docker-compose.yml"),"logs","--no-color","--tail","120","seaweedfs-s3"],{encoding:"utf8",timeout:10000,maxBuffer:1024*1024});
    const lines=`${log.stdout || ""}\n${log.stderr || ""}`.split("\n").filter(line=>!/(secret|credential|access.?key|authorization|token|password|BEGIN.*KEY)/i.test(line));
    writeFileSync(path.join(artifacts,"seaweed-replacement-diagnostic.log"),lines.join("\n"),{mode:0o600});
    const service=compose("ps","-q","seaweedfs-s3");
@@ -112,13 +107,13 @@ async function main() {
  assert.equal(initialized.already_exists,true,"renewal must preserve the existing bucket");
  assert.equal(initialized.created,false,"renewal must never replace retained storage with a fresh bucket");
  checkpoint("renewed recovery credential and S3 transport admitted");
- compose("up","-d","--no-deps","--force-recreate","app");
+ operate("start");
  let after;
  for(let attempt=0;attempt<60;attempt++) {try {after=windowsProbe(work,origin);break;} catch {await delay(1000);}}
  assert.ok(after,"renewed application did not become ready from Windows");
  assert.notEqual(before.leaf_sha256,after.leaf_sha256);
  const appID=compose("ps","-q","app");assert.match(appID,/^[a-f0-9]{64}$/);
- command("docker",["kill","--signal","KILL",appID]);command("docker",["start",appID]);
+ command("docker",["kill","--signal","KILL",appID]);operate("start");
  let restarted;
  for(let attempt=0;attempt<60;attempt++) {try {restarted=windowsProbe(work,origin);break;} catch {await delay(1000);}}
  assert.ok(restarted,"owned application did not recover after interruption");

@@ -1787,6 +1787,35 @@ selected child work in the matching runner family. A slice that selects no
 matching child MAY accept and report the bounded input but MUST NOT use it to
 change another runner's concurrency or scheduler resource limits.
 
+
+### Exact local package qualification
+
+The WSL2 local release package MUST have one Make-owned producer and a versioned
+`cartulary.local_release_manifest.v1` binding its Linux/amd64 application and
+companion image identities, deployment assets, binary/module receipts and
+content-derived SBOM/license inventory. Installation MUST require no source
+checkout, Go, Node or pnpm. Installation configuration, secrets and mutable state
+are outside the immutable payload. Package checksums prove byte identity, not
+publisher authentication; trusted delivery remains an operator responsibility.
+
+The three package smoke targets MUST consume the same produced package within a
+release run. Standalone invocations use that producer contract. Smoke consumers
+MUST NOT rebuild or pull substitute application/companion images. Authored
+execution topology owns producer dependencies and generated routing. Qualification
+receipts bind package, image, binary, module and platform identities; final run
+evidence remains outside the package manifest to avoid circular identity.
+
+Installed-entrypoint scenarios MUST exercise initial repair-before-ready startup,
+repeated maintenance, target proof renewal/retry/no-op, complete encrypted export,
+source-loss restore, stale-data acknowledgement and renewed backup freshness.
+Negative identity, missing/altered assets, wrong platform, image-tag contamination
+and incomplete image inventory cases MUST fail. Existing Windows HTTPS/WSS,
+certificate replacement, cryptographic admission and credential-capacity checks
+remain required. Owned cleanup failure is qualification failure. Source loss is
+simulated only with test-owned resources; host shutdown, global trust/firewall
+changes and unrelated resource deletion are forbidden.
+
+
 ### 4.3 Public Target Registry
 
 Every command below inherits the matching family defaults. `Default inclusion sets` lists direct target-policy membership only; row selection is derived from minimum tiers. `helper_only` means the target is public and directly invocable, but is not selected by default by `test`, `check`, `ci`, or `release-check` unless an aggregate policy explicitly selects it. `helper_only` MUST NOT mean private, uncontracted, or exempt from public-target output, configuration, failure, and cleanup contracts.
@@ -1831,8 +1860,8 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `openapi-compatibility-check` | `cartulary.harness.command.openapi_compatibility_check.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `toolchain-drift` | `cartulary.harness.command.toolchain_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
 | `migration-drift` | `cartulary.harness.command.migration_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_resource_mutation` | `public_active` |  |
-| `standup-package-smoke` | `cartulary.harness.command.standup_package_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Builds and smokes the MVP on-prem stand-up package with one app image plus local Postgres and SeaweedFS S3, verifies embedded browser assets, package-local object-store init, readiness, persistent Docker-volume roots, and WebSocket Origin behavior. It is package smoke evidence only and MUST NOT be represented as disconnected-profile or backup/restore conformance evidence. |
-| `standup-operational-recovery-smoke` | `cartulary.harness.command.standup_operational_recovery_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Builds and smokes the MVP on-prem operational recovery workflow, creates a backup through the canonical operator recovery result schema, inspects the latest retained backup through the canonical inspect command, runs due restore verification against an isolated target, proves public recovery route-family absence, and retains command-specific recovery artifacts. It is not disconnected-profile evidence and does not reclassify `standup-package-smoke` as backup/restore conformance evidence. |
+| `standup-package-smoke` | `cartulary.harness.command.standup_package_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Consumes and smokes the exact produced MVP on-prem stand-up package with one app image plus local Postgres and SeaweedFS S3, verifies embedded browser assets, package-local object-store init, readiness, persistent Docker-volume roots, and WebSocket Origin behavior. It is package smoke evidence only and MUST NOT be represented as disconnected-profile or backup/restore conformance evidence. |
+| `standup-operational-recovery-smoke` | `cartulary.harness.command.standup_operational_recovery_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Consumes the exact produced MVP package and smokes its operational recovery workflow, creates a backup through the canonical operator recovery result schema, inspects the latest retained backup through the canonical inspect command, runs due restore verification against an isolated target, proves public recovery route-family absence, and retains command-specific recovery artifacts. It is not disconnected-profile evidence and does not reclassify `standup-package-smoke` as backup/restore conformance evidence. |
 | `standup-reference-pack-smoke` | `cartulary.harness.command.standup_reference_pack_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Qualifies Reference Pack administration through shipped server and operator binaries on disposable source and destination deployments, including trust, replay, explicit activation, historical reporting, portability, recovery and accountable cleanup. It does not establish specification adoption, FIPS conformance or suitability of an untested deployment. |
 | `agent-finalize` | `cartulary.harness.command.agent_finalize.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `generated_artifacts` | `public_active` |  |
 | `test-evidence-audit` | `cartulary.harness.command.test_evidence_audit.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Audits one owner's catalog rows across compatible retained broad-check, support, visual, accessibility, and measurement roots. |

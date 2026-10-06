@@ -843,7 +843,9 @@ async function main() {
     providers: productionFixtureProviders({
       root,
       selectionEnvironment: fixtureSelectionEnvironment(options),
-      runtimeEnvironment,
+      // Fixture launch receives a complete environment. Review composition can
+      // supply its own sanitized environment without implicit ambient merging.
+      runtimeEnvironment: { ...process.env, ...runtimeEnvironment },
       suiteController,
       suiteRuntime,
       onOwnedResource,

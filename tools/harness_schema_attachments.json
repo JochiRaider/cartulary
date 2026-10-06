@@ -114,6 +114,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.distribution_notices.v1",
+      "path": "tools/schemas/cartulary.distribution_notices.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "immutable local release producer",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.executable_input_policy.v1",
       "path": "tools/schemas/cartulary.executable_input_policy.v1.schema.json",
       "classification": "owner_input",
@@ -478,6 +485,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.image_inventory_tool.v1",
+      "path": "tools/schemas/cartulary.image_inventory_tool.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "immutable local release producer",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.incident_bundle_fixture_manifest.v1",
       "path": "tools/schemas/cartulary.incident_bundle_fixture_manifest.v1.schema.json",
       "classification": "owner_input",
@@ -524,6 +538,27 @@
       "path": "tools/schemas/cartulary.local_object_store_proxy_start_attempt.v2.schema.json",
       "classification": "public_contract",
       "producer": "local development object-store proxy lifecycle",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.local_release_inspection.v1",
+      "path": "tools/schemas/cartulary.local_release_inspection.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "immutable local release producer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.local_release_manifest.v1",
+      "path": "tools/schemas/cartulary.local_release_manifest.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "immutable local release producer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.local_release_receipt.v1",
+      "path": "tools/schemas/cartulary.local_release_receipt.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "immutable local release producer",
       "validation": "json-shape-check"
     },
     {

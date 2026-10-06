@@ -26,7 +26,9 @@ func TestRecoveryCLIParserAndInvalidInvocationContract(t *testing.T) {
 			confirm   string
 		}{
 			{name: "backup inspect latest", args: []string{"backup", "inspect", "latest"}, operation: "backup_inspect_latest", timeout: 30},
+			{name: "backup export latest", args: []string{"backup", "export", "latest", "--output-directory", "/tmp/export"}, operation: "backup_export_latest", timeout: 14400},
 			{name: "backup create", args: []string{"backup", "create"}, operation: "backup_create", timeout: 14400},
+			{name: "restore bundle", args: []string{"restore", "bundle", "--bundle-directory", "/tmp/transfer", "--target-config-file", "/tmp/cartulary-target.toml", "--confirm-backup-set-id", backupID}, operation: "restore_bundle", timeout: 14400, target: "/tmp/cartulary-target.toml", confirm: backupID},
 			{name: "restore latest", args: []string{"restore", "latest", "--target-config-file", "/tmp/cartulary-target.toml", "--confirm-backup-set-id", backupID}, operation: "restore_latest", timeout: 14400, target: "/tmp/cartulary-target.toml", confirm: backupID},
 			{name: "restore verify latest", args: []string{"restore-verify", "latest", "--target-config-file", "/tmp/cartulary-target.toml"}, operation: "restore_verify_latest", timeout: 14400, target: "/tmp/cartulary-target.toml"},
 			{name: "restore verify due", args: []string{"restore-verify", "due", "--target-config-file", "/tmp/cartulary-target.toml"}, operation: "restore_verify_due", timeout: 14400, target: "/tmp/cartulary-target.toml"},
@@ -61,6 +63,22 @@ func TestRecoveryCLIParserAndInvalidInvocationContract(t *testing.T) {
 		}
 	})
 
+	t.Run("export requires confined literal destination", func(t *testing.T) {
+		assertInvalidRecoveryCommand(t, parseCommand([]string{"backup", "export", "latest"}), "missing_required_flag")
+		for _, path := range []string{"relative", "/tmp/../export", "/tmp/$OUTPUT"} {
+			assertInvalidRecoveryCommand(t, parseCommand([]string{"backup", "export", "latest", "--output-directory", path}), "invalid_flag_value")
+		}
+	})
+	t.Run("bundle invocation is source independent and exact", func(t *testing.T) {
+		base := []string{"restore", "bundle", "--bundle-directory", "/tmp/transfer", "--target-config-file", "/tmp/target.toml", "--confirm-backup-set-id", backupID}
+		for _, extra := range [][]string{{"--source-config-file", "/tmp/source.toml"}, {"--acknowledge-stale-backup", "true"}, {"--confirm-backup-set-id", "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"}, {"--bundle-directory", "relative"}} {
+			assertInvalidRecoveryCommand(t, parseCommand(append(append([]string{}, base...), extra...)), "invalid_flag_value")
+		}
+		parsed := parseCommand(append(base, "--acknowledge-stale-backup", backupID, "--operation-id", operationID))
+		if parsed.Invalid || parsed.BundleDirectory != "/tmp/transfer" || parsed.AcknowledgeStaleBackup != backupID || parsed.OperationID != operationID {
+			t.Fatalf("portable flags lost: %#v", parsed)
+		}
+	})
 	t.Run("generic unknown recovery subcommand", func(t *testing.T) {
 		parsed := parseCommand([]string{"backup", "unsupported"})
 		assertInvalidRecoveryCommand(t, parsed, "unknown_command")
@@ -147,6 +165,13 @@ func TestOperatorRecoveryFailureKindsMapExhaustivelyToClosedWirePairs(t *testing
 		reasonCode string
 		exitCode   int
 	}{
+		{application.FailureTransferInvalid, "backup_integrity_failed", "transfer_invalid", 3},
+		{application.FailureTransferReleaseMismatch, "backup_integrity_failed", "release_mismatch", 3},
+		{application.FailureTransferCopy, "backup_export_failed", "transfer_copy_failed", 4},
+		{application.FailureTransferPublication, "backup_export_failed", "transfer_publication_failed", 4},
+		{application.FailureExportJournalWrite, "backup_export_failed", "journal_write_failed", 4},
+		{application.FailureStaleBackupUnacknowledged, "invalid_operator_request", "stale_backup_unacknowledged", 2},
+
 		{application.FailureConfirmationMismatch, "invalid_operator_request", "confirmation_mismatch", 2},
 		{application.FailureLocalConfigInvalid, "invalid_operator_request", "local_config_invalid", 2},
 		{application.FailureSecretReferenceMissing, "recovery_key_unavailable", "secret_reference_missing", 3},
@@ -236,6 +261,10 @@ type deadlineInspectingFacade struct {
 	called bool
 }
 
+func (facade *deadlineInspectingFacade) RestoreBundle(context.Context, application.RestoreBundleRequest, application.ProgressSink) (application.Result, error) {
+	return application.Result{}, nil
+}
+
 func (facade *deadlineInspectingFacade) BackupInspectLatest(context.Context, application.BackupInspectLatestRequest, application.ProgressSink) (application.Result, error) {
 	panic("unexpected BackupInspectLatest call")
 }
@@ -264,4 +293,8 @@ func (facade *deadlineInspectingFacade) RestoreVerifyDue(ctx context.Context, re
 		facade.t.Fatal("operation ID is empty")
 	}
 	return application.Result{ArtifactRefs: []application.ArtifactRef{}, Status: application.ResultNoOp}, nil
+}
+
+func (facade *deadlineInspectingFacade) BackupExportLatest(context.Context, application.BackupExportLatestRequest, application.ProgressSink) (application.Result, error) {
+	panic("unexpected export call")
 }

@@ -4,7 +4,6 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-Environment=CARTULARY_MVP_DIR=/opt/cartulary/deploy/mvp
-Environment=CARTULARY_MVP_ENV_FILE=/etc/cartulary/mvp.env
-Environment=CARTULARY_SOURCE_CONFIG=/opt/cartulary/deploy/mvp/config.toml
-ExecStart=/opt/cartulary/deploy/mvp/scripts/backup-capture.sh
+Environment=CARTULARY_MVP_DIR=/opt/cartulary
+Environment=CARTULARY_MVP_ENV_FILE=/opt/cartulary/.env
+ExecStart=/opt/cartulary/release/assets/scripts/package.sh backup-create

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.operator_recovery_audit_summary.v2",
+  "schema_id": "cartulary.operator_recovery_audit_summary.v3",
   "operation_id": "recovery-operation-0001",
   "operation": "restore_verify_latest",
   "attempt_id": "recovery-attempt-0001",

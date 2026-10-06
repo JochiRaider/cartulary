@@ -1,6 +1,889 @@
-# Reference Pack cryptographic remediation — Windows 11 / WSL2
+# Reference Pack remediation — Windows 11 / WSL2 production operation
 
-This is the sole controlling tracker and completion record for the Reference Pack and application cryptography iteration. It is implementation support, not a normative owner, adoption record or conformance claim. Tests, generators, runtime metadata and release evidence must not read, stat, hash or otherwise depend on this document.
+This is the sole controlling tracker for Reference Pack remediation and the package work needed to operate and distribute it. It is implementation support, not a normative owner, adoption record or conformance claim. Tests, generators, runtime metadata and release evidence must not read, stat, hash or otherwise depend on this document.
+
+The **S26–S34: production operation and recoverable distribution** iteration is **complete**, with final-candidate release acceptance and operating handoff recorded below. The previous cryptographic iteration, including S25 and S07, remains complete. Its unchanged record begins at **Historical completed cryptographic iteration — S16–S25** below; authorization, baseline and readiness statements inside that record describe that earlier iteration.
+
+## 1. Scope and source posture — S26–S34
+
+**Current authorization is implementation of S26–S34.** The user explicitly approved the complete plan on 2026-10-06, including owner amendments, production changes, contracts, tests, package assembly and final validation. Execute the sequential chain and update this tracker after every completed workstream before starting the next. Preserve historical evidence; implementation does not establish specification adoption, formal CMVP applicability or customer deployment approval.
+
+| Scope fact | Decision |
+| --- | --- |
+| Baseline | Implementation starts at `ec8a3b90366f10efa91376f108ca6e588c0c3b2e` on 2026-10-06 with the user's existing tracker modification (375 additions, 2 deletions), preserved. No other tracked changes were present. |
+| Direct target / label | `deploy/mvp/`; planning label `deploy-mvp`. The path contains deployment composition, not a new application or domain module. Adjacent Recovery, configuration, operator and release owners are included only for the evidenced boundaries below. |
+| Controlling artifact | `docs/handoffs/reference-pack-remediation.md`; retain all completed workstreams, failed attempts and original evidence identities. Implementation changes the existing named owners and package boundaries; no second controlling tracker. |
+| Intended outcome | Install from a local release archive without a checkout or build toolchain; operate through safe configuration and coordinated maintenance; export complete encrypted recovery sets and restore after loss of the original WSL/Docker storage; qualify the exact distributed bytes. |
+| User-selected scope | Package operations, not a reopened Reference Data domain audit; local release bundle, not registry publication; independent backup transfer included; explicit recovery from an intact retained backup older than 24 hours allowed after acknowledgement of its data age. |
+| Supported environment | Operator-started Windows 11 / WSL2 Ubuntu with Docker Desktop's WSL2 backend. Native Linux remains DEFERRED indefinitely. No Windows startup automation; guest timers run only during explicitly started operation. Restart includes backup-age and due-verification checks. |
+| Stable boundaries | One application image with server/migrate/operator; owner-local payloads, authorization and lifecycle; existing cryptographic policy, application format identity, current encrypted artifact formats, Reference Data consumer boundaries, Ed25519, canonical pack bytes, trust history and immutable provenance. |
+| Compatibility | Fresh supported installations and separately admitted restore targets. No historical-format converter, legacy reader, disabled-policy mode, automatic reset or in-place historical deployment upgrade. A transferred backup stays bound to its matching release, codecs and key material. |
+| Non-goals | Registry publication, HA, automatic upgrades, Windows-native application port, UI redesign, general deployment/provider frameworks, second restore engine, new application deployable and automatic customer rollout. No new monitoring platform or generic backup scheduler. |
+| Authority | Adopted subsystem NLSpecs and normative Core sections govern their scopes; contracts are downstream machine projections; harness owners govern routing and mechanics. `docs/domain.md` governs vocabulary/navigation. `docs/research/nlspec-spec.md` supplies specification-writing guidance, not adopted product behavior or independent execution instructions. |
+| Historical acceptance | Release `20261006T091921Z-p85023` passed 1,279/1,279 with all 673 cleanup steps complete for its recorded source identity. Preserve that exact record; it is not S26–S34 acceptance and is not relabeled as a run against the new clean commit. S07 stays DONE for the prior WSL2 engineering scope. |
+
+Planning sources inspected: `AGENTS.md`; the local modular refactor planning framework and refactor-tracker format; this tracker; `docs/domain.md`; `docs/research/nlspec-spec.md`; Core 00's authority/status boundary; Core 01 §12 and REQ-01-593..595; Core 04 deployment/configuration/Recovery requirements, AC-398..403 and AC-428; Testing Harness package/release and WSL2 guidance; the package guide, direct inventory and adjacent files listed below. Prior findings were checked against live source rather than inferred from the completed tracker.
+
+At the planning baseline, Core restricted Recovery to five logical commands. S26 reconciled historical-reader contradictions and amended the owner interfaces before implementation added export and bundle restore. The S26 checkpoint records the new closed contracts; formal specification adoption remains a separate disposition. Future owner contradictions must still be resolved before dependent implementation.
+
+## 2. Planning-baseline repository inventory — S26–S34
+
+### Exact baseline direct-target register
+
+At the planning baseline, `git ls-files deploy/mvp` contained **28 tracked files**, all accounted for here. This preserved inventory explains the original gaps, not the final shipped payload. The immutable release manifest is the executable final inventory. S27–S34 replace the three wrapper scripts and manual marker example with five cohesive scripts: `install.sh`, `package.sh`, `package-common.sh`, `package-verification.sh` and `release-verify.sh`; examples, Compose, timers and the operating guide are updated in place. Source build inputs remain outside the shipped assets.
+
+```text
+.env.example
+Containerfile
+Containerfile.dockerignore
+README.md
+bootstrap-admin.json.example
+config.toml.example
+docker-compose.reference-packs.yml
+docker-compose.yml
+postgres-entrypoint.sh
+postgres-hba.conf
+postgres-ident.conf
+postgres-provision.sh
+postgres-provision.sql
+reference-pack-administration.toml.example
+restore-verification-target.marker.json.example
+restore-verification-target.toml.example
+revisions-conflict-token-key-ring.json.example
+runtime-roots/backups/.keep
+runtime-roots/exports/.keep
+runtime-roots/reference-packs/.keep
+scripts/backup-capture.sh
+scripts/operation-start.sh
+scripts/restore-verify-due.sh
+seaweed-entrypoint.sh
+systemd/cartulary-backup.service
+systemd/cartulary-backup.timer
+systemd/cartulary-restore-verify.service
+systemd/cartulary-restore-verify.timer
+```
+
+The filesystem also contains ignored `deploy/mvp/runtime-roots/tmp/.keep`. It is a local empty-root sentinel, not a tracked production input or evidence of a shipped file; account for the required temporary root through the existing build/shape boundary. The three tracked `.keep` files preserve empty directory layout and are excluded from image contents by the Containerfile ignore policy. No new product meaning is assigned to these sentinels.
+
+| Path / inventory group | Current responsibility / public surface | Inbound callers | Outbound dependencies | Tests / evidence | Contracts / generated artifacts | Owner / disposition | Risk and notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `.env.example`, `config.toml.example`, `restore-verification-target.toml.example` | Package settings and deployment-config v3 examples | Operators, Compose, all three wrappers | Configuration admission, Postgres/S3 bindings and roots | Package smokes; `platform.config` and `app.operator` slices | Deployment configuration and service binding projections | Package composition plus configuration owners; correct and consolidate interpretation | High: duplicate TLS variable and equal database names in `.env.example`; source/target service-ref names alone do not prove physical separation. |
+| `bootstrap-admin.json.example`, `revisions-conflict-token-key-ring.json.example` | First-admin and conflict-key inputs | Server/bootstrap and Revisions admission | Owner credential/key validation | Existing bootstrap, credential and token tests; package smoke | Bootstrap v1 and Revisions key-ring v2 | Keep with their existing owners | High: examples are scaffolding, never production credentials; no new key management framework. |
+| `docker-compose.yml` | Application/dependency services, one-shot migration/init, purpose mounts and persistent roots | Wrappers, operators and smokes | Docker Desktop, pinned Postgres/SeaweedFS/application images | All three package smokes | Authored topology, build pins and generated harness routing | Deployment composition; separate immutable release inputs from installation state | High: default mutable app tag and source build context are not the new distribution boundary. |
+| `docker-compose.reference-packs.yml`, `reference-pack-administration.toml.example` | Optional administration configuration and trust mounts | Explicitly claimed deployments and package scenarios | Reference Pack operator/server worker and approved trust | Reference Pack smoke | Existing claim, trust and configuration contracts | Keep optional and owner-local | High: use identical overlay selection for operation, maintenance and recovery; ship no test trust. |
+| `Containerfile`, `Containerfile.dockerignore` | Single nonroot application image from Make-built binaries and empty roots | Build and package smokes | Pinned base image, server/migrate/operator, embedded web | Deployable-shape and package receipts | Toolchain pins, binary crypto receipts | Build owner; reuse in one immutable package producer | High: receipt and tested image must bind the shipped bytes. |
+| Three tracked `runtime-roots/*/.keep` files | Empty persistent-root scaffolding | Image assembly | Containerfile ignore policy | Package shape/root checks | No domain contract | Keep scaffolding; ignored temporary sentinel accounted separately | Low: never turn placeholder files into retained application state. |
+| `postgres-entrypoint.sh`, `postgres-hba.conf`, `postgres-ident.conf`, `postgres-provision.sh`, `postgres-provision.sql` | Local isolated bootstrap, certificate-only roles and TLS service identity | Compose and fresh target provisioning | Upstream Postgres entrypoint, local peer administrator, purpose credentials | Package/service-backed certificate, role and admission evidence | Postgres bindings/effective roles and immutable migration requirements | Keep connectivity/provisioning in platform/package composition | High: no application password fallback or automatic reprovisioning of retained state. |
+| `seaweed-entrypoint.sh` | Private service-owned TLS material | Compose | Pinned SeaweedFS native TLS listener | S3 gate, package restart/certificate tests | Object-store policy and pins | Keep narrow service adapter | High: preserve stable node identity, TLS and persisted service state. |
+| `scripts/operation-start.sh`, `scripts/backup-capture.sh` | Start/recovery checks and stopped-app backup choreography | Operators, timers and smoke fixtures | Compose and Recovery CLI | `test-package-operation.mjs`; package/recovery smokes | Operation outcomes; existing Recovery result grammar | Consolidate package lifecycle, retain owner invocation | High: shell-sourced settings; service changes precede shared package exclusion. |
+| `scripts/restore-verify-due.sh`, `restore-verification-target.marker.json.example` | Provision verification target and construct marker/generation material | Start wrapper, timer and operator | Postgres bootstrap, migrate, object init and Recovery due runner | Operational recovery smoke and target-admission tests | Marker v5, application format and Recovery target admission | Split composition from Recovery-owned proof construction | High: shell duplicates domain identity and overwrites generation on each invocation. |
+| Four `systemd/` service/timer files | Guest-session scheduling of backup and verification | Explicit operator timer start | Package wrappers and Docker Desktop availability | Package operation fixtures and operational smoke | Operator-started WSL2 requirements | Keep deployment-owned scheduling; update entrypoints together | Medium: no guest `docker.service` or Windows startup assumption. |
+| `README.md` | Provisioning, operation, recovery and qualification instructions | Human operators | Existing package and owner contracts | Human review; installed-package rehearsal | Documentation only | Update after owner/implementation changes | High: current workflow requires a checkout and explains same-host target verification, not source-independent recovery. |
+
+### Inspected adjacent boundaries and exclusions
+
+| Inspected files / area | Responsibility and callers | Owner / planned effect | Test and contract posture |
+| --- | --- | --- | --- |
+| `internal/modules/recovery/application/service.go`, `due_batch.go`, `target_admission.go` | Recovery orchestration, source/target acquisition, exclusions, retry evidence and target proofs; called through operator assembly | Recovery owns the new portable source capability and target proof lifecycle; reuse current restore execution | `module.recovery` and `app.operator` slices; marker, result/progress, generation and application-state contracts |
+| `internal/modules/recovery/catalog.go`, `store.go`, `vnext_codec.go` | Retained metadata selection, durability/freshness, current logical artifact proofs and catalog identities | Separate disaster-recovery eligibility from operational freshness; export complete current artifact closure | Existing metadata, codec, restore and service-backed tests; current encrypted envelopes and manifests remain supported unchanged |
+| `internal/app/operator/operator.go`, `internal/app/operator/internal/recoverycli/cli.go` | Composition, command parsing and safe result/error mapping | Add owner-defined commands through the existing facade; no behavior in `cmd/*` | CLI surface/framing and safe-error tests; affected closed contracts versioned through authored owners |
+| `internal/platform/recoverystate/catalog.go` | Owner contribution catalog and state treatment | Preserve catalog/codec binding during portable recovery; no general domain framework | Existing Recovery catalog/inventory evidence |
+| `tools/release-evidence/check-standup-package-smoke.sh`, `check-standup-reference-pack-smoke.sh`, `check-standup-operational-recovery-smoke.sh` | Isolated package qualification with source-based builds | Change producer/consumer relationship so all scenarios use the exact distributed image/assets | Existing `harness.release` rows remain canonical; standalone smokes use the same producer contract |
+| `tools/release-evidence/package-platform.mjs`, `package-fixture-tls.sh`, `package-smoke-cleanup.sh`, `recovery-interruption.mjs`, `tests/test-package-operation.mjs`, `tests/test-package-smoke-cleanup.mjs` | WSL/Windows probes, isolated credentials, operation fixtures, interruption and owned cleanup | Extend existing qualification and cleanup mechanics; never promote test PKI to provisioning | Existing package evidence, negative TLS and owned-resource receipts |
+| `tools/release-evidence/generate-sbom-license-evidence.mjs`, `check-release-artifact.sh`, `check-deployable-shape.sh`, `release-readiness-evidence.mjs` | Release inventory, artifact validation, deployable shape and canonical readiness | Inventory shipped image contents and bind acceptance to package identity | Existing SBOM/license validation and release-evidence contracts; unresolved review findings remain visible |
+| `tools/task_surface_owner.json`, `tools/test_catalog_owner.json`, `tools/test_families/harness.release.json`, `tools/toolchain_pins.json` | Authored task/routing/pin inputs | Future Make producer, consumer routing and identity dependencies | Generate declared outputs through Make; never hand-edit generated roots |
+| `tools/generated_artifact_policy.json`, `.markdownlint-cli2.jsonc`, Markdown wrapper and planning framework | Generated-write boundaries, documentation coverage and planning structure | Follow current machine policy; no changes in this document step | Human tracker review supplements configured Markdown coverage |
+
+The previous 197-file Reference Data/assembly register is preserved as its historical inventory, not relabeled as a fresh full domain audit. Those internals, frontend source, unrelated domain owners, development services and historical handoffs are excluded from new structural movement. Their ordinary regression coverage remains required in the eventual complete release. Discovery supports the specific seams above; no claim of a repository-wide security or production audit is made.
+
+## 3. Module boundary diagnosis — S26–S34
+
+| Responsibility found | Current location | Correct owner | Keep / move / split / defer | Evidence and growth constraint |
+| --- | --- | --- | --- | --- |
+| Host-side operation and service lifecycle | Three package wrappers, Compose and timers | Cohesive deployment composition | split | Consolidate settings/identity/exclusion once; keep start/stop/resource ownership outside domain and application facades. Do not build a general deployment framework. |
+| Application configuration and secret semantics | Existing configuration and feature owners, with shell interpretation in wrappers | Configuration owner plus narrow package input boundary | keep / move | Preserve owner validation; replace executable wrapper configuration with data interpretation, not a second deployment-config schema implementation. |
+| Restore target proof construction | Shell hashing/JSON plus Recovery validation | Recovery | move | One owner defines bindings, generation, purpose and retry semantics; package retains service provisioning only. |
+| Backup selection, integrity and restore | Recovery catalog/application, currently coupled to source services | Recovery with a narrow source capability | split | Live metadata and authenticated transfer metadata feed the same engine; avoid fake source databases, synthetic historical state or a parallel restore implementation. |
+| Cryptographic and storage mechanics | Existing platform/Recovery adapters | Existing platform/codec owners | keep | Reuse current sealing/envelopes, verified transport and confinement; no new algorithm or compatibility reader. |
+| Package assembly and verification | Source builds inside smokes and release tooling | Build producer plus harness consumers | split | Build one immutable candidate and qualify its exact image/assets; keep run evidence separate from runtime configuration. |
+| Distribution inventory | Source/container-reference scan | Existing release-inventory owner | keep | Extend inventory to actual shipped contents; distinguish missing facts and external review from a passing artifact-presence check. |
+| Reference Data and browser semantics | Completed owner boundaries | Existing domain/frontend owners | keep | No new routes, common Jobs, workbook surfaces, selectors, canonical identities or cross-owner storage access. |
+| Registry, multi-host orchestration and historical conversion | Outside selected scope | Future separately scoped work | defer | Current local bundle and fresh-target contract do not need these compatibility or architecture burdens. |
+
+## 4. Public contract and behavior freeze map — S26–S34
+
+The user authorized the planned behavior changes; coordinated source closure in S26 remains required. Existing behavior is not retained merely because a script currently implements it.
+
+| Contract / behavior | Current owner and evidence | Existing test posture | Required characterization / change | Risk and retained boundary |
+| --- | --- | --- | --- | --- |
+| Deployment config, service bindings and startup admission | Core 04 §12; package examples and configuration admission | `platform.config`, application and package tests | Literal parsing, duplicates/placeholders, unsafe paths, physical source/target overlap and rejection before writes | Package preflight supplements rather than substitutes for binary/application admission. |
+| Operator Recovery grammar and JSON framing | Core 01 REQ-01-593..595; Core 04 AC-428; `recoverycli` | CLI parsing, closed errors/progress, process tests | Add `operator backup export latest` and `operator restore bundle`; specify bounded arguments, timeout/cancellation, exact confirmation, safe result/progress and deliberate contract versioning | Current five-command limitation must be amended first. No hidden aliases, interactive confirmation substitutes or HTTP/WS control surface. |
+| Package operation result and resource ownership | Wrappers and `test-package-operation.mjs` | Fake Docker boundary plus package lifecycle smokes | Shared exclusion before side effects, verified readiness, primary-operation versus restart/cleanup results, exact-container restart and nested-lock reuse | No replacement container created by cleanup; do not close or delete borrowed resources. |
+| Recovery target identity | Marker v5 and `target_admission.go` | Target admission, lease/generation and Recovery tests | Issue/renew proof only against admitted actual state; preserve retry identity; exercise no-op and interrupted preparation | No shell override, identity restamping or target reset used to conceal incompatibility. |
+| Portable backup content | Current catalog, codec and manifest proofs | Artifact integrity/restore tests | Authenticated selection metadata, complete encrypted artifact closure and atomic transfer publication; keys separate | New outer transfer format; existing encrypted artifact and Reference Pack identities remain unchanged. |
+| Disaster restore and backup freshness | Core backup/restore requirements and shared `RestoreCandidateBackupSelection` | Freshness/durability and restore tests | Bundle restore without source connectivity; exact backup confirmation; explicit acknowledgement when older than 24 hours | Stale recovery never makes ordinary freshness pass; new successful fresh backup required before accepted operation. |
+| Release package identity | Compose/Containerfile, crypto receipts and smoke build paths | Three package gates, deployable shape and release projections | Versioned package manifest binds exact images, assets, binary/module receipts and inventory; no source dependency during installation | Keep release payload immutable; qualification evidence must refer to it without creating a self-referential package/run identity. |
+| Optional integrations and Reference Pack administration | Existing configuration, security and Reference Data owners | S3/TLS, trust/lifecycle, Windows probes and packaged administration | Preserve explicit claim/overlay/trust selection in installed operation and restore | No test keys, fallback transport, new pack method or silently enabled integration. |
+| Domain, browser and generated interfaces | Existing HTTP/WS, authorization, row/query/mutation, saved-view, projection, revisions, view-schema and UI owners | Existing complete owner/browser suite | Regression only unless a new prerequisite is discovered and separately scoped | No planned public API, workbook, selector, authorization or domain-model change. |
+| Harness accounting and documentation | Authored verification/task/topology owners; Markdown is human support | Harness-contract and canonical release summaries | Route real producer/consumer checks through existing ownership; preserve failure/cleanup identity | No tests/generators/runtime/release logic reads this tracker or other Markdown. |
+
+## 5. Coupling and boundary findings — S26–S34
+
+The following are source-observed gaps or deliberately selected capability improvements, not newly reproduced product-test failures. Their remediation details and complete exits are in §7.
+
+| Finding | Direct evidence | Risk if unresolved | Classification | Owner / remediation and areas |
+| --- | --- | --- | --- | --- |
+| RP-F31 — Ambiguous and overlapping example bindings | `.env.example` assigns `CARTULARY_TLS_DIR` twice and both database names to `cartulary` | Operators can select unintended credentials or target source state; downstream rejection is too late to make provisioning safe | must_fix | Package/configuration: correct examples and preflight actual distinct bindings before provisioning; implementation, tests and documentation, with owner consistency in S26/S27 |
+| RP-F32 — Executable settings and duplicated composition | All three wrappers `source "$ENV_FILE"` and independently construct Compose arguments | Settings execute shell content and different maintenance paths can select different deployments/overlays | must_fix | Package composition: one non-executing interpretation and invocation boundary; implementation, contracts, tests and documentation in S27/S28 |
+| RP-F33 — Uncoordinated service side effects | `backup-capture.sh` stops an app before invoking the Recovery lock; `operation-start.sh` independently starts it | Concurrent operations can restart service during a backup or report success despite failed restoration of service | must_fix | Package lifecycle: deployment-scoped exclusion before changes, exact-container ownership and explicit outcomes; implementation/tests/operating contract in S28 |
+| RP-F34 — Shell owns and replaces target proof | `restore-verify-due.sh` calculates binding hashes, generates a UUID and writes marker v5 on every call | Proofs drift from owner rules, overwrite retry identity or disguise interrupted preparation; no-op work still rewrites target identity | must_fix | Recovery target admission plus package provisioning: owner-issued proofs with explicit retry/renewal semantics; specification, contracts, implementation, tests and docs in S26/S29 |
+| RP-F35 — Disaster restore requires source services | `runRestoreLatest` opens source runtime, reads `recovery.NewStore(sourcePool)`, and writes source journal/audit | A backup can pass same-host verification yet be unusable after the source database or storage is lost | must_fix | Recovery: complete export and authenticated portable source for the existing restore engine; specifications, contracts, implementation, tests and docs in S26/S30/S31 |
+| RP-F36 — Freshness and recoverability share selection | `LatestSuccessfulRetainedBackup` delegates to `RestoreCandidateBackup`; its selection rejects consistency points older than 24 hours | A longer outage prevents recovery of an intact retained backup, even when the operator accepts data age | must_fix | Recovery: explicit bundle restore with age acknowledgement; keep ordinary 24-hour freshness unchanged; owner/contract/implementation/tests/docs in S26/S31 |
+| RP-F37 — Build and install are not an immutable distribution boundary | README requires checkout/Make/Compose build; smokes build separate images; Compose defaults to `cartulary/mvp:local` | Tested and delivered bytes may diverge; installation needs developer tools and mutable local tag state | must_fix | Build/package and harness: one producer, immutable archive/manifest, exact-image consumers; specification, build inputs, implementation, tests and docs in S26/S32/S33 |
+| RP-F38 — Container inventory is reference-only | Inventory generator emits `container_image_sbom_incomplete`, `license_text_missing` and `license_metadata_missing` for container references | Operators cannot assess actual shipped dependency contents and unresolved distribution obligations from artifact presence alone | must_fix | Release inventory: inspect exact shipped images and preserve unresolved findings; build/tooling, contracts, tests and docs in S32/S33 |
+| Retained domain and crypto boundaries | Completed S01–S25, owner contracts, current single application image and current codecs | Reopening them adds coupling or compatibility burden without addressing these gaps | intentional/no_action | Preserve domains, purpose-local policy, current cryptography and pack semantics; verify through regression coverage |
+| Beyond the selected package profile | Native Linux, HA, registry publication and automatic rollout are excluded | Scope growth would obscure the bounded operational acceptance | defer | No dependency on S26–S34; future explicit scope decision required |
+
+## 6. Refactor workstreams and phase sequencing — S26–S34
+
+Authorized execution is strictly **S26 → S27 → S28 → S29 → S30 → S31 → S32 → S33 → S34**. S26 is the root workstream; every subsequent slice is a chain workstream. Discovered prerequisites are named separately and block dependent work rather than being silently absorbed.
+
+| Phase | Workstreams / dependencies | Goal and likely boundaries | Principal risk | Phase exit / handoff checkpoint |
+| --- | --- | --- | --- | --- |
+| 1 — Owner closure | S26 / root; precedes S27 | Core deployment/Recovery, typed contract design and harness acceptance | Adding unsupported commands or conflicting freshness/admission rules | Coherent owner amendment and interface/negative-case matrix; record adoption disposition separately |
+| 2 — Safe operation | S27 after S26; S28 after S27; S29 after S28 | Package input, host lifecycle and Recovery target proof boundary | Wrong target, concurrent side effects or compatibility stamping | Preflight, concurrency, retry/no-op, interrupted target and cleanup evidence passes through actual operation paths |
+| 3 — Independent recovery | S30 after S29; S31 after S30 | Recovery transfer source, authentication and existing restore engine | Incomplete backup closure or hidden source dependence | Complete export and fresh-target restore with original services unavailable; stale acknowledgement and renewed freshness proved |
+| 4 — Exact distribution | S32 after S31; S33 after S32 | Make build producer, local archive, inventory and existing smoke consumers | Qualifying different bytes or omitting dependency contents | One immutable package installs without developer tools; all package scenarios and owned cleanup share matching identities |
+| 5 — Final acceptance | S34 after S33 and all prerequisites | Generated maintenance, complete release, documentation and handoff | Partial evidence or external decisions mistaken for readiness | One frozen-candidate release and inspected canonical evidence; five separate dispositions; close new iteration last |
+
+Before the first implementation change in each slice, consult its owning task guide and mark it IN_PROGRESS. At completion, record substantive changes, compatibility effects, exact commands, canonical run/artifact locations, failures, cleanup, residual risks and the next dependency. Mark DONE only when the exit passes. **Update this tracker after each completed workstream and before beginning the next.** Keep allowed statuses to TODO, IN_PROGRESS, BLOCKED, DONE, DEFERRED and DROPPED; readiness dispositions are separate facts, not work statuses. Implementation is authorized; no dependent slice starts before its preceding exit and tracker checkpoint.
+
+## 7. Approved implementation slices and exits — S26–S34
+
+### S26 — Establish package and recovery contracts
+
+**Status: DONE. Areas:** specifications, contract design, verification requirements and documentation. **Gaps:** RP-F31–RP-F38. **Dependency:** authorized implementation. **Next:** S27.
+
+- **Remediation:** reconcile Core deployment/Recovery requirements, AC-428's exact command set, configuration outcomes and Testing Harness acceptance. Specify export and bundle restore, bounded arguments/inputs/timeouts, cancellation, progress/results/errors, exact confirmation, stale-data acknowledgement and evidence ownership. Freeze package start/maintenance outcomes, target-proof lifecycle, transfer authentication/completeness and the package identity boundary before implementation. Version affected closed CLI projections deliberately; specify current handling and rejection rather than adding a legacy reader or aliases.
+- **Rationale / long-term benefit:** the same source determines owner semantics and executable projections, so later package growth does not duplicate domain policy in shell or harness code. The NLSpec research guidance informs completeness but supplies no product authority.
+- **Compatibility / rollback:** this intentionally expands the current Recovery contract and tightens package inputs. It does not alter pack bytes, encrypted artifact codecs or application-format identity. Source adoption remains a separate recorded decision; reverting a proposal cannot authorize a partially implemented interface.
+- **Risk if unresolved:** an implementation could appear to pass while contradicting the exact five-command owner or treating disaster recovery as a freshness waiver.
+- **Validation / exit:** review Core requirements/ACs and planned projections together; every new operation has bounded inputs, safe failure behavior, ownership and positive/negative routes. No unresolved owner contradiction. Run Markdown/diff checks for source edits; generation/shape/drift checks apply when authored machine projections change. Record the concrete contract versions and parameter bounds here before S27.
+
+### S27 — Safe configuration and preflight
+
+**Status: DONE. Areas:** package/configuration implementation, contracts, tests and documentation. **Gaps:** RP-F31/RP-F32. **Dependency:** S26. **Next:** S28.
+
+- **Remediation:** correct duplicate TLS settings and use a distinct verification database in shipped examples. Establish one non-executing reader for package settings and one effective deployment/overlay selection. Reject duplicates, unresolved placeholders, missing credentials, unsafe paths and physical source/target overlap before provisioning. Keep application configuration and purpose credential semantics with existing owners; do not duplicate their parsers in package code.
+- **Rationale / long-term benefit:** literal input and one binding interpretation prevent divergent start, backup and recovery behavior as package operations expand.
+- **Compatibility / rollback:** ambiguous or executable settings formerly tolerated by shell are unsupported; no compatibility parser. Update templates and operator instructions together. Revert only against disposable new-candidate installations; retain existing historical deployments with their release.
+- **Risk if unresolved:** misleading defaults or script evaluation can select the wrong target before owner admission is reached.
+- **Validation / exit:** owner slices for `platform.config`, `app.operator` and `harness.release`; literal metacharacters never execute, duplicates/overrides cannot hide overlap, missing inputs reject without creating service state, and examples become usable through explicit provisioning. Verify safe diagnostics, filesystem confinement, trust inputs and consistent optional overlay selection. No secret-bearing rendered configuration retained in evidence.
+
+### S28 — Coordinated package operations
+
+**Status: DONE. Areas:** package lifecycle implementation, operational contract, tests, timers and documentation. **Gaps:** RP-F32/RP-F33. **Dependency:** S27. **Next:** S29.
+
+- **Remediation:** consolidate start, stop, backup and verification orchestration behind one cohesive package boundary. Acquire deployment-scoped exclusion before service changes; nested operations reuse it, while Recovery keeps its own authoritative operation/serving locks. Successful start requires verified HTTPS readiness and recovery checks. Define first-backup bootstrap and failed-start disposition explicitly, rather than allowing a freshly installed package to claim accepted operation without a successful backup.
+- **Rationale / long-term benefit:** host resources have one lifecycle owner, while domain transactions remain independent. Future maintenance operations inherit the same target identity and cleanup discipline.
+- **Compatibility / rollback:** replace obsolete wrapper paths and update timers/docs together; no aliases solely to preserve scaffolding. Preserve operator-started operation. Cleanup restarts only the exact container this operation stopped, never a replacement. Report backup success separately from failed restart/cleanup, without changing backup history to hide the failure.
+- **Risk if unresolved:** competing start/backup calls can invalidate consistency or make a successful backup look like restored service availability.
+- **Validation / exit:** package-operation fixtures plus actual service-backed choreography cover overlapping calls, nested use, cancellation, signal/process interruption, app initially stopped/running, readiness failure, restart failure and repeated cleanup. No unrelated service or borrowed resource changes. Existing successful backup remains readable after any post-publication lifecycle failure. Owner commands: `harness.release`, with affected `app.operator`/Recovery slices as needed.
+
+### S29 — Owned restore-target lifecycle
+
+**Status: DONE. Areas:** Recovery/package implementation, owner contracts, tests and documentation. **Gap:** RP-F34. **Dependency:** S28. **Next:** S30.
+
+- **Remediation:** retain container/database provisioning in package composition and move marker construction/binding derivation to Recovery. Validate actual bindings, target state, purpose and admission before issuing proof. Preserve valid generation identity for exact retries; specify safe expired-proof renewal after reinspection. Do not overwrite partial-state evidence or manufacture a fresh identity to bypass rejection. No-op due verification must not relabel the target.
+- **Rationale / long-term benefit:** one owner maintains generation and proof rules, so target lifecycle can expand without copying cryptographic-format or schema constants into scripts.
+- **Compatibility / rollback:** remove supported shell-authored marker/hash override behavior. Retain current marker semantics and owner-controlled format policy. Failed/interrupted targets remain diagnostic and non-serving; no automatic reset to achieve compatibility.
+- **Risk if unresolved:** scripts can diverge from admission rules, erase retry identity or make unrelated target state appear newly provisioned.
+- **Validation / exit:** `module.recovery` and `app.operator` unit/service-backed slices plus operational smoke. Cover first preparation, exact retry, expiry/renewal, partial provisioning, source/target aliasing, multiple due backups, repeated due invocation and no-op. Prove owner-bound generation and no success on failed cleanup. Target provisioning, proof restamping and destructive restore writes must never touch source state or serving targets; ordinary source-owned verification records retain their existing semantics.
+
+### S30 — Complete encrypted backup export
+
+**Status: DONE. Areas:** Recovery specification/projections, implementation, tests and operator documentation. **Gap:** RP-F35. **Dependency:** S29. **Next:** S31.
+
+- **Remediation:** implement owner-defined `operator backup export latest` as a complete transfer set for one successful retained backup. Bind authenticated selection metadata, application/release/catalog/codec identities and every required encrypted artifact. Enumerate content through Recovery's current artifact/contribution catalog; do not copy assumed directories or add source-owner allowlists in shell. Publish atomically only after complete readback validation. Keep deployment master keys, private certificates and provisioning secrets outside the transfer; owner-stored application data follows the current Recovery catalog.
+- **Rationale / long-term benefit:** a transfer has a verifiable completeness boundary independent of the source database and can be retained with its matching release. Existing encrypted artifact bytes remain useful without a second codec.
+- **Compatibility / rollback:** introduce a versioned outer transfer format, not a conversion of historical backups. Preserve existing envelope/manifests and single-policy cryptography. Failed candidates are never successful exports; remove only owned disposable staging, without changing the retained source backup.
+- **Risk if unresolved:** apparently complete file copies may omit the catalog, metadata or artifact needed after the original storage is lost.
+- **Validation / exit:** Recovery/operator focused and service-backed checks cover source selection, full artifact closure, claimed contributions, missing/substituted/truncated bytes, wrong keys, size/path bounds, interruption and atomic publication. An exported set contains everything needed by S31 except separately provisioned release/key material and fresh target services. No hidden source-volume paths or secrets appear in the transfer's public metadata or results.
+
+### S31 — Source-independent disaster restore
+
+**Status: DONE. Areas:** Recovery owner/projections, application implementation, tests and operating documentation. **Gaps:** RP-F35/RP-F36. **Dependency:** S30. **Next:** S32.
+
+- **Remediation:** implement `operator restore bundle` with exact backup-ID confirmation and authenticated portable selection through a narrow input capability to the existing restore engine. Authenticate complete immutable input before target mutation. Open only admitted target resources and transfer storage; do not require a source database/object store, synthesize a fake source deployment or duplicate restore algorithms. Bind operation evidence/retry handling to the selected transfer and target generation without relying on a lost source journal.
+- **Rationale / long-term benefit:** restores are governed by artifact integrity and target admission rather than survival of the deployment being recovered. Shared execution preserves owner contributions, projection rebuild and invariant checks as phases grow.
+- **Compatibility / rollback:** an intact retained bundle older than 24 hours may restore only after explicit acknowledgement of its age and exact backup confirmation. Ordinary latest-backup freshness remains 24 hours; due verification/retention obligations remain. The restored package stays operationally stale until a new successful fresh backup and required checks pass. No historical-format reader or cross-release conversion. Failed targets remain isolated; rollback never publishes partial restored state.
+- **Risk if unresolved:** the package cannot recover after host/storage loss or a longer outage, despite passing same-host verification.
+- **Validation / exit:** Recovery/operator/service-backed and package tests remove access to original services, restore all authoritative state and retained bytes, exercise claimed Reference Packs and projections, and perform workbook/invariant probes. Missing acknowledgement, wrong confirmation/key/release/catalog, tampering, interrupted restore and rejected target fail before readiness. Repeat exact operations safely; prove acknowledged stale restore does not satisfy ordinary freshness and a new backup restores accepted operating status.
+
+### S32 — Immutable local release bundle
+
+**Status: DONE. Areas:** package/build implementation, authored inputs, inventory contracts, harness and documentation. **Gaps:** RP-F37/RP-F38. **Dependency:** S31. **Next:** S33.
+
+- **Remediation:** add Make-owned assembly of one local release archive containing the application image, digest-pinned companion images, deployment assets/instructions, binary/module receipts, SBOM and license inventory. Separate immutable release payload from installation configuration, secrets and state. Bind a versioned manifest to exact image/platform/artifact identities. Resolve actual shipped image contents using existing inventory tooling and retain incomplete facts or external review findings explicitly. Source-reference scans alone are insufficient distribution inventory.
+- **Rationale / long-term benefit:** a reusable producer supplies one reviewed artifact to installation and all qualification consumers. Future releases gain a stable distribution boundary without requiring an application split or registry service.
+- **Compatibility / rollback:** supported installation no longer builds source or silently uses `cartulary/mvp:local`; local archive selection is explicit and integrity-checked. No registry publication or automatic release switching. Checksums establish byte identity, not publisher authentication; document the trusted delivery boundary without claiming a signing infrastructure. Preserve matching releases and backups; rollback does not migrate or rewrite retained state.
+- **Risk if unresolved:** a source-level pass can qualify different bytes from those delivered, and dependency inventories omit material operators receive.
+- **Validation / exit:** author producer/routing inputs, then generate through Make. `harness.release`, toolchain, generated policy/drift, JSON-shape, deployable shape and SBOM/license checks cover missing/altered assets, tag contamination, wrong platform and receipts. Extract/install/start/maintain from the archive without checkout, Go, Node or pnpm. Inventory every shipped image and required runtime dependency; no secret/test PKI or mutable installation data enters the payload. New public assembly/inspection targets are S32 deliverables through existing task-surface ownership, not existing commands asserted by this tracker.
+
+### S33 — Qualify the distributed package
+
+**Status: DONE. Areas:** harness, package scenarios, release routing and operational documentation. **Gaps:** RP-F31–RP-F38 execution evidence. **Dependency:** S32. **Next:** S34.
+
+- **Remediation:** make the three existing package smokes consume the same assembled application image and release assets. Within a release run, one producer supplies all consumers; standalone invocation uses that same producer contract. Add actual installed-entrypoint, repeated maintenance, proof retry/no-op, exported-backup and source-loss restore scenarios. Preserve Windows HTTPS/WSS, certificate replacement, fixed credential capacity, crypto admission and confined filesystem coverage.
+- **Rationale / long-term benefit:** package evidence demonstrates the operator path and distributable artifact rather than separate smoke-specific builds. Routing remains with existing semantic owners and canonical summaries.
+- **Compatibility / rollback:** stricter release admission replaces rebuilding inside scenarios. Use fresh disposable final-candidate state. Simulate lost services by isolating/removing only test-owned resources; no host reboot, WSL shutdown, global trust/firewall change or user-service reset. Restore cleanup remains accountable and idempotent.
+- **Risk if unresolved:** substitution, stale caches, repeated-operation failures or missing transferred state may remain invisible behind independent source builds.
+- **Validation / exit:** `standup-package-smoke`, `standup-reference-pack-smoke`, `standup-operational-recovery-smoke`, applicable release/harness checks and fixed performance assessment pass. Every receipt matches the candidate package/image/binary/module/platform identities. All owned cleanup completes; leftover or failed cleanup is a failed qualification. Preserve complete negative evidence; no partial-run aggregation.
+
+### S34 — Final validation and operating handoff
+
+**Status: DONE. Areas:** generated maintenance, full validation, documentation and this tracker. **Gap:** accurate end-to-end acceptance for all new work. **Dependency:** S26–S33 and every active prerequisite DONE. **Next:** none; close the new iteration only here.
+
+- **Remediation:** finish generated artifacts and operating guidance before final candidate freeze. Run `make agent-finalize`, `make test-fast`, one complete `make release-check`, then inspect `make explain-run RESULTS_DIR=<run-root>`. Inspect canonical summaries, target readiness projections, identities and cleanup rather than relying on exit status. If finalization has no `RESULTS_DIR`, record retained-run maintenance as skipped.
+- **Rationale / long-term benefit:** an operator and next maintainer receive reproducible acceptance plus usable failure/recovery procedures, not an accumulation of unrelated passing runs.
+- **Compatibility / rollback:** no deployment authorization, automatic rollout or in-place historical conversion follows from engineering completion. A changed candidate needs appropriately renewed validation. Keep historical matching releases and keys; preserve failed candidates as failures.
+- **Risk if unresolved:** engineering success could be overstated as production approval, or documentation could describe paths never exercised from the delivered archive.
+- **Validation / exit:** one frozen complete candidate passes all required release members and cleanup. Handoff covers install/first backup, normal start/stop, overdue work after sleep/restart, certificate renewal/root overlap, owner-specific key rotation or fresh-deployment replacement, separate key custody, independent backup storage, transfer/restore, stale acknowledgement, rejected startup, source-loss response and exact release/platform upgrades. Record implementation, WSL2 package acceptance, formal CMVP applicability, specification adoption and customer deployment approval separately. Mark S34 DONE last, then close RP-OPS01; never reopen or reclose S07 to represent this iteration.
+
+## 8. Validation plan — S26–S34
+
+Commands below were discovered from repository instructions, `make help-all`, owner task guides and target explanations. They are future implementation routes unless explicitly recorded as run in §10. Choose the narrowest owning rows first; broaden only for changed boundaries or unresolved failures.
+
+| Layer | Command / route | Scope / required point | Evidence and limits |
+| --- | --- | --- | --- |
+| Owner discovery | `make task-guide ROLE=module-author OWNER=<owner-id>` | Before each slice; `harness.release`, `platform.config`, `app.operator`, `module.recovery` | Guides were rerun successfully for this document update. Consult newly affected owners if a separate prerequisite changes scope. |
+| Unit / behavior | `make test-slice OWNER=<owner-id> [ROWS=<row-id,...>]` | Changed package/config/operator/Recovery behavior | Add meaningful adversarial/lifecycle rows rather than tests that duplicate implementation. |
+| Service-backed | `make service-backed-test-slice OWNER=<owner-id> [ROWS=<row-id,...>]` | Database, object-store, locking, admission and actual restore effects | Run only where guide/routing applies; no fabricated `platform.config` service-backed requirement. |
+| Contract/build boundaries | `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make toolchain-drift`, `make backend-module-boundary-check`, `make harness-contract` | Applicable authored projection, dependency and routing changes | Generate via applicable public Make generators; never hand-edit generated roots, topology or lockfiles. |
+| Public API drift | `make openapi-compatibility-check` | Applicable public-contract boundary checks | No new HTTP/WS Recovery surface is planned. CLI/transfer projection checks are additionally required; OpenAPI alone cannot qualify them. |
+| Package | `make standup-package-smoke`, `make standup-reference-pack-smoke`, `make standup-operational-recovery-smoke` | S33 and final release; installed artifact, Windows boundary, source loss and cleanup | Existing release members must share the exact new artifact producer. Preserve fixed credential-capacity thresholds and current integration gates. |
+| Harness evidence | `make explain-target TARGET=<target> DETAIL=summary`, `make explain-run RESULTS_DIR=<run-root>` | Before broad reruns and after qualification | `release-evidence-contract` is currently check-internal; use its owner-routed coverage rather than inventing a new public invocation. |
+| Final candidate | `make agent-finalize` → `make test-fast` → `make release-check` → `make explain-run RESULTS_DIR=<run-root>` | S34 after all implementation/prerequisites complete | Record identities and all readiness/cleanup outcomes. No partial-run merge, historical relabeling or automatic acceptance of a changed candidate. |
+| Document-only | `make lint-markdown`; `git diff --check`; direct tracker review | This update, and future tracker/source edits | Current lint includes root Markdown, `docs/*.md`, specifications, guides, research, user guides and explicitly named handoffs among its configured globs, but excludes this tracker and `deploy/mvp/README.md`. Do not repeat the historical narrower coverage description as current fact. |
+| Supplemental handoff review | Inspect diff, tracked-file scope, exact package inventory, active statuses, dependency chain and preserved historical suffix | Before RP-P05 DONE | Human/document maintenance only; do not add product code/tests that read Markdown. |
+
+The initial tracker-only planning update ran no product tests, generation or package qualification. Subsequent authorized implementation evidence is recorded per workstream in §10; planning checks and historical acceptance are never relabeled as new product evidence.
+
+## 9. Top-level work tracker — S26–S34
+
+| ID | Work item / workstream | Status | Depends on | Evidence / artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- |
+| RP-P05 | Production-operation and recoverable-distribution plan update | DONE | Approved document-only plan | Markdown PASS `20261006T130544Z-p71800`; diff and supplemental structure/inventory/history/scope review passed | At the planning checkpoint only this tracker changed and all 28 files were accounted for; subsequent implementation authorization and completion are recorded in §1 and §10 |
+| RP-OPS01 | New package operation/distribution engineering iteration | DONE | Authorized S26–S34 | S26–S34 complete; final release `20261006T210111Z-p75428` PASS 1,282/1,282; §10 completion checkpoint | S34 complete and five dispositions recorded; prior S07 remains closed |
+| RP-S26 | Package/Recovery owner and interface closure | DONE | Authorized implementation | §7 S26 | Coherent owner amendments, projections and acceptance routes |
+| RP-S27 | Safe package configuration and preflight | DONE | S26 | §7 S27; RP-F31/RP-F32 | Literal unambiguous inputs; safe rejection before provisioning |
+| RP-S28 | Coordinated package operations | DONE | S27 | §7 S28; RP-F32/RP-F33 | Shared exclusion, readiness/outcomes and exact-resource cleanup |
+| RP-S29 | Recovery-owned target lifecycle | DONE | S28 | §7 S29; RP-F34 | Admitted proof creation, stable retries and repeatable verification |
+| RP-S30 | Complete encrypted backup export | DONE | S29 | §7 S30; RP-F35 | Complete authenticated transfer with atomic publication |
+| RP-S31 | Source-independent disaster restore | DONE | S30 | §7 S31; RP-F35/RP-F36 | Source unavailable; exact confirmed restore; explicit stale handling and renewed freshness |
+| RP-S32 | Immutable local release bundle/inventory | DONE | S31 | §7 S32; RP-F37/RP-F38 | Source-free install of identified bytes and complete shipped-content inventory |
+| RP-S33 | Exact distributed-package qualification | DONE | S32 | §7 S33 | Three canonical smokes, matching identities, boundary scenarios and cleanup pass |
+| RP-S34 | Frozen final candidate and operating handoff | DONE | S26–S33 and every prerequisite DONE | §7 S34 | Complete final release inspected; handoff and separate dispositions; marked DONE last |
+| RP-ENV-NATIVE | Native Linux support/qualification | DEFERRED | Future explicit scope decision | Prior indefinite deferral retained | Not an S26–S34 dependency |
+
+## 10. Session handoff log — S26–S34
+
+### Authorized implementation checkpoint — S26 started
+
+- User decisions: repair missing/stale backup before accepted startup; completed exports remain recoverable after their original source retention deadline with explicit stale-data acknowledgement.
+- Initial source defects: **BLOCKED: owner contradiction** pending S26 repair of Core 01's retained v1 verification reader, Core 04's historical v2 journal reader and v2 target-marker reference against current-format-only admission. These defects block dependent implementation, not the authorized owner repair.
+- Verified the implementation baseline and reran `make task-guide ROLE=module-author OWNER=module.recovery` and `OWNER=harness.release` successfully. Correct CLI location is `internal/app/operator/internal/recoverycli/cli.go`.
+- S27 must not start before source closure, documented contract decisions and S26 checks are recorded here.
+
+### S26 completed — owner closure
+
+- Reconciled the source contradictions before implementation: current target marker v5 and current-only journal/verification decoding; historical artifacts require their original release. The initial owner-contradiction blocker is resolved by the authorized coordinated amendment.
+- Core 01 REQ-01-678/679 define complete encrypted directory export and target-only restore, exact confirmation, age acknowledgement, immutable readback, interruption and retry behavior. Core 04 REQ-04-167/168 and AC-538..540 define literal input, coordinated package lifecycle, repair-before-ready and target-local portable evidence. Testing Harness now requires one exact package producer and content-derived image inventory.
+- Contract decisions: result/progress v2; journal payload v6; administrative audit v3; transfer manifest v1; local release manifest v1. Existing artifact envelope v3, integrity manifest v4, verification v5, marker v5 and application format v1 remain unchanged. New transfer operations use default 14400 seconds and range 60..86400. Transfer manifest limit is 16 MiB/4096 artifacts, retaining current encrypted stream bounds. Source retention expiry cannot invalidate completed transfer; strictly older than 24 hours requires exact backup-ID acknowledgement.
+- `make lint-markdown` PASS, run `.cartulary/test-results/20261006T132222Z-p82396`, summary `adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` PASS. Human source/contract review completed; no production or generated change in S26. Formal adoption remains unestablished.
+- Next: S27, with the owner contract now closed. Source implementation/qualification remains pending; S26 completion is not runtime acceptance.
+
+### S27 completed — literal configuration and fixed-topology preflight
+
+- Added one package settings/composition boundary, removed `.env` shell execution from all entrypoints, corrected duplicate TLS/default database values, constrained supported overlays and removed ambient Compose selection. Added owner-loaded read-only `operator package preflight`, with physical database identity independent of credentials and fixed non-overlapping package roots.
+- Rejection fixtures cover duplicate/unknown/executable settings and source-target database/object aliasing before Docker invocation; operator fixtures cover different credentials selecting the same database and target export-root aliasing. Configuration ownership remains in existing loaders; no second TOML parser or provider framework.
+- PASS: `make test-slice OWNER=harness.release ROWS=harness.release.behavior.current_owner_evidence` (`20261006T132552Z-p91757`); `make test-slice OWNER=app.operator` after physical-binding fixtures (`20261006T132725Z-p34335`, 11/11); `make test-slice OWNER=platform.config` (`20261006T132826Z-p70325`, 2/2); `make lint-shell` (`20261006T132725Z-p34496`); `make lint-scripts` (`20261006T132725Z-p34480`); `make format`; `git diff --check`.
+- Related first shell-lint failure `20261006T132552Z-p91949` identified explicit-condition/shared-variable issues in the new helper; fixed and rerun successfully. Canonical run roots are under `.cartulary/test-results/`; no services acquired or cleanup outstanding. Installed end-to-end operation qualification follows S28/S29/S33.
+- Compatibility: literal package values and fixed shipped topology only; obsolete executable/ambient overrides are not aliases. Next: S28.
+
+### S28 completed — coordinated package lifecycle
+
+- Replaced three independent wrappers with `package.sh` and shared private helpers; timers and smoke callers use the single entrypoint. A daemon/project lock precedes service changes. Durable operation identity and labeled ephemeral containers prevent a later call from overlapping interrupted work. Cleanup restarts only the exact stopped container and reports primary, restart and cleanup outcomes separately.
+- Startup privately bootstraps without published ports, stops private capture-sensitive activity, repairs absent/stale backups, verifies due work, then publishes serving and checks verified TLS readiness. Failed gates retain stopped serving. No obsolete wrapper aliases are retained.
+- PASS: `make standup-operational-recovery-smoke`, 11/11, `.cartulary/test-results/20261006T133432Z-p87625`; inspected `standup-operational-recovery-smoke/artifacts/standup-operational-recovery-summary.json`, `cleanup.json` (zero remaining resource groups), and `workspace-cleanup.json`. This is current operational integration evidence, not S33 immutable-package acceptance.
+- PASS: `make test-slice OWNER=harness.release ROWS=harness.release.behavior.current_owner_evidence` (`20261006T133401Z-p86317`); operator registry slice (`20261006T133154Z-p77483`); `make lint-shell` (`20261006T133339Z-p84607`); `make lint-scripts` (`20261006T133339Z-p84598`); `make format`. Fixtures cover exclusion, initially stopped/running service, capture/readiness/restart failures and abandoned live operation rejection/recovery. Related shell-lint attempt `20261006T133154Z-p77647` required explicit annotations for deliberately deferred child-shell expansion; rerun passed.
+- Next: S29. Its Recovery task guide was consulted before marking IN_PROGRESS. Target proof issuance remains the explicit S29 dependency; transfer, immutable distribution and final-candidate acceptance remain pending.
+
+### S29 completed — Recovery-owned target proofs
+
+- Recovery issues missing proofs and renews expired otherwise matching proofs under its exclusive target serving lease, reusing the restore engine's complete catalog-driven pristine inspection. Physical database/object namespace identity supplements logical binding names without hashing credentials. Valid retry proofs remain byte-identical; interrupted initial publication retains its generation; partial/nonmatching state cannot be restamped. Existing determinate disposable-target reset remains unchanged.
+- Root-confined storage publishes generation first, reconciles interrupted issuance, compares prior material and atomically publishes/renews the marker. Removed shell UUID/hash/marker construction and the manual marker example. Package provisioning migrates only a newly created target database and initializes a private root owned by the application principal. No-due work leaves proof bytes unchanged.
+- PASS: focused marker/process `make test-slice OWNER=module.recovery ROWS=module.recovery.unit.restore_target_marker_v2_validates_purpose_gener_492d40e257,module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9` (`20261006T134243Z-p20115`, 9/9); rooted storage row (`20261006T134508Z-p86618`, 1/1); `make test-slice OWNER=app.operator` (`20261006T134350Z-p75786`, 11/11); `make lint-shell` (`20261006T134415Z-p32828`); `make lint-scripts` (`20261006T134416Z-p36039`); `make generate` (`20261006T134047Z-p29737`); format and diff checks.
+- PASS: `make standup-operational-recovery-smoke` (`20261006T134349Z-p75543`, 11/11), now exercising actual first startup, automatic first capture/verification, repeated due no-op with identical proof bytes, interruption, subsequent capture and due verification. Inspected summary and both cleanup artifacts; no remaining resource groups or workspace residue.
+- Related failures retained: initial Recovery owner run `20261006T134007Z-p77916` (23/24) exposed obsolete missing-proof rejection expectations; updated successful process paths to use actual issuance. Initial package attempt `20261006T134144Z-p41733` (10/11) passed new startup but exposed interruption fixture's obsolete zero-backup baseline; it now compares before/after counts. Both cleanup artifacts passed. Reruns above supersede those attempts without relabeling them.
+- Compatibility: prior manually authored proofs lacking physical identity reject; no converter or override. Matching current-release Recovery owns new proofs. Next: S30, after consulting the Recovery owner guide; independent transfer and final package acceptance remain pending.
+
+### S30 prerequisite — RP-S30a: confined directory publication
+
+- **Status: DONE. Owner:** `platform.rootedfs`; **dependency:** S29; blocks S30 transfer publication. Existing exclusive rename admits regular files only. Complete directory bundles need an owner-supported atomic no-replace sibling publication operation, not unconfined shell rename.
+- Validation: `make task-guide ROLE=module-author OWNER=platform.rootedfs`, focused `make test-slice OWNER=platform.rootedfs ROWS=platform.rootedfs.unit.operation_containment`; existing directory/root replacement and confinement fixtures plus occupied-destination, complete-content and source-identity tests. Exit: publication retains the exact admitted directory identity, never overwrites a destination, rejects changed/linked roots, synchronizes the parent and preserves cleanup access. No native-Linux qualification claim.
+- Checkpoint: `make test-slice OWNER=platform.rootedfs ROWS=platform.rootedfs.unit.operation_containment` PASS (`20261006T134742Z-p3121`, 1/1); `make format` PASS. Added sibling-only publication retaining the admitted directory capability, occupied-destination rejection, parent fsync and changed-root rejection. S30 may now consume the primitive. No services or cleanup residue.
+
+### S30 prerequisite — RP-S30b: maintained migration validation
+
+- **Status: DONE. Owners:** `harness.generated_artifacts`, `module.database_migrations`; **dependency:** S29; blocks S30 migration validation. `make migration-drift` failed before database acquisition (`20261006T135922Z-p42953`, 4/5) because its obsolete development Compose path lacks TLS inputs and still assumes retired plaintext DSNs and roles.
+- Remediation: route authored migration targets through maintained TLS fixture rows; retain input/history rejection checks and real empty/penultimate-to-head application, borrowed-handle and lineage assertions. Remove obsolete scratch service composition and fake-driver coverage of that removed behavior.
+- Validation route: owner task guides, `make generate`, `make migration-drift`, `make harness-smoke-check-migrations`, affected harness and shell checks. Exit: canonical input and both real database paths pass with fixture-owned cleanup, without ambient development credentials or disabled TLS. No product compatibility change.
+
+- Checkpoint: `make migration-drift` PASS (`20261006T140713Z-p66752`, 6/6); canonical input and actual empty/penultimate-to-head application pass. Inspected `cleanup-results.json`: all fixture detach/service/runtime closure completed. `make generate-drift` PASS (`20261006T141140Z-p76751`, 4/4). Removed obsolete plaintext scratch script and its fake-driver tests; retained migration history negative tests. The authored work graph shares the owner fixture row. The attempted direct `make harness-smoke-check-migrations` is not a public target and did not execute; its retained history tests belong to extended harness smoke coverage.
+
+### Discovered prerequisite — RP-S34a: extended harness fixture maintenance
+
+- **Status: DONE. Owners:** `harness.command_surface`, `harness.generated_artifacts`; **dependency:** S30; blocks S34 complete release acceptance. Extended harness attempts `20261006T140836Z-p46034`, `20261006T141038Z-p65562`, `20261006T141138Z-p76402` exposed stale task-surface render assertions (inlined Node readiness versus the current shared readiness macro) and a disposable toolchain-drift fixture failing graph setup. The migration-driver assertion was corrected with RP-S30b; the remaining independent fixture defects are not product migration failures.
+- Route: owner task guide, authored harness fixture fixes, `make run-harness-smoke-extended`, applicable generator/drift and complete final release. Exit: extended harness coverage passes with canonical failure diagnostics and cleanup, including the retained migration-history negatives; no bypass of real toolchain admission. Temporary diagnostic instrumentation was removed. Dependent final acceptance remains blocked until this separate prerequisite is DONE.
+
+### S30 validation progress
+
+- Complete catalog-derived encrypted closure, authenticated canonical transfer manifest, matching executable identity, confined staging/readback and atomic no-replace publication implemented. Operator/package export uses age-neutral intact retained selection; normal 24-hour admission is unchanged. Result/progress v2, journal v6 and audit v3 projections and migration 68 advance together without legacy emission/conversion. S32 must bind the executable identity to the complete distributed release receipt.
+- PASS: transfer codec/negative matrix (`20261006T140029Z-p52905`, 1/1); package entrypoint fixtures (`20261006T140028Z-p51768`, 1/1); real Recovery process/export (`20261006T135758Z-p89679`, 8/8); retained selection/freshness boundaries (`20261006T140713Z-p66834`, 3/3); JSON shape (`20261006T140903Z-p58700`, 3/3); shell (`20261006T140905Z-p59034`, 4/4); scripts (`20261006T140916Z-p60642`, 2/2). Canonical roots are `.cartulary/test-results/<id>`.
+- Related failures preserved: generation `20261006T135417Z-p24066` lacked migration 68 owner allocation (fixed); operator `20261006T135644Z-p43894` had stale mapping-count/registry expectations (fixed); `20261006T140713Z-p66809` and focused `20261006T141018Z-p61726` had the migration-evidence golden for the previous catalog head (updated for migration 68 after checking unchanged framing/redaction); boundary `20261006T140915Z-p60401` rejected physical hostname normalization (guard narrowed to error-text extraction/matching; PASS `20261006T141039Z-p65698`). Two malformed row-selection attempts failed before product execution; corrected selectors are used for reruns.
+- Owner review corrected the export error token to required `backup_export_failed`, removed non-owner progress phases and closed result code/reason combinations. Generation PASS `20261006T141019Z-p61980`. No S31 implementation has started; S30 remains IN_PROGRESS pending the prerequisite and final focused reruns.
+
+### S30 completed — complete encrypted export
+
+- Exit passed: complete catalog closure and manifest authenticate on readback; interruption leaves no published partial bundle, occupied destinations remain intact, missing/truncated/tampered/extra content and wrong keys/releases reject. Age-neutral export selection preserves source metadata and retention; process evidence exercises the actual operator and safe terminal journal/audit.
+- Final focused PASS: parser/mapping/migration evidence (`20261006T141138Z-p76496`, 2/2 execution units); Recovery process/export after owner-token correction (`20261006T141243Z-p89917`, 8/8); generation drift (`20261006T141140Z-p76751`, 4/4). Earlier codec, filesystem, shape, shell and script results remain recorded above. Candidate remains dirty atop `ec8a3b90366f10efa91376f108ca6e588c0c3b2e`; individual canonical run manifests retain their exact source digests. No final-package acceptance is claimed.
+- RP-S30a/RP-S30b are DONE. RP-S34a remains an explicit independent final-validation dependency; no failed broad run is counted as passing. Next: S31, owner task guide consulted, then source-loss restore and target-owned retry evidence.
+
+### Discovered prerequisite — RP-S31a: recursive encrypted object closure
+
+- **Status: DONE. Owner:** `module.recovery`; **dependency:** S30; blocks S31. The new source-loss process test (`20261006T142242Z-p17780`, 8/9; diagnostic rerun `20261006T142457Z-p68041`, 7/8) proved S30's top-level integrity artifact list omits encrypted payloads referenced by the object manifest. Earlier export readback validated top-level artifacts (including the object manifest but not its encrypted payload), so its claimed complete-closure exit was insufficient. S30 is reopened; its prior runs remain historical evidence, not proof of object completeness.
+- Remediation: derive transfer membership recursively from the authenticated catalog and object manifest, including every frozen object proof; validate all members without source storage. Do not invent a second object enumeration algorithm or fetch live objects during restore.
+- Route: current Recovery owner guide, enriched codec closure tests with actual object payloads, focused portable process source-loss test and original export process row. Exit: source database/configuration/object and backup roots removed; retained packs/blobs/exports restore solely from bundle bytes; tamper/missing-member negatives apply to nested payloads. Reclose S30 before resuming S31 validation.
+
+### RP-S31a completed — S30 reclosed before S31 resumes
+
+- Shared Recovery object-manifest validation now resolves and authenticates every nested encrypted object payload for retained selection, export and restore. Transfer membership uses that same owner algorithm. Readback rejects missing or changed nested content; captured input remains usable after external input is replaced. No source fallback was added.
+- PASS: all-family codec and original operator process/export rows (`make test-slice OWNER=module.recovery ROWS=module.recovery.unit.vnext_parallel_capture_restore_codecs_8d6a20d34c,module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9`, `20261006T143001Z-p72733`, 9/9); portable source-loss and target-marker rows (`20261006T143041Z-p24376`, 9/9). Both fresh and 40-day-old exports restore after source database/configuration/object/backup roots are removed; all catalog object families are covered by codec fixtures and actual pack/workbook state by the process test. Exact response-loss retry retains terminal result bytes and performs no restore phases.
+- S30 is DONE again on this stronger evidence; its earlier incomplete exit claim and failed discovery runs remain above. Candidate remains atop `ec8a3b90366f10efa91376f108ca6e588c0c3b2e`, with exact input digests in canonical run manifests. No service cleanup remains outstanding in these successful runs. S31 may resume after this checkpoint; S32 remains blocked on S31 completion.
+
+### S31 resumed — independent restore and local retry evidence
+
+- Recovery owner guide remains the current route. S31 is IN_PROGRESS after RP-S31a and the corrected S30 exit. Implemented target-only resource acquisition, private authenticated transfer capture, shared restore engine, encrypted local intent/completion, exact replay, target audit reconciliation and explicit age/ID admission. Final negative-path review and affected-boundary validation remain before closure.
+- Additional focused PASS: operator parser (`20261006T143042Z-p24655`, 1/1), actual package entrypoint fixtures (`20261006T143044Z-p24958`, 1/1), and authored formatting (`20261006T143000Z-p72554`, 2/2).
+
+### S31 completed — target-only restore and durable replay
+
+- Portable restore authenticates and privately captures every member before opening target services, uses the existing Recovery engine, and records encrypted intent/completion outside restored database contents. Original services/configuration/storage are unavailable in both fresh and expired-source-retention scenarios. Safe target audit and journal publish together and reconcile from the local terminal record after an injected audit-insert failure; exact retry preserves result timestamps and performs no restore phases. Corrupted or missing local completion rejects indeterminate state. Package restore remains stopped until normal startup establishes a fresh backup and due verification.
+- PASS: final source-loss process slice `make test-slice OWNER=module.recovery ROWS=module.recovery.process.portable_source_loss_restore` (`20261006T143811Z-p85841`, 8/8), inspected canonical row, run and completed fixture cleanup. Earlier all-family codec, marker/age boundary and process results remain above. Package duplicate-argument/lifecycle fixtures PASS (`20261006T143430Z-p80532`, 1/1); JSON shape (`20261006T143430Z-p80441`, 3/3), shell (`20261006T143430Z-p80956`, 4/4), generation drift (`20261006T143430Z-p80440`, 4/4), backend boundaries (`20261006T143514Z-p11648`, 3/3), formatting and `git diff --check` pass.
+- Failed attempts retained: `20261006T143536Z-p12298` correctly rejected the test's attempt to delete immutable audit evidence; replaced that fixture with actual audit-insert failure and recovery. `20261006T143430Z-p80529` and `20261006T143700Z-p59591` failed at frontend artifact setup while maintenance commands were active, before Recovery tests; isolated `make build-web` (`20261006T143738Z-p85014`, 2/2) and the final slice pass. Avoid overlapping formatting/generation with candidate execution. An incorrect `go-module-boundary-check` target did not execute; the public target above passed. No failed attempt is combined with passing evidence.
+- Compatibility: current encrypted formats and current release/key only; no source fallback, historical conversion, implicit stale acknowledgement or automatic partial-target reset. Full immutable-package identity is S32; distributed Windows acceptance is S33/S34. Next dependency: S32 after this checkpoint.
+
+### S32 started — immutable release and content inventory
+
+- **Status: IN_PROGRESS.** Consulted `make task-guide ROLE=module-author OWNER=harness.release`. One Make producer will own exact application/companion images, receipts, immutable deployment assets and content-derived inventories; installers and later smokes consume that producer output. Settings, secrets and mutable state remain outside its immutable payload. Qualification evidence remains outside the manifest.
+
+### S32 progress — producer, installer and immutable input admission
+
+- Added authored `package-release`, `package-inspect` and pinned inventory-tool dependency. The producer builds one application image, saves all three shipped images, scans those exact archives, collects available notice texts with unresolved component review findings, binds binary receipts and assets, and publishes a manifest-addressed archive. Installer and shared package composition separate immutable release assets from installation settings/state. Portable operations bind the complete mounted release manifest after checking the actual operator executable hash.
+- Negative installer/operation fixtures PASS (`20261006T144532Z-p48288`, 1/1), shell PASS (`20261006T144532Z-p48515`, 4/4), scripts PASS (`20261006T144532Z-p48498`, 2/2). Fixture coverage includes altered assets/receipts/inventories, platform/image substitution, links and occupied destinations without invoking a build toolchain.
+- Generation attempts `20261006T144302Z-p33408` and `20261006T144340Z-p36554` identified missing new-target discovery/observability metadata; corrected authored inputs, generation PASS `20261006T144507Z-p45040`. Initial package graph setup `20261006T144532Z-p48777` rejected an unregistered cache policy; the producer is now a fresh, graph-deduplicated node. No cache-profile bypass was introduced.
+- Producer attempts `20261006T144637Z-p52870` and `20261006T144928Z-p7926` failed safely before archive publication. The pinned Syft build honestly reports `[not provided]`; its Go module/version and executable hash now form a separate tool receipt. Docker's image manifest identity differs from the configuration digest Syft calls `imageID`; both are now bound, with archive configuration/layers checked against the selected Docker image. No scanner metadata is rewritten to manufacture a version or matching identity.
+- Distribution bytes belong under `.cartulary/release-artifacts/packages/`; only private canonical receipts belong under the harness run root. This also avoids applying the runtime-secret syntax scanner to distributed templates/image archives. S32 remains IN_PROGRESS; S33 has not started.
+
+### Discovered prerequisite — RP-S33a: coordinated certificate reload
+
+- **Status: DONE. Owner:** package composition (`harness.release`); **dependency:** S32; blocks S33 certificate replacement qualification. The inherited guide still requires service recreation outside the shared entrypoint to reopen replaced certificate bind files. A normal Compose `up` can retain an existing container when only the certificate file inode changed.
+- Remediation: make protected startup recreate the admitted companion service containers after stopping the application, retaining the exact named volumes and stable service identity. Reuse the same exclusion and repair-before-ready flow; add no generic Compose override or alternate lifecycle entrypoint. Update operating guidance and the existing certificate-replacement smoke to use this path.
+- Dependency gate: current owner task guide and installed-entrypoint fixtures must prove recreation under exclusion before backup/readiness and stopped serving after a failed dependency gate; guidance uses that path. This implementation gate unblocks S33, whose separate integrated exit must demonstrate real replacement identities with verified HTTPS/WSS, unchanged retained state and exact cleanup. No real certificate acceptance is claimed by prerequisite fixture completion.
+
+### S32 completed — exact archive, offline installer and shipped inventories
+
+- `make package-inspect` PASS (`20261006T150409Z-p2809`, 11/11) after checking every shipped Compose file, including the optional Reference Pack overlay, for immutable image membership and absence of source builds/mutable defaults. The actual archive installs through baseline WSL tools using included images; occupied installation is rejected. All 13 canonical cleanup operations completed and retained-secret scan passed. Installed bytes and source archive have matching manifest/receipt identities.
+- Candidate manifest `8a7817d5d53ef15379326b1817e681345838b7a431bdb76f16bceee26f6dd04d`; archive SHA-256 `0b094433dec55fbe0bec473b7b6999c9e78e7f5b3cf7c2df281844885d77108f` at `.cartulary/release-artifacts/packages/8a7817d5d53ef15379326b1817e681345838b7a431bdb76f16bceee26f6dd04d.tar`. Canonical receipt and installation evidence: `.cartulary/test-results/20261006T150409Z-p2809/package-release/artifacts/package.json` and `inspection.json`. These identities are S32 evidence, not the later frozen S34 candidate.
+- Inventories contain 203 application, 58 PostgreSQL and 283 SeaweedFS components; seven discoverable application notice files and no discovered notice files in the two companion images. Unknown metadata and component/notice association remain explicit unestablished review findings. Content completeness is technical evidence; licensing/security decisions and delivery trust remain separate. All five new release/inventory contracts are closed typed projections registered with the harness schema owner.
+- Focused PASS: package/installer negatives (`20261006T145553Z-p74344`, 1/1), rooted storage and actual executable/release identity (`20261006T145553Z-p74345`, 1/1), JSON shape (`20261006T150045Z-p44786`, 3/3), generation drift (`20261006T145859Z-p37920`, 4/4), shell (`20261006T145859Z-p38215`, 4/4), scripts (`20261006T145859Z-p38209`, 2/2), boundaries (`20261006T145859Z-p38192`, 3/3), Markdown (`20261006T150410Z-p2977`) and diff checks. Earlier producer passes `20261006T145553Z-p74711` and `20261006T150140Z-p45692` are preserved; final overlay binding is in the newer run above.
+- Additional failed attempts: format/generation rejected an unsorted authored test selector (`20261006T145213Z-p62290`), fixed before generation PASS `20261006T145248Z-p65377` and format PASS `20261006T145427Z-p68706`; JSON shape rejected the new manifest schema's missing attachment registration (`20261006T145818Z-p37028`), corrected and rerun. No unrelated checks were disabled.
+- Operating guide now describes source-free installation, protected settings, key custody/owner-supported rotation, independent storage, export, source-loss/stale restore, exact retries, rejected targets and matching-release replacement. Timers use installed paths. Next: the separately recorded certificate reload prerequisite, then S33 exact-distribution qualification. RP-S34a still blocks final acceptance.
+
+### RP-S33a completed — coordinated reload implementation gate
+
+- Both startup and portable target provisioning recreate the admitted companion containers under existing deployment exclusion, retaining named state volumes and stable DNS identity. The application remains stopped until startup protection/readiness gates pass. No new generic lifecycle interface or Compose override was added. Certificate instructions now use installed stop/start and timer coordination.
+- Focused entrypoint fixtures PASS (`make test-slice OWNER=harness.release ROWS=harness.release.behavior.current_owner_evidence`, `20261006T150724Z-p62026`, 1/1): recreation precedes inspection/capture; a failed dependency gate cannot bootstrap or start serving; existing concurrency/failure/cleanup cases remain covered. Shell lint and diff checks pass as recorded by this checkpoint. This resolves the implementation dependency only; S33 must still demonstrate actual certificate replacement and unchanged retained state through these installed bytes.
+- S33 inspection found the same certificate inode issue on the stopped public application container. The shared start path now recreates it after the protection gate; focused fixture expectations cover that exact ordering. Real renewal remains part of S33 validation. Renewed installed-entrypoint fixtures PASS `20261006T151931Z-p80340` (1/1), including public-container recreation.
+- Next: S33, after this checkpoint. Its package consumers and full integration acceptance remain unexecuted against the new producer.
+
+### S33 started — distributed-package qualification
+
+- Second shared run `20261006T152212Z-p63159` failed 12/15: obsolete smoke assertions expected removed one-shot containers; portable historical input rejected as `transfer_invalid`, under investigation without relaxing integrity. Real installed certificate replacement and wrong-purpose rejection passed within the failed basic smoke, but do not establish overall acceptance. All owned workspace and project cleanup receipts passed. The first attempt left an empty preinstallation workspace; it was removed after exact inspection, and cleanup now records/removes that pre-provisioning case without requiring a helper image.
+
+- First shared-producer attempt `20261006T152004Z-p84347` failed 12/15 before provisioning: private consumer umask stripped archived modes, correctly rejected by immutable asset verification. Consumer extraction now explicitly preserves manifest-bound modes after archive-digest admission. All three resource cleanup receipts passed; no acceptance claimed. Focused contract fixtures PASS `20261006T151931Z-p80340`; shell lint initially reported intentional shared caller bindings (`20261006T151931Z-p80502`), annotated and PASS `20261006T152119Z-p59200`; script lint PASS `20261006T151931Z-p80482`; boundaries PASS `20261006T152120Z-p59427`.
+
+- **Status: IN_PROGRESS.** The current `harness.release` task guide was consulted before the prerequisite and remains the route for all three canonical smoke rows. Update each consumer to install the one producer output, bind identical receipts, and exercise the installed entrypoint. Actual certificate reload, source-loss and stale recovery, retained state/probes and complete cleanup are required before closure. No source-build smoke or historical pass is counted as new package acceptance.
+
+### Discovered prerequisite — RP-S33b: read-only portable input capability
+
+- **Status: DONE. Owner:** `module.recovery` with `app.operator`; **dependency:** S31/S32; blocks S33. Integrated run `20261006T152929Z-p80293` diagnosed `rootedfs stage: private staging is unavailable`: semantic validation decrypted into the read-only external transfer mount before private capture. Owner task guide consulted. S33 is suspended at this prerequisite; its current attempt cannot establish acceptance.
+- Remediation: narrow transfer input to read-only member/manifest capabilities, authenticate exact encrypted membership first, capture immutable encrypted bytes into private target staging, then run complete existing semantic/closure validation there. Never grant write access to the bundle, relax integrity, or use source services.
+- Validation/exit: focused catalog codec and actual operator source-loss routes, including input with no staging/write capability, tamper/wrong-key/missing-member negatives, complete closure and exact retry. S33 then reruns real read-only mounts and all canonical smokes. Compatibility: no wire format or encrypted-byte change; unchanged bundles become usable from read-only transfer media. Residual risk without repair: genuine source-loss restore fails despite writable-directory process tests passing.
+
+### RP-S33b completed — immutable read-only input
+
+- Added a read-only `TransferSource` port. External authentication validates sealed manifest, encrypted member digests, bounds and exact membership; private capture then runs the unchanged complete semantic/decryption/closure validation. The input has no plaintext staging or publication capability. Focused codec and actual source-loss process tests PASS `make test-slice OWNER=module.recovery ROWS=module.recovery.unit.vnext_parallel_capture_restore_codecs_8d6a20d34c,module.recovery.process.portable_source_loss_restore` (`20261006T153636Z-p98603`, 9/9); formatting PASS `20261006T153605Z-p93508`. Tamper/keys/closure and fresh/expired-retention replay remain covered; cleanup completed. No format change. Next: S33 after the provisioning prerequisite below.
+- Integrated attempt `20261006T152929Z-p80293` remains failed (12/15): read-only staging defect, unsupported Compose `create --no-deps` inspection flag, and an object-store `retry_exhausted` after real service recreation. All workspace/project cleanup receipts passed. Corrected inspection uses existing-container-preserving creation. Smoke success summary now publishes only after portable restore checks finish. Focused package fixtures and shell lint PASS `20261006T153139Z-p61448` and `20261006T153138Z-p61238`.
+
+### Discovered prerequisite — RP-S33c: bounded provisioning readiness and gate evidence
+
+- **Status: DONE. Owner:** package composition (`harness.release`); **dependency:** RP-S33a/RP-S33b; blocks S33. Seaweed master health can precede usable object metadata after container recreation. A failed startup must name its gate; bounded readiness may repeat only the idempotent object initialization when the owner reports exhausted transient attempts. Recovery operations must not be retried automatically.
+- Remediation/exit: centralize a bounded initialization wait in package composition, retain fatal configuration/cryptographic errors immediately, and report the precise failing gate separately from lifecycle cleanup. Focused entrypoint tests must prove bounded transient retry, fatal rejection and stopped serving; actual replacement/source-loss scenarios remain the S33 exit. No provider retry policy, proof policy, or data format changes.
+
+### RP-S33c completed — bounded provisioning gate
+
+- Shared Compose construction now also supplies wall-clock bounded calls with the same exact deployment/operation labels. Only idempotent object initialization may retry the explicit owner `retry_exhausted` result, within 120 seconds; fatal errors and timeout remain terminal. Cleanup still detects live owned children and blocks unsafe replay. Startup reports its exact gate independently of primary/restart/cleanup outcomes. Core 04 and operating guidance describe the boundary; specification adoption remains separate.
+- PASS: focused entrypoint/installer/release contract `20261006T154040Z-p53502` (1/1), including transient success, immediate fatal rejection and no serving/capture after failed initialization; shell `20261006T154042Z-p53831` (4/4), format `20261006T154003Z-p48272`, diff. No general Recovery retry, new compatibility mode or provider-policy change. S33 resumes IN_PROGRESS after this checkpoint; real cold-service, read-only transfer, repeated maintenance and cleanup remain its integrated exit.
+
+### S33 integrated progress — source-loss and certificate gates
+
+- Shared run `20261006T154119Z-p57354` failed overall (14/15): operational source-loss/stale recovery and the complete basic package/certificate/crypto smoke passed; Reference Pack restore and exact replay preserved historical binding, root v2 and exported bytes, then post-restore `package start` failed. Safe gate/reason diagnostics were added to the focused harness consumer for the next investigation. No partial acceptance or substituted historical evidence.
+- Operational evidence includes removed source services/configuration/volumes, completed export beyond retention, required stale acknowledgement, exact terminal replay, fresh backup/due-verification gate and Windows HTTPS. Basic evidence includes actual certificate replacement, wrong-purpose rejection, service restart, fixed image receipts and cryptographic-state refusal. Every workspace/project cleanup receipt passed. Candidate identities are retained in this run's `package-release/artifacts/package.json` and all three consumers' matching `artifacts/package.json`.
+- Supporting PASS: generation drift `20261006T154221Z-p29503` (4/4), JSON shape `20261006T154222Z-p30572` (3/3), Markdown `20261006T154223Z-p31723`. S33 remains IN_PROGRESS; RP-S34a and S34 remain unexecuted.
+
+### Discovered prerequisite — RP-S33d: complete disposable target isolation
+
+- **Status: DONE. Owner:** `harness.release`; **dependency:** S33 source-loss scenario; blocks its integrated exit. Focused run `20261006T155255Z-p97009` failed 12/13 at `due_verification` after successful rich restore/replay. The fixture destroyed destination database volumes but retained its host verification proof root. Fresh migration correctly refuses nonempty retained filesystem state paired with a newly empty database; this is an incomplete test allocation reset, not authority to discard production proofs.
+- Remediation: create a separate fresh installation for Recovery after destroying the earlier disposable portability services/volumes. Copy only deliberately retained target configuration, keys/trust and matching immutable release; do not carry old runtime/proofs. Existing old runtime remains owned by final workspace cleanup. No automatic proof reset or admission relaxation. Auth intentionally invalidates sessions during restore; qualification must reject the prior cookie and authenticate again using the separately held MFA factor.
+- Validation/exit: focused canonical Reference Pack smoke passes rich source-loss restore, exact replay, fresh backup/due verification, Windows workbook/HTTPS/WSS and all allocation cleanup; then S33 must pass all three consumers together with one producer identity. Retain the failed evidence and unchanged production admission.
+
+- RP-S33d focused follow-up `20261006T160023Z-p92758` failed 12/13 only at the Windows authenticated WSS probe after successful fresh startup, capture and due verification. The fixture reused a pre-restore session, contrary to Auth's registered `auth.invalidate_sessions.v1` contribution. Updated the fixture to prove old-session rejection and then perform real password/MFA login; production session invalidation remains unchanged. All owned cleanup passed. No earlier failed result is relabeled.
+
+### RP-S33d completed — fresh target and authenticated post-restore access
+
+- `make standup-reference-pack-smoke` PASS `20261006T160653Z-p90093` (13/13). The new installation carries no old verification proof/runtime state. Complete source-loss restore and exact replay preserve historical snapshot binding, root v2 trust and retained exported bytes; startup captures/verifies fresh protection. Old sessions reject as required by Auth; real password/MFA login then passes Windows authenticated HTTPS/WSS and workbook hello. Source/destination resource cleanup and complete workspace cleanup all passed, with zero remaining groups.
+- The previous attempts remain failures. Production target admission and session invalidation were preserved; no automatic reset, weakened check or alternate restore engine was added. Operating guidance now states that restoration requires a new login with the retained enrolled factor.
+- After this checkpoint S33 resumes IN_PROGRESS for one complete three-smoke run against the shared producer. Focused results do not substitute for that aggregate; final fixed-capacity and full release coverage remain S34 dependencies.
+
+### S33 completed — shared distributed-package qualification
+
+- `make service-backed-test-slice OWNER=harness.release ROWS=harness.release.behavior.operational_recovery_package,harness.release.behavior.reference_pack_package,harness.release.behavior.standup_package` PASS **15/15**, `.cartulary/test-results/20261006T161245Z-p87119`. All three installed consumers have byte-identical producer receipts. Manifest `6b6480f9bae45c5c7f7502c71dead5adc1fc3b1cfd4e48332469c13cf95dd362`; archive SHA-256 `491f1f4a474a9401364a3935930d6c80a96c5d8b90fea397e7f58bc9176669e0`; application image `sha256:47e7fcc8393f29a0b7c0775f981fcc7d66a900b40f1296bbe169102dcf9db6eb`. Exact artifact and companion identities are in `package-release/artifacts/package.json` under that run.
+- Inspected operational `portable-source-loss.json`, Reference Pack `recovery.json`/Windows probes, basic package certificate/cryptographic evidence, canonical summary/events and all nine project/workspace cleanup receipts. Source loss, expired source retention, explicit stale acknowledgement, read-only transfer, exact retry, preserved rich owner state, new MFA session and fresh-backup startup passed. All owned resource groups are zero; all workspace cleanup passed. No partial failed runs were combined into this result.
+- Final changed-script checks PASS: `make lint-scripts` (`20261006T161757Z-p87061`, 2/2), `make lint-shell` (`20261006T161757Z-p87073`, 4/4), `git diff --check`. All earlier attempts and discovered prerequisites remain recorded above. No new compatibility aliases, target reset policy or alternate restore engine.
+- Exit: S33 DONE. Next is separately tracked RP-S34a, then S34. This is package engineering evidence; fixed-capacity/full release closure and the final candidate identity remain S34 requirements. Formal applicability, adoption and customer approval remain unestablished.
+
+### RP-S34a started — authored harness fixtures
+
+- S33 checkpoint is complete. Consulted `make task-guide ROLE=module-author OWNER=harness.command_surface` and `OWNER=harness.generated_artifacts`; these are the actual catalog owners, correcting the earlier nonexistent `harness.execution` label.
+- Repair the obsolete inline-Node readiness assertions and give the public toolchain-preflight fixture the complete non-document repository inputs its graph compiler requires. Preserve independent pin mutations, exact diagnostic assertions, private scratch isolation and cleanup. No production toolchain admission bypass or generated hand edit. S34 remains TODO until this prerequisite passes.
+
+### Discovered prerequisite — RP-S34b: sorted release-observability registration
+
+- **Status: DONE. Owner:** `harness.command_surface`, with `harness.evidence_accounting`; **dependency:** S32; blocks RP-S34a's aggregate exit and S34. `make run-harness-smoke-extended` failed at canonical-performance only (`20261006T162544Z-p24251`); the repaired task-surface and toolchain fixtures passed. S32 appended the two package targets to a roster whose owner requires ASCII ordering. The failed artifact is `harness-smoke-canonical-performance/harness-smoke-canonical-performance/step-summary.json` under that run.
+- Remediation: sort the authored required-target roster, regenerate its projections and retain the existing order/closure rejection. No performance threshold, target membership or measured result changes. Owner guides consulted. Exit: generated drift and the canonical-performance test through the complete extended harness pass, with retained failed attempt. RP-S34a waits on this separate correction.
+
+### RP-S34b completed — authored ordering restored
+
+- `make generate` PASS `20261006T162709Z-p56315`; `make generate-drift` PASS `20261006T162729Z-p59417` (4/4). Canonical-performance, toolchain-pin and task-surface fixtures passed in extended run `20261006T162729Z-p60060`; the aggregate remains failed because the independent package contention fixture below raced. Shell lint PASS `20261006T162729Z-p59645` (4/4). No threshold or target membership changes. RP-S34b's owner defect is resolved; RP-S34a still requires a complete passing aggregate.
+
+### Discovered prerequisite — RP-S34c: deterministic package contention fixture
+
+- **Status: DONE. Owner:** `harness.release`; **dependency:** S28/S33; blocks RP-S34a and S34. Extended run `20261006T162729Z-p60060` failed `harness-smoke-release-readiness-evidence`: a two-second fake capture finished before the contending process reached exclusion under concurrent harness load. The actual package lock remains unchanged. Current release owner guide consulted.
+- Remediation: replace the timed capture with an explicit ready/release barrier, bounded acquisition and guaranteed child reaping; retain the real entrypoint and the assertion that a contender performs no service mutation. Exit: focused release-owner fixture and complete extended harness pass without orphaned children or scratch residue. No product compatibility or lifecycle change.
+
+### RP-S34c completed — explicit contention synchronization
+
+- Focused `make test-slice OWNER=harness.release ROWS=harness.release.behavior.current_owner_evidence` PASS `20261006T162916Z-p98359` (1/1). Complete `make run-harness-smoke-extended` PASS `20261006T162921Z-p99380`: all 43 children present and passed, no missing/skipped/failed children. The fake capture holds exclusion until explicit release, with bounded readiness and child reaping in `finally`; production code is unchanged. The prior aggregate failure remains recorded. Next: close RP-S34a against this complete evidence.
+
+### RP-S34a completed — full harness fixture closure
+
+- `make run-harness-smoke-extended` PASS `.cartulary/test-results/20261006T162921Z-p99380` (43/43). Inspected the aggregate and child summaries: task-surface readiness, actual public toolchain-drift diagnostic, migration history negatives, canonical performance and package contention all passed. Disposable toolchain inputs include current non-document backing files and exclude Markdown/README; no fixture reads specifications. Private scratch and package fixture cleanup completed through their checked traps/finally blocks; no service resources were required by this prerequisite.
+- Generation/drift and shell results are recorded under RP-S34b. Failed runs `20261006T162544Z-p24251` and `20261006T162729Z-p60060` remain failures with their separate corrections. No admission or evidence requirement was disabled. RP-S34a/b/c are DONE; all S34 technical prerequisites are now closed. Next: S34 only after this checkpoint.
+
+### S34 started — final candidate and operating handoff
+
+- All S26–S33 exits and RP-S30a/b, RP-S31a, RP-S33a/b/c/d, RP-S34a/b/c prerequisites are DONE. Consulted the current `harness.release` guide and `make explain-target TARGET=release-check DETAIL=summary`: complete release resolves 1,282 execution units and the full owner/browser/package coverage.
+- Complete human handoff review and baseline/current-state labeling, then run `make agent-finalize`, `make test-fast`, one complete `make release-check` and `make explain-run RESULTS_DIR=<run-root>`. Freeze production/harness inputs before qualification; tracker documentation is not an executable evidence input. `RESULTS_DIR` is unset for finalization because no compatible complete warm `check` run is selected; retained-run maintenance is explicitly skipped.
+- Human handoff review also makes the fixed loopback readiness identity explicit: the application certificate SAN includes `localhost` as well as the configured public-origin hostname. This describes the qualified fixed package topology and adds no TLS bypass.
+- S34 remains IN_PROGRESS and RP-OPS01 remains open until canonical evidence, identical distribution receipts, all owned cleanup and five separate readiness dispositions are recorded. Historical S25/S07 evidence remains unchanged.
+
+### Discovered prerequisite — RP-S34d: migration-catalog characterization closure
+
+- **Status: DONE. Owner:** `module.database_migrations`; **dependency:** S30 migration 68; blocks S34. First final `make test-fast` run `20261006T163215Z-p41536` identifies two failed semantic rows: `public_surface_and_reader_capability` and `test_harness_targeted_operation_validation`. Both pin the previous full catalog hash. Structural DDL/manifest checks pass. Current owner task guide consulted; no production migration change is required.
+- First fast run completed FAIL 744/746 with precisely those two failed units; canonical cleanup completed. No other failure was inferred from a grouped execution unit.
+- Remediation: update the canonical catalog characterization golden for the reviewed current SQL/runner inputs (`661c1031e97601ea882365c4590611ea49c8e3f5032bd466765aa83bfc3c8de9`), and remove the duplicate full-catalog hash assertion from the unrelated targeted-operation capability test. Keep canonical byte/ordering/immutability checks and all target/capability/cleanup assertions. This removes duplicate maintenance without weakening the single owning golden.
+- Validation/exit: focused failing owner rows pass, format/diff pass, then rerun finalization and fast coverage before the complete release. Diagnostic attempt with `VERBOSE=1` was rejected by public input admission before tests; no raw test command or admission bypass was used. S34 candidate freeze is suspended for this recorded correction.
+
+### RP-S34d completed — one canonical schema golden
+
+- `make test-slice OWNER=module.database_migrations ROWS=module.database_migrations.unit.public_surface_and_reader_capability,module.database_migrations.unit.test_harness_targeted_operation_validation` PASS `20261006T163929Z-p46461` (2/2). `make format` PASS `20261006T163900Z-p41285` (2/2); diff check passed. Canonical catalog bytes and hash remain characterized once; targeted capability/cleanup assertions retain their own scope. No production SQL or format change.
+- First finalization PASS `20261006T163110Z-p36964` left all generated outputs unchanged, with retained-run maintenance explicitly skipped (`RESULTS_DIR` unset). Markdown PASS `20261006T163233Z-p45352`. First fast run FAIL 744/746 `20261006T163215Z-p41536` remains recorded; inspected cleanup and retained-secret scan passed. Its old source digest is not the final candidate.
+- S34 resumes after this checkpoint. Repeat finalization and fast validation, then run the complete release with the existing run-local capacity override `.cartulary/validation-config/reference-pack-capacity.json` (8 CPU tokens, 4 PostgreSQL lanes, 2 object-store lanes). This bounds concurrent host work; fixed credential/browser acceptance thresholds remain unchanged, and the canonical manifest records the override. No partial-run combination.
+
+### S34 final validation in progress
+
+- Repeated `make agent-finalize` PASS `20261006T164000Z-p47255` (generated outputs unchanged; `RESULTS_DIR` unset, retained-run maintenance skipped). Repeated `make test-fast` PASS **746/746** `20261006T164051Z-p51768`; inspected all **649** canonical cleanup outcomes completed and retained-secret scan PASS. Frozen source digest: `sha256:4875acff2d9ea6367192dc173a023e954a9d710e3274f750589459f17f8b75cc`.
+- Started `make release-check CARTULARY_HARNESS_CAPACITY_OVERRIDE=.cartulary/validation-config/reference-pack-capacity.json` after the passing fast run. No production/harness input changes are planned during qualification. Final package/archive identity and the complete run's readiness/cleanup inspection remain pending; S34 and RP-OPS01 are not complete.
+- Human handoff review confirms install/first protection, lifecycle/sleep/restart, maintenance failures, certificate renewal, key custody/owner rotations, independent storage, source-loss/stale restore, rejected targets, exact retries, renewed login and matching-release replacement. Historical sections beginning with the previous iteration's §1 are byte-for-byte unchanged from the starting revision; their framing now explicitly points to the active implementation scope.
+
+### Discovered prerequisite — RP-S34e: Recovery transfer static analysis
+
+- **Status: DONE. Owner:** `module.recovery`; **dependency:** S30; blocks S34. Release attempt `.cartulary/test-results/20261006T164627Z-p33386` reports `target:lint-go` failure (`unit-logs/target-lint-go/stdout.log`): Staticcheck S1016 requires a direct conversion between the identical `RecoveryGenerationIdentity` and `TransferGeneration` structures. Other completed units had passed when discovered; the shared package producer had not yet run. Current Recovery owner task guide consulted.
+- Stop this known-failed attempt through the graph runner's SIGINT cancellation handler, retain its terminal evidence and inspect cleanup before editing. Remediation: direct typed conversion, with no wire/content/selection change. Exit: `make lint-go`, focused transfer codec coverage and normal formatting pass, then repeat finalization/fast validation and a complete release. Do not combine this cancelled attempt with the eventual passing run.
+
+### RP-S34e completed — direct transfer identity conversion
+
+- `make format` PASS `20261006T170331Z-p17496` (2/2). `make lint-go` PASS: format `20261006T170346Z-p22954`, vet `20261006T170354Z-p28645`, Staticcheck `20261006T170403Z-p35492`; each canonical target summary passed. Focused `make test-slice OWNER=module.recovery ROWS=module.recovery.unit.vnext_parallel_capture_restore_codecs_8d6a20d34c` PASS `20261006T170346Z-p22654` (1/1); diff passed. Only the conversion expression changed; existing encrypted bytes, JSON tags and identities are unchanged.
+- Release attempt `20261006T164627Z-p33386` is **CANCELLED**, with 958 passed, 1 failed and 323 cancelled units. All **243** recorded cleanup outcomes completed; retained-secret scan PASS. Cancellation used the exact active graph runner's supported SIGINT handler. The known lint failure and cancellation are retained, not qualified as release success. The producer had not run and no archive was qualified in that attempt.
+- S34 resumes after this checkpoint with a renewed candidate: finalization, fast coverage and a complete release will run again. No combination of partial runs or prior package acceptance will substitute for the final gate.
+
+### S34 renewed final candidate — post-Staticcheck correction
+
+- `make agent-finalize` PASS `20261006T170517Z-p36684`; generated outputs unchanged and retained-run maintenance skipped because `RESULTS_DIR` is unset. `make test-fast` PASS **746/746** `20261006T170608Z-p41158`; all **649** cleanup outcomes completed and retained-secret scan PASS. Current frozen source digest: `sha256:08c72ebaea87ab8cf66d6425b32cc132be6ef224cf60653a0d4017da6233f740`.
+- Started a new complete `make release-check CARTULARY_HARNESS_CAPACITY_OVERRIDE=.cartulary/validation-config/reference-pack-capacity.json` against this candidate after the passing fast run. Final release/archive identity, canonical explanation, cleanup and readiness inspection remain pending. The cancelled earlier attempt cannot satisfy these exits; S34 remains IN_PROGRESS.
+
+### Discovered prerequisite — RP-S34f: Timeline Find acceptance synchronization
+
+- **Status: DONE. Owners:** `module.workbook`, `harness.browser`; **dependency:** full S34 validation; blocks final acceptance. Release `20261006T171203Z-p25201` failed `module.workbook.browser.find_edit_departure` in the Timeline Find browser group: after releasing a deliberately held PATCH, the test checks request arrival (already true) and immediately reopens Find/presses Enter before committed-edit settlement. The exact canonical `playwright-report.json` records the failure at `timeline-find.spec.ts:469`; other completed units remain passing. This is separate from the package/Recovery changes.
+- Current Workbook task guide consulted; Cartulary UI review skill read for evidence discipline. Inspection uses the exact failing canonical report and observed state; no live UI review, image import, golden refresh or UI redesign is required. The observed committed cell and open Find field are consistent with a late edit acknowledgement superseding the newly opened Find generation; this is an inference to verify through focused reproduction.
+- Proposed remediation: synchronize the test on visible committed edit settlement before reopening Find, retaining the held-request/draft/supersession/rejection assertions and existing timeout/acceptance rules. No product relaxation. Exit: focused complete Timeline Find coverage passes, normal frontend format/type checks pass, then complete final validation passes. Let the current frozen full release finish diagnostic coverage to expose any other prerequisites; do not edit executable inputs or count this failed run as acceptance.
+
+### Discovered prerequisite — RP-S34g: narrow toolbar accessibility
+
+- **Status: DONE. Owners:** `module.workbook`, `harness.browser`; **dependency:** full S34 validation; blocks final acceptance separately from RP-S34f. Release `20261006T171203Z-p25201` failed the ordinary-grid keyboard/recovery accessibility scenario at `workbook.a11y.spec.ts:9463`: after recovery at 390×480, the focused System views control has an intersection ratio of 0.983886659 rather than the required complete visibility. The exact canonical accessibility report and trace retain the failure. No executable changes are made while this diagnostic release is active.
+- Investigate the actual overflow/focus geometry using the selected evidence and Cartulary UI review artifact workflow. Preserve complete visibility and simultaneous account-navigation access; do not weaken the ratio, refresh goldens, or redesign the UI. Remediation depends on whether the evidence establishes a layout defect or synchronization defect. Exit: the complete affected accessibility scenario passes with the existing acceptance checks, relevant frontend checks pass, and a subsequent full release passes. Record the concrete cause and compatibility impact before closing this prerequisite.
+
+### RP-S34f/g diagnostic evidence checkpoint
+
+- RP-S34f's retained trace confirms the race: the second Find Enter occurs about 5.8 ms before the held successful PATCH finishes. Waiting for request arrival cannot establish committed edit settlement. The correction remains test synchronization, with all existing draft/rejection/supersession assertions retained.
+- RP-S34g: artifact-only review of the selected failed 390×480 attachment completed; seeded review independently exercised native focus on System views at the same viewport. The control itself fits in that ordinary state, but its focus outline is visibly clipped at the scroll area's trailing edge. This establishes a real missing focus-reveal margin; it does not by itself reproduce the post-recovery control clipping. The focused canonical scenario will validate the structural correction. Account navigation remains in its separate fixed area; no layout redesign or relaxed visibility threshold is proposed.
+- UI review sessions `20261006T175107Z-p67032` (artifacts) and `20261006T175305Z-p75005` (seeded) both returned `status=ok`, `state=closed`, `cleanup=complete`; task-owned request scratch was removed. Seeded axe completed with zero violations for the inspected state, which is advisory evidence only. Private images/observations are not copied into the repository. The running release candidate remains unchanged.
+
+### Discovered prerequisite — RP-S34h: nested review fixture environment isolation
+
+- **Status: DONE. Owner:** `harness.browser`, collaborating with the fixture-broker owner; **dependency:** full S34 validation; blocks final acceptance independently. Release `20261006T171203Z-p25201` failed `harness.browser.integration.ui_review_seeded_default`; canonical row/unit logs report an unclassified browser acquisition failure during the real-stack cleanup cases, after the public review workflow. The separate claimed-profile workflow passed. The exact nested diagnostic root is `fixture-cleanup-1791309583385-product`; its services-close outcome completed.
+- Current browser owner task guide consulted. Inspection found that review preparation intentionally removes inherited graph/browser variables, but fixture acquisition adds `process.env` back beneath the sanitized environment. This can reintroduce the parent graph's binding into the nested owned stack. Confirm and repair this composition boundary rather than bypassing cleanup cases or classifying the run as passing. No executable edit occurs during the active release.
+- Exit: both real-stack cleanup cases and the complete seeded-default workflow pass through the public owner route, retained cleanup records complete, relevant fixture-broker regression coverage passes, and the subsequent full release passes. Preserve source-owned child diagnostics and exact resource ownership; record any additional confirmed cause before closure.
+
+### Discovered prerequisite — RP-S34i: renderer startup failure
+
+- **Status: DONE. Owners:** `harness.browser`, with `module.entities` for the affected scenario; **dependency:** full S34 validation; blocks final acceptance. The last functional merge-recovery browser group in release `20261006T171203Z-p25201` could not start its pinned renderer container: canonical stderr reports `docker start (exit 1)`, classified `artifact_error`, before product assertions or the required browser report existed. This is independent of the three confirmed source/test issues above. Host disk and memory were available; the underlying Docker rejection is not established by the bounded diagnostic.
+- Do not invent a product fix or count the unexecuted scenario as passing. After the diagnostic run cleans up, rerun `module.entities.browser.entity_merge_exact_recovery` through its public service-backed owner route and inspect renderer/resource cleanup. A subsequent complete final release must also execute it successfully. If startup repeats, investigate the actual renderer/daemon ownership failure as a separate implementation correction before proceeding.
+
+### S34 diagnostic release completed — corrections required
+
+- Complete `make release-check CARTULARY_HARNESS_CAPACITY_OVERRIDE=.cartulary/validation-config/reference-pack-capacity.json` FAIL `20261006T171203Z-p25201`: **1,276 passed / 1,282 total**, six failed units, zero skipped/cancelled. Four primary failures are tracked separately as RP-S34f/g/h/i; two browser target summaries project those failures. No further defects were hidden by early termination. `make explain-run RESULTS_DIR=.cartulary/test-results/20261006T171203Z-p25201` PASS as a diagnostic command and correctly reports the failed release.
+- All **701** cleanup outcomes completed; retained-secret scan PASS. All three package smokes and fixed-capacity assessment PASS and consume the producer's identical receipt: manifest `5e4d5bd1237c4f001ba93e7ba8ceb87f06b15594eb012d622016f090cd9ee75d`, archive SHA-256 `00b4fded5fa19689e7ae8fcf5857c2574ed367eef0393593cd88ca37e2fac7b5`. Their canonical receipts and operating evidence are under each target's `artifacts/` directory in this run. Source/destination/workspace cleanup passed for each smoke. These successes do not turn the aggregate into acceptance.
+- Candidate source digest remains `sha256:08c72ebaea87ab8cf66d6425b32cc132be6ef224cf60653a0d4017da6233f740`. No executable inputs changed while the run was active. Next: RP-S34f synchronization, checkpoint; RP-S34g layout, checkpoint; RP-S34h environment isolation, checkpoint; RP-S34i focused renderer recovery, checkpoint; then renewed S34 finalization/fast/complete release.
+
+### RP-S34f completed — committed-edit synchronization
+
+- The test now waits for the editor to retire and the exact committed cell text to appear before opening a new Find generation; request count remains exactly one. This matches the observed PATCH acknowledgement boundary and changes no product behavior, timing threshold, or compatibility contract.
+- `make format` PASS `20261006T182332Z-p13105` (2/2); `make frontend-typecheck` PASS `20261006T182348Z-p18500` (2/2). Complete focused Find route: `make service-backed-test-slice OWNER=module.workbook ROWS=module.workbook.browser.find_accessible_geometry,module.workbook.browser.find_authority,module.workbook.browser.find_edit_departure,module.workbook.browser.find_full_window,module.workbook.browser.find_literal,module.workbook.browser.find_query_creation,module.workbook.browser.find_scope_lifecycle,module.workbook.browser.find_source_editors,module.workbook.browser.find_virtualized` PASS `20261006T182348Z-p18431` (11/11 execution units). Existing held-edit, rejection, supersession and keyboard assertions passed.
+- RP-S34f DONE at this checkpoint. Next: RP-S34g only; S34 final acceptance still requires every prerequisite and the subsequent full release.
+
+### RP-S34g refinement — production focus reveal
+
+- The first padding correction passed the existing focused scenario (`20261006T182605Z-p63488`, 11/11), selector unit route (`20261006T182605Z-p63482`, 2/2), format (`20261006T182551Z-p57984`, 2/2), and type check (`20261006T182605Z-p63590`, 2/2). These checks alone were insufficient: seeded default-profile review showed native keyboard focus could still leave System views clipped because the test helper explicitly scrolled it.
+- Review `20261006T182620Z-p77788` closed with complete cleanup. Refine the same prerequisite: the narrow toolbar owns nearest-edge focus reveal and real scroll-edge padding for its outline. The affected canonical test now focuses without helper-driven scrolling and retains full visibility, exact focus, account visibility, and non-overlap assertions; its focused screenshot supports review. No timeout/tolerance change, golden refresh or UI redesign. RP-S34g remains IN_PROGRESS until this stronger path and rendered review pass.
+
+### RP-S34g completed — toolbar-owned focus reveal
+
+- The below-minimum toolbar now provides real inline focus padding and nearest-edge reveal when a descendant receives focus. Supported desktop layouts and the separately fixed account area retain their existing behavior. The canonical test no longer repairs scrolling; it verifies exact focus, the existing full intersection ratio, account visibility and non-overlap after recovery.
+- `make format` PASS `20261006T182952Z-p36675` (2/2); `make frontend-typecheck` PASS `20261006T183008Z-p42082` (2/2); `make test-slice OWNER=web.workbook ROWS=web.workbook.regression.desktop_built_in_surface_selector_keyboard_navig_ebad53c0ea` PASS `20261006T183008Z-p41972` (2/2); `make service-backed-test-slice OWNER=module.workbook ROWS=module.workbook.accessibility.ordinary_create_authoring_recovery` PASS `20261006T183008Z-p41973` (11/11).
+- Inspected the exact passing scenario's `ordinary-toolbar-focus-390` attachment through artifact review `20261006T183125Z-p82330`: complete focus outline and control visible, account navigation unobscured. This selected PNG supplies pixels only; the canonical test supplies focus/geometry assertions. Review terminal returned `closed/ok`, cleanup complete, scratch removed. No goldens or thresholds changed. RP-S34g DONE; next RP-S34h, with browser and command-surface owner guides consulted.
+
+### RP-S34h completed — caller-owned child environment
+
+- Browser fixture acquisition no longer reconstructs the sanitized child environment from ambient `process.env`. The production subprocess regression deliberately places a parent-only binding outside the caller's environment and rejects its leakage at the controlled stack entrypoint. No product/deployment compatibility change; nested fixture ownership is now consistent with review preparation.
+- `make service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.integration.ui_review_seeded_default` PASS `20261006T183259Z-p84118` (3/3), all five outer cleanup outcomes completed. Both real-stack cases executed: normal cleanup closed, and the deliberately failed cleanup was recovered through exact owner evidence with no remaining runtime resources. `make lint-scripts` PASS `20261006T183259Z-p84256` (2/2).
+- First extended attempt `20261006T183259Z-p84727` failed JSON-shape validation because the edited provider invalidated the generated topology source receipt; later children were skipped and that attempt is not passing evidence. After the active seeded route completed, `make generate` PASS `20261006T183837Z-p51198`, `make generate-drift` PASS `20261006T183854Z-p54258` (4/4), `make json-shape-check` PASS `20261006T183854Z-p54268` (3/3), and complete `make run-harness-smoke-extended` PASS `20261006T183855Z-p54904` (**43/43** children, none missing/skipped). The fixture-broker matrix passed with the new subprocess check. An initial `make explain-target TARGET=harness-work-graph-cutover DETAIL=summary` was rejected as an undeclared diagnostic target; authored routing/public inventory selected the complete extended route instead.
+- RP-S34h DONE. Next RP-S34i after this checkpoint; current `module.entities` guide consulted. No remaining UI review session or task-owned review scratch.
+
+### RP-S34h reopened — complete normal graph composition
+
+- RP-S34i's focused route failed `20261006T184100Z-p94756` (9/11 units) before product tests with `unclassified browser acquisition failure`; its target summary correctly rejected the absent group result. This differs from the original Docker renderer rejection. The new launcher contract exposed an incomplete caller: the normal graph passes only `resolvedRuntimeEnvironment` tool overrides, whereas review preparation passes a complete sanitized environment.
+- Reopen RP-S34h and block RP-S34i on its completion. The graph composition root must explicitly combine its admitted process environment with resolved tools before constructing fixture providers; acquisition must continue honoring that complete caller-owned environment without adding ambient variables again. The successful review-route and sentinel-regression evidence remains valid for that boundary, but is insufficient for normal graph composition. Regenerate the changed owner projection, verify the normal service-backed route and extended harness, and checkpoint the correction before resuming final validation.
+
+### RP-S34h completed again — both composition callers validated
+
+- The normal graph composition root explicitly supplies `{...process.env, ...resolvedRuntimeEnvironment}` to fixture providers; sanitized review composition supplies its own complete environment. The acquisition helper adds only owner-issued diagnostic context. This fixes both normal execution and intentional exclusion of parent graph bindings.
+- `make generate` PASS `20261006T184240Z-p31693`; drift PASS `20261006T184257Z-p34857` (4/4); script lint PASS `20261006T184257Z-p35155` (2/2); complete extended harness PASS `20261006T184257Z-p35718` (**43/43**, none missing/skipped). Normal graph composition exercised through `make service-backed-test-slice OWNER=module.entities ROWS=module.entities.browser.entity_merge_exact_recovery` PASS `20261006T184257Z-p34946` (11/11), with all **14** cleanup outcomes completed and retained-secret scan PASS. The earlier seeded-review route establishes the sanitized caller and real-stack recovery cases; the extended matrix retains the parent-binding regression.
+- RP-S34h DONE at this renewed checkpoint; its incomplete first correction and failed normal-route attempt remain recorded. Next: inspect the same newly executed merge-recovery route against RP-S34i's startup/cleanup exit, then resume S34.
+
+### RP-S34i completed — fresh renderer and product execution
+
+- The normal route `20261006T184257Z-p34946` successfully acquired its pinned renderer, executed `module.entities.browser.entity_merge_exact_recovery`, and completed all 14 cleanup steps; the retained-secret scan passed. No renderer bypass, retry wrapper, reduced assertion, or substitution was introduced. The original Docker-start rejection's daemon-level cause remains unestablished, and that failed attempt remains failed evidence; successful fresh execution closes the local qualification prerequisite, with complete release execution still required by S34.
+- All S26–S33 workstreams and discovered technical prerequisites are now locally complete. RP-OPS01 and S34 remain IN_PROGRESS. Freeze the current executable candidate and run `make agent-finalize`, `make test-fast`, complete `make release-check`, then `make explain-run` and inspect candidate/cleanup/readiness evidence before the final tracker completion. Do not edit executable inputs during the complete release run.
+
+### S34 renewed final candidate — post-prerequisite closure
+
+- `make agent-finalize` PASS `20261006T184522Z-p14063` (1/1); retained-run maintenance skipped because `RESULTS_DIR` is unset. `make test-fast` PASS **746/746** `20261006T184553Z-p18434`; all **748** cleanup outcomes completed and retained-secret scan PASS. Candidate source digest: `sha256:6606cd0321c0f26a21091a65f0bfe2d8c7def0439e7a8b7f3b9e853d89203d4a`.
+- All discovered local prerequisites are complete. Start one new complete `make release-check CARTULARY_HARNESS_CAPACITY_OVERRIDE=.cartulary/validation-config/reference-pack-capacity.json` against this frozen candidate. Final archive identity, complete release result, canonical explanation and five dispositions remain pending; S34 and RP-OPS01 remain IN_PROGRESS. Historical and diagnostic package success is not substituted for this candidate's final acceptance.
+
+### Discovered prerequisite — RP-S34j: reviewed visual baseline maintenance
+
+- **Status: DONE. Owners:** `module.workbook`, `web.design`, `harness.browser`; **dependency:** RP-S34g; blocks S34 acceptance. Source inspection after the final-run restart identified maintained narrow-workbook captures that include the corrected toolbar. The new real focus padding intentionally changes that geometry. Stop release `20261006T185310Z-p11270` through its owned graph runner before spending a full qualification against potentially stale visual baselines; do not edit executable inputs until cleanup completes or count the cancelled run as acceptance.
+- Follow `docs/guides/cartulary_visual_golden_maintenance.md` and the Cartulary UI review workflow. First run ordinary visual coverage and inspect its complete reconciliation; identify every changed golden through exact catalog/scenario/fixture mappings. Update only through `make browser-e2e-visual-update`, review every changed image, retain functional assertions and renderer/viewport/masks/normalization unchanged, and require two fresh ordinary visual passes against the promoted manifest. The final complete release may supply one such ordinary pass if identities match and its complete visual evidence passes.
+- Accepted trigger: baselines stale relative to the now-validated toolbar-owned focus reveal and scroll-edge outline space. Unexpected geometry or unrelated differences must be investigated, not accepted. Record exact rows, fixtures, filenames, review results, attempts and cleanup before closing this prerequisite. No UI redesign or renderer upgrade is authorized or proposed.
+
+### S34 candidate paused for RP-S34j visual maintenance
+
+- Release `20261006T185310Z-p11270` was deliberately cancelled through its exact graph runner after 31 passed units: 1,251 cancelled, no failed assertions. All **34** cleanup steps completed and retained-secret scan PASS; no package was produced. This is not final acceptance and will not be combined with other runs.
+- Consulted the `web.design` owner guide and started ordinary `make browser-e2e-visual` against the unchanged corrected source to obtain canonical comparison/reconciliation evidence before any baseline mutation. The original renderer pins, capture definitions and assertions remain unchanged. RP-S34j is now the sole local technical prerequisite; S34 remains IN_PROGRESS.
+
+### RP-S34j baseline reconciliation and image review
+
+- Ordinary `make browser-e2e-visual` FAIL `20261006T185523Z-p93306` (10/12 units): 16 expected screenshot differences across nine scenarios; no functional assertion failure. All 16 cleanup outcomes completed; retained-secret scan PASS. `browser-e2e-visual/frontend-visual-reconciliation.json` accounts for all 255 captures and 255 active goldens, with zero orphaned, missing, ambiguous, or unresolved entries and 29 registered fixtures. Its only failure is the failed comparison target. Previous manifest SHA-256: `0dec3f4ee7d8920fb4c46d03e72a1c25615d668087064f43656ead21ef54cd88`.
+- Reviewed every expected/actual/difference contact sheet and native toolbar crop through the UI review artifact workflow. All 16 changes are confined to the intended narrow/zoomed toolbar scroll-edge space; panels, workbook content, controls, and text retain their existing geometry. The ordinary focused accessibility capture separately demonstrates the complete focus outline and unobscured account control. Artifact review `20261006T190418Z-p37297` closed successfully through `make ui-review-stop`. No renderer, viewport, zoom, masks, screenshot scope, scroll normalization, fixtures, tolerances, or assertions changed.
+- Exact mappings below come from capture reconciliation, not filename inference. Filenames are under `apps/web/e2e/workbook.visual.spec.ts-snapshots/`; an empty fixture field means this capture has no registered fixture association, not an invented identity. The transactional update and two fresh ordinary passes remain required.
+
+| Golden filename | Semantic owner row | Registered fixture | Viewport / zoom |
+| --- | --- | --- | --- |
+| `account-menu-controls-short-linux.png` | `web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc` | None | 640x480 / 100% |
+| `account-menu-long-label-zoom-linux.png` | `web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc` | None | 1280x720 / 200% |
+| `coordination-recovery-narrow-linux.png` | `module.workbook.visual.coordination_create_authoring_recovery` | `visual.fixture.contextual_coordination_creation` | 390x480 / 100% |
+| `lifecycle-review-narrow-linux.png` | `web.design.visual.lifecycle` | None | 390x480 / 100% |
+| `lifecycle-review-zoom-linux.png` | `web.design.visual.lifecycle` | None | 1280x720 / 200% |
+| `membership-audit-inspected-narrow-linux.png` | `web.design.visual.membership_audit_browsing` | None | 390x480 / 100% |
+| `membership-audit-inspected-zoom-linux.png` | `web.design.visual.membership_audit_browsing` | None | 1280x720 / 200% |
+| `membership-management-removal-narrow-linux.png` | `web.design.visual.membership_management_visual` | None | 390x480 / 100% |
+| `membership-management-removal-zoom-linux.png` | `web.design.visual.membership_management_visual` | None | 1280x720 / 200% |
+| `metadata-review-narrow-linux.png` | `web.design.visual.metadata_editing` | None | 390x480 / 100% |
+| `metadata-review-zoom-linux.png` | `web.design.visual.metadata_editing` | None | 1280x720 / 200% |
+| `ordinary-closed-retained-narrow-linux.png` | `module.workbook.visual.ordinary_create_authoring_recovery` | None | 390x480 / 100% |
+| `ordinary-recovery-390-linux.png` | `module.workbook.visual.ordinary_create_authoring_recovery` | None | 390x480 / 100% |
+| `workbook-preferences-uncertain-narrow-linux.png` | `module.workbook.visual.preferences` | None | 390x480 / 100% |
+| `workbook-query-empty-zoom-200-linux.png` | `module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc` | `visual.fixture.empty_successful_query` | 1280x720 / 200% |
+| `workbook-view-bar-zoom-200-linux.png` | `module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc` | None | 1440x900 / 200% |
+
+### RP-S34j transactional promotion and review
+
+- `make browser-e2e-visual-update` PASS **12/12** `20261006T190940Z-p47727`; all 16 cleanup outcomes completed and retained-secret scan PASS. The transaction changed exactly the 16 listed PNGs and `tools/frontend_visual_golden_manifest.json`, whose new SHA-256 is `779d816ffcc30bdcba240503341f25367724c63b8c8dde697c76afcc9d21822a`.
+- Imported every promoted PNG and inspected its contact sheet and native toolbar crop through artifact review `20261006T191807Z-p90862`, after verifying the returned image references. All changes match the accepted toolbar geometry correction; no unrelated content, typography, panel layout, focus, or fixture change was accepted. `make ui-review-stop` returned closed/ok and the foreground review process exited successfully. Both review sessions are closed and task-owned request/mapping scratch is removed. Interactive HTML reports were unnecessary; image evidence was consumed directly.
+- `make generate` PASS `20261006T191924Z-p507`; `make generate-drift` PASS `20261006T191940Z-p3584` (4/4), `make generated-artifact-policy-check` PASS `20261006T191940Z-p3587` (3/3), `make json-shape-check` PASS `20261006T191940Z-p3592` (3/3), `make lint-markdown` PASS `20261006T191940Z-p3727`, and `git diff --check` PASS. Regenerated candidate source digest: `sha256:3b1404b306700ca3906b1ad8f8b0fa7b76f8f23a49ab9e157bb0061fc58fff19`. Two fresh ordinary visual passes remain required against the promoted manifest. S34 remains IN_PROGRESS; RP-S34j cannot close merely because update mode passed.
+
+### RP-S34j ordinary comparison validation
+
+- First fresh `make browser-e2e-visual` PASS **12/12** `20261006T191940Z-p3760` (466.775 seconds). Both browser groups passed: 46 workbook scenarios plus one claimed-profile scenario, with zero skipped, unexpected or flaky outcomes. Reconciliation PASS: all 255 captures and goldens accounted for; 29 registered fixtures; zero missing, ambiguous, orphaned or unresolved entries. Manifest identity is the promoted `779d816ffcc30bdcba240503341f25367724c63b8c8dde697c76afcc9d21822a`. All 16 cleanup outcomes completed and retained-secret scan PASS. A second fresh ordinary pass is underway against unchanged executable inputs.
+
+### RP-S34j completed — repeatable ordinary visual acceptance
+
+- Second fresh `make browser-e2e-visual` PASS **12/12** `20261006T192758Z-p53880` (462.651 seconds). Reconciliation again accounts for all 255 captures/goldens and 29 registered fixtures with zero unresolved, missing, orphaned or ambiguous mappings. The promoted manifest is unchanged (`779d816ffcc30bdcba240503341f25367724c63b8c8dde697c76afcc9d21822a`); both passes report candidate source `sha256:3b1404b306700ca3906b1ad8f8b0fa7b76f8f23a49ab9e157bb0061fc58fff19`. All 16 cleanup outcomes completed; retained-secret scan PASS.
+- RP-S34j DONE. Compatibility consequence is limited to maintained visual expectations for the validated toolbar focus correction; no capture scope, fixtures, masks, renderer pins, thresholds or product contracts were relaxed. All technical prerequisites are complete. Freeze this executable candidate and resume S34 with `make agent-finalize`, `make test-fast`, one complete `make release-check CARTULARY_HARNESS_CAPACITY_OVERRIDE=.cartulary/validation-config/reference-pack-capacity.json`, then `make explain-run` and canonical evidence inspection. S34/RP-OPS01 remain IN_PROGRESS until that complete exit passes.
+
+### S34 final candidate after visual maintenance
+
+- `make agent-finalize` PASS `20261006T193614Z-p96647` (1/1); retained-run maintenance skipped because `RESULTS_DIR` is unset. Final candidate source identity is `sha256:3b1404b306700ca3906b1ad8f8b0fa7b76f8f23a49ab9e157bb0061fc58fff19`. `make test-fast` is running next; complete release and canonical acceptance inspection remain required.
+- Final `make test-fast` PASS **746/746** `20261006T193651Z-p1311` (274.441 seconds); all 561 cleanup outcomes completed and retained-secret scan PASS. Source matches the frozen candidate and both ordinary visual passes. Start the complete bounded-capacity release gate; no partial or historical run will substitute for its final result.
+- Corrected stale S33/S34 section labels and clearly separated historical planning criteria from current authorized execution. The active prerequisite table now distinguishes completed technical work from unestablished external decisions. Direct comparison verifies that all original historical sections and records after the introductory boundary match the starting commit verbatim. These are human documentation checks; no executable consumer depends on Markdown.
+
+### Discovered prerequisite — RP-S34k: Timeline action-denial authority settlement
+
+- **Status: DONE. Owners:** `module.timeline`, `web.workbook`; **dependency:** final S34 release; blocks completion. Release `20261006T194135Z-p75690` failed `module.timeline.browser.row_action_menu` in the Timeline grid-entry group at `timeline-grid-entry.spec.ts:439`: after a deliberately denied review action and inspector opening, direct cell focus plus Shift+F10 did not produce the expected menu. The test must continue proving disabled actions after the role downgrade; no assertion or timeout relaxation is authorized.
+- Consulted the current Timeline task guide. Inspect canonical trace focus/overlay transitions to distinguish missing test synchronization from a product focus defect, repair the owning boundary, and run the exact service-backed row plus any affected unit route. Cancel the known-failed release through its exact graph runner before executable edits; preserve failure and owned cleanup. The cancelled run cannot establish final acceptance. Renew finalization, fast and complete release after this prerequisite's checkpoint.
+
+### RP-S34k diagnosis and scoped repair
+
+- The canonical trace records direct grid focus at 19:52:08.012 and Shift+F10 at 19:52:08.016 while the denial-triggered session/authority refresh and subsequent row query are still settling (query response completes around 19:52:08.110). The focus locator still reports `aria-readonly=false`. The row-menu owner correctly includes the current role and authorization epoch in its scope and dismisses an invocation when that scope changes. Inspector visibility alone does not establish settled viewer authority.
+- The existing scenario now waits for the semantic cell's `aria-readonly=true` presentation and verifies actual focus before issuing Shift+F10. It still requires the menu to open and both review/supersede actions to be disabled, then verifies full membership removal. No product code, timeout, retry loop, renderer, golden or assertion weakening changed. `make format` PASS `20261006T195534Z-p68581` (2/2); run the exact service-backed row and frontend typecheck next.
+- Failed full run `20261006T194135Z-p75690` was cancelled through the graph runner: **169 passed, 1 failed, 1,112 cancelled** in 734.594 seconds. All **143** cleanup outcomes completed and retained-secret scan PASS. It produced no accepted package and is retained as failed/cancelled evidence.
+
+### RP-S34k completed — authority-aware scenario synchronization
+
+- `make service-backed-test-slice OWNER=module.timeline ROWS=module.timeline.browser.row_action_menu` PASS **11/11** `20261006T195554Z-p73973`; all 14 cleanup outcomes completed and retained-secret scan PASS. The scenario preserves enabled-action, denial, disabled-action, semantic focus, virtualization and membership-removal coverage. `make frontend-typecheck` PASS `20261006T195554Z-p74040` (2/2), `make generate-drift` PASS `20261006T195717Z-p13896` (4/4), and `git diff --check` PASS.
+- RP-S34k DONE. No production compatibility or rendering change; the test explicitly waits for the existing authority boundary. Candidate source is now `sha256:d29c5115b93908ca0fd85bdac743d2fc93ba2abef2a8384c5ec2a38f6bcc0061`. The two ordinary visual passes remain valid for the unchanged promoted manifest, and the next complete release will run that coverage again. Freeze executable inputs and restart S34's finalization/fast/complete-release sequence after this checkpoint.
+
+### S34 renewed candidate after authority synchronization
+
+- `make test-fast` PASS **746/746** `20261006T195815Z-p22740` (273.118 seconds); all **561** cleanup outcomes completed and retained-secret scan PASS. Candidate source matches finalization. Begin one new complete bounded-capacity release run against this frozen candidate; final archive and readiness inspection remain pending.
+
+- `make agent-finalize` PASS `20261006T195747Z-p18397` (1/1); retained-run maintenance skipped because `RESULTS_DIR` is unset. The frozen candidate is `sha256:d29c5115b93908ca0fd85bdac743d2fc93ba2abef2a8384c5ec2a38f6bcc0061`. Fresh fast validation is underway, followed by a new complete release gate and canonical inspection. All failed and cancelled attempts retain their original outcomes.
+
+### Discovered prerequisite — RP-S34l: blank-row measurement qualification
+
+- **Status: DONE. Owners:** `module.timeline`, `package.grid_adapter`, measurement harness; **dependency:** final S34 validation; blocks final acceptance. Release `20261006T200302Z-p96838` failed `module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13`: canonical `perf.timeline_blank_row_create.v1` observation reports p95 **152.3 ms** against the unchanged **150 ms** limit (p50 86.9 ms; one warmup, 100 measured samples; 25 analyst sessions and 4.8 background updates/second). This is a measured threshold failure, not a functional timeout, and remains failed evidence.
+- The same unchanged product scenario passed earlier complete/focused executions. Preserve the fixed load, percentile, sample count and threshold. Inspect stage timing and fixture/host isolation, run the exact scenario unchanged in isolation, and determine whether a product or harness correction is evidenced before changing code. A passing isolated retry cannot substitute for a new successful complete release. Cancel the known-failed graph through its exact runner and verify owned cleanup before another measurement.
+
+### RP-S34l retained threshold evidence and isolation check
+
+- Cancelled release `20261006T200302Z-p96838`: **79 passed, 1 failed, 1,202 cancelled**; all **80** cleanup outcomes completed and retained-secret scan PASS. No accepted package was produced. The measured failure remains in its canonical observation attachment and run result.
+- Seven samples exceeded 150 ms, all among measured samples 3–17; no later sample exceeded the limit. Their mean accepted-action-to-request stage was 75.0 ms, compared with 19.6 ms client apply and 22.9 ms apply-to-visible-paint. This locates the variation but does not prove a product, renderer or host cause. The graph admitted this measurement alone; no competing repository verification was launched. Do not label unproven environmental contention as the established cause.
+- After graph cleanup, run unchanged `make service-backed-test-slice OWNER=module.timeline ROWS=module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13` with the same fixed fixture/measurement policy. No executable inputs changed, so existing finalization and fast evidence still identify this candidate. Full release acceptance remains pending regardless of the isolated result.
+
+### RP-S34l isolated reproduction and profiling prerequisite
+
+- Unchanged isolated route FAIL **12/14** `20261006T201309Z-p49517`: p95 **162.0 ms**, p50 77.4 ms, with the same 150 ms threshold, fixture digest, 100 samples and admitted traffic. All 18 cleanup outcomes completed. Nine slow samples span indices 2–77, so the first run's early concentration does not establish startup-only variance. Mean slow-sample stages include accepted-action-to-request 52.7 ms and response decode 40.2 ms; investigate main-thread work rather than relabel the failure as host contention.
+- Earlier matching-fixture observations remain historical comparisons only: p95 115.9 ms in `20261006T171203Z-p25201` and 121.3 ms in `20261006T194135Z-p75690`. A repeated unchanged failure now requires diagnosis before another full gate. Temporarily instrument the exact Make-owned browser scenario with a private Chromium CPU profile to identify main-thread work. Profiling runs are diagnostic, not acceptance; remove temporary instrumentation before the candidate is frozen. Do not change timing bounds, sample policy, traffic, rendering, assertions or execution coverage to obtain a pass.
+
+### RP-S34l profile diagnosis and grid-layout correction
+
+- Diagnostic profiling runs: `20261006T201814Z-p89676` PASS 14/14 (p95 143.7 ms); source-mapped `20261006T202401Z-p31534` FAIL 12/14 (p95 178.7 ms); tracing-disabled comparison `20261006T202902Z-p72581` FAIL 12/14 (p95 213.4 ms). Each completed all 18 cleanup outcomes with retained-secret scan PASS. Profiling runs are diagnostic only, regardless of their target result. Disabling Playwright tracing did not resolve the gap; that experiment and all temporary CPU/source-map instrumentation were removed. The original trace policy, test body and timing contract are restored.
+- Source-mapped CPU profiles identify `bindGridEditorReveal` as a repeated synchronous style/layout hotspot when committed-row editors mount during React's projection commit. It reads every ancestor's computed overflow just to choose ResizeObserver subscriptions. Those reads can flush pending layout during commit, before the existing frame-coalesced reveal path runs.
+- After consulting `package.grid_adapter`'s guide, replace that eager style filtering with ancestor resize subscriptions. The existing animation-frame owner still computes current clipping and performs reveal, coalesces notifications and cancels detached/superseded/unfocused lifetimes. This also avoids retaining an initial overflow classification when ancestor policy changes. No focus, text, geometry, threshold, load, sample or compatibility behavior changes. The existing lifecycle regression now asserts no synchronous computed-style read at binding, retained ancestor observation, and deferred geometry reads in the scheduled frame. Validate this owner and the unchanged AC-043 measurement before a new candidate freeze.
+
+### RP-S34l rejected setup optimization and stage attribution
+
+- `make format` PASS `20261006T203347Z-p13628` (2/2), focused mounted-editor lifecycle PASS `20261006T203417Z-p19128` (2/2), and `make frontend-typecheck` PASS `20261006T203417Z-p19199` (2/2). However, unchanged measurement FAIL `20261006T203640Z-p20858` (12/14): p95 162.6 ms, p50 88.1 ms; all 18 cleanup outcomes completed and retained-secret scan PASS. Removing eager observer style reads did not close the gap; those production/test edits were withdrawn rather than retaining an unproven performance fix.
+- The largest delays occur between accepted input and dispatch (roughly 68–104 ms in most slow samples), while client apply averages 20.2 ms. Temporarily correlate existing client stage events with a main-thread CPU profile to identify work in that interval. Diagnostic instrumentation and all resulting runs remain ineligible as final acceptance; remove them before a candidate freeze.
+
+### RP-S34l confirmed refresh coupling and bounded correction
+
+- Correlated CPU/event diagnostics `20261006T204141Z-p61214` FAIL 12/14 (p95 172.9 ms) and admission diagnostics `20261006T204638Z-p1924` FAIL 12/14 (p95 161.3 ms), each with all 18 cleanup outcomes completed and retained-secret scan PASS, confirm that fresh creates are admitted in under 1 ms, then spend roughly 90–118 ms waiting on the global stale-query refresh pause. Slow samples have zero in-flight mutations, no authorization pause, no halt and no conflicts; admission explicitly reports refresh blocking. CPU samples are predominantly idle in that interval. These diagnostic runs are not acceptance. All temporary instrumentation has been removed.
+- Consulted `web.workbook` owner guide and Core 03's same-record committed-version, stale-query rejection and bounded recovery requirements. Correct the refresh boundary to apply only to existing records: a fresh create has no committed predecessor to obtain from a query. Keep global/per-record pauses for patches, queue ordering, authorization/conflict admission, immutable request/replay identity, latest-query rejection and bounded refresh recovery unchanged. This removes an unnecessary read dependency from new authoring without adding a second scheduler or retry policy. No external format or visual change.
+- Extend the existing owner recovery fixture to create while a query refresh is held, accept that create, and prove its dependent follow-on patch waits until refresh completes and then uses committed version 1. Validate this owner regression, freshness/replay coverage and unchanged AC-043 measurement. RP-S34l remains IN_PROGRESS until focused exits pass; final S34 still requires a new complete frozen-candidate release.
+
+### RP-S34l focused behavior validation
+
+- `make format` PASS `20261006T205106Z-p42662` (2/2); `make generate` PASS `20261006T205126Z-p47731`. The authored `web.workbook.regression.timeline_editor_recovery_settlement` row now includes the new held-refresh create/follow-on-patch regression.
+- `make test-slice OWNER=web.workbook ROWS=web.workbook.regression.timeline_editor_recovery_settlement,web.workbook.regression.timeline_committed_idle_refreshes_once_19e6098c0e,web.workbook.regression.query_browsing` PASS `20261006T205152Z-p50881` (4/4). `make frontend-typecheck` PASS `20261006T205152Z-p50989` (2/2); `make generate-drift` PASS `20261006T205152Z-p50814` (4/4); `git diff --check` PASS. All temporary profiling/test changes and the rejected editor-observer change match their original sources again. Historical S16–S25/S07 text remains byte-for-byte unchanged.
+- Frozen focused candidate source: `sha256:0f2ade53692f31e34ae1137cc61876fb4c29e66904a0a8467862924eaa440636`. Unchanged measurement is running at `20261006T205223Z-p56628`; RP-S34l exit and final release acceptance remain pending.
+
+### RP-S34l exit and renewed S34 candidate
+
+- Uninstrumented `make service-backed-test-slice OWNER=module.timeline ROWS=module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13` PASS **14/14** `20261006T205223Z-p56628`: **p95 127.2 ms**, p50 84.4 ms against the unchanged 150 ms limit, 100 measured samples, one warmup and required 25-session traffic. Fixture digest remains `sha256:6033d06a1f4341ea697922495234e639180cab54c3875c7b6e39827d0a450900`. All **18** cleanup outcomes completed; retained-secret scan PASS.
+- RP-S34l DONE. The fix removes only the fresh-create dependency on a committed-record refresh; dependent patch/version and query-recovery regressions pass. Temporary private profiling scratch is removed; canonical failed/diagnostic artifacts remain retained with their original outcomes. No timing, fixture, traffic, renderer, tracing, sample or assertion contract changed. Next: renew S34 finalization, fast validation and one complete release against source `sha256:0f2ade53692f31e34ae1137cc61876fb4c29e66904a0a8467862924eaa440636`. This focused pass does not substitute for complete release acceptance.
+
+### S34 finalization after refresh-boundary correction
+
+- `make agent-finalize` PASS `20261006T205554Z-p96743` (1/1) against source `sha256:0f2ade53692f31e34ae1137cc61876fb4c29e66904a0a8467862924eaa440636`. Retained-run maintenance was skipped because `RESULTS_DIR` is unset. Executable inputs are frozen; renewed fast validation and then the complete bounded-capacity release gate remain required. No acceptance claim is based on earlier partial runs.
+
+### S34 fast validation after refresh-boundary correction
+
+- `make test-fast` PASS **746/746** `20261006T205625Z-p1361` (272.567 seconds), source matching finalization. All **559** cleanup outcomes completed; retained-secret scan PASS. Begin one complete `make release-check CARTULARY_HARNESS_CAPACITY_OVERRIDE=.cartulary/validation-config/reference-pack-capacity.json` against this frozen candidate. Final release receipt, readiness, package identity and cleanup inspection remain pending.
+
+### Scope and authority
+
+| Time / session | Current state | Files inspected / touched | Commands / result | Blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-06 planning discovery | User selected package operations, local release archive, independent transfer and explicit stale-backup recovery | Tracker, domain/research guidance, planning framework, Core owners, package and adjacent inventory | Read-only source discovery; baseline Markdown PASS `20261006T123015Z-p58978`; diff passed; no tracked edits in that planning pass | Previous Plan mode prevented the requested write; current user request now authorizes this document update only |
+| 2026-10-06 document update | Clean `ec8a3b90366f10efa91376f108ca6e588c0c3b2e` confirmed; active plan inserted above unchanged historical records | Only this tracker is edited | `git status --short`, `git log -1`, `git ls-files deploy/mvp`, targeted reads/searches; completed checks recorded below | RP-P05 DONE; S26–S34 remain TODO |
+
+### Backend and package boundary
+
+| Time / session | Current state | Files inspected / touched | Commands / result | Blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-06 | Composition owns services; Recovery owns proof/content/restore; platform retains mechanics | Package wrappers/examples, Recovery service/catalog/target/codec, operator facade and CLI; no implementation changes | Direct source review confirms RP-F31–RP-F36; no product failure reproduction claimed | S26 defines interfaces before authorized S27–S31 work |
+
+### Frontend boundary
+
+| Time / session | Current state | Files inspected / touched | Commands / result | Blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-06 | No frontend/API/workbook redesign in scope; retain complete regression and Windows-client checks | Package delivery/probe/guide boundaries inspected; no frontend file edited | Browser/type/unit checks skipped for document-only work | Any discovered frontend defect becomes a separate prerequisite, not silent scope growth |
+
+### Contracts and code generation
+
+| Time / session | Current state | Files inspected / touched | Commands / result | Blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-06 | Current five-command grammar requires amendment; current encrypted artifacts remain intact | Core 01/04, Recovery projections and CLI, package manifest boundary, authored task/pin/routing inputs | Read-only review; no generation or generated-root edit | S26 freezes new argument/result/progress/transfer contracts; S32 authors Make producer/routing |
+
+### Tests and harness
+
+| Time / session | Current state | Files inspected / touched | Commands / result | Blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-06 | All four narrow owner routes discovered and rerun successfully | `harness.release`, `platform.config`, `app.operator`, `module.recovery` task guides; smoke and operation fixtures | `make task-guide ROLE=module-author OWNER=<each owner>` PASS; prior `make help-all` and target explanations inspected | No product/package acceptance inferred; use §8 after implementation authorization |
+| 2026-10-06 document completion | Documentation verification PASS | Only this tracker changed; current lint coverage inspected | `make lint-markdown` PASS `20261006T130544Z-p71800`, canonical summary `.cartulary/test-results/20261006T130544Z-p71800/adhoc/lint-markdown/tool-run-summary.json`; `git diff --check` PASS; supplemental 12-section, 28-file, eight-finding, TODO-status, table/fence, scope and unchanged-history checks PASS | Configured lint excludes this tracker and the package README; direct review supplements it. No check failure, acquired service or outstanding cleanup |
+
+### Security and authorization
+
+| Time / session | Current state | Files inspected / touched | Commands / result | Blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-06 | Single crypto policy, scoped trust, key custody and non-public Recovery retained | Current owner admission, TLS package bindings and source-independent recovery design | Source review only; no certificate, secret, host trust, firewall, service or deployment changes | Formal CMVP and deployment decisions remain separate; no compliance claim added |
+
+### Historical planning handoff
+
+| Time / session | Current state | Files inspected / touched | Commands / result | Blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-06 | RP-P05 DONE; eight evidence-backed findings planned; previous S25/S07 closure preserved | Active plan plus unchanged previous record | Documentation and supplemental checks passed; no product implementation, generation or qualification run | No blocker to this completed document step. Later authorized work starts at S26; all nine implementation slices remain TODO |
+
+### S34 completed — final candidate, validation and operating handoff
+
+**S34 DONE; RP-OPS01 DONE.** S26–S33 and every discovered technical prerequisite completed before this closing checkpoint. No required engineering work remains in this iteration. Historical S25/S07 closure, original failed/cancelled/diagnostic outcomes and the user's initial tracker changes are preserved. No commit, publication, customer deployment or automatic upgrade was performed.
+
+#### Final validation and canonical evidence
+
+| Step | Command | Result and canonical evidence |
+| --- | --- | --- |
+| Finalization | `make agent-finalize` | PASS 1/1, `.cartulary/test-results/20261006T205554Z-p96743`; retained-run maintenance skipped because `RESULTS_DIR` was unset. |
+| Fast coverage | `make test-fast` | PASS 746/746, `.cartulary/test-results/20261006T205625Z-p1361`; 559 cleanup outcomes completed, retained-secret scan PASS. |
+| Complete release | `make release-check CARTULARY_HARNESS_CAPACITY_OVERRIDE=.cartulary/validation-config/reference-pack-capacity.json` | PASS **1,282/1,282**, `.cartulary/test-results/20261006T210111Z-p75428`, 4,096.654 seconds; **700 cleanup outcomes completed**, zero failed/blocked cleanup, zero skipped/cancelled units, retained-secret scan PASS. |
+| Canonical inspection | `make explain-run RESULTS_DIR=.cartulary/test-results/20261006T210111Z-p75428` | PASS; canonical manifest, summary, target projections, package receipts, source-loss results, visual reconciliation and cleanup inspected. No aggregation of partial runs. |
+
+All three finalization/fast/release manifests identify source `sha256:0f2ade53692f31e34ae1137cc61876fb4c29e66904a0a8467862924eaa440636`, based on dirty working tree `ec8a3b90366f10efa91376f108ca6e588c0c3b2e`. Final toolchain digest is `sha256:e28906e907c215e18aa7df021f87305dfae38bd6bdbda606f10dcce4969c5d99`; graph digest is `sha256:98c078f3a49db560b9c4fd2026688665a207b12715cc6a56f7e121f21e7e9f35`; system digest is `sha256:837d0601513fe514ade92145d54094c8c0e37ad6c9e1c0032f889ad27a340b5b`. These executable identities exclude human Markdown. The closing documentation checkpoint does not change the accepted candidate.
+
+Within that final release root:
+
+- `run-summary.json`, `run-manifest.json`, `cleanup-results.json` and `retained-secret-scan.json` establish complete execution and cleanup. Required readiness target projections all pass, including measurement, accessibility, visual/support browser coverage, all binaries/web build, credential capacity, cryptographic policy, deployment shape, security audit, harness, notices/SBOM, package production/inspection, SeaweedFS gate, all three package smokes and `target-summaries/release-readiness-evidence.json`.
+- `package-release/artifacts/package.json` is byte-for-byte identical to the receipts in `standup-package-smoke`, `standup-reference-pack-smoke`, `standup-operational-recovery-smoke` and `credential-capacity-assessment`. Each consumer's `artifacts/cleanup.json`, `destination-cleanup.json` and `workspace-cleanup.json` passes, with zero attempt errors and zero remaining source/destination resource groups.
+- `standup-operational-recovery-smoke/artifacts/portable-source-loss.json` confirms destroyed source services, removed source configuration, expired source retention, mandatory stale acknowledgement, exact replay and the new fresh-backup gate. `standup-reference-pack-smoke/artifacts/recovery.json` additionally confirms restored pack/snapshot identity, rejected old sessions and fresh MFA; `source-loss-windows.json` confirms authenticated Windows HTTPS/WSS and negative TLS/origin admission. The package smokes retain certificate replacement, current cryptographic admission, bounded/confined storage and restart/repeated-maintenance evidence.
+- `browser-e2e-visual/frontend-visual-reconciliation.json` passes with 255 capture intents, 255 active goldens, 29 registered fixtures and zero missing, orphaned, ambiguous or unresolved mappings. Golden manifest remains `779d816ffcc30bdcba240503341f25367724c63b8c8dde697c76afcc9d21822a`. Final blank-row p95 is **118 ms / 150 ms**; focus, selection and typing p95 values are 33.7, 33.2 and 28.3 ms against their unchanged 100 ms limits.
+
+#### Accepted local release
+
+- Archive: `.cartulary/release-artifacts/packages/c2cabeac6b55b83e34d3fcc60debdc22793ca2d858071fa568604ab2e6bd3468.tar` (404,869,120 bytes).
+- Manifest SHA-256: `c2cabeac6b55b83e34d3fcc60debdc22793ca2d858071fa568604ab2e6bd3468`.
+- Archive SHA-256: `ef771c40b7faa4264e7a3df266a1390cd55f43cf82a5fae9279179c02c315877`.
+- Application image: `sha256:8795d27fa18075cd99a212df3f33a6b30f81daf2a25118838a7fcd7f50b9bba5`; PostgreSQL: `sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2`; SeaweedFS: `sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d`.
+- Operator binary SHA-256: `b002f5039e2f88740ed9222838fc8f292548f2a41aec1f566d28429e07b445ca`. Inventory disposition: `content_complete_review_unestablished`; unknown metadata and distribution/security/licensing decisions remain visible. Checksums establish identity, with trusted delivery separately required.
+
+#### Operating handoff and separate dispositions
+
+`deploy/mvp/README.md` is the completed operator handoff: offline/source-free installation and immutable verification; literal configuration and TLS provisioning; private initialization and first backup; startup/stop; sleep/restart recovery; failed maintenance and exact-container cleanup; certificate renewal; separate key custody and owner-supported rotation; physically independent backup storage; export; source-loss restore; exact ID/stale acknowledgement and retry; rejected/indeterminate targets; fresh protection after restore; and matching-release replacement. Owner specifications, contracts, Recovery/operator implementation, package scripts/assets, Make/harness routing, image inventory and tests are updated in their existing boundaries. The S34 prerequisites additionally repair evidenced harness and workbook defects, with their owners, compatibility effects and validation recorded above; no UI redesign was introduced.
+
+| Readiness disposition | Final state | Basis / remaining external boundary |
+| --- | --- | --- |
+| Implementation completion | COMPLETE | S26–S34 and discovered technical prerequisites DONE; complete frozen-candidate release and handoff pass. |
+| Windows 11 / WSL2 package acceptance | ACCEPTED for selected engineering scope | One immutable archive, all three installed-package smokes, Windows HTTPS/WSS, source-loss/retention recovery, fixed capacity, cryptographic admission and complete cleanup pass in the final run. Native Linux remains DEFERRED. |
+| Formal CMVP applicability | UNESTABLISHED | Engineering execution does not establish independent module/service/operating-environment applicability. No formal claim made. |
+| Specification adoption | UNESTABLISHED | Owner amendments and downstream projections are implemented; formal adoption remains with the existing owner process. |
+| Customer deployment approval | UNESTABLISHED | No customer deployment approved or performed. Real independent storage/key custody, trusted delivery and unresolved distribution/security/licensing review remain with their existing owners. |
+
+No product verification was skipped in the complete release run. Retained successful-run maintenance was intentionally not claimed because finalization had no `RESULTS_DIR`. `make lint-markdown` PASS `20261006T221055Z-p64755` (`adhoc/lint-markdown/tool-run-summary.json`). Its configured globs exclude this tracker and `deploy/mvp/README.md`; direct structure, scope, status, handoff, candidate-identity and historical-body review passed for those artifacts. `git diff --check` PASS. S26–S34 and RP-OPS01 statuses were verified DONE; the original historical S25/S07 body is unchanged, and no temporary profiling/rejected optimization remains. No executable input changed after qualification.
+
+## 11. Open prerequisites and production boundaries — S26–S34
+
+Implementation is authorized as recorded in §1. The technical prerequisites below are satisfied by the S26–S34 checkpoints, including final integrated acceptance. External custody, adoption and deployment decisions remain separate and unestablished.
+
+| ID | Prerequisite / boundary | Why it matters | Required owner / evidence | Status |
+| --- | --- | --- | --- | --- |
+| RP-OPS-P01 | Coherent owner amendment and machine-contract design | Current exact Recovery grammar cannot silently admit new commands or relax freshness | S26 source/projection review; bounded interface/format/error/timeout matrix; contradiction blocks dependent work | DONE |
+| RP-OPS-P02 | Complete independent restore capability | Source loss removes both selection metadata and source journal/audit dependencies | S30/S31 complete transfer and no-source execution evidence, including safe target-owned operation recording | DONE |
+| RP-OPS-P03 | Concrete artifact producer and exact consumer routing | Separate smoke builds and source checkout installation cannot qualify one archive | S32/S33 authored Make surface, manifest/receipts and matching canonical consumer evidence | DONE |
+| RP-OPS-P04 | Shipped dependency inventory and unresolved review handling | Reference-only image records do not establish distributed contents or permission to redistribute | S32/S33 image inventory plus explicit unresolved security/licensing disposition through existing process; no new dossier | Technical inventory DONE; distribution review UNESTABLISHED |
+| RP-OPS-P05 | Independent storage and key custody in a real deployment | A second directory/volume in the same WSL/Docker storage is not host-loss protection | Operator chooses external storage/trusted delivery and separately secures matching key material; test isolation proves mechanics, not physical independence of a customer site | UNESTABLISHED |
+| RP-OPS-P06 | Source adoption and customer environment acceptance | Engineering completion cannot adopt owner amendments or approve an actual deployment | Existing owner-status and customer acceptance processes, separately recorded in S34 | UNESTABLISHED |
+| RP-CLAIM-WSL | Formal CMVP applicability | A Windows/WSL/container engineering pass is not formal applicability evidence | Applicable independent module/service/environment determination; unestablished and unclaimed unless established | UNESTABLISHED |
+| RP-ENV-NATIVE | Pure/native Linux | Explicitly outside the selected operating target | Future explicit scope decision only | DEFERRED |
+
+Record the five dispositions again at S34 without overwriting their prior values in the historical iteration: **implementation completion; WSL2 package acceptance; formal CMVP applicability; specification adoption; customer deployment approval**. New engineering acceptance requires all technical exits, while formal claims, adoption and actual rollout remain separate. Failed implementation or package evidence cannot be recategorized as an external approval issue.
+
+## 12. Binary completion criteria — S26–S34
+
+**Completed RP-P05 planning baseline criteria (historical, before implementation authorization):**
+
+- Only this tracker changes; the clean starting commit and any later concurrent changes are accurately recorded.
+- All 28 tracked package files are inventoried and the ignored temporary-root sentinel and excluded domain/frontend scope are explicit.
+- Each observed finding has an owner, remediation, affected areas, rationale/benefit, compatibility/rollback consequence, risk and validation exit through §§5–7.
+- S26–S34 remain TODO in the full sequential chain, with per-slice checkpoints, phase risks and exits, discovered-prerequisite handling and final handoff completion.
+- The new behaviors are proposals requiring later implementation authorization and S26 owner amendments; no public interface is invented as already supported.
+- Scope choices, external production boundaries and the difference between artifact identity and formal/trusted acceptance are explicit.
+- Existing completed work, failed runs, original identities and S25/S07 closure remain unchanged in the preserved historical body.
+- Markdown lint, diff, direct structure/inventory/status/scope/history review pass and the session records actual coverage and skipped product work.
+
+**The authorized engineering iteration is complete; all criteria below are satisfied:**
+
+- S26–S33 and all active prerequisites are DONE, and S34 completes last with tracker updates between every workstream.
+- Actual installed package operations enforce safe inputs, target identity, exclusions, readiness, owner-controlled proofs and accountable cleanup.
+- One complete encrypted transfer restores into an admitted fresh target without source-service access; stale acknowledgement never substitutes for ordinary freshness, integrity or compatibility admission.
+- The exact distributable archive and images pass the required package, Windows, cryptographic, performance, integration and complete release scenarios with canonical matching identities and no unresolved owned cleanup.
+- Final maintenance and one frozen-candidate release are inspected; all failed/historical attempts retain their original outcomes.
+- Operating handoff and the five separate dispositions are recorded. Close RP-OPS01 only after S34; preserve S07's historical closure and indefinite native-Linux deferral.
+
+## Historical completed cryptographic iteration — S16–S25
+
+The following original §§1–12 and subsequent records are preserved verbatim from the starting revision, including their then-current authorization, dirty-baseline statements, failed attempts and completion records. They describe the completed iteration and do not supersede the active S26–S34 implementation scope above. Its historical package and earlier remediation sections are preserved within that record as well.
 
 ## 1. Scope and source posture
 

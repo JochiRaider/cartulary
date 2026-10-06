@@ -97,6 +97,8 @@
       "migration-drift",
       "openapi-compatibility-check",
       "otel-conformance",
+      "package-inspect",
+      "package-release",
       "release-check",
       "release-readiness-evidence",
       "seaweedfs-compatibility",
@@ -714,6 +716,14 @@
       {
         "target": "credential-capacity-assessment",
         "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "package-release",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "package-inspect",
+        "profile_id": "standard_no_regression"
       }
     ]
   },
@@ -1301,6 +1311,14 @@
           "target": "distclean",
           "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
           "description": "preview or remove repo-local tool/runtime caches and dependency installs"
+        },
+        {
+          "target": "package-release",
+          "description": "assemble one immutable local archive with exact image inventories"
+        },
+        {
+          "target": "package-inspect",
+          "description": "install and inspect the exact archive without a checkout or build tools"
         }
       ]
     }
@@ -1797,39 +1815,26 @@
     },
     "migration-drift": {
       "prerequisites": [
-        "go-toolchain-readiness",
-        "$(MIGRATE_BIN)",
-        "$(GOOSE_BIN)"
+        "$(NODE_BIN)"
       ],
-      "prerequisite_jobs": 2,
-      "type": "step_command",
-      "mode": "run_step",
-      "step_label": "migration-drift",
-      "env": {
-        "GO": "$(GO)",
-        "CONFIG_FILE": "$(CONFIG_FILE)",
-        "GOCACHE": "$(GO_CACHE_DIR)",
-        "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
-        "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)",
-        "GOOSE_BIN": "$(GOOSE_BIN)"
-      },
-      "command": [
-        "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
+      "type": "work_graph",
+      "selection": "rows",
+      "row_ids": [
+        "harness.generated_artifacts.support.migration_input_integrity",
+        "module.database_migrations.integration.schema_bootstrap"
       ],
-      "test_target": "self",
-      "graph_entry": true
+      "test_target": "self"
     },
     "migration-input-drift": {
-      "prerequisites": [],
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
       "type": "step_command",
       "mode": "run_step",
       "step_label": "migration-input-drift",
       "command": [
-        "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
-      ],
-      "args": [
-        "--mode",
-        "input"
+        "$(NODE_BIN)",
+        "./tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs"
       ],
       "test_target": "self"
     },
@@ -1859,27 +1864,12 @@
     },
     "migration-scratch-apply": {
       "prerequisites": [
-        "go-toolchain-readiness",
-        "build-migrate",
-        "$(GOOSE_BIN)"
+        "$(NODE_BIN)"
       ],
-      "type": "step_command",
-      "mode": "run_step",
-      "step_label": "migration-scratch-apply",
-      "env": {
-        "GO": "$(GO)",
-        "CONFIG_FILE": "$(CONFIG_FILE)",
-        "GOCACHE": "$(GO_CACHE_DIR)",
-        "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
-        "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)",
-        "GOOSE_BIN": "$(GOOSE_BIN)"
-      },
-      "command": [
-        "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
-      ],
-      "args": [
-        "--mode",
-        "scratch"
+      "type": "work_graph",
+      "selection": "rows",
+      "row_ids": [
+        "module.database_migrations.integration.schema_bootstrap"
       ],
       "test_target": "self"
     },
@@ -1900,7 +1890,7 @@
     },
     "standup-package-smoke": {
       "prerequisites": [
-        "deployable-shape"
+        "package-release"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -1914,7 +1904,7 @@
     },
     "standup-operational-recovery-smoke": {
       "prerequisites": [
-        "deployable-shape"
+        "package-release"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -3351,7 +3341,7 @@
     },
     "standup-reference-pack-smoke": {
       "prerequisites": [
-        "deployable-shape"
+        "package-release"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -3381,7 +3371,7 @@
     "credential-capacity-assessment": {
       "type": "step_command",
       "prerequisites": [
-        "deployable-shape"
+        "package-release"
       ],
       "mode": "run_step",
       "step_label": "credential-capacity-assessment",
@@ -3391,6 +3381,51 @@
         "./tools/release-evidence/check-standup-package-smoke.sh"
       ],
       "test_target": "self",
+      "graph_entry": true
+    },
+    "package-release": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "deployable-shape",
+        "syft-toolchain"
+      ],
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "package-release",
+      "env": {
+        "SYFT_BIN": "$(SYFT_BIN)"
+      },
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/release-evidence/package-release.mjs",
+        "produce"
+      ],
+      "test_target": "self",
+      "success_summary": true,
+      "graph_entry": true
+    },
+    "package-inspect": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "package-release"
+      ],
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "package-inspect",
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/release-evidence/package-release.mjs",
+        "inspect"
+      ],
+      "test_target": "self",
+      "success_summary": true,
+      "graph_entry": true
+    },
+    "syft-toolchain": {
+      "prerequisites": [
+        "$(SYFT_BIN)"
+      ],
+      "type": "artifact_binding",
       "graph_entry": true
     }
   },
@@ -5691,7 +5726,7 @@
     {
       "name": "migration-input-drift",
       "backing_scripts": [
-        "tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
+        "tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5746,11 +5781,11 @@
         "postgres"
       ],
       "backing_scripts": [
-        "tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
+        "artifact_policy": "run_and_target_summaries",
         "success_budget": {
           "stdout_lines": 2,
           "stdout_bytes": 600,
@@ -5764,7 +5799,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v5"
+        "summary_schema": "cartulary.harness_run_summary.v1"
       },
       "command_id": "cartulary.harness.command.migration_scratch_apply.v2",
       "semantic_behaviors": [
@@ -5786,7 +5821,7 @@
         {
           "class": "retained_artifacts",
           "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
+          "artifact_policy": "run_and_target_summaries"
         },
         {
           "class": "service_resource_mutation",
@@ -5813,7 +5848,6 @@
         "postgres"
       ],
       "backing_scripts": [
-        "tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh",
         "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
@@ -5959,7 +5993,9 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-package-smoke.sh",
+        "tools/release-evidence/consume-package.sh",
         "tools/release-evidence/package-fixture-tls.sh",
+        "tools/release-evidence/package-release.mjs",
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/reference-pack-fixtures.mjs",
         "tools/toolchain_pins.json"
@@ -6105,7 +6141,7 @@
         "deploy/mvp/runtime-roots/exports/.keep",
         "deploy/mvp/runtime-roots/reference-packs/.keep",
         "deploy/mvp/runtime-roots/tmp/.keep",
-        "deploy/mvp/scripts/operation-start.sh",
+        "deploy/mvp/scripts/package-verification.sh",
         "deploy/mvp/seaweed-entrypoint.sh",
         "deploy/mvp/systemd/cartulary-backup.service",
         "deploy/mvp/systemd/cartulary-backup.timer",
@@ -6121,7 +6157,9 @@
         "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-package-smoke.sh",
         "tools/release-evidence/check-standup-reference-pack-smoke.sh",
+        "tools/release-evidence/consume-package.sh",
         "tools/release-evidence/package-fixture-tls.sh",
+        "tools/release-evidence/package-release.mjs",
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/reference-pack-fixtures.mjs",
         "tools/release-evidence/standup-reference-pack-scenarios.mjs",
@@ -6261,12 +6299,11 @@
         "deploy/mvp/postgres-ident.conf",
         "deploy/mvp/postgres-provision.sh",
         "deploy/mvp/postgres-provision.sql",
-        "deploy/mvp/restore-verification-target.marker.json.example",
         "deploy/mvp/restore-verification-target.toml.example",
         "deploy/mvp/revisions-conflict-token-key-ring.json.example",
-        "deploy/mvp/scripts/backup-capture.sh",
-        "deploy/mvp/scripts/operation-start.sh",
-        "deploy/mvp/scripts/restore-verify-due.sh",
+        "deploy/mvp/scripts/package-common.sh",
+        "deploy/mvp/scripts/package-verification.sh",
+        "deploy/mvp/scripts/package.sh",
         "deploy/mvp/seaweed-entrypoint.sh",
         "deploy/mvp/systemd/cartulary-backup.service",
         "deploy/mvp/systemd/cartulary-backup.timer",
@@ -6275,9 +6312,13 @@
         "internal/testutil/packagepki/pki.go",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/packagepki/main.go",
+        "tools/packagerecovery/main.go",
         "tools/release-evidence/check-standup-operational-recovery-smoke.sh",
+        "tools/release-evidence/consume-package.sh",
         "tools/release-evidence/package-fixture-tls.sh",
-        "tools/release-evidence/package-smoke-cleanup.sh"
+        "tools/release-evidence/package-release.mjs",
+        "tools/release-evidence/package-smoke-cleanup.sh",
+        "tools/release-evidence/portable-package-recovery.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13553,13 +13594,16 @@
     {
       "name": "release-evidence-contract",
       "backing_scripts": [
-        "deploy/mvp/scripts/backup-capture.sh",
-        "deploy/mvp/scripts/operation-start.sh",
+        "deploy/mvp/scripts/package-common.sh",
+        "deploy/mvp/scripts/package-verification.sh",
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/release-readiness-evidence.mjs",
         "tools/release-evidence/tests/test-package-operation.mjs",
         "tools/release-evidence/tests/test-package-smoke-cleanup.mjs",
-        "tools/release-evidence/tests/test-release-readiness-evidence.mjs"
+        "tools/release-evidence/tests/test-release-readiness-evidence.mjs",
+        "tools/release-evidence/tests/test-package-release.mjs",
+        "deploy/mvp/scripts/install.sh",
+        "deploy/mvp/scripts/release-verify.sh"
       ],
       "command_id": "cartulary.harness.command.release_evidence_contract.v2",
       "target_class": "check_internal",
@@ -16270,7 +16314,9 @@
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
         "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-package-smoke.sh",
+        "tools/release-evidence/consume-package.sh",
         "tools/release-evidence/package-fixture-tls.sh",
+        "tools/release-evidence/package-release.mjs",
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/reference-pack-fixtures.mjs",
         "tools/toolchain_pins.json"
@@ -16395,6 +16441,274 @@
           }
         ]
       }
+    },
+    {
+      "name": "package-release",
+      "backing_scripts": [
+        "tools/release-evidence/package-release.mjs",
+        "deploy/mvp/scripts/install.sh",
+        "deploy/mvp/scripts/release-verify.sh",
+        "deploy/mvp/Containerfile",
+        "deploy/mvp/docker-compose.yml",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.package_release.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        }
+      ],
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "build/bin"
+          ]
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      },
+      "target_class": "public",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "public_active"
+    },
+    {
+      "name": "package-inspect",
+      "backing_scripts": [
+        "tools/release-evidence/package-release.mjs",
+        "deploy/mvp/scripts/install.sh",
+        "deploy/mvp/scripts/release-verify.sh",
+        "deploy/mvp/Containerfile",
+        "deploy/mvp/docker-compose.yml",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.package_inspect.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        }
+      ],
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "build/bin"
+          ]
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      },
+      "target_class": "public",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "public_active"
+    },
+    {
+      "name": "syft-toolchain",
+      "backing_scripts": [
+        "tools/harness/readiness/bootstrap-go-tool.sh",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+      ],
+      "target_class": "internal_helper",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
     }
   ],
   "harness_tiers": {
@@ -16712,8 +17026,8 @@
     {
       "name": "harness-smoke-release-readiness-evidence",
       "backing_scripts": [
-        "deploy/mvp/scripts/backup-capture.sh",
-        "deploy/mvp/scripts/operation-start.sh",
+        "deploy/mvp/scripts/package-common.sh",
+        "deploy/mvp/scripts/package-verification.sh",
         "tools/release-evidence/tests/test-package-operation.mjs",
         "tools/release-evidence/tests/test-release-readiness-evidence.mjs"
       ],

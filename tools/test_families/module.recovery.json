@@ -353,6 +353,33 @@
       ]
     },
     {
+      "row_id": "module.recovery.process.portable_source_loss_restore",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestCanonicalOperatorRestoreBundle_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.process",
@@ -590,6 +617,7 @@
       "selector": {
         "package": "./internal/app/recoveryassembly",
         "tests": [
+          "TestOperatorReleaseIdentity_Unit",
           "TestRecoveryFilesystemStorageContainment_Unit"
         ]
       },

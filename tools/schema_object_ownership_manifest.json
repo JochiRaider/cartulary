@@ -12462,8 +12462,8 @@
       "qualified_name": "public.operator_recovery_journal.operator_recovery_journal_operation_check",
       "management_class": "cartulary_authored",
       "source_owner": "recovery",
-      "migration_version": 4,
-      "migration_file": "00004_recovery.sql",
+      "migration_version": 68,
+      "migration_file": "00068_recovery_transfer_operations.sql",
       "dependency_object_ids": [
         "table.public.operator-recovery-journal"
       ],

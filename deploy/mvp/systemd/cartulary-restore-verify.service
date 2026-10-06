@@ -4,9 +4,8 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-Environment=CARTULARY_MVP_DIR=/opt/cartulary/deploy/mvp
-Environment=CARTULARY_MVP_ENV_FILE=/etc/cartulary/mvp.env
-Environment=CARTULARY_SOURCE_CONFIG=/opt/cartulary/deploy/mvp/config.toml
-Environment=CARTULARY_RESTORE_VERIFY_TARGET_CONFIG=/opt/cartulary/deploy/mvp/restore-verification-target.toml
+Environment=CARTULARY_MVP_DIR=/opt/cartulary
+Environment=CARTULARY_MVP_ENV_FILE=/opt/cartulary/.env
+Environment=CARTULARY_RESTORE_VERIFY_TARGET_CONFIG=/opt/cartulary/restore-verification-target.toml
 Environment=CARTULARY_RESTORE_VERIFY_TARGET_ROOT=/var/lib/cartulary/restore-verification-target
-ExecStart=/opt/cartulary/deploy/mvp/scripts/restore-verify-due.sh
+ExecStart=/opt/cartulary/release/assets/scripts/package.sh restore-verify-due

@@ -140,10 +140,8 @@ services:
           create_host_path: false
 
   migrate:
-    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
-    build:
-      context: ../..
-      dockerfile: deploy/mvp/Containerfile
+    image: ${CARTULARY_PACKAGE_APPLICATION_IMAGE:?immutable release required}
+    pull_policy: never
     entrypoint: ["/usr/local/bin/cartulary-migrate"]
     command: ["up"]
     environment:
@@ -161,6 +159,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
+      - ../release-manifest.json:/etc/cartulary/release-manifest.json:ro
       - cartulary-backups:/var/lib/cartulary/backups:ro
       - cartulary-reference-packs:/var/lib/cartulary/reference-packs:ro
       - cartulary-tmp:/var/lib/cartulary/tmp:ro
@@ -183,11 +182,12 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      - ./config.toml:/etc/cartulary/config.toml:ro
+      - ${CARTULARY_INSTALLATION_DIR:?installation required}/config.toml:/etc/cartulary/config.toml:ro
     restart: "no"
 
   object-store-init:
-    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    image: ${CARTULARY_PACKAGE_APPLICATION_IMAGE:?immutable release required}
+    pull_policy: never
     entrypoint: ["/usr/local/bin/cartulary-operator"]
     command: ["object-store", "init"]
     environment:
@@ -205,6 +205,7 @@ services:
       seaweedfs-s3:
         condition: service_healthy
     volumes:
+      - ../release-manifest.json:/etc/cartulary/release-manifest.json:ro
       - type: bind
         source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
         target: /etc/cartulary/tls/ca.pem
@@ -223,11 +224,12 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      - ./config.toml:/etc/cartulary/config.toml:ro
+      - ${CARTULARY_INSTALLATION_DIR:?installation required}/config.toml:/etc/cartulary/config.toml:ro
     restart: "no"
 
   recovery-operator:
-    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    image: ${CARTULARY_PACKAGE_APPLICATION_IMAGE:?immutable release required}
+    pull_policy: never
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
       CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
@@ -239,6 +241,7 @@ services:
       CARTULARY_S3_PRIMARY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
       CARTULARY_RECOVERY_MASTER_KEY: ${CARTULARY_RECOVERY_MASTER_KEY:?set CARTULARY_RECOVERY_MASTER_KEY in deploy/mvp/.env}
     volumes:
+      - ../release-manifest.json:/etc/cartulary/release-manifest.json:ro
       - type: bind
         source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
         target: /etc/cartulary/tls/ca.pem
@@ -257,7 +260,7 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      - ./config.toml:/etc/cartulary/config.toml:ro
+      - ${CARTULARY_INSTALLATION_DIR:?installation required}/config.toml:/etc/cartulary/config.toml:ro
       - cartulary-backups:/var/lib/cartulary/backups
       - cartulary-reference-packs:/var/lib/cartulary/reference-packs
       - cartulary-tmp:/var/lib/cartulary/tmp
@@ -265,7 +268,8 @@ services:
     restart: "no"
 
   restore-verify-migrate:
-    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    image: ${CARTULARY_PACKAGE_APPLICATION_IMAGE:?immutable release required}
+    pull_policy: never
     environment:
       CARTULARY_S3_RESTORE_VERIFY_ENDPOINT: ${CARTULARY_S3_RESTORE_VERIFY_ENDPOINT:?set CARTULARY_S3_RESTORE_VERIFY_ENDPOINT in deploy/mvp/.env}
       CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID: ${CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID:?set CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID in deploy/mvp/.env}
@@ -297,7 +301,8 @@ services:
     restart: "no"
 
   restore-verify-operator:
-    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    image: ${CARTULARY_PACKAGE_APPLICATION_IMAGE:?immutable release required}
+    pull_policy: never
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/restore-verification-target.toml
       CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=verify-full&require_auth=none&sslrootcert=/etc/cartulary/tls/ca.pem&sslcert=/etc/cartulary/tls/pg.crt&sslkey=/etc/cartulary/tls/pg.key
@@ -316,6 +321,7 @@ services:
       CARTULARY_S3_RESTORE_VERIFY_ROOT_CERTIFICATE_PATH: /etc/cartulary/tls/ca.pem
       CARTULARY_RECOVERY_MASTER_KEY: ${CARTULARY_RECOVERY_MASTER_KEY:?set CARTULARY_RECOVERY_MASTER_KEY in deploy/mvp/.env}
     volumes:
+      - ../release-manifest.json:/etc/cartulary/release-manifest.json:ro
       - type: bind
         source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
         target: /etc/cartulary/tls/ca.pem
@@ -353,10 +359,8 @@ services:
     restart: "no"
 
   app:
-    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
-    build:
-      context: ../..
-      dockerfile: deploy/mvp/Containerfile
+    image: ${CARTULARY_PACKAGE_APPLICATION_IMAGE:?immutable release required}
+    pull_policy: never
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
       CARTULARY_HTTP_ADDR: :8080
@@ -378,6 +382,7 @@ services:
     ports:
       - "127.0.0.1:${CARTULARY_HTTP_PORT:-8080}:8080"
     volumes:
+      - ../release-manifest.json:/etc/cartulary/release-manifest.json:ro
       - type: bind
         source: ${CARTULARY_TLS_DIR:?set CARTULARY_TLS_DIR}/ca.pem
         target: /etc/cartulary/tls/ca.pem
@@ -408,9 +413,9 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      - ./config.toml:/etc/cartulary/config.toml:ro
-      - ./bootstrap-admin.json:/etc/cartulary/bootstrap-admin.json:ro
-      - ./revisions-conflict-token-key-ring.json:/etc/cartulary/revisions-conflict-token-key-ring.json:ro
+      - ${CARTULARY_INSTALLATION_DIR:?installation required}/config.toml:/etc/cartulary/config.toml:ro
+      - ${CARTULARY_INSTALLATION_DIR:?installation required}/bootstrap-admin.json:/etc/cartulary/bootstrap-admin.json:ro
+      - ${CARTULARY_INSTALLATION_DIR:?installation required}/revisions-conflict-token-key-ring.json:/etc/cartulary/revisions-conflict-token-key-ring.json:ro
       - cartulary-backups:/var/lib/cartulary/backups
       - cartulary-reference-packs:/var/lib/cartulary/reference-packs
       - cartulary-tmp:/var/lib/cartulary/tmp

@@ -464,7 +464,11 @@ test("Timeline Find opening preserves exact scalar drafts and explicit navigatio
     await page.getByRole("button", { name: "Close Find" }).click();
     await expect(editor(page, f.first)).toBeFocused();
     hold.release();
-    await expect.poll(() => hold.hitCount()).toBe(1);
+    // Request arrival precedes acknowledgement. Reopen only after the committed
+    // edit has settled, so its completion cannot supersede the next Find intent.
+    await expect(editor(page, f.first)).toHaveCount(0);
+    await expect(cell(page, f.first)).toHaveText("Exact unfinished draft");
+    expect(hold.hitCount()).toBe(1);
     await find(page, "0002 needle", 1);
     await navigate(page);
     await expect(cell(page, f.last)).toBeFocused();

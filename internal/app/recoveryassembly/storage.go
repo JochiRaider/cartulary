@@ -1,12 +1,14 @@
 package recoveryassembly
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	pathpkg "path"
 	"strings"
 
@@ -214,15 +216,17 @@ func (storage *FilesystemStorage) ReadTargetMarker(maxMarkerBytes int64, maxGene
 	if storage == nil || storage.root == nil {
 		return nil, nil, fmt.Errorf("read recovery marker: storage is unavailable")
 	}
-	markerBody, _, err := storage.root.ReadRegular(rootedfs.MustParseReference("restore-target-marker.json"), maxMarkerBytes)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read recovery marker: %w", err)
+
+	markerBody, _, markerErr := storage.root.ReadRegular(rootedfs.MustParseReference("restore-target-marker.json"), maxMarkerBytes)
+	generationBody, _, generationErr := storage.root.ReadRegular(rootedfs.MustParseReference("restore-target-generation"), maxGenerationBytes)
+	if markerErr != nil && !errors.Is(markerErr, os.ErrNotExist) {
+		return markerBody, generationBody, markerErr
 	}
-	generationBody, _, err := storage.root.ReadRegular(rootedfs.MustParseReference("restore-target-generation"), maxGenerationBytes)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read recovery target generation: %w", err)
+	if generationErr != nil && !errors.Is(generationErr, os.ErrNotExist) {
+		return markerBody, generationBody, generationErr
 	}
-	return markerBody, generationBody, nil
+	return markerBody, generationBody, errors.Join(markerErr, generationErr)
+
 }
 
 func (storage *FilesystemStorage) Close() error {
@@ -247,4 +251,29 @@ func makeParent(root *rootedfs.Root, reference rootedfs.Reference) error {
 		return fmt.Errorf("create backup artifact parent: %w", err)
 	}
 	return nil
+}
+
+// WriteTargetMarker commits the generation first. An interrupted first issuance
+// retains that identity; Recovery must inspect pristine state before finishing it.
+func (storage *FilesystemStorage) WriteTargetMarker(ctx context.Context, previousMarker, previousGeneration, marker, generation []byte) error {
+	currentMarker, currentGeneration, err := storage.ReadTargetMarker(65536, 64)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if !bytes.Equal(currentMarker, previousMarker) || !bytes.Equal(currentGeneration, previousGeneration) {
+		return errors.New("target proof changed during preparation")
+	}
+	if len(previousGeneration) == 0 {
+		if err := storage.root.CreateExclusive(ctx, rootedfs.MustParseReference("restore-target-generation"), func(w io.Writer) error { _, err := w.Write(generation); return err }); err != nil {
+			return err
+		}
+	} else if strings.TrimSpace(string(previousGeneration)) != strings.TrimSpace(string(generation)) {
+		return errors.New("target generation cannot change")
+	}
+	write := func(w io.Writer) error { _, err := w.Write(marker); return err }
+	ref := rootedfs.MustParseReference("restore-target-marker.json")
+	if len(previousMarker) == 0 {
+		return storage.root.CreateExclusive(ctx, ref, write)
+	}
+	return storage.root.AtomicReplace(ctx, ref, write)
 }

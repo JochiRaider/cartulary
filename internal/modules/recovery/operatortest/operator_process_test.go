@@ -44,8 +44,8 @@ import (
 const (
 	operatorObjectStoreInitResultSchemaID      = "cartulary.operator.object_store_init_result.v1"
 	operatorCollaborationRequeueResultSchemaID = "cartulary.operator.collaboration_requeue_result.v2"
-	operatorRecoveryResultSchemaID             = "cartulary.operator_recovery_result.v1"
-	operatorRecoveryProgressSchemaID           = "cartulary.operator_recovery_progress.v1"
+	operatorRecoveryResultSchemaID             = "cartulary.operator_recovery_result.v2"
+	operatorRecoveryProgressSchemaID           = "cartulary.operator_recovery_progress.v2"
 )
 
 type operatorObjectStoreInitResult struct {
@@ -382,6 +382,24 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 		}
 	}
 
+	outputDirectory := filepath.Join(t.TempDir(), "portable-backup")
+	exportedStdout, exportedStderr, exportedExit := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, env,
+		"backup", "export", "latest", "--source-config-file", sourceConfig.path, "--output-directory", outputDirectory, "--progress", "jsonl")
+	if exportedExit != 0 {
+		t.Fatalf("export failed: %d %s %s", exportedExit, exportedStdout, exportedStderr)
+	}
+	exported := decodeOperatorRecoveryResult(t, exportedStdout)
+	requireOperatorRecoverySuccess(t, exported, "backup_export_latest", *payload.BackupSetID)
+	requireOperatorRecoveryArtifactKind(t, exported, "recovery_transfer", recovery.TransferManifestSchemaID, 1)
+	requireOperatorRecoveryProgress(t, exportedStderr, exported.OperationID, []string{"preflight", "catalog_select", "artifact_validate", "transfer_copy", "journal_write", "finalize"})
+	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, exported, "backup_export_latest", "succeeded", sourceDB.DSN, sourceConfig.path, outputDirectory, operatorRecoveryMasterKey)
+	requireOperatorRecoverySafeOutput(t, exportedStdout, exportedStderr, sourceDB.DSN, sourceConfig.path, outputDirectory, operatorRecoveryMasterKey)
+	occupiedStdout, occupiedStderr, occupiedExit := runOperatorBinary(t, operatorBin, env, "backup", "export", "latest", "--source-config-file", sourceConfig.path, "--output-directory", outputDirectory)
+	requireOperatorRecoveryFailure(t, occupiedStdout, occupiedStderr, occupiedExit, "backup_export_latest", 4, "backup_export_failed", "transfer_publication_failed")
+	if _, err := os.Stat(filepath.Join(outputDirectory, recovery.TransferManifestName)); err != nil {
+		t.Fatal("occupied attempt damaged published export", err)
+	}
+
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
 	if err != nil {
@@ -474,16 +492,6 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 	requireOperatorRecoveryFailure(t, mismatchStdout, mismatchStderr, mismatchExit, "restore_latest", 2, "invalid_operator_request", "confirmation_mismatch")
 	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
 
-	missingMarkerStdout, missingMarkerStderr, missingMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
-		"restore", "latest",
-		"--source-config-file", sourceConfig.path,
-		"--target-config-file", targetConfig.path,
-		"--confirm-backup-set-id", backupSetID.String(),
-	)
-	requireOperatorRecoveryFailure(t, missingMarkerStdout, missingMarkerStderr, missingMarkerExit, "restore_latest", 3, "unsafe_restore_target", "target_marker_missing")
-	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
-
-	writeRestoreTargetMarker(t, loadOperatorConfig(t, targetConfig.path), application.RestoreTargetPurpose)
 	targetServingPool := mustOpenOperatorPool(t, targetDB.DSN)
 	targetServingLease, err := processlease.Acquire(
 		ctx,
@@ -597,14 +605,6 @@ func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "backup_restore-canonical-verify-latest")
 
 	operatorBin := injectedOperatorBinary(t)
-	missingMarkerStdout, missingMarkerStderr, missingMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
-		"restore-verify", "latest",
-		"--source-config-file", sourceConfig.path,
-		"--target-config-file", targetConfig.path,
-	)
-	requireOperatorRecoveryFailure(t, missingMarkerStdout, missingMarkerStderr, missingMarkerExit, "restore_verify_latest", 3, "unsafe_restore_target", "target_marker_missing")
-	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
-
 	writeInvalidRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
 	invalidMarkerStdout, invalidMarkerStderr, invalidMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "latest",
@@ -614,7 +614,13 @@ func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 	requireOperatorRecoveryFailure(t, invalidMarkerStdout, invalidMarkerStderr, invalidMarkerExit, "restore_verify_latest", 3, "unsafe_restore_target", "target_marker_invalid")
 	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
 
-	writeRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
+	// Delete only the deliberately invalid fixture; the actual owner now issues
+	// the successful target's marker after inspecting pristine state.
+	for _, name := range []string{"restore-target-marker.json", "restore-target-generation"} {
+		if err := os.Remove(filepath.Join(targetConfig.backupRoot, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "latest",
 		"--source-config-file", sourceConfig.path,
@@ -675,7 +681,6 @@ func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
 	newerBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102802")
 	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, newerBackupSetID, now.Add(-time.Minute), "backup_restore-canonical-verify-due-newer")
 	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, olderBackupSetID, now.Add(-2*time.Minute), "backup_restore-canonical-verify-due-older")
-	writeRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
 
 	operatorBin := injectedOperatorBinary(t)
 	sameObjectStoreConfig := operatorConfigVariant(t, targetConfig, map[string]string{
@@ -801,7 +806,6 @@ VALUES ($1, 'recovery-zero-incident', 'recovery-zero-incident', 'Recovery zero i
 		now.Add(-time.Minute),
 		"backup_restore-after-determinate-failure",
 	)
-	writeRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
 
 	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(
 		t,
@@ -1543,11 +1547,6 @@ func mustOpenOperatorPool(t testing.TB, dsn string) *pgxpool.Pool {
 func loadOperatorConfig(t testing.TB, path string) configassembly.Deployment {
 	t.Helper()
 	return configtest.LoadPath(t, path, nil).Deployment()
-}
-
-func writeRestoreVerificationTargetMarker(t testing.TB, cfg configassembly.Deployment) {
-	t.Helper()
-	writeRestoreTargetMarker(t, cfg, application.RestoreVerificationTargetPurpose)
 }
 
 func writeRestoreTargetMarker(t testing.TB, cfg configassembly.Deployment, purpose string) {

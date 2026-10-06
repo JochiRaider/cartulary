@@ -75,8 +75,14 @@ type VNextCaptureFactory func(
 ) (*recovery.VNextCaptureService, error)
 
 type Service struct {
+	OpenTransferDirectory     func(string) (recovery.TransferDirectory, error)
+	OpenPortableJournal       func(string) (PortableJournal, error)
+	LoadRecoveryKey           func() (recovery.RecoveryEncryptionKey, error)
+	NewTransferDirectory      func(string) (recovery.TransferDirectory, error)
+	ReleaseIdentity           func() (string, error)
 	LoadDeployment            DeploymentLoader
 	ReadTargetMarker          TargetMarkerReader
+	WriteTargetMarker         TargetMarkerWriter
 	NewProjectionServices     ProjectionServicesFactory
 	NewGraphProjectionRestore GraphProjectionRestoreFactory
 	NewEvidenceProvider       EvidenceRecoveryProviderFactory
@@ -315,7 +321,7 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
-	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreTargetPurpose)
+	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreTargetPurpose, targetObjectStore)
 	if err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
@@ -397,7 +403,7 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
 		return Result{}, err
 	}
-	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose)
+	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose, targetObjectStore)
 	if err != nil {
 		return Result{}, err
 	}
@@ -578,7 +584,7 @@ func (service Service) runRestoreVerifyDueAttempt(
 		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
 	}()
 
-	admission, attemptErr = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose)
+	admission, attemptErr = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose, targetObjectStore)
 	if attemptErr != nil {
 		return outcome, dueAttemptContextFailure(ctx, attemptErr), true
 	}
@@ -856,7 +862,10 @@ func requireDistinctRestoreTarget(sourceConfigPath string, targetConfigPath stri
 	}
 	sourcePostgres := sourceDeployment.PostgresSettings
 	targetPostgres := targetDeployment.PostgresSettings
-	if strings.TrimSpace(sourcePostgres.DSN) == strings.TrimSpace(targetPostgres.DSN) {
+	sourceDB, sourceParseErr := pgx.ParseConfig(sourcePostgres.DSN)
+	targetDB, targetParseErr := pgx.ParseConfig(targetPostgres.DSN)
+	samePhysical := sourceParseErr == nil && targetParseErr == nil && strings.EqualFold(sourceDB.Host, targetDB.Host) && sourceDB.Port == targetDB.Port && sourceDB.Database == targetDB.Database
+	if samePhysical || strings.TrimSpace(sourcePostgres.DSN) == strings.TrimSpace(targetPostgres.DSN) {
 		return NewFailure(FailureSameDatabaseBinding, errors.New("restore target source and target database bindings must differ"))
 	}
 	sourceObject := sourceDeployment.ObjectSettings
@@ -911,6 +920,7 @@ func (service Service) acquireTargetAdmission(
 	targetDeployment Deployment,
 	targetPool PostgresPool,
 	purpose string,
+	objects objectstore.Store,
 ) (TargetServingAdmission, error) {
 	if service.NewTargetAdmission == nil {
 		return nil, NewFailure(FailureTargetServingTraffic, errors.New("restore target serving admission is unavailable"))
@@ -924,6 +934,10 @@ func (service Service) acquireTargetAdmission(
 	if err != nil {
 		return nil, NewFailure(FailureTargetServingTraffic, fmt.Errorf("acquire restore target serving lease: %w", err))
 	}
+	return service.prepareAdmittedTarget(targetDeployment, targetPool, purpose, objects, admission)
+}
+
+func (service Service) prepareAdmittedTarget(targetDeployment Deployment, targetPool PostgresPool, purpose string, objects objectstore.Store, admission TargetServingAdmission) (TargetServingAdmission, error) {
 	releaseOnError := func() {
 		releaseTargetAdmission(admission, targetDeployment.ServingLeaseLossDetection)
 	}
@@ -935,18 +949,39 @@ func (service Service) acquireTargetAdmission(
 		targetDeployment.BackupStorage.BindingKind,
 		targetDeployment.BackupStorage.Path,
 	)
-	if err != nil {
-		releaseOnError()
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, NewFailure(FailureTargetMarkerMissing, fmt.Errorf("read restore target marker: %w", err))
+
+	targetGenerationID, err := prepareTargetMarker(material, err, purpose, TargetBindingDigestsFor(targetDeployment), service.now(), func() error {
+		if service.WriteTargetMarker == nil || objects == nil || targetDeployment.OpenReferencePacks == nil || targetDeployment.OpenExportOutputs == nil {
+			return errors.New("target proof preparation unavailable")
 		}
-		return nil, NewFailure(FailureTargetMarkerInvalid, fmt.Errorf("read restore target marker: %w", err))
-	}
-	targetGenerationID, err := AdmitRestoreTargetMarker(material, purpose, TargetBindingDigestsFor(targetDeployment), service.now())
+		if err := admission.AssertHeld(); err != nil {
+			return err
+		}
+		if err := service.validateRecoveryStateCatalog(admission.Context(), targetPool); err != nil {
+			return err
+		}
+		packs, err := targetDeployment.OpenReferencePacks()
+		if err != nil {
+			return err
+		}
+		defer packs.Close()
+		exports, err := targetDeployment.OpenExportOutputs()
+		if err != nil {
+			return err
+		}
+		defer exports.Close()
+		return recovery.InspectPristineRestoreTarget(admission.Context(), recovery.RestoreTarget{Postgres: targetPool, ObjectStore: objects, ReferencePacks: packs, ExportOutputs: exports}, service.ExtensionBackups, service.RecoveryStateCatalog)
+	}, func(previous, next TargetMarkerMaterial) error {
+		if err := admission.AssertHeld(); err != nil {
+			return err
+		}
+		return service.WriteTargetMarker(admission.Context(), targetDeployment.BackupStorage.Path, previous, next)
+	})
 	if err != nil {
 		releaseOnError()
 		return nil, NewFailure(FailureTargetMarkerInvalid, err)
 	}
+
 	if err := admission.AssertHeld(); err != nil {
 		releaseOnError()
 		return nil, NewFailure(FailureTargetServingTraffic, err)
@@ -1304,6 +1339,8 @@ func classifyRestoreFailure(err error, verification bool) error {
 
 func defaultFailureKind(operation Operation) FailureKind {
 	switch operation {
+	case OperationBackupExportLatest:
+		return FailureTransferCopy
 	case OperationBackupInspectLatest:
 		return FailureArtifactMissing
 	case OperationBackupCreate:
@@ -1319,6 +1356,8 @@ func defaultFailureKind(operation Operation) FailureKind {
 
 func journalFailureKind(operation Operation) FailureKind {
 	switch operation {
+	case OperationBackupExportLatest:
+		return FailureExportJournalWrite
 	case OperationBackupCreate:
 		return FailureBackupJournalWrite
 	case OperationRestoreLatest:

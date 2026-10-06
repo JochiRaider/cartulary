@@ -397,7 +397,7 @@ func recoveryAuditProjection(record application.RecoveryCompletionRecord) (strin
 		targetID := record.BackupSetID.String()
 		changes = append(changes, administrativeaudit.Visible("backup_set_id", nil, targetID))
 		return administrativeaudit.ActionBackupCreated, administrativeaudit.TargetBackupSet, targetID, changes, true
-	case application.OperationRestoreLatest:
+	case application.OperationRestoreLatest, application.OperationRestoreBundle:
 		actionCode := administrativeaudit.ActionRestoreCompleted
 		if record.Result == application.ResultStatus("failed") {
 			actionCode = administrativeaudit.ActionRestoreFailed

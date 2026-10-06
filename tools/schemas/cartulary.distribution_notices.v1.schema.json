@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.distribution_notices.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "review_disposition",
+    "images"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.distribution_notices.v1"
+    },
+    "review_disposition": {
+      "const": "unestablished"
+    },
+    "images": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "image_id",
+          "role",
+          "notice_files",
+          "components"
+        ],
+        "properties": {
+          "image_id": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "role": {
+            "enum": [
+              "application",
+              "postgres",
+              "seaweedfs"
+            ]
+          },
+          "notice_files": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source_path",
+                "path",
+                "sha256"
+              ],
+              "properties": {
+                "source_path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          },
+          "components": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100000,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "version",
+                "type",
+                "licenses",
+                "review_disposition",
+                "findings"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "licenses": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "review_disposition": {
+                  "const": "unestablished"
+                },
+                "findings": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 3,
+                  "items": {
+                    "enum": [
+                      "version_metadata_missing",
+                      "license_metadata_missing",
+                      "component_notice_association_requires_review"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

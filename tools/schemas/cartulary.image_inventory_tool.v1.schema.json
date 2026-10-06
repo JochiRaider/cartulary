@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.image_inventory_tool.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "module",
+    "version",
+    "binary_sha256"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.image_inventory_tool.v1"
+    },
+    "module": {
+      "const": "github.com/anchore/syft"
+    },
+    "version": {
+      "const": "v1.44.0"
+    },
+    "binary_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

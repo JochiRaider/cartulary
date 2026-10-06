@@ -136,16 +136,36 @@ func (runner operatorRunner) commandRegistry() (operatorCommandRegistry, error) 
 	}
 	return newOperatorCommandRegistry(runner.stderr, []operatorCommandDescriptor{
 		{
+			Tokens: []string{"package", "readiness"},
+			Usage:  "operator package readiness",
+			Run:    runner.packageReadiness,
+		},
+		{
+			Tokens: []string{"package", "preflight"},
+			Usage:  "operator package preflight --source-config-file <path> --target-config-file <path>",
+			Run:    runner.packagePreflight,
+		},
+		{
 			Tokens:           []string{"backup", "inspect", "latest"},
 			Usage:            "operator backup inspect latest [--source-config-file <path>] [--progress=jsonl]",
 			Run:              recoveryHandler,
 			InvalidNamespace: recoveryHandler,
 		},
 		{
+			Tokens: []string{"backup", "export", "latest"},
+			Usage:  "operator backup export latest --output-directory <absolute-directory> [--source-config-file <path>] [--progress=jsonl]",
+			Run:    recoveryHandler, InvalidNamespace: recoveryHandler,
+		},
+		{
 			Tokens:           []string{"backup", "create"},
 			Usage:            "operator backup create [--source-config-file <path>] [--progress=jsonl]",
 			Run:              recoveryHandler,
 			InvalidNamespace: recoveryHandler,
+		},
+		{
+			Tokens: []string{"restore", "bundle"},
+			Usage:  "operator restore bundle --bundle-directory <absolute-directory> --target-config-file <path> --confirm-backup-set-id <uuid> [--acknowledge-stale-backup <uuid>] [--operation-id <uuid>] [--progress=jsonl]",
+			Run:    recoveryHandler, InvalidNamespace: recoveryHandler,
 		},
 		{
 			Tokens:           []string{"restore", "latest"},

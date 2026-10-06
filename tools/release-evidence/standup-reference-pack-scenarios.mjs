@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import {windowsProbe} from "./package-platform.mjs";
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -22,13 +22,16 @@ function command(binary, args, options = {}) {
   if (result.status !== 0) {
     let reason = "";
     try { const value = JSON.parse(result.stdout); reason = `${value.error?.code ?? ""}/${value.error?.details?.reason_code ?? value.error?.reason_code ?? ""}`; } catch { /* never retain raw command output */ }
-    throw new Error(`package command failed: ${path.basename(binary)} ${args[0] ?? ""} (status ${result.status}; ${reason})`);
+    const gates=[...`${result.stderr || ""}`.matchAll(/"gate":"([a-z_]+)"/g)].map(x=>x[1]);
+    const reasons=[...`${result.stdout || ""}\n${result.stderr || ""}`.matchAll(/(?:"reason_code"\s*:\s*"|reason_code=)([a-z0-9_]+)/g)].map(x=>x[1]);
+    throw new Error(`package command failed: ${path.basename(binary)} ${args[0] ?? ""} (status ${result.status}; ${reason}; gates=${gates.join(",")}; reasons=${[...new Set(reasons)].join(",")})`);
   }
   return result.stdout.trim();
 }
 function deployment(directory, name, url) {
-  const composeArgs = ["compose", "--project-name", name, "--env-file", path.join(directory, ".env"), "-f", path.join(directory, "docker-compose.yml"), "-f", path.join(directory, "reference-packs.yml")];
-  const compose = (...args) => command("docker", [...composeArgs, ...args]);
+  const composeArgs = ["compose", "--project-name", name, "--env-file", path.join(directory, ".env"), "-f", path.join(directory, "release/assets/docker-compose.yml"), "-f", path.join(directory, "release/assets/docker-compose.reference-packs.yml")];
+  const compose = (...args) => command("docker", [...composeArgs, ...args], {env:{...process.env,CARTULARY_INSTALLATION_DIR:directory}});
+  const operate = (...args) => command(path.join(directory,"release/assets/scripts/package.sh"),args,{env:{...process.env,CARTULARY_MVP_DIR:directory},timeout:300000});
   const sql = (query, database = "cartulary") => compose("exec", "-T", "--user", "postgres", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database, "-Atc", query);
   const cookies = new Map();
   async function request(route, body, { status = 200, bearer, upload } = {}) {
@@ -76,7 +79,7 @@ function deployment(directory, name, url) {
   }
   const post = (route, txn, extra = {}, options) => request(route, { client_txn_id: txn, ...extra }, options);
   const action = (version, operation, options) => post(`/api/v1/reference-packs/enrichment.tor/${version}/${operation}`, `${operation}-${version}`, { reason: "Disposable package qualification" }, options);
-  return { directory, name, url, compose, sql, request, ready, job, post, action, cookieHeader: () => [...cookies].map(([key,value]) => `${key}=${value}`).join("; ") };
+  return { directory, name, url, compose, operate, sql, request, ready, job, post, action, cookieHeader: () => [...cookies].map(([key,value]) => `${key}=${value}`).join("; ") };
 }
 function totp(secret, now = Date.now()) {
   assert.match(secret, /^[A-Z2-7]{52}$/u);
@@ -91,6 +94,7 @@ function totp(secret, now = Date.now()) {
 }
 // RFC 6238 SHA-256 vector, reduced to the current six-digit owner contract.
 assert.equal(totp("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA", 59000), "119246");
+const retainedFactors=new WeakMap();
 async function login(stack) {
   const credentials = { username: "admin@example.test", password: "ReplaceThisBootstrap1!" };
   const rejection = await stack.request("/api/v1/auth/login", credentials, { status: 401 });
@@ -99,6 +103,7 @@ async function login(stack) {
   const setup = await stack.post("/api/v1/auth/mfa/totp/begin", "enroll-begin", {}, { bearer });
   await stack.post("/api/v1/auth/mfa/totp/complete", "enroll-complete", { enrollment_id: setup.enrollment_id, code: totp(setup.totp_setup.secret_base32) }, { bearer });
   await stack.request("/api/v1/auth/login", { ...credentials, second_factor: { kind: "totp", assertion: { code: totp(setup.totp_setup.secret_base32) } } });
+  retainedFactors.set(stack,setup.totp_setup.secret_base32);
   return (await stack.request("/api/v1/auth/session")).user_id;
 }
 const source = deployment(work, project, origin);
@@ -123,7 +128,7 @@ completed("operator actor and staged-only import");
 // followed. The shipped operator must reject it before reading archive bytes.
 const confinedBefore = durable(source);
 symlinkSync("valid.tar", path.join(work,"reference-pack-incoming/symlink.tar"));
-const confined = spawnSync("docker", ["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"docker-compose.yml"),"-f",path.join(work,"reference-packs.yml"),"run","--rm","--no-deps","reference-pack-operator","reference-pack","import","symlink.tar"], {encoding:"utf8",timeout:30000});
+const confined = spawnSync("docker", ["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"release/assets/docker-compose.yml"),"-f",path.join(work,"release/assets/docker-compose.reference-packs.yml"),"run","--rm","--no-deps","reference-pack-operator","reference-pack","import","symlink.tar"], {encoding:"utf8",timeout:30000});
 assert.equal(confined.status,3);
 const confinedResult=JSON.parse(confined.stdout);
 assert.equal(confinedResult.result,"failed");
@@ -194,9 +199,10 @@ completed("historical report rerender and pin-protected removal");
 // A distinct disposable Compose project is the portability destination. It has
 // its own database, bucket, volumes, trust bootstrap and bootstrap administrator.
 const destinationWork = path.join(work, "destination");
-mkdirSync(destinationWork, { mode: 0o700 });
-for (const name of ["docker-compose.yml", "reference-packs.yml", "config.toml", "bootstrap-admin.json", "revisions-conflict-token-key-ring.json", "postgres-provision.sh", "postgres-provision.sql", "postgres-entrypoint.sh", "postgres-hba.conf", "postgres-ident.conf", "seaweed-entrypoint.sh", "reference-pack-trust.json"]) {
+command(path.join(work,"release/assets/scripts/install.sh"),[destinationWork]);
+for (const name of ["config.toml", "bootstrap-admin.json", "revisions-conflict-token-key-ring.json", "restore-verification-target.toml", "reference-pack-trust.json"]) {
   copyFileSync(path.join(work, name), path.join(destinationWork, name));
+  chmodSync(path.join(destinationWork,name),0o644);
 }
 mkdirSync(path.join(destinationWork, "reference-pack-incoming"), { mode: 0o755 });
 const portServer = (await import("node:net")).createServer();
@@ -204,9 +210,9 @@ await new Promise((resolve) => portServer.listen(0, "127.0.0.1", resolve));
 const destinationPort = portServer.address().port;
 await new Promise((resolve) => portServer.close(resolve));
 const destinationOrigin = `https://127.0.0.1:${destinationPort}`;
-writeFileSync(path.join(destinationWork, ".env"), readFileSync(path.join(work, ".env"), "utf8").replace(/^CARTULARY_HTTP_PORT=.*$/m, `CARTULARY_HTTP_PORT=${destinationPort}`).replace(/^CARTULARY_PUBLIC_ORIGIN=.*$/m, `CARTULARY_PUBLIC_ORIGIN=${destinationOrigin}`));
+writeFileSync(path.join(destinationWork, ".env"), readFileSync(path.join(work, ".env"), "utf8").replace(/^CARTULARY_MVP_COMPOSE_PROJECT_NAME=.*$/m, `CARTULARY_MVP_COMPOSE_PROJECT_NAME=${project}destination`).replace(/^CARTULARY_HTTP_PORT=.*$/m, `CARTULARY_HTTP_PORT=${destinationPort}`).replace(/^CARTULARY_PUBLIC_ORIGIN=.*$/m, `CARTULARY_PUBLIC_ORIGIN=${destinationOrigin}`));
 const destination = deployment(destinationWork, `${project}destination`, destinationOrigin);
-destination.compose("up", "-d", "app"); await destination.ready(); await login(destination);
+destination.operate("start"); await destination.ready(); await login(destination);
 const destinationBase = selection(destination);
 const exportJob = await source.post("/api/v1/incident-bundles/export", "export", { incident_id: incidentID, optional_sections: ["snapshots"], reference_pack_mode: "embedded" }, { status: 202 });
 const exported = await source.job(exportJob);
@@ -226,41 +232,16 @@ assert.deepEqual(JSON.parse(destination.sql(`SELECT convert_from(content,'UTF8')
 assert.equal(destination.sql("SELECT count(*) FROM reference_pack_candidates WHERE pack_key='enrichment.tor' AND pack_version='2' AND health='verified_available'"), "1");
 completed("destination-trusted portability preserves history without activation");
 
-// Use the shipped backup and restore-verification wrappers, preserving overlay.
-copyFileSync(path.join(root, "deploy/mvp/restore-verification-target.toml.example"), path.join(work, "restore-verification-target.toml"));
-chmodSync(path.join(work, "restore-verification-target.toml"), 0o644);
-const restoreRoot = path.join(work, "runtime/restore-verification-target");
-mkdirSync(restoreRoot, { recursive: true }); chmodSync(restoreRoot, 0o777);
-const recoveryEnv = { ...process.env, CARTULARY_MVP_DIR: work, CARTULARY_MVP_COMPOSE_PROJECT_NAME: project, CARTULARY_MVP_COMPOSE_OVERLAY: path.join(work, "reference-packs.yml") };
-const backup = JSON.parse(command(path.join(root, "deploy/mvp/scripts/backup-capture.sh"), [], { env: recoveryEnv }));
-assert.equal(backup.result, "succeeded"); await source.ready();
-const verified = JSON.parse(command(path.join(root, "deploy/mvp/scripts/restore-verify-due.sh"), [], { env: recoveryEnv }));
-assert.equal(verified.result, "succeeded"); assert.equal(verified.backup_set_id, backup.backup_set_id);
-assert.equal(source.sql("SELECT count(*) FROM reporting_snapshots", "cartulary_restore_verify"), "0", "verification did not reset its disposable target");
-// Due verification deliberately resets its target. Admit that empty target for
-// an actual restore with a fresh generation and the explicit restore purpose.
-const markerPath = path.join(restoreRoot, "backups/restore-target-marker.json");
-const marker = JSON.parse(readFileSync(markerPath, "utf8"));
-marker.purpose = "restore_target";
-marker.target_generation_id = randomUUID();
-writeFileSync(path.join(restoreRoot, "backups/restore-target-generation"), marker.target_generation_id + "\n");
-writeFileSync(markerPath, JSON.stringify(marker) + "\n");
-const restored = JSON.parse(source.compose("run", "--rm", "--no-deps",
-  "--volume", `${path.join(work, "config.toml")}:/etc/cartulary/config.toml:ro`,
-  "--volume", `${path.join(work, "restore-verification-target.toml")}:/etc/cartulary/restore-verification-target.toml:ro`,
-  "--volume", `${restoreRoot}:/var/lib/cartulary/restore-verification-target`,
-  "--entrypoint", "/usr/local/bin/cartulary-operator", "restore-verify-operator", "restore", "latest",
-  "--source-config-file", "/etc/cartulary/config.toml",
-  "--target-config-file", "/etc/cartulary/restore-verification-target.toml",
-  "--confirm-backup-set-id", backup.backup_set_id));
-assert.equal(restored.result, "succeeded"); assert.equal(restored.backup_set_id, backup.backup_set_id);
-assert.deepEqual(JSON.parse(source.sql(bindingSQL, "cartulary_restore_verify")), JSON.parse(binding));
-assert.equal(source.sql("SELECT root_version FROM reference_pack_repositories WHERE repository_id='package_smoke.repo'", "cartulary_restore_verify"), "2");
-const recoveryHelperImage = command("docker", ["inspect", "--format", "{{.Config.Image}}", source.compose("ps", "-q", "postgres")]);
-const restoredExportHash = command("docker", ["run", "--rm", "--label", `com.docker.compose.project=${project}`, "--entrypoint", "sha256sum", "--mount", `type=bind,source=${restoreRoot},target=/target,readonly`, recoveryHelperImage, `/target/exports/${bundleRef}`]).split(" ")[0];
-assert.equal(restoredExportHash, createHash("sha256").update(readFileSync(path.join(work,"portable.zip"))).digest("hex"), "restore changed exported Incident Bundle bytes");
-writeFileSync(path.join(artifacts, "recovery.json"), JSON.stringify({ backup_set_id: backup.backup_set_id, restore_result: restored.result, snapshot_id: snapshot, pack_set_id: selected }));
-completed("matching-package restore preserves historical binding and rotated trust");
+// Capture and export the complete consumer state through installed entrypoints.
+const backup = JSON.parse(source.operate("backup-create"));
+assert.equal(backup.result,"succeeded"); await source.ready();
+const verified = JSON.parse(source.operate("restore-verify-due"));
+assert.equal(verified.result,"succeeded");assert.equal(verified.backup_set_id,backup.backup_set_id);
+assert.equal(source.sql("SELECT count(*) FROM reporting_snapshots","cartulary_restore_verify"),"0");
+const transfers=path.join(work,"independent-transfers");mkdirSync(transfers,{mode:0o777});chmodSync(transfers,0o777);
+const exportedBackup=JSON.parse(source.operate("backup-export",path.join(transfers,"fresh")));
+assert.equal(exportedBackup.backup_set_id,backup.backup_set_id);
+completed("installed complete encrypted export and determinate verification reset");
 
 // This version is created after backup and never pinned by a consumer.
 await source.job(await upload(source, "collectable.tar", "collectable"));
@@ -285,3 +266,42 @@ await source.post("/api/v1/snapshots", "loss", { incident_id: incidentID }, { st
 await source.ready(503);
 assert.equal(source.sql("SELECT count(*) FROM reference_pack_current_set WHERE pack_set_id IS NULL"), "1");
 completed("required-content loss fails consumer admission and readiness");
+
+// Original services, original volumes and source configuration are unavailable.
+// A new installation must not inherit the earlier target's host proof state.
+const exportHash=createHash("sha256").update(readFileSync(path.join(work,"portable.zip"))).digest("hex");
+source.compose("down","--volumes","--remove-orphans");
+unlinkSync(path.join(work,"config.toml"));unlinkSync(path.join(work,".env"));
+destination.compose("down","--volumes","--remove-orphans");
+const recoveredWork=path.join(work,"recovered");
+command(path.join(destinationWork,"release/assets/scripts/install.sh"),[recoveredWork]);
+for(const name of [".env","config.toml","bootstrap-admin.json","restore-verification-target.toml","revisions-conflict-token-key-ring.json","reference-pack-trust.json"]) {
+  copyFileSync(path.join(destinationWork,name),path.join(recoveredWork,name));
+  chmodSync(path.join(recoveredWork,name),name===".env"?0o600:0o644);
+}
+mkdirSync(path.join(recoveredWork,"reference-pack-incoming"),{mode:0o755});
+const recovered=deployment(recoveredWork,`${project}destination`,destinationOrigin);
+const retryID=randomUUID();
+const restoreArgs=["restore-bundle",path.join(transfers,"fresh"),backup.backup_set_id,"--operation-id",retryID];
+const restored=JSON.parse(recovered.operate(...restoreArgs));
+assert.equal(restored.result,"succeeded");
+assert.deepEqual(JSON.parse(recovered.operate(...restoreArgs)),restored,"exact terminal replay changed");
+assert.deepEqual(JSON.parse(recovered.sql(bindingSQL)),JSON.parse(binding));
+assert.equal(recovered.sql("SELECT root_version FROM reference_pack_repositories WHERE repository_id='package_smoke.repo'"),"2");
+assert.equal(recovered.sql("SELECT count(*) FROM backup_sets"),"0","restore fabricated backup freshness");
+const restoredExportHash=command("docker",["run","--rm","--label",`com.docker.compose.project=${project}destination`,"--entrypoint","sha256sum","-v",`${project}destination_cartulary-exports:/data:ro`,helperImage,`/data/${bundleRef}`]).split(" ")[0];
+assert.equal(restoredExportHash,exportHash);
+recovered.operate("start");await recovered.ready();
+assert.equal(recovered.sql("SELECT count(*) FROM backup_sets WHERE consistency_point_at > now()-interval '24 hours'"),"1");
+assert.deepEqual(JSON.parse(recovered.sql(bindingSQL)),JSON.parse(binding));
+copyFileSync(path.join(work,"windows-probe.exe"),path.join(recoveredWork,"windows-probe.exe"));
+// Windows probe uses the independent target's explicitly provisioned TLS trust.
+mkdirSync(path.join(recoveredWork,"tls"));copyFileSync(path.join(work,"tls/ca.pem"),path.join(recoveredWork,"tls/ca.pem"));
+// Auth's Recovery contribution invalidates operational sessions. Credentials
+// and the separately held MFA factor establish a new post-restore session.
+assert.equal((await fetch(destinationOrigin+"/api/v1/auth/session",{headers:{Cookie:source.cookieHeader()},signal:AbortSignal.timeout(10000)})).status,401);
+await recovered.request("/api/v1/auth/login",{username:"admin@example.test",password:"ReplaceThisBootstrap1!",second_factor:{kind:"totp",assertion:{code:totp(retainedFactors.get(source))}}});
+assert.equal((await recovered.request("/api/v1/auth/session")).user_id,actor);
+writeFileSync(path.join(artifacts,"source-loss-windows.json"),JSON.stringify(windowsProbe(recoveredWork,destinationOrigin,{cookie:recovered.cookieHeader(),incident:incidentID}),null,2));
+writeFileSync(path.join(artifacts,"recovery.json"),JSON.stringify({backup_set_id:backup.backup_set_id,restore_result:restored.result,snapshot_id:snapshot,pack_set_id:selected,source_services_destroyed:true,source_configuration_removed:true,exact_retry:true,fresh_backup_gate:true,prior_session_rejected:true,fresh_mfa_session:true}));
+completed("source-loss restore preserves historical trust, pins, exports, workbook and exact retry");

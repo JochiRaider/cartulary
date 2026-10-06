@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.local_release_receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "manifest_sha256",
+    "archive_sha256",
+    "archive",
+    "images",
+    "operator_sha256",
+    "inventory_disposition"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.local_release_receipt.v1"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "archive_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "archive": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}\\.tar$"
+    },
+    "images": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "id"
+        ],
+        "properties": {
+          "role": {
+            "enum": [
+              "application",
+              "postgres",
+              "seaweedfs"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "operator_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "inventory_disposition": {
+      "const": "content_complete_review_unestablished"
+    }
+  }
+}

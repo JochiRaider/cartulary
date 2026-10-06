@@ -130,6 +130,12 @@ func NewVersionedRestoreRunner(store backupRepository, storage BackupStorage, ex
 	}
 }
 
+// NewSelectedRestoreRunner consumes an already authenticated selection without a
+// live catalog repository. Both live and portable selection use RestoreBackupSet.
+func NewSelectedRestoreRunner(storage BackupStorage, extensions *ExtensionBackupCatalog, catalog *recoverystate.Catalog) *RestoreRunner {
+	return NewVersionedRestoreRunner(nil, storage, extensions, catalog)
+}
+
 func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context, target RestoreTarget, asOf time.Time) (RestoreResult, error) {
 	if runner == nil || runner.store == nil || runner.storage == nil || runner.extensionBackups == nil {
 		return RestoreResult{}, fmt.Errorf("%w: restore runner requires store and backup storage", ErrInvalidBackupMetadata)
@@ -162,8 +168,8 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 			target.Failure.MarkRestoreFailed(context.WithoutCancel(ctx), restoreErr)
 		}
 	}()
-	if runner == nil || runner.store == nil || runner.storage == nil || runner.extensionBackups == nil {
-		return RestoreResult{}, fmt.Errorf("%w: restore runner requires store and backup storage", ErrInvalidBackupMetadata)
+	if runner == nil || runner.storage == nil || runner.extensionBackups == nil {
+		return RestoreResult{}, fmt.Errorf("%w: selected restore requires backup storage", ErrInvalidBackupMetadata)
 	}
 	if backupSet.BackupSetID == uuid.Nil {
 		return RestoreResult{}, ErrBackupSetNotFound
@@ -1003,4 +1009,10 @@ func recordStep(observer RestoreStepObserver, step RestoreStep) {
 	if observer != nil {
 		observer.RecordRestoreStep(step)
 	}
+}
+
+// InspectPristineRestoreTarget shares the restore engine's catalog-driven admission
+// with target proof issuance; migration seeds are the only permitted rows.
+func InspectPristineRestoreTarget(ctx context.Context, target RestoreTarget, extensions *ExtensionBackupCatalog, catalog *recoverystate.Catalog) error {
+	return requireEmptyRestoreTarget(ctx, target, extensions, catalog)
 }

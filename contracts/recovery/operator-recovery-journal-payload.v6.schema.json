@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.operator_recovery_journal_payload.v5",
+  "$id": "cartulary.operator_recovery_journal_payload.v6",
   "$defs": {
     "graph_completion": {
       "type": "object",
@@ -18,28 +18,28 @@
       ],
       "properties": {
         "target_generation_id": {
-          "$ref": "common.v1.schema.json#/$defs/uuid"
+          "$ref": "common.v2.schema.json#/$defs/uuid"
         },
         "restore_operation_id": {
-          "$ref": "common.v1.schema.json#/$defs/identifier"
+          "$ref": "common.v2.schema.json#/$defs/identifier"
         },
         "backup_set_id": {
-          "$ref": "common.v1.schema.json#/$defs/uuid"
+          "$ref": "common.v2.schema.json#/$defs/uuid"
         },
         "consistency_point_at": {
-          "$ref": "common.v1.schema.json#/$defs/timestamp"
+          "$ref": "common.v2.schema.json#/$defs/timestamp"
         },
         "recovery_state_catalog_sha256": {
-          "$ref": "common.v1.schema.json#/$defs/sha256"
+          "$ref": "common.v2.schema.json#/$defs/sha256"
         },
         "source_registry_sha256": {
-          "$ref": "common.v1.schema.json#/$defs/sha256"
+          "$ref": "common.v2.schema.json#/$defs/sha256"
         },
         "implementation_binding_sha256": {
-          "$ref": "common.v1.schema.json#/$defs/sha256"
+          "$ref": "common.v2.schema.json#/$defs/sha256"
         },
         "postcondition_sha256": {
-          "$ref": "common.v1.schema.json#/$defs/sha256"
+          "$ref": "common.v2.schema.json#/$defs/sha256"
         },
         "participant_result": {
           "$ref": "graph-projection-restore-rebuild-result.v4.schema.json"
@@ -64,35 +64,35 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.operator_recovery_journal_payload.v5"
+          "const": "cartulary.operator_recovery_journal_payload.v6"
         },
         "record_kind": {
           "const": "admission"
         },
         "operation_id": {
-          "$ref": "common.v1.schema.json#/$defs/identifier"
+          "$ref": "common.v2.schema.json#/$defs/identifier"
         },
         "operation": {
-          "$ref": "common.v1.schema.json#/$defs/operation"
+          "$ref": "common.v2.schema.json#/$defs/operation"
         },
         "attempt_id": {
-          "$ref": "common.v1.schema.json#/$defs/nullable_identifier"
+          "$ref": "common.v2.schema.json#/$defs/nullable_identifier"
         },
         "started_at": {
-          "$ref": "common.v1.schema.json#/$defs/timestamp"
+          "$ref": "common.v2.schema.json#/$defs/timestamp"
         },
         "backup_set_id": {
-          "$ref": "common.v1.schema.json#/$defs/nullable_uuid"
+          "$ref": "common.v2.schema.json#/$defs/nullable_uuid"
         },
         "consistency_point_at": {
-          "$ref": "common.v1.schema.json#/$defs/nullable_timestamp"
+          "$ref": "common.v2.schema.json#/$defs/nullable_timestamp"
         },
         "artifact_kinds": {
           "type": "array",
           "maxItems": 128,
           "uniqueItems": true,
           "items": {
-            "$ref": "common.v1.schema.json#/$defs/identifier"
+            "$ref": "common.v2.schema.json#/$defs/identifier"
           }
         }
       }
@@ -119,47 +119,47 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.operator_recovery_journal_payload.v5"
+          "const": "cartulary.operator_recovery_journal_payload.v6"
         },
         "record_kind": {
           "const": "completion"
         },
         "operation_id": {
-          "$ref": "common.v1.schema.json#/$defs/identifier"
+          "$ref": "common.v2.schema.json#/$defs/identifier"
         },
         "operation": {
-          "$ref": "common.v1.schema.json#/$defs/operation"
+          "$ref": "common.v2.schema.json#/$defs/operation"
         },
         "attempt_id": {
-          "$ref": "common.v1.schema.json#/$defs/nullable_identifier"
+          "$ref": "common.v2.schema.json#/$defs/nullable_identifier"
         },
         "started_at": {
-          "$ref": "common.v1.schema.json#/$defs/timestamp"
+          "$ref": "common.v2.schema.json#/$defs/timestamp"
         },
         "completed_at": {
-          "$ref": "common.v1.schema.json#/$defs/timestamp"
+          "$ref": "common.v2.schema.json#/$defs/timestamp"
         },
         "result": {
-          "$ref": "common.v1.schema.json#/$defs/result"
+          "$ref": "common.v2.schema.json#/$defs/result"
         },
         "backup_set_id": {
-          "$ref": "common.v1.schema.json#/$defs/nullable_uuid"
+          "$ref": "common.v2.schema.json#/$defs/nullable_uuid"
         },
         "consistency_point_at": {
-          "$ref": "common.v1.schema.json#/$defs/nullable_timestamp"
+          "$ref": "common.v2.schema.json#/$defs/nullable_timestamp"
         },
         "artifact_counts": {
           "type": "array",
           "maxItems": 128,
           "items": {
-            "$ref": "common.v1.schema.json#/$defs/artifact_count"
+            "$ref": "common.v2.schema.json#/$defs/artifact_count"
           }
         },
         "error_code": {
-          "$ref": "common.v1.schema.json#/$defs/error_code"
+          "$ref": "common.v2.schema.json#/$defs/error_code"
         },
         "error_reason": {
-          "$ref": "common.v1.schema.json#/$defs/error_reason"
+          "$ref": "common.v2.schema.json#/$defs/error_reason"
         },
         "graph_projection_completion": {
           "oneOf": [
@@ -174,7 +174,7 @@
         "target_binding_digests": {
           "oneOf": [
             {
-              "$ref": "common.v1.schema.json#/$defs/binding_digests_v3"
+              "$ref": "common.v2.schema.json#/$defs/binding_digests_v3"
             },
             {
               "type": "null"

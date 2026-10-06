@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.operator_recovery_progress.v2",
+  "operation_id": "00000000-0000-0000-0000-000000000203",
+  "phase": "transfer_copy",
+  "completed": 0,
+  "total": null,
+  "emitted_at": "2026-08-16T12:00:00Z"
+}

@@ -97,7 +97,7 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/test_runner_registry.json" "${dest}/tools/test_runner_registry.json"
   cp "${ROOT_DIR}/tools/performance_fixture_snapshot_owner.json" "${dest}/tools/performance_fixture_snapshot_owner.json"
   cp -R "${ROOT_DIR}/tools/test_families" "${dest}/tools/test_families"
-  cp -R "${ROOT_DIR}/contracts" "${dest}/contracts"
+  tar -C "${ROOT_DIR}" --exclude='*.md' --exclude='*.markdown' --exclude='README*' -cf - contracts | tar -C "${dest}" -xf -
   cp "${ROOT_DIR}/tools/toolchain_pins.json" "${dest}/tools/toolchain_pins.json"
   cp -R "${ROOT_DIR}/tools/harness" "${dest}/tools/harness"
   cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
@@ -345,16 +345,16 @@ cleanup_paths+=("${preflight_dir}")
 cleanup_paths+=("${preflight_results_root}")
 copy_minimal_repo "${preflight_dir}"
 # Public graph compilation resolves the complete catalog even for a policy-only
-# target. Supply its real tracked source selectors without copying installs or
-# giving the disposable fixture access to the working repository's Git state.
+# target. Copy the complete authored non-document inputs, including tool backing
+# scripts and deployment assets; a partial directory allowlist silently drifts
+# as owners add graph dependencies. Ignored installs and Git state stay private.
 (
   cd "${ROOT_DIR}"
-  git ls-files --cached --others --exclude-standard -z -- apps cmd internal packages tools/testservices db ':!**/*.md' |
+  git ls-files --cached --others --exclude-standard -z -- ':!docs/**' ':!**/*.md' ':!**/*.markdown' ':!**/README*' |
     while IFS= read -r -d '' file; do
       if [[ -f "$file" ]]; then printf '%s\0' "$file"; fi
     done | tar --null -T - -cf -
 ) | tar -xf - -C "${preflight_dir}"
-cp "${ROOT_DIR}"/tools/*.json "${preflight_dir}/tools/"
 replace_text "${preflight_dir}/package.json" '"node": "'"$node_version"'"' '"node": "'"$node_version_alt"'"'
 "$NODE_BIN" - "${preflight_dir}/tools/harness_work_graph_owner.json" <<'EOF'
 const fs = require("node:fs");

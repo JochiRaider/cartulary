@@ -434,7 +434,11 @@ test("Timeline row actions preserve native authoring and dismiss to the semantic
   expect((await denied).status()).toBe(403);
   await expect(otherMenu).toHaveCount(0);
   await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
+  // The denial starts an asynchronous authority refresh. Reopen only after
+  // the viewer state is presented; that scope change dismisses an older menu.
+  await expect(cell(page, otherId)).toHaveAttribute("aria-readonly", "true");
   await cell(page, otherId).focus();
+  await expect(cell(page, otherId)).toBeFocused();
   await page.keyboard.press("Shift+F10");
   await expect(otherMenu).toBeVisible();
   await expect(

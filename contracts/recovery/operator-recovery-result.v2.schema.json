@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.operator_recovery_result.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "operation_id",
+    "operation",
+    "result",
+    "started_at",
+    "completed_at",
+    "backup_set_id",
+    "consistency_point_at",
+    "artifact_refs",
+    "error"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.operator_recovery_result.v2"
+    },
+    "operation_id": {
+      "$ref": "common.v2.schema.json#/$defs/uuid"
+    },
+    "operation": {
+      "oneOf": [
+        {
+          "$ref": "common.v2.schema.json#/$defs/operation"
+        },
+        {
+          "const": "unknown"
+        }
+      ]
+    },
+    "result": {
+      "$ref": "common.v2.schema.json#/$defs/result"
+    },
+    "started_at": {
+      "$ref": "common.v2.schema.json#/$defs/timestamp"
+    },
+    "completed_at": {
+      "$ref": "common.v2.schema.json#/$defs/timestamp"
+    },
+    "backup_set_id": {
+      "$ref": "common.v2.schema.json#/$defs/nullable_uuid"
+    },
+    "consistency_point_at": {
+      "$ref": "common.v2.schema.json#/$defs/nullable_timestamp"
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "schema_id",
+          "ref_id",
+          "backup_set_id"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "common.v2.schema.json#/$defs/identifier"
+          },
+          "schema_id": {
+            "$ref": "common.v2.schema.json#/$defs/schema_id"
+          },
+          "ref_id": {
+            "$ref": "common.v2.schema.json#/$defs/identifier"
+          },
+          "backup_set_id": {
+            "$ref": "common.v2.schema.json#/$defs/nullable_uuid"
+          }
+        }
+      },
+      "maxItems": 4096
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "reason_code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason_code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "oneOf": [
+            {
+              "properties": {
+                "code": {
+                  "const": "invalid_operator_request"
+                },
+                "reason_code": {
+                  "enum": [
+                    "unknown_command",
+                    "missing_required_flag",
+                    "invalid_flag_value",
+                    "unsupported_output_mode",
+                    "unsupported_progress_mode",
+                    "timeout_below_minimum",
+                    "timeout_above_maximum",
+                    "timestamp_restore_not_supported",
+                    "backup_selector_not_supported",
+                    "confirmation_mismatch",
+                    "stale_backup_unacknowledged",
+                    "local_config_invalid"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "recovery_key_unavailable"
+                },
+                "reason_code": {
+                  "enum": [
+                    "secret_reference_missing",
+                    "secret_reference_unresolved",
+                    "recovery_key_invalid"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "backup_set_not_found"
+                },
+                "reason_code": {
+                  "enum": [
+                    "no_successful_retained_backup",
+                    "selected_backup_not_retained"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "backup_integrity_failed"
+                },
+                "reason_code": {
+                  "enum": [
+                    "artifact_missing",
+                    "integrity_proof_missing",
+                    "checksum_mismatch",
+                    "attestation_invalid",
+                    "transfer_invalid",
+                    "release_mismatch"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "unsafe_restore_target"
+                },
+                "reason_code": {
+                  "enum": [
+                    "same_database_binding",
+                    "same_object_store_binding",
+                    "target_database_not_fresh",
+                    "target_object_namespace_not_fresh",
+                    "target_serving_traffic",
+                    "target_marker_missing",
+                    "target_marker_invalid"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "recovery_operation_in_progress"
+                },
+                "reason_code": {
+                  "enum": [
+                    "operation_lock_unavailable"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "operation_timed_out"
+                },
+                "reason_code": {
+                  "enum": [
+                    "timeout_elapsed"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "backup_create_failed"
+                },
+                "reason_code": {
+                  "enum": [
+                    "postgres_backup_failed",
+                    "object_backup_failed",
+                    "integrity_proof_failed",
+                    "artifact_readback_failed",
+                    "attestation_write_failed",
+                    "backup_publication_failed",
+                    "journal_write_failed"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "backup_export_failed"
+                },
+                "reason_code": {
+                  "enum": [
+                    "transfer_copy_failed",
+                    "transfer_publication_failed",
+                    "journal_write_failed"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "restore_failed"
+                },
+                "reason_code": {
+                  "enum": [
+                    "postgres_restore_failed",
+                    "object_restore_failed",
+                    "projection_rebuild_failed",
+                    "invariant_check_failed",
+                    "journal_write_failed"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "code": {
+                  "const": "verification_failed"
+                },
+                "reason_code": {
+                  "enum": [
+                    "postgres_restore_failed",
+                    "object_restore_failed",
+                    "projection_rebuild_failed",
+                    "invariant_check_failed",
+                    "workbook_probe_failed",
+                    "attestation_update_failed",
+                    "journal_write_failed"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

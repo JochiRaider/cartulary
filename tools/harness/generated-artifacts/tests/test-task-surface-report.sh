@@ -216,15 +216,9 @@ assert.deepEqual(
   "bootstrap tool installation must depend structurally on frontend dependency readiness",
 );
 assert.deepEqual(
-  {
-    prerequisites: manifest.make_recipes["migration-drift"].prerequisites,
-    jobs: manifest.make_recipes["migration-drift"].prerequisite_jobs,
-  },
-  {
-    prerequisites: ["go-toolchain-readiness", "$(MIGRATE_BIN)", "$(GOOSE_BIN)"],
-    jobs: 2,
-  },
-  "migration drift must establish Go readiness and admit its two independent artifact producers together",
+  manifest.make_recipes["migration-drift"].row_ids,
+  ["harness.generated_artifacts.support.migration_input_integrity", "module.database_migrations.integration.schema_bootstrap"],
+  "migration drift must share owner input and TLS fixture rows",
 );
 assert.deepEqual(
   {
@@ -239,6 +233,11 @@ assert.deepEqual(
 );
 const renderedMake = renderTaskSurfaceMake(manifest);
 const renderedRuntime = renderTaskSurfaceMakeRuntime(manifest);
+assert.match(
+  renderedRuntime,
+  /^TASK_SURFACE_NODE_READINESS = if \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(NODE_BIN\); fi$/m,
+  "shared Node readiness must retain prerequisite admission and child target isolation",
+);
 assert.match(
   renderedRuntime,
   /TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="\$\(CARTULARY_MACHINE_CACHE_DIR\)" GO_CACHE_DIR="\$\(GO_CACHE_DIR\)" GO_MOD_CACHE_DIR="\$\(GO_MOD_CACHE_DIR\)" GO_TMP_DIR="\$\(GO_TMP_DIR\)"/,
@@ -289,18 +288,18 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /^help:\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(NODE_BIN\); fi\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m,
+  /^help:\n\t\$\(Q\)\$\(TASK_SURFACE_NODE_READINESS\)\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m,
   "help recipe must establish Node readiness before its generated preflight",
 );
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(NODE_BIN\); fi\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0\}" = "1" \] \|\| \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(TASK_SURFACE_NODE_READINESS\)\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0\}" = "1" \] \|\| \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
   "test_target self must render Node readiness, target-specific export, and graph-owned artifact prerequisite admission",
 );
 assert.match(
   renderedMake,
-  /migration-drift:[\s\S]*?\$\(MAKE\) --silent --no-print-directory --jobs=2 go-toolchain-readiness \$\(MIGRATE_BIN\) \$\(GOOSE_BIN\); fi/,
-  "migration drift must render a bounded parallel prerequisite graph",
+  /--selection rows --target migration-drift --rows harness.generated_artifacts.support.migration_input_integrity,module.database_migrations.integration.schema_bootstrap/,
+  "migration drift must use the shared fixture work graph",
 );
 assert.match(
   renderedMake,

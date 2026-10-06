@@ -8,10 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
@@ -29,6 +32,7 @@ const (
 )
 
 var ErrTargetServingLeaseLost = errors.New("restore target serving lease lost")
+var errTargetMarkerExpired = errors.New("restore target marker has expired")
 
 type TargetMarkerMaterial struct {
 	MarkerBody     []byte
@@ -36,6 +40,9 @@ type TargetMarkerMaterial struct {
 }
 
 type TargetMarkerReader func(bindingKind string, rootPath string) (TargetMarkerMaterial, error)
+
+// TargetMarkerWriter publishes owner-issued material under the target serving lease.
+type TargetMarkerWriter func(context.Context, string, TargetMarkerMaterial, TargetMarkerMaterial) error
 
 type TargetBindingDigests struct {
 	DatabaseSHA256             string `json:"database_sha256"`
@@ -64,8 +71,8 @@ type TargetServingAdmissionFactory func(context.Context, PostgresPool, time.Dura
 
 func TargetBindingDigestsFor(deployment Deployment) TargetBindingDigests {
 	return TargetBindingDigests{
-		DatabaseSHA256:             bindingDigest(rootBindingBasis(deployment.DatabaseStorage)),
-		ObjectStoreSHA256:          bindingDigest(rootBindingBasis(deployment.ObjectStorage)),
+		DatabaseSHA256:             bindingDigest(databaseTargetIdentity(deployment)),
+		ObjectStoreSHA256:          bindingDigest(objectTargetIdentity(deployment)),
 		ReferencePackStorageSHA256: bindingDigest(rootBindingBasis(deployment.ReferencePackStorage)),
 		ExportOutputsSHA256:        bindingDigest(rootBindingBasis(deployment.ExportOutputs)),
 	}
@@ -121,8 +128,11 @@ func AdmitRestoreTargetMarker(material TargetMarkerMaterial, purpose string, exp
 	if lifetime <= 0 || lifetime > RestoreTargetMarkerMaximumLifetime {
 		return uuid.Nil, errors.New("restore target marker lifetime is invalid")
 	}
-	if issuedAt.After(now) || !expiresAt.After(now) {
+	if issuedAt.After(now) {
 		return uuid.Nil, errors.New("restore target marker is not currently valid")
+	}
+	if !expiresAt.After(now) {
+		return markerGenerationID, errTargetMarkerExpired
 	}
 	return markerGenerationID, nil
 }
@@ -152,4 +162,75 @@ func parseCanonicalMarkerTime(value string) (time.Time, error) {
 		return time.Time{}, errors.New("timestamp is not canonical")
 	}
 	return parsed.UTC(), nil
+}
+
+// prepareTargetMarker preserves admitted generations and only issues or renews a
+// proof after the owner has inspected pristine state under exclusive admission.
+func prepareTargetMarker(material TargetMarkerMaterial, readErr error, purpose string, expected TargetBindingDigests, now time.Time, pristine func() error, publish func(TargetMarkerMaterial, TargetMarkerMaterial) error) (uuid.UUID, error) {
+	var generation uuid.UUID
+	if readErr == nil {
+		var err error
+		generation, err = AdmitRestoreTargetMarker(material, purpose, expected, now)
+		if err == nil {
+			return generation, nil
+		}
+		if !errors.Is(err, errTargetMarkerExpired) {
+			return uuid.Nil, err
+		}
+	} else {
+		if !errors.Is(readErr, os.ErrNotExist) || len(material.MarkerBody) != 0 {
+			return uuid.Nil, readErr
+		}
+		if len(material.GenerationBody) != 0 {
+			value := strings.TrimSpace(string(material.GenerationBody))
+			var err error
+			generation, err = uuid.Parse(value)
+			if err != nil || generation == uuid.Nil || generation.String() != value {
+				return uuid.Nil, errors.New("invalid incomplete target generation")
+			}
+		}
+	}
+	if pristine == nil || publish == nil {
+		return uuid.Nil, errors.New("target proof preparation unavailable")
+	}
+	if err := pristine(); err != nil {
+		return uuid.Nil, err
+	}
+	if generation == uuid.Nil {
+		generation = uuid.New()
+	}
+	marker := RestoreTargetMarker{ApplicationCryptoFormat: recovery.ApplicationCryptoFormatID, SchemaID: RestoreTargetMarkerSchemaID, Purpose: purpose, TargetGenerationID: generation.String(), BindingDigests: expected, IssuedAt: now.UTC().Format(time.RFC3339Nano), ExpiresAt: now.UTC().Add(RestoreTargetMarkerMaximumLifetime).Format(time.RFC3339Nano)}
+	body, err := json.Marshal(marker)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	prepared := TargetMarkerMaterial{MarkerBody: body, GenerationBody: []byte(generation.String() + "\n")}
+	if _, err := AdmitRestoreTargetMarker(prepared, purpose, expected, now); err != nil {
+		return uuid.Nil, err
+	}
+	if err := publish(material, prepared); err != nil {
+		return uuid.Nil, err
+	}
+	return generation, nil
+}
+
+// Physical namespace identity supplements the logical owner binding, excluding
+// credentials so rotation neither invalidates proofs nor discloses secrets.
+func databaseTargetIdentity(deployment Deployment) string {
+	basis := rootBindingBasis(deployment.DatabaseStorage)
+	if strings.TrimSpace(deployment.PostgresSettings.DSN) == "" {
+		return basis
+	}
+	config, err := pgx.ParseConfig(deployment.PostgresSettings.DSN)
+	if err != nil {
+		return basis + ":invalid_database_binding"
+	}
+	physical, _ := json.Marshal([]any{basis, strings.ToLower(config.Host), config.Port, config.Database})
+	return string(physical)
+}
+
+func objectTargetIdentity(deployment Deployment) string {
+	settings := deployment.ObjectSettings
+	physical, _ := json.Marshal([]any{rootBindingBasis(deployment.ObjectStorage), strings.ToLower(settings.Endpoint), settings.Secure, settings.Bucket, filepath.Clean(settings.RootPath)})
+	return string(physical)
 }

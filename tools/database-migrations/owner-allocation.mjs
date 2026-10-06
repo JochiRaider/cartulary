@@ -36,4 +36,5 @@ export const ownersByVersion = new Map([
   [65, "auth"],
   [66, "recovery"],
   [67, "database_migrations"],
+  [68, "recovery"],
 ]);

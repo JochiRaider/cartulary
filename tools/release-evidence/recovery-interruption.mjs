@@ -9,7 +9,7 @@ import { setTimeout as delay } from "node:timers/promises";
 const [work, project, artifacts] = process.argv.slice(2);
 assert.match(project, /^cartularymvprecoverysmk[0-9]+$/);
 assert.ok(path.isAbsolute(work) && path.isAbsolute(artifacts));
-const args = ["compose", "--project-name", project, "--env-file", path.join(work, ".env"), "-f", path.join(work, "docker-compose.yml")];
+const args = ["compose", "--project-name", project, "--env-file", path.join(work, ".env"), "-f", path.join(work, "release/assets/docker-compose.yml")];
 function docker(...arguments_) {
   const r = spawnSync("docker", arguments_, { encoding: "utf8", timeout: 60000, maxBuffer: 1024 * 1024 });
   assert.equal(r.status, 0, `owned recovery interruption command failed: ${arguments_[0]}`);
@@ -27,7 +27,8 @@ async function until(check, message) {
 const app = compose("ps", "-q", "app");
 const database = compose("ps", "-q", "postgres");
 for (const id of [app, database]) assert.match(id, /^[a-f0-9]{64}$/);
-assert.equal(sql("SELECT count(*) FROM backup_sets"), "0");
+const previousBackups = sql("SELECT count(*) FROM backup_sets");
+const previousJournals = sql("SELECT count(*) FROM operator_recovery_journal WHERE operation='backup_create' AND result='succeeded'");
 docker("stop", app);
 // The lock provides a deterministic observation point in the genuine snapshot
 // reader. Its lifetime ends with this exact owned database service interruption.
@@ -45,8 +46,8 @@ try {
   assert.notEqual(exit, 0, "interrupted backup reported success");
   docker("start", database);
   await until(() => docker("inspect", "--format", "{{.State.Health.Status}}", database) === "healthy", "owned database did not recover");
-  assert.equal(sql("SELECT count(*) FROM backup_sets"), "0", "interrupted backup published metadata");
-  assert.equal(sql("SELECT count(*) FROM operator_recovery_journal WHERE operation='backup_create' AND result='succeeded'"), "0", "interrupted backup published successful evidence");
+  assert.equal(sql("SELECT count(*) FROM backup_sets"), previousBackups, "interrupted backup published metadata");
+  assert.equal(sql("SELECT count(*) FROM operator_recovery_journal WHERE operation='backup_create' AND result='succeeded'"), previousJournals, "interrupted backup published successful evidence");
   docker("rm", operator);
   docker("start", app);
   writeFileSync(path.join(artifacts, "interruption.json"), JSON.stringify({ snapshot_read_observed: true, owned_database_interrupted: true, operator_exit: exit, successful_backups: 0, successful_journals: 0, database_restarted: true, application_restarted: true }, null, 2) + "\n", { mode: 0o600 });

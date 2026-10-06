@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.operator_recovery_journal_payload.v5",
+  "schema_id": "cartulary.operator_recovery_journal_payload.v6",
   "record_kind": "completion",
   "operation_id": "recovery-operation-v4-0001",
   "operation": "restore_latest",
