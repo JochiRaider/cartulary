@@ -193,7 +193,17 @@ describe("ImportAssistantFeature selection lifecycle", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Create operator region" }),
     );
-    await screen.findByRole("heading", { name: "Unit 2: Sheet1" });
+    await waitFor(() =>
+      expect(
+        h.controller
+          .getSnapshot()
+          .units.map((item) => item.unit.import_unit_id),
+      ).toContain(ids.secondUnit),
+    );
+    const unit = await screen.findByRole("region", { name: "Import unit 2" });
+    expect(within(unit).getByRole("heading").textContent).toBe(
+      "Unit 2: Sheet1",
+    );
     expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
       kind: "region",
       unitId: ids.unit,

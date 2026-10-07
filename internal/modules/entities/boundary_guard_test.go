@@ -154,6 +154,7 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		ReadRecordLabelTx ReusableIdentifier RowVersionConflictError RowVersionConflictError.Error Store Store.ApplyClipboardPastePlan Store.ApplyClipboardPasteRequest Store.CreateHostRow
 		Store.CreateIdentityRow Store.PatchEntityRow
 		Store.QueryHostRowsPage Store.QueryIdentityRowsPage
+		Store.LocateHostRows Store.LocateIdentityRows
 		Store.ResolveWorkbookConflict StoreDependencies SourceFacts SourceFacts.ListEligibleAliasesTx SourceFacts.ValidateResolvedTargetTx
 		WorkbookConflictClaims WorkbookConflictResolveRequest WorkbookConflictResolveRequestHash
 	`),

@@ -107,6 +107,20 @@ deletion behavior is created.
 
 ## Transition and compatibility
 
+Workbook's query provider also supplies bounded location under Core 01
+REQ-01-680–684. The private runtime's `Store.LocateRows` owns one read-only,
+repeatable-read transaction for membership, predecessor and initial window
+selection. It returns source rows and comparator positions; Workbook retains
+authorization admission and protected cursor issuance.
+
+Host and Identity query-engine readers expose ordinary and caller-transaction
+selection to the private runtime adapter. The four-method Entities
+`QueryReader` port preserves that distinction. Transactional reads use only the
+borrowed transaction and never begin, commit, replace or roll it back. These
+exports have production consumers inside the existing approved boundaries;
+they do not add a public concrete runtime, generic record store or aggregate
+projection port.
+
 The sequence is characterization, adapter/contracts, application consumers,
 eight source-owner facades, ten physical providers in rebuild order, query-seam
 closure, test capability migration, policy reconciliation, and root removal.

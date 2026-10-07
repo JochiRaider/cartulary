@@ -9,10 +9,7 @@ import type {
 } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useWorkbookSecondaryPanel } from "../../shared/WorkbookRecoveryBoundary";
-import { WorkbookWorkAreaOverlayHost } from "../../shared/WorkbookWorkAreaOverlay";
 import { WorkbookShellSlotRegion } from "../components/WorkbookShellSlots";
-import { useWorkbookWorkbench } from "../navigation/WorkbookWorkbenchContext";
-import { WorkbookQueryBrowsingControls } from "../query/WorkbookQueryBrowsingControls";
 import { statusStripStyle } from "../utils/workbookStyles";
 import { useWorkbookAuxiliaryDock } from "./WorkbookAuxiliaryDock";
 import { WorkbookQuerySummaryHost } from "./WorkbookQuerySummarySlot";
@@ -35,6 +32,8 @@ export function WorkbookSurfaceLayout({
   restoreInspectorFocus,
   onRequestPreviewClose,
   primaryGrid,
+  queryControls,
+  presentationBinding,
   workAreaFeedback,
   statusStrip,
   testId,
@@ -56,6 +55,15 @@ export function WorkbookSurfaceLayout({
     | (() => boolean | Promise<boolean>)
     | undefined;
   readonly primaryGrid: ReactNode;
+  readonly queryControls?: ReactNode;
+  readonly presentationBinding?: {
+    readonly update: (
+      token: symbol,
+      ready: boolean,
+      detach: () => void,
+    ) => void;
+    readonly unbind: (token: symbol) => void;
+  };
   readonly workAreaFeedback?: ReactNode;
   readonly statusStrip: ReactNode;
   readonly testId?: string | undefined;
@@ -70,7 +78,9 @@ export function WorkbookSurfaceLayout({
 }) {
   const dock = useWorkbookAuxiliaryDock();
   const inspectorOpen = inspector !== undefined || !!dock?.attachment;
-  const closeDestination = dock?.attachment?.close ?? onRequestInspectorClose;
+  const closeDestination = dock?.attachment
+    ? () => dock.attachment?.close()
+    : onRequestInspectorClose;
   const [querySummaryHost, setQuerySummaryHost] = useState<HTMLElement | null>(
     null,
   );
@@ -80,20 +90,17 @@ export function WorkbookSurfaceLayout({
     inspector !== undefined,
     () => onRequestInspectorClose?.(),
   );
-  const workbench = useWorkbookWorkbench();
-  const registerInspector = workbench?.registerInspector;
+  const presentationToken = useRef(Symbol("surface presentation")).current;
+  useLayoutEffect(() => {
+    presentationBinding?.update(presentationToken, !inspectorOpen, () => {
+      coordinatedClose.current = true;
+      if (dock?.attachment) dock.attachment.close("navigation");
+      else onRequestInspectorClose?.();
+    });
+  });
   useLayoutEffect(
-    () =>
-      registerInspector?.(viewSchemaId, "close", () => {
-        coordinatedClose.current = true;
-        onRequestInspectorClose?.();
-      }),
-    [
-      registerInspector,
-      viewSchemaId,
-      onRequestInspectorClose,
-      coordinatedClose,
-    ],
+    () => () => presentationBinding?.unbind(presentationToken),
+    [presentationBinding, presentationToken],
   );
   const inspectorIsAdjacent = chromeMode === "base";
   const backgroundIsInert = inspectorOpen && !inspectorIsAdjacent;
@@ -331,9 +338,7 @@ export function WorkbookSurfaceLayout({
               viewSchemaId={viewSchemaId}
             >
               <div style={{ minHeight: 0, flex: "1 1 0" }}>{primaryGrid}</div>
-              {workAreaOnly ? null : (
-                <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
-              )}
+              {queryControls}
             </WorkbookShellSlotRegion>
             <div
               aria-hidden={
@@ -348,7 +353,6 @@ export function WorkbookSurfaceLayout({
             >
               {workAreaOverlays}
             </div>
-            <WorkbookWorkAreaOverlayHost />
             {!inspectorOpen ? null : (
               <WorkbookShellSlotRegion
                 onKeyDown={(event) => {

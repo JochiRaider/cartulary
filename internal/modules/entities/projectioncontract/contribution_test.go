@@ -52,7 +52,9 @@ func TestRuntimeContributionOwnsTypedEntityDescriptorFacts(t *testing.T) {
 	})
 	assertInterfaceMethods(t, (*projectionports.QueryReader)(nil), []string{
 		"SelectHostQueryProjections",
+		"SelectHostQueryProjectionsTx",
 		"SelectIdentityQueryProjections",
+		"SelectIdentityQueryProjectionsTx",
 	})
 	assertInterfaceMethods(t, (*projectionports.ReportingReader)(nil), []string{
 		"CollectHostDerivedFactsTx",

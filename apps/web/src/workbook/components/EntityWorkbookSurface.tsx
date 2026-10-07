@@ -65,7 +65,6 @@ import { workbookInspectorLocalErrorPresentation } from "../inspector/workbookIn
 import { useWorkbookColumnSizingBinding } from "../layout/useWorkbookColumnSizingBinding";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
-  WorkbookSurfaceLayout,
   workbookGridWithNoticeStyle,
   workbookSurfaceGridShellStyle,
 } from "../layout/WorkbookSurfaceLayout";
@@ -111,6 +110,7 @@ import {
   useWorkbookQueryRestart,
 } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import { WorkbookQuerySurfaceLayout } from "../query/WorkbookQuerySurfaceLayout";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
@@ -797,7 +797,7 @@ export function EntityWorkbookSurface({
   }
 
   return (
-    <WorkbookSurfaceLayout
+    <WorkbookQuerySurfaceLayout
       chromeMode={chromeMode}
       inspector={entityInspector.node}
       onRequestInspectorClose={() => {

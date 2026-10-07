@@ -158,6 +158,18 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
     remember,
     registerSection,
   } = useWorkbookInspectorNavigation(scope, sections);
+  const registerInspectorFocus = workbench?.registerInspectorFocus;
+  const view = subject?.viewSchemaId;
+  const record = subject?.recordId;
+  useLayoutEffect(() => {
+    if (!view || !record) return;
+    return registerInspectorFocus?.(view, record, () => {
+      const control = closeRef.current;
+      if (!control?.isConnected) return false;
+      control.focus({ preventScroll: true });
+      return document.activeElement === control;
+    });
+  }, [registerInspectorFocus, view, record, closeRef]);
   useLayoutEffect(() => {
     props.explicitNavigationRef?.(navigateExplicit);
     return () => props.explicitNavigationRef?.(null);

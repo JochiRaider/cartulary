@@ -74,3 +74,15 @@ even when DOM input and retained React state temporarily differ.
 | [testSetup.dom.ts](testSetup.dom.ts) | DOM-specific Vitest setup. |
 | [testSetup.ts](testSetup.ts) | Common Vitest setup for frontend tests. |
 | [transportBoundaryPolicy.test.ts](transportBoundaryPolicy.test.ts) | Static same-origin transport policy; raw fetch is limited to the shared transport and server-issued Evidence upload target. |
+
+## Recovery composition
+
+`WorkbookRecoveryFixture` places isolated owner content inside the reusable
+production work-area frame without a query runtime. `WorkbookRecoveryProvidersFixture`
+supplies only Recovery composition for a child that supplies its own frame;
+Timeline and Network Flow use this variant. Network Flow tests inject the same
+extension frame as the shell. There is no optional-frame or legacy overlay path.
+
+Named headings may identify direct actual-focus assertions. Readiness uses
+stable selectors; the selector policy distinguishes these uses structurally and
+rejects ambiguous aliases. Focus checks must not move focus to create success.

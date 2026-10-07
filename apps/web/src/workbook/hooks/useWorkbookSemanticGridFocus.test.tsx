@@ -6,10 +6,16 @@ import type {
   GridHandle,
 } from "@cartulary/grid-adapter";
 import { act, fireEvent, waitFor } from "@testing-library/react";
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithWorkbookQueryBrowsing as render } from "../../testing/workbookQueryTestSupport";
 import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
+import { useWorkbookBrowsingRegistry } from "../query/WorkbookQueryBrowsingContext";
 import { useWorkbookSemanticGridFocus } from "./useWorkbookSemanticGridFocus";
 
 type Row = { readonly id: string };
@@ -86,6 +92,12 @@ function SemanticFocusHarness({
   readonly viewSchemaId?: string | undefined;
 }) {
   const handleRef = useRef<GridHandle | null>(null);
+  const registry = useWorkbookBrowsingRegistry();
+  useLayoutEffect(() => {
+    const token = Symbol();
+    registry.updatePresentation(viewSchemaId, token, true, () => {});
+    return () => registry.unbindPresentation(viewSchemaId, token);
+  }, [registry, viewSchemaId]);
   const registerGridHandle = useWorkbookSemanticGridFocus({
     dataRows: rows,
     dataState,

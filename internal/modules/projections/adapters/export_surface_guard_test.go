@@ -43,7 +43,7 @@ var projectionExportAllowlists = map[string]exportAllowance{
 	"../internal/runtime": newExportAllowance(`
 		Provider Catalog Catalog.DescriptorSet Store Store.RefreshRowTx
 		Store.RebuildIncidentTx Store.RebuildImportedIncidentTx Store.Supports
-		Store.QueryRows Store.QueryRowsPage Store.LoadRowTx Store.RebuildIncident
+		Store.QueryRows Store.QueryRowsPage Store.LocateRows Store.LoadRowTx Store.RebuildIncident
 		RestoreRebuilder NewRestoreRebuilderFromStore
 		RestoreRebuilder.RebuildRestoreProjections ProviderSources NewCatalog
 		EvidenceAssociationEffects NewEvidenceAssociationEffectsFromStore
@@ -77,8 +77,10 @@ var projectionExportAllowlists = map[string]exportAllowance{
 		NewArtifactReader ArtifactReader.CollectDerivedFactsTx ArtifactPlans DecisionReader
 		NewDecisionReader DecisionReader.CollectDecisionDerivedFactsTx DecisionPlans
 		HostReader NewHostReader HostReader.SelectHostQueryProjections
+		HostReader.SelectHostQueryProjectionsTx
 		HostReader.CollectHostDerivedFactsTx IdentityReader NewIdentityReader
 		IdentityReader.SelectIdentityQueryProjections IdentityReader.CollectIdentityDerivedFactsTx
+		IdentityReader.SelectIdentityQueryProjectionsTx
 		TaskReader NewTaskReader TaskReader.CollectTaskDerivedFactsTx TaskRequestPlans
 	`, ``),
 	"../internal/storage": newExportAllowance(`

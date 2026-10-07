@@ -44,6 +44,8 @@ export class WorkbookSessionNavigation {
   private pins: readonly WorkbookSessionPin[] = [];
   private trail: readonly WorkbookReturnOrigin[] = [];
   private listeners = new Set<() => void>();
+  // Admission settles the trail; its presentation may still be mounting/focusing.
+  private intent: AbortController | null = null;
   private pending: {
     key: string;
     controller: AbortController;
@@ -117,7 +119,8 @@ export class WorkbookSessionNavigation {
     this.publish("This item is unavailable.");
   }
   cancel() {
-    this.pending?.controller.abort();
+    this.intent?.abort();
+    this.intent = null;
     this.pending = null;
     this.publish(null);
   }
@@ -140,6 +143,7 @@ export class WorkbookSessionNavigation {
     this.cancel();
     const captured = structuredClone(origin);
     const controller = new AbortController();
+    this.intent = controller;
     const request = { key, controller, promise: Promise.resolve(false) };
     this.pending = request;
     request.promise = Promise.resolve()

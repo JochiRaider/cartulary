@@ -12,7 +12,6 @@ import type { ReactNode } from "react";
 import {
   type ComponentType,
   type CSSProperties,
-  Fragment,
   type RefObject,
   useCallback,
   useEffect,
@@ -23,7 +22,6 @@ import {
 } from "react";
 import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import { useExtensionAvailabilityController } from "../extensions/ExtensionAvailabilityContext";
-import { WorkbookWorkAreaOverlayHost } from "../shared/WorkbookWorkAreaOverlay";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import {
   NetworkFlowButton,
@@ -101,7 +99,7 @@ export type NetworkAnalysisWorkspaceProps = {
   readonly savedGraphController: SavedGraphController;
   readonly importController: NetworkFlowImportController;
   readonly workbookStatus?: ReactNode;
-  readonly workAreaFrame?: ComponentType<{ readonly children: ReactNode }>;
+  readonly workAreaFrame: ComponentType<{ readonly children: ReactNode }>;
   readonly workbookNavigation?: ReactNode;
   readonly apiBase?: string | undefined;
   readonly currentUserId?: string | null | undefined;
@@ -467,7 +465,7 @@ function NetworkAnalysisWorkspaceContent({
     tableCount: tableController.tables.length,
   });
 
-  const WorkAreaFrame = workAreaFrame ?? Fragment;
+  const WorkAreaFrame = workAreaFrame;
   return (
     <section
       aria-label="Network Analysis"
@@ -686,7 +684,6 @@ function NetworkAnalysisWorkspaceContent({
 
       <div id="network-flow-work-area" style={workAreaStyle}>
         <WorkAreaFrame>
-          {workAreaFrame ? null : <WorkbookWorkAreaOverlayHost />}
           {blockingState !== null ? (
             <NetworkFlowBlockingState
               state={blockingState}

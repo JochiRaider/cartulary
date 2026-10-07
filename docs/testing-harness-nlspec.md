@@ -2161,6 +2161,17 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-021
 Frontend unit harness tests that depend on asynchronous jsdom rendering, workbook row hydration, inspector-subject hydration, controlled input replacement, row-history rendering, or virtualized grid mounting MUST use shared bounded wait helpers and stable selector builders with actionable diagnostics. The default wait budget MUST be finite and configuration-backed. When identity matters, the wait predicate MUST use stable workbook-row, inspector-subject, or row-history-item identity rather than visible count or text alone. An inspector-subject readiness helper MUST be observation-only after the invoking action and MUST match the expected `view_schema_id`, `record_id`, and `row_version`; it MUST NOT retry the action. Exact human diagnostic prose is non-normative; the diagnostic record MUST identify the expected row IDs, mounted row IDs, expected and mounted inspector-subject identity, received row-history item references, surface, inspector state, and failing selector class without including record payload values or reclassifying ordinary assertions away from `failure_class=product`.
 Verified by: TH-HARNESS-AC-021
 
+Named-heading queries MUST NOT serve as presence, visibility, attachment or
+polling readiness predicates. A direct assertion of actual focus MAY identify
+its target by accessible heading role and name. Selector-policy enforcement
+MUST distinguish these assertions structurally, including negated focus
+assertions, rather than classify every named-heading query as readiness.
+Supported direct forms are `toBeFocused`, `toHaveFocus`, and equality against
+`document.activeElement`. An aliased or otherwise ambiguous named-heading use
+MUST use a stable selector or be expressed as a direct focus assertion. This
+exception does not permit helpers to move focus to manufacture their result.
+Verified by: TH-HARNESS-AC-021
+
 **TH-HARNESS-REQ-665**
 Browser E2E helpers that perform a mutating UI action and then drive another action that depends on the committed result MUST wait for the server success response and for the rendered workbook projection to converge on the response's stable source-record identity before continuing. When the response supplies `source_record.row_version`, convergence MUST require the rendered source row to reach at least that version; a concurrent accepted version above the response version satisfies the floor, while a stale lower version does not. When the dependent action relies on optimistic concurrency, convergence MUST include the returned `row_version` rendered under the stable row identifier. A visible global save-state label such as `Saved` MAY be asserted after convergence, but it MUST NOT be the only completion predicate for a dependent mutation sequence.
 

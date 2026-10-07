@@ -28,6 +28,8 @@ export function WorkbookWorkControls() {
   const close = () => setOpen(false);
   const coordinated = useWorkbookSecondaryPanel(open, close);
   const before = useRef(false);
+  const focusedOpening = useRef(false);
+  if (!open) focusedOpening.current = false;
   useLayoutEffect(() => {
     if (!state?.readable) setOpen(false);
   }, [state?.readable]);
@@ -83,14 +85,27 @@ export function WorkbookWorkControls() {
         Work
       </button>
       {open && state.readable ? (
-        <WorkbookAuxiliaryDock label="Work" onClose={close}>
-          <WorkContents onClose={close} />
+        <WorkbookAuxiliaryDock
+          label="Work"
+          onClose={close}
+          onNavigationClose={() => {
+            coordinated.current = true;
+            setOpen(false);
+          }}
+        >
+          <WorkContents onClose={close} focusedOpening={focusedOpening} />
         </WorkbookAuxiliaryDock>
       ) : null}
     </>
   );
 }
-function WorkContents({ onClose }: { readonly onClose: () => void }) {
+function WorkContents({
+  onClose,
+  focusedOpening,
+}: {
+  readonly onClose: () => void;
+  readonly focusedOpening: { current: boolean };
+}) {
   const workbench = useWorkbookWorkbench();
   const state = useSyncExternalStore(
     workbench?.session.subscribe ?? subscribeEmpty,
@@ -98,11 +113,14 @@ function WorkContents({ onClose }: { readonly onClose: () => void }) {
   );
   const heading = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => {
-    heading.current?.focus();
-  }, []);
+    if (!focusedOpening.current) {
+      heading.current?.focus();
+      focusedOpening.current = true;
+    }
+  }, [focusedOpening]);
   if (!workbench || !state?.readable) return null;
   return (
-    <div data-workbook-navigation="true">
+    <div>
       <header
         style={{
           display: "flex",
@@ -143,6 +161,7 @@ function WorkContents({ onClose }: { readonly onClose: () => void }) {
                 style={workbookQuietCommandStyle}
                 type="button"
                 disabled={state.pending}
+                data-workbook-navigation="true"
                 onClick={() => workbench.openPin(pin)}
               >
                 {pin.label}
@@ -173,6 +192,7 @@ function WorkContents({ onClose }: { readonly onClose: () => void }) {
             <button
               style={workbookQuietCommandStyle}
               type="button"
+              data-workbook-navigation="true"
               onClick={() => {
                 workbench.open({
                   sheetRef: { kind: "view_schema", id: id ?? "" },
@@ -197,7 +217,6 @@ export function WorkbookNavigationNotice() {
   return (
     <div
       role="status"
-      data-workbook-navigation="true"
       style={{
         padding: "var(--ct-spacing-xs)",
         borderBottom: "var(--ct-border-hairline)",
@@ -215,6 +234,7 @@ export function WorkbookNavigationNotice() {
         <button
           style={workbookQuietCommandStyle}
           type="button"
+          data-workbook-navigation="true"
           onClick={workbench.retry}
         >
           Retry navigation
@@ -224,6 +244,7 @@ export function WorkbookNavigationNotice() {
         <button
           style={workbookQuietCommandStyle}
           type="button"
+          data-workbook-navigation="true"
           onClick={workbench.openBase}
         >
           Open base view
@@ -241,14 +262,12 @@ export function WorkbookReturnControl() {
   );
   if (!workbench || !state) return null;
   return (
-    <div
-      data-workbook-navigation="true"
-      style={{ display: "flex", gap: "var(--ct-spacing-xs)" }}
-    >
+    <div style={{ display: "flex", gap: "var(--ct-spacing-xs)" }}>
       <button
         style={workbookQuietCommandStyle}
         type="button"
         disabled={!state.readable || !state.trail.length || state.pending}
+        data-workbook-navigation="true"
         onClick={() => workbench.returnToOrigin()}
       >
         Return
@@ -274,6 +293,7 @@ export function WorkbookReturnControl() {
           disabled={
             !state.readable || !state.trail.at(-1)?.recordId || state.pending
           }
+          data-workbook-navigation="true"
           onClick={(event) => {
             event.currentTarget.closest("details")?.removeAttribute("open");
             workbench.returnToOrigin(true);

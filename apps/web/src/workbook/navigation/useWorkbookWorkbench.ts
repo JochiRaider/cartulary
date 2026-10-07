@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { sheetRefsEqual } from "../../shared/sheetRef";
 import type { useWorkbookShellRuntime } from "../hooks/useWorkbookShellRuntime";
 import {
@@ -61,14 +67,44 @@ export function useWorkbookWorkbench(options: {
   );
   const inspectRevision = useRef(0);
   const inspectorBindings = useRef(new Map<string, () => void>());
+  const inspectorFocus = useRef(
+    new Map<string, { recordId: string; focus: () => boolean }>(),
+  );
+  const registerInspectorFocus = useCallback(
+    (view: string, recordId: string, focus: () => boolean) => {
+      const binding = { recordId, focus };
+      inspectorFocus.current.set(view, binding);
+      registry.resumeNavigation();
+      return () => {
+        if (inspectorFocus.current.get(view) === binding)
+          inspectorFocus.current.delete(view);
+      };
+    },
+    [registry],
+  );
+  const registerInspector = useCallback(
+    (view: string, handler: () => void) => {
+      inspectorBindings.current.set(view, handler);
+      registry.resumeNavigation();
+      return () => {
+        if (inspectorBindings.current.get(view) === handler)
+          inspectorBindings.current.delete(view);
+      };
+    },
+    [registry],
+  );
   const [notice, setNotice] = useState<Notice | null>(null);
   const current = useRef(options);
   current.current = options;
   const actor = useRef(options.actorId);
   useLayoutEffect(() => {
     // A transient unknown actor conceals retained state. Confirmed replacement retires it.
-    if (options.actorId && actor.current && actor.current !== options.actorId)
+    if (options.actorId && actor.current && actor.current !== options.actorId) {
       session.clear();
+      registry.clearNavigation();
+      setNotice(null);
+      setInspectValue(null);
+    }
     if (options.actorId) actor.current = options.actorId;
     session.setReadable(readable);
     if (!readable) {
@@ -180,6 +216,7 @@ export function useWorkbookWorkbench(options: {
           if (!extensionAvailable(target.sheetRef))
             return fail("This workspace is unavailable.");
           if (!admitted()) return "failed";
+          registry.detachPresentation(runtime.snapshot.surface);
           if (sheetRefsEqual(from.sheetRef, target.sheetRef)) return "same";
           registry.grid(runtime.snapshot.surface)?.detachEdit?.();
           commands.selectExtensionWorkspace(target.sheetRef);
@@ -196,9 +233,7 @@ export function useWorkbookWorkbench(options: {
           !baseFallback
         ) {
           if (!admitted()) return "failed";
-          inspectorBindings.current.get(
-            `${runtime.snapshot.surface}:close`,
-          )?.();
+          registry.detachPresentation(runtime.snapshot.surface);
           registry.grid(runtime.snapshot.surface)?.detachEdit?.();
           commands.selectWorkbookSurface(target.sheetRef.id, {
             focusFirstGridTarget: true,
@@ -339,9 +374,10 @@ export function useWorkbookWorkbench(options: {
             from.layout,
             buildSavedViewLayoutJson(contract, layout),
           );
-        inspectorBindings.current.get(`${runtime.snapshot.surface}:close`)?.();
+        registry.detachPresentation(runtime.snapshot.surface);
         registry.grid(runtime.snapshot.surface)?.detachEdit?.();
         commands.cancelGridEntryFocus();
+        let inspectorOpened = false;
         registry.stageNavigation(
           page,
           query.query,
@@ -352,8 +388,33 @@ export function useWorkbookWorkbench(options: {
               }
             : null,
           inspect
-            ? () => inspectorBindings.current.get(`${view}:open`)?.()
+            ? () => {
+                if (!admitted()) return true;
+                if (!inspectorOpened) {
+                  const open = inspectorBindings.current.get(view);
+                  if (!open) return false;
+                  inspectorOpened = true;
+                  open();
+                  return false;
+                }
+                const binding = inspectorFocus.current.get(view);
+                return (
+                  !!binding && binding.recordId === anchor && binding.focus()
+                );
+              }
             : undefined,
+          {
+            signal,
+            navigationOnly: !!returning,
+            onUnavailable: () => {
+              if (admitted())
+                setNotice({
+                  message: "This destination is unavailable.",
+                  retry,
+                  openBase: null,
+                });
+            },
+          },
         );
         if (resource) runtime.savedViewOwner.acceptResource(resource);
         commands.applyQueryStateForSurface(view, queryState);
@@ -365,7 +426,7 @@ export function useWorkbookWorkbench(options: {
               : target.sheetRef,
             viewSchemaId: view,
           },
-          { reloadSheet: true, focusFirstGridTarget: !anchor },
+          { reloadSheet: true, focusFirstGridTarget: !anchor && !returning },
         );
         if (
           returning?.savedViewVersion &&
@@ -433,14 +494,8 @@ export function useWorkbookWorkbench(options: {
         label,
         ...(fieldKey ? { fieldKey } : {}),
       }),
-    registerInspector: (view, action, handler) => {
-      const key = `${view}:${action}`;
-      inspectorBindings.current.set(key, handler);
-      return () => {
-        if (inspectorBindings.current.get(key) === handler)
-          inspectorBindings.current.delete(key);
-      };
-    },
+    registerInspector,
+    registerInspectorFocus,
     pinViewLabel:
       current.current.runtime.snapshot.startupSheetRef.kind === "view_schema" &&
       !savedViewJSONEqual(

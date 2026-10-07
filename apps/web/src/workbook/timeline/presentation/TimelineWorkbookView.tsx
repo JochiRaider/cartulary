@@ -1,8 +1,6 @@
 import { WorkbookObservedStatusStrip } from "../../components/WorkbookStatusStrip";
-import {
-  WorkbookSurfaceLayout,
-  workbookSurfaceFeedbackStyle,
-} from "../../layout/WorkbookSurfaceLayout";
+import { workbookSurfaceFeedbackStyle } from "../../layout/WorkbookSurfaceLayout";
+import { WorkbookQuerySurfaceLayout } from "../../query/WorkbookQuerySurfaceLayout";
 import { TimelineBulkTagControl } from "../components/TimelineBulkTagControl";
 import { TimelineWorkbookGrid } from "../components/TimelineWorkbookGrid";
 import { TimelineWorkbookNotices } from "../components/TimelineWorkbookNotices";
@@ -17,7 +15,7 @@ export function TimelineWorkbookView({
   readonly model: TimelineWorkbookPresentationModel;
 }) {
   return (
-    <WorkbookSurfaceLayout
+    <WorkbookQuerySurfaceLayout
       {...model.layout}
       inspector={
         model.inspector === null ? undefined : (

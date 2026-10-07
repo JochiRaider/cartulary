@@ -99,10 +99,6 @@ const forbiddenPatterns = [
     message: "Current incident role readiness text",
     pattern: /getByText\(\s*["']Current incident role:/u,
   },
-  {
-    message: "heading-name readiness wait",
-    pattern: /getByRole\(\s*["']heading["']\s*,\s*\{\s*name:/u,
-  },
 ] as const;
 
 const rawDataTestIdSelectorPattern =
@@ -308,6 +304,64 @@ function recordSelectorSinkArgument(
   }
 }
 
+function isActiveElement(node: ts.Node | undefined): boolean {
+  return (
+    !!node &&
+    ts.isPropertyAccessExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "document" &&
+    node.name.text === "activeElement"
+  );
+}
+
+function isExpectCall(node: ts.Node): node is ts.CallExpression {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "expect" &&
+    node.arguments.length === 1
+  );
+}
+
+function focusAssertionReceiver(node: ts.Expression): ts.Expression {
+  return ts.isPropertyAccessExpression(node) && node.name.text === "not"
+    ? node.expression
+    : node;
+}
+
+function isDirectFocusAssertion(node: ts.CallExpression): boolean {
+  const parent = node.parent;
+  // Both orientations of actual DOM identity equality are permitted.
+  if (
+    ts.isCallExpression(parent) &&
+    parent.arguments[0] === node &&
+    ts.isPropertyAccessExpression(parent.expression) &&
+    parent.expression.name.text === "toBe"
+  ) {
+    const receiver = focusAssertionReceiver(parent.expression.expression);
+    if (isExpectCall(receiver) && isActiveElement(receiver.arguments[0]))
+      return true;
+  }
+  if (!isExpectCall(parent) || parent.arguments[0] !== node) return false;
+  let matcher = parent.parent;
+  if (ts.isPropertyAccessExpression(matcher) && matcher.name.text === "not")
+    matcher = matcher.parent;
+  if (
+    !ts.isPropertyAccessExpression(matcher) ||
+    !ts.isCallExpression(matcher.parent)
+  )
+    return false;
+  const assertion = matcher.parent;
+  return (
+    ((matcher.name.text === "toBeFocused" ||
+      matcher.name.text === "toHaveFocus") &&
+      assertion.arguments.length === 0) ||
+    (matcher.name.text === "toBe" &&
+      assertion.arguments.length === 1 &&
+      isActiveElement(assertion.arguments[0]))
+  );
+}
+
 function scanAstSelectorSinks(
   violations: string[],
   options: {
@@ -326,6 +380,36 @@ function scanAstSelectorSinks(
   function visit(node: ts.Node) {
     if (ts.isCallExpression(node)) {
       const name = selectorSinkName(node.expression);
+      const role = node.arguments[0];
+      const queryOptions = node.arguments[1];
+      if (
+        name !== null &&
+        [
+          "getByRole",
+          "queryByRole",
+          "findByRole",
+          "getAllByRole",
+          "queryAllByRole",
+          "findAllByRole",
+        ].includes(name) &&
+        role &&
+        ts.isStringLiteral(role) &&
+        role.text === "heading" &&
+        queryOptions &&
+        (!ts.isObjectLiteralExpression(queryOptions) ||
+          queryOptions.properties.some(
+            (property) =>
+              ts.isSpreadAssignment(property) ||
+              (property.name &&
+                (ts.isComputedPropertyName(property.name) ||
+                  propertyNameText(property.name) === "name")),
+          )) &&
+        !isDirectFocusAssertion(node)
+      ) {
+        violations.push(
+          `${options.file}:${lineNumberForOffset(options.content, node.getStart(sourceFile))} named-heading use requires a direct focus assertion or a stable readiness selector`,
+        );
+      }
       const sink =
         name === null
           ? undefined
@@ -454,6 +538,46 @@ function collectSelectorPolicyViolations(
 }
 
 describe("selector contract policy", () => {
+  it("distinguishes direct heading focus assertions from readiness and ambiguous uses", () => {
+    const heading = 'page.getByRole("heading", { exact: true, name: "Work" })';
+    for (const content of [
+      `await expect(${heading}).toBeFocused();`,
+      `await expect(${heading}).not.toBeFocused();`,
+      `expect(${heading}).toHaveFocus();`,
+      `expect(${heading}).not.toHaveFocus();`,
+      `expect(${heading}).toBe(document.activeElement);`,
+      `expect(${heading}).not.toBe(document.activeElement);`,
+      `expect(document.activeElement).toBe(${heading});`,
+      `expect(document.activeElement).not.toBe(${heading});`,
+      `expect(\n screen.getByRole(\n 'heading', {\n name: 'Work'\n })\n).toBe(document.activeElement);`,
+    ])
+      expect(
+        collectSelectorPolicyViolations("focus.test.ts", content),
+        content,
+      ).toEqual([]);
+
+    for (const content of [
+      `await expect(${heading}).toBeVisible();`,
+      `await expect(${heading}).not.toBeVisible();`,
+      `await expect(${heading}).toBeAttached();`,
+      `expect(${heading}).toBeInTheDocument();`,
+      `await ${heading}.waitFor();`,
+      `await waitFor(() => ${heading});`,
+      `const target = ${heading}; await expect(target).toBeFocused();`,
+      `expect(${heading}).toBe(otherHeading);`,
+      `${heading}; expect(other).toHaveFocus();`,
+      `await page.findByRole("heading", { name: "Work" });`,
+      `page.queryByRole("heading", { name: "Work" });`,
+      `const options = { name: "Work" }; page.getByRole("heading", options);`,
+      `page.getByRole("heading", { ...options });`,
+      `page.getByRole("heading", { [key]: "Work" });`,
+    ])
+      expect(
+        collectSelectorPolicyViolations("focus.test.ts", content),
+        content,
+      ).toEqual([expect.stringContaining("named-heading use requires")]);
+  });
+
   it("keeps delivery-shaped selector helpers out of production modules", () => {
     const violations = listSourceFiles("apps/web/src").flatMap((file) => {
       if (

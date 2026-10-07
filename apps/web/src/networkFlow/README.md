@@ -11,6 +11,10 @@ a `view_schema` owner. Workbook integration uses the
 and [NetworkFlowOperations.ts](../workbook/features/NetworkFlowOperations.ts)
 for persistent operation ownership.
 
+The workspace requires a `workAreaFrame` supplied by Workbook composition. It
+has no local host fallback and does not construct a query-navigation runtime.
+Recovery uses the shell auxiliary dock and keeps operation state in its owner.
+
 Extension availability comes from [extensions](../extensions/README.md);
 the shared [collaboration session](../collaboration/README.md) owns the socket.
 Measurement fixtures live in [measurement](../measurement/README.md).

@@ -110,6 +110,13 @@ describe("semantic focus requests", () => {
     expect(
       await requests.requestFocus({ kind: "draft", fieldKey: "first" }),
     ).toBe("unavailable");
+    wrapper.style.display = "";
+    wrapper.setAttribute("inert", "");
+    expect(await requests.requestFocus({ kind: "root" })).toBe("unavailable");
+    expect(document.activeElement).not.toBe(input);
+    wrapper.removeAttribute("inert");
+    expect(await requests.requestFocus({ kind: "root" })).toBe("focused");
+    expect(document.activeElement).toBe(input);
     resolution = { kind: "pending" };
     const result = requests.requestFocus({ kind: "draft", fieldKey: "first" });
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));

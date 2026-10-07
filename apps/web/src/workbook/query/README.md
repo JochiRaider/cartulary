@@ -21,6 +21,7 @@ here and are consumed by Timeline as well as other surfaces.
 | [workbookQueryRowPatch.ts](workbookQueryRowPatch.ts) | Pure sparse-patch application for shared query rows. |
 | [WorkbookViewQueryPort.ts](WorkbookViewQueryPort.ts) | Shared abortable query capability returning correlated, contract-normalized rows. |
 | [WorkbookQueryBrowser.ts](WorkbookQueryBrowser.ts) | Staged complete-result admission, bounded windows, request checkpoints, continuation and restart. |
+| [WorkbookQuerySurfaceLayout.tsx](WorkbookQuerySurfaceLayout.tsx) | Explicit query-provider adapter for the reusable frame, presentation binding and browsing controls. |
 | [WorkbookQueryBrowsingControls.tsx](WorkbookQueryBrowsingControls.tsx) | Explicit keyboard continuation, earlier checkpoints, cursor-free refresh, and local query Retry/Revert. |
 | [WorkbookQueryBrowsingContext.tsx](WorkbookQueryBrowsingContext.tsx) | Workbook-scoped browsing lifetimes and accepted query presentation. |
 | [workbookQueryMetadata.ts](workbookQueryMetadata.ts) | Canonical metadata validation and authored-intent preservation. |
@@ -39,7 +40,9 @@ here and are consumed by Timeline as well as other surfaces.
 
 ## Browsing lifetime
 
-`WorkbookQueryBrowsingProvider` is required in the shell and isolated fixtures.
+`WorkbookQueryBrowsingProvider` is required for query-connected surfaces and
+their isolated fixtures. Provider-free layout and Recovery fixtures do not
+construct query browsing.
 Render prepares only a binding identity. Layout effects commit its unique token,
 create or reuse the browser, subscribe, and register the matching reader before
 dependent reads. Inactive and uncommitted bindings have no browser; an

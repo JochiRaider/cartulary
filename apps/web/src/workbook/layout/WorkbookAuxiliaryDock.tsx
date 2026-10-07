@@ -13,7 +13,7 @@ import { createPortal } from "react-dom";
 
 type Attachment = {
   readonly key: symbol;
-  readonly close: () => void;
+  readonly close: (reason?: "navigation") => void;
   readonly label: string;
 };
 const Context = createContext<{
@@ -62,7 +62,6 @@ export function WorkbookFooterNavigationHost() {
   const context = useContext(FooterContext);
   return context ? (
     <div
-      data-workbook-navigation="true"
       ref={context.setHost}
       style={{
         display: "flex",
@@ -92,23 +91,43 @@ export const WorkbookAuxiliaryDock = forwardRef<
     readonly children: ReactNode;
     readonly label: string;
     readonly onClose: () => void;
+    readonly onNavigationClose?: (() => void) | undefined;
   }
->(function WorkbookAuxiliaryDock({ children, label, onClose }, ref) {
+>(function WorkbookAuxiliaryDock(
+  { children, label, onClose, onNavigationClose },
+  ref,
+) {
   const context = useContext(Context);
+  if (!context) throw new Error("WorkbookAuxiliaryDockProvider is required");
   const key = useRef(Symbol("auxiliary destination")).current;
   const close = useRef(onClose);
   close.current = onClose;
-  const attach = context?.attach;
-  const detach = context?.detach;
+  const navigationClose = useRef(onNavigationClose);
+  navigationClose.current = onNavigationClose;
+  const { attach, detach } = context;
   useLayoutEffect(() => {
-    attach?.({ key, label, close: () => close.current() });
-    return () => detach?.(key);
+    attach({
+      key,
+      label,
+      close: (reason) => {
+        if (reason === "navigation" && navigationClose.current)
+          navigationClose.current();
+        else close.current();
+      },
+    });
+    return () => detach(key);
   }, [attach, detach, key, label]);
-  return context?.host
+  return context.host
     ? createPortal(
         <section
           ref={ref}
           aria-label={label}
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" || event.defaultPrevented) return;
+            event.preventDefault();
+            event.stopPropagation();
+            close.current();
+          }}
           style={{
             minWidth: 0,
             minHeight: 0,

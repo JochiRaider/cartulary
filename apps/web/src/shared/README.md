@@ -39,7 +39,6 @@ navigation uses semantic element refs without timers.
 | --- | --- |
 | [workbookRecoveryNavigation.ts](workbookRecoveryNavigation.ts) | Instance-scoped metadata registration, logical-work counts, semantic parent routing, selected attachment and disposal. No execution state. |
 | [WorkbookRecoveryBoundary.tsx](WorkbookRecoveryBoundary.tsx) | Owner adapters, detail portals and inspector/dialog attachment coordination. |
-| [WorkbookWorkAreaOverlay.tsx](WorkbookWorkAreaOverlay.tsx) | Shared work-area host and bounded internally scrolling panel geometry. |
 | [workbookRecoveryNavigation.test.ts](workbookRecoveryNavigation.test.ts) | Identity continuity, deduplication, ordering, stale registration/activation, withdrawal and disposal. |
 
 Publish safe metadata only while the owner authorizes it. Preserve the owner's
@@ -48,8 +47,9 @@ surface reads attributed to their parent. Each owner subscribes independently;
 registration tokens fence retired publishers. The Workbook shell owns one list
 and detail host; features own their forms, requests, receipts and detach policy.
 
-The work-area recovery overlay sits below the existing view-bar navigation
-layer, so open surface and saved-view menus remain reachable during recovery.
+Workbook layout owns the single auxiliary dock host for Record, Work and
+Recovery. Its adjacent and responsive overlay geometry keeps navigation and
+status outside the panel; feature owners retain operation state.
 
 Overlay consumers may supply `onRestoreFocus` to `useRegisteredOverlayNavigation`
 when return focus belongs to a semantic owner. Without it, the registered DOM

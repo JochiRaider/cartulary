@@ -56,7 +56,7 @@ import type {
   TimelineWorkbookEntityRow,
   TimelineWorkbookIncidentRole,
 } from "../workbook/timeline/models/timelineWorkbookSurfaceRuntime";
-import { WorkbookRecoveryFixture } from "./WorkbookRecoveryFixture";
+import { WorkbookRecoveryProvidersFixture } from "./WorkbookRecoveryFixture";
 import { workbookAuthorizationRecovery } from "./workbookAuthorizationTestSupport";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -327,11 +327,10 @@ export function TimelineWorkbookRuntimeFixture({
 
   return (
     <WorkbookQueryBrowsingProvider>
-      <WorkbookRecoveryFixture
+      <WorkbookRecoveryProvidersFixture
         navigation={navigation}
         invokerRef={invokerRef}
         fallbackRef={activeSurfaceRef}
-        standalone={false}
       >
         <WorkbookHistoryContext.Provider value={mutationRuntime}>
           <WorkbookBatchRecovery
@@ -414,7 +413,7 @@ export function TimelineWorkbookRuntimeFixture({
             }
           />
         </WorkbookHistoryContext.Provider>
-      </WorkbookRecoveryFixture>
+      </WorkbookRecoveryProvidersFixture>
     </WorkbookQueryBrowsingProvider>
   );
 }

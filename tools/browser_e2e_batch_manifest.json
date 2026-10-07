@@ -1516,6 +1516,33 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-workbook-destination-handoff",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.destination_handoff_1024_963c4de116",
+            "module.workbook.browser.destination_handoff_1440_920aaf64d5",
+            "module.workbook.browser.destination_handoff_768_8f85fa718d",
+            "module.workbook.browser.destination_handoff_hidden_a9564ecda1",
+            "module.workbook.browser.destination_handoff_supersession_62c776e360",
+            "module.workbook.browser.destination_handoff_viewer_64fc8d19e2"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-destination-handoff.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-workbook-grid-autosave",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",

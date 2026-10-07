@@ -10,6 +10,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type {
   WorkbookGridEntryFocusAcknowledgement,
@@ -60,13 +61,29 @@ export function useWorkbookSemanticGridFocus<Row>({
   readonly viewSchemaId: string;
 }) {
   const browsingRegistry = useWorkbookBrowsingRegistry();
+  useSyncExternalStore(
+    browsingRegistry.subscribe,
+    browsingRegistry.getSnapshot,
+  );
+  const presentationReady = browsingRegistry.presentationReady(viewSchemaId);
+  const selectionCommit = useRef<(() => void) | null>(null);
+  const [, selectionChanged] = useState(0);
+  useLayoutEffect(() => {
+    const committed = selectionCommit.current;
+    selectionCommit.current = null;
+    committed?.();
+  });
   const navigateRecord = useRef(onNavigateRecord);
   navigateRecord.current = onNavigateRecord;
   useLayoutEffect(() => {
     const unbind = browsingRegistry.bindGrid(
       viewSchemaId,
       gridHandleRef,
-      (recordId) => navigateRecord.current?.(recordId),
+      (recordId, committed) => {
+        navigateRecord.current?.(recordId);
+        selectionCommit.current = committed;
+        selectionChanged((revision) => revision + 1);
+      },
     );
     return () => {
       const anchor = gridHandleRef.current?.getActiveCell?.();
@@ -106,10 +123,11 @@ export function useWorkbookSemanticGridFocus<Row>({
   const registerGridHandle = useCallback(
     (handle: GridHandle | null) => {
       gridHandleRef.current = handle;
+      browsingRegistry.refreshGridBinding(viewSchemaId);
       setMountedRoot(handle?.getScrollElement() ?? null);
       setRegisteredFocus(() => handle?.requestFocus ?? null);
     },
-    [gridHandleRef],
+    [gridHandleRef, browsingRegistry, viewSchemaId],
   );
   const stableDraftFieldKeys = useStableFieldKeys(draftFieldKeys);
   const visibleFieldKeys = useStableFieldKeys(
@@ -155,6 +173,7 @@ export function useWorkbookSemanticGridFocus<Row>({
       if (
         registeredFocus === null ||
         mountedRoot === null ||
+        !presentationReady ||
         gridDataStateIsBusy(dataState.kind)
       )
         return;
@@ -185,6 +204,7 @@ export function useWorkbookSemanticGridFocus<Row>({
     acknowledge,
     cancelRequest,
     mountedRoot,
+    presentationReady,
     registeredFocus,
     request,
     stableDraftFieldKeys,

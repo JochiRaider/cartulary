@@ -1,4 +1,5 @@
 import {
+  type ComponentProps,
   type ReactNode,
   type RefObject,
   useEffect,
@@ -7,7 +8,6 @@ import {
   useState,
 } from "react";
 import { WorkbookRecoveryBoundary } from "../shared/WorkbookRecoveryBoundary";
-import { WorkbookWorkAreaOverlayProvider } from "../shared/WorkbookWorkAreaOverlay";
 import { WorkbookRecoveryNavigation } from "../shared/workbookRecoveryNavigation";
 import {
   WorkbookRecoveryEntry,
@@ -16,19 +16,17 @@ import {
 import { WorkbookAuxiliaryDockProvider } from "../workbook/layout/WorkbookAuxiliaryDock";
 import { WorkbookSurfaceLayout } from "../workbook/layout/WorkbookSurfaceLayout";
 
-/** Isolated owners use the same entry, attachment and geometry as the production shell. */
-export function WorkbookRecoveryFixture({
+/** Owner content supplies its own production work-area frame. */
+export function WorkbookRecoveryProvidersFixture({
   children,
   navigation: provided,
   invokerRef: providedInvoker,
   fallbackRef: providedFallback,
-  standalone = true,
 }: {
   readonly children: ReactNode;
   readonly navigation?: WorkbookRecoveryNavigation;
   readonly invokerRef?: RefObject<HTMLElement | null>;
   readonly fallbackRef?: RefObject<HTMLElement | null>;
-  readonly standalone?: boolean;
 }) {
   const own = useMemo(() => new WorkbookRecoveryNavigation(), []);
   const navigation = provided ?? own;
@@ -40,42 +38,52 @@ export function WorkbookRecoveryFixture({
   useEffect(() => () => own.dispose(), [own]);
   return (
     <WorkbookAuxiliaryDockProvider>
-      <WorkbookWorkAreaOverlayProvider>
-        <WorkbookRecoveryBoundary
+      <WorkbookRecoveryBoundary
+        navigation={navigation}
+        detailHost={host}
+        invokerRef={invokerRef}
+      >
+        <WorkbookRecoveryEntry
           navigation={navigation}
-          detailHost={host}
           invokerRef={invokerRef}
-        >
-          <WorkbookRecoveryEntry
-            navigation={navigation}
-            invokerRef={invokerRef}
-          />
-          <WorkbookRecoveryPanel
-            navigation={navigation}
-            registerDetailHost={setHost}
-            invokerRef={invokerRef}
-            fallbackRef={fallbackRef}
-          />
-          {children}
-          {standalone ? (
-            <div style={{ position: "relative", height: "40rem" }}>
-              <WorkbookSurfaceLayout
-                workAreaOnly
-                viewSchemaId="test"
-                viewBar={null}
-                statusStrip={null}
-                primaryGrid={
-                  <section
-                    aria-label="Workbook grid focus target"
-                    tabIndex={-1}
-                    ref={fallbackRef}
-                  />
-                }
-              />
-            </div>
-          ) : null}
-        </WorkbookRecoveryBoundary>
-      </WorkbookWorkAreaOverlayProvider>
+        />
+        <WorkbookRecoveryPanel
+          navigation={navigation}
+          registerDetailHost={setHost}
+          invokerRef={invokerRef}
+          fallbackRef={fallbackRef}
+        />
+        {children}
+      </WorkbookRecoveryBoundary>
     </WorkbookAuxiliaryDockProvider>
+  );
+}
+
+/** Isolated owners receive the production frame without a query runtime. */
+export function WorkbookRecoveryFixture(
+  props: ComponentProps<typeof WorkbookRecoveryProvidersFixture>,
+) {
+  const ownFallback = useRef<HTMLElement>(null);
+  const fallbackRef = props.fallbackRef ?? ownFallback;
+  return (
+    <WorkbookRecoveryProvidersFixture {...props} fallbackRef={fallbackRef}>
+      <div style={{ position: "relative", height: "40rem" }}>
+        <WorkbookSurfaceLayout
+          workAreaOnly
+          viewSchemaId="test"
+          viewBar={null}
+          statusStrip={null}
+          primaryGrid={
+            <section
+              aria-label="Workbook grid focus target"
+              tabIndex={-1}
+              ref={fallbackRef}
+            >
+              {props.children}
+            </section>
+          }
+        />
+      </div>
+    </WorkbookRecoveryProvidersFixture>
   );
 }

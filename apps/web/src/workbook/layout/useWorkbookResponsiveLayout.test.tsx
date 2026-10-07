@@ -1,7 +1,6 @@
 import { workbookLayoutMetrics } from "@cartulary/ui-contracts";
 import { act, render, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { WorkbookQueryBrowsingProvider } from "../query/WorkbookQueryBrowsingContext";
 import {
   currentWorkbookViewportSize,
   useWorkbookResponsiveLayout,
@@ -71,16 +70,14 @@ describe("workbook responsive viewport", () => {
       },
     });
     const frame = (feedback: string) => (
-      <WorkbookQueryBrowsingProvider>
-        <WorkbookSurfaceLayout
-          viewSchemaId="viewport-test"
-          primaryGrid={<div>Grid</div>}
-          inspector={<div>Inspector</div>}
-          viewBar={<div>View bar</div>}
-          statusStrip={<div>Status</div>}
-          workAreaFeedback={<div>{feedback}</div>}
-        />
-      </WorkbookQueryBrowsingProvider>
+      <WorkbookSurfaceLayout
+        viewSchemaId="viewport-test"
+        primaryGrid={<div>Grid</div>}
+        inspector={<div>Inspector</div>}
+        viewBar={<div>View bar</div>}
+        statusStrip={<div>Status</div>}
+        workAreaFeedback={<div>{feedback}</div>}
+      />
     );
     const surface = render(frame("Ready"));
     const initialReads = widthReads;

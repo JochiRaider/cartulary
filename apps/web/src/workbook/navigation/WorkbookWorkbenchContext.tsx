@@ -31,10 +31,11 @@ export type WorkbookWorkbench = {
     fieldKey?: string,
   ) => void;
   readonly returnToOrigin: (inspect?: boolean) => void;
-  readonly registerInspector: (
+  readonly registerInspector: (view: string, handler: () => void) => () => void;
+  readonly registerInspectorFocus: (
     view: string,
-    action: "open" | "close",
-    handler: () => void,
+    recordId: string,
+    focus: () => boolean,
   ) => () => void;
   readonly pinViewLabel: "Pin view" | "Pin base surface";
   readonly cancelNavigation: () => void;

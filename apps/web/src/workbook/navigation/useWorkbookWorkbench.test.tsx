@@ -92,10 +92,24 @@ function fixture() {
     authorityFailure: vi.fn(),
     admitsPage,
   };
-  const hook = renderHook((props) => useWorkbookWorkbench(props), {
-    initialProps: options,
-    wrapper: WorkbookQueryBrowsingProvider,
-  });
+  let registry!: ReturnType<typeof useWorkbookBrowsingRegistry>;
+  const hook = renderHook(
+    (props) => {
+      registry = useWorkbookBrowsingRegistry();
+      return useWorkbookWorkbench(props);
+    },
+    {
+      initialProps: options,
+      wrapper: WorkbookQueryBrowsingProvider,
+    },
+  );
+  const detachPresentation = vi.fn();
+  registry.updatePresentation(
+    timelineViewSchemaId,
+    Symbol(),
+    true,
+    detachPresentation,
+  );
   const target = {
     sheetRef: { kind: "view_schema" as const, id: notesViewSchemaId },
     recordId,
@@ -109,29 +123,51 @@ function fixture() {
     options,
     hook,
     target,
+    detachPresentation,
   };
 }
 
 describe("workbench navigation admission", () => {
   it("retains origin while location is pending and rejects late cancelled attachment", async () => {
-    const f = fixture();
-    const pending =
-      deferred<Awaited<ReturnType<WorkbookRecordLocatorPort["locate"]>>>();
-    f.locate.mockReturnValueOnce(pending.promise);
-    act(() => f.hook.result.current.open(f.target));
-    await waitFor(() => expect(f.locate).toHaveBeenCalledTimes(1));
-    expect(f.applyIdentity).not.toHaveBeenCalled();
-    expect(f.session.getSnapshot().trail).toEqual([]);
-    act(() => f.hook.result.current.cancelNavigation());
-    await act(async () =>
-      pending.resolve({
-        kind: "accepted",
-        value: { outcome: "located", page: page() },
-      }),
-    );
-    expect(f.applyIdentity).not.toHaveBeenCalled();
-    expect(f.session.getSnapshot().trail).toEqual([]);
-    expect(f.locate.mock.calls[0]?.[0].signal.aborted).toBe(true);
+    for (const invalidation of [
+      "interaction",
+      "account",
+      "authority",
+      "unmount",
+    ]) {
+      const f = fixture();
+      const pending =
+        deferred<Awaited<ReturnType<WorkbookRecordLocatorPort["locate"]>>>();
+      f.locate.mockReturnValueOnce(pending.promise);
+      act(() => f.hook.result.current.open(f.target));
+      await waitFor(() => expect(f.locate).toHaveBeenCalledTimes(1));
+      expect(f.applyIdentity).not.toHaveBeenCalled();
+      expect(f.detachPresentation).not.toHaveBeenCalled();
+      expect(f.session.getSnapshot().trail).toEqual([]);
+      act(() => {
+        if (invalidation === "interaction")
+          f.hook.result.current.cancelNavigation();
+        else if (invalidation === "unmount") f.hook.unmount();
+        else
+          f.hook.rerender({
+            ...f.options,
+            ...(invalidation === "account"
+              ? { actorId: "other" }
+              : { readable: false }),
+          });
+      });
+      await act(async () =>
+        pending.resolve({
+          kind: "accepted",
+          value: { outcome: "located", page: page() },
+        }),
+      );
+      expect(f.applyIdentity).not.toHaveBeenCalled();
+      expect(f.session.getSnapshot().trail).toEqual([]);
+      expect(f.locate.mock.calls[0]?.[0].signal.aborted).toBe(true);
+      expect(f.detachPresentation).not.toHaveBeenCalled();
+      if (invalidation !== "unmount") f.hook.unmount();
+    }
   });
   it("keeps ordinary surface entry with its existing read and recovery owner", async () => {
     const f = fixture();
@@ -156,8 +192,10 @@ describe("workbench navigation admission", () => {
     await waitFor(() => expect(f.hook.result.current.openBase).not.toBeNull());
     expect(f.applyIdentity).not.toHaveBeenCalled();
     expect(f.session.getSnapshot().trail).toEqual([]);
+    expect(f.detachPresentation).not.toHaveBeenCalled();
     act(() => f.hook.result.current.openBase?.());
     await waitFor(() => expect(f.applyIdentity).toHaveBeenCalledTimes(1));
+    expect(f.detachPresentation).toHaveBeenCalledOnce();
     expect(f.locate.mock.calls[1]?.[0].recordId).toBe(recordId);
     expect(f.locate.mock.calls[1]?.[0].queryState).toEqual(
       emptyWorkbookQueryState(),
@@ -184,8 +222,20 @@ describe("workbench navigation admission", () => {
     );
     expect(f.session.getSnapshot().pins[0]?.label).toBe("Authorized label");
     expect(f.applyIdentity).not.toHaveBeenCalled();
+    expect(f.detachPresentation).not.toHaveBeenCalled();
     act(() => f.hook.result.current.retry?.());
     await waitFor(() => expect(f.applyIdentity).toHaveBeenCalledTimes(1));
+    f.detachPresentation.mockClear();
+    f.locate.mockResolvedValueOnce({
+      kind: "accepted",
+      value: { outcome: "unavailable" },
+    });
+    act(() => f.hook.result.current.openPin(pin));
+    await waitFor(() =>
+      expect(f.hook.result.current.message).toBe("This record is unavailable."),
+    );
+    expect(f.detachPresentation).not.toHaveBeenCalled();
+    expect(f.session.getSnapshot().pins[0]?.label).toBe("Unavailable item");
   });
   it("refuses observations older than owner evidence and conceals uncertain authority", async () => {
     const f = fixture();
@@ -212,62 +262,160 @@ describe("workbench navigation admission", () => {
 });
 
 it("navigation selects the accepted record through its owner before inspection, and ignores cancelled focus", async () => {
-  const { result } = renderHook(() => useWorkbookBrowsingRegistry(), {
-    wrapper: WorkbookQueryBrowsingProvider,
-  });
-  const registry = result.current;
-  const read = vi.fn<WorkbookViewQueryPort["query"]>();
-  const binding = registry.prepare(read, notesViewSchemaId, true);
-  const unbind = registry.commit(binding);
-  const browser = binding.currentBrowser();
-  if (!browser) throw new Error("Missing browser");
-  const select = vi.fn();
-  const inspect = vi.fn();
-  let changed = () => {};
-  const grid = {
-    revealRecord: vi.fn(() => true),
-    requestFocus: vi.fn(async () => "focused" as const),
-    presentation: {
-      getSnapshot: () => ({
-        surface: { kind: "view_schema", viewSchemaId: notesViewSchemaId },
-        rowIdentities: [{ kind: "core_record", recordId }],
-        fieldKeys: ["note.title"],
-        revision: 1,
-      }),
-      subscribe: (listener: () => void) => {
-        changed = listener;
-        return () => {};
+  for (const [fieldKeys, requested, expectedField] of [
+    [["note.title", "note.body"], "note.body", "note.body"],
+    [["note.title"], "note.body", "note.title"],
+    [[], "note.body", undefined],
+  ] as const) {
+    const { result, unmount } = renderHook(
+      () => useWorkbookBrowsingRegistry(),
+      {
+        wrapper: WorkbookQueryBrowsingProvider,
       },
-    },
-  } as unknown as GridHandle;
-  const detach = registry.bindGrid(
-    notesViewSchemaId,
-    { current: grid },
-    select,
-  );
-  const destination = page();
-  registry.stageNavigation(destination, read, { recordId }, inspect);
-  await act(async () => {});
-  expect(select).not.toHaveBeenCalled();
-  expect(grid.requestFocus).not.toHaveBeenCalled();
-  // Only the source owner accepting the staged read permits selection and focus.
-  const staged = await browser.query({
-    contract,
-    queryState: emptyWorkbookQueryState(),
-    signal: new AbortController().signal,
-  });
-  if (staged.kind !== "accepted") throw new Error("Expected staged read");
-  browser.accept(staged.value);
-  await act(async () => changed());
-  expect(select).toHaveBeenCalledWith(recordId);
-  expect(inspect).toHaveBeenCalledOnce();
-  expect(select.mock.invocationCallOrder[0]).toBeLessThan(
-    inspect.mock.invocationCallOrder[0] ?? 0,
-  );
-  registry.stageNavigation(page(), read, { recordId }, inspect);
-  registry.cancelNavigationFocus();
-  await act(async () => changed());
-  expect(select).toHaveBeenCalledTimes(1);
-  detach();
-  unbind?.();
+    );
+    const registry = result.current;
+    const read = vi.fn<WorkbookViewQueryPort["query"]>();
+    const binding = registry.prepare(read, notesViewSchemaId, true);
+    registry.commit(binding);
+    const browser = binding.currentBrowser();
+    if (!browser) throw new Error("Missing browser");
+    let commitSelection = () => {};
+    const select = vi.fn((_id: string, committed: () => void) => {
+      commitSelection = committed;
+    });
+    const inspect = vi.fn();
+    const focus = deferred<"focused">();
+    const grid = {
+      revealRecord: vi.fn(() => true),
+      requestFocus: vi.fn(() => focus.promise),
+      presentation: {
+        getSnapshot: () => ({
+          surface: { kind: "view_schema", viewSchemaId: notesViewSchemaId },
+          rowIdentities: [{ kind: "core_record", recordId }],
+          fieldKeys,
+          revision: 1,
+        }),
+        subscribe: () => () => {},
+      },
+    } as unknown as GridHandle;
+    registry.bindGrid(notesViewSchemaId, { current: grid }, select);
+    const token = Symbol();
+    registry.updatePresentation(notesViewSchemaId, token, false, () => {});
+    registry.stageNavigation(
+      page(),
+      read,
+      { recordId, fieldKey: requested },
+      inspect,
+    );
+    await act(async () => {});
+    expect(select).not.toHaveBeenCalled();
+    const staged = await browser.query({
+      contract,
+      queryState: emptyWorkbookQueryState(),
+      signal: new AbortController().signal,
+    });
+    if (staged.kind !== "accepted") throw new Error("Expected staged read");
+    browser.accept(staged.value);
+    await act(async () => {});
+    // Read acceptance cannot focus an inert presentation or prematurely select.
+    expect(select).not.toHaveBeenCalled();
+    act(() =>
+      registry.updatePresentation(notesViewSchemaId, token, true, () => {}),
+    );
+    await act(async () => {});
+    expect(select).toHaveBeenCalledWith(recordId, expect.any(Function));
+    expect(grid.requestFocus).not.toHaveBeenCalled();
+    await act(async () => commitSelection());
+    expect(grid.requestFocus).toHaveBeenCalledWith(
+      expectedField
+        ? {
+            kind: "cell",
+            anchor: {
+              surface: { kind: "view_schema", viewSchemaId: notesViewSchemaId },
+              rowIdentity: { kind: "core_record", recordId },
+              fieldKey: expectedField,
+            },
+          }
+        : { kind: "root" },
+      expect.anything(),
+    );
+    expect(inspect).not.toHaveBeenCalled();
+    await act(async () => focus.resolve("focused"));
+    expect(inspect).toHaveBeenCalledOnce();
+    unmount();
+  }
+});
+
+it("cancels destination attachment before delayed mounting, selection commit and inspector activation", async () => {
+  for (const phase of [
+    "mount",
+    "selection",
+    "focus",
+    "inspector",
+    "unmount",
+  ] as const) {
+    const { result, unmount } = renderHook(
+      () => useWorkbookBrowsingRegistry(),
+      { wrapper: WorkbookQueryBrowsingProvider },
+    );
+    const registry = result.current;
+    const read = vi.fn<WorkbookViewQueryPort["query"]>();
+    const binding = registry.prepare(read, notesViewSchemaId, true);
+    registry.commit(binding);
+    const browser = binding.currentBrowser();
+    if (!browser) throw new Error("Missing browser");
+    const focus = deferred<"focused">();
+    let selectionCommitted = () => {};
+    const select = vi.fn((_id: string, committed: () => void) => {
+      selectionCommitted = committed;
+    });
+    const inspect = vi.fn(() => false);
+    const grid = {
+      requestFocus: vi.fn(() => focus.promise),
+      presentation: {
+        getSnapshot: () => ({
+          surface: { kind: "view_schema", viewSchemaId: notesViewSchemaId },
+          rowIdentities: [{ kind: "core_record", recordId }],
+          fieldKeys: ["note.title"],
+          revision: 1,
+        }),
+        subscribe: () => () => {},
+      },
+    } as unknown as GridHandle;
+    const handle = { current: phase === "mount" ? null : grid };
+    registry.bindGrid(notesViewSchemaId, handle, select);
+    const token = Symbol();
+    registry.updatePresentation(notesViewSchemaId, token, true, () => {});
+    const intent = new AbortController();
+    registry.stageNavigation(page(), read, { recordId }, inspect, {
+      signal: intent.signal,
+      navigationOnly: true,
+      onUnavailable: vi.fn(),
+    });
+    const staged = await browser.query({
+      contract,
+      queryState: emptyWorkbookQueryState(),
+      signal: intent.signal,
+    });
+    if (staged.kind !== "accepted") throw new Error("Expected staged read");
+    browser.accept(staged.value);
+    await act(async () => {});
+    if (phase === "focus" || phase === "unmount" || phase === "inspector")
+      await act(async () => selectionCommitted());
+    if (phase === "inspector") await act(async () => focus.resolve("focused"));
+    if (phase === "unmount") unmount();
+    else intent.abort();
+    handle.current = grid;
+    registry.refreshGridBinding(notesViewSchemaId);
+    await act(async () => {
+      selectionCommitted();
+      focus.resolve("focused");
+    });
+    expect(inspect).toHaveBeenCalledTimes(phase === "inspector" ? 1 : 0);
+    expect(select).toHaveBeenCalledTimes(phase === "mount" ? 0 : 1);
+    expect(grid.requestFocus).toHaveBeenCalledTimes(
+      phase === "focus" || phase === "unmount" || phase === "inspector" ? 1 : 0,
+    );
+    if (phase !== "unmount") unmount();
+  }
 });

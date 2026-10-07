@@ -28,9 +28,13 @@ describe("Workbook incident heading", () => {
     );
     const heading = screen.getByRole("heading", {
       level: 1,
-      name: "INC-001 A complete and deliberately long incident title",
     });
     expect(heading.tagName).toBe("H1");
+    expect(
+      within(heading).getByRole("button", {
+        name: "Incident details: INC-001, A complete and deliberately long incident title",
+      }),
+    ).toBeTruthy();
     const trigger = within(heading).getByRole("button");
     trigger.focus();
     await user.keyboard("{Enter}");
@@ -54,24 +58,27 @@ describe("Workbook incident heading", () => {
     fireEvent.pointerDown(screen.getByRole("button", { name: "Next control" }));
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     rerender(content("INC-001", "Updated title"));
+    expect(screen.getByRole("heading", { level: 1 })).toBe(heading);
     expect(
-      screen.getByRole("heading", { level: 1, name: "INC-001 Updated title" }),
-    ).toBe(heading);
-    rerender(content("INC-RENAMED", "Updated title"));
-    expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: "INC-RENAMED Updated title",
+      within(heading).getByRole("button", {
+        name: "Incident details: INC-001, Updated title",
       }),
-    ).toBe(heading);
+    ).toBeTruthy();
+    rerender(content("INC-RENAMED", "Updated title"));
+    expect(screen.getByRole("heading", { level: 1 })).toBe(heading);
+    expect(
+      within(heading).getByRole("button", {
+        name: "Incident details: INC-RENAMED, Updated title",
+      }),
+    ).toBeTruthy();
     rerender(content("INC-002", "Replacement identity"));
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 })).toBe(heading);
     expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: "INC-002 Replacement identity",
+      within(heading).getByRole("button", {
+        name: "Incident details: INC-002, Replacement identity",
       }),
-    ).toBe(heading);
+    ).toBeTruthy();
     expect(screen.queryByText("INC-001")).toBeNull();
     await user.click(within(heading).getByRole("button"));
     expect(

@@ -58,7 +58,6 @@ import { WorkbookExplicitPatchRecovery } from "../inspector/WorkbookExplicitPatc
 import { useWorkbookColumnSizingBinding } from "../layout/useWorkbookColumnSizingBinding";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
-  WorkbookSurfaceLayout,
   workbookGridWithNoticeStyle,
   workbookSurfaceGridShellStyle,
 } from "../layout/WorkbookSurfaceLayout";
@@ -92,6 +91,7 @@ import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutation
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
 import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import { WorkbookQuerySurfaceLayout } from "../query/WorkbookQuerySurfaceLayout";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
@@ -684,7 +684,7 @@ export function ContractWorkbookSurface({
     viewSchemaId: surface,
   });
   return (
-    <WorkbookSurfaceLayout
+    <WorkbookQuerySurfaceLayout
       chromeMode={chromeMode}
       inspector={genericInspector.node}
       onRequestPreviewClose={genericInspector.ownerRecordActions.closePreview}

@@ -21,7 +21,7 @@ repeated viewport subtraction in surface components.
 | [workbookDensity.ts](workbookDensity.ts) | Account density preference resolution. |
 | [workbookResponsiveLayout.ts](workbookResponsiveLayout.ts) | Responsive layout classification and surface-band helpers. |
 | [workbookShellStyles.ts](workbookShellStyles.ts) | Shared shell chrome, work-area, viewport-overlay, and responsive style slots. |
-| [Shared work-area overlay](../../shared/WorkbookWorkAreaOverlay.tsx) | Workbook and Network Analysis recovery host, bounds and internal scrolling. |
+| [WorkbookAuxiliaryDock.tsx](WorkbookAuxiliaryDock.tsx) | One presentation attachment for Record, Work and Recovery, hosted by the shared frame. |
 | [WorkbookSurfaceLayout.tsx](WorkbookSurfaceLayout.tsx) | Shared work-area, bounded contextual feedback, independently scrolling grid/inspector slots, overlay geometry, resize behavior, and focus restoration. |
 | [WorkbookQuerySummarySlot.tsx](WorkbookQuerySummarySlot.tsx) | Presentation destination for the conditional query strip. The existing query control retains its reducer and command ownership across responsive changes. |
 
@@ -58,3 +58,16 @@ order. All shared Core-grid surfaces project its visible prefix to Grid Adapter.
 The existing mounted capability binding also subscribes to effective placement;
 viewport suspension is never written back into authored state or saved-view dirty
 comparison. Reset Columns clears the boundary; saved-view Reset restores it.
+
+## Composition contract
+
+`WorkbookSurfaceLayout` is reusable without query browsing or Workbench
+providers. It accepts optional query controls and a presentation binding that
+publishes committed readiness and navigation detachment with mount-token
+cleanup. It owns geometry, inertness and focus restoration, never query state.
+
+`WorkbookQuerySurfaceLayout` in [query](../query/README.md) connects standardized
+Workbook surfaces to the required browsing provider. `WorkbookExtensionWorkArea`
+uses the reusable frame; Network Flow receives that frame explicitly from shell
+composition. Auxiliary destinations require the dock provider; a temporarily
+unmounted host is allowed while the frame commits the attachment.

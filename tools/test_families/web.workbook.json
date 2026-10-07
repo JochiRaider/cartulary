@@ -4850,6 +4850,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.surface_composition_debb2dc3cb",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/WorkbookSurfaceComposition.test.tsx",
+        "titles": [
+          "isolated layout hosts one dock without query providers and restores focus across responsive closure",
+          "query presentation cleanup fences replaced mounts and retires changed surface identities",
+          "query surfaces and auxiliary destinations reject missing required providers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_attachment_feedback",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -6633,6 +6659,7 @@
       "selector": {
         "file": "apps/web/src/workbook/navigation/useWorkbookWorkbench.test.tsx",
         "titles": [
+          "cancels destination attachment before delayed mounting, selection commit and inspector activation",
           "navigation selects the accepted record through its owner before inspection, and ignores cancelled focus",
           "workbench navigation admission keeps an outside-query origin until an explicit base locator succeeds",
           "workbench navigation admission keeps ordinary surface entry with its existing read and recovery owner",

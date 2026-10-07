@@ -69,7 +69,7 @@ export function WorkbookViewBar({
   useLayoutEffect(
     () =>
       onInspectorToggle
-        ? registerInspector?.(surface, "open", onInspectorToggle)
+        ? registerInspector?.(surface, onInspectorToggle)
         : undefined,
     [registerInspector, surface, onInspectorToggle],
   );

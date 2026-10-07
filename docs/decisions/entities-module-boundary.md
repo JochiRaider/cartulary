@@ -103,6 +103,19 @@ authority.
 
 ## Transaction and cross-owner rules
 
+Bounded Host and Identity record location is an Entities-owned query capability
+consumed by Workbook assembly under Core 01 REQ-01-680–684. `hostidentity.Store`
+publishes `LocateHostRows` and `LocateIdentityRows`; each owns one read-only,
+repeatable-read transaction covering membership, predecessor selection, window
+selection and source hydration. Workbook retains route admission and cursor
+issuance. Location does not expose arbitrary source storage or accept SQL.
+
+`projectionports.QueryReader` has four methods: ordinary and caller-transaction
+Host and Identity projection reads. Ordinary queries use the ordinary methods;
+location uses the transaction methods so projection selection and source
+hydration observe the same snapshot. The transaction methods are borrowed-read
+capabilities, not transaction lifecycle capabilities.
+
 A caller-supplied `pgx.Tx` is borrowed. An Entities operation receiving it does
 not begin, commit, roll back, nest, detach, or replace the transaction. It does
 not execute private SQL for another source owner or publish that owner's event

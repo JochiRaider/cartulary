@@ -19,7 +19,8 @@ import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollabor
 import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
 import { ImportClient } from "../services/importClient";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
-import { WorkbookRecoveryFixture } from "../testing/WorkbookRecoveryFixture";
+import { WorkbookRecoveryProvidersFixture } from "../testing/WorkbookRecoveryFixture";
+import { WorkbookExtensionWorkArea } from "../workbook/layout/WorkbookSurfaceLayout";
 import { NetworkFlowIndicatorLinkSurface } from "./IndicatorLinkDialog";
 import { NetworkAnalysisWorkspace as ProductionNetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
 import { NetworkFlowImportController } from "./NetworkFlowImportController";
@@ -38,6 +39,7 @@ function NetworkAnalysisWorkspace(
     | "savedGraphController"
     | "indicatorLinkController"
     | "tableController"
+    | "workAreaFrame"
   >,
 ) {
   return (
@@ -61,6 +63,7 @@ function NetworkAnalysisWorkspaceOwner(
     | "savedGraphController"
     | "indicatorLinkController"
     | "tableController"
+    | "workAreaFrame"
   >,
 ) {
   const [controller] = useState(() => new NetworkFlowImportController());
@@ -137,9 +140,10 @@ function NetworkAnalysisWorkspaceOwner(
   ]);
   useLayoutEffect(() => () => controller.retire(), [controller]);
   return (
-    <WorkbookRecoveryFixture standalone={false}>
+    <WorkbookRecoveryProvidersFixture>
       <ExtensionAvailabilityProvider controller={availability}>
         <ProductionNetworkAnalysisWorkspace
+          workAreaFrame={WorkbookExtensionWorkArea}
           importController={controller}
           tableController={tableController}
           savedGraphController={savedGraphController}
@@ -151,7 +155,7 @@ function NetworkAnalysisWorkspaceOwner(
         <NetworkFlowTableSurface controller={tableController} />
         <NetworkFlowIndicatorLinkSurface controller={indicatorLinkController} />
       </ExtensionAvailabilityProvider>
-    </WorkbookRecoveryFixture>
+    </WorkbookRecoveryProvidersFixture>
   );
 }
 
@@ -1082,9 +1086,7 @@ describe("NetworkAnalysisWorkspace", () => {
       name: "Saved Network Flow graphs",
     });
 
-    expect(
-      await screen.findByRole("heading", { name: "Investigation graph" }),
-    ).toBeTruthy();
+    expect(await waitForSavedGraphTitle("Investigation graph")).toBeTruthy();
     expect(
       (
         await screen.findByTestId(networkAnalysisTestId("saved-graph-result"))
@@ -1118,9 +1120,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.clear(renameInput);
     await user.type(renameInput, "Renamed investigation");
     await user.click(screen.getByRole("button", { name: "Rename graph" }));
-    expect(
-      await screen.findByRole("heading", { name: "Renamed investigation" }),
-    ).toBeTruthy();
+    expect(await waitForSavedGraphTitle("Renamed investigation")).toBeTruthy();
 
     expect(screen.getByRole("button", { name: "192.0.2.10" })).toBe(
       retainedVertex,
@@ -1175,9 +1175,7 @@ describe("NetworkAnalysisWorkspace", () => {
       "New saved graph",
     );
     await user.click(screen.getByRole("button", { name: "Save graph" }));
-    expect(
-      await screen.findByRole("heading", { name: "New saved graph" }),
-    ).toBeTruthy();
+    expect(await waitForSavedGraphTitle("New saved graph")).toBeTruthy();
     expect(await screen.findByText("Materialization queued.")).toBeTruthy();
 
     const savedGraphCalls = fetchSpy.mock.calls.filter(([input]) =>
@@ -1332,7 +1330,7 @@ describe("NetworkAnalysisWorkspace", () => {
         incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
-    await screen.findByRole("heading", { name: "Investigation graph" });
+    await waitForSavedGraphTitle("Investigation graph");
     expect(
       savedControls().getByRole("button", { name: "Save current graph" }),
     ).toBeTruthy();
@@ -1352,7 +1350,7 @@ describe("NetworkAnalysisWorkspace", () => {
         incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
-    await screen.findByRole("heading", { name: "Investigation graph" });
+    await waitForSavedGraphTitle("Investigation graph");
     expect(
       savedControls().queryByRole("button", { name: "Save current graph" }),
     ).toBeNull();
@@ -1372,7 +1370,7 @@ describe("NetworkAnalysisWorkspace", () => {
         incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
-    await screen.findByRole("heading", { name: "Investigation graph" });
+    await waitForSavedGraphTitle("Investigation graph");
     expect(
       savedControls().getByRole("button", { name: "Save current graph" }),
     ).toBeTruthy();
@@ -1420,7 +1418,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
     await screen.findByText("Graph ready");
     await user.click(screen.getByRole("button", { name: "Saved graphs" }));
-    await screen.findByRole("heading", { name: "Investigation graph" });
+    await waitForSavedGraphTitle("Investigation graph");
     await user.click(
       screen.getByRole("button", { name: "Save current graph" }),
     );
@@ -1462,7 +1460,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.click(
       within(otherJob).getByRole("button", { name: /^Reload graph/ }),
     );
-    await screen.findByRole("heading", { name: "Accepted target" });
+    await waitForSavedGraphTitle("Accepted target");
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(
       fetchSpy.mock.calls.filter(
@@ -1489,7 +1487,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
     await screen.findByText("Graph ready");
     await user.click(screen.getByRole("button", { name: "Saved graphs" }));
-    await screen.findByRole("heading", { name: "Investigation graph" });
+    await waitForSavedGraphTitle("Investigation graph");
     const panel = screen.getByRole("region", {
       name: "Saved Network Flow graphs",
     });
@@ -1532,7 +1530,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.click(
       within(dialog).getByRole("button", { name: "Rename graph" }),
     );
-    await screen.findByRole("heading", { name: "é".repeat(32) });
+    await waitForSavedGraphTitle("é".repeat(32));
     await user.click(
       within(panel).getByRole("button", { name: "Save current graph" }),
     );
@@ -1562,7 +1560,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.click(
       within(dialog).getByRole("button", { name: "Replay exact attempt" }),
     );
-    await screen.findByRole("heading", { name: "Recovered graph" });
+    await waitForSavedGraphTitle("Recovered graph");
     const creates = fetchSpy.mock.calls.filter(
       ([input, init]) =>
         requestURL(input).endsWith("/graph-views") && init?.method === "POST",
@@ -3440,4 +3438,12 @@ function requestURL(input: RequestInfo | URL): string {
     return input.toString();
   }
   return input.url;
+}
+
+async function waitForSavedGraphTitle(title: string) {
+  const heading = await screen.findByTestId(
+    networkAnalysisTestId("saved-graph-heading"),
+  );
+  await waitFor(() => expect(heading.textContent).toBe(title));
+  return heading;
 }

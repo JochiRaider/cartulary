@@ -60,6 +60,16 @@ describe("session working set and return trail", () => {
     expect(owner.getSnapshot().trail).toEqual([]);
     await owner.navigate("d", origin, async () => "changed");
     expect(owner.getSnapshot().trail).toEqual([origin]);
+    let acceptedSignal!: AbortSignal;
+    await owner.navigate("accepted", origin, async (signal) => {
+      acceptedSignal = signal;
+      return "changed";
+    });
+    expect(acceptedSignal.aborted).toBe(false);
+    owner.cancel();
+    expect(acceptedSignal.aborted).toBe(true);
+    // Later interaction cancels attachment, not the already accepted trail push.
+    expect(owner.getSnapshot().trail).toEqual([origin, origin]);
   });
   it("bounds semantic origins and consumes Return only after acceptance, without a bounce entry", async () => {
     const owner = session();

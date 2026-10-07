@@ -57,6 +57,7 @@ import {
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
   workbookImportAssistantTestId,
+  workbookIncidentIdentityTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
@@ -1296,10 +1297,14 @@ describe("WorkbookShell surface selection", () => {
 
   it("keeps one incident heading across built-in and System view navigation", async () => {
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
-    const heading = await screen.findByRole("heading", {
-      level: 1,
-      name: "IR-1 Incident 1",
-    });
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId(workbookIncidentIdentityTestId())
+          .getAttribute("title"),
+      ).toBe("IR-1 Incident 1"),
+    );
+    const heading = screen.getByRole("heading", { level: 1 });
     for (const surface of requiredBuiltInWorkbookSurfaceIds) {
       fireEvent.click(await screen.findByTestId(surfaceTabTestId(surface)));
       await screen.findByTestId(gridShellTestId(surface));
@@ -1348,10 +1353,14 @@ describe("WorkbookShell surface selection", () => {
         }}
       />,
     );
-    const heading = await screen.findByRole("heading", {
-      level: 1,
-      name: "IR-ACCEPTED Accepted incident title",
-    });
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId(workbookIncidentIdentityTestId())
+          .getAttribute("title"),
+      ).toBe("IR-ACCEPTED Accepted incident title"),
+    );
+    const heading = screen.getByRole("heading", { level: 1 });
     rerender(<WorkbookShell incidentId={incidentId} />);
     expect(screen.getAllByRole("heading", { level: 1 })).toEqual([heading]);
     await act(async () =>
@@ -1361,9 +1370,13 @@ describe("WorkbookShell surface selection", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "IR-ACCEPTED Accepted incident title",
       }),
     ).toBe(heading);
+    expect(
+      screen
+        .getByTestId(workbookIncidentIdentityTestId())
+        .getAttribute("title"),
+    ).toBe("IR-ACCEPTED Accepted incident title");
     expect(screen.queryByText("Loading incident")).toBeNull();
   });
 
@@ -1382,17 +1395,22 @@ describe("WorkbookShell surface selection", () => {
           : original?.(input, init),
     );
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
-    await screen.findByRole("heading", {
-      level: 1,
-      name: "Incident Loading incident",
-    });
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId(workbookIncidentIdentityTestId())
+          .getAttribute("title"),
+      ).toBe("Loading incident"),
+    );
     await act(async () =>
       identity.resolve(errorEnvelope("identity_unavailable", 503)),
     );
     await waitFor(() =>
       expect(
-        screen.queryByRole("heading", { level: 1, name: /Loading incident/ }),
-      ).toBeNull(),
+        screen
+          .getByTestId(workbookIncidentIdentityTestId())
+          .getAttribute("title"),
+      ).not.toBe("Loading incident"),
     );
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
@@ -2130,6 +2148,23 @@ describe("WorkbookShell surface selection", () => {
       expect(panel.getAttribute("aria-labelledby")).toBe(tab.id);
       expect(screen.getAllByRole("tabpanel", { hidden: true })).toHaveLength(5);
     }
+    act(() => {
+      vi.stubGlobal("innerWidth", 1024);
+      window.dispatchEvent(new Event("resize"));
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Work" }));
+    expect(screen.getByRole("heading", { name: "Work" })).toBe(
+      document.activeElement,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Task Requests" }));
+    const destination = await screen.findByTestId(
+      gridShellTestId(taskRequestsViewSchemaId),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Close Work" })).toBeNull();
+      expect(destination.contains(document.activeElement)).toBe(true);
+      expect(destination.closest("[inert]")).toBeNull();
+    });
     expect(
       fetchMock.mock.calls.filter(
         ([url, init]) =>

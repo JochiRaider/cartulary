@@ -35,10 +35,7 @@ import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFo
 import { useRetainedInspectorRow } from "../inspector/useRetainedInspectorRow";
 import { useWorkbookColumnSizingBinding } from "../layout/useWorkbookColumnSizingBinding";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
-import {
-  WorkbookSurfaceLayout,
-  workbookSurfaceGridShellStyle,
-} from "../layout/WorkbookSurfaceLayout";
+import { workbookSurfaceGridShellStyle } from "../layout/WorkbookSurfaceLayout";
 import {
   applyWorkbookLayoutToColumns,
   workbookFrozenDataColumnPrefix,
@@ -62,6 +59,7 @@ import {
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import { WorkbookQuerySurfaceLayout } from "../query/WorkbookQuerySurfaceLayout";
 
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import {
@@ -379,7 +377,7 @@ export function AssessmentWorkbookSurface({
   }, [mutationRuntime, onRefreshAssessmentRows]);
 
   return (
-    <WorkbookSurfaceLayout
+    <WorkbookQuerySurfaceLayout
       chromeMode={chromeMode}
       inspector={assessmentInspector.node}
       onRequestInspectorClose={assessmentInspector.close}
