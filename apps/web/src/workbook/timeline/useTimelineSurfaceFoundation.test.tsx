@@ -1,18 +1,11 @@
-import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { expect, it } from "vitest";
-import {
-  defaultFilterDraft,
-  emptyWorkbookQueryState,
-} from "../models/workbookQuery";
-import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { useTimelineSurfaceFoundation } from "./composition/useTimelineSurfaceFoundation";
 import type { TimelineWorkbookSurfaceRuntime } from "./models/timelineWorkbookSurfaceRuntime";
-
-const timelineContract = requireViewContract(timelineViewSchemaId);
 
 function createMutationRuntime() {
   const pendingMutationPort: WorkbookPendingMutationPort = {
@@ -39,9 +32,6 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
   } as unknown as TimelineWorkbookSurfaceRuntime["mutationCommands"];
   const { result, rerender } = renderHook(
     ({ apiBase }) => {
-      const [filterDraft, setFilterDraft] = useState(() =>
-        defaultFilterDraft(timelineContract),
-      );
       const [state, setState] = useState(() => emptyWorkbookQueryState());
       return useTimelineSurfaceFoundation({
         apiBase,
@@ -51,7 +41,7 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
         incidentId: "incident-1",
         mutationCommands,
         mutationRuntime,
-        query: { filterDraft, setFilterDraft, setState, state },
+        query: { setState, state },
       });
     },
     { initialProps: { apiBase: undefined as string | undefined } },

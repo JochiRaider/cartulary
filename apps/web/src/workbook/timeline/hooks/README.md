@@ -28,7 +28,7 @@ Hooks execute owner-local effects over semantic capabilities and pure
 | [useTimelineCommittedRows.ts](useTimelineCommittedRows.ts) | Derives committed Timeline row collections from row/runtime state. |
 | [useTimelineRows.ts](useTimelineRows.ts) | Owns Timeline row state, the stable row ref, initial draft row, monotonic draft allocation, and semantic replace/update commands. |
 | [useTimelineRowsLoader.ts](useTimelineRowsLoader.ts) | Executes the pure load machine around exact query, freshness, local-draft hydration, created-row pinning, access-loss, and continuity boundaries. |
-| [useTimelineWorkbookRuntime.ts](useTimelineWorkbookRuntime.ts) | Reduces Timeline lifecycle state and translates shell-owned query commands into deterministic runtime transitions. |
+| [useTimelineWorkbookRuntime.ts](useTimelineWorkbookRuntime.ts) | Reduces Timeline lifecycle state and applies declared-field header sorting to caller-owned query state. |
 
 ## Mutation and recovery
 

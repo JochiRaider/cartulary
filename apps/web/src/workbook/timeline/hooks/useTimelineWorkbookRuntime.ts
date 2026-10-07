@@ -6,9 +6,7 @@ import {
   useReducer,
 } from "react";
 import {
-  type FilterDraft,
   replaceWorkbookSort,
-  updateGroupBy,
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
@@ -20,20 +18,15 @@ import {
 
 const timelineRuntimeContract = requireViewContract(timelineViewSchemaId);
 
-type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 
 type TimelineWorkbookRuntimeInput = {
-  readonly filterDraft: FilterDraft;
   readonly queryState: WorkbookQueryState;
-  readonly setFilterDraft: FilterDraftSetter;
   readonly setQueryState: WorkbookQueryStateSetter;
 };
 
 export function useTimelineWorkbookRuntime({
-  filterDraft,
   queryState,
-  setFilterDraft,
   setQueryState,
 }: TimelineWorkbookRuntimeInput) {
   const [lifecycle, dispatchLifecycle] = useReducer(
@@ -70,15 +63,6 @@ export function useTimelineWorkbookRuntime({
     [setOperationError],
   );
 
-  const handleQueryGroupByChange = useCallback(
-    (groupBy: string | null) => {
-      setQueryState((current) =>
-        updateGroupBy(timelineRuntimeContract, current, groupBy),
-      );
-    },
-    [setQueryState],
-  );
-
   const handleQuerySortChange = useCallback(
     (sort: WorkbookQueryState["sort"]) => {
       setQueryState((current) =>
@@ -99,11 +83,8 @@ export function useTimelineWorkbookRuntime({
       setMutationError,
     },
     query: {
-      filterDraft,
-      handleQueryGroupByChange,
       handleQuerySortChange,
       queryState,
-      setFilterDraft,
       setQueryState,
     },
   };

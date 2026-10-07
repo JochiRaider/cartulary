@@ -11,6 +11,7 @@ import {
   rowCellTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
+  workbookFilterPopoverTriggerTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import {
@@ -455,6 +456,12 @@ describe("Timeline workbook grid coverage", () => {
     await waitForTimelineWorkbookReady(container, 2);
 
     fireEvent.click(
+      screen.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    );
+
+    fireEvent.click(
       await screen.findByTestId(
         gridSortHeaderTestId(
           timelineViewSchemaId,
@@ -529,6 +536,12 @@ describe("Timeline workbook grid coverage", () => {
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
+
+    fireEvent.click(
+      screen.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    );
 
     fireEvent.click(
       await screen.findByTestId(
@@ -1054,6 +1067,11 @@ describe("Timeline workbook grid coverage", () => {
       "20000000-0000-4000-8000-000000000001",
     ]);
 
+    fireEvent.click(
+      screen.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    );
     fireEvent.change(
       screen.getByTestId(gridFilterFieldTestId(timelineViewSchemaId)),
       {

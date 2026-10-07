@@ -26,7 +26,7 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [WorkbookGridControls.tsx](WorkbookGridControls.tsx) | Active-surface query-control composition over one transient reducer and semantic command port. |
 | [workbookGridControlStyles.ts](workbookGridControlStyles.ts) | Shared workbook query/menu control frames, labels, inputs, and styles. |
 | [WorkbookGroupControl.tsx](WorkbookGroupControl.tsx) | Exact contract-declared grouping selector. |
-| [WorkbookShellViewBarControls.tsx](WorkbookShellViewBarControls.tsx) | Saved-view and query-control projections over the shell runtime's narrow snapshot and command boundary. |
+| [WorkbookShellViewBarControls.tsx](WorkbookShellViewBarControls.tsx) | Stateless query-to-view-bar binding shared by the shell and Timeline fixture; shell-only Saved View, preset, subject and visibility composition. |
 | [WorkbookSortControl.tsx](WorkbookSortControl.tsx) | Complete ordered-sort add, direction, priority, removal, and limit menu. |
 | [WorkbookViewBar.tsx](WorkbookViewBar.tsx) | Shared saved-view, query, inspector, and create control composition. |
 

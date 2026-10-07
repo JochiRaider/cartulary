@@ -25,16 +25,23 @@ function harness() {
     resolve: (result: GridColumnMeasurement) => void;
     signal: AbortSignal;
   }[] = [];
+  const measurementListeners = new Set<() => void>();
   const port: GridColumnSizingPort = {
     unavailableReason: () => null,
-    subscribe: () => () => undefined,
+    subscribe: (listener) => {
+      measurementListeners.add(listener);
+      return () => measurementListeners.delete(listener);
+    },
     measureVisibleContent: (_field, { signal }) =>
       new Promise((resolve) => requests.push({ resolve, signal })),
   };
   const unbind = owner.bind(id, { defaultWidth: () => 300, port });
   owner.activate("timeline:base");
   const fit = () => owner.fitVisible(id, field);
-  return { owner, requests, unbind, fit, port };
+  const notifyMeasurement = () => {
+    for (const listener of measurementListeners) listener();
+  };
+  return { owner, requests, unbind, fit, port, notifyMeasurement };
 }
 describe("Workbook column sizing", () => {
   it("preserves sparse defaults and unrelated layout while enforcing portable bounds", () => {
@@ -108,8 +115,32 @@ describe("Workbook column sizing", () => {
     expect(h.owner.getSnapshot().notice).toContain("using the header");
     expect(h.owner.getSnapshot().notice).toContain("Maximum width reached");
     expect(h.owner.getSnapshot().pendingField).toBeNull();
-    h.owner.refresh();
+    const listener = vi.fn();
+    const unsubscribe = h.owner.subscribe(listener);
+    const before = h.owner.getSnapshot();
+    h.notifyMeasurement();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(h.owner.getSnapshot()).not.toBe(before);
+    expect(h.owner.read(id, field).width).toBe(4096);
     expect(h.requests).toHaveLength(1);
+
+    const unbindReplacement = h.owner.bind(id, {
+      defaultWidth: () => 240,
+      port: h.port,
+    });
+    h.unbind();
+    listener.mockClear();
+    h.notifyMeasurement();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(h.owner.read(id, other).width).toBe(240);
+    unbindReplacement();
+    const departed = h.owner.getSnapshot();
+    listener.mockClear();
+    h.notifyMeasurement();
+    expect(listener).not.toHaveBeenCalled();
+    expect(h.owner.getSnapshot()).toBe(departed);
+    expect(h.requests).toHaveLength(1);
+    unsubscribe();
   });
   it("rejects obsolete results after newer commands configuration changes and departure", async () => {
     for (const change of [
@@ -132,6 +163,8 @@ describe("Workbook column sizing", () => {
       (h: ReturnType<typeof harness>) =>
         h.owner.activate("timeline:replacement-saved-view"),
       (h: ReturnType<typeof harness>) => h.owner.cancel(),
+      (h: ReturnType<typeof harness>) =>
+        h.owner.bind(id, { defaultWidth: () => 320, port: h.port }),
       (h: ReturnType<typeof harness>) => h.unbind(),
       (h: ReturnType<typeof harness>) => h.owner.dispose(),
     ]) {

@@ -4,10 +4,11 @@
 
 - Target: `apps/web`; target label: `web-apps-cleanup`; output: `docs/handoffs/web-apps-cleanup-tracker.md`.
 - Label posture: the user-supplied label is already lowercase kebab case. It labels this cleanup of `apps/web`; it is not a domain/module identity or an algorithmic claim that the path alone produces that label.
-- Current authorization: execute the approved **Iteration 7 — retire unused APIs and simplify replay lifecycle** plan, S-39 → S-40 → S-41 → S-42, following the user's “proceed with the plan” instruction. Update this tracker at every workstream boundary. Implementation, behavioral tests, affected authored accounting and supporting documentation are authorized. The user additionally authorized narrow integrated-gate repairs in S-42-R; no commit, deployment or environment reset is requested.
+- Current authorization: implement the approved **Iteration 8 remediation — consolidate Workbook query controls** plan, sequentially S-43 → S-44 → S-45 → S-46. The current user request authorizes production, fixture, test, authored verification and supporting-document changes within that boundary. Preserve the pre-existing tracker edit and completed history; complete and save each workstream exit before its successor.
 - Current exclusions: deployment, shared-environment resets, migration/reinterpretation of legacy state, visual redesign, durable browser draft storage, cross-tab queues, generic plugin/workflow engines, unrelated dependency upgrades, and conformance/performance publication claims. Future phase growth is a design constraint, not authority to build speculative features or preserve incidental behavior.
-- Current delivery checkpoint: **S-00–S-42 DONE; S-42-R DONE; Iteration 7 validation and handoff complete**. T-052 remains the completed document delivery. Execution began on `main` at `b86b92e9b46a2fa0d41d10cdfebab7f793f71417` with only the tracker already staged; that index content remains preserved. Earlier authorizations and dirty-tree snapshots remain historical.
-- Current planning baseline: clean `main`, commit `b86b92e9b46a2fa0d41d10cdfebab7f793f71417`, rechecked on 2026-10-01 America/New_York before T-052. Inventory: **1,796 tracked web paths and 1,223 owned TypeScript paths**. There were no staged or unstaged changes. Iteration 7 reconciles current path membership and selected bodies; it does not claim a fresh exhaustive semantic audit.
+- Current delivery checkpoint: **S-00–S-42 DONE; S-42-R DONE; T-057 DONE; S-43/T-058 DONE; S-44/T-059 DONE; S-45/T-060 DONE; S-46/T-061 DONE**. Iteration 8 implementation and handoff are complete; completed Iterations 1–7 remain preserved. Earlier iteration bodies, execution permissions and dirty-tree snapshots describe their historical sessions; they do not authorize new production changes.
+- Historical Iteration 8 planning baseline: clean `main`, commit `1746cb273ee19561eb22dbbcad639dd5dfa5b8c8`, rechecked on 2026-10-07 America/New_York before T-057. Inventory: **1,824 tracked web paths and 1,246 owned TypeScript paths**. No staged, unstaged or untracked changes existed before this document update. Iteration 8 reconciles exact path membership and selected source bodies, not all current function semantics.
+- Historical iteration 7 baseline: `b86b92e9b46a2fa0d41d10cdfebab7f793f71417`, rechecked on 2026-10-01 America/New_York before T-052; **1,796 tracked web paths and 1,223 owned TypeScript paths**. S-39–S-42 and the separately authorized S-42-R repair work completed. Execution preserved the pre-existing staged tracker; those edits and intervening work are now committed. Its final run roots and compatibility decisions remain historical evidence in §12.
 - Historical iteration 6 baseline: `3e71ce13069fc848c01e2666a04fe67cfabcfd4a`, rechecked on 2026-09-26 UTC before T-046; **1,762 tracked web paths and 1,200 owned TypeScript paths**. Against iteration 5's starting commit `cc01694a995f17bc5d6792866f0426894eb44c44`, the web delta was 87 paths: nine additions and 78 modifications, no deletions. Execution began at that HEAD with T-046 already staged; S-38 records the then-final delta and preserved index. Those changes are now committed. The iteration 5 staged-tracker/untracked-coordinator handoff and iteration 4 baseline `8d46c23385e248e3703ef791fc4106d6de7f3e62` remain historical checkpoints.
 - Iteration 2 baseline: `main`, commit `a3ed2bd169cf1955f405bfc14b4cca8bd9b1d749`, clean working tree before this document update. Iteration 1 began at `19e30dbcaa87959d447123ba155af8f96190f163` with an already-staged tracker; that earlier index-preservation posture is historical. The completed implementation and tracker are now committed. Canonical documentation checks may create ordinary ignored outputs.
 - Original inventory's first source read: `docs/handoffs/cartulary_modular_refactor_planning_framework.md`. The framework is doctrine/template, not evidence of current implementation. Iteration 4 reviewed repository instructions, the `refactor-tracker` skill and its format reference, the framework, supplied documents and the scoped live sources identified below; no nested target AGENTS file was found.
@@ -15,7 +16,7 @@
 
 ### Inspected owner and supporting documents
 
-This table preserves inspections from earlier sessions. The iteration 7 scope and inventory paragraphs identify the documents and source boundaries reviewed for the current plan; inherited inspection entries are not fresh conformance evidence.
+This table preserves inspections from earlier sessions. The iteration 8 scope and inventory paragraphs identify the documents and source boundaries reviewed for the current plan; inherited inspection entries are not fresh conformance evidence.
 
 | Source | Sections inspected / posture | Use here |
 | --- | --- | --- |
@@ -112,6 +113,16 @@ The selected structural boundary is the existing memory-local Workbook pending q
 Fresh scoped inspection covered queue lifecycle/dispatch/settlement/recovery and its tests; runtime invalidation/authentication/retirement; WorkbookShell's current lifecycle callers; Saved View discovery, controller and read tests; current source ownership, import rules, Fallow inputs/results and authored verification routing. The supplied `docs/research/nlspec-spec.md` informs completeness, precise interfaces and binary exits; `docs/domain.md` informs vocabulary and owner navigation; `docs/design.md` informs its bounded design contract. They are reference material, not additional user requests. Core 03 REQ-03-022A/089/099/100/287/288/299/302 governs the selected observable behavior. No owner contradiction was found in this scoped review.
 
 Production readiness here means fewer unsupported interfaces, one accountable queue lifecycle representation, preserved security/recovery behavior and reproducible regression evidence. No new feature, public protocol or stored-state migration is proposed. Retain live capabilities even when an advisory tool or a comment calls them unused or legacy. Deferred work includes unrelated advisories, broader Timeline redesign, dependency upgrades, visual changes, persistence, measurement/publication and deployment. Markdown remains outside executable product, test, generator, conformance and release dependencies.
+
+### Iteration 8 — historical approved document-update boundary
+
+The user selected **structural cleanup**, preserving supported behavior and listing reachable feature retirement separately. The immediate deliverable is this single-file update. Preserve the twelve numbered sections and completed Iterations 1–7; T-057 completes only the document delivery. Future production order is **S-43 → S-44 → S-45 → S-46**, with implementation tasks left TODO.
+
+The selected boundary is Workbook query-control composition and its Timeline fixture. Production always supplies the shell working set and disables Timeline's alternate inline controls. The fixture instead enables that alternate implementation by default. Retire that fork and its redundant filter draft, reuse the existing query controller and a small shared binding builder, and remove the uncalled query reset plus the layout publication method used only by a test. Do not replace the schema-keyed store, query browser, source-specific read owners or retained mutation runtime.
+
+Current reads covered repository instructions, the planning framework, the `refactor-tracker` format, the Cartulary UI/UX digest's selection and regression guidance, the supplied documents' relevant sections, and the exact sources/callers in §2. Core 03 §§2.3 and 14, Core 01 REQ-01-035/046, and design §8.3 govern the selected query behavior. `docs/domain.md` supplies vocabulary and owner navigation; `docs/research/nlspec-spec.md` supplies completeness and interface-quality guidance. Instructions in these reference documents are not additional user requests. No owner contradiction was identified in this scoped review.
+
+Production readiness means fewer unsupported internal paths, tests exercising the production query behavior, and fresh regression evidence. No reachable product feature is selected for retirement. The future extension path remains the existing view-schema query owner and shared controls; no workflow engine, configurable compatibility mode, speculative surface or new public package is needed. Unrelated Fallow advisories, dependencies, visual redesign, durable persistence, deployment and release/publication claims remain deferred. Markdown remains outside executable product, test, generation and release dependencies.
 
 ## 2. Current-State Repository Inventory
 
@@ -2579,6 +2590,57 @@ The following additions received structural file reads, declaration/import inspe
 
 Adjacent inspection included `WorkbookSurfaceRegistry.ts`, `WorkbookFeatureLifecycle.ts`, `WorkbookMutationFeatureAssembly.ts`, `HistoryPageLookup.ts`, `WorkbookRecordHistoryOwner.ts`, `WorkbookQueryBrowser.ts`, `services/importClient.ts`, `timeline/hooks/useTimelineMutationCommands.ts` and `timeline/mutations/createTimelineMutationDriver.ts` under `apps/web/src/workbook` except `services/importClient.ts` under `apps/web/src`. Their live callbacks, recovery paths and recordless capture are retained; they were candidate triage, not selected refactoring. File/line anchors identify this baseline only. Exact caller checks must be refreshed in S-39 after intervening commits.
 
+### Iteration 8 inventory reconciliation and scoped evidence
+
+At `1746cb273ee19561eb22dbbcad639dd5dfa5b8c8`, `git ls-files apps/web` contains **1,824 paths**. The source ownership manifest covers **1,246 TypeScript paths**, including 911 under `web.workbook` and 39 under `web.testing`. Relative to iteration 7's baseline, the committed web delta is **427 paths: 29 additions, 397 modifications and one deletion**. All 29 additions were absent from this tracker's exact-path inventory before T-057 and are accounted for below. The deleted `apps/web/src/shared/WorkbookWorkAreaOverlay.tsx` remains historical only; do not recreate it. Original binary/font/golden/fixture and local-output exclusions remain in force.
+
+The additions received structural reads and declaration/import inspection. Unless explicitly selected in the scoped ledger, they are excluded from semantic refactoring because they do not implement the obsolete Timeline query-control branch, query reset or layout publication escape hatch. The 397 modified files are not all freshly audited; historical inventory entries describe their earlier baseline. No finding of dead code follows merely from a new path, a missing direct test edge or a large file.
+
+| Exact path | Current responsibility / surface | Source owner / dependencies | Iteration 8 disposition and inspection limit |
+| --- | --- | --- | --- |
+| `apps/web/e2e/support/referencePackFixture.d.mts` | Typed `referencePackBundle` fixture declaration | Browser support; declaration for adjacent MJS | Retain; fixture input typing, outside selected semantics. |
+| `apps/web/e2e/support/referencePackFixture.mjs` | Reference Pack bundle fixture construction | Browser support; Node fixture construction | Retain; test data construction is not product legacy behavior. |
+| `apps/web/e2e/support/runtime/fixtureTLS.ts` | TLS probe and TLS 1.2 request helpers | Browser runtime support | Retain; transport fixture behavior excluded. |
+| `apps/web/e2e/support/workbook/literalSetFilters.ts` | Literal-set authoring and assertion choreography | Browser Workbook support; Playwright/UI contracts | Retain; current filter coverage, no helper rewrite planned. |
+| `apps/web/e2e/workbook-destination-handoff.spec.ts` | Production destination handoff scenarios | Browser verification; semantic navigation helpers | Retain; navigation behavior remains independent. |
+| `apps/web/src/workbook/adapters/createWorkbookRecordLocatorAdapter.ts` | Record-locator transport adapter | `web.workbook`; query locator port/protocol | Retain; locator route and admission excluded. |
+| `apps/web/src/workbook/commands/WorkbookCommands.test.tsx` | Command provider and invocation tests | `web.workbook`; React/Vitest | Retain; command ownership excluded. |
+| `apps/web/src/workbook/commands/WorkbookCommands.tsx` | Command registration, provider and controls | `web.workbook`; React/design/UI contracts | Retain; no command framework redesign. |
+| `apps/web/src/workbook/commands/workbookCommandIndex.test.ts` | Command search/ranking tests | `web.workbook`; command index | Retain; search behavior excluded. |
+| `apps/web/src/workbook/commands/workbookCommandIndex.ts` | Typed command targets/descriptors and search | `web.workbook`; design command families | Retain; direct body read, no retirement evidence. |
+| `apps/web/src/workbook/components/WorkbookBooleanFilterOperand.tsx` | Boolean filter operand presentation | `web.workbook`; boolean operand model | Retain; shared current filter behavior. |
+| `apps/web/src/workbook/components/WorkbookEnumFilterOperand.tsx` | Enum operand and custom-literal disclosure | `web.workbook`; enum operand model | Retain; current field semantics, outside selected implementation edits. |
+| `apps/web/src/workbook/components/WorkbookLiteralSetFilterOperand.tsx` | Literal membership editor | `web.workbook`; shared filter presentation | Retain; no simplification of admitted filter values. |
+| `apps/web/src/workbook/components/WorkbookTimelinePresets.tsx` | Timeline preset UI and command contribution | `web.workbook`; adopted design projection | Retain; preserve shell preset callback in shared binding. |
+| `apps/web/src/workbook/inspector/presentation/WorkbookInspectorCommandSubject.ts` | Inspector command subject type | `web.workbook`; semantic subject identity | Retain; unrelated internal interface. |
+| `apps/web/src/workbook/layout/WorkbookAuxiliaryDock.tsx` | One auxiliary dock and footer navigation | `web.workbook`; React/shared layout | Retain; dock ownership/geometry excluded. |
+| `apps/web/src/workbook/layout/useWorkbookMenuPlacement.ts` | Menu placement observation | `web.workbook`; React/browser geometry | Retain; no layout/positioning change. |
+| `apps/web/src/workbook/models/workbookBooleanFilterOperand.ts` | Boolean equality draft semantics | `web.workbook`; Workbook filter types | Retain; model imports inspected, semantics frozen. |
+| `apps/web/src/workbook/models/workbookEnumFilterOperand.ts` | Enum choices and literal interpretation | `web.workbook`; View contracts/query model | Retain; existing allowed operand behavior. |
+| `apps/web/src/workbook/models/workbookTimestampFilterOperand.ts` | Timestamp guidance and instant interpretation | `web.workbook`; filter input model | Retain; validation behavior stays with its current owner. |
+| `apps/web/src/workbook/navigation/WorkbookSessionNavigation.test.ts` | Session pin/return navigation tests | `web.workbook`; session navigation owner | Retain; navigation state excluded. |
+| `apps/web/src/workbook/navigation/WorkbookSessionNavigation.ts` | Session-local pins and Return origins | `web.workbook`; sheet/semantic identities | Retain; no persistence or navigation retirement. |
+| `apps/web/src/workbook/navigation/WorkbookWorkPanel.tsx` | Work controls and navigation recovery | `web.workbook`; workbench/session navigation | Retain; required recovery presentation is not obsolete. |
+| `apps/web/src/workbook/navigation/WorkbookWorkbenchContext.tsx` | Workbench navigation/inspection capability | `web.workbook`; React/session navigation | Retain; direct body read, no new query-state authority. |
+| `apps/web/src/workbook/navigation/useWorkbookWorkbench.test.tsx` | Workbench navigation and late-response tests | `web.workbook`; locator/browsing composition | Retain; adjacent navigation regression evidence. |
+| `apps/web/src/workbook/navigation/useWorkbookWorkbench.ts` | Record-directed navigation and recovery | `web.workbook`; locator/query/layout capabilities | Retain; source inspected for navigation boundaries only. |
+| `apps/web/src/workbook/query/WorkbookQuerySurfaceLayout.tsx` | Query controls plus presentation attachment | `web.workbook`; layout/browsing registry | Retain; direct body read, keep required provider/attachment semantics. |
+| `apps/web/src/workbook/query/WorkbookRecordLocatorPort.ts` | Located/outside-query/unavailable result capability | `web.workbook`; semantic record/query types | Retain; no port or route migration. |
+| `apps/web/src/workbook/query/WorkbookSurfaceComposition.test.tsx` | Provider requirements and replacement-safe attachment tests | `web.workbook`; query layout/auxiliary dock | Retain; direct test-body read, preserve composition boundary. |
+
+| Selected source and actual consumers | Fresh evidence at this baseline | Planned disposition / risk |
+| --- | --- | --- |
+| `apps/web/src/workbook/surfaces/WorkbookSurfacesFacade.tsx:160,190–192` | Owns `timelineFilterDraft` solely for the Timeline runtime; production supplies `renderInlineControls: false` and the shell working set. | Remove redundant draft and false-mode plumbing after fixture migration; preserve per-surface rendering and state setters. |
+| `apps/web/src/workbook/timeline/models/timelineWorkbookSurfaceRuntime.ts`; `timeline/components/TimelineWorkbook.tsx` under the same Workbook root | Carry filter draft/setter and inline-mode boolean through an internal runtime type into presentation. Only facade and fixture construct the selected production component. | Narrow the internal query type; no package/wire compatibility alias. Keep state/setState, viewQuery and supplied working set. |
+| `apps/web/src/workbook/timeline/presentation/useTimelineWorkbookPresentation.tsx:138,425,486,640` | Apply/remove-filter callbacks and working-set construction support the alternate branch. Clear filters also serves live filtered-empty recovery; header sort is independently live. | Delete branch-only work; retain header sorting and filtered-empty recovery, removing only the meaningless reset of the discarded draft. Do not blanket-delete all query callbacks. |
+| `apps/web/src/workbook/timeline/hooks/useTimelineWorkbookRuntime.ts`; `timeline/composition/useTimelineSurfaceFoundation.ts` | Forward draft state and query handlers; the runtime also owns live load/refresh/operation feedback. Group-change callback feeds the alternate view bar, while sort still serves the grid. | Remove retired draft/group-only plumbing, preserve lifecycle and query state/sort responsibilities; medium coupling risk. |
+| `apps/web/src/workbook/hooks/useWorkbookQueryController.ts`; `view-state/useWorkbookQueryState.ts`; `components/WorkbookShellViewBarControls.tsx` | Production already owns schema-keyed drafts, validation, requested/canonical/presented query distinctions and layout-to-view-bar binding. | Reuse controller and store; extract only pure binding construction with two real consumers. No second state owner or new store architecture. |
+| `apps/web/src/testing/TimelineWorkbookRuntimeFixture.tsx:122,329,370–377`; `timelineWorkbookRenderTestSupport.tsx` in the same directory | Fixture defaults the alternate mode to true; provider is currently inside the component. Direct and helper callers do not pass its selected query/draft overrides. Eleven test files import the fixture directly; helper consumers add more coverage. | `web.testing` owns fixture composition. Put controller use below the browsing provider, remove unused overrides and supply production bindings; preserve retained runtime/provider lifetime. |
+| `apps/web/src/workbook/view-state/useWorkbookQueryState.ts:89,148,174` | Repository searches find `resetEntry` only in its own definition/return; the `reset` reducer action has no other dispatch. | Remove the entire unused command/action branch. Keep ensure/update, schema defaults and public UI clear/reset actions. |
+| `apps/web/src/workbook/layout/WorkbookColumnLayoutController.ts:211`; matching test at 111 | `refresh` merely publishes. Its only entering caller is the sizing test; production uses mounted measurement/freezing subscriptions. | Remove test-only production method. Capture and invoke the real measurement-port listener in the test and assert no extra measurement; low behavior risk. |
+
+Other direct reads included `WorkbookShell.tsx`, `useWorkbookShellInfrastructure.ts`, `useWorkbookShellRuntime.ts`, `useWorkbookSurfaceQueries.ts`, `useEntitySurfaceQuery.ts`, `WorkbookQueryBrowser.ts`, `WorkbookQueryBrowsingContext.tsx`, `WorkbookViewBar.tsx`, `workbookGridQueryControls.ts`, surface registration, query-controller/foundation/layout/query integration tests, source guides, and authored verification families. Broad class-member checks found live structural callbacks, including `acceptPredecessor`, `rememberAnchor`, `checkpointFor`, mutation-unit claims/releases and lifecycle contributions. These are retention evidence, not additional removal targets. Line anchors describe this baseline and must be refreshed in S-43.
+
 ## 3. Module Boundary Diagnosis
 
 `apps/web` is a **legitimate frontend application and controller surface with multiple internal owners**, transport-adjacent adapters, view/query orchestration and mutation coordination. It is not a thin service facade, nor evidence of a permanent `web-apps-cleanup` domain. Large composition files and a semantic queue under `utils` are coupling findings; they do not prove the whole application is an accidental catch-all. Authoritative persistence, projections, source validation and revision commits remain backend responsibilities in the inspected route/provider chain.
@@ -2676,6 +2738,19 @@ Adapters must make terminal cleanup meaningful using each existing controller's 
 | Broad class-member, harness and package advisories | Fallow advisory report and diverse owners | Their actual source owners | defer | Tool findings are candidates. Structural callbacks and source-specific policies have live consumers; no blanket removal/gate expansion. |
 
 The common decision is whether this queue's retained units may replay after a lifecycle transition. The private state removes invalid flag combinations without absorbing authentication, presentation or source validation. A future legitimate lifecycle event must declare its effect on this state and its behavioral tests; it does not gain a permissive default or an independent pause flag. The one-method Saved View cleanup is a separate removal with no new shared machinery.
+
+### Iteration 8 ownership decisions
+
+| Responsibility found | Current location | Correct owner candidate | Keep / move / split / defer | Evidence / decision |
+| --- | --- | --- | --- | --- |
+| Requested query state, filter drafts and validation | Query controller and schema-keyed state hook | Existing Workbook query owner | keep | Already used by the production shell; use it in the fixture rather than retain a parallel Timeline implementation. |
+| Query/layout projection into view-bar props | Shell binding function and Timeline alternate branch | Workbook view-bar composition | split | Extract the shell's pure query-binding construction into `workbookQueryViewBarBinding` in the existing `WorkbookShellViewBarControls.tsx`; shell and fixture consume it. Saved-view selection/permissions stay outside this helper. |
+| Timeline presentation and source lifecycle | Timeline runtime, foundation and presentation | Existing Timeline owners | keep | Consume supplied working set; retain grid header sort, filtered-empty recovery, committed rows, mutation transport and lifecycle feedback. Retire branch-only draft/group plumbing. |
+| Fixture setup and interactions | Timeline runtime fixture and render helper | `web.testing` | move | Compose the production query controller below the existing browsing provider. Tests explicitly open Filters and exercise the production entry point; no copied filter algorithms. |
+| Uncalled query reset and test-only publication | Query state hook and column layout controller | Existing query/layout owners | keep | Remove unsupported commands inside their owners without merging those owners or deleting real UI reset/clear behavior. |
+| Entity read activation, named surface state aliases, navigation, broad advisories | Adjacent query/runtime/app/package sources | Existing owners | defer | No full schema-state rewrite or separate query-engine refactor is justified by this iteration. |
+
+The common decision is how existing query and layout capabilities become the current view-bar controls. The shared builder stores nothing and owns no fetching, authorization, persistence or new policy. A future supported surface reuses the schema-keyed query controller and binding; its source-specific read/mutation semantics remain local. Retaining those capabilities improves extension and testing, whereas an alternate fixture-driven production branch has no supported production consumer.
 
 ## 4. Public Contract and Behavior Freeze Map
 
@@ -2982,6 +3057,23 @@ Implement the following private lifecycle state inside the existing queue owner;
 
 Replay remains blocked whenever lifecycle is not `open`, in addition to existing authentication, conflict, halt and in-flight checks. This is a representation change, not a new queue admission policy. In-flight writes can still acknowledge after closure under existing rules; accepting that acknowledgement must not release other retained writes. Exact retained requests, draft identity, source-specific recovery, HTTP/WebSocket behavior, public types, selectors and storage formats are frozen. No migration, compatibility shim or normative amendment is planned; any discovered owner contradiction blocks only its dependent slice.
 
+### Iteration 8 contract freeze and internal interface retirement
+
+| Contract | Current owner / evidence | Existing tests | Required characterization / risk |
+| --- | --- | --- | --- |
+| C-46 — One production query-control path | Core 03 REQ-03-223/224/226/227; design §8.3; query controller and view-bar binding | Query controller, query controls, grid-controls model and Timeline integration tests | Prove invalid drafts stay unapplied, consecutive edits use latest requested state, and accepted chips retain server-canonical meaning. Fixture migration must not silently change the shell. |
+| C-47 — Timeline's live query and lifecycle responsibilities | Core 03 §14 and REQ-03-286; Timeline foundation/runtime/presentation | Foundation, lifecycle, Timeline query identity and browsing-control tests | Header sort remains schema-admitted; filtered-empty clear removes filters while retaining sort/group and query scope. Preserve latest-response fencing, row versions, continuation, load/refresh/operation feedback and mutation lifetimes. |
+| C-48 — Saved views, layout and portable query identity | Core 03 REQ-03-012/013/014; Core 01 REQ-01-035/046; design §8.3 | Query serialization, column sizing/frozen layout and saved-view tests | Query JSON, layout JSON, preset callbacks, below-minimum visibility, subject keys and selected saved-view behavior stay unchanged. No stored-state or wire migration. |
+| C-49 — Fixture fidelity and production publication | Repository source/harness boundaries; existing query/provider and measurement-port contracts | Fixture consumers, foundation test, sizing test, surface-composition tests and font-role test | Fixture controller mounts beneath its browsing provider without duplicating retained mutation construction; real port notifications publish without starting another fit. Routing covers support consumers, not just direct product imports. |
+
+Only internal TypeScript interfaces shrink: remove Timeline query `filterDraft`, `setFilterDraft` and `renderInlineControls`; remove corresponding foundation/runtime forwarding and fixture `renderInlineQueryControls`, `filterDraft`, `onFilterDraftChange`, `queryState` and `onQueryStateChange` overrides after the S-43 caller recheck. Keep Timeline query `state`, `setState`, `viewQuery` and `viewBarWorkingSet`; the supplied working set replaces the alternate construction. Retain the live header-sort handler and filtered-empty clear handler. The latter no longer writes to the discarded, unrendered draft; it must not newly reset the shell's real raw filter draft.
+
+The pure binding builder accepts the existing active query controls, current layout state/controls, subject key and optional preset callback, and returns the query portion of `WorkbookViewBarWorkingSetBinding`. It performs the same field mapping as the current shell. Shell composition retains saved-view wiring and decides whether query controls are omitted for Network Analysis or below-supported-minimum layout. The fixture applies the same visibility rule, supplies its own incident/sheet subject identity and no fabricated Saved View owner. No test switch is added to production. Tests needing the filter editor open activate its ordinary control.
+
+Remove the uncalled `resetEntry` command, `reset` action member and reducer branch together. `Columns` reset, clear-filter actions, saved-view application and default query initialization remain live. Remove layout `refresh` only after migrating its single test to the measurement subscription registered by `bind`. Preserve bind replacement, unsubscription, cancellation, publication and fit deduplication.
+
+HTTP envelopes/routes, WebSocket semantics, authorization, source mutations/revisions, generated View/UI/Protocol contracts, stable selectors and public package exports remain frozen by the inherited contract map. No owner amendment is planned. A newly discovered required behavior discrepancy must be reported separately; a behavior-changing slice **requires later authorization**. An adopted-owner contradiction blocks only dependent work.
+
 ## 5. Coupling and Boundary Findings
 
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
@@ -3084,6 +3176,18 @@ The baseline repetition and alternate test path justified the migration; they we
 
 Selected retirement is evidence-based: unused internal methods can disappear without preserving imaginary consumers; required recovery and draft behavior stays because adopted owners and current consumers need it. One private lifecycle representation improves extension safety without an event bus, registry or workflow framework. No historical failure or advisory score is promoted into a current defect or release-readiness claim.
 
+### Iteration 8 findings and selected remediation
+
+| Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
+| --- | --- | --- | --- | --- | --- |
+| FND-51 — Fixture-enabled alternate Timeline query controls | Facade always disables the branch; fixture enables it; presentation independently applies/removes filters and constructs the working set | Future query changes can update production and fixture paths differently; redundant raw draft ownership obscures the true owner | resolved | Workbook query/view-bar composition; `web.testing` fixture | Resolved in S-44/S-45: both consumers share the production controller/binding; alternate branch, draft forwarding, fixture overrides and auto-open option are removed. Finished-input regression and browser evidence pass. |
+| FND-52 — Uncalled query reset API | `resetEntry` exists only in its state hook; its reducer action has no other dispatcher | Unsupported reset semantics enlarge the internal interface and invite accidental future use | resolved | Workbook query state owner | Resolved in S-45: resetEntry, its action and reducer branch removed together; initialization, updates, Saved View application and real clear/reset controls retained and verified. |
+| FND-53 — Layout publication exposed solely for a test | Layout `refresh` calls `publish`; its sole caller is the sizing test; production receives real port notifications | Test verifies an artificial entry point rather than the mounted subscription | resolved | Workbook layout owner and its test fixture | Resolved in S-45: real measurement-port notification test covers publication without measurement, replacement/unsubscribe and obsolete fits; refresh removed without replacement. |
+| FND-54 — Superficially similar query/recovery callbacks remain live | Header sort, filtered-empty clear, canonical intent, row-version acceptance and structural lifecycle callbacks have real consumers | Blanket branch/member cleanup would remove supported interaction or recovery | intentional/no_action | Current Timeline/query/runtime/source owners | Intentional retention verified under C-46–49: declared-field header sorting, canonical filtered-empty clearing without draft reset, stale-result fences, versions, continuation, feedback and retained runtime lifetimes remain. |
+| FND-55 — Source ownership and verification identity differ | Fixture is `web.testing`; product seam is `web.workbook`; routed consumers include `web.application`, `platform.viewquery` and `module.workbook`; `web.timeline` is not active | A guessed owner or only direct-import tests can miss fixture consumers | resolved | Existing source and verification owners, each within its boundary | Resolved: all 15 direct/helper consumers have finished-input execution evidence; existing Timeline identity Vitest scenario is routed under module.workbook.frontend_integration. Authored catalog and generated accounting pass; source ownership stays distinct. |
+
+No platform/domain relocation, storage coupling, vendor integration move or generated contract change is selected. Existing Make/Fallow policy remains unchanged. The current framework's owner-oriented source guidance fits this slice; the older tracker workflow numbering is retained for continuity, with explicit S-43–S-46 dependencies rather than a new parallel workflow registry. Broad advisory counts are neither a deletion quota nor proof of production readiness.
+
 ## 6. Refactor Workstreams
 
 Workflow numbers follow the user-requested planning structure, not the framework's longer WF-00–13 numbering. `parallel` means independent analysis after prerequisites; it does not authorize parallel code writes or spawn agents. All planning outputs remain in this tracker.
@@ -3179,6 +3283,17 @@ Authorized execution order: **S-39 → S-40 → S-41 → S-42**. T-052 installed
 | S-41 / DONE | Remove redundant Saved View API / chain | S-40 DONE | S-42 | SavedViewDiscovery and its current read/controller tests; guide only if its documented surface changes | Independent-read and operation-owner rows; open/reopen revalidation remains live and no alias is added. |
 | S-42-R / DONE | Narrow validation repairs / supporting chain | S-39–S-41 DONE; first integrated failure; explicit repair authorization | S-42 resumes | Seven existing support/test/registry paths; no product behavior or security policy change | Six failing units repaired; focused and Timeline capture exits recorded in §12. |
 | S-42 / DONE | Final verification and handoff / chain | S-39–S-41 and S-42-R DONE | Review of completed implementation | Changed sources/tests/guides and authored accounting, only where actually affected; tracker closure | Fresh final gates, exact removal/path ledger, RB-030–32 disposition and rollback; no unsupported production-readiness claim. |
+
+### Iteration 8 workstream graph — authorized implementation
+
+T-057 delivered the document only. The current implementation request authorizes **S-43 → S-44 → S-45 → S-46**. Save each workstream's start, findings, validation, rollback and completed exit before starting its successor. These workflow classes express dependencies, not authorization to spawn agents or start parallel execution.
+
+| Workflow ID | Name / class | Required previous workflow | Required successor | Goal / likely files | Validation / handoff checkpoint |
+| --- | --- | --- | --- | --- | --- |
+| S-43 / DONE | Freeze consumers and behavior / root | T-057 DONE; current implementation request | S-44 | Selected query/Timeline/layout sources, fixture consumers, adopted owners and authored test routing | Exact retirement ledger, meaningful characterization, baseline results and C-46–49 coverage before implementation. |
+| S-44 / DONE | Share production query composition / chain | S-43 DONE | S-45 | Existing query controller, shell binding function and Timeline fixture | Both real consumers use the production query behavior and pure binding; fixture provider/runtime lifetimes preserved. |
+| S-45 / DONE | Remove obsolete interfaces and state / chain | S-44 DONE | S-46 | Timeline facade/runtime/foundation/presentation, fixture props, query reset and layout publication test | No named obsolete path or alias remains; live query/recovery/layout behavior passes focused checks. |
+| S-46 / DONE | Verify and hand off / chain | S-43–S-45 DONE | Review of completed implementation | Changed authored sources/tests/guides and genuinely affected machine accounting | Fresh integrated and browser evidence, exact changed/removed paths, completed gates and scoped readiness statement. |
 
 ## 7. Refactor Slice Plan and Execution
 
@@ -3425,6 +3540,108 @@ S-35's initial hook consumption was a temporary migration step inside this autho
 
 The authorized plan preserves owner-required behavior and corrects owner-inconsistent recovery within this lifecycle boundary. In particular, characterize late same-field-conflict settlement after closure/reopen and reconcile closure blockers after removing the replay unit; a blocker targeting removed work is not compatibility behavior. Removing an uncalled internal API does not remove a product capability. A newly discovered supported caller or owner contradiction revises or blocks only its dependent change. No HTTP/WebSocket, exported package API, stored format, dependency, visual golden or normative specification change is planned.
 
+### Iteration 8 planned implementation checkpoints
+
+| Slice ID | Depends on | Intended change / likely files | Contract risks / tests to preserve or add | Validation | Rollback note | Completion criterion |
+| --- | --- | --- | --- | --- | --- | --- |
+| S-43 / DONE | T-057 DONE; current implementation request | Refresh HEAD, exact production/fixture consumers and branch reachability. Review the selected source bodies and existing semantic tests; add only missing behavior characterization. | C-46–49; explicitly distinguish branch-only apply/remove/group handlers from live header sort, filtered-empty clear and lifecycle feedback. | §8 catalog-selected baseline rows and fixture-consumer accounting; record real failures and run roots. | Evidence/tests can revert independently of production. | RB-033 closes; no consumer or required behavior is silently dropped. |
+| S-44 / DONE | S-43 DONE | Extract `workbookQueryViewBarBinding` into the existing shell binding file. Keep state, validation and query semantics in `useWorkbookQueryController`. Split fixture provider/inner composition so its controller runs under `WorkbookQueryBrowsingProvider`, supplies Timeline state/setter and the shared working set, and retains existing runtime ownership. | C-46/48/49; retain preset callback, subject identity, layout controls, visibility rules and provider replacement behavior. Tests explicitly open Filters. | Query-controller/model/browsing/foundation rows, affected fixture consumers and frontend typecheck. | S-44/S-45 query-path changes form one final rollback unit. Do not ship an intermediate dual path as compatibility support. | Shell and fixture use the same production query-control behavior and binding construction; no copied filter algorithm or synthetic owner. |
+| S-45 / DONE | S-44 DONE | Delete inline-mode flag/branch, facade draft, retired runtime/foundation fields, branch-only handlers and unused fixture overrides. Delete query reset command/action/branch. Capture the measurement subscription in the sizing test, trigger its notification and delete production layout `refresh`. | C-46–49; retain Timeline state/setter, live sort/clear and lifecycle. Do not reset the real shell draft from filtered-empty recovery or remove actual Columns reset. | Focused rows; `make frontend-typecheck`; import-boundary and Fallow checks; exact source/caller searches. | Restore query path with its migrated fixtures together. Query-reset and layout-method deletions have independent rollback boundaries with their tests. No data conversion. | FND-51–53 resolved; removed symbols have no authored executable callers; no alias, new compatibility switch or suppression growth. |
+| S-46 / DONE | S-43–S-45 DONE | Update supporting source guides and authored ownership/test selectors only when affected; regenerate their projections through Make when required. Complete final checks and record accounting. | C-46–49 plus inherited public/security/mutation contracts; fixture consumers include app tests outside the product source owner. | §8 finished-source gates, targeted browser rows, Markdown and exact-diff audit. | Revert authored inputs with their tests/guides and regenerate derived outputs; no reset/deployment rollback step. | RB-034/035 close; all required results and limitations recorded, no unsupported production-readiness claim. |
+
+### Iteration 8 execution — 2026-10-07 America/New_York
+
+**S-43 / T-058 IN_PROGRESS.** Start: `main` at `1746cb273ee19561eb22dbbcad639dd5dfa5b8c8`; only the pre-existing unstaged tracker differs from HEAD (258 insertions, four deletions), with no staged or untracked files. The approved implementation request supersedes the historical document-only boundary. No adopted-owner contradiction was found in the scoped review; Core 01 REQ-01-035/046, Core 03 REQ-03-012–014/223–227 and design §8.3 already govern the required behavior. Normative amendments are unnecessary. Product, generation and verification retain no Markdown dependency.
+
+The retirement ledger additionally includes `WorkbookGridControls.defaultFilterPopoverOpen` and the corresponding transient-state initializer argument: the alternate Timeline branch is its sole non-test caller. S-45 migrates direct component/model tests to ordinary panel activation and removes the option. Header sorting, filtered-empty recovery and shell raw-filter draft retention remain required. No new compatibility switch, alias, store, public package, dependency or migration is introduced.
+
+S-43 will register the currently unrouted Timeline row-identity Vitest scenario in `module.workbook.frontend_integration`; its matching Playwright title is separate evidence. Source ownership stays `web.workbook`/`web.testing`, independent of these verification owners. Existing provider replacement, query validation, canonicalization, row-version, autosave and recovery tests are retained; add meaningful coverage for the production filtered-empty/raw-draft boundary.
+
+| Fixture consumer | Entry | Current verification owners |
+| --- | --- | --- |
+| `apps/web/src/app/App.timeline-invalidation.support.test.tsx` | Direct | `web.workbook` |
+| `apps/web/src/app/fontRoles.test.tsx` | Direct | `web.application` |
+| `apps/web/src/workbook/WorkbookShell.actionSequencing.test.tsx` | Direct | `module.workbook` |
+| `apps/web/src/workbook/WorkbookShell.autosave.test.tsx` | Render helper | `module.timeline`, `web.workbook` |
+| `apps/web/src/workbook/WorkbookShell.collaboration.test.tsx` | Direct | `module.collaboration`, `module.workbook`, `web.workbook` |
+| `apps/web/src/workbook/WorkbookShell.evidence.test.tsx` | Direct | `module.evidence` |
+| `apps/web/src/workbook/WorkbookShell.grid.test.tsx` | Direct | `module.timeline`, `web.workbook` |
+| `apps/web/src/workbook/WorkbookShell.history.test.tsx` | Direct | `module.collaboration`, `web.workbook` |
+| `apps/web/src/workbook/WorkbookShell.inspector.test.tsx` | Direct | `module.workbook`, `web.workbook` |
+| `apps/web/src/workbook/WorkbookShell.payload.test.tsx` | Render helper | `module.timeline` |
+| `apps/web/src/workbook/WorkbookShell.saveState.test.tsx` | Render helper | `module.workbook` |
+| `apps/web/src/workbook/WorkbookShell.sentinel.test.tsx` | Direct | `module.workbook`, `web.workbook` |
+| `apps/web/src/workbook/WorkbookShell.support.test.tsx` | Direct | `web.workbook` |
+| `apps/web/src/workbook/WorkbookShell.timelineQuery.test.tsx` | Direct | `module.workbook.frontend_integration` row registered in S-43 |
+| `apps/web/src/workbook/timeline/timelineAutosaveIsolation.test.tsx` | Render helper | `web.workbook` |
+
+Validation selection: §8 focused query/controller/model/layout/foundation rows, the new Timeline row-identity row, production filtered-empty characterization and all fixture consumers. Run Make generation for the authored catalog addition. Save baseline results and RB-033 closure before S-44; retain exact commands/run roots in this execution log.
+
+#### S-43 completed checkpoint
+
+**S-43 / T-058 DONE; RB-033 DONE.** The current caller ledger confirms the four retired fixture query/draft overrides and inline-mode switch have no entering caller. The 15 direct/helper consumer files above are accounted for. The new row IDs were authored through `make author-test-row-id`: `module.workbook.frontend_integration.timeline_query_row_identity_through_create_patch_76a0163691` and `web.workbook.regression.timeline_filtered_empty_recovery_preserves_unfin_5afae76ba7`. Existing query/provider, row-version, autosave, lifetime and recovery scenarios remain selected.
+
+The new production-shell regression keeps an unfinished invalid filter editor open while invoking the grid's filtered-empty Clear filters action, asserts preserved sort/group request identity, and observes unchanged raw editor input. Escape intentionally cancels the panel-local draft and is not a retained-draft operation. The previously unrouted row-identity test had a stale assertion for a display cell after create; it now checks the actual retained scalar editor and its value through the stable UI selector. No production behavior changed in S-43.
+
+| Command / evidence | Result and interpretation |
+| --- | --- |
+| `make generate`, root `20261007T214949Z-p89579` | Initial failure: authored catalog rows must be ASCII-sorted. Corrected both additions; related authoring error, no product failure. |
+| `make generate`, root `20261007T215026Z-p93097` | PASS; only the topology render index changed among generated files. |
+| §8 nine-row `web.workbook` baseline, root `20261007T215049Z-p96128` | Eight existing rows passed; new recovery test failed because its Escape gesture cancels local input. |
+| New recovery row, roots `20261007T215237Z-p98870`, `20261007T215331Z-p952` | Test-authoring failures from ambiguous Clear filters and an incorrect region label; scoped to the actual Grid operational state region. |
+| New recovery row, root `20261007T215409Z-p1935` | PASS 2/2 work units. Production recovery preserves sort/group and the open raw draft. |
+| New row-identity row, root `20261007T215056Z-p97748` | Baseline test failure: stale display-cell assertion after create. |
+| New row-identity row, root `20261007T215238Z-p99274` | PASS 2/2 work units after test-only selector correction. |
+| `make format`, root `20261007T215420Z-p2827`; `git diff --check` | PASS; formatting changed only the new authored test. |
+
+Changed paths: tracker, the two Workbook tests, the `module.workbook` and `web.workbook` authored test-family manifests, and generated `tools/execution_topology_render_index.json`. No owner amendment, source ownership change, public contract or data migration is needed. Rollback restores these tests/catalog additions with their generated index; the pre-existing tracker edit remains preserved. S-44 may now start.
+
+**S-44 / T-059 IN_PROGRESS.** S-43 exit is saved. Extract only query/layout binding construction; mount the existing query controller below the fixture provider and retain mutation/provider ownership. Validate typechecking, focused controller/composition behavior and all direct/helper fixture consumers before closing this workstream.
+
+
+#### S-44 completed checkpoint
+
+**S-44 / T-059 DONE.** `WorkbookShellViewBarControls.tsx` now exports the stateless `workbookQueryViewBarBinding` over active query controls, layout state/commands, subject identity and optional preset callback. Shell-only preset, Network Analysis and minimum-size policies stay in the shell. `TimelineWorkbookRuntimeFixture.tsx` mounts the production controller inside its browsing provider and uses the same binding; retained mutation construction, cleanup, incident/sheet identity and layout overrides remain with their existing owners. Three grid scenarios now activate Filters through its normal control. Temporary unused inline/draft members remain only until the dependent deletion slice.
+
+| Command / evidence | Result |
+| --- | --- |
+| `make format`, roots `20261007T215542Z-p8571`, `20261007T220009Z-p82910` | PASS; authored formatting only. |
+| `make frontend-typecheck`, root `20261007T215552Z-p13992` | Initial failure in the new characterization: Testing Library does not accept `exact` on role options. Removed the unnecessary option. |
+| `make frontend-typecheck`, root `20261007T215707Z-p27606` | PASS 2/2. |
+| §8 focused controller, browsing, composition and new recovery rows, root `20261007T215622Z-p14590` | PASS 6/6. |
+| `make frontend-unit`, root `20261007T215630Z-p15809` | PASS 702/702; runner assertion results confirm execution in all 15 direct/helper fixture consumer files. |
+
+Changed paths for this slice: shared shell binding, Timeline runtime fixture and `WorkbookShell.grid.test.tsx`; the earlier characterization lost one unsupported test option. The binding adds no state store, fetching, authorization or persistence policy. No public/data migration. Query composition and its fixture callers roll back with S-45 as one unit; no compatibility alias is retained. C-46/48/49 and the S-44 exit are satisfied; S-45 may start.
+
+**S-45 / T-060 IN_PROGRESS.** S-44 is saved DONE with all consumer coverage. Remove the exact retired query/draft/auto-open/reset interfaces and replace the sizing test’s artificial refresh with its registered measurement listener. Preserve live header sorting, canonical filtered-empty clearing, row versions, lifecycle and retained runtime ownership. Validate the focused query/control/foundation/layout rows, typecheck, import boundaries and Fallow; audit remaining callers before recording the deletion exit.
+
+
+#### S-45 completed checkpoint
+
+**S-45 / T-060 DONE.** FND-51–53 are implemented. Deleted the inline query flag/alternate binding and its apply/remove/group handlers; the facade’s redundant filter draft; Timeline runtime/foundation draft fields; unused fixture query/draft overrides; `defaultFilterPopoverOpen` and initializer argument; query-store `resetEntry`, action and branch; and layout-controller `refresh`. No aliases, compatibility switches or suppressions were added. Source/caller review confirms zero remaining named retired interfaces in executable source. Real Columns reset remains.
+
+Live Timeline header sorting, canonical/requested/presented query handling, filtered-empty clear, row-version guards, lifecycle, continuation and mutation ownership remain. Filtered-empty clear only removes filters from canonical requested intent; it does not call the shared controller’s draft-resetting clear command. The sizing test now invokes registered measurement listeners and observes snapshot publication without remeasurement, replacement binding survival, unsubscribe, cancellation and obsolete fit rejection. The foundation test retains its adapter/row/pending lifetime assertions while removing obsolete draft setup. Component/model tests use ordinary Filters activation and closed initialization.
+
+| Command / evidence | Result |
+| --- | --- |
+| `make format`, root `20261007T220334Z-p12419` | PASS 2/2. |
+| §8 focused ten-row `make test-slice OWNER=web.workbook` including component controls and new recovery, root `20261007T220350Z-p17920` | PASS 11/11. |
+| `make frontend-typecheck`, root `20261007T220350Z-p17991` | PASS 2/2. |
+| `make frontend-import-boundary-check`, root `20261007T220350Z-p18000` | PASS 2/2. |
+| `make frontend-fallow-static`, root `20261007T220350Z-p18008` | PASS 2/2; zero bounded web/package findings, 215 advisory findings and nonblocking health exit 1 under unchanged policy. Advisory/health reports are not a complete reachability proof. |
+| Scoped retired-symbol/caller review; `git diff --check` | PASS. Unrelated owners’ live refresh methods remain. |
+
+Changed paths: Timeline facade/component/runtime/foundation/presentation and runtime fixture; query-state reducer; GridControls and transient model with their tests; layout controller and sizing test; foundation test. Supporting testing, components, Timeline hooks/presentation and view-state READMEs now describe the retained boundaries and supported composition. Exact final paths are reconciled in S-46. Compatibility: internal callers migrated together, no public/wire/storage/Saved View migration. Rollback: S-44/S-45 query and fixture edits together; query reset removal and layout publication removal independently with their tests. C-46–49 pass focused evidence, and final cross-owner/browser/integrated evidence remains S-46’s mandatory exit.
+
+**S-46 / T-061 IN_PROGRESS.** S-43–S-45 are saved DONE. Reconcile source guides, exact changed/retired paths and catalog projections; run generation/drift and `agent-finalize` before the integrated `check`, then the required Timeline continuation/recovery browser selection. Finished-source S-45 type/import/Fallow passes can be reused while sources remain unchanged; `check` includes build-web and frontend catalog coverage. Confirm all 15 consumer files in finished-input results, record digest acceptance, rollback, failures/skips and final dirty state. `RESULTS_DIR` is unset, so retained-run maintenance is intentionally skipped. No visual geometry or style change requires expanded visual/a11y suites.
+
+
+#### S-46 completed checkpoint
+
+**S-46 / T-061 DONE last; RB-034/035 DONE.** S-43, S-44 and S-45 were saved complete before each successor. Finished-source focused, type/import/static, build, generation/drift, catalog/accounting, aggregate and required browser gates pass; all 15 consumers have execution evidence. Final handoff Markdown passed at `20261007T223849Z-p15618`, with whitespace, twelve-section/history, exact paths and final Git state reviewed. The aggregate failure and unchanged narrow/full passing reruns remain explicit in §12; no backend fix or confirmed root-cause claim is made. FND-51–53/55 are resolved and FND-54 is verified retention. No implementation slice or required validation remains pending.
+
+This closes the approved effort with one production query-control composition, smaller supported interfaces, behavioral regressions and a reviewable handoff. Compatibility, independent rollback boundaries, skipped retained-run/visual/measurement/release work and remaining advisory limits are recorded in §12. All 28 modified paths remain unstaged on the original HEAD; the pre-existing tracker content is preserved.
+
 ## 8. Validation Plan
 
 The following is the preserved planning-session routing inventory. Current executed results, failures and accepted replacements appear in §7 and the final handoff; the original no-execution statement below applies only to tracker creation.
@@ -3619,6 +3836,41 @@ Required characterization scenarios: closure with queued units; closure with one
 
 No product test/build, generation, broad check, browser suite or `agent-finalize` is warranted by T-052's Markdown-only change. The finalizer may rewrite generated maintenance artifacts outside this document boundary. No RESULTS_DIR is supplied, so retained-run maintenance is skipped. Future ordinary a11y/visual/full-browser expansion is not a default requirement for this internal state refactor because presentation/geometry/selectors are unchanged; add it only for actual changed behavior or unresolved evidence, not as a blanket readiness claim.
 
+### Iteration 8 discovery evidence and verification routing
+
+The preceding planning pass ran `make frontend-fallow-static`: **PASS 2/2**, root `.cartulary/test-results/20261007T211333Z-p68398`. Its `frontend-fallow-static/fallow-static-summary.json` reports **zero blocking web findings, zero blocking package findings and 215 advisory findings**. The raw dead-code report separately contains 135 class-member candidates; these sets are not a removal total. The health subreport exited 1 nonblocking under unchanged policy. This is scoped discovery on the unchanged product baseline, not complete semantic reachability or release evidence; T-057 does not rerun it.
+
+Successful command discovery included `make help`, `make help-all` and `make task-guide ROLE=module-author` for `web.workbook`, `web.architecture`, `platform.viewquery`, `module.workbook`, and, during document delivery, `web.application`. An exploratory `OWNER=web.timeline` lookup failed with “unknown active test owner”; it has no test run root and is replaced by verified owners below. This discovery error is unrelated to the document change and is not a product failure. Use authored catalog/family inputs to resolve selectors, not source-owner names or Markdown.
+
+| Verification owner | Exact row IDs / discovery seed | Intended coverage |
+| --- | --- | --- |
+| `web.workbook` | `web.workbook.regression.use_workbook_query_controller_keeps_query_defaul_bfad01a7b4`; `web.workbook.regression.useworkbookquerycontroller_suite_203a4e98cc` | Instance/schema isolation, invalid draft retention and consecutive filter edits. |
+| `web.workbook` | `web.workbook.regression.grid_controls_model_a104000001`; `web.workbook.regression.query_browsing_controls`; `web.workbook.regression.timeline_surface_foundation_owns_stable_adapter_02f2dc6f6f` | Control model, canonical/requested continuation behavior and live Timeline foundation. |
+| `web.workbook` | `web.workbook.regression.column_sizing_contract`; `web.workbook.regression.frozen_column_layout` | Sparse/portable layout, cancellation, fit deduplication and real subscription publication. |
+| `web.workbook` | `web.workbook.regression.grid_controls_component_a104000002`; `web.workbook.regression.surface_composition_debb2dc3cb`; `web.workbook.regression.timeline_filtered_empty_recovery_preserves_unfin_5afae76ba7` | Ordinary panel activation, real shell composition and unfinished raw draft plus sort/group retention during filtered-empty recovery. |
+| `module.workbook` | `module.workbook.frontend_integration.timeline_query_row_identity_through_create_patch_76a0163691` | Newly routed existing Vitest scenario: full query cells and identity through create, patch, validation and refresh. |
+| `platform.viewquery` | `platform.viewquery.frontend.grid_sort_filter_and_group_controls_send_only_st_63c9867421`; `platform.viewquery.frontend_unit.compile_sort_filter_group_layout_and_active_chip_b59bab4f62` | Stable field keys, sort/filter/group compilation and saved-view query/layout shapes. |
+| `web.application` | `web.application.boundary_support.fontroles_marks_compact_workbook_metadata_for_th_09d32fe3de` | Confirmed app-owned consumer of the migrated Timeline fixture. |
+| `module.workbook` | `module.workbook.browser_stateful.query_continuation_timeline`; `module.workbook.browser_stateful.query_recovery_focus` | Production Timeline continuation and keyboard focus during replacement/recovery; the focus row also selects Notes. |
+| `web.architecture` | Current owner slice from task guide | Source/import ownership and package boundaries. |
+
+Use `make test-slice OWNER=<verified-owner> ROWS=<comma-separated-row-ids-for-that-owner>` for the selected unit/static rows. The required final browser selection is `make service-backed-test-slice OWNER=module.workbook ROWS=module.workbook.browser_stateful.query_continuation_timeline,module.workbook.browser_stateful.query_recovery_focus`. S-43 must also inventory all direct fixture consumers and those entering through `timelineWorkbookRenderTestSupport.tsx`, then map their executable coverage through the current catalog. Do not assume a filename-only family search captures all title-based routing. Preserve existing test obligations rather than deleting inconvenient scenarios; reconcile authored selectors if test titles or files genuinely change.
+
+| Validation layer / timing | Command | Required posture | Notes |
+| --- | --- | --- | --- |
+| T-057 document delivery | `make lint-markdown`; `git diff --check`; `git status --short`; exact path/history review | Required now | Only the tracker changes; twelve numbered sections and completed exits retained. |
+| S-43 baseline and S-44/S-45 focused regression | Catalog-selected `make test-slice` calls above | Required before/after relevant production edits | Characterize missing observable behavior only; no tests asserting symbol absence or copying implementation. |
+| Fixture consumer coverage | `make frontend-unit` when the focused selection or integrated evidence does not already cover all consumers | Required coverage, not a mandatory duplicate run | Include app/Workbook/Timeline direct and helper users; record exact executed evidence. |
+| Structural and build | `make frontend-typecheck`; `make frontend-import-boundary-check`; `make frontend-fallow-static`; `make build-web` | Required on finished implementation | Retain existing blocking policy; no new ignore entries or blanket class-member enforcement. |
+| Authored/generated accounting | `make generate` then `make generate-drift` if authored machine inputs change | Conditional | A helper can remain in an existing file. Do not manufacture source ownership or generated churn; never hand-edit generated output. |
+| Integrated final gate | `make agent-finalize` before `make check` | Required for S-46 only | Reuse checks from the integrated run when they cover the finished inputs. Set RESULTS_DIR only for eligible retained successful evidence. |
+| Browser | Selected service-backed command above | Required for S-46 | Preserve ordinary Filters opening, continuation and recovery focus in production. Broaden only for changed behavior or unresolved failures. |
+| Final handoff | `make lint-markdown`; `git diff --check`; exact changes/retirements/accounting review | Required for S-46 | Record rollback, failures, skipped checks and applicable digest acceptance assessment. |
+
+Acceptance scenarios: invalid date/timestamp/boolean and literal-set drafts remain raw and unapplied; consecutive edits preserve earlier requested changes; canonical accepted chips remain distinct from pending replacements; filter clearing preserves sort/group; header sorting uses declared field identity; state is isolated by schema and Workbook instance; saved views preserve portable query/layout; source rows and accepted versions survive refresh; query continuation/recovery retains semantic focus; measurement notifications publish without remeasurement and preserve cancellation/unbind behavior. Keep mutation/authorization/provider lifetimes intact while exercising these scenarios. Query controls use ordinary opening gestures in migrated fixtures.
+
+No product suite/build, browser execution, generation, `make check` or `make agent-finalize` is warranted by T-057's Markdown-only edit. The finalizer can rewrite generated maintenance artifacts outside this task. Retained-run maintenance is skipped because RESULTS_DIR is unset. Full visual, accessibility, measurement and release matrices are deferred for the future internal refactor unless actual rendered changes or unresolved evidence justify them; no golden refresh is preauthorized by this plan.
+
 ## 9. Top-Level Work Tracker
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
@@ -3746,6 +3998,16 @@ Validation: specialized four-row Workbook slice PASS 5/5 at `.cartulary/test-res
 | T-054 | Remove terminal-pause chain and unify queue lifecycle | S-40 | DONE | T-053 DONE | Queue/runtime/test changes and FND-47/48 disposition | Four-state behavior preserves C-43/44; old chain/flags removed without aliases; focused checks pass. |
 | T-055 | Retire unused Saved View method | S-41 | DONE | T-054 DONE | SavedViewDiscovery deletion and existing read/controller regression evidence | Required reopening revalidation and independent selection remain; no replacement compatibility API. |
 | T-056 | Complete final validation and handoff | S-42 | DONE | T-053–T-055 DONE | Fresh final gates, exact path/removal ledger, contracts/findings/gates and rollback | RB-031/32 close; required evidence passes on completed code; limitations and skipped checks explicit. |
+
+### Iteration 8 work tracker
+
+| ID | Work item | Workstream | Status | Depends on | Evidence / artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| T-057 | Install and validate approved iteration 8 document update | Document update | DONE | Approved structural cleanup plan; clean 1746cb273 baseline | This tracker only; current inventory, retirement ledger, contracts, slices and §12 verification record | Markdown, whitespace, exact one-file and preserved-history checks passed; no production refactor. |
+| T-058 | Freeze consumers and behavior | S-43 | DONE | T-057 DONE; current implementation request | Caller/fixture ledger, owner clauses, baseline and characterization results | RB-033 closes before implementation. |
+| T-059 | Share production query composition | S-44 | DONE | T-058 DONE | Query controller, pure view-bar binding and fixture migration | Two real consumers share production behavior; state/provider/lifecycle ownership retained. |
+| T-060 | Remove obsolete interfaces and state | S-45 | DONE | T-059 DONE | Exact deletion ledger, migrated fixture/sizing tests and FND-51–53 disposition | No alternate path, unused reset, test-only publication method or compatibility alias remains. |
+| T-061 | Complete fresh verification and handoff | S-46 | DONE | T-058–T-060 DONE | Finished-source results, changed paths, accounting, retirement and rollback | RB-034/035 close; required checks pass with explicit limits and skips. |
 
 ## 10. Session Handoff Log
 
@@ -4189,6 +4451,62 @@ The plan removes lifecycle duplication structurally while keeping feature decisi
 
 Only the tracker is edited. Retained discovery evidence is distinguished from current document verification and future implementation results. `agent-finalize`, generation, product suites/builds and browser gates are skipped for this document-only boundary; RESULTS_DIR is unset, so retained-run maintenance is skipped. No commit or deployment is performed. The final §12 iteration 7 entry records actual document outcomes and controls T-052 completion.
 
+### Iteration 8 document-update handoff — 2026-10-07 America/New_York
+
+#### Iteration 8 scope and authority
+
+| Time / session | Current state | Files inspected or touched | Commands run | Result / blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-07; planning and T-057 | Approved structural, document-only update complete; production S-43–S-46 remain TODO | Repository instructions/framework, skill format, supplied research/domain/design references, scoped Core owners; only this tracker touched | `git rev-parse HEAD`, `git branch --show-current`, `git status --short`; targeted reads/searches | Clean main at 1746cb273 confirmed before edit; completed history preserved. No owner contradiction identified; T-057 DONE with §12 document evidence. |
+
+#### Iteration 8 backend boundary
+
+| Time / session | Current state | Files inspected or touched | Commands run | Result / blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-07; T-057 | No backend change selected | Core 01 query wire/canonicalization and Core 03 saved-view/query sections; backend implementation excluded | Targeted owner reads | Existing routes, envelopes, revisions, authorization and storage retained; no migration or backend test claim. |
+
+#### Iteration 8 frontend boundary
+
+| Time / session | Current state | Files inspected or touched | Commands run | Result / blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-07; planning and T-057 | Fixture-driven alternate query path and redundant draft confirmed; live Timeline handlers identified | Exact §2 source/caller ledger, fixture/render helper, source guides and ownership manifest | `rg`, tracked-path/declaration/import reads, caller scans | Product owner is web.workbook; fixture owner is web.testing. S-44 reuses existing owners, S-45 removes obsolete paths; no source edits now. |
+
+#### Iteration 8 contract and codegen
+
+| Time / session | Current state | Files inspected or touched | Commands run | Result / blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-07; T-057 | C-46–49 freeze public behavior; only internal interfaces retire later | Source/import/generated policy inputs, View/UI consumers, Core 01 REQ-01-035/046 and Core 03 §14 | Contract/source searches and reads | No wire/schema/public package or stored-state migration; no generation run. Future authored routing changes precede Make regeneration. |
+
+#### Iteration 8 tests and harness
+
+| Time / session | Current state | Files inspected or touched | Commands run | Result / blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-07; planning | Fallow discovery succeeds under existing bounded policy | Fallow configuration, reachability owner, wrapper and report | `make frontend-fallow-static` | PASS 2/2 at 20261007T211333Z-p68398; 215 advisories, nonblocking health exit 1; no blanket deletion or readiness claim. |
+| 2026-10-07; planning and T-057 | Verification routes and fixture coverage needs identified | Authored task surface, catalog/families, controller/layout/foundation/query tests and fixture consumers | `make help`, `make help-all`, task guides listed in §8; targeted selector searches | Verified owners replace failed web.timeline lookup. Future S-43 must close fixture-consumer execution accounting; no product tests run during document delivery. |
+| 2026-10-07; T-057 | Document validation complete | Tracker only | `make lint-markdown`, `git diff --check`, exact scope/history audit | PASS; Markdown root 20261007T212916Z-p75552 and exact audit results recorded in §12. |
+
+#### Iteration 8 security and authorization
+
+| Time / session | Current state | Files inspected or touched | Commands run | Result / blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-07; T-057 | No new auth or recovery policy | Existing query latest-response/read-scope and Timeline/runtime composition boundaries; inherited security contract map | Scoped source/owner reads | Preserve accepted authority, protected-row handling and retained operation lifetime. No security suite executed or security readiness claim made. |
+
+#### Iteration 8 open risks and next session
+
+| Time / session | Current state | Files inspected or touched | Commands run | Result / blockers / next action |
+| --- | --- | --- | --- | --- |
+| 2026-10-07; T-057 | Document delivered with no unresolved user preference; implementation evidence remains outstanding | Findings FND-51–55, contracts C-46–49, gates RB-033–035 and §8 routing | Inventory/caller reconciliation and manual plan review | A later authorized implementation starts at S-43, rechecks HEAD/callers and preserves supported behavior. No implementation gate is discharged by Markdown validation. |
+
+
+### Iteration 8 execution handoff entries
+
+| Date / workstream | Outcome | Evidence / next dependency |
+| --- | --- | --- |
+| 2026-10-07 S-43/T-058 | DONE; owner alignment, 15-consumer ledger, new behavioral regression and missing Vitest route; RB-033 closed | §7 records baseline failures, fixes and passes; saved before S-44. |
+| 2026-10-07 S-44/T-059 | DONE; shell and fixture share production controller/binding; provider/runtime construction retained | Typecheck and full frontend-unit 702/702; all 15 files executed; saved before S-45. |
+| 2026-10-07 S-45/T-060 | DONE; obsolete query/draft/auto-open/reset/publication interfaces removed | Focused 11/11, type/import/Fallow passes and exact removal audit; saved before S-46. |
+| 2026-10-07 S-46/T-061 | DONE last; final check 1016/1016, required browser 11/11, accounting, acceptance and documentation complete | §12 preserves exact paths, failure and passing reruns, all 15 consumers, skips, compatibility and rollback; RB-034/035 closed. |
+
 ## 11. Open Questions and Blockers
 
 The original blockers below are now resolved by authorized execution. The pre-production clean-cutover decision remains in force. No owner-versus-owner contradiction was found in the reviewed clauses; mark any future one **BLOCKED: owner contradiction** and stop only the affected slice.
@@ -4286,6 +4604,18 @@ There is no unresolved preference or identified owner contradiction blocking thi
 | RB-032 / DONE | Does the finished implementation have fresh integrated and accounting evidence? | Historical gates and a static pass cannot establish current correctness | S-42 final §8 checks, exact removed/changed paths, source/catalog dispositions, failure/skip log and rollback recorded; no applicable unresolved gate or undocumented required failure. |
 
 The remaining broad Fallow advisories, unrelated workflow/source refactors, historical measurement limitations and deployment/publication are explicitly deferred. An owner contradiction, if discovered, must identify both clauses as `BLOCKED: owner contradiction` and block only dependent work. No such contradiction is asserted from the current code or advisory report.
+
+### Iteration 8 implementation evidence gates
+
+No unresolved preference or identified adopted-owner contradiction blocks this document delivery. Preserve RB-001–032 as historical outcomes. The following gates are future implementation work, not reasons to leave T-057 unfinished.
+
+| ID / status | Question or evidence gate | Why it matters | Required closure / dependency |
+| --- | --- | --- | --- |
+| RB-033 / DONE | Are current callers, branch-only handlers and fixture consumers fully mapped? | Changes after this baseline or indirect fixture use can invalidate a retirement assumption | S-43 rechecks exact interfaces and caller chains, records catalog execution for direct/helper consumers, and maps meaningful characterization to C-46–49 before S-44. |
+| RB-034 / DONE | Does the shared path preserve production query behavior and live Timeline responsibilities? | Removing the alternate branch must not erase header sorting, filtered-empty recovery, true draft retention, canonical query state or lifecycle feedback | S-44/S-45 behavioral evidence passes; fixture uses production controller under the provider; layout test uses the real port; removed APIs have no aliases. |
+| RB-035 / DONE | Does finished implementation have complete regression/accounting evidence? | Historical passes and a current static report do not establish readiness | S-46 records finished-source checks, fixture consumers, browser continuation/focus rows, authored/generated accounting, retirement ledger and rollback. No required failure remains undisposed. |
+
+Reachable feature retirement, named surface-state generalization, entity read activation changes, broader source-owner coordination and unrelated Fallow findings are DEFERRED. A proposed observable behavior change requires later authorization; a discovered adopted-owner conflict is `BLOCKED: owner contradiction`, with exact clauses and only dependent work blocked. Do not introduce a permissive fallback or fixture-only production mode to bypass an evidence gate.
 
 ## 12. Binary Completion Criteria
 
@@ -6548,3 +6878,167 @@ Compatibility/migration: no data conversion, public API, wire/schema, package, d
 Limitations and skipped work: RESULTS_DIR was unset during finalization, so retained-run/performance maintenance was skipped. Full visual, standalone accessibility, measurement, release/CI and additional product-browser matrices were not run because no rendered geometry/profile, performance, release or broader workflow behavior changed; the targeted extra Timeline capture covers the repaired browser helper. The integrated gate includes its declared harness/browser support rows but does not certify all product browser cases. Fallow bounded web/package findings are zero; **217 advisory findings** and the nonblocking health exit 1 remain under unchanged policy and are not blanket dead-code-removal authorization. No reload/cross-tab persistence, deployment or conformance-publication claim is introduced.
 
 Handoff state: `main` at `b86b92e9b46a2fa0d41d10cdfebab7f793f71417`; all execution edits are unstaged, with the pre-existing staged tracker blob `2af46b83c8954c9b5c8486416941af1fde7edfcc` preserved. No commit, push, environment reset or deployment was performed. The next action is ordinary review of the completed 16-path diff; no remaining Iteration 7 implementation task or required approval is pending.
+
+### Iteration 8 historical document completion and planned implementation handoff
+
+The following is the preserved T-057 checkpoint, before implementation was authorized. The current execution record is in §7 and the S-46 handoff below. T-057 concerned the approved tracker update only; at that checkpoint S-43–S-46/T-058–T-061 remained TODO and required a later authorized implementation task. The reference documents and historical execution authorizations do not expand this task. Required document exits are:
+
+- Exactly this tracker changes, with no staged content, production/test edits, generated output, configuration, dependency or harness changes.
+- All twelve numbered sections remain in order; completed Iterations 1–7 and their run evidence remain intact.
+- All 1,824 current tracked web paths are represented or covered by explicit exclusions; 29 new exact-path rows and the one historical deletion reconcile the prior inventory. The 397 modifications do not become a claim of exhaustive semantic review.
+- FND-51–55 identify evidence, classification, owner and disposition. C-46–49 freeze required behavior, distinguish internal interface retirement from public compatibility and preserve live query/recovery/lifecycle responsibilities.
+- S-43–S-46 have explicit dependencies, tests, exit criteria and rollback. T-058–T-061 and RB-033–035 remain TODO; document completion never marks implementation complete.
+- Current validation routes are discovered, fixture-consumer accounting is explicit, and stale/failed owner discovery is disclosed. Advisory Fallow counts do not authorize blanket removal.
+- Markdown lint, whitespace and exact scope/history checks pass. No adopted-owner contradiction is asserted without exact supporting clauses.
+
+#### Iteration 8 document validation record
+
+**T-057 DONE.** The approved document update is delivered. Only `docs/handoffs/web-apps-cleanup-tracker.md` changes, unstaged, on `main` at `1746cb273ee19561eb22dbbcad639dd5dfa5b8c8`; no commit, push, deployment or environment reset was performed.
+
+| Check | Actual result / evidence |
+| --- | --- |
+| `make lint-markdown` | PASS; `.cartulary/test-results/20261007T212916Z-p75552/adhoc/lint-markdown/tool-run-summary.json`. |
+| `git diff --check` | PASS; no whitespace errors. |
+| Exact tracked-path audit | PASS; all 1,824 current web paths occur in the reconciled tracker; zero missing paths. |
+| Numbered sections and history | PASS; sections 1–12 remain in order. Comparison with HEAD finds no removed or replaced historical content after original line 20; only the opening authorization/baseline/navigation wording is superseded. |
+| Scope, index and future status | PASS; only this tracker differs from HEAD, index unchanged, no untracked files; T-058–T-061 remain TODO. |
+| Manual plan review | PASS; evidence-backed retirement/retention decisions, owner/test mapping, sequential slices, rollback and future gates are explicit. |
+
+Product tests, builds, browsers, generation, broad checks and `agent-finalize` were skipped for this single-file documentation task; retained-run maintenance was skipped because RESULTS_DIR was unset. The earlier Fallow discovery remains identified separately in §8. These document checks do not establish a production, security, visual, performance or release pass. Document rollback is simply reverting this tracker edit; it changes no executable artifacts.
+
+Future implementation success means the alternate Timeline query-controls branch, redundant draft plumbing, unused query reset and test-only layout publication API are removed without aliases or new compatibility switches. Production and fixture share the existing query-controller behavior and pure view-bar binding. Live sorting, filtered-empty recovery, canonical/accepted/requested query distinctions, saved views, layout, authorization and retained mutation lifetime remain intact. Fresh focused, integrated and browser evidence must establish those outcomes before S-46/T-061 can be DONE; no deployment or release certification follows from this plan.
+
+
+### Iteration 8 implementation handoff — S-46 DONE
+
+The final source scope is 28 modified existing paths: 11 production TypeScript files, one Timeline fixture, seven behavioral test files, five source guides, two authored verification families, one Make-generated topology index and this controlling tracker. No source file was added, removed or renamed; retired interfaces are deleted within their existing owners. Source ownership remains unchanged. The starting uncommitted tracker content and completed iteration history are preserved.
+
+| Changed path | Purpose |
+| --- | --- |
+| `apps/web/src/testing/README.md` | Fixture composition and ordinary control activation. |
+| `apps/web/src/testing/TimelineWorkbookRuntimeFixture.tsx` | Provider wrapper, production controller and shared binding; remove unsupported query/draft overrides. |
+| `apps/web/src/workbook/WorkbookShell.grid.test.tsx` | Ordinary Filters activation in three existing scenarios. |
+| `apps/web/src/workbook/WorkbookShell.surfaces.test.tsx` | Production filtered-empty recovery with unfinished raw input and retained sort/group. |
+| `apps/web/src/workbook/WorkbookShell.timelineQuery.test.tsx` | Assert the retained post-create scalar editor through its semantic selector. |
+| `apps/web/src/workbook/components/README.md` | Shared binding and shell policy ownership. |
+| `apps/web/src/workbook/components/WorkbookGridControls.test.tsx` | Activate Filters through its normal control. |
+| `apps/web/src/workbook/components/WorkbookGridControls.tsx` | Remove auto-open compatibility prop. |
+| `apps/web/src/workbook/components/WorkbookShellViewBarControls.tsx` | Stateless shared query binding; retain shell preset/visibility/Saved View composition. |
+| `apps/web/src/workbook/layout/WorkbookColumnLayoutController.test.ts` | Real measurement notifications, binding replacement/unsubscribe and obsolete fits. |
+| `apps/web/src/workbook/layout/WorkbookColumnLayoutController.ts` | Remove unneeded public refresh method. |
+| `apps/web/src/workbook/models/workbookGridQueryControls.test.ts` | Two-argument closed transient initialization. |
+| `apps/web/src/workbook/models/workbookGridQueryControls.ts` | Remove auto-open initializer policy. |
+| `apps/web/src/workbook/surfaces/WorkbookSurfacesFacade.tsx` | Remove duplicate Timeline filter draft and forwarding. |
+| `apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx` | Consume supplied working set without inline mode. |
+| `apps/web/src/workbook/timeline/composition/useTimelineSurfaceFoundation.ts` | Remove draft forwarding; preserve row/query/lifecycle foundation. |
+| `apps/web/src/workbook/timeline/hooks/README.md` | Retained lifecycle and declared-field header sorting. |
+| `apps/web/src/workbook/timeline/hooks/useTimelineWorkbookRuntime.ts` | Remove redundant filter draft and branch-only grouping command. |
+| `apps/web/src/workbook/timeline/models/timelineWorkbookSurfaceRuntime.ts` | Narrow query runtime interface to supported inputs. |
+| `apps/web/src/workbook/timeline/presentation/README.md` | Retained presentation, sorting and filtered-empty recovery ownership. |
+| `apps/web/src/workbook/timeline/presentation/useTimelineWorkbookPresentation.tsx` | Delete alternate composition and branch-only handlers; retain canonical clear/sort/lifecycle. |
+| `apps/web/src/workbook/timeline/useTimelineSurfaceFoundation.test.tsx` | Remove obsolete draft setup; retain lifetime assertions. |
+| `apps/web/src/workbook/view-state/README.md` | Supported initialization and update commands. |
+| `apps/web/src/workbook/view-state/useWorkbookQueryState.ts` | Delete unused reset command/action/reducer branch. |
+| `docs/handoffs/web-apps-cleanup-tracker.md` | Controlling plan, sequential exits, evidence, findings and handoff. |
+| `tools/execution_topology_render_index.json` | Generated projection of the two authored row additions. |
+| `tools/test_families/module.workbook.json` | Route existing Timeline identity Vitest scenario. |
+| `tools/test_families/web.workbook.json` | Route new production recovery characterization. |
+
+The finished source has already passed S-45’s focused 11/11, typechecking, import boundaries and bounded Fallow gates. Final generation passed at `20261007T220519Z-p21770`; drift passed 4/4 at `20261007T220519Z-p21772`; `agent-finalize` passed 1/1 at `20261007T220600Z-p29192`, before `check` and browser execution. `RESULTS_DIR` was unset. The required browser command `make service-backed-test-slice OWNER=module.workbook ROWS=module.workbook.browser_stateful.query_continuation_timeline,module.workbook.browser_stateful.query_recovery_focus` passed **11/11** at `20261007T220944Z-p57498`. The first aggregate `20261007T220641Z-p33727` failed one unrelated backend unit; the unchanged narrow rerun and final aggregate `20261007T222438Z-p4814` passed. Exact failure/disposition details are preserved below.
+
+Compatibility and rollback: query JSON, Saved View query/layout serialization, authorization and mutation identities are unchanged. No public API, storage, dependency, data conversion or deployment change is required. Revert the shared query composition and its fixture/test migrations together; query reset removal and layout notification test/API removal may revert independently with their tests. Restore authored test families with their test changes and regenerate the topology index through Make. No database or environment reset is part of rollback.
+
+The pre-existing advisory static findings and historical measurement limitations remain outside this iteration. Full visual, standalone accessibility, performance/measurement, release/CI and additional product-browser matrices are not selected: no rendered geometry/style, theme, density, performance claim, release scope or unrelated workflow changed. The required control keyboard/recovery focus scenarios are selected. `check` supplies finished-source frontend coverage in all 15 consumers, so a second standalone `frontend-unit` is unnecessary. Consumer evidence, scoped digest assessment and final documentation closure are complete below.
+
+#### Finished-input fixture consumer evidence
+
+The integrated run `20261007T220641Z-p33727` has completed the following passing Vitest assertions in every fixture-consumer file. Counts deduplicate full test names across catalog rows; they are consumer coverage, not a conformance claim. The final aggregate `20261007T222438Z-p4814` passes on the identical product source digest; these completed individual frontend rows supply consumer evidence. This supersedes the S-44 consumer evidence for the final source.
+
+| Consumer filename (full paths in §7) | Passed assertions |
+| --- | --- |
+| `App.timeline-invalidation.support.test.tsx` | 1 |
+| `fontRoles.test.tsx` | 2 |
+| `WorkbookShell.actionSequencing.test.tsx` | 5 |
+| `WorkbookShell.autosave.test.tsx` | 10 |
+| `WorkbookShell.collaboration.test.tsx` | 16 |
+| `WorkbookShell.evidence.test.tsx` | 1 |
+| `WorkbookShell.grid.test.tsx` | 11 |
+| `WorkbookShell.history.test.tsx` | 13 |
+| `WorkbookShell.inspector.test.tsx` | 4 |
+| `WorkbookShell.payload.test.tsx` | 3 |
+| `WorkbookShell.saveState.test.tsx` | 1 |
+| `WorkbookShell.sentinel.test.tsx` | 14 |
+| `WorkbookShell.support.test.tsx` | 4 |
+| `WorkbookShell.timelineQuery.test.tsx` | 1 |
+| `timelineAutosaveIsolation.test.tsx` | 3 |
+
+#### Iteration 8 digest acceptance assessment
+
+Assessment applies to this internal composition/interface cleanup. PASS names the scoped evidence; N/A identifies the unchanged concern and does not claim a new whole-product audit. The accepted owners and source/verification distinction remain those in C-46–49. A027 closes with the completed final aggregate and documentation checkpoint below.
+
+| Criterion | Status | Scope rationale / evidence |
+| --- | --- | --- |
+| A001 Authority | PASS | Core 01 REQ-01-035/046; Core 03 REQ-03-012–014/223–227 and live Timeline clauses in C-47; design §8.3 within its boundary. No normative amendment or contradiction; source and verification owners separately recorded. |
+| A002 Scope | PASS | One existing controller plus stateless binding replaces the proven alternate path. §7 records removals, retention, future reuse, risks and compatibility; no speculative owner or feature introduced. |
+| A003 Repository state | PASS | Starting branch/HEAD/dirty tracker, exact callers, source guides, generated policy and authored test families inspected. Type/import/Fallow passes; no new source paths, direct vendor imports or ownership entries. |
+| A004 Tokens | PASS | Exact diff adds no design literal, token, theme or density registry. |
+| A005 Theme | N/A | No theme, palette or theme fixture changed. |
+| A006 Density | N/A | No geometry, typography, density selection or full-cell editor styling changed; no new density measurement claim. |
+| A007 Creation | PASS | Existing production creation path retained; newly routed Timeline identity scenario and finished-input sentinel, payload and action-sequencing consumers pass. No create policy or admission capability changed. |
+| A008 Responsive | N/A | Responsive classification/geometry algorithms unchanged. Extraction preserves existing Network Analysis and below-minimum shell visibility decisions; composition evidence covers the retained boundary. |
+| A009 Overflow | N/A | Shell/grid/inspector scroll and application-navigation layout untouched. |
+| A010 Inspector | PASS | Stable existing inspector routes and retained owners unchanged; finished-input inspector, History, collaboration and recovery consumers pass after provider-wrapper migration. |
+| A011 Continuity | PASS | Production filtered-empty/raw-draft regression, query-controller isolation and migrated fixture tests; required Timeline continuation and Timeline/Notes recovery-focus browser rows pass. |
+| A012 Transactions | PASS | Fixture mutation-runtime construction and cleanup retain existing ownership and secure ID port. Finished-input action-sequencing, autosave and payload cases pass; no request reconstruction or identity policy added. |
+| A013 Acknowledgement/recovery | PASS | Finished-input autosave, support, save-state and History consumers pass through shared composition; retained operation owners unchanged and browser recovery passes. |
+| A014 Editing | PASS | Focused controller/model/component tests cover invalid date/timestamp/boolean/literal-set input and pending/requested distinctions. Real shell recovery retains unfinished raw input; grid/autosave cases preserve row identity and authoring. |
+| A015 Conflict presentation | N/A | Cell-conflict presentation and recovery markup unchanged. Existing collaboration consumers still execute; no new conflict-visual claim. |
+| A016 Query/interaction states | PASS | Browsing, surface-composition, pending-refresh/failure grid and canonical-control tests pass. Header sort and canonical clear remain live; no inference of authority from available data. |
+| A017 Refresh/authorization scope | PASS | Existing stale-result/error fencing and query/provider tests retained; finished-input collaboration and Timeline consumers exercise authority transitions. Protected-row and mutation authority owners were not relocated. |
+| A018 Evidence presentation | N/A | Evidence lifecycle/overlay/preview matrix unchanged; the fixture’s existing Evidence consumer passes. |
+| A019 Accessibility | PASS | Scoped ordinary activation, invalid-control feedback, keyboard/focus component coverage and production query-recovery focus pass. No changed contrast/motion/geometry or expanded conformance claim. |
+| A020 Component states | PASS | Full selected GridControls component row and transient-model row pass after closed initialization and ordinary activation. Query chips and requested controls remain distinct. Geometry/zoom expansion is outside this unchanged rendering scope. |
+| A021 Virtualized identity | PASS | Newly routed row-identity integration, grid identity/version tests and production Timeline continuation pass. Virtualization algorithm and performance scope are unchanged. |
+| A022 Visual fixtures | N/A | No renderer geometry/style/profile/golden change; fixture-only auto-open removal uses normal activation in tests. No visual baselines regenerated. |
+| A023 Selectors | PASS | Tests retain semantic schema/record/field selectors from ui-contracts; post-create assertion uses the actual scalar-editor selector. Browser identities and scenario titles unchanged. |
+| A024 Test authority | PASS | New tests and catalog entries depend only on executable sources/contracts and semantic titles. Diff introduces no Markdown read/stat/hash dependency; source/harness boundaries remain intact. |
+| A025 Generated artifacts | PASS | Only authored test families changed; Make regenerated their topology index. Final `generate` and `generate-drift` pass, with no hand-edited generated output. |
+| A026 Compatibility | PASS | No public/wire/storage/query/layout migration. Unsupported internal APIs removed without aliases; supported consumers migrated. Query/fixture rollback unit and independent reset/layout rollback boundaries recorded. |
+| A027 Handoff | PASS | Sequential completed exits precede dependencies; final check 1016/1016, browser 11/11, exact paths, all 15 consumers, failures/reruns, acceptance, compatibility, rollback, limits and final Markdown/diff checks are recorded. S-46 is marked DONE last. |
+
+#### S-46 integrated failure investigation
+
+The first finished-source `make check` run, `20261007T220641Z-p33727`, reported `platform.jobs.integration.supervised_runner` failing in `TestSupervisedRunnerContract_Integration/concurrency_is_bounded_and_shutdown_releases_attempts_neutrally`: one shutdown attempt ID remained while failures stayed zero and next-attempt time remained null. Evidence: `unit-logs/go-a05d98cf3e70576f-bc92901dcb40/stderr.log` and the row JSON under that root. No job/backend source or routing was modified. Inspection found the existing test uses a 120 ms lease and 30 ms renewal, while release requires an unexpired lease and treats execution loss neutrally. Load-sensitive expiry is a plausible explanation, not a demonstrated root cause.
+
+The actual `platform.jobs` task guide resolves the service-backed row. At this investigation checkpoint the narrow rerun `make service-backed-test-slice OWNER=platform.jobs ROWS=platform.jobs.integration.supervised_runner` was pending. The first failure remains visible; no assertion or lease/security semantics were weakened, and the failed aggregate is not relabeled a pass. S-46/A027/RB-035 remained open until the disposition and successful validation below.
+
+The unchanged narrow job-runner rerun **PASS 3/3** at `20261007T221720Z-p25856`, including the previously failing assertion. No backend source, test, policy, timeout or assertion was changed. This establishes a non-reproduced failure on rerun, not proof of a fixed timing defect. A fresh ordinary aggregate check is still required; the original failure and its unconfirmed cause remain visible.
+
+The first aggregate completed **FAIL 1015/1016** at `20261007T220641Z-p33727`; `run-summary.json` confirms the job-runner unit was the sole failure. The two final harness browser-support/cleanup units passed. A second ordinary `make check` is now running against unchanged finished product inputs; the existing finalizer precedes both runs. No capacity, retry, policy or assertion override is used.
+
+The second aggregate is `20261007T222438Z-p4814`. Both aggregate manifests carry the same product source digest, confirming that the intervening tracker edits did not change executable inputs. The latest Markdown check passed at `20261007T222456Z-p13206/adhoc/lint-markdown/tool-run-summary.json`; exact audit confirms 28 modified paths, all 1,824 tracked web paths represented, twelve numbered sections, no staged content and no untracked files. `git diff --check` passes.
+
+#### Finished-source validation and final disposition
+
+The final ordinary **`make check` PASS 1016/1016** at `.cartulary/test-results/20261007T222438Z-p4814`; its `run-summary.json` records **zero failed, skipped or cancelled work units**. The previously failing job-runner unit passes in this full run as well as the narrow rerun. Its initial failure is unrelated to the changed frontend paths and was not reproduced on either rerun; the precise timing cause remains unconfirmed. No backend, harness policy, assertion, timeout or capacity change was made to obtain the result.
+
+| Required gate | Finished-source result / artifact root |
+| --- | --- |
+| Focused query, model, component, foundation, sizing and recovery rows | PASS 11/11, `20261007T220350Z-p17920`. |
+| `make frontend-typecheck` | PASS 2/2, `20261007T220350Z-p17991`; also passed in final `check`. |
+| `make frontend-import-boundary-check` | PASS 2/2, `20261007T220350Z-p18000`. |
+| `make frontend-fallow-static` | PASS 2/2, `20261007T220350Z-p18008`; also passed in final `check`. Zero bounded web/package findings; 215 advisory findings and nonblocking health exit 1 remain unchanged in posture. |
+| `make build-web` | PASS as `target:build-web` in final `check`; actual result in `unit-results/target-build-web.json`. |
+| `make generate`; `make generate-drift` | PASS at `20261007T220519Z-p21770`; drift PASS 4/4 at `20261007T220519Z-p21772`. |
+| Authored catalog, generated accounting, shape and source policies | PASS in final `check`, including `target:test-catalog-check` and `target:json-shape-check`; new row selectors execute their intended scenarios. |
+| `make agent-finalize` | PASS 1/1 at `20261007T220600Z-p29192`, before both aggregates and the production browser slice. Retained-run maintenance skipped because `RESULTS_DIR` was unset. |
+| `make check` | Final PASS 1016/1016 at `20261007T222438Z-p4814`; first FAIL 1015/1016 at `20261007T220641Z-p33727` and unchanged job-runner narrow PASS 3/3 at `20261007T221720Z-p25856` remain recorded. |
+| Required production browser command in §8 | PASS 11/11 at `20261007T220944Z-p57498`; both selected rows executed. Browser and final aggregate manifests have identical product source digests. |
+| All 15 fixture consumers | Executed passing assertions in finished-input individual rows above, with final aggregate pass on those same inputs. Earlier full `frontend-unit` passed 702/702 at S-44. |
+| Markdown and whitespace | Final handoff Markdown PASS `20261007T223849Z-p15618/adhoc/lint-markdown/tool-run-summary.json`; earlier checks retained above. Exact scope/history and `git diff --check` pass; completion status bookkeeping is rechecked. |
+
+FND-51–53 are resolved by structural removal and the shared production composition; FND-54 is verified intentional retention; FND-55 is resolved by complete consumer accounting and the missing Vitest route. C-46–49 and RB-034 pass. RB-033 closed in S-43. RB-035 and A027 close with the final documentation checkpoint; no required validation, consumer, retirement or owner contradiction remains unresolved.
+
+Final review state is `main` at `1746cb273ee19561eb22dbbcad639dd5dfa5b8c8`, with the 28-path diff above unstaged, no staged changes, no untracked files, and no added/deleted/renamed paths. All 1,824 tracked web paths remain represented in the tracker. No commit, push, deployment, environment reset or migration was performed. The handoff includes all failed attempts, accepted evidence, retirement/retention decisions, compatibility, rollback and explicitly skipped scope; the next action is ordinary code review of the completed diff.
+
+**Iteration 8 complete:** S-43–S-46/T-058–T-061 and RB-033–035 are DONE; A001–A027 are PASS or scope-justified N/A. S-46 is the final completed workstream. No commit, push or deployment is implied by this engineering handoff.

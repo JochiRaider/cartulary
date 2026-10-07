@@ -37,3 +37,10 @@ The presentation hook passes a stable file-owner reference to the grid. Attachme
 and admission subscriptions live in `TimelineAttachmentFeedback`; progress-only
 publications do not rebuild the grid presentation. Accepted row projections keep
 the existing render path. Surface regions remain stateless.
+
+Timeline consumes the supplied Workbook view-bar working set. Filter authoring
+and query-control validation belong to the shared Workbook query controller.
+Timeline retains header sorting and filtered-empty recovery: clearing applied
+filters preserves sort, group and the shell’s raw filter authoring. Canonical
+query presentation, continuation, row-version guards and lifecycle feedback stay
+with their existing query, mutation and presentation owners.

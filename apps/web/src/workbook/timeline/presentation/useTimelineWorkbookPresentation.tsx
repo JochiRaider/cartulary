@@ -30,14 +30,6 @@ import {
   workbookGridDataState,
 } from "../../models/workbookGridState";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
-import {
-  applyFilterDraft,
-  clearFilterDraftValue,
-  defaultFilterDraft,
-  type FilterDraft,
-  removeFilterField,
-  validateFilterDraft,
-} from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { useWorkbookQueryRestart } from "../../query/WorkbookQueryBrowsingContext";
 import { DraftRowCreateButton } from "../components/TimelineDraftRowActions";
@@ -69,7 +61,7 @@ export type TimelineWorkbookPresentationRuntime = {
   readonly onActivateConflict: TimelineWorkbookSurfaceRuntime["onActivateConflict"];
   readonly queryControls: Pick<
     TimelineWorkbookSurfaceRuntime["query"],
-    "renderInlineControls" | "viewBarWorkingSet"
+    "viewBarWorkingSet"
   >;
 };
 
@@ -90,16 +82,12 @@ export function useTimelineWorkbookPresentation({
     onActivateConflict,
     queryControls,
   } = runtime;
-  const { renderInlineControls: renderInlineQueryControls, viewBarWorkingSet } =
-    queryControls;
+  const { viewBarWorkingSet } = queryControls;
   const { index: entityIndex } = entities;
   const {
     commands: {
-      onColumnHiddenChange: handleColumnHiddenChange,
-      onColumnMove: handleColumnMove,
       onColumnReorder: handleColumnReorder,
       onColumnSizingIntent: handleColumnSizingIntent,
-      onResetColumns: handleResetColumns,
     },
     snapshot: {
       chromeMode,
@@ -121,36 +109,12 @@ export function useTimelineWorkbookPresentation({
       operationError,
     },
   } = foundation.snapshot;
-  const {
-    handleQueryGroupByChange,
-    handleQuerySortChange,
-    setFilterDraft,
-    setQueryState,
-  } = foundation.commands.query;
-  const { filterDraft, queryState: requestedQueryState } =
-    foundation.snapshot.query;
+  const { handleQuerySortChange, setQueryState } = foundation.commands.query;
+  const { queryState: requestedQueryState } = foundation.snapshot.query;
   const queryState =
     mutation.commands.query.browser?.presentationQuery(requestedQueryState) ??
     requestedQueryState;
   const browser = mutation.commands.query.browser;
-  const canonicalRequestedQuery =
-    browser?.canonicalIntent(requestedQueryState) ?? requestedQueryState;
-  const handleApplyFilter = useCallback(
-    (draft: FilterDraft) => {
-      const validation = validateFilterDraft(timelineContract, draft);
-      if (validation.kind === "invalid") return validation;
-      setQueryState((current) =>
-        applyFilterDraft(
-          timelineContract,
-          browser?.canonicalIntent(current) ?? current,
-          draft,
-        ),
-      );
-      setFilterDraft(clearFilterDraftValue(draft, timelineContract));
-      return validation;
-    },
-    [browser, setFilterDraft, setQueryState],
-  );
   const rows = foundation.snapshot.rows;
   const fileOwner = composition.fileOwner;
   const getTimelineRowState = useCallback(
@@ -427,8 +391,7 @@ export function useTimelineWorkbookPresentation({
       const intent = browser?.canonicalIntent(current) ?? current;
       return intent.filters.length === 0 ? intent : { ...intent, filters: [] };
     });
-    setFilterDraft(defaultFilterDraft(timelineContract));
-  }, [browser, setFilterDraft, setQueryState]);
+  }, [browser, setQueryState]);
   const restartQuery = useWorkbookQueryRestart(timelineViewSchemaId);
   const handleRetry = useCallback(() => {
     void restartQuery();
@@ -482,17 +445,6 @@ export function useTimelineWorkbookPresentation({
       );
     },
     [updateTimelineSurfaceFocusAnchor],
-  );
-  const handleRemoveFilter = useCallback(
-    (fieldKey: string) => {
-      setQueryState((current) =>
-        removeFilterField(
-          browser?.canonicalIntent(current) ?? current,
-          fieldKey,
-        ),
-      );
-    },
-    [browser, setQueryState],
   );
   const handleInspectorToggle = useCallback(() => {
     setIsInspectorOpen(true);
@@ -637,35 +589,7 @@ export function useTimelineWorkbookPresentation({
         ),
       addRowDisabled: interactionMode.kind === "read_only",
       chromeMode,
-      workingSet: renderInlineQueryControls
-        ? {
-            savedView: viewBarWorkingSet?.savedView ?? null,
-            query: {
-              onApplyPreset: viewBarWorkingSet?.query?.onApplyPreset,
-              contract: timelineContract,
-              defaultFilterPopoverOpen: true,
-              filterDraft,
-              layoutState,
-              sizing: layout.commands.sizing,
-              freezing: layout.commands.freezing,
-              onApplyFilter: handleApplyFilter,
-              onClearFilters: handleClearFilters,
-              onColumnHiddenChange: handleColumnHiddenChange,
-              onColumnMove: handleColumnMove,
-              onFilterDraftChange: setFilterDraft,
-              onGroupByChange: handleQueryGroupByChange,
-              onRemoveFilter: handleRemoveFilter,
-              onResetColumns: handleResetColumns,
-              onSortChange: handleQuerySortChange,
-              queryState,
-              requestedFilters: canonicalRequestedQuery.filters,
-              requestedGroupBy: requestedQueryState.groupBy,
-              requestedSort: requestedQueryState.sort,
-              surface: timelineViewSchemaId,
-              subjectKey: viewBarWorkingSet?.query?.subjectKey,
-            },
-          }
-        : viewBarWorkingSet,
+      workingSet: viewBarWorkingSet,
       onAddRow: focusDraftRow,
       onInspectorToggle: handleInspectorToggle,
       surface: timelineViewSchemaId,

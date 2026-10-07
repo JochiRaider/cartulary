@@ -1,7 +1,10 @@
 import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import { sheetRefKey } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
+import type { useWorkbookQueryController } from "../hooks/useWorkbookQueryController";
 import type { useWorkbookShellRuntime } from "../hooks/useWorkbookShellRuntime";
+import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
+import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import { workbookQueryStateFromSavedViewQueryJson } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
@@ -9,6 +12,53 @@ import type { WorkbookPreferenceController } from "../preferences/WorkbookPrefer
 import type { WorkbookViewBarWorkingSetBinding } from "./WorkbookViewBar";
 
 type WorkbookShellRuntime = ReturnType<typeof useWorkbookShellRuntime>;
+
+export function workbookQueryViewBarBinding({
+  queryControls,
+  layoutState,
+  layoutControls,
+  subjectKey,
+  onApplyPreset,
+}: {
+  readonly queryControls: ReturnType<
+    typeof useWorkbookQueryController
+  >["snapshot"]["activeQueryControls"];
+  readonly layoutState: WorkbookResolvedLayoutState;
+  readonly layoutControls: Pick<
+    WorkbookSurfaceLayoutOwner["commands"],
+    | "sizing"
+    | "freezing"
+    | "onColumnHiddenChange"
+    | "onColumnMove"
+    | "onResetColumns"
+  >;
+  readonly subjectKey: string;
+  readonly onApplyPreset?: ((id: string) => void) | undefined;
+}): NonNullable<WorkbookViewBarWorkingSetBinding["query"]> {
+  return {
+    onApplyPreset,
+    contract: queryControls.contract,
+    filterDraft: queryControls.filterDraft,
+    layoutState,
+    sizing: layoutControls.sizing,
+    freezing: layoutControls.freezing,
+    onApplyFilter: queryControls.onApplyFilter,
+    onClearFilters: queryControls.onClearFilters,
+    onColumnHiddenChange: layoutControls.onColumnHiddenChange,
+    onColumnMove: layoutControls.onColumnMove,
+    onFilterDraftChange: queryControls.onFilterDraftChange,
+    onGroupByChange: queryControls.onGroupByChange,
+    onRemoveFilter: queryControls.onRemoveFilter,
+    onResetColumns: layoutControls.onResetColumns,
+    onSortChange: queryControls.onSortChange,
+    queryState: queryControls.queryState,
+    requestedFilters: queryControls.requestedFilters,
+    requestedGroupBy: queryControls.requestedGroupBy,
+    requestedSort: queryControls.requestedSort,
+    surface: queryControls.surface,
+    subjectKey,
+  };
+}
 
 export function workbookShellViewBarWorkingSet({
   chromeMode,
@@ -41,7 +91,11 @@ export function workbookShellViewBarWorkingSet({
     query:
       chromeMode === "below_supported_minimum"
         ? null
-        : {
+        : workbookQueryViewBarBinding({
+            queryControls: snapshot.activeQueryControls,
+            layoutState: snapshot.activeLayoutState,
+            layoutControls: snapshot.activeLayoutControls,
+            subjectKey,
             onApplyPreset:
               snapshot.surface === timelineViewSchemaId
                 ? (id) => {
@@ -59,29 +113,7 @@ export function workbookShellViewBarWorkingSet({
                       );
                   }
                 : undefined,
-            contract: snapshot.activeQueryControls.contract,
-            filterDraft: snapshot.activeQueryControls.filterDraft,
-            layoutState: snapshot.activeLayoutState,
-            sizing: snapshot.activeLayoutControls.sizing,
-            freezing: snapshot.activeLayoutControls.freezing,
-            onApplyFilter: snapshot.activeQueryControls.onApplyFilter,
-            onClearFilters: snapshot.activeQueryControls.onClearFilters,
-            onColumnHiddenChange:
-              snapshot.activeLayoutControls.onColumnHiddenChange,
-            onColumnMove: snapshot.activeLayoutControls.onColumnMove,
-            onFilterDraftChange:
-              snapshot.activeQueryControls.onFilterDraftChange,
-            onGroupByChange: snapshot.activeQueryControls.onGroupByChange,
-            onRemoveFilter: snapshot.activeQueryControls.onRemoveFilter,
-            onResetColumns: snapshot.activeLayoutControls.onResetColumns,
-            onSortChange: snapshot.activeQueryControls.onSortChange,
-            queryState: snapshot.activeQueryControls.queryState,
-            requestedFilters: snapshot.activeQueryControls.requestedFilters,
-            requestedGroupBy: snapshot.activeQueryControls.requestedGroupBy,
-            requestedSort: snapshot.activeQueryControls.requestedSort,
-            surface: snapshot.activeQueryControls.surface,
-            subjectKey,
-          },
+          }),
     savedView: {
       activeViewSchemaId: snapshot.surface,
       currentIncidentRole,

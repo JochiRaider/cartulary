@@ -39,7 +39,6 @@ export type WorkbookGridControlsProps = {
   readonly menu?: boolean | undefined;
   readonly onRequestMenu?: (() => void) | undefined;
   readonly contract: ViewContract;
-  readonly defaultFilterPopoverOpen?: boolean | undefined;
   readonly filterDraft: FilterDraft;
   readonly layoutState: WorkbookResolvedLayoutState;
   readonly onApplyFilter: (draft: FilterDraft) => FilterDraftValidation;
@@ -70,7 +69,6 @@ export function WorkbookGridControls({
   menu = false,
   onRequestMenu,
   contract,
-  defaultFilterPopoverOpen = false,
   filterDraft,
   layoutState,
   onApplyFilter,
@@ -100,11 +98,7 @@ export function WorkbookGridControls({
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const [transientState, dispatch] = useReducer(
     reduceWorkbookGridControlsTransientState,
-    createWorkbookGridControlsTransientState(
-      subjectKey,
-      filterDraft,
-      defaultFilterPopoverOpen,
-    ),
+    createWorkbookGridControlsTransientState(subjectKey, filterDraft),
   );
   const surfaceState = workbookGridSurfaceTransientState(
     transientState,

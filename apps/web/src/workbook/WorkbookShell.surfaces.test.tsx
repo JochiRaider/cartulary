@@ -3147,6 +3147,76 @@ describe("WorkbookShell surface selection", () => {
     });
   });
 
+  it("preserves unfinished filter draft sort and group through Timeline filtered-empty recovery", async () => {
+    scenario.savedViews = [
+      testSavedViewResource({
+        saved_view_id: savedViewId,
+        view_schema_id: timelineViewSchemaId,
+        query_json: {
+          filters: [
+            {
+              field_key: "timeline.capture_state",
+              op: "eq",
+              arg: { value: "reviewed" },
+            },
+          ],
+          group_by: "timeline.capture_state",
+          sort: [{ field_key: "timeline.activity_sort_ts", direction: "desc" }],
+        },
+      }),
+    ];
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
+    await activateSavedView(timelineViewSchemaId, savedViewId);
+    await screen.findByText("No rows match the current filters.");
+
+    const trigger = () =>
+      screen.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      );
+    fireEvent.click(trigger());
+    fireEvent.change(
+      screen.getByTestId(gridFilterFieldTestId(timelineViewSchemaId)),
+      {
+        target: { value: "timeline.date_entered_sort_day" },
+      },
+    );
+    const draft = " 2026-04-31 ";
+    fireEvent.change(
+      screen.getByTestId(gridFilterValueTestId(timelineViewSchemaId)),
+      {
+        target: { value: draft },
+      },
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole("region", { name: "Grid operational state" }),
+      ).getByRole("button", { name: "Clear filters" }),
+    );
+
+    await waitFor(() => {
+      const latest = fetchMock.mock.calls
+        .filter(
+          ([input, init]) =>
+            String(input).includes(`/views/${timelineViewSchemaId}/query`) &&
+            (init as RequestInit | undefined)?.method === "POST",
+        )
+        .at(-1);
+      expect(
+        JSON.parse(String((latest?.[1] as RequestInit | undefined)?.body)),
+      ).toEqual({
+        limit: 100,
+        group_by: "timeline.capture_state",
+        sort: [{ field_key: "timeline.activity_sort_ts", direction: "desc" }],
+      });
+    });
+    expect(
+      screen.getByTestId(gridFilterFieldTestId(timelineViewSchemaId)),
+    ).toHaveProperty("value", "timeline.date_entered_sort_day");
+    expect(
+      screen.getByTestId(gridFilterValueTestId(timelineViewSchemaId)),
+    ).toHaveProperty("value", draft);
+  });
+
   it("passes invalid explicit base surfaces to backend startup fallback", async () => {
     window.history.replaceState(
       {},

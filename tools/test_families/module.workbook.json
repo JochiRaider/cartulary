@@ -7238,6 +7238,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.workbook.frontend_integration.timeline_query_row_identity_through_create_patch_76a0163691",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_integration",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.timelineQuery.test.tsx",
+        "titles": [
+          "Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.workbook.frontend_integration.verify_sparse_patches_preserve_unchanged_row_obj_eff6a3a987",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.frontend_integration",

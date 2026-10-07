@@ -4,6 +4,7 @@ import {
   gridRowVersionAttribute,
   rowCellTestId,
   saveStateTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import * as viewContracts from "@cartulary/view-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -297,12 +298,13 @@ describe("Timeline query row identity integration", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(
-          rowCellTestId(
-            "20000000-0000-4000-8000-000000000703",
-            "timeline.activity_synopsis_text",
-          ),
-        ).textContent,
-      ).toBe("Created through draft row");
+          timelineScalarEditorTestId({
+            recordId: "20000000-0000-4000-8000-000000000703",
+            fieldKey: "timeline.activity_synopsis_text",
+            surface: "grid",
+          }),
+        ),
+      ).toHaveProperty("value", "Created through draft row");
     });
 
     fetchMock.mockResolvedValueOnce(

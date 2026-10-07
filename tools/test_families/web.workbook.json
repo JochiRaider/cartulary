@@ -5283,6 +5283,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_filtered_empty_recovery_preserves_unfin_5afae76ba7",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "preserves unfinished filter draft sort and group through Timeline filtered-empty recovery"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_find_integration",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

@@ -22,7 +22,7 @@ type TimelineSurfaceFoundationInput = {
   readonly mutationRuntime: TimelineWorkbookSurfaceRuntime["mutationRuntime"];
   readonly query: Pick<
     TimelineWorkbookSurfaceRuntime["query"],
-    "filterDraft" | "setFilterDraft" | "setState" | "state"
+    "setState" | "state"
   >;
 };
 
@@ -55,9 +55,7 @@ export function useTimelineSurfaceFoundation({
     [mutationRuntime],
   );
   const runtime = useTimelineWorkbookRuntime({
-    filterDraft: query.filterDraft,
     queryState: query.state,
-    setFilterDraft: query.setFilterDraft,
     setQueryState: query.setState,
   });
   const [loadAccessLost, setLoadAccessLost] = useState(false);
@@ -150,7 +148,6 @@ export function useTimelineSurfaceFoundation({
       },
       mentions: mentions.snapshot,
       query: {
-        filterDraft: runtime.query.filterDraft,
         queryState: runtime.query.queryState,
       },
       rows: rows.rows,

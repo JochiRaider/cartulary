@@ -11,4 +11,4 @@ There are no module-global mutable defaults or cross-shell stores.
 
 | File | Responsibility |
 | --- | --- |
-| [useWorkbookQueryState.ts](useWorkbookQueryState.ts) | Instance-owned schema-keyed query defaults, reducer state, reset, and update operations. |
+| [useWorkbookQueryState.ts](useWorkbookQueryState.ts) | Instance-owned schema-keyed query defaults, initialization and update operations. |

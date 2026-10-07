@@ -360,7 +360,6 @@ describe("workbookGridQueryControls", () => {
     let state = createWorkbookGridControlsTransientState(
       "incident:timeline:base",
       filterDraft,
-      false,
     );
     state = reduceWorkbookGridControlsTransientState(state, {
       panel: "filters",
@@ -377,7 +376,6 @@ describe("workbookGridQueryControls", () => {
       createWorkbookGridControlsTransientState(
         "incident:timeline:saved_view:one:2",
         filterDraft,
-        false,
       ),
     );
   });
@@ -387,11 +385,7 @@ describe("workbookGridQueryControls", () => {
     const firstDraft = defaultFilterDraft(contract);
     const secondDraft =
       firstDraft.op === "eq" ? { ...firstDraft, value: "second" } : firstDraft;
-    let state = createWorkbookGridControlsTransientState(
-      surface,
-      firstDraft,
-      false,
-    );
+    let state = createWorkbookGridControlsTransientState(surface, firstDraft);
     state = reduceWorkbookGridControlsTransientState(state, {
       type: "toggle_panel",
       panel: "filters",

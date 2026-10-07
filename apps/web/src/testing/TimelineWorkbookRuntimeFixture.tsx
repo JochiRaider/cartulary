@@ -1,14 +1,7 @@
 import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import type { SheetRef } from "../shared/sheetRef";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type SheetRef, sheetRefKey } from "../shared/sheetRef";
 import { WorkbookRecoveryNavigation } from "../shared/workbookRecoveryNavigation";
 import { createWorkbookBatchTransport } from "../workbook/adapters/createWorkbookBatchTransport";
 import { createWorkbookClipboardPasteAdapter } from "../workbook/adapters/createWorkbookClipboardPasteAdapter";
@@ -23,17 +16,14 @@ import {
 } from "../workbook/collaboration/workbookCollaborationTiming";
 import { WorkbookActiveSurfaceFrame } from "../workbook/components/WorkbookActiveSurfaceFrame";
 import { WorkbookBatchRecovery } from "../workbook/components/WorkbookBatchRecovery";
+import { workbookQueryViewBarBinding } from "../workbook/components/WorkbookShellViewBarControls";
 import { WorkbookHistoryContext } from "../workbook/history/WorkbookHistoryContext";
+import { useWorkbookQueryController } from "../workbook/hooks/useWorkbookQueryController";
 import { useWorkbookRecoveryFocus } from "../workbook/hooks/useWorkbookRecoveryFocus";
 import { useWorkbookColumnLayoutController } from "../workbook/layout/useWorkbookColumnLayoutController";
 import type { WorkbookResolvedLayoutState } from "../workbook/layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../workbook/layout/workbookResponsiveLayout";
-import {
-  defaultFilterDraft,
-  emptyWorkbookQueryState,
-  type FilterDraft,
-  type WorkbookQueryState,
-} from "../workbook/models/workbookQuery";
+
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "../workbook/mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secureTransactionId";
@@ -73,18 +63,9 @@ export type TimelineWorkbookRuntimeFixtureProps = {
   readonly sheetRef?: SheetRef | undefined;
   readonly inspectorResetKey?: string | undefined;
   readonly reloadToken?: number | undefined;
-  readonly renderInlineQueryControls?: boolean | undefined;
   readonly chromeMode?: WorkbookChromeMode | undefined;
   readonly incidentClosed?: boolean | undefined;
   readonly showStatusPresence?: boolean | undefined;
-  readonly filterDraft?: FilterDraft | undefined;
-  readonly onFilterDraftChange?:
-    | Dispatch<SetStateAction<FilterDraft>>
-    | undefined;
-  readonly onQueryStateChange?:
-    | Dispatch<SetStateAction<WorkbookQueryState>>
-    | undefined;
-  readonly queryState?: WorkbookQueryState | undefined;
   readonly hostEntities?: readonly TimelineWorkbookEntityRow[] | undefined;
   readonly identityEntities?: readonly TimelineWorkbookEntityRow[] | undefined;
   readonly entityIndex?: Record<string, TimelineWorkbookEntityRow> | undefined;
@@ -109,7 +90,17 @@ export type TimelineWorkbookRuntimeFixtureProps = {
   readonly onIncidentAccessLost?: (() => void) | undefined;
 };
 
-export function TimelineWorkbookRuntimeFixture({
+export function TimelineWorkbookRuntimeFixture(
+  props: TimelineWorkbookRuntimeFixtureProps,
+) {
+  return (
+    <WorkbookQueryBrowsingProvider>
+      <TimelineWorkbookRuntimeFixtureContent {...props} />
+    </WorkbookQueryBrowsingProvider>
+  );
+}
+
+function TimelineWorkbookRuntimeFixtureContent({
   incidentId = "10000000-0000-4000-8000-000000000001",
   apiBase,
   currentUserId = "fixture-actor",
@@ -119,14 +110,9 @@ export function TimelineWorkbookRuntimeFixture({
   },
   inspectorResetKey = timelineViewSchemaId,
   reloadToken = 0,
-  renderInlineQueryControls = true,
   chromeMode = "base",
   incidentClosed = false,
   showStatusPresence = true,
-  filterDraft: providedFilterDraft,
-  onFilterDraftChange,
-  onQueryStateChange,
-  queryState: providedQueryState,
   hostEntities = [],
   identityEntities = [],
   entityIndex = {},
@@ -141,12 +127,9 @@ export function TimelineWorkbookRuntimeFixture({
   interactionMode = { kind: "editable" },
   onIncidentAccessLost,
 }: TimelineWorkbookRuntimeFixtureProps) {
-  const [queryState, setQueryState] = useState<WorkbookQueryState>(
-    providedQueryState ?? emptyWorkbookQueryState(),
-  );
-  const [filterDraft, setFilterDraft] = useState<FilterDraft>(
-    providedFilterDraft ?? defaultFilterDraft(timelineContract),
-  );
+  const queryController = useWorkbookQueryController({
+    surface: timelineViewSchemaId,
+  });
   const layoutOwner = useWorkbookColumnLayoutController({
     activeContract: timelineContract,
     contextKey: incidentId,
@@ -326,94 +309,111 @@ export function TimelineWorkbookRuntimeFixture({
   );
 
   return (
-    <WorkbookQueryBrowsingProvider>
-      <WorkbookRecoveryProvidersFixture
-        navigation={navigation}
-        invokerRef={invokerRef}
-        fallbackRef={activeSurfaceRef}
-      >
-        <WorkbookHistoryContext.Provider value={mutationRuntime}>
-          <WorkbookBatchRecovery
-            runtime={mutationRuntime}
-            activateConflict={recoveryFocus.activate}
-          />
-          <TimelineCaptureRecovery owner={timelineCapture} />
-          <TimelineMentionRecovery owner={timelineMentions} />
-          <WorkbookActiveSurfaceFrame
-            activeSurfaceRef={activeSurfaceRef}
-            apiBase={apiBase}
-            focus={recoveryFocus}
-            mutationRuntime={mutationRuntime}
-            sheetRef={sheetRef}
-            onActivateOrigin={() => undefined}
-            activeContent={
-              <TimelineWorkbook
-                runtime={{
-                  attachCollaborationSession: true,
-                  clipboardPaste,
-                  collaborationProjection,
-                  mutationRuntime,
-                  mutationCommands: mutationCommands.timeline,
-                  evidenceAccess: mutationCommands.evidence,
-                  gridEntryFocus: idleGridEntryFocus,
-                  incident: {
-                    id: incidentId,
-                    apiBase,
-                    continuityResetKey: inspectorResetKey,
-                    currentUserId,
-                    currentRole: currentIncidentRole,
-                    incidentPort,
-                    sheetRef,
-                    inspectorResetKey,
-                    reloadToken,
+    <WorkbookRecoveryProvidersFixture
+      navigation={navigation}
+      invokerRef={invokerRef}
+      fallbackRef={activeSurfaceRef}
+    >
+      <WorkbookHistoryContext.Provider value={mutationRuntime}>
+        <WorkbookBatchRecovery
+          runtime={mutationRuntime}
+          activateConflict={recoveryFocus.activate}
+        />
+        <TimelineCaptureRecovery owner={timelineCapture} />
+        <TimelineMentionRecovery owner={timelineMentions} />
+        <WorkbookActiveSurfaceFrame
+          activeSurfaceRef={activeSurfaceRef}
+          apiBase={apiBase}
+          focus={recoveryFocus}
+          mutationRuntime={mutationRuntime}
+          sheetRef={sheetRef}
+          onActivateOrigin={() => undefined}
+          activeContent={
+            <TimelineWorkbook
+              runtime={{
+                attachCollaborationSession: true,
+                clipboardPaste,
+                collaborationProjection,
+                mutationRuntime,
+                mutationCommands: mutationCommands.timeline,
+                evidenceAccess: mutationCommands.evidence,
+                gridEntryFocus: idleGridEntryFocus,
+                incident: {
+                  id: incidentId,
+                  apiBase,
+                  continuityResetKey: inspectorResetKey,
+                  currentUserId,
+                  currentRole: currentIncidentRole,
+                  incidentPort,
+                  sheetRef,
+                  inspectorResetKey,
+                  reloadToken,
+                },
+                query: {
+                  viewQuery,
+                  state: queryController.snapshot.timelineQueryState,
+                  setState: queryController.commands.setTimelineQueryState,
+                  viewBarWorkingSet: {
+                    savedView: null,
+                    query:
+                      chromeMode === "below_supported_minimum"
+                        ? null
+                        : workbookQueryViewBarBinding({
+                            queryControls:
+                              queryController.snapshot.activeQueryControls,
+                            layoutState: providedLayoutState ?? layoutState,
+                            layoutControls: {
+                              sizing: columnControls.sizing,
+                              freezing: columnControls.freezing,
+                              onColumnHiddenChange:
+                                onColumnHiddenChange ??
+                                columnControls.onColumnHiddenChange,
+                              onColumnMove:
+                                onColumnMove ?? columnControls.onColumnMove,
+                              onResetColumns:
+                                onResetColumns ?? columnControls.onResetColumns,
+                            },
+                            subjectKey: `${incidentId}:${timelineViewSchemaId}:${sheetRefKey(sheetRef)}:0`,
+                          }),
                   },
-                  query: {
-                    viewQuery,
-                    state: providedQueryState ?? queryState,
-                    setState: onQueryStateChange ?? setQueryState,
-                    filterDraft: providedFilterDraft ?? filterDraft,
-                    setFilterDraft: onFilterDraftChange ?? setFilterDraft,
-                    renderInlineControls: renderInlineQueryControls,
-                    viewBarWorkingSet: null,
+                },
+                entities: {
+                  hosts: hostEntities,
+                  identities: identityEntities,
+                  index: entityIndex,
+                  refresh: onRefreshEntities,
+                },
+                layout: {
+                  commands: {
+                    onColumnHiddenChange:
+                      onColumnHiddenChange ??
+                      columnControls.onColumnHiddenChange,
+                    onColumnMove: onColumnMove ?? columnControls.onColumnMove,
+                    onColumnReorder:
+                      onColumnReorder ?? columnControls.onColumnReorder,
+                    onColumnSizingIntent: columnControls.onColumnSizingIntent,
+                    bindColumnSizing: columnControls.bindColumnSizing,
+                    sizing: columnControls.sizing,
+                    freezing: columnControls.freezing,
+                    onResetColumns:
+                      onResetColumns ?? columnControls.onResetColumns,
                   },
-                  entities: {
-                    hosts: hostEntities,
-                    identities: identityEntities,
-                    index: entityIndex,
-                    refresh: onRefreshEntities,
+                  snapshot: {
+                    chromeMode,
+                    density,
+                    incidentClosed,
+                    interactionMode,
+                    showStatusPresence,
+                    state: providedLayoutState ?? layoutState,
                   },
-                  layout: {
-                    commands: {
-                      onColumnHiddenChange:
-                        onColumnHiddenChange ??
-                        columnControls.onColumnHiddenChange,
-                      onColumnMove: onColumnMove ?? columnControls.onColumnMove,
-                      onColumnReorder:
-                        onColumnReorder ?? columnControls.onColumnReorder,
-                      onColumnSizingIntent: columnControls.onColumnSizingIntent,
-                      bindColumnSizing: columnControls.bindColumnSizing,
-                      sizing: columnControls.sizing,
-                      freezing: columnControls.freezing,
-                      onResetColumns:
-                        onResetColumns ?? columnControls.onResetColumns,
-                    },
-                    snapshot: {
-                      chromeMode,
-                      density,
-                      incidentClosed,
-                      interactionMode,
-                      showStatusPresence,
-                      state: providedLayoutState ?? layoutState,
-                    },
-                  },
-                  onActivateConflict: recoveryFocus.activate,
-                  onAuthorityUncertain: onIncidentAccessLost,
-                }}
-              />
-            }
-          />
-        </WorkbookHistoryContext.Provider>
-      </WorkbookRecoveryProvidersFixture>
-    </WorkbookQueryBrowsingProvider>
+                },
+                onActivateConflict: recoveryFocus.activate,
+                onAuthorityUncertain: onIncidentAccessLost,
+              }}
+            />
+          }
+        />
+      </WorkbookHistoryContext.Provider>
+    </WorkbookRecoveryProvidersFixture>
   );
 }

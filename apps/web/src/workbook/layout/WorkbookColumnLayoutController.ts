@@ -208,7 +208,6 @@ export class WorkbookColumnLayoutController {
       this.publish();
     };
   };
-  refresh = () => this.publish();
   read = (id: string, field: string): WorkbookColumnSizingDescriptor => {
     const state = this.currentLayoutStateForSurface(id);
     const binding = this.bindings.get(id);

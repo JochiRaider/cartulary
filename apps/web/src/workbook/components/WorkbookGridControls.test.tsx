@@ -1871,7 +1871,6 @@ describe("WorkbookGridControls", () => {
     };
     const common = {
       contract,
-      defaultFilterPopoverOpen: true,
       filterDraft: invalidDraft,
       layoutState: defaultWorkbookLayoutState(contract),
       onApplyFilter,
@@ -1892,6 +1891,9 @@ describe("WorkbookGridControls", () => {
         surface={timelineSurface}
       />,
     );
+    fireEvent.click(
+      screen.getByTestId(workbookFilterPopoverTriggerTestId(timelineSurface)),
+    );
     expect(screen.getByText("Select a supported filter field.")).toBeInstanceOf(
       HTMLElement,
     );
@@ -1905,7 +1907,6 @@ describe("WorkbookGridControls", () => {
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         {...common}
-        defaultFilterPopoverOpen={false}
         surface="cartulary.view.hosts.v1"
       />,
     );

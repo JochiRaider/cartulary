@@ -1,5 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import { type Dispatch, type SetStateAction, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { WorkbookClipboardPastePort } from "../adapters/WorkbookClipboardPastePort";
@@ -14,7 +14,6 @@ import type { EntityRow } from "../models/entityWorkbookModel";
 import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
 import type { WorkbookQueryLoadState } from "../models/workbookGridState";
 import {
-  defaultFilterDraft,
   emptyWorkbookQueryState,
   replaceWorkbookSort,
   type WorkbookQueryState,
@@ -157,11 +156,6 @@ export function WorkbookSurfacesFacade({
   const setIdentityQueryState = entities.identities.setState;
   const setTimelineQueryState = timeline.setState;
   const registration = requireWorkbookSurfaceRegistration(surface);
-  const [timelineFilterDraft, setTimelineFilterDraft] = useState(() =>
-    defaultFilterDraft(
-      requireWorkbookSurfaceRegistration("cartulary.view.timeline.v2").contract,
-    ),
-  );
   if (registration.renderer === "timeline") {
     return (
       <TimelineWorkbook
@@ -187,9 +181,6 @@ export function WorkbookSurfacesFacade({
             viewQuery,
             state: timelineQueryState,
             setState: setTimelineQueryState,
-            filterDraft: timelineFilterDraft,
-            setFilterDraft: setTimelineFilterDraft,
-            renderInlineControls: false,
             viewBarWorkingSet,
           },
           entities: {

@@ -43,7 +43,7 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 | [timelineCaptureActionTestSupport.ts](timelineCaptureActionTestSupport.ts) | Reviewed Timeline capture-action fixture construction. |
 | [timelineMentionTestSupport.ts](timelineMentionTestSupport.ts) | Timeline mention review, receipt, workbook row, inspector, and entity-creation fixtures. |
 | [timelineWorkbookRenderTestSupport.tsx](timelineWorkbookRenderTestSupport.tsx) | Shared Timeline render helpers used by component characterization tests. |
-| [TimelineWorkbookRuntimeFixture.tsx](TimelineWorkbookRuntimeFixture.tsx) | Production-composed Timeline runtime fixture with configurable shell, layout, query, entity and interaction inputs, borrowing the production recovery-focus owner. |
+| [TimelineWorkbookRuntimeFixture.tsx](TimelineWorkbookRuntimeFixture.tsx) | Timeline runtime fixture using the production query controller and shared view-bar binding, with configurable shell, layout, entity and interaction inputs and the production recovery-focus owner. |
 | [timelineWorkbookTestSupport.test.tsx](timelineWorkbookTestSupport.test.tsx) | Tests for Timeline workbook test-support helpers. |
 | [timelineWorkbookTestSupport.ts](timelineWorkbookTestSupport.ts) | Shared Timeline workbook fixture helpers, route mocks, and row builders for tests. |
 | [workbookAuthorizationTestSupport.ts](workbookAuthorizationTestSupport.ts) | Deterministic workbook authorization-recovery port fixture. |
@@ -57,7 +57,10 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 
 Isolated query consumers use the required browsing provider through
 `workbookQueryTestSupport` render helpers. `TimelineWorkbookRuntimeFixture`
-composes that provider directly. Selection fixtures admit real query results
+mounts the production query controller beneath that provider and shares
+`workbookQueryViewBarBinding` with the shell. Tests activate Filters through its
+ordinary control; no fixture-specific query state or raw-draft overrides remain.
+Selection fixtures admit real query results
 before exercising membership-dependent commands; they do not synthesize a
 missing-provider fallback.
 

@@ -306,7 +306,6 @@ export function parseDeclaredGroupField(
 export function createWorkbookGridControlsTransientState(
   subjectKey: string,
   filterDraft: FilterDraft,
-  defaultFilterPopoverOpen: boolean,
 ): WorkbookGridControlsTransientState {
   return {
     subjectKey,
@@ -314,7 +313,7 @@ export function createWorkbookGridControlsTransientState(
       activeEntryKey: null,
       editingFilterFieldKey: null,
       filterDraft,
-      openPanel: defaultFilterPopoverOpen ? "filters" : null,
+      openPanel: null,
       rovingEntryKey: null,
     },
   };
@@ -347,7 +346,6 @@ export function reduceWorkbookGridControlsTransientState(
         : createWorkbookGridControlsTransientState(
             event.subjectKey,
             event.filterDraft,
-            false,
           );
     case "sync_filter_draft":
       return updateTransient(state, event.subjectKey, (current) =>

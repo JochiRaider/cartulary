@@ -6,10 +6,7 @@ import type { WorkbookConflictActivation } from "../../components/WorkbookStatus
 import type { WorkbookViewBarWorkingSetBinding } from "../../components/WorkbookViewBar";
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type { WorkbookGridEntryFocusOwner } from "../../models/workbookGridEntryFocus";
-import type {
-  FilterDraft,
-  WorkbookQueryState,
-} from "../../models/workbookQuery";
+import type { WorkbookQueryState } from "../../models/workbookQuery";
 import type {
   EvidenceCapabilityPort,
   TimelineMutationCommandPorts,
@@ -66,9 +63,6 @@ export type TimelineWorkbookSurfaceRuntime = {
     readonly viewQuery: WorkbookViewQueryPort;
     readonly state: WorkbookQueryState;
     readonly setState: Dispatch<SetStateAction<WorkbookQueryState>>;
-    readonly filterDraft: FilterDraft;
-    readonly setFilterDraft: Dispatch<SetStateAction<FilterDraft>>;
-    readonly renderInlineControls: boolean;
     readonly viewBarWorkingSet: WorkbookViewBarWorkingSetBinding | null;
   };
   readonly entities: {

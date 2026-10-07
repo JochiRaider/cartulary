@@ -27,7 +27,6 @@ function TimelineWorkbookContent({
       layout: runtime.layout,
       onActivateConflict: runtime.onActivateConflict,
       queryControls: {
-        renderInlineControls: runtime.query.renderInlineControls,
         viewBarWorkingSet: runtime.query.viewBarWorkingSet,
       },
     },

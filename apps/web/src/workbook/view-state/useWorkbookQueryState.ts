@@ -34,10 +34,6 @@ type WorkbookQueryStateAction =
         current: WorkbookQueryStateEntry,
       ) => WorkbookQueryStateEntry;
       readonly viewSchemaId: string;
-    }
-  | {
-      readonly type: "reset";
-      readonly viewSchemaId: string;
     };
 
 function newQueryEntry(
@@ -83,14 +79,6 @@ function workbookQueryStateReducer(
             newQueryEntry(viewSchemaId),
           ]),
         ),
-      },
-    };
-  }
-  if (action.type === "reset") {
-    return {
-      entries: {
-        ...current.entries,
-        [action.viewSchemaId]: newQueryEntry(action.viewSchemaId),
       },
     };
   }
@@ -145,10 +133,6 @@ export function useWorkbookQueryState(viewSchemaIds: readonly string[]) {
     [],
   );
 
-  const resetEntry = useCallback((viewSchemaId: string) => {
-    dispatch({ type: "reset", viewSchemaId });
-  }, []);
-
   const setQueryStateForSurface = useCallback(
     (viewSchemaId: string, action: SetStateAction<WorkbookQueryState>) => {
       updateEntry(viewSchemaId, (current) => ({
@@ -171,7 +155,6 @@ export function useWorkbookQueryState(viewSchemaIds: readonly string[]) {
 
   return {
     entryFor,
-    resetEntry,
     setFilterDraftForSurface,
     setQueryStateForSurface,
     updateEntry,
