@@ -1,5 +1,9 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import type { FilterDraft } from "./workbookQuery";
+import {
+  appendFilterDraftMember,
+  type FilterDraft,
+  filterMemberControlKeys,
+} from "./workbookQuery";
 
 export type EqualityFilterDraft = Extract<FilterDraft, { readonly op: "eq" }>;
 
@@ -21,9 +25,7 @@ export function enumFilterChoices(
 export function enumFilterMembers(
   draft: EqualityFilterDraft,
 ): readonly string[] {
-  return typeof draft.values === "string"
-    ? draft.values.split(/[\n,]/u).filter((value) => value.trim().length > 0)
-    : draft.values;
+  return draft.values.map((member) => member.value);
 }
 
 export function enumFilterHasCustomLiteral(
@@ -46,9 +48,9 @@ export function toggleEnumFilterChoice(
     ...draft,
     values: checked
       ? members.includes(value)
-        ? members
-        : [...members, value]
-      : members.filter((member) => member !== value),
+        ? draft.values
+        : appendFilterDraftMember(draft.values, value)
+      : draft.values.filter((member) => member.value !== value),
   };
 }
 
@@ -67,13 +69,7 @@ export function enumFilterControlKeys(
     ...(literalsOpen
       ? draft.operandKind === "value"
         ? ["enum_literal"]
-        : [
-            ...enumFilterMembers(draft).flatMap((_, index) => [
-              `enum_literal:${index}`,
-              `enum_remove:${index}`,
-            ]),
-            "enum_add",
-          ]
+        : filterMemberControlKeys(draft.values)
       : []),
   ];
 }

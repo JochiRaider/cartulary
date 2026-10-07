@@ -71,6 +71,11 @@ import { installIncidentSocketMonitor } from "./support/transport/incidentSocket
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  authorLiteralMembers,
+  expectLiteralMembership,
+  literalSetFixture,
+} from "./support/workbook/literalSetFilters";
 import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
@@ -105,6 +110,218 @@ const schemas = [
   forensicKeywordsViewSchemaId,
   assessmentsViewSchemaId,
 ];
+
+test("Literal set tag filters select distinct exact Timeline and Notes memberships", async ({
+  page,
+}) => {
+  for (const view of [timelineViewSchemaId, notesViewSchemaId]) {
+    const f = await literalSetFixture(page, view);
+    const reads = await observeQuery(page, f.incident, view);
+    const ids = f.rows.map((row) => row.record_id);
+    const [a, , c] = ids;
+    if (!a || !c) throw new Error("Missing literal fixture identities");
+    for (const op of ["contains_any", "contains_all"] as const) {
+      for (const values of [["review,priority"], ["review", "priority"]]) {
+        const chip = page.getByTestId(
+          workbookQueryEntryTestId(view, "filter", f.tags),
+        );
+        if (await chip.count()) {
+          await chip.focus();
+          await page.keyboard.press("Delete");
+          await expect(chip).toHaveCount(0);
+        }
+        await page
+          .getByTestId(workbookFilterPopoverTriggerTestId(view))
+          .click();
+        await page
+          .getByTestId(gridFilterFieldTestId(view))
+          .selectOption(f.tags);
+        await page
+          .getByTestId(workbookFilterOperatorTestId(view))
+          .selectOption(op);
+        await authorLiteralMembers(page.getByRole("dialog"), values);
+        await page.getByTestId(gridFilterApplyTestId(view)).click();
+        const expected =
+          values.length === 1
+            ? [a]
+            : op === "contains_any"
+              ? ids.slice(1)
+              : [c];
+        await expect
+          .poll(() =>
+            reads
+              .at(-1)
+              ?.response.data.rows.map((row) => row.record_id)
+              .sort(),
+          )
+          .toEqual([...expected].sort());
+        await expectLiteralMembership(page, view, expected, ids);
+        await expect(chip).toHaveAccessibleName(
+          new RegExp(
+            values.length === 1
+              ? '\\["review,priority"\\]'
+              : '\\["priority", "review"\\]',
+          ),
+        );
+      }
+    }
+  }
+});
+
+test("Literal saved arrays reload reopen and reapply without changing membership", async ({
+  page,
+}) => {
+  const f = await literalSetFixture(page);
+  const view = timelineViewSchemaId,
+    ids = f.rows.map((row) => row.record_id);
+  const a = ids[0];
+  if (!a) throw new Error("Missing literal fixture identity");
+  const reads = await observeQuery(page, f.incident, view);
+  for (const op of ["contains_any", "contains_all"] as const) {
+    const filter = {
+      field_key: f.tags,
+      op,
+      arg: { values: ["review,priority"] },
+    };
+    const saved = await createSavedView(page, f.incident, {
+      display_name: `Literal ${op}`,
+      view_schema_id: view,
+      query_json: { filters: [filter], sort: [] },
+    });
+    expect(saved.query_json.filters).toEqual([filter]);
+    await selectSavedView(page, view, saved.saved_view_id);
+    await expectLiteralMembership(page, view, [a], ids);
+    await page.reload();
+    await selectSavedView(page, view, saved.saved_view_id);
+    await expectLiteralMembership(page, view, [a], ids);
+    await page
+      .getByTestId(workbookQueryEntryTestId(view, "filter", f.tags))
+      .click();
+    await page.getByTestId(gridFilterApplyTestId(view)).click();
+    await expect
+      .poll(() => reads.at(-1)?.response.meta.query.filters)
+      .toEqual([filter]);
+    await expectLiteralMembership(page, view, [a], ids);
+    const persisted = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith(`/incidents/${f.incident}/saved-views`),
+    );
+    await setSavedViewDraftName(page, view, `Authored literal ${op}`);
+    await createSavedViewFromCurrentSurface(page, view);
+    const persistence = await persisted;
+    expect(persistence.ok()).toBe(true);
+    const resource = (await persistence.json()).data;
+    expect(resource.query_json.filters).toEqual([filter]);
+    await page.reload();
+    await selectSavedView(page, view, resource.saved_view_id);
+    await expectLiteralMembership(page, view, [a], ids);
+    await page
+      .getByTestId(workbookQueryEntryTestId(view, "filter", f.tags))
+      .click();
+    await expect(
+      page.getByRole("textbox", { name: "Value 1", exact: true }),
+    ).toHaveValue("review,priority");
+    await expect(page.getByRole("textbox", { name: /^Value / })).toHaveCount(1);
+    await page.getByTestId(gridFilterApplyTestId(view)).click();
+    await expectLiteralMembership(page, view, [a], ids);
+  }
+});
+
+test("Ordinary text equality sets retain comma-containing organization members", async ({
+  page,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("LITERAL-PARTY"),
+    "Organization membership",
+  );
+  const rows = [];
+  for (const value of ["Northwind, Inc.", "Northwind", "Inc."])
+    rows.push(
+      await createViewRow(page, incident, partiesViewSchemaId, {
+        client_txn_id: uniqueTxn("literal-party"),
+        "party.display_name": value,
+        "party.party_kind": "organization",
+        "party.organization_name": value,
+      }),
+    );
+  const first = rows[0];
+  if (!first) throw new Error("Missing organization fixture identity");
+  const reads = await observeQuery(page, incident, partiesViewSchemaId);
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${partiesViewSchemaId}`,
+  );
+  await page
+    .getByTestId(workbookFilterPopoverTriggerTestId(partiesViewSchemaId))
+    .click();
+  await page
+    .getByTestId(gridFilterFieldTestId(partiesViewSchemaId))
+    .selectOption("party.organization_name");
+  await page.getByLabel("Equality operand kind").selectOption("values");
+  await authorLiteralMembers(page.getByRole("dialog"), ["Northwind, Inc."]);
+  await page.getByTestId(gridFilterApplyTestId(partiesViewSchemaId)).click();
+  await expect
+    .poll(() => reads.at(-1)?.response.data.rows.map((row) => row.record_id))
+    .toEqual([first.record_id]);
+  await expectLiteralMembership(
+    page,
+    partiesViewSchemaId,
+    [first.record_id],
+    rows.map((row) => row.record_id),
+  );
+  await page
+    .getByTestId(
+      workbookQueryEntryTestId(
+        partiesViewSchemaId,
+        "filter",
+        "party.organization_name",
+      ),
+    )
+    .click();
+  await page.getByTestId(gridFilterApplyTestId(partiesViewSchemaId)).click();
+  await expectLiteralMembership(
+    page,
+    partiesViewSchemaId,
+    [first.record_id],
+    rows.map((row) => row.record_id),
+  );
+  await page
+    .getByTestId(
+      workbookQueryEntryTestId(
+        partiesViewSchemaId,
+        "filter",
+        "party.organization_name",
+      ),
+    )
+    .click();
+  await page
+    .getByRole("textbox", { name: "Value 1", exact: true })
+    .fill("Northwind");
+  await page.getByRole("button", { name: "Add value", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Value 2", exact: true })
+    .fill("Inc.");
+  await page.getByTestId(gridFilterApplyTestId(partiesViewSchemaId)).click();
+  const components = rows.slice(1).map((row) => row.record_id);
+  await expect
+    .poll(() =>
+      reads
+        .at(-1)
+        ?.response.data.rows.map((row) => row.record_id)
+        .sort(),
+    )
+    .toEqual(components.sort());
+  await expectLiteralMembership(
+    page,
+    partiesViewSchemaId,
+    components,
+    rows.map((row) => row.record_id),
+  );
+  expect(reads.at(-1)?.response.meta.query.filters[0]?.arg).toEqual({
+    values: ["inc.", "northwind"],
+  });
+});
 
 async function timestampTaskFixture(page: Page) {
   const incident = await createIncident(
@@ -1922,12 +2139,18 @@ test("Workbook canonical filters continue without feedback and saved views retai
     ),
   ).toContainText(String(arg?.query));
   expect(notes.length).toBe(before + 1);
-  await applyFilterChip(
-    page,
-    notesViewSchemaId,
-    "note.tags",
-    " beta,alpha,beta ",
-  );
+  await page
+    .getByTestId(workbookFilterPopoverTriggerTestId(notesViewSchemaId))
+    .click();
+  await page
+    .getByTestId(gridFilterFieldTestId(notesViewSchemaId))
+    .selectOption("note.tags");
+  await authorLiteralMembers(page.getByRole("dialog"), [
+    " beta ",
+    "alpha",
+    "beta",
+  ]);
+  await page.getByTestId(gridFilterApplyTestId(notesViewSchemaId)).click();
   await expect
     .poll(() => notes.at(-1)?.response.meta.query.filters.length)
     .toBe(2);

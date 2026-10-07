@@ -22,7 +22,6 @@ import {
 } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-
 import { WorkbookGridControls } from "./components/WorkbookGridControls";
 import { workbookGridEditorKind } from "./components/WorkbookGridEditorControl";
 import { defaultWorkbookLayoutState } from "./layout/workbookColumnLayout";
@@ -33,6 +32,7 @@ import {
   buildSavedViewQueryJson,
   defaultFilterDraft,
   emptyWorkbookQueryState,
+  filterDraftMembers,
   toggleSortField,
   updateGroupBy,
   workbookLayoutStateFromSavedViewLayoutJson,
@@ -79,7 +79,7 @@ describe("workbook query controls", () => {
       operandKind: "value",
       value: "reviewed",
       valueType: "string",
-      values: "",
+      values: [],
     });
 
     const request = buildQueryRequest(contract, filtered);
@@ -136,7 +136,7 @@ describe("workbook query controls", () => {
       operandKind: "value",
       value: "reviewed",
       valueType: "string",
-      values: "",
+      values: [],
     });
 
     expect(
@@ -226,12 +226,12 @@ describe("workbook query controls", () => {
       operandKind: "value",
       value: "reviewed",
       valueType: "string",
-      values: "",
+      values: [],
     });
     const withTagFilter = applyFilterDraft(contract, withStateFilter, {
       fieldKey: "timeline.tags",
       op: "contains_any",
-      values: "zeta, alpha, alpha",
+      values: filterDraftMembers(["zeta", "alpha", "alpha"]),
     });
 
     expect(buildQueryRequest(contract, withTagFilter)).toMatchObject({

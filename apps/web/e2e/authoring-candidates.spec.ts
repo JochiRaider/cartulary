@@ -21,6 +21,10 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  authorLiteralMembers,
+  literalSetFixture,
+} from "./support/workbook/literalSetFilters";
 import { openNoteFixture } from "./support/workbook/noteCreate";
 import {
   ordinaryField,
@@ -32,7 +36,199 @@ import {
   queryViewRows,
 } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 import { openTimelineEvidenceFixture } from "./support/workbook/timelineRelatedEvidence";
+
+test("Literal candidate filters stage exact members and retain contextual selected identities", async ({
+  page,
+}) => {
+  const f = await literalSetFixture(page);
+  const first = f.rows[0],
+    selected = f.rows[1];
+  if (!first || !selected) throw new Error("Missing candidate fixture records");
+  await openTimelineInspector(page, first.record_id);
+  await page
+    .getByTestId(
+      workbookInspectorFeatureActionTestId(
+        timelineViewSchemaId,
+        "create_related.task_request",
+      ),
+    )
+    .click();
+  const task = page.getByRole("region", {
+    name: "Create task request",
+    exact: true,
+  });
+  await button(task, "Choose Linked Records").click();
+  const picker = task.getByRole("region", {
+    name: "Choose Linked Records",
+    exact: true,
+  });
+  const candidates = picker.getByRole("listbox", {
+    name: "Linked Records",
+    exact: true,
+  });
+  await candidates.selectOption(selected.record_id);
+  const requests: unknown[] = [],
+    memberships: string[][] = [];
+  let failNext = false;
+  await page.route(
+    `**/incidents/${f.incident}/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      requests.push(route.request().postDataJSON());
+      if (failNext) {
+        failNext = false;
+        await route.abort("failed");
+        return;
+      }
+      const response = await route.fetch();
+      memberships.push(
+        (await response.json()).data.rows.map(
+          (row: { record_id: string }) => row.record_id,
+        ),
+      );
+      await route.fulfill({ response });
+    },
+  );
+  await picker
+    .getByText("Linked Records ordering and filters", { exact: true })
+    .click();
+  await picker
+    .getByLabel("Linked Records filter field", { exact: true })
+    .selectOption("timeline.tags");
+  await authorLiteralMembers(
+    picker,
+    ["review,priority"],
+    "Linked Records filter value",
+  );
+  await button(picker, "Add filter").click();
+  expect(requests).toHaveLength(0);
+  await button(picker, "Apply candidate query").click();
+  await expect.poll(() => memberships.at(-1)).toEqual([first.record_id]);
+  await expect(candidates.getByRole("option")).toHaveCount(1);
+  const retained = picker.getByRole("button", {
+    name: /Remove selected Linked Records .*B component/,
+  });
+  await expect(retained).toBeVisible();
+  failNext = true;
+  await picker
+    .getByLabel("Linked Records order")
+    .selectOption("timeline.date_entered_sort_day:asc");
+  await button(picker, "Apply candidate query").click();
+  await expect.poll(() => requests.length).toBe(2);
+  await expect(retained).toBeVisible();
+  await button(picker, "Cancel references").click();
+  await expect(button(task, "Choose Linked Records")).toBeFocused();
+});
+
+test("Literal Assessment support filters stage exact members and retain selected identities", async ({
+  page,
+}) => {
+  const f = await literalSetFixture(page);
+  const [first, selected, separate] = f.rows;
+  if (!first || !selected || !separate)
+    throw new Error("Missing support fixture records");
+  await page.goto(
+    `/?incident_id=${f.incident}&view_schema_id=${assessmentsViewSchemaId}`,
+  );
+  await page
+    .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
+    .click();
+  await page
+    .getByTestId(assessmentCreateControlTestId("rationale"))
+    .fill("Literal support draft");
+  await button(page, "Choose support").click();
+  const support = page.getByRole("group", {
+    name: "Choose assessment support",
+    exact: true,
+  });
+  const candidates = support.getByRole("listbox", {
+    name: "Timeline support candidates",
+    exact: true,
+  });
+  await expect(candidates.getByRole("option")).toHaveCount(3);
+  await candidates.selectOption(selected.record_id);
+  const requests: unknown[] = [],
+    memberships: string[][] = [];
+  await page.route(
+    `**/incidents/${f.incident}/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      requests.push(route.request().postDataJSON());
+      const response = await route.fetch();
+      memberships.push(
+        (await response.json()).data.rows
+          .map((row: { record_id: string }) => row.record_id)
+          .sort(),
+      );
+      await route.fulfill({ response });
+    },
+  );
+  await support
+    .getByText("Timeline support candidates ordering and filters", {
+      exact: true,
+    })
+    .click();
+  await support
+    .getByLabel("Timeline support candidates filter field", { exact: true })
+    .selectOption("timeline.tags");
+  for (const op of ["contains_any", "contains_all"] as const) {
+    for (const values of [["review,priority"], ["review", "priority"]]) {
+      const remove = support.getByRole("button", {
+        name: "Remove filter Tags",
+        exact: true,
+      });
+      if (await remove.count()) await remove.click();
+      // Start a fresh draft so member removal remains deliberate.
+      await support
+        .getByLabel("Timeline support candidates filter field", { exact: true })
+        .selectOption("timeline.activity_time_pair_state");
+      await support
+        .getByLabel("Timeline support candidates filter field", { exact: true })
+        .selectOption("timeline.tags");
+      await support
+        .getByLabel("Timeline support candidates filter operator", {
+          exact: true,
+        })
+        .selectOption(op);
+      const count = requests.length;
+      await authorLiteralMembers(
+        support,
+        values,
+        "Timeline support candidates filter value",
+      );
+      await button(support, "Add filter").click();
+      expect(requests).toHaveLength(count);
+      await button(support, "Apply candidate query").click();
+      const expected =
+        values.length === 1
+          ? [first.record_id]
+          : op === "contains_any"
+            ? [selected.record_id, separate.record_id]
+            : [separate.record_id];
+      await expect.poll(() => memberships.at(-1)).toEqual(expected.sort());
+      await expect(candidates.getByRole("option")).toHaveCount(expected.length);
+      const optionIds = await candidates
+        .getByRole("option")
+        .evaluateAll((options) =>
+          options.map((option) => (option as HTMLOptionElement).value).sort(),
+        );
+      expect(optionIds).toEqual(expected.sort());
+      await expect(
+        support.getByRole("button", {
+          name: /Remove selected Timeline support candidates .*B component/,
+        }),
+      ).toBeVisible();
+    }
+  }
+  await button(support, "Cancel support selection").click();
+  await expect(button(page, "Choose support")).toBeFocused();
+  await expect(
+    page.getByRole("region", {
+      name: "Assessment supporting records",
+      exact: true,
+    }),
+  ).toContainText("Supporting records (0/64)");
+});
 
 async function seed(page: Page, incident: string, view: string, field: string) {
   const ids: string[] = [];

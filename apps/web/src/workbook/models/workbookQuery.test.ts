@@ -22,6 +22,7 @@ import {
   buildQueryRequest,
   buildSavedViewQueryJson,
   changeFilterDraftOperandKind,
+  clearFilterDraftValue,
   compareWorkbookGroupValues,
   cycleWorkbookSortField,
   defaultFilterDraft,
@@ -30,6 +31,7 @@ import {
   filterChipLabel,
   filterDraftForField,
   filterDraftFromFilter,
+  filterDraftMembers,
   toggleSortField,
   updateGroupBy,
   validateFilterDraft,
@@ -42,6 +44,146 @@ import {
 } from "./workbookSurfaceQueryRuntime";
 
 describe("workbookQuery", () => {
+  it("validates every raw literal member without dropping blanks or imposing tag creation limits", () => {
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    const initial = filterDraftForField(
+      contract,
+      "timeline.tags",
+      "contains_any",
+    );
+    if (initial.op !== "contains_any") throw new Error("Expected membership");
+    const values = filterDraftMembers([
+      "  review,priority  ",
+      '東京 "quoted"  text',
+      "review,priority",
+      "x".repeat(100),
+    ]);
+    const draft = { ...initial, values };
+    const validation = validateFilterDraft(contract, draft);
+    expect(validation).toMatchObject({
+      kind: "valid",
+      filter: {
+        arg: {
+          values: expect.arrayContaining([
+            "review,priority",
+            '東京 "quoted"  text',
+            "x".repeat(100),
+          ]),
+        },
+      },
+    });
+    expect(buildFilterFromDraft(draft)?.arg.values).toHaveLength(3);
+    expect(draft.values).toBe(values);
+    for (const raw of [
+      "",
+      "  ",
+      "review\npriority",
+      "review\u0000priority",
+      "review\u200dpriority",
+      "\ufeffreview,priority",
+    ]) {
+      const invalid = { ...draft, values: filterDraftMembers(["valid", raw]) };
+      expect(validateFilterDraft(contract, invalid)).toMatchObject({
+        kind: "invalid",
+        controls: expect.arrayContaining(["member:1"]),
+      });
+      expect(
+        applyFilterDraft(contract, emptyWorkbookQueryState(), invalid).filters,
+      ).toEqual([]);
+      expect(buildFilterFromDraft(invalid)).toBeNull();
+      expect(invalid.values[1]?.value).toBe(raw);
+    }
+    expect(validateFilterDraft(contract, { ...draft, values: [] }).kind).toBe(
+      "invalid",
+    );
+    const enumDraft = filterDraftForField(
+      contract,
+      "timeline.activity_time_pair_state",
+      "eq",
+    );
+    if (enumDraft.op !== "eq") throw new Error("Expected enum equality");
+    const clearedEnum = clearFilterDraftValue(
+      {
+        ...enumDraft,
+        operandKind: "values",
+        values: filterDraftMembers(["disabled"]),
+      },
+      contract,
+    );
+    if (clearedEnum.op !== "eq") throw new Error("Expected cleared equality");
+    expect(clearedEnum.values).toEqual([]);
+    expect(
+      validateFilterDraft(
+        contract,
+        toggleEnumFilterChoice(clearedEnum, "empty", true),
+      ).kind,
+    ).toBe("valid");
+
+    const numericFilter = {
+      fieldKey: "extension.score",
+      op: "eq" as const,
+      arg: { values: [7, 3] },
+    };
+    expect(
+      buildFilterFromDraft(filterDraftFromFilter(contract, numericFilter)),
+    ).toEqual(numericFilter);
+  });
+  it("preserves literal set boundaries through saved restoration and unchanged reapplication", () => {
+    for (const [view, fieldKey, operators] of [
+      [
+        "cartulary.view.timeline.v2",
+        "timeline.tags",
+        ["contains_any", "contains_all"],
+      ],
+      [
+        "cartulary.view.notes.v1",
+        "note.tags",
+        ["contains_any", "contains_all"],
+      ],
+      ["cartulary.view.parties.v1", "party.organization_name", ["eq"]],
+    ] as const) {
+      const contract = requireViewContract(view);
+      for (const op of operators) {
+        for (const values of [
+          ["review,priority"],
+          ["priority", "review"],
+          ['Northwind, "東京"  Inc.'],
+        ]) {
+          const filter = { fieldKey, op, arg: { values } };
+          const saved = buildSavedViewQueryJson(contract, {
+            ...emptyWorkbookQueryState(),
+            filters: [filter],
+          });
+          const restored = workbookQueryStateFromSavedViewQueryJson(
+            contract,
+            saved,
+          );
+          const accepted = restored.filters[0];
+          if (!accepted) throw new Error("Missing restored filter");
+          const draft = filterDraftFromFilter(contract, accepted);
+          expect(buildFilterFromDraft(draft)).toEqual(accepted);
+          expect(
+            buildSavedViewQueryJson(
+              contract,
+              applyFilterDraft(contract, restored, draft),
+            ),
+          ).toEqual(saved);
+        }
+      }
+      if (operators[0] === "eq") {
+        for (const arg of [
+          { value: "Northwind, Inc." },
+          { values: ["Northwind, Inc."] },
+          { value: null },
+        ]) {
+          const filter = { fieldKey, op: "eq" as const, arg };
+          expect(
+            buildFilterFromDraft(filterDraftFromFilter(contract, filter)),
+          ).toEqual(filter);
+        }
+      }
+    }
+  });
   it("round trips declared boolean scalar set and null operands without changing JSON types", () => {
     const consumers = listViewContracts().flatMap((contract) =>
       contract.fields
@@ -160,7 +302,7 @@ describe("workbookQuery", () => {
           operandKind,
           valueType,
           value: "false",
-          values: ["true"],
+          values: filterDraftMembers(["true"]),
           booleanOperand: { value: false, values: [true] },
         };
         expect(validateFilterDraft(contract, invalid).kind).toBe("invalid");
@@ -247,7 +389,7 @@ describe("workbookQuery", () => {
         };
         const reopened = filterDraftFromFilter(contract, filter);
         if (reopened.op !== "eq") throw new Error("Expected equality");
-        expect(reopened.values).toEqual(custom);
+        expect(reopened.values).toEqual(filterDraftMembers(custom));
         const saved = buildSavedViewQueryJson(contract, {
           ...emptyWorkbookQueryState(),
           filters: [filter],
@@ -264,17 +406,23 @@ describe("workbookQuery", () => {
           first,
           true,
         );
-        expect(twice.values).toEqual(custom);
+        expect(twice.values).toEqual(filterDraftMembers(custom));
         const removed = toggleEnumFilterChoice(twice, first, false);
-        expect(removed.values).toEqual(custom.slice(0, 2));
+        expect(removed.values).toEqual(filterDraftMembers(custom.slice(0, 2)));
         expect(buildFilterFromDraft(reopened)?.arg.values).toEqual(
           expect.arrayContaining(custom),
         );
         expect(
-          buildFilterFromDraft({ ...reopened, values: [first] })?.arg,
+          buildFilterFromDraft({
+            ...reopened,
+            values: filterDraftMembers([first]),
+          })?.arg,
         ).toEqual({ values: [first] });
         expect(
-          buildFilterFromDraft({ ...reopened, values: ["", " "] }),
+          buildFilterFromDraft({
+            ...reopened,
+            values: filterDraftMembers(["", " "]),
+          }),
         ).toBeNull();
         expect(
           enumFilterChoices(contract, {
@@ -340,7 +488,12 @@ describe("workbookQuery", () => {
     const set = {
       ...draft,
       operandKind: "values" as const,
-      values: "disabled, disable, Disabled, disabled",
+      values: filterDraftMembers([
+        "disabled",
+        "disable",
+        "Disabled",
+        "disabled",
+      ]),
     };
     const filter = buildFilterFromDraft(set);
     expect(filter?.arg.values).toEqual(
@@ -356,7 +509,9 @@ describe("workbookQuery", () => {
         ),
       ),
     ).toEqual(filter);
-    expect(buildFilterFromDraft({ ...set, values: " , , " })).toBeNull();
+    expect(
+      buildFilterFromDraft({ ...set, values: filterDraftMembers(["", " "]) }),
+    ).toBeNull();
     expect(
       buildFilterFromDraft({ ...draft, operandKind: "null" })?.arg,
     ).toEqual({ value: null });
@@ -421,7 +576,11 @@ describe("workbookQuery", () => {
       "eq",
     );
     if (draft.op !== "eq") throw new Error("Expected equality");
-    const values = " 2026-04-19, 2026-04-18\n2026-04-19, , ";
+    const values = filterDraftMembers([
+      " 2026-04-19",
+      "2026-04-18",
+      "2026-04-19 ",
+    ]);
     const set = { ...draft, operandKind: "values" as const, values };
     expect(
       applyFilterDraft(contract, emptyWorkbookQueryState(), set).filters[0]
@@ -429,11 +588,11 @@ describe("workbookQuery", () => {
     ).toEqual({ values: ["2026-04-18", "2026-04-19"] });
     expect(set.values).toBe(values);
     for (const values of [
-      ", \n ,",
-      "2026-04-31,2026-04-18",
-      "2026-04-18,2026-04-31,2026-04-19",
-      "2026-04-18,null",
-      "2026-04-18,2026-04-19T00:00:00Z",
+      filterDraftMembers(["", " "]),
+      filterDraftMembers(["2026-04-31", "2026-04-18"]),
+      filterDraftMembers(["2026-04-18", "2026-04-31", "2026-04-19"]),
+      filterDraftMembers(["2026-04-18", "null"]),
+      filterDraftMembers(["2026-04-18", "2026-04-19T00:00:00Z"]),
     ]) {
       const invalid = { ...set, values };
       const state = emptyWorkbookQueryState();
@@ -528,7 +687,7 @@ describe("workbookQuery", () => {
     const text: FilterDraft = {
       fieldKey: "timeline.tags",
       op: "contains_any",
-      values: "  query words  ",
+      values: filterDraftMembers(["  query words  "]),
     };
     expect(
       applyFilterDraft(contract, emptyWorkbookQueryState(), text).filters[0]
@@ -648,14 +807,13 @@ describe("workbookQuery", () => {
     const a = "2026-04-18T00:00:00.000000001Z";
     const b = "2026-04-17T20:00:00.1-04:00";
     for (const values of [
-      "",
-      `${a},tomorrow`,
-      `${a},`,
-      `${a}, ,${b}`,
-      [a, ""],
-      [a, null] as unknown as string[],
-      [a, 42] as unknown as string[],
-      Object.assign(Array<string>(2), { 0: a }),
+      [],
+      filterDraftMembers([a, "tomorrow"]),
+      filterDraftMembers([a, ""]),
+      filterDraftMembers([a, " ", b]),
+      filterDraftMembers([a, null] as unknown as string[]),
+      filterDraftMembers([a, 42] as unknown as string[]),
+      filterDraftMembers(Object.assign(Array<string>(2), { 0: a })),
     ]) {
       const raw = { ...draft, operandKind: "values" as const, values };
       const state = emptyWorkbookQueryState();
@@ -770,7 +928,7 @@ describe("workbookQuery", () => {
           operandKind: "value",
           value: " 2026-04-31 ",
           valueType: "string",
-          values: "",
+          values: [],
         },
       ),
     ).toBe(state);
@@ -784,7 +942,7 @@ describe("workbookQuery", () => {
         operandKind: "null",
         value: "",
         valueType: "string",
-        values: "",
+        values: [],
       }),
       buildFilterFromDraft({
         fieldKey: "range",
@@ -797,12 +955,12 @@ describe("workbookQuery", () => {
       buildFilterFromDraft({
         fieldKey: "any",
         op: "contains_any",
-        values: "b, a",
+        values: filterDraftMembers(["b", "a"]),
       }),
       buildFilterFromDraft({
         fieldKey: "all",
         op: "contains_all",
-        values: "b, a",
+        values: filterDraftMembers(["b", "a"]),
       }),
       buildFilterFromDraft({ fieldKey: "prefix", op: "prefix", value: "pre" }),
       buildFilterFromDraft({
@@ -845,7 +1003,7 @@ describe("workbookQuery", () => {
       {
         fieldKey: "timeline.tags",
         op: "contains_any",
-        values: "phish, c2",
+        values: filterDraftMembers(["phish", "c2"]),
       },
     );
 
@@ -870,7 +1028,7 @@ describe("workbookQuery", () => {
           operandKind: "value",
           value: "",
           valueType: "boolean",
-          values: "",
+          values: [],
         },
       ).filters,
     ).toEqual([

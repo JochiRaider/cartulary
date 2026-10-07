@@ -10,6 +10,7 @@ import {
   type FilterDraft,
   type FilterDraftControl,
   filterDraftForField,
+  formatFilterSetMembers,
   validateFilterDraft,
   type WorkbookFilterOperator,
   type WorkbookQueryState,
@@ -19,6 +20,7 @@ import {
   useEnumLiteralDisclosure,
   WorkbookEnumFilterOperand,
 } from "./WorkbookEnumFilterOperand";
+import { WorkbookLiteralSetFilterOperand } from "./WorkbookLiteralSetFilterOperand";
 import {
   inputStyle,
   secondaryButtonStyle,
@@ -51,7 +53,11 @@ export function WorkbookCandidateQueryControl({
   const feedbackFor = (
     control: FilterDraftControl,
   ): Pick<AriaAttributes, "aria-invalid" | "aria-describedby"> =>
-    validation.kind === "invalid" && validation.controls.includes(control)
+    validation.kind === "invalid" &&
+    (validation.controls.includes(control) ||
+      (control.startsWith("member:") &&
+        validation.controls.includes("value") &&
+        !validation.controls.some((key) => key.startsWith("member:"))))
       ? { "aria-invalid": true, "aria-describedby": feedbackId }
       : {};
   return (
@@ -179,7 +185,9 @@ export function WorkbookCandidateQueryControl({
               <div key={filter.fieldKey} style={{ overflowWrap: "anywhere" }}>
                 {contract.fieldMap[filter.fieldKey]?.label}:{" "}
                 {operatorLabels[filter.op]}{" "}
-                {Object.values(filter.arg).map(String).join(", ")}{" "}
+                {Array.isArray(filter.arg.values)
+                  ? formatFilterSetMembers(filter.arg.values)
+                  : Object.values(filter.arg).map(String).join(", ")}{" "}
                 <button
                   type="button"
                   style={secondaryButtonStyle}
@@ -372,18 +380,18 @@ function Operand({
             choices={enumChoices}
             disclosure={enumDisclosure}
             onChange={onChange}
-            feedback={feedbackFor("value")}
+            feedbackFor={feedbackFor}
             valueLabel={`${label} filter value`}
           />
         ) : draft.operandKind === "null" ? null : draft.operandKind ===
           "values" ? (
-          text(
-            "Values (comma separated)",
-            typeof draft.values === "string"
-              ? draft.values
-              : draft.values.join(", "),
-            (values) => onChange({ ...draft, values }),
-          )
+          <WorkbookLiteralSetFilterOperand
+            members={draft.values}
+            onChange={(values) => onChange({ ...draft, values })}
+            valueLabel={`${label} filter value`}
+            placeholder={isDate ? "YYYY-MM-DD" : undefined}
+            feedbackFor={feedbackFor}
+          />
         ) : (
           text("Value", draft.value, (value) => onChange({ ...draft, value }))
         )}
@@ -393,7 +401,12 @@ function Operand({
     return text("Value", draft.value, (value) => onChange({ ...draft, value }));
   if (draft.op === "full_text")
     return text("Text", draft.query, (query) => onChange({ ...draft, query }));
-  return text("Values (comma separated)", draft.values, (values) =>
-    onChange({ ...draft, values }),
+  return (
+    <WorkbookLiteralSetFilterOperand
+      members={draft.values}
+      onChange={(values) => onChange({ ...draft, values })}
+      valueLabel={`${label} filter value`}
+      feedbackFor={feedbackFor}
+    />
   );
 }

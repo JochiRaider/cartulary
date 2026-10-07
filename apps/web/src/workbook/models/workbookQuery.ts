@@ -108,6 +108,44 @@ export type WorkbookSavedViewLayoutJson = {
   readonly frozen_through_field_key: string | null;
 };
 
+export type FilterDraftMember = {
+  readonly id: number;
+  readonly value: string;
+};
+
+/** IDs address editing slots only; they never enter query JSON. */
+export function filterDraftMembers(
+  values: readonly string[],
+): readonly FilterDraftMember[] {
+  return values.map((value, id) => ({ id, value }));
+}
+
+export function appendFilterDraftMember(
+  members: readonly FilterDraftMember[],
+  value = "",
+): readonly FilterDraftMember[] {
+  return [
+    ...members,
+    { id: Math.max(-1, ...members.map((member) => member.id)) + 1, value },
+  ];
+}
+
+export function filterMemberControlKeys(
+  members: readonly FilterDraftMember[],
+): readonly string[] {
+  return [
+    ...members.flatMap((member) => [
+      `member:${member.id}`,
+      `member_remove:${member.id}`,
+    ]),
+    "member_add",
+  ];
+}
+
+export function formatFilterSetMembers(values: readonly unknown[]): string {
+  return `[${values.map((value) => JSON.stringify(value)).join(", ")}]`;
+}
+
 export type FilterDraft =
   | {
       readonly booleanOperand?: BooleanFilterOperandDraft;
@@ -116,7 +154,7 @@ export type FilterDraft =
       readonly operandKind: "null" | "value" | "values";
       readonly value: string;
       readonly valueType: "boolean" | "number" | "string";
-      readonly values: string | readonly string[];
+      readonly values: readonly FilterDraftMember[];
     }
   | {
       readonly fieldKey: string;
@@ -129,7 +167,7 @@ export type FilterDraft =
   | {
       readonly fieldKey: string;
       readonly op: "contains_all" | "contains_any";
-      readonly values: string;
+      readonly values: readonly FilterDraftMember[];
     }
   | {
       readonly fieldKey: string;
@@ -146,6 +184,7 @@ export type FilterDraftControl =
   | "field"
   | "operator"
   | "value"
+  | `member:${number}`
   | "lower_kind"
   | "lower_value"
   | "upper_kind"
@@ -205,14 +244,32 @@ export function validateFilterDraft(
       "field",
     ]);
   }
+  if (
+    draft.op === "contains_any" ||
+    draft.op === "contains_all" ||
+    (draft.op === "eq" && draft.operandKind === "values")
+  ) {
+    const invalidMembers = Array.from(draft.values).filter(
+      isInvalidDraftMember,
+    );
+    if (draft.values.length === 0 || invalidMembers.length > 0) {
+      return invalid(
+        "Every member needs a valid value. Edit or remove empty values and unsupported control characters.",
+        [
+          "value",
+          ...invalidMembers.flatMap((member) =>
+            member ? [`member:${member.id}` as const] : [],
+          ),
+        ],
+      );
+    }
+  }
   if (field.readKind === "timestamp") {
     if (draft.op === "eq" && draft.operandKind !== "null") {
       // Check every raw member before the serializer trims, sorts and coalesces values.
       const values =
         draft.operandKind === "values"
-          ? typeof draft.values === "string"
-            ? draft.values.split(/[\n,]/u)
-            : draft.values
+          ? draft.values.map((member) => member.value)
           : [draft.value];
       if (
         draft.valueType !== "string" ||
@@ -382,7 +439,7 @@ export function filterDraftForField(
       };
     case "contains_all":
     case "contains_any":
-      return { fieldKey, op, values: "" };
+      return { fieldKey, op, values: filterDraftMembers([""]) };
     case "prefix":
       return { fieldKey, op, value: "" };
     case "full_text":
@@ -399,7 +456,11 @@ export function filterDraftForField(
         valueType: isBooleanEqualityFilter(contract, fieldKey, op)
           ? "boolean"
           : "string",
-        values: "",
+        values: filterDraftMembers(
+          field?.readKind === "enum" || field?.readKind === "boolean"
+            ? []
+            : [""],
+        ),
       };
   }
 }
@@ -440,8 +501,8 @@ export function filterDraftFromFilter(
         fieldKey: filter.fieldKey,
         op: filter.op,
         values: Array.isArray(filter.arg.values)
-          ? filter.arg.values.map(String).join(", ")
-          : "",
+          ? filterDraftMembers(filter.arg.values.map(String))
+          : [],
       };
     case "prefix":
       return {
@@ -468,14 +529,12 @@ export function filterDraftFromFilter(
               : "value",
           booleanOperand: restoreBooleanFilterOperand(filter.arg),
           value: "",
-          values: "",
+          values: [],
         };
       }
       const values = Array.isArray(filter.arg.values)
-        ? contract.fieldMap[filter.fieldKey]?.readKind === "enum"
-          ? filter.arg.values.map(String)
-          : filter.arg.values.map(String).join(", ")
-        : "";
+        ? filterDraftMembers(filter.arg.values.map(String))
+        : [];
       const rawValue = filter.arg.value;
       return {
         fieldKey: filter.fieldKey,
@@ -489,14 +548,22 @@ export function filterDraftFromFilter(
           typeof rawValue === "string" || typeof rawValue === "number"
             ? String(rawValue)
             : "",
-        valueType: typeof rawValue === "number" ? "number" : "string",
+        valueType:
+          typeof rawValue === "number" ||
+          (Array.isArray(filter.arg.values) &&
+            typeof filter.arg.values[0] === "number")
+            ? "number"
+            : "string",
         values,
       };
     }
   }
 }
 
-export function clearFilterDraftValue(draft: FilterDraft): FilterDraft {
+export function clearFilterDraftValue(
+  draft: FilterDraft,
+  contract: ViewContract,
+): FilterDraft {
   switch (draft.op) {
     case "eq":
       return {
@@ -505,13 +572,18 @@ export function clearFilterDraftValue(draft: FilterDraft): FilterDraft {
           ? { booleanOperand: emptyBooleanFilterOperand() }
           : {}),
         value: "",
-        values: typeof draft.values === "string" ? "" : [],
+        values: filterDraftMembers(
+          draft.valueType === "boolean" ||
+            contract.fieldMap[draft.fieldKey]?.readKind === "enum"
+            ? []
+            : [""],
+        ),
       };
     case "range":
       return { ...draft, lowerValue: "", upperValue: "" };
     case "contains_all":
     case "contains_any":
-      return { ...draft, values: "" };
+      return { ...draft, values: filterDraftMembers([""]) };
     case "prefix":
       return { ...draft, value: "" };
     case "full_text":
@@ -1025,12 +1097,31 @@ function canonicalColumnWidths(
     }));
 }
 
+function isInvalidDraftMember(member: FilterDraftMember | undefined): boolean {
+  return (
+    typeof member?.value !== "string" ||
+    member.value.trim() === "" ||
+    /\p{Cf}/u.test(member.value) ||
+    /\p{Cc}/u.test(member.value.trim())
+  );
+}
+
 export function buildFilterFromDraft(
   draft: FilterDraft,
 ): WorkbookFilter | null {
   if (draft.fieldKey === "") {
     return null;
   }
+  if (
+    (draft.op === "contains_any" ||
+      draft.op === "contains_all" ||
+      (draft.op === "eq" &&
+        draft.valueType !== "boolean" &&
+        draft.operandKind === "values")) &&
+    (draft.values.length === 0 ||
+      Array.from(draft.values).some(isInvalidDraftMember))
+  )
+    return null;
   switch (draft.op) {
     case "eq": {
       if (draft.valueType === "boolean") {
@@ -1046,10 +1137,16 @@ export function buildFilterFromDraft(
         return { arg: { value: null }, fieldKey: draft.fieldKey, op: "eq" };
       }
       if (draft.operandKind === "values") {
+        if (draft.valueType === "number") {
+          const values = draft.values.map((member) =>
+            Number(member.value.trim()),
+          );
+          return values.every(Number.isFinite)
+            ? { arg: { values }, fieldKey: draft.fieldKey, op: "eq" }
+            : null;
+        }
         const values = canonicalStringValues(
-          typeof draft.values === "string"
-            ? draft.values.split(/[\n,]/u)
-            : draft.values,
+          draft.values.map((member) => member.value),
         );
         return values.length === 0
           ? null
@@ -1080,7 +1177,9 @@ export function buildFilterFromDraft(
     }
     case "contains_all":
     case "contains_any": {
-      const values = canonicalStringValues(draft.values.split(/[\n,]/u));
+      const values = canonicalStringValues(
+        draft.values.map((member) => member.value),
+      );
       return values.length === 0
         ? null
         : { arg: { values }, fieldKey: draft.fieldKey, op: draft.op };
@@ -1102,7 +1201,7 @@ export function buildFilterFromDraft(
 
 function stringifyFilterValue(filter: WorkbookFilter): string {
   if (Array.isArray(filter.arg.values)) {
-    return filter.arg.values.join(", ");
+    return formatFilterSetMembers(filter.arg.values);
   }
   if (typeof filter.arg.value === "boolean") {
     return filter.arg.value ? "true" : "false";

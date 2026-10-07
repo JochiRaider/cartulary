@@ -1675,6 +1675,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.explicit_literal_member_editors_5902c7ecdd",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookGridControls.test.tsx",
+        "titles": [
+          "WorkbookGridControls keeps literal member correction native input identity and add remove focus",
+          "WorkbookGridControls reopens literal sets without changing member boundaries in either operator",
+          "WorkbookGridControls stages a comma-containing candidate member before explicit query application"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.explicit_task_patch_recovery",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3769,6 +3797,31 @@
         "titles": [
           "preserves accepted provenance through cloning and source conversions without relabeling authority",
           "retains one inspector source across window eviction without treating absence as deletion"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.lossless_literal_set_draft_round_trips_0dd48635bf",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookQuery.test.ts",
+        "titles": [
+          "workbookQuery preserves literal set boundaries through saved restoration and unchanged reapplication",
+          "workbookQuery validates every raw literal member without dropping blanks or imposing tag creation limits"
         ]
       },
       "evidence_class": "unit",

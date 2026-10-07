@@ -157,7 +157,7 @@ export function useWorkbookQueryController({
             draft,
           ),
         );
-        setActiveFilterDraft(clearFilterDraftValue(draft));
+        setActiveFilterDraft(clearFilterDraftValue(draft, activeContract));
         return validation;
       },
       onClearFilters: () => {

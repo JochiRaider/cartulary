@@ -3803,6 +3803,76 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.literal_assessment_support_membership_d541f44d18",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/authoring-candidates.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "literal_assessment_support"
+        ],
+        "titles": [
+          "Literal Assessment support filters stage exact members and retain selected identities"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.literal_contextual_candidate_staging_1c1261f5df",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/authoring-candidates.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "literal_contextual_candidates"
+        ],
+        "titles": [
+          "Literal candidate filters stage exact members and retain contextual selected identities"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.live_workbook_timeline_grid_accepts_a_representa_20a3b81a1a",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -5219,6 +5289,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser_stateful.exact_literal_tag_set_membership_fcb35d55a3",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "literal_tag_set_membership"
+        ],
+        "titles": [
+          "Literal set tag filters select distinct exact Timeline and Notes memberships"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser_stateful.group_requested_replacement",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser_stateful",
@@ -5243,6 +5348,41 @@
           "Workbook Group pointer selection stays scoped to Hosts",
           "Workbook Group retains requested keyboard choice after failed replacement",
           "Workbook Group retains requested keyboard choice during delayed replacement"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser_stateful.literal_organization_equality_membership_b30b827b5d",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "literal_organization_membership"
+        ],
+        "titles": [
+          "Ordinary text equality sets retain comma-containing organization members"
         ]
       },
       "evidence_class": "browser",

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderWithWorkbookQueryBrowsing as render } from "../../testing/workbookQueryTestSupport";
 import type { FilterDraft } from "../models/workbookQuery";
+import { filterDraftMembers } from "../models/workbookQuery";
 import { useWorkbookQueryController } from "./useWorkbookQueryController";
 
 const impossibleDateDraft: FilterDraft = {
@@ -10,7 +11,7 @@ const impossibleDateDraft: FilterDraft = {
   operandKind: "value",
   value: " 2026-04-31 ",
   valueType: "string",
-  values: "",
+  values: [],
 };
 
 afterEach(cleanup);
@@ -91,7 +92,7 @@ function FilterQueryHarness({
           controller.snapshot.activeQueryControls.onApplyFilter({
             fieldKey: "timeline.tags",
             op: "contains_any",
-            values: "seed",
+            values: filterDraftMembers(["seed"]),
           });
           controller.commands.setTimelineQueryState((current) => ({
             ...current,
@@ -138,7 +139,7 @@ describe("useWorkbookQueryController", () => {
       operandKind: "value",
       valueType: "string",
       value: " tomorrow ",
-      values: "",
+      values: [],
     };
     function Harness() {
       const { snapshot } = useWorkbookQueryController({
@@ -214,7 +215,7 @@ describe("useWorkbookQueryController", () => {
       valueType: "boolean",
       booleanOperand: { value: undefined, values: [] },
       value: "",
-      values: "",
+      values: [],
     };
     render(<FilterQueryHarness draft={draft} />);
     fireEvent.click(screen.getByRole("button", { name: "Seed query" }));

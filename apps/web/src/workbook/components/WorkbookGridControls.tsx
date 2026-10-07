@@ -271,7 +271,7 @@ export function WorkbookGridControls({
         onComplete={(draft) => {
           dispatch({
             type: "complete_filter",
-            filterDraft: clearFilterDraftValue(draft),
+            filterDraft: clearFilterDraftValue(draft, contract),
             subjectKey,
           });
         }}

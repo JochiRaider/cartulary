@@ -56,6 +56,199 @@ afterEach(() => {
 });
 
 describe("WorkbookGridControls", () => {
+  it("keeps literal member correction native input identity and add remove focus", async () => {
+    const user = userEvent.setup(),
+      applied = vi.fn();
+    render(
+      <FilterGridControls
+        applied={applied}
+        initial={{
+          ...emptyWorkbookQueryState(),
+          filters: [
+            {
+              fieldKey: "timeline.tags",
+              op: "contains_any",
+              arg: { values: ["review,priority"] },
+            },
+          ],
+        }}
+      />,
+    );
+    const chip = screen.getByTestId(
+      workbookQueryEntryTestId(timelineSurface, "filter", "timeline.tags"),
+    );
+    await user.click(chip);
+    const first = screen.getByRole("textbox", {
+      name: "Value 1",
+    }) as HTMLTextAreaElement;
+    await user.clear(first);
+    await user.paste('東京 "quoted",  value');
+    expect(screen.getByRole("textbox", { name: "Value 1" })).toBe(first);
+    expect(first.value).toBe('東京 "quoted",  value');
+    fireEvent.compositionStart(first);
+    fireEvent.keyDown(first, { key: "Escape", isComposing: true });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.compositionEnd(first);
+    for (const key of [
+      "Home",
+      "End",
+      "ArrowLeft",
+      "ArrowRight",
+      "Delete",
+      "Backspace",
+      "Tab",
+    ]) {
+      const event = new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+      });
+      first.dispatchEvent(event);
+      expect(event.defaultPrevented, key).toBe(false);
+    }
+    await user.click(screen.getByRole("button", { name: "Add value" }));
+    const second = screen.getByRole("textbox", {
+      name: "Value 2",
+    }) as HTMLTextAreaElement;
+    expect(document.activeElement).toBe(second);
+    expect(
+      (screen.getByRole("button", { name: "Apply" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    await user.paste("review\npriority");
+    expect(second.value).toBe("review\npriority");
+    expect(second.getAttribute("aria-invalid")).toBe("true");
+    expect(
+      document.getElementById(second.getAttribute("aria-describedby") ?? "")
+        ?.textContent,
+    ).toContain("Edit or remove");
+    expect(applied).not.toHaveBeenCalled();
+    expect(chip.textContent).toContain("review,priority");
+    await user.clear(second);
+    await user.type(second, "priority");
+    await user.click(screen.getByRole("button", { name: "Remove value 1" }));
+    expect(document.activeElement).toBe(second);
+    expect(screen.getByRole("textbox", { name: "Value 1" })).toBe(second);
+    await user.click(screen.getByRole("button", { name: "Remove value 1" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Add value" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Add value" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Value 1" }),
+      "review,priority",
+    );
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied).toHaveBeenCalledWith({
+      fieldKey: "timeline.tags",
+      op: "contains_any",
+      arg: { values: ["review,priority"] },
+    });
+    expect(document.activeElement).toBe(chip);
+  });
+  it("reopens literal sets without changing member boundaries in either operator", async () => {
+    const user = userEvent.setup();
+    for (const [view, fieldKey, op, value] of [
+      [timelineSurface, "timeline.tags", "contains_any", "review,priority"],
+      [timelineSurface, "timeline.tags", "contains_all", "review,priority"],
+      [
+        "cartulary.view.parties.v1",
+        "party.organization_name",
+        "eq",
+        "Northwind, Inc.",
+      ],
+    ] as const) {
+      const applied = vi.fn();
+      const filter = {
+        fieldKey,
+        op,
+        arg: { values: [value] },
+      };
+      render(
+        <FilterGridControls
+          contract={requireViewContract(view)}
+          applied={applied}
+          initial={{ ...emptyWorkbookQueryState(), filters: [filter] }}
+        />,
+      );
+      await user.click(
+        screen.getByTestId(workbookQueryEntryTestId(view, "filter", fieldKey)),
+      );
+      await user.click(screen.getByRole("button", { name: "Apply" }));
+      expect(applied).toHaveBeenCalledWith(filter);
+      cleanup();
+    }
+  });
+
+  it("stages a comma-containing candidate member before explicit query application", async () => {
+    const user = userEvent.setup();
+    for (const [view, fieldKey, op, value] of [
+      [timelineSurface, "timeline.tags", "contains_any", "review,priority"],
+      [timelineSurface, "timeline.tags", "contains_all", "review,priority"],
+      [
+        "cartulary.view.parties.v1",
+        "party.organization_name",
+        "eq",
+        "Northwind, Inc.",
+      ],
+    ] as const) {
+      const applied = vi.fn();
+      render(
+        <WorkbookCandidateQueryControl
+          view={view}
+          label="Linked Records"
+          query={emptyWorkbookQueryState()}
+          onApply={applied}
+        />,
+      );
+      await user.click(screen.getByText("Linked Records ordering and filters"));
+      await user.selectOptions(
+        screen.getByLabelText("Linked Records filter field"),
+        fieldKey,
+      );
+      await user.selectOptions(
+        screen.getByLabelText("Linked Records filter operator"),
+        op,
+      );
+      if (op === "eq")
+        await user.selectOptions(
+          screen.getByLabelText("Linked Records equality operand"),
+          "values",
+        );
+      await user.type(screen.getByRole("textbox"), value);
+      await user.click(screen.getByRole("button", { name: "Add value" }));
+      const second = screen.getByRole("textbox", {
+        name: "Linked Records filter value 2",
+      }) as HTMLTextAreaElement;
+      expect(document.activeElement).toBe(second);
+      await user.paste("invalid\nmember");
+      expect(second.value).toBe("invalid\nmember");
+      expect(second.getAttribute("aria-invalid")).toBe("true");
+      await user.click(screen.getByRole("button", { name: "Add filter" }));
+      expect(
+        screen.queryByRole("button", { name: /Remove filter / }),
+      ).toBeNull();
+      expect(applied).not.toHaveBeenCalled();
+      await user.click(
+        screen.getByRole("button", {
+          name: "Remove linked records filter value 2",
+        }),
+      );
+      await user.click(screen.getByRole("button", { name: "Add filter" }));
+      expect(applied).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("button", { name: /Remove filter / }).parentElement
+          ?.textContent,
+      ).toContain(JSON.stringify([value]));
+      await user.click(
+        screen.getByRole("button", { name: "Apply candidate query" }),
+      );
+      expect(applied.mock.calls[0]?.[0].filters).toEqual([
+        { fieldKey, op, arg: { values: [value] } },
+      ]);
+      cleanup();
+    }
+  });
   it("keeps invalid timestamp drafts editable with operand guidance native keys and accepted filters", async () => {
     const user = userEvent.setup(),
       applied = vi.fn();
@@ -168,7 +361,7 @@ describe("WorkbookGridControls", () => {
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Filter 1, Has Evidence, equals false",
+        name: "Filter 1, Has Evidence, equals [false]",
       }),
     );
     const falseChoice = screen.getByRole("checkbox", { name: "false" });
@@ -177,7 +370,7 @@ describe("WorkbookGridControls", () => {
     expect(applied.mock.calls[0]?.[0]?.arg).toEqual({ values: [false] });
     await user.click(
       screen.getByRole("button", {
-        name: "Filter 1, Has Evidence, equals false",
+        name: "Filter 1, Has Evidence, equals [false]",
       }),
     );
     await user.selectOptions(
@@ -357,9 +550,22 @@ describe("WorkbookGridControls", () => {
     await user.click(screen.getByRole("checkbox", { name: "empty" }));
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(applied.mock.calls[1]?.[0]?.arg).toEqual({ values: ["disabled"] });
+    await user.click(trigger);
+    expect(
+      screen
+        .getByRole("button", { name: "Custom literals" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    await user.click(screen.getByRole("checkbox", { name: "empty" }));
+    expect(
+      (screen.getByRole("button", { name: "Apply" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
     await user.click(
       screen.getByRole("button", {
-        name: "Filter 1, Activity Time Pair State, equals disabled",
+        name: 'Filter 1, Activity Time Pair State, equals ["disabled"]',
       }),
     );
     expect(
@@ -1661,7 +1867,7 @@ describe("WorkbookGridControls", () => {
       operandKind: "value",
       value: "reviewed",
       valueType: "string",
-      values: "",
+      values: [],
     };
     const common = {
       contract,
@@ -1752,7 +1958,7 @@ describe("WorkbookGridControls", () => {
       operandKind: "value",
       value: "",
       valueType: "boolean",
-      values: "",
+      values: [],
     });
 
     fireEvent.click(trigger);
@@ -2471,7 +2677,7 @@ function StatefulGridControls({
       onApplyFilter={(draft) => {
         const validation = validateFilterDraft(contract, draft);
         if (validation.kind === "valid")
-          setFilterDraft(clearFilterDraftValue(draft));
+          setFilterDraft(clearFilterDraftValue(draft, contract));
         return validation;
       }}
       onClearFilters={() => {

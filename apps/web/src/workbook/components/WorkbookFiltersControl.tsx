@@ -32,6 +32,7 @@ import {
   type FilterDraftControl,
   type FilterDraftValidation,
   filterDraftForField,
+  filterMemberControlKeys,
   isWorkbookFilterOperator,
   validateFilterDraft,
   type WorkbookFilter,
@@ -41,6 +42,7 @@ import {
   useEnumLiteralDisclosure,
   WorkbookEnumFilterOperand,
 } from "./WorkbookEnumFilterOperand";
+import { WorkbookLiteralSetFilterOperand } from "./WorkbookLiteralSetFilterOperand";
 import {
   clearButtonStyle,
   controlButtonStyle,
@@ -127,9 +129,13 @@ export function WorkbookFiltersControl({
                 ? enumFilterControlKeys(draft, enumChoices, enumDisclosure.open)
                 : draft.operandKind === "null"
                   ? []
-                  : ["value"]),
+                  : draft.operandKind === "values"
+                    ? filterMemberControlKeys(draft.values)
+                    : ["value"]),
           ]
-        : ["value"]),
+        : draft.op === "contains_any" || draft.op === "contains_all"
+          ? filterMemberControlKeys(draft.values)
+          : ["value"]),
     ...requestedChanges.flatMap((change) =>
       change.kind === "removed"
         ? [`restore:${change.filter.fieldKey}`]
@@ -160,19 +166,34 @@ export function WorkbookFiltersControl({
     onRequestClose: onClose,
     preferredReturnFocusRef: returnFocusRef,
     reconcileItems: true,
-    reconcileItemKey: (key, _previous, eligible) =>
-      isBoolean &&
-      (key === "value" || key.startsWith("boolean_choice:")) &&
-      eligible.includes("operand_kind")
+    reconcileItemKey: (key, previous, eligible) => {
+      if (key.startsWith("member:") || key.startsWith("member_remove:")) {
+        const index = previous.indexOf(key);
+        const isMember = (candidate: string) =>
+          candidate.startsWith("member:") && eligible.includes(candidate);
+        return (
+          previous.slice(index + 1).find(isMember) ??
+          previous.slice(0, index).reverse().find(isMember) ??
+          (eligible.includes("member_add") ? "member_add" : null)
+        );
+      }
+      return isBoolean &&
+        (key === "value" || key.startsWith("boolean_choice:")) &&
+        eligible.includes("operand_kind")
         ? "operand_kind"
-        : null,
+        : null;
+    },
     subjectKey: surface,
     trapTab: true,
     triggerRef,
   });
   const validation = validateFilterDraft(contract, draft);
   const feedbackFor: FilterFeedbackFor = (control) =>
-    validation.kind === "invalid" && validation.controls.includes(control)
+    validation.kind === "invalid" &&
+    (validation.controls.includes(control) ||
+      (control.startsWith("member:") &&
+        validation.controls.includes("value") &&
+        !validation.controls.some((key) => key.startsWith("member:"))))
       ? { "aria-invalid": true, "aria-describedby": feedbackId }
       : {};
   const hiddenCount = projection.hiddenChips.length;
@@ -428,27 +449,19 @@ function FilterOperandControl({
             choices={enumChoices}
             disclosure={enumDisclosure}
             onChange={onChangeDraft}
-            feedback={feedbackFor("value")}
+            feedbackFor={feedbackFor}
             registerItem={navigation.registerItem}
             valueTestId={gridFilterValueTestId(surface)}
           />
         ) : draft.operandKind === "null" ? null : draft.operandKind ===
           "values" ? (
-          <TextOperand
-            draft={draft}
+          <WorkbookLiteralSetFilterOperand
+            members={draft.values}
+            onChange={(values) => onChangeDraft({ ...draft, values })}
             feedbackFor={feedbackFor}
-            label={isDate ? "Date values" : "Values"}
-            navigation={navigation}
-            onValue={(values) => onChangeDraft({ ...draft, values })}
-            placeholder={
-              isDate ? "YYYY-MM-DD, YYYY-MM-DD" : "Comma-separated values"
-            }
-            surface={surface}
-            value={
-              typeof draft.values === "string"
-                ? draft.values
-                : draft.values.join(", ")
-            }
+            registerItem={navigation.registerItem}
+            placeholder={isDate ? "YYYY-MM-DD" : undefined}
+            valueTestId={gridFilterValueTestId(surface)}
           />
         ) : (
           <TextOperand
@@ -542,15 +555,12 @@ function FilterOperandControl({
   }
   if (draft.op === "contains_any" || draft.op === "contains_all") {
     return (
-      <TextOperand
-        draft={draft}
+      <WorkbookLiteralSetFilterOperand
+        members={draft.values}
+        onChange={(values) => onChangeDraft({ ...draft, values })}
         feedbackFor={feedbackFor}
-        label="Values"
-        navigation={navigation}
-        onValue={(values) => onChangeDraft({ ...draft, values })}
-        placeholder="Comma-separated values"
-        surface={surface}
-        value={draft.values}
+        registerItem={navigation.registerItem}
+        valueTestId={gridFilterValueTestId(surface)}
       />
     );
   }

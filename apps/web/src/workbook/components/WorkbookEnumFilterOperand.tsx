@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: Array positions identify editable draft slots and retain focus while their text changes. */
 import { type AriaAttributes, type RefCallback, useId, useState } from "react";
 import {
   type EqualityFilterDraft,
@@ -6,6 +5,8 @@ import {
   enumFilterMembers,
   toggleEnumFilterChoice,
 } from "../models/workbookEnumFilterOperand";
+import type { FilterDraftControl } from "../models/workbookQuery";
+import { WorkbookLiteralSetFilterOperand } from "./WorkbookLiteralSetFilterOperand";
 import {
   inputStyle,
   secondaryButtonStyle,
@@ -39,7 +40,7 @@ export function WorkbookEnumFilterOperand({
   disclosure,
   valueLabel = "Value",
   valueTestId,
-  feedback,
+  feedbackFor,
   registerItem,
 }: {
   readonly draft: EqualityFilterDraft;
@@ -48,10 +49,13 @@ export function WorkbookEnumFilterOperand({
   readonly disclosure: ReturnType<typeof useEnumLiteralDisclosure>;
   readonly valueLabel?: string;
   readonly valueTestId?: string;
-  readonly feedback: Pick<AriaAttributes, "aria-invalid" | "aria-describedby">;
+  readonly feedbackFor: (
+    control: FilterDraftControl,
+  ) => Pick<AriaAttributes, "aria-invalid" | "aria-describedby">;
   readonly registerItem?: (key: string) => RefCallback<HTMLElement>;
 }) {
   const literalsId = useId();
+  const feedback = feedbackFor("value");
   const members = enumFilterMembers(draft);
   if (draft.operandKind === "null") return null;
   return (
@@ -164,69 +168,15 @@ export function WorkbookEnumFilterOperand({
               />
             </label>
           ) : (
-            <>
-              {members.map((value, index) => (
-                <div
-                  key={index}
-                  style={{
-                    display: "flex",
-                    gap: "var(--ct-spacing-xs)",
-                    minInlineSize: 0,
-                  }}
-                >
-                  <label
-                    style={{ ...stackedLabelStyle, flex: 1, minInlineSize: 0 }}
-                  >
-                    Literal {index + 1}
-                    <input
-                      ref={registerItem?.(`enum_literal:${index}`)}
-                      aria-label={`${valueLabel} literal ${index + 1}`}
-                      {...feedback}
-                      style={{
-                        ...inputStyle,
-                        minInlineSize: 0,
-                        inlineSize: "100%",
-                      }}
-                      value={value}
-                      onChange={(event) =>
-                        onChange({
-                          ...draft,
-                          values: members.map((member, memberIndex) =>
-                            memberIndex === index
-                              ? event.currentTarget.value
-                              : member,
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    ref={registerItem?.(`enum_remove:${index}`)}
-                    style={secondaryButtonStyle}
-                    aria-label={`Remove literal ${index + 1}`}
-                    onClick={() =>
-                      onChange({
-                        ...draft,
-                        values: members.filter(
-                          (_, memberIndex) => memberIndex !== index,
-                        ),
-                      })
-                    }
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                ref={registerItem?.("enum_add")}
-                style={secondaryButtonStyle}
-                onClick={() => onChange({ ...draft, values: [...members, ""] })}
-              >
-                Add literal
-              </button>
-            </>
+            <WorkbookLiteralSetFilterOperand
+              members={draft.values}
+              onChange={(values) => onChange({ ...draft, values })}
+              valueLabel={`${valueLabel} literal`}
+              feedbackFor={feedbackFor}
+              registerItem={registerItem}
+              addLabel="Add literal"
+              removeLabel="Remove literal"
+            />
           )}
         </div>
       ) : null}

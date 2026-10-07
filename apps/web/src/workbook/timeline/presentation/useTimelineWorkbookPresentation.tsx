@@ -146,7 +146,7 @@ export function useTimelineWorkbookPresentation({
           draft,
         ),
       );
-      setFilterDraft(clearFilterDraftValue(draft));
+      setFilterDraft(clearFilterDraftValue(draft, timelineContract));
       return validation;
     },
     [browser, setFilterDraft, setQueryState],

@@ -443,7 +443,7 @@ describe("workbookGridQueryControls", () => {
         operandKind: "value",
         value: "2026-04-31",
         valueType: "string",
-        values: "",
+        values: [],
       }).kind,
     ).toBe("invalid");
     expect(
@@ -479,7 +479,7 @@ describe("workbookGridQueryControls", () => {
         operandKind: "value",
         value: "reviewed",
         valueType: "string",
-        values: "",
+        values: [],
       }),
     ).toEqual({
       kind: "invalid",

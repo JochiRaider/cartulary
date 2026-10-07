@@ -3,6 +3,7 @@ import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import type { WorkbookFilter, WorkbookQueryState } from "./workbookQuery";
+import { formatFilterSetMembers } from "./workbookQuery";
 import type { SavedViewResource } from "./workbookSavedViews";
 
 const workbookViewBarControlOrder = [
@@ -379,7 +380,8 @@ function describeFilter(filter: WorkbookFilter): string {
 }
 
 function describeFilterArgument(filter: WorkbookFilter): string {
-  if (Array.isArray(filter.arg.values)) return filter.arg.values.join(", ");
+  if (Array.isArray(filter.arg.values))
+    return formatFilterSetMembers(filter.arg.values);
   if (filter.arg.value === null) return "empty";
   if (
     typeof filter.arg.value === "string" ||
