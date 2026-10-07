@@ -21,109 +21,333 @@
     "grid_state_composition",
     "transient_confirmation",
     "status_secondary_priority",
-    "error_presentations"
+    "error_presentations",
+    "workbook_workbench"
   ],
   "properties": {
     "workbook_chrome": {
-      "type": "object", "additionalProperties": false,
-      "required": ["query_chip_capacities", "saved_view_startup_initially_open"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query_chip_capacities",
+        "saved_view_startup_initially_open"
+      ],
       "properties": {
-        "query_chip_capacities": { "const": { "base": 3, "narrow_desktop": 2, "compact_desktop": 0, "below_supported_minimum": 0 } },
-        "saved_view_startup_initially_open": { "const": false }
+        "query_chip_capacities": {
+          "const": {
+            "base": 3,
+            "narrow_desktop": 2,
+            "compact_desktop": 0,
+            "below_supported_minimum": 0
+          }
+        },
+        "saved_view_startup_initially_open": {
+          "const": false
+        }
       }
     },
     "inspector": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["candidate_chooser_max_block_size_rem", "history_scalar_pair_max_lines", "panel_kinds", "reference_viewport", "persistent_region_max_height_px", "field_action_min_size_px", "property_stack_below_px", "overlay_min_viewport_width_px", "field_layout_overrides", "data_states", "access_states", "content_states", "header_title_lines", "narrative_preview_lines", "action_outcomes", "unavailable_causes", "announcements"],
+      "required": [
+        "candidate_chooser_max_block_size_rem",
+        "history_scalar_pair_max_lines",
+        "panel_kinds",
+        "reference_viewport",
+        "persistent_region_max_height_px",
+        "field_action_min_size_px",
+        "property_stack_below_px",
+        "overlay_min_viewport_width_px",
+        "field_layout_overrides",
+        "data_states",
+        "access_states",
+        "content_states",
+        "header_title_lines",
+        "narrative_preview_lines",
+        "action_outcomes",
+        "unavailable_causes",
+        "announcements"
+      ],
       "properties": {
-        "candidate_chooser_max_block_size_rem": { "const": 12 },
-        "history_scalar_pair_max_lines": { "const": 2 },
-        "panel_kinds": { "const": ["regions", "commands_only"] },
-        "reference_viewport": { "const": { "width_px": 1280, "height_px": 720, "inspector_width_px": 420 } },
-        "persistent_region_max_height_px": { "const": 128 },
-        "field_action_min_size_px": { "const": 28 },
-        "property_stack_below_px": { "const": 320 },
-        "overlay_min_viewport_width_px": { "const": 320 },
+        "candidate_chooser_max_block_size_rem": {
+          "const": 12
+        },
+        "history_scalar_pair_max_lines": {
+          "const": 2
+        },
+        "panel_kinds": {
+          "const": [
+            "regions",
+            "commands_only"
+          ]
+        },
+        "reference_viewport": {
+          "const": {
+            "width_px": 1280,
+            "height_px": 720,
+            "inspector_width_px": 420
+          }
+        },
+        "persistent_region_max_height_px": {
+          "const": 128
+        },
+        "field_action_min_size_px": {
+          "const": 28
+        },
+        "property_stack_below_px": {
+          "const": 320
+        },
+        "overlay_min_viewport_width_px": {
+          "const": 320
+        },
         "field_layout_overrides": {
-          "type": "array", "minItems": 10, "uniqueItems": true,
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
           "items": {
-            "type": "object", "additionalProperties": false,
-            "required": ["view_schema_id", "field_key", "layout"],
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "view_schema_id",
+              "field_key",
+              "layout"
+            ],
             "properties": {
-              "view_schema_id": { "type": "string", "minLength": 1 },
-              "field_key": { "type": "string", "minLength": 1 },
-              "layout": { "enum": ["property", "narrative"] }
+              "view_schema_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "field_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "layout": {
+                "enum": [
+                  "property",
+                  "narrative"
+                ]
+              }
             }
           }
         },
-        "data_states": { "const": ["initial_loading", "ready", "refreshing", "stale_failure", "unavailable"] },
-        "access_states": { "const": ["readable", "concealed"] },
-        "content_states": { "const": ["empty", "populated"] },
-        "header_title_lines": { "const": 2 },
-        "narrative_preview_lines": { "const": 6 },
-        "action_outcomes": { "type": "object", "additionalProperties": false, "required": ["open_authoring", "review", "navigate"], "properties": { "open_authoring": { "type": "string", "minLength": 1 }, "review": { "type": "string", "minLength": 1 }, "navigate": { "type": "string", "minLength": 1 } } },
-        "unavailable_causes": { "const": ["not_requested", "load_failed", "owner_blocked"] },
-        "announcements": { "const": { "initial_loading": "polite", "refreshing": "polite", "background_stale": "polite", "rejected_action": "assertive", "not_requested": "none", "already_reported": "none" } }
+        "data_states": {
+          "const": [
+            "initial_loading",
+            "ready",
+            "refreshing",
+            "stale_failure",
+            "unavailable"
+          ]
+        },
+        "access_states": {
+          "const": [
+            "readable",
+            "concealed"
+          ]
+        },
+        "content_states": {
+          "const": [
+            "empty",
+            "populated"
+          ]
+        },
+        "header_title_lines": {
+          "const": 2
+        },
+        "narrative_preview_lines": {
+          "const": 6
+        },
+        "action_outcomes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "open_authoring",
+            "review",
+            "navigate"
+          ],
+          "properties": {
+            "open_authoring": {
+              "type": "string",
+              "minLength": 1
+            },
+            "review": {
+              "type": "string",
+              "minLength": 1
+            },
+            "navigate": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "unavailable_causes": {
+          "const": [
+            "not_requested",
+            "load_failed",
+            "owner_blocked"
+          ]
+        },
+        "announcements": {
+          "const": {
+            "initial_loading": "polite",
+            "refreshing": "polite",
+            "background_stale": "polite",
+            "rejected_action": "assertive",
+            "not_requested": "none",
+            "already_reported": "none"
+          }
+        }
       }
     },
     "grid_cell_range_selection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["stationary_tolerance_px", "edge_band_px", "maximum_scroll_px_per_second", "maximum_frame_ms"],
+      "required": [
+        "stationary_tolerance_px",
+        "edge_band_px",
+        "maximum_scroll_px_per_second",
+        "maximum_frame_ms"
+      ],
       "properties": {
-        "stationary_tolerance_px": { "const": 4 },
-        "edge_band_px": { "const": 32 },
-        "maximum_scroll_px_per_second": { "const": 720 },
-        "maximum_frame_ms": { "const": 32 }
+        "stationary_tolerance_px": {
+          "const": 4
+        },
+        "edge_band_px": {
+          "const": 32
+        },
+        "maximum_scroll_px_per_second": {
+          "const": 720
+        },
+        "maximum_frame_ms": {
+          "const": 32
+        }
       }
     },
-    "workbook_frozen_columns": { "type": "object", "additionalProperties": false, "required": ["minimum_scrollable_width_px"], "properties": { "minimum_scrollable_width_px": { "const": 240 } } },
+    "workbook_frozen_columns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_scrollable_width_px"
+      ],
+      "properties": {
+        "minimum_scrollable_width_px": {
+          "const": 240
+        }
+      }
+    },
     "workbook_column_sizing": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minimum_width_px", "maximum_width_px", "keyboard_step_px"],
+      "required": [
+        "minimum_width_px",
+        "maximum_width_px",
+        "keyboard_step_px"
+      ],
       "properties": {
-        "minimum_width_px": { "const": 40 },
-        "maximum_width_px": { "const": 4096 },
-        "keyboard_step_px": { "const": 10 }
+        "minimum_width_px": {
+          "const": 40
+        },
+        "maximum_width_px": {
+          "const": 4096
+        },
+        "keyboard_step_px": {
+          "const": 10
+        }
       }
     },
     "workbook_find": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["scope_label", "zero_matches_message", "scope_help", "live", "successful_navigation"],
+      "required": [
+        "scope_label",
+        "zero_matches_message",
+        "scope_help",
+        "live",
+        "successful_navigation"
+      ],
       "properties": {
-        "scope_label": { "const": "Find in loaded rows" },
-        "zero_matches_message": { "const": "No matches in loaded rows." },
-        "scope_help": { "type": "string", "minLength": 1 },
-        "live": { "const": "polite" },
-        "successful_navigation": { "const": "collapse" }
+        "scope_label": {
+          "const": "Find in loaded rows"
+        },
+        "zero_matches_message": {
+          "const": "No matches in loaded rows."
+        },
+        "scope_help": {
+          "type": "string",
+          "minLength": 1
+        },
+        "live": {
+          "const": "polite"
+        },
+        "successful_navigation": {
+          "const": "collapse"
+        }
       }
     },
-    "schema_id": { "const": "cartulary.design_presentation.v2" },
-    "owner_id": { "const": "package.ui" },
-    "verification_id": { "const": "package.ui.verification.machine_owned_presentation" },
+    "schema_id": {
+      "const": "cartulary.design_presentation.v2"
+    },
+    "owner_id": {
+      "const": "package.ui"
+    },
+    "verification_id": {
+      "const": "package.ui.verification.machine_owned_presentation"
+    },
     "presence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["capacities", "mode_priority", "live"],
+      "required": [
+        "capacities",
+        "mode_priority",
+        "live"
+      ],
       "properties": {
-        "capacities": { "const": { "header": 5, "row": 3, "cell": 2 } },
-        "mode_priority": { "const": { "editing": 1, "focused": 2, "viewing": 3, "idle": 4 } },
-        "live": { "const": "none" }
+        "capacities": {
+          "const": {
+            "header": 5,
+            "row": 3,
+            "cell": 2
+          }
+        },
+        "mode_priority": {
+          "const": {
+            "editing": 1,
+            "focused": 2,
+            "viewing": 3,
+            "idle": 4
+          }
+        },
+        "live": {
+          "const": "none"
+        }
       }
     },
     "initial_loading": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["delay_ms", "message", "live", "announce_once_per_generation", "retry_on_delay"],
+      "required": [
+        "delay_ms",
+        "message",
+        "live",
+        "announce_once_per_generation",
+        "retry_on_delay"
+      ],
       "properties": {
-        "delay_ms": { "const": 2000 },
-        "message": { "const": "Still loading this surface" },
-        "live": { "const": "polite" },
-        "announce_once_per_generation": { "const": true },
-        "retry_on_delay": { "const": false }
+        "delay_ms": {
+          "const": 2000
+        },
+        "message": {
+          "const": "Still loading this surface"
+        },
+        "live": {
+          "const": "polite"
+        },
+        "announce_once_per_generation": {
+          "const": true
+        },
+        "retry_on_delay": {
+          "const": false
+        }
       }
     },
     "grid_data_state_presentations": {
@@ -161,12 +385,37 @@
             ]
           },
           "placement": {
-            "enum": ["none", "grid_body_compact", "grid_body_blocking"]
+            "enum": [
+              "none",
+              "grid_body_compact",
+              "grid_body_blocking"
+            ]
           },
-          "blocking": { "type": "boolean" },
-          "posture": { "enum": ["neutral", "progress", "caution", "error"] },
-          "live": { "enum": ["none", "polite", "assertive"] },
-          "role": { "enum": ["none", "status", "alert"] },
+          "blocking": {
+            "type": "boolean"
+          },
+          "posture": {
+            "enum": [
+              "neutral",
+              "progress",
+              "caution",
+              "error"
+            ]
+          },
+          "live": {
+            "enum": [
+              "none",
+              "polite",
+              "assertive"
+            ]
+          },
+          "role": {
+            "enum": [
+              "none",
+              "status",
+              "alert"
+            ]
+          },
           "focus_effect": {
             "enum": [
               "preserve_focus",
@@ -203,7 +452,10 @@
             ]
           },
           "message": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "action_rule": {
             "enum": [
@@ -233,13 +485,39 @@
           "message_strategy"
         ],
         "properties": {
-          "mode": { "enum": ["editable", "read_only"] },
-          "visible": { "type": "boolean" },
-          "posture": { "const": "neutral" },
-          "live": { "enum": ["none", "polite"] },
-          "role": { "enum": ["none", "status"] },
-          "focus_effect": { "const": "preserve_focus" },
-          "message_strategy": { "enum": ["none", "owner_label"] }
+          "mode": {
+            "enum": [
+              "editable",
+              "read_only"
+            ]
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "posture": {
+            "const": "neutral"
+          },
+          "live": {
+            "enum": [
+              "none",
+              "polite"
+            ]
+          },
+          "role": {
+            "enum": [
+              "none",
+              "status"
+            ]
+          },
+          "focus_effect": {
+            "const": "preserve_focus"
+          },
+          "message_strategy": {
+            "enum": [
+              "none",
+              "owner_label"
+            ]
+          }
         }
       }
     },
@@ -253,10 +531,16 @@
         "live_region_rule"
       ],
       "properties": {
-        "primary": { "const": "data_state" },
-        "co_display_interaction_mode": { "const": "read_only" },
+        "primary": {
+          "const": "data_state"
+        },
+        "co_display_interaction_mode": {
+          "const": "read_only"
+        },
         "suppress_interaction_for_data_states": {
-          "const": ["permission_denied"]
+          "const": [
+            "permission_denied"
+          ]
         },
         "live_region_rule": {
           "const": "single_highest_priority_atomic_message"
@@ -266,15 +550,33 @@
     "transient_confirmation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["visible_unpaused_ms", "live", "pause_conditions", "resume_resets_elapsed", "still_valid_action_prevents_dismissal"],
+      "required": [
+        "visible_unpaused_ms",
+        "live",
+        "pause_conditions",
+        "resume_resets_elapsed",
+        "still_valid_action_prevents_dismissal"
+      ],
       "properties": {
-        "visible_unpaused_ms": { "const": 5000 },
-        "live": { "const": "polite" },
-        "pause_conditions": {
-          "const": ["document_hidden", "keyboard_focus_within", "pointer_hover"]
+        "visible_unpaused_ms": {
+          "const": 5000
         },
-        "resume_resets_elapsed": { "const": false },
-        "still_valid_action_prevents_dismissal": { "const": true }
+        "live": {
+          "const": "polite"
+        },
+        "pause_conditions": {
+          "const": [
+            "document_hidden",
+            "keyboard_focus_within",
+            "pointer_hover"
+          ]
+        },
+        "resume_resets_elapsed": {
+          "const": false
+        },
+        "still_valid_action_prevents_dismissal": {
+          "const": true
+        }
       }
     },
     "status_secondary_priority": {
@@ -295,7 +597,14 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["family", "locus", "retention", "actions", "focus_effect", "live"],
+        "required": [
+          "family",
+          "locus",
+          "retention",
+          "actions",
+          "focus_effect",
+          "live"
+        ],
         "properties": {
           "family": {
             "enum": [
@@ -312,12 +621,111 @@
               "unknown_future_error"
             ]
           },
-          "locus": { "type": "string", "minLength": 1 },
-          "retention": { "type": "string", "minLength": 1 },
-          "actions": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-          "focus_effect": { "type": "string", "minLength": 1 },
-          "live": { "enum": ["assertive", "assertive_once", "polite"] }
+          "locus": {
+            "type": "string",
+            "minLength": 1
+          },
+          "retention": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actions": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "focus_effect": {
+            "type": "string",
+            "minLength": 1
+          },
+          "live": {
+            "enum": [
+              "assertive",
+              "assertive_once",
+              "polite"
+            ]
+          }
         }
+      }
+    },
+    "workbook_workbench": {
+      "const": {
+        "pin_limit": 20,
+        "return_limit": 32,
+        "command_page_size": 20,
+        "grid_minimum_width_px": 720,
+        "command_families": [
+          "Capture",
+          "Inspect",
+          "Relate",
+          "Follow up",
+          "Review",
+          "View"
+        ],
+        "presets": [
+          {
+            "id": "full_timeline",
+            "label": "Full timeline",
+            "sort": [],
+            "filters": []
+          },
+          {
+            "id": "recent_edits",
+            "label": "Recent edits",
+            "sort": [
+              {
+                "field_key": "timeline.edited_at",
+                "direction": "desc"
+              }
+            ],
+            "filters": []
+          },
+          {
+            "id": "unresolved_references",
+            "label": "Unresolved references",
+            "sort": [],
+            "filters": [
+              {
+                "field_key": "timeline.has_unresolved_mentions",
+                "op": "eq",
+                "arg": {
+                  "value": true
+                }
+              }
+            ]
+          },
+          {
+            "id": "date_mismatch",
+            "label": "Date mismatch",
+            "sort": [],
+            "filters": [
+              {
+                "field_key": "timeline.activity_time_pair_state",
+                "op": "eq",
+                "arg": {
+                  "value": "paired_mismatch"
+                }
+              }
+            ]
+          },
+          {
+            "id": "with_attached_files",
+            "label": "With attached files",
+            "sort": [],
+            "filters": [
+              {
+                "field_key": "timeline.has_evidence",
+                "op": "eq",
+                "arg": {
+                  "value": true
+                }
+              }
+            ]
+          }
+        ]
       }
     }
   }

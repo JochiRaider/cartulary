@@ -1893,7 +1893,10 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
-    expect(await screen.findByText("Closed, read-only")).toBeTruthy();
+    expect(
+      (await screen.findByRole("status", { name: "Incident lifecycle" }))
+        .textContent,
+    ).toBe("Closed, read-only");
     const addRow = await screen.findByTestId(
       workbookAddRowButtonTestId(timelineViewSchemaId),
     );
@@ -2146,10 +2149,8 @@ describe("WorkbookShell surface selection", () => {
     ).textContent;
     const calls = fetchMock.mock.calls.length;
     const user = userEvent.setup();
-    within(screen.getByTestId(workbookShellSlotTestId("top-bar")))
-      .getByRole("button", { name: /^Incident details:/ })
-      .focus();
-    await user.tab();
+    // Sheet navigation now belongs to the footer. Enter its existing roving tab stop.
+    screen.getByTestId(surfaceTabTestId(hostsViewSchemaId)).focus();
     expect(document.activeElement).toBe(
       screen.getByTestId(surfaceTabTestId(hostsViewSchemaId)),
     );
@@ -2298,7 +2299,12 @@ describe("WorkbookShell surface selection", () => {
       dataTestIdSelector(workbookShellSlotTestId("top-bar")),
     );
     expect(topBar).toBeInstanceOf(HTMLElement);
-    expect(topBar?.textContent?.match(/Timeline/g) ?? []).toHaveLength(1);
+    expect(topBar?.querySelector('[role="tablist"]')).toBeNull();
+    expect(
+      screen
+        .getByTestId(workbookShellSlotTestId("status-strip"))
+        .querySelector('[role="tablist"]'),
+    ).toBeTruthy();
     expect(
       topBar?.querySelector("[data-workbook-query-surface-title='true']"),
     ).toBeNull();
@@ -2431,6 +2437,8 @@ describe("WorkbookShell surface selection", () => {
       "cartulary.view.parties.v1",
       "cartulary.view.comm_log.v1",
       "cartulary.view.handoff.v1",
+      "cartulary.view.status_review.v1",
+      "cartulary.view.lesson.v1",
     ]);
     const systemViewOptions = [
       ...Array.from(
@@ -2441,11 +2449,6 @@ describe("WorkbookShell surface selection", () => {
       ...Array.from(
         screen
           .getByTestId(systemViewSwitcherGroupTestId("coordination"))
-          .querySelectorAll("[data-view-schema-id]"),
-      ),
-      ...Array.from(
-        screen
-          .getByTestId(systemViewSwitcherGroupTestId("review-learning"))
           .querySelectorAll("[data-view-schema-id]"),
       ),
       ...Array.from(
@@ -2493,7 +2496,9 @@ describe("WorkbookShell surface selection", () => {
     expect(
       screen.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     ).toBeTruthy();
-    expect(topBar?.textContent?.match(/Evidence/g) ?? []).toHaveLength(1);
+    expect(
+      screen.getByTestId(surfaceTabTestId(evidenceViewSchemaId)).textContent,
+    ).toBe("Evidence");
     expect(
       topBar?.querySelector("[data-workbook-query-surface-title='true']"),
     ).toBeNull();
@@ -2534,8 +2539,10 @@ describe("WorkbookShell surface selection", () => {
     ).toBeNull();
     expect(
       screen.getByTestId(systemViewSwitcherTriggerTestId()).textContent,
-    ).toBe("System views");
-    expect(topBar?.textContent).toContain("Indicators");
+    ).toBe("More views");
+    expect(
+      screen.getByTestId(workbookShellSlotTestId("status-strip")).textContent,
+    ).toContain("Indicators");
 
     fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
     const commLogOption = screen.getByTestId(

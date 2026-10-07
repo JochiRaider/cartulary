@@ -262,6 +262,12 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 			}
 			return entityStore.QueryHostRowsPage(ctx, command.IncidentID, command.Query, command.Window)
 		},
+		func(ctx context.Context, command workbook.LocateCommand) (querypage.Location, error) {
+			if command.ViewSchemaID != entitycontract.HostsViewSchemaID {
+				return querypage.Location{}, fmt.Errorf("wrong locator surface")
+			}
+			return entityStore.LocateHostRows(ctx, command.IncidentID, command.RecordID, command.Query)
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook Hosts query provider: %w", err)
@@ -275,6 +281,12 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 				)
 			}
 			return entityStore.QueryIdentityRowsPage(ctx, command.IncidentID, command.Query, command.Window)
+		},
+		func(ctx context.Context, command workbook.LocateCommand) (querypage.Location, error) {
+			if command.ViewSchemaID != entitycontract.IdentitiesViewSchemaID {
+				return querypage.Location{}, fmt.Errorf("wrong locator surface")
+			}
+			return entityStore.LocateIdentityRows(ctx, command.IncidentID, command.RecordID, command.Query)
 		},
 	)
 	if err != nil {

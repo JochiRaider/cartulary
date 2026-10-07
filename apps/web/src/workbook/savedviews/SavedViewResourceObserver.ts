@@ -15,6 +15,7 @@ export type SavedViewObservation = {
 type SavedViewResourceSlot =
   | "selected"
   | "activation"
+  | "navigation"
   | "operation"
   | "home"
   | "default";

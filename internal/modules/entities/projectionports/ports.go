@@ -42,6 +42,8 @@ type IdentityQueryProjection struct {
 }
 
 type QueryReader interface {
+	SelectHostQueryProjectionsTx(context.Context, pgx.Tx, uuid.UUID, viewschema.QueryMeta, querypage.Window) ([]HostQueryProjection, error)
+	SelectIdentityQueryProjectionsTx(context.Context, pgx.Tx, uuid.UUID, viewschema.QueryMeta, querypage.Window) ([]IdentityQueryProjection, error)
 	SelectHostQueryProjections(context.Context, uuid.UUID, viewschema.QueryMeta, querypage.Window) ([]HostQueryProjection, error)
 	SelectIdentityQueryProjections(context.Context, uuid.UUID, viewschema.QueryMeta, querypage.Window) ([]IdentityQueryProjection, error)
 }

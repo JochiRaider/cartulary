@@ -674,6 +674,7 @@ export function ContractWorkbookSurface({
     [createFields, gridDraftRow, visibleAnchorColumns],
   );
   const registerGridHandle = useWorkbookSemanticGridFocus({
+    onNavigateRecord: setEditRecordId,
     dataRows: gridRecordRows,
     dataState,
     draftFieldKeys: gridEntryDraftFieldKeys,

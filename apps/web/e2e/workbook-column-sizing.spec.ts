@@ -69,8 +69,25 @@ const width = (node: Locator) =>
     Number.parseFloat(getComputedStyle(element).width),
   );
 async function showColumns(page: Page, view: string = surface) {
-  if (!(await columns(page, view).isVisible()))
+  if (!(await columns(page, view).isVisible())) {
+    if (!(await trigger(page, view).isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger(page, view).click();
+  }
+}
+async function closeColumns(page: Page, view: string = surface) {
+  await columns(page, view)
+    .getByRole("button", { name: "Close columns", exact: true })
+    .click();
+  const query = page.getByRole("button", {
+    name: "Query controls",
+    exact: true,
+  });
+  if (
+    (await query.isVisible()) &&
+    (await query.getAttribute("aria-expanded")) === "true"
+  )
+    await query.click();
 }
 async function widthPanel(page: Page, field = summary, view: string = surface) {
   await showColumns(page, view);
@@ -98,9 +115,7 @@ async function setWidth(
   await columns(page, view)
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
-  await columns(page, view)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page, view);
 }
 async function fitVisible(page: Page, field = summary, view: string = surface) {
   await widthPanel(page, field, view);
@@ -119,9 +134,7 @@ async function fitVisible(page: Page, field = summary, view: string = surface) {
   await columns(page, view)
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
-  await columns(page, view)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page, view);
   return width(header(page, field, view));
 }
 async function firstColumn(
@@ -143,9 +156,7 @@ async function firstColumn(
   for (let left = 40; left > 0 && (await earlier.isEnabled()); left -= 1)
     await earlier.click();
   await expect(earlier).toBeDisabled();
-  await columns(page, view)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page, view);
   await scrollGridTargetIntoView({
     page,
     surface: view,
@@ -443,9 +454,7 @@ async function setFreeze(
       exact: true,
     })
     .click();
-  await columns(page, view)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page, view);
 }
 
 async function dragBoundary(page: Page, delta: number) {
@@ -804,9 +813,7 @@ test("Workbook sizing preserves production geometry drafts and saved configurati
   await columns(page)
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   expect(await width(header(page))).toBe(defaultWidth);
   await updateSavedViewFromCurrentSurface(page, surface, saved.saved_view_id);
   await expect
@@ -827,9 +834,7 @@ test("Workbook sizing preserves production geometry drafts and saved configurati
   await expect(
     page.getByTestId(savedViewSelectorTestId(surface)),
   ).toHaveAttribute("title", saved.display_name);
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   await scrollGridTargetIntoView({
     page,
     surface,
@@ -928,9 +933,7 @@ test("Workbook sizing binds empty and hidden columns across all surface families
       await columns(page, view)
         .getByRole("checkbox", { name: field.label, exact: true })
         .check();
-      await columns(page, view)
-        .getByRole("button", { name: "Close columns", exact: true })
-        .click();
+      await closeColumns(page, view);
       await expect
         .poll(() => width(header(page, field.fieldKey, view)))
         .toBe(4096);
@@ -966,9 +969,7 @@ test("Workbook sizing binds empty and hidden columns across all surface families
   await columns(page, evidenceViewSchemaId)
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
-  await columns(page, evidenceViewSchemaId)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page, evidenceViewSchemaId);
   await setWidth(page, "40", "evidence.title", evidenceViewSchemaId);
   await expect
     .poll(() => width(header(page, "evidence.title", evidenceViewSchemaId)))
@@ -1052,9 +1053,7 @@ test("Workbook fitting measures only the visible committed viewport and rejects 
     .click();
   await releaseAnimationFrames(page);
   await expect.poll(() => width(header(page))).toBe(300);
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   const input = await widthPanel(page);
   await holdAnimationFrames(page);
   await columns(page)
@@ -1069,9 +1068,7 @@ test("Workbook fitting measures only the visible committed viewport and rejects 
   await columns(page)
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   const collection = await createViewRow(page, f.incident, surface, {
     client_txn_id: uniqueTxn("csl-collection"),
     [summary]: "Collection sizing",
@@ -1186,6 +1183,10 @@ test("a11y.column-sizing native controls retain keyboard focus at narrow width z
       content:
         "* { letter-spacing: 0.12em !important; word-spacing: 0.16em !important; line-height: 1.5 !important; }",
     });
+    if (!(await trigger(page).isVisible())) {
+      await tabTo(page, page.getByText("Query ▾", { exact: true }));
+      await page.keyboard.press("Enter");
+    }
     await tabTo(page, trigger(page));
     await page.keyboard.press("Enter");
     const checkbox = columns(page).getByRole("checkbox").first();
@@ -1810,9 +1811,7 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
         exact: true,
       })
       .click();
-    await columns(page)
-      .getByRole("button", { name: "Close columns", exact: true })
-      .click();
+    await closeColumns(page);
   };
   await freeze();
   await expect(grid).toHaveAttribute("data-grid-freeze-state", "active");
@@ -1936,9 +1935,7 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
       ),
     ).toHaveCount(0);
   }
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   // The retained editor follows its semantic field through both moves without
   // opening the intervening field or stealing command focus.
   await expect(trigger(page)).toBeFocused();
@@ -1947,9 +1944,7 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
     (window as unknown as { frozenEditor: Element }).frozenEditor = node;
   });
   await showColumns(page);
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   await page.setViewportSize({ width: 390, height: 900 });
   await expect(grid).toHaveAttribute("data-grid-freeze-state", "suspended");
   await sampleCaret("after-suspend");
@@ -1989,9 +1984,7 @@ test("Workbook frozen columns retain semantic placement saved bytes and drafts t
     body: await page.screenshot(),
     contentType: "image/png",
   });
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   await info.attach("frozen-column-production-geometry", {
     contentType: "application/json",
     body: JSON.stringify(
@@ -2058,9 +2051,7 @@ test("Workbook frozen prefixes reconcile hidden order all visible fields and exa
     .getByRole("button", { name: `Freeze through ${label(raw)}`, exact: true })
     .click();
   await expect(columns(page)).toContainText("2 visible data columns");
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   const grid = page.locator(gridScrollportSelector());
   const frozenKeys = () =>
     grid
@@ -2173,9 +2164,7 @@ test("Workbook frozen prefixes reconcile hidden order all visible fields and exa
   await columns(page)
     .getByRole("button", { name: "Reset columns", exact: true })
     .click();
-  await columns(page)
-    .getByRole("button", { name: "Close columns", exact: true })
-    .click();
+  await closeColumns(page);
   await expect(grid).toHaveAttribute("data-grid-freeze-state", "none");
   await openSavedViewActionMenu(page, surface);
   await page

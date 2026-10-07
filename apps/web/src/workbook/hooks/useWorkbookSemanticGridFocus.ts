@@ -46,6 +46,7 @@ export function useWorkbookSemanticGridFocus<Row>({
   draftFieldKeys = noDraftFieldKeys,
   focusOwner,
   gridHandleRef,
+  onNavigateRecord,
   visibleColumns,
   viewSchemaId,
 }: {
@@ -54,12 +55,19 @@ export function useWorkbookSemanticGridFocus<Row>({
   readonly draftFieldKeys?: readonly string[] | undefined;
   readonly focusOwner: WorkbookGridEntryFocusOwner;
   readonly gridHandleRef: WorkbookGridHandleRef;
+  readonly onNavigateRecord?: ((recordId: string) => void) | undefined;
   readonly visibleColumns: readonly GridColumn<Row>[];
   readonly viewSchemaId: string;
 }) {
   const browsingRegistry = useWorkbookBrowsingRegistry();
+  const navigateRecord = useRef(onNavigateRecord);
+  navigateRecord.current = onNavigateRecord;
   useLayoutEffect(() => {
-    const unbind = browsingRegistry.bindGrid(viewSchemaId, gridHandleRef);
+    const unbind = browsingRegistry.bindGrid(
+      viewSchemaId,
+      gridHandleRef,
+      (recordId) => navigateRecord.current?.(recordId),
+    );
     return () => {
       const anchor = gridHandleRef.current?.getActiveCell?.();
       if (anchor?.rowIdentity.kind === "core_record")

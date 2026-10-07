@@ -4,6 +4,253 @@ This appendix is **non-normative**.
 
 It preserves the workflow sequence diagrams, UI mockups, and explanatory interaction notes from the exploratory source artifact.
 
+## Investigation workbench adoption record — 2026-10-06
+
+This section is non-normative revision traceability, examples and implementation
+guidance. Core 00 §1.1 records adoption; Core 01 §3.3.4.3, Core 03 §2.5,
+Core 04 §2.2/§9.15 and Design 0.6.0 govern behavior. The user-supplied
+`cartulary-timeline-workbench-redesign-proposal.md` version 0.1.0 is source
+material, not a second requirements authority. Its original visual-review
+boundary remains: no rendered PNG or running-application audit was established.
+The revision was grounded against repository commit
+`886750d965278a32452dbbeced77f55910f758f5`.
+
+### Proposal requirement dispositions
+
+Preserved means proposal behavior is carried forward without semantic change
+through its controlling owner. Existing capture, retained authoring, independent
+reads, save/conflict state and bounded browsing are baseline obligations, not
+new capabilities. Amended means adoption adds an explicit correction or narrower
+default. Replaced means the owner contract below supplies a materially different
+closure. Deferred means no capability is introduced. Ranges below are owner
+references, not independent specifications.
+
+| Proposal clause | Disposition | Controlling destination and resolution |
+| --- | --- | --- |
+| WB-001 | Preserved | Core 01 §7.4.1; Core 03 REQ-03-318: exact source semantics. |
+| WB-002 | Preserved | Core 03 REQ-03-318: dock-independent rough capture. |
+| WB-003 | Preserved | Core 01 REQ-01-022; Core 03 §2.5: semantic identity. |
+| WB-004 | Preserved | Core 03 §2.3A, §4.4, REQ-03-311: authoring, acceptance and recovery distinctions. |
+| WB-005 | Preserved | Core 03 §2 and REQ-03-314: invalidate obsolete focus intent. |
+| WB-006 | Preserved | Core 03 REQ-03-318: optional coordination; no row lock/truth claim. |
+| WB-007 | Amended | Design §7.1: three bands; footer navigation/status replaces top-bar navigation. |
+| WB-008 | Amended | Design §§7.1, 7.5: accepted versus unapplied context row at compact widths too. |
+| WB-009 | Preserved | Core 03 §2.4, REQ-03-311: configured startup; dock closed. |
+| WB-010 | Preserved | Design §§7.1, 11; Core 03 REQ-03-318: screen-space priority with distinct lifecycle/review/save meanings. |
+| WB-011 | Amended | Design §§7.2, 7.5: footer built-ins, grouped More views and Surfaces. |
+| WB-012 | Amended | Design §8.3; Core 03 REQ-03-316: explicit base/private/shared/preset paths, equality-based Modified. |
+| WB-013 | Preserved | Design §8.3A: labeled homes and one-level command menus. |
+| WB-014 | Preserved | Core 03 REQ-03-312; Core 04 REQ-04-170: optional omission and safe blocked reasons. |
+| WB-015 | Amended | Core 03 REQ-03-312; Design §8.3A: metadata-only descriptors and family homes. |
+| WB-016 | Replaced | Core 03 REQ-03-312: capture on opening, owner revalidation on invocation. |
+| WB-017 | Amended | Core 03 REQ-03-312: deterministic paging, borrowed focus, explicit result activation, no new shortcut. |
+| WB-018 | Preserved | Design §8.3A and §8.5: explanatory tooltip timing, one interactive explanation. |
+| WB-019 | Preserved | Core 03 §13; Design §8.6: single-click editing and existing keyboard gates. |
+| WB-020 | Preserved | Core 03 §13.4; Design §8.2: selection and row actions keep existing scopes. |
+| WB-021 | Amended | Core 03 REQ-03-311; Design §8.3A: committed full-value reader, exact Copy, wrap, explicit Edit. |
+| WB-022 | Preserved | Core 01 §7.4.1; Core 03 REQ-03-318: three time meanings. |
+| WB-023 | Preserved | Core 01 §7.4.1; Core 04 REQ-04-170: finalized files and safe evidence handling. |
+| WB-024 | Amended | Core 03 REQ-03-311; Design §§7.3–7.4: single Record/Work/Recovery attachment. |
+| WB-025 | Preserved | Core 03 §2.3A; Design §12.7: schema-backed Record contributions. |
+| WB-026 | Preserved | Core 03 §2.3A, REQ-03-311: read-first content and explicit authoring. |
+| WB-027 | Preserved | Core 03 §2.3A, REQ-03-311: independent lazy reads and failures. |
+| WB-028 | Preserved | Core 03 §2.3 and §2.3A: lifecycle-close, retarget/invalidate and owner draft retention. |
+| WB-029 | Amended | Core 03 REQ-03-311; Design §7.4: Recovery retains its catalog and shares dock geometry. |
+| WB-030 | Amended | Core 03 REQ-03-313: exact pin identity, duplicate-before-capacity and query destinations. |
+| WB-031 | Preserved | Core 04 REQ-04-169: session-only retirement independent of drafts. |
+| WB-032 | Replaced | Core 03 REQ-03-313–314: fresh base-default record location; current persisted saved-view configuration. |
+| WB-033 | Amended | Core 03 REQ-03-311: canonical coordination links adopted; optional inline preview deferred. |
+| WB-034 | Amended | Core 03 REQ-03-316: exact presets; identical configuration does not become Modified. |
+| WB-035 | Preserved | Core 01 §7.4.1; Core 03 REQ-03-316: existing query whitelist only. |
+| WB-036 | Preserved | Core 03 §13.5, REQ-03-316: Commands/Find/Filter scopes. |
+| WB-037 | Preserved | Core 03 §14.9: 100 rows, three pages, twenty checkpoints, explicit continuation. |
+| WB-038 | Preserved | Core 03 §14.9, REQ-03-316: accepted labels and Not applied replacement. |
+| WB-039 | Replaced | Core 01 REQ-01-680–683: flattened disjoint variants, replay boundary and closed validation. |
+| WB-040 | Replaced | Core 01 REQ-01-682: query-bound start/forward cursors and bounded consistent selection. |
+| WB-041 | Amended | Core 03 REQ-03-314: atomic admission, outside-query choice and target-group reveal. |
+| WB-042 | Replaced | Core 03 REQ-03-315: origin stack push/pop, captured configuration and independent bounds. |
+| WB-043 | Replaced | Core 03 REQ-03-315: Return/fallback success semantics and explicit Inspect. |
+| WB-044 | Preserved | Core 03 REQ-03-318; Appendix H §3B and examples below: source-owner workflows. |
+| WB-045 | Preserved | Core 03 §2.3A, REQ-03-318: related-create association and retained failure identity. |
+| WB-046 | Preserved | Core 03 REQ-03-318; Appendix H: durable coordination, no mandatory capture fields. |
+| WB-047 | Preserved | Core 03 REQ-03-299, §2.3A; Core 04 REQ-04-169: independent data/authoring/operation/authority planes. |
+| WB-048 | Preserved | Core 03 §2.3A, REQ-03-311: local sibling failures. |
+| WB-049 | Preserved | Core 03 REQ-03-314–315: request and attachment lifetime admission. |
+| WB-050 | Preserved | Core 03 §4.4, §14.9, REQ-03-299; Core 04 REQ-04-169: failure/recovery distinctions. |
+| WB-051 | Amended | Core 04 REQ-04-169–170: reauthorization, concealment and protected navigation retirement. |
+| WB-052 | Preserved | Core 01 evidence/clipboard owners; Core 04 REQ-04-170: no external or automatic preview fallback. |
+| WB-053 | Preserved | Core 03 REQ-03-011A; Core 04 REQ-04-170: declared extension bindings only. |
+| WB-054 | Preserved | Core 04 REQ-04-170: no automatic outbound content or implied AI integration. |
+| WB-055 | Amended | Design §§7.3–7.4: exact width tiers; all destinations share geometry. |
+| WB-056 | Amended | Design §7.5: footer overflow and status priority; height-independent tiers. |
+| WB-057 | Preserved | Design §§3–6, 11: graphite/density and existing semantic palette. |
+| WB-058 | Preserved | Core 03 §13, REQ-03-317; Design §8.6: existing shortcut ownership. |
+| WB-059 | Preserved | Design §§8.3A, 14: target sizes and non-drag access. |
+| WB-060 | Replaced | Design §8.5; Core 03 REQ-03-317: menu-before-editor, borrowed-editor exclusion, one event/owner. |
+| WB-061 | Preserved | Design §§7.4, 8.3A, 14: overlay containment versus adjacent focus and accessible labels. |
+| WB-062 | Preserved | Design §§8.3A, 14.2: bounded announcements and persistent recovery. |
+| WB-063 | Preserved | Core 03 REQ-03-318: no all-surface scans, speculative reads or evidence-byte prefetch. |
+| WB-064 | Preserved | Existing Core timing/fixture owners and Core 05 publication boundary; input feedback, accepted mutation, query admission, locator completion and focus restoration remain separate observations. |
+| WB-065 | Preserved | Core 01 REQ-01-684; Core 03 REQ-03-318: independent owner/adapter boundaries; no vendor migration. |
+
+### Proposal acceptance dispositions
+
+Each original criterion is retained or strengthened through the named owners;
+these mappings are not executed test evidence. The implementation-plan A1–A24
+map in order to Core 04 AC-572–595. AC-596 closes owner boundaries and AC-597
+closes validation and response-admission cases.
+
+| Proposal criterion | Disposition | Canonical acceptance / controlling owner |
+| --- | --- | --- |
+| WB-AC-01 | Preserved | AC-572; Core 03 §2.4. |
+| WB-AC-02 | Preserved | AC-595; existing capture criteria. |
+| WB-AC-03 | Preserved | AC-594; Core 01 §7.4.1. |
+| WB-AC-04 | Preserved | Existing Core 03 §13 acceptance; AC-595. |
+| WB-AC-05 | Amended | AC-573–574. |
+| WB-AC-06 | Preserved | AC-572. |
+| WB-AC-07 | Preserved | AC-584, AC-591; Core 03 §2.3A. |
+| WB-AC-08 | Preserved | AC-591. |
+| WB-AC-09 | Preserved | AC-591. |
+| WB-AC-10 | Preserved | AC-575, AC-588; Core 04 REQ-04-170. |
+| WB-AC-11 | Amended | AC-574–576. |
+| WB-AC-12 | Preserved | Core 03 §13; AC-574. |
+| WB-AC-13 | Amended | AC-587–588. |
+| WB-AC-14 | Preserved | AC-592. |
+| WB-AC-15 | Amended | AC-577–580, AC-597. |
+| WB-AC-16 | Preserved | AC-582. |
+| WB-AC-17 | Preserved | AC-580–581. |
+| WB-AC-18 | Amended | AC-583–586, AC-589. |
+| WB-AC-19 | Amended | AC-590. |
+| WB-AC-20 | Preserved | AC-595. |
+| WB-AC-21 | Preserved | AC-595; Core 03 §14.9. |
+| WB-AC-22 | Preserved | AC-595; Core 03 §2.3A, REQ-03-318. |
+| WB-AC-23 | Preserved | AC-594; Core 01 evidence owners. |
+| WB-AC-24 | Preserved | Core 03 REQ-03-099/100 and existing queue criteria; AC-591. |
+| WB-AC-25 | Preserved | AC-592. |
+| WB-AC-26 | Amended | AC-593; Design §§7, 15. |
+| WB-AC-27 | Amended | AC-573, AC-593. |
+| WB-AC-28 | Preserved | AC-594. |
+| WB-AC-29 | Preserved | AC-576; Design §8.3A. |
+| WB-AC-30 | Preserved | AC-595. |
+| WB-AC-31 | Amended | AC-588, AC-593; Design §§7.2, 7.5. |
+| WB-AC-32 | Preserved | AC-594–596; Design §11. |
+| WB-AC-33 | Preserved | AC-573; Design §§8.3A, 14. |
+
+### Worked continuity examples
+
+| Situation | Illustrative sequence | Owner |
+| --- | --- | --- |
+| First-hour and screenshot-first capture | Create a rough Timeline row, paste inert source or attach a screenshot, leave unknown chronology/identity unknown, then inspect and enrich deliberately. | Core 01 §7.4.1; Core 03 §2.5.7. |
+| Ambiguous identity and dates | Preserve the source string, resolve or defer a mention, use Date mismatch, read both source dates and conversion state. No browser-local time guess substitutes for evidence. | Core 01 §7.4.1; Core 03 §2.5.6. |
+| Observation to follow-up | Open Workflow, create a Task Request with the source association visible, submit through its owner, then preserve the original Timeline context. | Core 03 §2.3A and §2.5.7. |
+| Lead review and return | Open Task Requests from Work, pivot to an observation, inspect evidence, Return to the queue. Successful Returns pop origins rather than creating a loop. | Core 03 §2.5.4–2.5.5. |
+| Hypothesis and counterevidence | Use Notes or an available standardized Findings surface; link sources without promoting review status into proof. | Core 02 artifact owners; Core 03 §2.5.7. |
+| Source evolution | Inspect current source and History separately; review replacement links without treating the locator as an automatic redirect. | Core 01 §3.3.4.3; Core 03 §10. |
+| Interrupted work | Detach Details to open Recovery; an accepted write survives a failed refresh and recovery reads without repeating the mutation. | Core 03 §2.3A, §2.5.1. |
+| Closure and reporting | Read a closed incident under current authority; use the claimed reporting owner for snapshots rather than treating a saved view as frozen evidence. | Core 03 REQ-03-299; reporting owner. |
+
+An illustrative located response has the ordinary envelope with a flat data
+variant. The following notation names types, not executable JSON or a new schema:
+
+```text
+data = {
+  outcome: "located",
+  target_record_id: RecordID,
+  incident_id: IncidentID,
+  view_schema_id: ViewSchemaID,
+  rows: FullViewRow[1..100],
+  window_start_cursor: QueryCursor | null
+}
+meta = { request_id: RequestID, query: CanonicalQuery, paging: QueryPaging100 }
+```
+
+The first row matches the target in the consistent locating read. Later replay
+uses the same comparator boundary; it does not promise the target is still first.
+
+### Research rationale and freshness
+
+The evidence cutoff is October 6, 2026. Repository research snapshots are
+supporting analyses at their recorded revisions; they are not current dependency
+or conformance authorities. No later publication or live-page revision is relied
+on as historical evidence.
+
+| Resources | Application | Transfer limit |
+| --- | --- | --- |
+| [R01](../research/R01-aurora_incident_response_report.md), [R03](../research/R03-Kanvas_technical_research_report.md) | Workbook-centered pivots; avoid label identity and controller coupling. | No adoption of whole-dataset loading or legacy architecture. |
+| [R02](../research/R02-cartulary_crm_tem_dfir_research_report.md) | Adjacent coordination and durable accountability in existing sources. | Operating practice belongs in Appendix H, not mandatory per-row rituals. |
+| [R04](../research/R04-responsive_browser_spreadsheet_ui_research_memo.md), [R05](../research/R05-responsive-interface-design-report.cr.md) | Semantic continuity, local feedback and context recovery. | No approximate source truth, hidden prefetch or durable offline promise. |
+| [R06](../research/R06-spreadsheet_of_doom_dfir_research_report.md), [R07](../research/R07-spreadsheet-of-doom-sod-report.cr.md) | Raw capture, evidence context and cross-record investigation. | Candidate mandatory fields or normalization do not override Core. |
+| [R08](../research/R08-handsontable-react-research-report.md), [R09](../research/R09-react-data-grid-research-report.md) | Adapter isolation, semantic selection and editor ownership. | April 2026 snapshots support boundary reasoning, not a grid migration or latest-version claim. |
+
+The dated [WAI-ARIA Authoring Practices note (2021-11-29)](https://www.w3.org/TR/2021/NOTE-wai-aria-practices-1.2-20211129/)
+supplies advisory composite focus guidance, not a replacement keyboard contract.
+The [WCAG 2.2 Recommendation (2024-12-12)](https://www.w3.org/TR/2024/REC-WCAG22-20241212/)
+supplies accessibility criteria including target-size exceptions.
+The primary [CHI 2021 spreadsheet-comprehension study](https://advait.org/files/ragavan_2021_spreadsheet_comprehension.pdf)
+supports reducing context-recovery effort. None establishes the product's exact
+twenty-pin, thirty-two-origin, pixel geometry or timing thresholds. Those are
+adopted product decisions or formative screening choices, respectively.
+
+### Formative analyst protocol
+
+This is research guidance, not Core conformance or a published performance claim.
+Evaluate an interactive shell/command prototype before broad cutover, with eight
+analysts: four familiar with Cartulary and four experienced in spreadsheet
+investigation but unfamiliar with this redesign. Use matched synthetic incidents,
+counterbalance baseline/prototype order, and record familiarity and task errors.
+
+After five minutes of orientation, screen whether at least seven of eight
+participants independently find Evidence, create a related Task Request, and
+restore their origin after a pivot, each discovery within thirty seconds.
+Record facilitator assistance as a missed screening target. Probe the meanings
+of saved versus pending, loaded-row Find versus incident search, and Session only
+pins versus durable records using the displayed labels.
+
+Calculate each participant's paired capture-time difference using matched tasks;
+report the paired median with task definitions and individual observations.
+A regression over five percent triggers investigation and revision, not a claim
+of statistical inferiority/equivalence. Scope or state confusion produces a
+documented correction and retest. Safety failures—silent data loss, cross-record
+mutation, concealed failed writes or unauthorized disclosure—remain blocking
+under the Core owners regardless of formative outcomes. Any later public timed
+or fixture-sensitive claim goes through Core 05.
+
+### Implementation handoff and completion boundaries
+
+| Stage | Work and exit |
+| --- | --- |
+| Documents | Coordinated Core 00/01/03/04 and Design adoption; vocabulary/guidance updated; complete clause and acceptance dispositions; Markdown lint and semantic consistency review. |
+| Rendered baseline | Run the existing UI-review harness against current fixtures; inspect real rendering and record baseline limitations. No baseline result is implied by this adoption. |
+| Shell and command prototype | Project adopted design values; implement shared dock/navigation and command homes; run formative discovery early. |
+| Reader and actions | Preserve owner-retained authoring, independent reads and exact source copy; validate keyboard and failure boundaries. |
+| Locator and navigation | Implement server contract before activating dependent UI; then pins, target reveal and Return with canonical tests. |
+| Coordination and hardening | Integrate canonical coordination paths; run full affected behavior, visual and accessibility matrices before broad cutover. |
+
+Executable limits, discriminants and fixtures belong in existing typed
+owner projections under `contracts/**`; provider and storage changes stay with
+their source owners. Verification routes belong to `contracts/verification/**`
+and the existing tools catalogs. Documents are never test/runtime inputs.
+Use the current public Make task guide to select checks at implementation time
+rather than copying a static target inventory here.
+
+No source-record schema migration, grid dependency migration, workflow-engine
+rewrite or persistent navigation store is part of this amendment. Private
+component/reducer composition, SQL/index choice and fixture construction remain
+implementation latitude. Unsupported locator deployment reports a navigation
+capability failure; it never falls back to scanning. Rollback of an unqualified
+UI slice leaves existing source-owner operations available and does not
+reinterpret newly observed receipts or mutate source data.
+
+Deferred capabilities: inline Work previews, global counts, exhaustive
+incident-content search, changed-since-handoff semantics, persistent pins,
+multiple independent inspectors, graph replacement of the grid, heuristic risk
+alerts, auto-follow modes, AI execution and durable offline mutation. Their
+omission does not leave a current-profile placeholder.
+
+The documentation slice establishes requirements only. Machine projections,
+implementation, rendered validation and conformance evidence are separate
+pending deliverables; golden images and public claims are not updated here.
+
 ## Inspector remediation examples
 
 These examples illustrate Core 03 §2.3A and Design §§12.7 and 14.2; they do not

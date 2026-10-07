@@ -10,7 +10,9 @@ import {
 import { Link2, Network, RefreshCw, Table2, Upload } from "lucide-react";
 import type { ReactNode } from "react";
 import {
+  type ComponentType,
   type CSSProperties,
+  Fragment,
   type RefObject,
   useCallback,
   useEffect,
@@ -99,6 +101,8 @@ export type NetworkAnalysisWorkspaceProps = {
   readonly savedGraphController: SavedGraphController;
   readonly importController: NetworkFlowImportController;
   readonly workbookStatus?: ReactNode;
+  readonly workAreaFrame?: ComponentType<{ readonly children: ReactNode }>;
+  readonly workbookNavigation?: ReactNode;
   readonly apiBase?: string | undefined;
   readonly currentUserId?: string | null | undefined;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
@@ -114,6 +118,8 @@ function NetworkAnalysisWorkspaceContent({
   importController: importOperation,
   savedGraphController: savedGraphOperation,
   workbookStatus,
+  workbookNavigation,
+  workAreaFrame,
   apiBase,
   currentIncidentRole,
   incidentId,
@@ -461,6 +467,7 @@ function NetworkAnalysisWorkspaceContent({
     tableCount: tableController.tables.length,
   });
 
+  const WorkAreaFrame = workAreaFrame ?? Fragment;
   return (
     <section
       aria-label="Network Analysis"
@@ -590,6 +597,7 @@ function NetworkAnalysisWorkspaceContent({
       </div>
 
       <div style={modeBarStyle}>
+        {workbookNavigation}
         <NetworkFlowButton
           aria-pressed={mode === "rows"}
           data-testid={networkAnalysisTestId("mode-rows")}
@@ -677,141 +685,147 @@ function NetworkAnalysisWorkspaceContent({
       </div>
 
       <div id="network-flow-work-area" style={workAreaStyle}>
-        <WorkbookWorkAreaOverlayHost />
-        {blockingState !== null ? (
-          <NetworkFlowBlockingState
-            state={blockingState}
-            onRetry={() => {
-              void tableController.loadTables();
-            }}
-          />
-        ) : empty ? (
-          <EmptyNetworkAnalysisState
-            canImport={canImport}
-            importing={importController.importing}
-            onImport={() => fileInputRef.current?.click()}
-          />
-        ) : mode === "graph" ? (
-          <section
-            aria-label="Network Flow graph workspace"
-            style={graphWorkspaceStyle}
-          >
-            <fieldset style={graphSurfaceFieldsetStyle}>
-              <legend style={visuallyHiddenStyle}>Graph workspace mode</legend>
-              <NetworkFlowButton
-                aria-pressed={graphSurface === "explore"}
-                data-testid={networkAnalysisTestId("graph-surface-explore")}
-                selected={graphSurface === "explore"}
-                variant="mode"
-                onClick={() => changeGraphSurface("explore")}
-              >
-                Unsaved exploration
-              </NetworkFlowButton>
-              <NetworkFlowButton
-                aria-pressed={graphSurface === "saved"}
-                data-testid={networkAnalysisTestId("graph-surface-saved")}
-                selected={graphSurface === "saved"}
-                variant="mode"
-                onClick={() => changeGraphSurface("saved")}
-              >
-                Saved graphs
-              </NetworkFlowButton>
-            </fieldset>
-            {graphSurface === "saved" ? (
-              <NetworkFlowSavedGraphPanel
-                canCreate={canManageSavedGraphs}
-                canRetire={canDelete}
-                controller={savedGraphController}
-                tables={tableController.tables}
-                currentGraph={
-                  queryAuthoring.acceptedStatus === "applied"
-                    ? graphController.graph
-                    : null
-                }
-              />
-            ) : (
-              <NetworkFlowExplorationPanel
-                canLink={canLink && queryAuthoring.acceptedStatus === "applied"}
-                contributorPage={graphController.contributorPage}
-                navigation={graphController.navigation}
-                status={{
-                  loadState: graphController.graphLoadState,
-                  stale: graphController.graphStale,
-                  validationMessage: graphController.validationMessage,
-                }}
-                tables={tableController.tables}
-                onNavigate={graphController.navigate}
-                isFocusCurrent={graphController.isFocusCurrent}
-                bindFocusRestoration={bindGraphFocusRestoration}
-                onLinkEdge={(fieldKey) => {
-                  const candidate = networkFlowEdgeLinkCandidate({
-                    edge: graphController.selectedEdge,
-                    fieldKey,
-                    graph: graphController.graph,
-                  });
-                  if (candidate !== null)
-                    indicatorLinkOperation.openDraft(candidate);
-                }}
-                onLinkVertex={() => {
-                  const candidate = networkFlowVertexLinkCandidate(
-                    graphController.graph,
-                    graphController.selectedVertex,
+        <WorkAreaFrame>
+          {workAreaFrame ? null : <WorkbookWorkAreaOverlayHost />}
+          {blockingState !== null ? (
+            <NetworkFlowBlockingState
+              state={blockingState}
+              onRetry={() => {
+                void tableController.loadTables();
+              }}
+            />
+          ) : empty ? (
+            <EmptyNetworkAnalysisState
+              canImport={canImport}
+              importing={importController.importing}
+              onImport={() => fileInputRef.current?.click()}
+            />
+          ) : mode === "graph" ? (
+            <section
+              aria-label="Network Flow graph workspace"
+              style={graphWorkspaceStyle}
+            >
+              <fieldset style={graphSurfaceFieldsetStyle}>
+                <legend style={visuallyHiddenStyle}>
+                  Graph workspace mode
+                </legend>
+                <NetworkFlowButton
+                  aria-pressed={graphSurface === "explore"}
+                  data-testid={networkAnalysisTestId("graph-surface-explore")}
+                  selected={graphSurface === "explore"}
+                  variant="mode"
+                  onClick={() => changeGraphSurface("explore")}
+                >
+                  Unsaved exploration
+                </NetworkFlowButton>
+                <NetworkFlowButton
+                  aria-pressed={graphSurface === "saved"}
+                  data-testid={networkAnalysisTestId("graph-surface-saved")}
+                  selected={graphSurface === "saved"}
+                  variant="mode"
+                  onClick={() => changeGraphSurface("saved")}
+                >
+                  Saved graphs
+                </NetworkFlowButton>
+              </fieldset>
+              {graphSurface === "saved" ? (
+                <NetworkFlowSavedGraphPanel
+                  canCreate={canManageSavedGraphs}
+                  canRetire={canDelete}
+                  controller={savedGraphController}
+                  tables={tableController.tables}
+                  currentGraph={
+                    queryAuthoring.acceptedStatus === "applied"
+                      ? graphController.graph
+                      : null
+                  }
+                />
+              ) : (
+                <NetworkFlowExplorationPanel
+                  canLink={
+                    canLink && queryAuthoring.acceptedStatus === "applied"
+                  }
+                  contributorPage={graphController.contributorPage}
+                  navigation={graphController.navigation}
+                  status={{
+                    loadState: graphController.graphLoadState,
+                    stale: graphController.graphStale,
+                    validationMessage: graphController.validationMessage,
+                  }}
+                  tables={tableController.tables}
+                  onNavigate={graphController.navigate}
+                  isFocusCurrent={graphController.isFocusCurrent}
+                  bindFocusRestoration={bindGraphFocusRestoration}
+                  onLinkEdge={(fieldKey) => {
+                    const candidate = networkFlowEdgeLinkCandidate({
+                      edge: graphController.selectedEdge,
+                      fieldKey,
+                      graph: graphController.graph,
+                    });
+                    if (candidate !== null)
+                      indicatorLinkOperation.openDraft(candidate);
+                  }}
+                  onLinkVertex={() => {
+                    const candidate = networkFlowVertexLinkCandidate(
+                      graphController.graph,
+                      graphController.selectedVertex,
+                    );
+                    if (candidate !== null)
+                      indicatorLinkOperation.openDraft(candidate);
+                  }}
+                  onRefreshGraph={graphController.refreshGraph}
+                />
+              )}
+            </section>
+          ) : mode === "rejected" ? (
+            <RejectedRowsPanel
+              activeTable={tableController.activeTable}
+              diagnostics={rejectedRowsController.diagnostics}
+              error={rejectedRowsController.error}
+              loadGenerationKey={rejectedRowsController.loadGenerationKey}
+              loadState={rejectedRowsController.loadState}
+              query={rejectedRowsController.query}
+              onResetQuery={queryAuthoring.clearRejected}
+              page={rejectedRowsController}
+              onRefreshResource={() => {
+                void tableController.loadTables().then((refreshed) => {
+                  if (refreshed && isCurrentRead())
+                    rejectedRowsController.restartAfterResourceRefresh();
+                });
+              }}
+            />
+          ) : (
+            <RowsPanel
+              gridRef={acceptedGridRef}
+              linkLimitError={indicatorLinkController.limitError}
+              onRetryLinkLimit={indicatorLinkOperation.loadLimit}
+              activeTable={tableController.activeTable}
+              canLink={canLink && queryAuthoring.acceptedStatus === "applied"}
+              loadGenerationKey={rowsController.loadGenerationKey}
+              loadState={rowsController.loadState}
+              error={rowsController.error}
+              query={rowsController.query}
+              rows={rowsController.rows}
+              rowLinkSelection={rowLinkSelection}
+              onBeginLink={() => {
+                if (rowLinkSelection !== null)
+                  indicatorLinkOperation.openDraft(
+                    networkFlowRowLinkCandidate(rowLinkSelection),
                   );
-                  if (candidate !== null)
-                    indicatorLinkOperation.openDraft(candidate);
-                }}
-                onRefreshGraph={graphController.refreshGraph}
-              />
-            )}
-          </section>
-        ) : mode === "rejected" ? (
-          <RejectedRowsPanel
-            activeTable={tableController.activeTable}
-            diagnostics={rejectedRowsController.diagnostics}
-            error={rejectedRowsController.error}
-            loadGenerationKey={rejectedRowsController.loadGenerationKey}
-            loadState={rejectedRowsController.loadState}
-            query={rejectedRowsController.query}
-            onResetQuery={queryAuthoring.clearRejected}
-            page={rejectedRowsController}
-            onRefreshResource={() => {
-              void tableController.loadTables().then((refreshed) => {
-                if (refreshed && isCurrentRead())
-                  rejectedRowsController.restartAfterResourceRefresh();
-              });
-            }}
-          />
-        ) : (
-          <RowsPanel
-            gridRef={acceptedGridRef}
-            linkLimitError={indicatorLinkController.limitError}
-            onRetryLinkLimit={indicatorLinkOperation.loadLimit}
-            activeTable={tableController.activeTable}
-            canLink={canLink && queryAuthoring.acceptedStatus === "applied"}
-            loadGenerationKey={rowsController.loadGenerationKey}
-            loadState={rowsController.loadState}
-            error={rowsController.error}
-            query={rowsController.query}
-            rows={rowsController.rows}
-            rowLinkSelection={rowLinkSelection}
-            onBeginLink={() => {
-              if (rowLinkSelection !== null)
-                indicatorLinkOperation.openDraft(
-                  networkFlowRowLinkCandidate(rowLinkSelection),
-                );
-            }}
-            onResetQuery={queryAuthoring.clearAccepted}
-            page={rowsController}
-            onRefreshResource={() => {
-              void tableController.loadTables().then((refreshed) => {
-                if (refreshed && isCurrentRead())
-                  rowsController.restartAfterResourceRefresh();
-              });
-            }}
-            onSortChange={queryAuthoring.sortAccepted}
-            onSelectionChange={handleRowGridSelectionChange}
-          />
-        )}
+              }}
+              onResetQuery={queryAuthoring.clearAccepted}
+              page={rowsController}
+              onRefreshResource={() => {
+                void tableController.loadTables().then((refreshed) => {
+                  if (refreshed && isCurrentRead())
+                    rowsController.restartAfterResourceRefresh();
+                });
+              }}
+              onSortChange={queryAuthoring.sortAccepted}
+              onSelectionChange={handleRowGridSelectionChange}
+            />
+          )}
+        </WorkAreaFrame>
       </div>
 
       <div

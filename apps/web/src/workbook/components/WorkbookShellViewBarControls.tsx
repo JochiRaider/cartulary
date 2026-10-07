@@ -1,7 +1,10 @@
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import { sheetRefKey } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { useWorkbookShellRuntime } from "../hooks/useWorkbookShellRuntime";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
+import { workbookQueryStateFromSavedViewQueryJson } from "../models/workbookQuery";
+import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookPreferenceController } from "../preferences/WorkbookPreferenceController";
 import type { WorkbookViewBarWorkingSetBinding } from "./WorkbookViewBar";
 
@@ -39,6 +42,23 @@ export function workbookShellViewBarWorkingSet({
       chromeMode === "below_supported_minimum"
         ? null
         : {
+            onApplyPreset:
+              snapshot.surface === timelineViewSchemaId
+                ? (id) => {
+                    const preset =
+                      cartularyDesignPresentation.workbookWorkbench.presets.find(
+                        (item) => item.id === id,
+                      );
+                    if (preset)
+                      commands.applyQueryStateForSurface(
+                        snapshot.surface,
+                        workbookQueryStateFromSavedViewQueryJson(
+                          snapshot.activeContract,
+                          preset,
+                        ),
+                      );
+                  }
+                : undefined,
             contract: snapshot.activeQueryControls.contract,
             filterDraft: snapshot.activeQueryControls.filterDraft,
             layoutState: snapshot.activeLayoutState,

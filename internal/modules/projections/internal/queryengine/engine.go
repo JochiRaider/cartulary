@@ -235,6 +235,10 @@ func BuildQueryPageSQL(incidentID uuid.UUID, definition Surface, query viewschem
 		builder.WriteString(definition.WhereSQL)
 	}
 	args := []any{incidentID}
+	if window.TargetRecordID != "" {
+		args = append(args, window.TargetRecordID)
+		builder.WriteString(" AND " + definition.RecordExpr + " = $2::uuid")
+	}
 
 	for _, filter := range query.Filters {
 		if err := appendGenericFilter(&builder, &args, definition, filter); err != nil {
@@ -257,7 +261,11 @@ func BuildQueryPageSQL(incidentID uuid.UUID, definition Surface, query viewschem
 		}
 		pageFields[field.Key] = querypage.Field{Expression: field.OrderExpr(), Cast: cast}
 	}
-	if err := querypage.AppendKeyset(&builder, &args, query.Sort, pageFields, window.Position); err != nil {
+	appendPosition := querypage.AppendKeyset
+	if window.Before {
+		appendPosition = querypage.AppendBefore
+	}
+	if err := appendPosition(&builder, &args, query.Sort, pageFields, window.Position); err != nil {
 		return "", nil, err
 	}
 
@@ -271,12 +279,16 @@ func BuildQueryPageSQL(incidentID uuid.UUID, definition Surface, query viewschem
 			return "", nil, fmt.Errorf("sort field %q not mapped for %s", entry.FieldKey, definition.ViewSchemaID)
 		}
 		builder.WriteString(field.OrderExpr())
-		if entry.Direction == "desc" {
+		if (entry.Direction == "desc") != window.Before {
 			builder.WriteString(" DESC")
 		} else {
 			builder.WriteString(" ASC")
 		}
-		builder.WriteString(" NULLS LAST")
+		if window.Before {
+			builder.WriteString(" NULLS FIRST")
+		} else {
+			builder.WriteString(" NULLS LAST")
+		}
 	}
 	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
 		return "", nil, err

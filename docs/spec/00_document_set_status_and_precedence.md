@@ -64,6 +64,30 @@ Graph Projection NLSpec 2.2.0 owns the distinct catalog-resolved Graph restore p
 Profiles: base
 Verified by: AC-469
 
+### 1.1 Investigation workbench amendment — 2026-10-06
+
+The workbench document revision is adopted as requirements, with implementation,
+typed projections and behavioral/visual/accessibility evidence pending. Its source
+baseline is repository commit `886750d965278a32452dbbeced77f55910f758f5`.
+The supplied `cartulary-timeline-workbench-redesign-proposal.md` version 0.1.0
+is provenance, not another authority. Appendix D records every proposal clause
+and acceptance disposition, worked examples, research limits and the implementation
+handoff. No rendered application audit or benchmark result is implied.
+
+| Owner revision | Adopted scope | Downstream status |
+| --- | --- | --- |
+| Core 00 REQ-00-077 | Ownership and adoption boundary | Document adoption only. |
+| Core 01 REQ-01-680–684; §3.3.1 | Locator, query replay boundary and additive v1 admission | Projection/implementation pending. |
+| Core 03 REQ-03-311–318; §2 and §14.9 | Dock, commands, pins, entry/Return, presets and continuity | Projection/implementation pending. |
+| Core 04 REQ-04-169–170; AC-572–597 | Security and behavioral acceptance | Execution evidence pending. |
+| Design 0.6.0 | Shell, geometry, reading and keyboard presentation | Machine projection/rendered validation pending. |
+
+The amendment introduces no source-record schema, grid-library migration,
+workflow-engine rewrite, durable offline store or new authorization model.
+Core 02 retains record-family meaning. Core 05 applies only to subsequent
+claim-bearing publication; Testing Harness retains execution mechanics.
+Document adoption MUST NOT be reported as current implementation conformance.
+
 ## 2. Precedence
 
 The order of authority is:
@@ -425,8 +449,21 @@ generated artifact MUST NOT settle such a conflict.
 Profiles: base, network_flow_activity, snapshot_reporting
 Verified by: AC-568
 
+**REQ-00-077**
+The investigation workbench is one coordinated contract family: Core 01 owns
+locator wire behavior, consistency, cursor issuance and errors; Core 03 owns
+interaction, pins, Return, presets and lifetimes; Core 04 owns security and
+acceptance; Design owns shell geometry, command placement and the Escape ladder.
+Domain and Appendices D/H supply vocabulary, illustrations, research and operator
+guidance only. Source owners retain writes and record meaning. Typed projections,
+tests and runtime MUST NOT consume Markdown. Missing implementation evidence
+MUST NOT be interpreted as a deferred requirement or an implementation pass.
+Profiles: base
+Verified by: AC-596
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Investigation workbench | Core 01 §3.3.4.3; Core 03 §2.5; Core 04 §2.2 | Design §§7–8; Domain vocabulary; Appendices D/H | Wire, interaction, security and design remain separate owners; supporting prose and typed projections do not create a second authority. | REQ-00-077 | base | AC-572–597 |
 | Graph Projection implementation topology, pure root, restore placement, narrow ports, mandatory construction, positive boundary, and repository-internal compatibility removal | `docs/decisions/graphprojection-module-boundary.md` for implementation structure; Graph Projection NLSpec for engine and restore behavior | Network Flow for saved graphs and graph-view identity; Recovery for orchestration; Reporting for consumption; Core 04 for security/conformance; `docs/domain.md` vocabulary; implementation tracker | The adopted decision owns internal package, constructor, import, port, and compatibility topology only. It cannot redefine Graph protocol/result identity, saved-graph/public behavior, Recovery target lifecycle, Reporting meaning, storage schema, authorization, jobs, routes, or vocabulary. | REQ-00-076 | base, network_flow_activity, snapshot_reporting | AC-568 |
 | Collaboration implementation topology, runtime lifecycle, private stream/recovery placement, independent source-owner fact ports, test-support placement, and repository-internal compatibility removal | `docs/decisions/collaboration-module-boundary.md` for implementation structure; Core 01 and Core 03 for public and interaction behavior | Core 02 history/conflict meaning; Core 04 security/conformance; `docs/domain.md` vocabulary; Revisions decision for the separate private-fact consumer; implementation trackers | The adopted decision owns internal package, constructor, lifecycle, import, port, and compatibility topology only. It cannot create a domain context or redefine public WebSocket, view-row, stream, recovery, history, portability, authorization, schema, or telemetry behavior. | REQ-00-075 | base, incident_portability | AC-564 |
 | Indicators implementation topology, bounded source-owner responsibilities, Records capability boundary, immutable vocabulary and source-state placement, caller-transaction borrowing, and repository-internal compatibility contraction | `docs/decisions/indicators-module-boundary.md` for implementation structure; Core 01 and Core 02 for application and source behavior | Core 03 Workbook/Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary navigation; implementation trackers | The adopted decision owns internal package, constructor, import, and port topology only. It cannot redefine public Indicator behavior, identity, observation or lifecycle meaning, history, projections, portability, recovery, Network Flow behavior, or security. | REQ-00-074 | base | AC-560 |

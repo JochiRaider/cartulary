@@ -14,8 +14,10 @@ import {
 } from "react";
 import { workbookTypography } from "../components/workbookFormStyles";
 import { genericCellLabelForField } from "../models/genericWorkbookModel";
+import { useWorkbookWorkbench } from "../navigation/WorkbookWorkbenchContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { WorkbookInspectorActionButton as Button } from "./presentation/WorkbookInspectorActions";
+import { revealWorkbookInspectorTarget } from "./presentation/workbookInspectorFieldReveal";
 
 // These are system-produced metadata, unlike source-derived sort timestamps.
 const systemTimestampMetadata: Readonly<Record<string, string>> = {
@@ -46,6 +48,28 @@ export function WorkbookInspectorSavedDetails({
     | undefined;
   readonly onFocusCapture?: FocusEventHandler<HTMLElement> | undefined;
 }) {
+  const workbench = useWorkbookWorkbench();
+  const elements = useRef(new Map<string, HTMLElement>());
+  const [fullField, setFullField] = useState<{
+    recordId: string;
+    fieldKey: string;
+  } | null>(null);
+  const request = workbench?.inspectValue;
+  useLayoutEffect(() => {
+    if (
+      !request ||
+      request.viewSchemaId !== contract.viewSchemaId ||
+      request.recordId !== row.record_id
+    )
+      return;
+    const field = elements.current.get(request.fieldKey);
+    if (!field) return;
+    setFullField({ recordId: row.record_id, fieldKey: request.fieldKey });
+    field.focus({ preventScroll: true });
+    const body = field.closest<HTMLElement>("[data-inspector-scroll-body]");
+    if (body) revealWorkbookInspectorTarget(body, field);
+    workbench?.acknowledgeInspectValue(request.revision);
+  }, [request, contract.viewSchemaId, row.record_id, workbench]);
   return (
     <dl
       style={detailsStyle}
@@ -97,7 +121,11 @@ export function WorkbookInspectorSavedDetails({
         return (
           <div
             key={field.fieldKey}
-            ref={(element) => onFieldElement?.(field.fieldKey, element)}
+            ref={(element) => {
+              if (element) elements.current.set(field.fieldKey, element);
+              else elements.current.delete(field.fieldKey);
+              onFieldElement?.(field.fieldKey, element);
+            }}
             tabIndex={-1}
             data-inspector-saved-field={field.fieldKey}
             data-inspector-field-write-kind={field.writeKind}
@@ -120,7 +148,13 @@ export function WorkbookInspectorSavedDetails({
             >
               <SavedValue
                 key={JSON.stringify([row.record_id, field.fieldKey])}
+                full={
+                  fullField?.recordId === row.record_id &&
+                  fullField.fieldKey === field.fieldKey
+                }
                 value={saved}
+                copyValue={typeof value === "string" ? value : undefined}
+                raw={field.fieldKey === "timeline.raw_activity_text"}
                 label={field.label}
                 generatedMetadata={
                   field.writeKind === "read_only"
@@ -169,7 +203,13 @@ function SavedValue({
   value,
   label,
   generatedMetadata,
+  copyValue,
+  raw,
+  full,
 }: {
+  readonly copyValue?: string | undefined;
+  readonly full: boolean;
+  readonly raw: boolean;
   readonly value: string;
   readonly label: string;
   readonly generatedMetadata?: string | undefined;
@@ -177,8 +217,10 @@ function SavedValue({
   const id = useId();
   const text = useRef<HTMLDivElement>(null);
   const [expandedValue, setExpandedValue] = useState<string | null>(null);
+  const [wrap, setWrap] = useState(true);
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [overflow, setOverflow] = useState(false);
-  const expanded = expandedValue === value;
+  const expanded = raw || full || expandedValue === value;
   const lines = cartularyDesignPresentation.inspector.narrativePreviewLines;
   useLayoutEffect(() => {
     const element = text.current;
@@ -202,6 +244,7 @@ function SavedValue({
       ) : null}
       <div
         id={id}
+        data-inspector-saved-text
         ref={text}
         data-generated-metadata={generatedMetadata}
         onCopy={(event) => {
@@ -221,12 +264,13 @@ function SavedValue({
           event.stopPropagation();
         }}
         style={{
-          whiteSpace: "pre-wrap",
-          overflowWrap: "anywhere",
+          whiteSpace: wrap ? "pre-wrap" : "pre",
+          overflowWrap: wrap ? "anywhere" : "normal",
           display: "-webkit-box",
           WebkitBoxOrient: "vertical",
           WebkitLineClamp: expanded ? "unset" : lines,
-          overflow: expanded ? "visible" : "hidden",
+          overflowY: expanded ? "visible" : "hidden",
+          overflowX: wrap ? "hidden" : "auto",
         }}
       >
         {value}
@@ -239,7 +283,37 @@ function SavedValue({
           </code>
         </details>
       ) : null}
-      {overflow || expanded ? (
+      {copyValue !== undefined ? (
+        <Button
+          onClick={() => {
+            if (!navigator.clipboard) {
+              setCopyMessage("Copy failed; select the saved text to copy it.");
+              return;
+            }
+            void navigator.clipboard.writeText(copyValue).then(
+              () => setCopyMessage("Copied saved value"),
+              () =>
+                setCopyMessage(
+                  "Copy failed; select the saved text to copy it.",
+                ),
+            );
+          }}
+        >
+          Copy {label}
+        </Button>
+      ) : null}
+      {raw ? (
+        <label>
+          <input
+            type="checkbox"
+            checked={wrap}
+            onChange={(event) => setWrap(event.target.checked)}
+          />
+          Soft wrap
+        </label>
+      ) : null}
+      {copyMessage ? <span role="status">{copyMessage}</span> : null}
+      {!raw && !full && (overflow || expanded) ? (
         <Button
           aria-expanded={expanded}
           aria-controls={id}

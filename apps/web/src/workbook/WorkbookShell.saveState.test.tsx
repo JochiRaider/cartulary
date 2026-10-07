@@ -80,7 +80,8 @@ describe("WorkbookShell save-state status strip", () => {
         ?.style.gridRow,
     ).toBe("2");
     expect(statusStrip.style.gridRow).toBe("4");
-    expect(statusStrip.style.overflow).toBe("hidden");
+    // Footer navigation menus must escape the strip; individual status text remains clipped.
+    expect(statusStrip.style.overflow).toBe("visible");
     expect(statusStrip.style.minBlockSize).toBe(
       "var(--ct-layout-statusStripHeight)",
     );

@@ -87,7 +87,6 @@ describe("workbook surface registry", () => {
     expect(groups.map((group) => group.token)).toEqual([
       "scope-indicators",
       "coordination",
-      "review-learning",
       "optional-artifact-surfaces",
     ]);
     expect(
@@ -100,8 +99,9 @@ describe("workbook surface registry", () => {
         partiesViewSchemaId,
         commLogViewSchemaId,
         handoffViewSchemaId,
+        statusReviewViewSchemaId,
+        lessonViewSchemaId,
       ],
-      [statusReviewViewSchemaId, lessonViewSchemaId],
       [
         findingsViewSchemaId,
         investigativeQueriesViewSchemaId,

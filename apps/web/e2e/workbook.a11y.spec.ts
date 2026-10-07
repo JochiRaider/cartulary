@@ -1192,11 +1192,12 @@ async function expectTabTraversalAdvancesFrom(
   page: Page,
   origin: Locator,
   tabCount = 4,
+  backwards = false,
 ) {
   await expectVisibleFocus(origin);
   const visited: string[] = [];
   for (let index = 0; index < tabCount; index += 1) {
-    await page.keyboard.press("Tab");
+    await page.keyboard.press(backwards ? "Shift+Tab" : "Tab");
     visited.push(await activeElementSignature(page));
   }
   expect(visited.every((signature) => signature !== "")).toBeTruthy();
@@ -2414,7 +2415,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
 
     const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
     await expect(trigger).toBeVisible();
-    await expect(trigger).toHaveAttribute("aria-label", "System views");
+    await expect(trigger).toHaveAttribute("aria-label", "More views");
     await expectVisibleFocus(trigger);
     await page.keyboard.press("Enter");
 
@@ -5985,7 +5986,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       {
         expected: "a11y.coordination-review status review state",
         fieldKey: "status_review.current_state_summary",
-        groupToken: "review-learning",
+        groupToken: "coordination",
         label: "Status Review",
         row: status,
         viewSchemaId: statusReviewViewSchemaId,
@@ -5993,7 +5994,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       {
         expected: "a11y.coordination-review lesson summary",
         fieldKey: "lesson.summary",
-        groupToken: "review-learning",
+        groupToken: "coordination",
         label: "Lesson",
         row: lesson,
         viewSchemaId: lessonViewSchemaId,
@@ -6012,6 +6013,8 @@ test.describe("browser.coordination-review accessibility readiness", () => {
     await expectTabTraversalAdvancesFrom(
       page,
       page.getByTestId(systemViewSwitcherTriggerTestId()),
+      4,
+      true,
     );
 
     for (const surface of surfaces) {
@@ -9456,7 +9459,7 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
     await expect(recovery).toContainText("Row accepted.");
     await expect(account).toBeInViewport({ ratio: 1 });
     const systemViews = page.getByRole("button", {
-      name: "System views",
+      name: "More views",
       exact: true,
     });
     // The toolbar owns focus reveal; do not scroll the control from the test.
@@ -9605,7 +9608,7 @@ test("a11y.coordination all target fields source review and uncertain recovery s
       await expect(summary).toBeFocused();
       await expect(recovery).not.toBeVisible();
       const systemViews = page.getByRole("button", {
-        name: "System views",
+        name: "More views",
         exact: true,
       });
       const account = page.getByRole("button", {
@@ -10359,7 +10362,11 @@ test("a11y.timeline-clear selected-cell action retains keyboard access across su
     await page
       .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
       .focus();
-    await page.keyboard.press("Shift+Tab");
+    for (let index = 0; index < 4; index++) {
+      await page.keyboard.press("Shift+Tab");
+      if (await clear.evaluate((element) => element === document.activeElement))
+        break;
+    }
     await expect(clear).toBeFocused();
     await expectDecisionControlReachable(page, clear);
     await expectVisibleFocus(clear);
@@ -10656,4 +10663,83 @@ test("a11y.entity-linking mention arrows reveal Inspector focus without activati
   await page.evaluate(() => {
     document.documentElement.style.zoom = "";
   });
+});
+
+test("a11y.workbench Commands remain visible and actionable across narrow width and zoom", async ({
+  page,
+}, info) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("COMMANDS"),
+    "Commands responsive admission",
+  );
+  await page.goto(`/?incident_id=${incident}`);
+  const trigger = page.getByRole("button", { name: "Commands", exact: true });
+  await expect(trigger).toBeEnabled();
+  await trigger.click();
+  const commands = page.getByRole("region", { name: "Commands", exact: true });
+  const search = commands.getByRole("textbox", {
+    name: "Search commands",
+    exact: true,
+  });
+  await expect(search).toBeFocused();
+  for (const [width, height, zoom] of [
+    [1440, 900, 1],
+    [390, 480, 1],
+    [1280, 900, 2],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate((value) => {
+      document.documentElement.style.zoom = String(value);
+    }, zoom);
+    await expect(search).toBeFocused();
+    await expect
+      .poll(() =>
+        commands.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          const input = element.querySelector("input");
+          if (!input) return false;
+          const field = input.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            field.left + field.width / 2,
+            field.top + field.height / 2,
+          );
+          return (
+            bounds.left >= 0 &&
+            bounds.top >= 0 &&
+            bounds.right <= innerWidth &&
+            bounds.bottom <= innerHeight &&
+            hit === input
+          );
+        }),
+      )
+      .toBe(true);
+    await search.fill("open work");
+    await expect(
+      commands.getByRole("button", {
+        name: "Follow up · Open Work",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await search.press("Enter");
+    await expect(commands).toBeVisible();
+    const axe = await new AxeBuilder({ page })
+      .include('section[aria-label="Commands"]')
+      .analyze();
+    expect(axe.violations).toEqual([]);
+    await info.attach(`workbench-commands-${width}-${zoom}`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  }
+  await commands
+    .getByRole("button", { name: "Follow up · Open Work", exact: true })
+    .click();
+  await expect(commands).toBeHidden();
+  await expect(
+    page.getByRole("heading", { name: "Work", exact: true }),
+  ).toBeFocused();
+  await expect(
+    page.getByText("Session only · 0/20 pins", { exact: true }),
+  ).toBeVisible();
 });

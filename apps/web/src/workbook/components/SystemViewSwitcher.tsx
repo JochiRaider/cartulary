@@ -20,7 +20,17 @@ const systemViewSwitcherEntries = systemWorkbookSurfaceGroups.flatMap((group) =>
 export function SystemViewSwitcher({
   activeViewSchemaId,
   onSelect,
+  extension,
 }: {
+  readonly extension?:
+    | {
+        readonly id: string;
+        readonly label: string;
+        readonly testId: string;
+        readonly selected: boolean;
+        readonly open: () => void;
+      }
+    | undefined;
   readonly activeViewSchemaId: string;
   readonly onSelect: (viewSchemaId: string) => void;
 }) {
@@ -36,7 +46,10 @@ export function SystemViewSwitcher({
   const navigation = useRegisteredOverlayNavigation({
     initialItemKey: activeSystemEntry?.viewSchemaId ?? null,
     isOpen,
-    itemKeys: systemViewSwitcherEntries.map((entry) => entry.viewSchemaId),
+    itemKeys: [
+      ...systemViewSwitcherEntries.map((entry) => entry.viewSchemaId),
+      ...(extension ? [extension.id] : []),
+    ],
     onRequestClose: () => setIsOpen(false),
     subjectKey: "system-view-switcher",
     triggerRef,
@@ -64,7 +77,7 @@ export function SystemViewSwitcher({
         aria-controls={isOpen ? systemViewSwitcherMenuTestId() : undefined}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        aria-label="System views"
+        aria-label="More views"
         data-active={activeSystemEntry === null ? "false" : "true"}
         data-testid={systemViewSwitcherTriggerTestId()}
         data-view-schema-id={activeSystemEntry?.viewSchemaId ?? ""}
@@ -89,7 +102,7 @@ export function SystemViewSwitcher({
           }
         }}
       >
-        <span>System views</span>
+        <span>More views</span>
       </button>
       {isOpen ? (
         <div
@@ -150,6 +163,34 @@ export function SystemViewSwitcher({
               })}
             </fieldset>
           ))}
+          {extension ? (
+            <fieldset
+              aria-label="Extensions"
+              style={systemViewSwitcherGroupStyle}
+            >
+              <legend style={systemViewSwitcherGroupLabelStyle}>
+                Extensions
+              </legend>
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={extension.selected}
+                data-testid={extension.testId}
+                ref={navigation.registerItem(extension.id)}
+                tabIndex={navigation.tabIndexFor(extension.id)}
+                style={systemViewSwitcherOptionStyle}
+                onClick={() => {
+                  navigation.close({ restoreTriggerFocus: false });
+                  extension.open();
+                }}
+                onKeyDown={(event) =>
+                  navigation.onItemKeyDown(event, extension.id)
+                }
+              >
+                {extension.label}
+              </button>
+            </fieldset>
+          ) : null}
         </div>
       ) : null}
     </fieldset>
@@ -178,7 +219,7 @@ const eyebrowStyle = {
 
 const systemViewSwitcherStyle = {
   position: "relative" as const,
-  minWidth: "10rem",
+  minWidth: 0,
   border: 0,
   margin: 0,
   padding: 0,
@@ -193,13 +234,14 @@ const systemViewSwitcherTriggerStyle = {
   gap: "0.75rem",
   borderRadius: "var(--ct-rounded-sm)",
   border: "var(--ct-border-hairline)",
-  padding: "0.45rem 0.65rem",
+  padding: "0 var(--ct-spacing-sm)",
+  minBlockSize: "var(--ct-layout-statusStripHeight)",
 };
 
 const systemViewSwitcherMenuStyle = {
   position: "absolute" as const,
   zIndex: 10,
-  insetBlockStart: "calc(100% + 0.35rem)",
+  insetBlockEnd: "calc(100% + 0.35rem)",
   insetInlineStart: 0,
   width: "min(26rem, 80vw)",
   maxHeight: "28rem",

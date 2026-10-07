@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
@@ -23,15 +24,27 @@ func (s *Store) QueryHostRowsPage(ctx context.Context, incidentID uuid.UUID, que
 	if err != nil {
 		return querypage.Result{}, err
 	}
+	return hydrateHostPage(ctx, s.pool, incidentID, projections, window)
+}
+
+func (s *Store) queryHostRowsPageTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
+	projections, err := s.projectionReader.SelectHostQueryProjectionsTx(ctx, tx, incidentID, query, window)
+	if err != nil {
+		return querypage.Result{}, err
+	}
+	return hydrateHostPage(ctx, tx, incidentID, projections, window)
+}
+
+func hydrateHostPage(ctx context.Context, reader entityAliasQueryer, incidentID uuid.UUID, projections []projectionports.HostQueryProjection, window querypage.Window) (querypage.Result, error) {
 	recordIDs := make([]uuid.UUID, 0, len(projections))
 	for _, projection := range projections {
 		recordIDs = append(recordIDs, projection.RecordID)
 	}
-	recordsByID, err := loadHostSourceRecordsByID(ctx, s.pool, incidentID, recordIDs)
+	recordsByID, err := loadHostSourceRecordsByID(ctx, reader, incidentID, recordIDs)
 	if err != nil {
 		return querypage.Result{}, err
 	}
-	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "host", recordIDs)
+	hydration, err := loadEntityRowHydrationByRecord(ctx, reader, incidentID, "host", recordIDs)
 	if err != nil {
 		return querypage.Result{}, err
 	}
@@ -155,15 +168,27 @@ func (s *Store) QueryIdentityRowsPage(ctx context.Context, incidentID uuid.UUID,
 	if err != nil {
 		return querypage.Result{}, err
 	}
+	return hydrateIdentityPage(ctx, s.pool, incidentID, projections, window)
+}
+
+func (s *Store) queryIdentityRowsPageTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
+	projections, err := s.projectionReader.SelectIdentityQueryProjectionsTx(ctx, tx, incidentID, query, window)
+	if err != nil {
+		return querypage.Result{}, err
+	}
+	return hydrateIdentityPage(ctx, tx, incidentID, projections, window)
+}
+
+func hydrateIdentityPage(ctx context.Context, reader entityAliasQueryer, incidentID uuid.UUID, projections []projectionports.IdentityQueryProjection, window querypage.Window) (querypage.Result, error) {
 	recordIDs := make([]uuid.UUID, 0, len(projections))
 	for _, projection := range projections {
 		recordIDs = append(recordIDs, projection.RecordID)
 	}
-	recordsByID, err := loadIdentitySourceRecordsByID(ctx, s.pool, incidentID, recordIDs)
+	recordsByID, err := loadIdentitySourceRecordsByID(ctx, reader, incidentID, recordIDs)
 	if err != nil {
 		return querypage.Result{}, err
 	}
-	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "identity", recordIDs)
+	hydration, err := loadEntityRowHydrationByRecord(ctx, reader, incidentID, "identity", recordIDs)
 	if err != nil {
 		return querypage.Result{}, err
 	}

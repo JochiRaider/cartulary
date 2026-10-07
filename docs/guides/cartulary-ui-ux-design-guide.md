@@ -176,13 +176,21 @@ shortcuts, validation, error classification, or collaboration state.
 ## 5. Overall Application Shell and Information Architecture
 
 `design.md` §7 defines the shell and its responsive transformations. Query
-controls belong in the View bar. The top bar carries application, incident,
-account, and global navigation; it is not a second query surface.
+controls belong in the View bar. The incident bar carries identity, lifecycle,
+Work, Recovery, Commands and account/presence. Surface navigation shares the
+footer with a separately labeled save-status region. One auxiliary dock hosts
+Record, Work or Recovery.
+
+Core 00 §1.1 records the workbench document adoption and pending implementation
+evidence. Core 01 §3.3.4.3 owns the bounded locator; Core 03 §2.5 owns pins,
+Return, Commands and focus; Core 04 §2.2 owns protected navigation lifetime.
+Appendix D records the full proposal dispositions and research protocol.
+These summaries describe adopted requirements, not a rendered implementation.
 
 | Topic | Owner | Owner locator | Applicability | Current summary | Omission/unavailable behavior | Guide consequence |
 | --- | --- | --- | --- | --- | --- | --- |
 | Authenticated root | Core 01 and `design.md` | Core 01 §3.3.2.1A; `design.md` §4.6 | `base` | Zero visible incidents produces a successful empty directory; one or more remain in the directory until explicit selection. Selection opens the workbook without a launch `sheet_ref`. | Permission loss clears protected materialization and returns to `/`; no inaccessible incident is retained as visible content. | Treat the root as incident selection, never as a dashboard with inferred priority. |
-| Workbook shell regions | `design.md` | §7.1-§7.3 | `base` | The design owner defines top bar, surface navigation, View bar, grid, inspector, and status strip as one composition. | A region absent under a declared responsive state remains reachable through the owner-defined overflow location. | Illustrations preserve region purpose and order without copying layout literals. |
+| Workbook shell regions | `design.md` | §7.1-§7.3 | `base` | The design owner defines incident bar, View bar, grid/shared auxiliary dock and combined navigation/status footer as one composition. | A region absent under a declared responsive state remains reachable through the owner-defined overflow location. | Illustrations preserve region purpose and order without copying layout literals. |
 | Deployment administration | Core 01, Core 04, and `design.md` | Core 01 §3.3.2.1B; Core 04 §2 and §9.10; `design.md` §4.5 | `base` | Deployment administration is an application context reached from the account/application menu and contains only owner-declared panels. | Without the application capability, its entry and protected state are absent; it is never a workbook surface or post-login default. | Keep administration visually subordinate to incident work and separate from incident membership. |
 | Account settings | Core 01 and `design.md` | Core 01 §3.3.2.3; `design.md` §4.4 | `base` | Profile, density preference, and links to existing security flows form the closed current composition. | Unsupported preferences and self-service identity mutations are absent. | Do not illustrate a generalized settings console. |
 
@@ -532,12 +540,13 @@ Every figure in this appendix is illustrative and non-authoritative.
 | Source owner | `design.md` §7 and §10 |
 
 ```text
-+ Top bar: app | incident | account ---------------------------------------+
-| Surface navigation                                                    |
-+ View bar: saved state | search | filter | sort | group ----------------+
-| Grid                                               | Inspector (closed) |
-|                                                    | explicit opener   |
-+ Status: primary save | one secondary | presence ------------------------+
++ Incident | lifecycle | Work | Recovery | Commands | presence | account +
++ Surface / view | Sort | Filter | Group | Columns | ... | Add row | Inspect +
+| Accepted query / Not applied context — only when needed                |
+| Grid                                      | One auxiliary dock         |
+| Raw rows and trailing capture              | Closed by default          |
+| Explicit continuation                      | Record / Work / Recovery   |
++ Timeline Hosts Identities Evidence Notes More views | Save / status -----+
 ```
 
 ### B.2 Inspector and conflict

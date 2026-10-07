@@ -160,12 +160,12 @@ const workbookShellSurfaceCases = [
     viewSchemaId: handoffViewSchemaId,
   },
   {
-    groupToken: "review-learning",
+    groupToken: "coordination",
     label: "Status Review",
     viewSchemaId: statusReviewViewSchemaId,
   },
   {
-    groupToken: "review-learning",
+    groupToken: "coordination",
     label: "Lesson",
     viewSchemaId: lessonViewSchemaId,
   },
@@ -3322,12 +3322,12 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
   await expect(viewBar).toBeVisible();
   await expect(statusStrip).toBeVisible();
   await expect(
-    topBar.getByTestId(systemViewSwitcherTriggerTestId()),
+    statusStrip.getByTestId(systemViewSwitcherTriggerTestId()),
   ).toBeVisible();
   await expect(topBar.locator(savedViewFamilySelector())).toHaveCount(0);
   await expect(statusStrip.getByTestId(saveStateTestId())).toBeVisible();
 
-  await topBar.getByTestId(systemViewSwitcherTriggerTestId()).click();
+  await statusStrip.getByTestId(systemViewSwitcherTriggerTestId()).click();
   const menu = page.getByTestId(systemViewSwitcherMenuTestId());
   await expect(menu).toBeVisible();
   for (const surface of workbookShellSurfaceCases) {
@@ -3355,7 +3355,7 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
             )
         );
       });
-      await topBar.getByTestId(systemViewSwitcherTriggerTestId()).click();
+      await statusStrip.getByTestId(systemViewSwitcherTriggerTestId()).click();
       const option = page.getByTestId(
         systemViewSwitcherOptionTestId(
           surface.groupToken,

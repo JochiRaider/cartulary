@@ -1,5 +1,5 @@
 ---
-version: 0.5.0
+version: 0.6.0
 name: Cartulary
 document_class: design-direction-contract
 status: adopted/closed-design-contract
@@ -180,7 +180,7 @@ layout:
   narrowMinWidth: 1024px
   compactMinWidth: 768px
   compactMinHeight: 640px
-  topBarHeight: 48px
+  topBarHeight: 40px
   viewBarHeight: 40px
   querySummaryHeight: 32px
   queryFooterHeight: 32px
@@ -188,11 +188,10 @@ layout:
   viewBarSavedViewNarrowMinInlineSize: 12rem
   viewBarSavedViewCompactMinInlineSize: 10rem
   querySummaryChipMaxInlineSize: 24rem
-  statusStripHeight: 28px
+  statusStripHeight: 32px
   inspectorDefaultWidth: 420px
   inspectorMinWidth: 360px
   inspectorMaxWidth: "min(560px, 45vw)"
-  recoveryMaxWidth: 38rem
 
 components:
   button-primary:
@@ -270,6 +269,12 @@ Design contract. Core 00 through Core 04 govern current-profile implementation b
 Design contract. This document is NLSpec-grade only inside its design-direction scope. It fully specifies the design behavior it owns, but it is not the Base Profile implementation-conformance corpus.
 
 Design contract. `domain.md` governs repository vocabulary interpretation. This document uses domain terms for UI design only and MUST NOT redefine `party`, `artifact`, `view schema`, `saved view`, `system view`, `entity mention`, `object blob`, `workbook surface`, or any other domain concept.
+
+External dependency. Core 00 §1.1 records adoption of this 0.6.0 workbench
+revision. Typed design projections and rendered/behavioral/accessibility evidence
+are pending downstream implementation; document adoption establishes no pass.
+Token names retained for existing consumers do not authorize old geometry after
+the complete revised implementation is activated.
 
 ## 2. Normative language and statement classes
 
@@ -468,6 +473,12 @@ Design contract. A scalar literal that controls design output and appears in nor
 | `literal.viewport.base.visual-fixture` | `1280x720 CSS px` | §15 | Fixture baseline viewport. | Tokenized as `{layout.baseViewport}` for design use; literal remains valid in fixture rows for exact artifact identity. |
 | `literal.icon.inline.size` | `16px` | §3.10 | Dense inline icon size. | Tokenized as `{components.icon-inline.size}`. |
 | `literal.icon.toolbar.size` | `20px` | §3.10 | Toolbar icon size. | Tokenized as `{components.icon-toolbar.size}`. |
+| `literal.workbench.grid.minimum` | `720px` | §7.3 | Minimum remaining grid width in adjacent mode. | Non-token geometry constraint, applied after inspector maximum. |
+| `literal.workbench.safe.minimum` | `320px` | §7.4 | Degraded usable-dock lower boundary. | Non-token support boundary. |
+| `literal.workbench.overlay.maximum` | `560px` | §7.4 | Narrow overlay width cap. | Same pixel cap as inspector maximum, independent of adjacent grid constraint. |
+| `literal.workbench.tooltip.delay` | `400ms` | §8.3A | Pointer tooltip dwell. | Non-token interaction delay. |
+| `literal.workbench.dense.target` | `24px` | §8.3A | Ordinary dense control target floor. | Accessibility design constant. |
+| `literal.workbench.dock.control` | `32px` | §§8.3A, 12.4 | Default dock control height. | Product control rhythm independent of row density. |
 
 ### 3.7 CSS variable interface
 
@@ -541,7 +552,7 @@ Design contract. Every icon rendered for a registered meaning MUST use one seman
 | `semantic_icon_id` | Required contexts | Required pairing | Accessible name | Fallback | Omission behavior | Fixture coverage |
 | --- | --- | --- | --- | --- | --- | --- |
 | `surface_switcher` | Top bar | `label_required` | `Surfaces` | Text `Surfaces` | Icon omission conformant when label remains. | `D-VFIX-001`, `D-VFIX-010` |
-| `system_views` | Top bar | `label_required` | `System views` | Text `System views` | Icon omission conformant when label remains. | `D-VFIX-001`, `D-VFIX-010` |
+| `system_views` | Top bar | `label_required` | `More views` | Text `More views` | Icon omission conformant when label remains. | `D-VFIX-001`, `D-VFIX-010` |
 | `saved_view` | View bar | `label_optional` | `Saved view` | Text `View` | Icon omission conformant. | `D-VFIX-001` |
 | `sort` | View bar | `label_optional` | `Sort` | Text `Sort` | Icon omission conformant. | `D-VFIX-001` |
 | `group` | View bar | `label_optional` | `Group` | Text `Group` | Icon omission conformant. | `D-VFIX-001` |
@@ -619,7 +630,7 @@ Design contract. Primary workflows MUST use the design treatments in the table b
 
 | Workflow | Required design treatment |
 | --- | --- |
-| Open incident and orient | Show incident identity, active surface, built-in tabs, `System views`, saved-view selector, presence, grid, inspector affordance, and save state in one shell. |
+| Open incident and orient | Show incident identity, active surface, built-in tabs, `More views`, saved-view selector, presence, grid, inspector affordance, and save state in one shell. |
 | Create rough Timeline row | Permit entry with incomplete time, uncertain prose, unresolved host or account strings, or an attachment-only signal. Do not require canonical selection before capture. |
 | Paste or bulk-enter rows | Preserve the user's place, show interpretation and validation locally, and use staged feedback while slower work continues. |
 | Resolve host, identity, or indicator references | Use inspector or same-surface enrichment; distinguish unresolved text, resolved chip, auto-resolved chip, and dismissed mention. |
@@ -650,7 +661,7 @@ Design contract. The Appearance area MUST expose density as one segmented radiog
 
 Core restatement. Core 01 §3.3.2.1B owns the Deployment administration browser context, canonical path, panel availability, and prohibited aggregate-administration concepts. Core 01 §12.3.6 and §17.5 own imported-incident initial access. Core 01 §17.4 owns Reference Pack list-query search and filters. Core 03 §2.4 owns the imported-incident launch boundary. Core 04 §2 owns deployment-administrator authorization and capability-loss behavior. This section supplies UI composition guidance only and does not create Base Profile or extension-profile conformance evidence by itself.
 
-Design contract. The Deployment administration entry MUST be a menu item labeled `Deployment administration` inside the upper-right account/application menu at every supported viewport band. The menu item MUST NOT appear in built-in workbook tabs, `System views`, saved-view selectors, workbook sheet navigation, incident metadata panels, or incident membership surfaces. When `/deployment-administration` is active, the entry MUST carry the selected-navigation state and an accessible current-state cue.
+Design contract. The Deployment administration entry MUST be a menu item labeled `Deployment administration` inside the upper-right account/application menu at every supported viewport band. The menu item MUST NOT appear in built-in workbook tabs, `More views`, saved-view selectors, workbook sheet navigation, incident metadata panels, or incident membership surfaces. When `/deployment-administration` is active, the entry MUST carry the selected-navigation state and an accessible current-state cue.
 
 Design contract. The upper-right account/application menu MUST remain reachable from the incident directory and workbook shell. Its trigger MUST have a visible focus indicator, an accessible name that identifies account and application navigation, and keyboard operation for open, close, item movement, and item activation. When viewport pressure requires overflow, workbook query controls, chips, and optional navigation groups collapse before this menu; safe account/application navigation remains available even below the supported minimum viewport.
 
@@ -816,52 +827,64 @@ Design contract. Motion MUST NOT be required to perceive conflict, pending, save
 
 ### 7.1 Shell regions
 
-Design contract. The application shell MUST contain the regions in the table below at every supported viewport band.
+Design contract. The workbook MUST use the following persistent bands. Dimensions
+are CSS-pixel design tokens, not performance claims.
 
-| Region | Required contents | Boundary |
+| Region | Height | Required contents |
 | --- | --- | --- |
-| Top bar | Incident identity, built-in tabs or `Surfaces`, active-surface title when not already represented by a selected built-in tab, `System views`, presence summary when assigned by §7.5, and the upper-right account/application menu. | Persistent chrome, not a dashboard. |
-| View bar | Saved-view selector/actions, query tools, Find where applicable, Clear where applicable, inspector opener and allowed add-row action; conditional query summary beneath the main row. | Belongs to active surface only. |
-| Grid | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells. | Primary work surface. |
-| Inspector | Details, Relationships, Evidence, History, destructive and specialized row actions. | Conditional adjacent or overlay secondary surface opened through explicit controls. |
-| Status strip | Save state, secondary same-surface message, presence summary or overflow when assigned by §7.5. | Capacity-limited working-state strip. |
+| Incident bar (top bar) | `{layout.topBarHeight}` | Incident identity and lifecycle/access state; Work, Recovery, Commands; presence/account. |
+| View bar | `{layout.viewBarHeight}` | Current surface/view and §8.3 commands. |
+| Workbook footer | `{layout.statusStripHeight}` | Surface navigation on the left; separately labeled save/status landmark on the right. |
+| Conditional query context | `{layout.querySummaryHeight}` | Accepted non-default query and/or explicitly Not applied replacement, below the View bar. |
 
-Design contract. The default Timeline workbook shell at `{layout.baseViewport}` MUST show the top bar, compact sheet toolbar, active Timeline grid, explicit inspector opener, bottom draft row when creation is allowed, and status strip as the dominant first-viewport structure. The inspector MUST be closed by default and MUST open only through the toolbar inspector control, a row action, a History action, a mention action, or a Core 03 application shortcut whose exact preconditions are satisfied. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other administration/control surfaces MUST NOT dominate the default Timeline path above the active grid; those controls are valid only inside an explicitly opened secondary surface or a distinct administration context.
+Design contract. Screen-space priority MUST be source/grid and current edit;
+save/access/conflict state; active query/surface; deliberate record detail;
+chosen working list; optional explanation, in that order. Lower-priority content
+collapses to its labeled path before higher-priority content clips.
 
-Design contract. The active surface work area between the view bar and status strip MUST own workbook vertical sizing. The grid and an open inspector MUST fill that same work area regardless of whether the surface renders zero, one, three, or many rows, and the same geometry MUST hold for empty, loading, error, and draft-row states. Grid content and inspector content MUST scroll independently inside the work area, the status strip MUST remain anchored at the bottom of the shell, and the workbook layout MUST NOT create document-level vertical scrolling. Synthetic filler rows, row-count height calculations, fixed `100vh - Npx` offsets, and surface-specific minimum-height workarounds are not valid design strategies.
+Design contract. Footer navigation MUST yield space before primary save status.
+The primary save label MUST NOT truncate, move into a menu or be replaced by
+presence. Lifecycle/read-only state remains separate from save state.
+The footer replaces the standalone status strip's placement; references to
+status strip elsewhere mean its dedicated status landmark within this footer.
 
-Design contract. A shell region MAY be visually collapsed only when the responsive algorithm in §7.5 assigns its controls to another reachable region. Omission behavior: a collapsed region with no assigned controls renders no visible container.
+Design contract. Initial entry MUST leave the auxiliary dock closed. Record,
+Work and Recovery MUST share one work-area attachment, never independent
+sidebars. The primary grid and attached destination MUST fill the remaining
+work area regardless of row count or loading/error state, with independent
+internal scrolling. No document-level vertical scrolling, synthetic filler
+rows, row-count sizing or fixed `100vh - Npx` workaround is permitted.
+Administration and incident summaries remain deliberate secondary surfaces.
 
-Design contract. Incident identity MUST receive the top bar's remaining inline
-space after navigation and bounded presence/account controls; it MUST NOT retain
-an arbitrary fixed maximum while spare space remains. The title yields before
-the incident key. An explicit keyboard- and pointer-operable disclosure exposes
-both complete labels. Account/application controls remain anchored upper-right.
+Core restatement. Owner: Core 03 §2.4 and §2.5. Startup precedence, dock
+detachment, retained authoring and operation lifetime remain Core-owned.
 
-Design contract. The shared incident-identity disclosure MUST supply the workbook's
-single native level-one heading on built-in surfaces, System views and claimed
-extension workspaces. The heading contains the existing disclosure trigger and
-exposes the complete incident key and title; its disclosed region remains outside
-the heading. Heading semantics MUST preserve the compact typography, geometry,
-keyboard operation, expanded state and dismissal/focus-return behavior. Before
-identity is available, the heading MUST truthfully distinguish loading from a
-failed identity read. An authorized accepted identity remains the heading during
-permitted refreshes. Navigation and other Top-bar controls are outside the heading.
+Design contract. A region MAY collapse only when §7.5 assigns its controls
+to another labeled reachable path. Omission behavior: an empty collapsed
+region reserves no container. Height-only changes MUST NOT change width tiers.
 
-Design contract. The main view-bar row retains `{layout.viewBarHeight}`. Its
-saved-view group MUST receive at least `{layout.viewBarSavedViewBaseMinInlineSize}`
-in base, `{layout.viewBarSavedViewNarrowMinInlineSize}` in narrow desktop and
-`{layout.viewBarSavedViewCompactMinInlineSize}` in compact desktop. The name takes
-flexible space; Modified uses subordinate metadata styling and describes only
-view configuration. Routine tools use quiet commands; the allowed create action
-is the main toolbar's affirmative accent.
+Design contract. Incident identity receives remaining inline space after bounded
+controls; title yields before incident key. A pointer/keyboard disclosure exposes
+both complete labels and supplies the single native level-one heading on every
+workbook surface and claimed extension. Other controls remain outside that
+heading. Loading, failed identity read and permitted accepted refresh remain
+truthfully distinguished. Account controls stay upper-right.
 
-Design contract. The conditional query-summary row is part of the view-bar region,
-above the shared grid/inspector work area. It uses `{layout.querySummaryHeight}`
-as its baseline minimum height. No row is reserved when there are no projected
-chips or the band assigns all chips to Filters. Baseline heights MAY expand for
-supported text spacing. Shell scrolling, inspector bounds and the anchored save
-strip retain the ownership described above.
+Design contract. The View bar's flexible surface/view group MUST retain
+`{layout.viewBarSavedViewBaseMinInlineSize}` in base,
+`{layout.viewBarSavedViewNarrowMinInlineSize}` in narrow and
+`{layout.viewBarSavedViewCompactMinInlineSize}` in compact desktop.
+Modified is subordinate configuration metadata. Routine actions use quiet
+controls; Add row remains the affirmative accent.
+
+Design contract. The query-context row MUST appear for accepted non-default
+sort/filter/group or an unapplied replacement, even when compact chips move into
+a menu. It MUST otherwise be absent. Accepted scope and Not applied requests
+remain separately labeled; compact mode retains a concise scope summary.
+Use one row, not independently wrapping chip rows. Supported text spacing MAY
+increase its minimum height; otherwise the token height applies. Appearance or
+removal MUST preserve semantic selection, scroll and owner authoring. Passive
+status updates MUST NOT expand command bands.
 
 ### 7.2 Shell-exposure surface registry
 
@@ -871,23 +894,23 @@ Design contract. The shell-exposure registry for this design revision is exhaust
 
 | Surface label | Canonical `view_schema_id` | Surface status | Primary exposure at base viewport | Switcher group | Group order | Row order | Saved-view exposure | Omission behavior |
 | --- | --- | --- | --- | --- | ---: | ---: | --- | --- |
-| Timeline | `cartulary.view.timeline.v2` | Required built-in sheet | Built-in tab | Built-in surfaces | 1 | 1 | Active surface view selector | Not optional. |
-| Hosts | `cartulary.view.hosts.v1` | Required built-in sheet | Built-in tab | Built-in surfaces | 1 | 2 | Active surface view selector | Not optional. |
-| Identities | `cartulary.view.identities.v1` | Required built-in sheet | Built-in tab | Built-in surfaces | 1 | 3 | Active surface view selector | Not optional. |
-| Evidence | `cartulary.view.evidence.v1` | Required built-in sheet | Built-in tab | Built-in surfaces | 1 | 4 | Active surface view selector | Not optional. |
-| Notes | `cartulary.view.notes.v1` | Required built-in sheet | Built-in tab | Built-in surfaces | 1 | 5 | Active surface view selector | Not optional. |
-| Indicators | `cartulary.view.indicators.v1` | Required system view | `System views` | Scope and indicators | 2 | 1 | Active surface view selector | Not optional. |
-| Compromise Assessments | `cartulary.view.assessments.v1` | Required system view | `System views` | Scope and indicators | 2 | 2 | Active surface view selector | Not optional. |
-| Task Requests | `cartulary.view.task_requests.v1` | Required system view | `System views` | Coordination | 3 | 1 | Active surface view selector | Not optional. |
-| Decisions | `cartulary.view.decisions.v1` | Required system view | `System views` | Coordination | 3 | 2 | Active surface view selector | Not optional. |
-| Parties | `cartulary.view.parties.v1` | Required system view | `System views` | Coordination | 3 | 3 | Active surface view selector | Not optional. |
-| Communications Log | `cartulary.view.comm_log.v1` | Required system view | `System views` | Coordination | 3 | 4 | Active surface view selector | Not optional. |
-| Handoff | `cartulary.view.handoff.v1` | Required system view | `System views` | Coordination | 3 | 5 | Active surface view selector | Not optional. |
-| Status Review | `cartulary.view.status_review.v1` | Required system view | `System views` | Review and learning | 4 | 1 | Active surface view selector | Not optional. |
-| Lesson | `cartulary.view.lesson.v1` | Required system view | `System views` | Review and learning | 4 | 2 | Active surface view selector | Not optional. |
-| Findings | `cartulary.view.findings.v1` | Standardized optional workbook surface | `System views` only if implemented and exposed | Optional artifact surfaces | 5 | 1 | Active surface view selector | If not implemented, it MUST NOT appear. |
-| Investigative Queries | `cartulary.view.investigative_queries.v1` | Standardized optional workbook surface | `System views` only if implemented and exposed | Optional artifact surfaces | 5 | 2 | Active surface view selector | If not implemented, it MUST NOT appear. |
-| Forensic Keywords | `cartulary.view.forensic_keywords.v1` | Standardized optional workbook surface | `System views` only if implemented and exposed | Optional artifact surfaces | 5 | 3 | Active surface view selector | If not implemented, it MUST NOT appear. |
+| Timeline | `cartulary.view.timeline.v2` | Required built-in sheet | Footer built-in tab | Built-in surfaces | 1 | 1 | Active surface view selector | Not optional. |
+| Hosts | `cartulary.view.hosts.v1` | Required built-in sheet | Footer built-in tab | Built-in surfaces | 1 | 2 | Active surface view selector | Not optional. |
+| Identities | `cartulary.view.identities.v1` | Required built-in sheet | Footer built-in tab | Built-in surfaces | 1 | 3 | Active surface view selector | Not optional. |
+| Evidence | `cartulary.view.evidence.v1` | Required built-in sheet | Footer built-in tab | Built-in surfaces | 1 | 4 | Active surface view selector | Not optional. |
+| Notes | `cartulary.view.notes.v1` | Required built-in sheet | Footer built-in tab | Built-in surfaces | 1 | 5 | Active surface view selector | Not optional. |
+| Indicators | `cartulary.view.indicators.v1` | Required system view | `More views` | Investigation | 2 | 1 | Active surface view selector | Not optional. |
+| Compromise Assessments | `cartulary.view.assessments.v1` | Required system view | `More views` | Investigation | 2 | 2 | Active surface view selector | Not optional. |
+| Task Requests | `cartulary.view.task_requests.v1` | Required system view | `More views` | Coordination | 3 | 1 | Active surface view selector | Not optional. |
+| Decisions | `cartulary.view.decisions.v1` | Required system view | `More views` | Coordination | 3 | 2 | Active surface view selector | Not optional. |
+| Parties | `cartulary.view.parties.v1` | Required system view | `More views` | Coordination | 3 | 3 | Active surface view selector | Not optional. |
+| Communications Logs | `cartulary.view.comm_log.v1` | Required system view | `More views` | Coordination | 3 | 4 | Active surface view selector | Not optional. |
+| Handoffs | `cartulary.view.handoff.v1` | Required system view | `More views` | Coordination | 3 | 5 | Active surface view selector | Not optional. |
+| Status Reviews | `cartulary.view.status_review.v1` | Required system view | `More views` | Coordination | 3 | 6 | Active surface view selector | Not optional. |
+| Lessons | `cartulary.view.lesson.v1` | Required system view | `More views` | Coordination | 3 | 7 | Active surface view selector | Not optional. |
+| Findings | `cartulary.view.findings.v1` | Standardized optional workbook surface | `More views` only if implemented and exposed | Additional analysis | 4 | 1 | Active surface view selector | If not implemented, it MUST NOT appear. |
+| Investigative Queries | `cartulary.view.investigative_queries.v1` | Standardized optional workbook surface | `More views` only if implemented and exposed | Additional analysis | 4 | 2 | Active surface view selector | If not implemented, it MUST NOT appear. |
+| Forensic Keywords | `cartulary.view.forensic_keywords.v1` | Standardized optional workbook surface | `More views` only if implemented and exposed | Additional analysis | 4 | 3 | Active surface view selector | If not implemented, it MUST NOT appear. |
 
 Design contract. Required system views MUST NOT be command-palette-only. All required system views MUST be reachable by keyboard and pointer from the shell.
 
@@ -899,9 +922,17 @@ Design contract. Saved views MUST appear under the active surface's view selecto
 
 Design contract. Constrained UI labels MAY use `Assessments` as a display shorthand for `Compromise Assessments`. Omission behavior: the shorthand is conformant only when the accessible name or surrounding context exposes the full label.
 
-### 7.3 Inspector contract
+Design contract. More views MUST be one searchable control with the groups
+above in order, followed by Extensions containing only discovered, supported,
+claimed and authorized workspace roots. Base identities, saved-view objects and
+extension references MUST remain distinct; navigation creates no source store.
+The active view selector MUST distinguish Base surface, Private views, Shared
+views and applicable System presets.
 
-Design contract. The inspector MUST use the following default and bounds.
+### 7.3 Auxiliary dock and Record contract
+
+Design contract. Record, Work and Recovery MUST share the width and resizing
+contract below; Record additionally uses the declared section order.
 
 | Property | Required behavior |
 | --- | --- |
@@ -912,7 +943,7 @@ Design contract. The inspector MUST use the following default and bounds.
 | Section order | Follow the active `inspector_config_v1.panels[]` order. When all current-profile panels are declared, the order is Details, Relationships, Evidence, History, Workflow. |
 | Workflow section | Contains only explicit feature-group actions declared by the active `view_schema_id`. It must not become a dashboard, ticket queue, release-control module, or detached workflow editor. |
 | Grid visibility | At base viewport, grid remains visible whenever inspector is open. |
-| Close affordance | Visible control with accessible name `Close inspector`. |
+| Close affordance | Visible Close control named for the destination; Record retains accessible name `Close inspector`. |
 
 Design contract. The `base` inspector edge MUST expose an accessible separator
 with value text reporting the current inspector width. Pointer dragging and
@@ -921,7 +952,10 @@ keyboard resizing MUST clamp to `{layout.inspectorMinWidth}` and
 the right-side inspector width by 16 CSS px per activation; `Home` selects the
 minimum and `End` selects the maximum. Inspector width is client-local,
 non-persistent state and MUST NOT be written to saved views, preferences, or
-browser storage.
+browser storage. Hard refresh resets the width. The effective maximum is the smaller of that token maximum and the workbook
+viewport width minus 720 CSS pixels; clamp before violating that boundary.
+Closing the dock releases its width without changing column widths or source.
+The existing inspector-named tokens now size the shared dock.
 
 Design contract. Inspector height is the work-area height defined in §7.1, not the rendered grid-body height. Long inspector content MUST scroll inside the inspector panel without changing the inspector slot boundaries, grid height, or status-strip position.
 
@@ -956,7 +990,9 @@ select_shell_chrome_mode(width_css_px):
     return narrow_desktop
   if width_css_px >= layout.compactMinWidth:
     return compact_desktop
-  return below_supported_minimum
+  if width_css_px >= 320:
+    return below_supported_minimum
+  return safe_fallback
 ```
 
 Design contract. Block-size support state MUST be selected independently:
@@ -976,12 +1012,17 @@ selection.
 
 Design contract. Each shell chrome mode MUST render according to this table.
 
-| Shell chrome mode | Inline-size condition | Top bar | View bar | Grid | Inspector | Status strip | Design conformance |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `base` | Selected by `select_shell_chrome_mode`. | Incident identity, built-in primary tabs, `System views`, current surface title, and presence/account summary. | Saved-view, query, inspector, and row-create controls in §8.3 order. | Primary and visible while inspector is open. | Adjacent resizable right panel. | Visible primary save label and secondary message. | Claimed. |
-| `narrow_desktop` | Selected by `select_shell_chrome_mode`. | Incident identity, `Surfaces`, `System views`, current surface title, and presence/account summary. | Saved-view, query, inspector, and row-create controls in §8.3 order. | Primary; visible when overlays are closed. | Full-height right overlay; grid inert behind overlay. | Visible primary save label and secondary message. | Claimed. |
-| `compact_desktop` | Selected by `select_shell_chrome_mode`. | Incident identity, `Surfaces`, `System views`, current surface title, and account summary. | Saved-view, collapsed query, inspector, and row-create controls remain reachable in §8.3 order. | Primary when overlays are closed. | Full-screen or full-height overlay; grid inert behind overlay. | Visible primary save label; presence summary assigned here. | Claimed. |
-| `below_supported_minimum` | Selected by `select_shell_chrome_mode`. | Safe navigation and session controls remain reachable. | Not required except safe save/conflict path. | Degraded; horizontal scroll or supported-viewport message permitted. | Not required. | Primary save label MUST remain visible when unsaved work exists. | Not claimed. |
+| Shell chrome mode | Width in CSS pixels | Navigation and commands | Dock | Support |
+| --- | --- | --- | --- | --- |
+| `base` | ≥1280 | Five built-ins plus More views in footer; full View bar. | Adjacent, resized within §7.3 bounds. | Desktop. |
+| `narrow_desktop` | 1024–1279 | Footer Surfaces; current surface/view visible; full query labels where they fit. | Right work-area overlay, width `min(560px, viewport width)`. | Desktop. |
+| `compact_desktop` | 768–1023 | Footer Surfaces; Query combines Sort/Filter/Group; View contains Columns and lower-frequency commands; Add row and Inspect retained. | Full work-area-width overlay. | Compact desktop. |
+| `below_supported_minimum` | 320–767 | Safe session/navigation/status and labeled command paths; horizontally scrollable grid. | Full work-area overlay; desktop minimum does not apply. | Degraded grid; usable open dock. |
+| `safe_fallback` | <320 | Existing safe navigation, session and recovery paths. | No additional full-workbook claim. | Safe fallback only. |
+
+Design contract. Width means the workbook viewport's effective CSS inline size;
+equality belongs to the higher tier. Pixel/device width and height MUST NOT
+select a different tier. Dock dimensions use that same available width.
 
 Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the shell chrome mode, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
 
@@ -993,7 +1034,7 @@ support does not establish a mobile workbook profile; below 320px the existing
 degraded safe-navigation rules remain. No document scrolling is introduced.
 
 Design contract. Scoped workbook recovery uses one compact `Recovery` entry in
-the top bar and one non-modal panel in the shared work-area host. Its content is
+the incident bar and the Recovery destination in the shared dock. Its content is
 bounded by the active work area and scrolls internally using shared spacing and
 surface tokens. Feature components MUST NOT calculate viewport offsets or
 reserve their own top-bar height. The status strip remains outside that panel.
@@ -1008,8 +1049,8 @@ Ordinary grid/inspector authoring and workspace-local graph job/result recovery
 are not a general recovery catalog. Existing shell Network Analysis import,
 table-change and Indicator-link recovery retain extension identities.
 
-The panel uses `{layout.recoveryMaxWidth}`, bounded by the work area with
-`{spacing.sm}` insets and internal scrolling.
+Design contract. Recovery uses the same width, overlay and resize contract as
+Record and Work in §§7.3–7.4, with internal scrolling.
 
 Explicit activation enters the chosen owner detail surface. All recovery returns
 to the list. Opening recovery detaches the inspector and other independent
@@ -1023,8 +1064,8 @@ Escape closes the innermost applicable layer. Closing restores the invoker or th
 semantic fallback in §8.5. Completion during interaction preserves focus on a
 safe panel heading or recovery list instead of selecting another operation.
 Background outcomes MUST NOT reopen panels or move focus away from newer work.
-Recovery provides an accessible return to the grid; it does not make the grid
-inert except while an owner-required nested modal is active. Protected summaries,
+Recovery provides an accessible return to the grid. Adjacent mode does not make
+the grid inert; overlay mode does, as do owner-required nested modals. Protected summaries,
 counts and details follow Core 03 REQ-03-299/100 and Core 04 authorization.
 
 Design contract. Timeline batch detail presents saved work, unresolved conflicts
@@ -1062,28 +1103,26 @@ desktop design support. Horizontal grid scrolling remains permitted.
 
 ### 7.5 Responsive overflow algorithm
 
-Design contract. Responsive overflow MUST use the region assignment table below. The table is exhaustive for shell controls in this revision. Top-bar and view-bar control assignment is keyed only by the shell chrome mode selected in §7.4; a vertical-only resize at a fixed inline size MUST preserve the selected rendered location, truncation, popover path, and accessible label for each shell control.
+Design contract. Width pressure MUST first collapse presence detail, then
+shorten optional incident metadata, replace built-in tabs with Surfaces,
+consolidate query controls and move lower-frequency commands to labeled menus.
+Preserve incident identity, active surface/view, Add row, Inspect, primary save
+state and keyboard-reachable Recovery. Functional command rows MUST NOT wrap
+unpredictably. Height-only changes preserve assignment.
 
-| Control family | `base` location | `narrow_desktop` location | `compact_desktop` location | `below_supported_minimum` location |
+| Control family | Base | Narrow desktop | Compact desktop | Below desktop |
 | --- | --- | --- | --- | --- |
-| Incident identity | Top bar, visible text | Top bar, visible text | Top bar, visible text | Top bar, visible text |
-| Built-in surfaces | Top bar primary tabs | `Surfaces` menu in top bar | `Surfaces` menu in top bar | `Surfaces` menu optional; safe navigation required |
-| Required system views | `System views` control in top bar | `System views` control in top bar | `System views` control in top bar | `System views` optional; safe navigation required |
-| Current surface title | Top bar when not already represented by a selected built-in tab | Top bar when not already represented by a selected built-in tab | Top bar when not already represented by a selected built-in tab | Top bar if active surface is shown |
-| Presence summary | Top bar | Top bar | Status strip | Status strip only if space remains after save label |
-| Saved-view selector | View bar | View bar | View bar | Not required |
-| Sort control | View bar after saved-view actions | View bar after saved-view actions | View bar after saved-view actions | Not required |
-| Group control | View bar after Sort | View bar after Sort | View bar after Sort | Not required |
-| Filter control | View bar after Group as a `Filters` draft-popover trigger | View bar after Group as a `Filters` draft-popover trigger | View bar after Group as a `Filters` draft-popover trigger | Not required |
-| Columns control | View bar after Filters | View bar after Filters | View bar after Filters | Not required |
-| Active group/sort/filter chips | Conditional query strip below the main view-bar row; overflow remains in `Filters` | Conditional query strip below the main view-bar row; overflow remains in `Filters` | Inside the `Filters` popover | Not required |
-| Workbook Find (Timeline, Hosts, Identities) | Main view-bar row after Columns | Main view-bar row after Columns | View bar after the `Filters` entry path, compact icon button | Not required |
-| Timeline Clear contents | View bar after Find, compact Clear caption | View bar after Find, icon button | View bar after Find, icon button | Safe selected-cell action when available |
-| Inspector opener | View bar after Timeline Clear contents when present | View bar after Timeline Clear contents when present; Timeline uses an icon button | View bar after Timeline Clear contents when present | Safe conflict access required |
-| Row-create action | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed; Timeline uses an icon button | View bar after the inspector opener when allowed | Not required |
-| Account/application menu | Upper-right top bar | Upper-right top bar | Upper-right top bar | Safe navigation location |
-| Primary save label | Status strip | Status strip | Status strip | Status strip when unsaved work exists |
-| Secondary status message | Status strip | Status strip with truncation rule | Accessible-only summary after primary label | Not required |
+| Incident identity; account | Incident bar; account upper-right | Same | Same | Safe navigation/session controls. |
+| Work, Recovery, Commands | Incident bar | Incident bar | Labeled incident-bar menu when needed | Labeled safe navigation path. |
+| Built-in surfaces | Footer tabs in §7.2 order | Footer Surfaces | Footer Surfaces | Footer Surfaces. |
+| Other surfaces | Footer More views | In Surfaces with same groups | Same | Authorized safe navigation. |
+| Current surface/view | View-bar selector | Same | Same | Remains identifiable. |
+| Sort, Filter, Group | View bar in §8.3 order | Same | Query menu in that order | Labeled View/Query path. |
+| Columns, Find, Clear, Return | View bar | Labeled View overflow when needed | View menu; preserve adopted eligibility | Safe supported paths. |
+| Add row, Inspect | View bar | Labeled icons if needed | Retained labeled controls | Supported capture/inspection path. |
+| Query context | Conditional row | Conditional row | Conditional summary plus Query detail | Accepted/unapplied scope remains clear. |
+| Save state | Footer status landmark | Same | Same | Visible while work is retained. |
+| Presence and secondary status | Incident-bar presence; footer secondary status | Reduced presence; secondary truncation | Omit presence detail; accessible secondary summary | Omit before primary save state. |
 
 Design contract. Active chip placement MUST use this deterministic algorithm:
 
@@ -1157,26 +1196,27 @@ Design contract. `invalidate_or_refresh_required` is row-block state, not a cell
 ### 8.3 View-bar query and saved-view controls
 
 Design contract. Saved-view and query controls apply to the active surface only
-and MUST render in this exact View-bar order: saved-view selector and actions,
-Sort, Group, Filters, Columns, Workbook Find on its adopted surfaces, Timeline
-Clear contents when applicable, inspector opener, and create action when creation
-is allowed. Ordered active chips occupy the conditional query-summary row below
-that main row; Filters retains the complete overflow editor path. The active
-surface title belongs to the top bar when the selected built-in tab or
-system-view switcher does not already provide the same visible title; it is not
-part of the query-control sequence.
+and MUST render in this exact View-bar order: current surface/view selector
+and actions, Sort, Filter, Group, Columns, Workbook Find on its adopted surfaces,
+Timeline Clear contents when applicable, Return, Add row when allowed, and
+Inspect. Compact/overflow locations follow §7.5. Ordered accepted chips occupy
+the separate conditional row; the Filter editor retains complete detail access.
+The current surface title belongs with the View-bar selector. The visible
+Filter caption uses accessible name Filters; references to the Filters editor
+elsewhere name this same control.
 
 | Control | Default state | Active state | Invalid state | Clear behavior | Ordering |
 | --- | --- | --- | --- | --- | ---: |
-| Saved-view selector and actions | `Unsaved view` when no saved view is active. | Saved view display name and permitted actions. | Fall back to base surface and show inline message. | Clears saved-view selection only, not active query unless the user selects reset. | 1 |
+| Saved-view selector and actions | `Base surface` when no saved view is active. | Saved view display name and permitted actions. | Fall back to base surface and show inline message. | Clears saved-view selection only, not active query unless the user selects reset. | 1 |
 | Sort control | No user sort override. | Sort chips shown. | Invalid sort field blocked before persistence. | Clears all user sort overrides. | 2 |
-| Group control | `Group: None`. | One group chip. | Unsupported group disabled with explanation. | Sets grouping inactive. | 3 |
-| Filters control | No filters. | Filter chips shown or `Filters` overflow. | Invalid filter chip marked and excluded from query submission. | Clears all filters or one selected chip. | 4 |
+| Group control | `Group: None`. | One group chip. | Unsupported group disabled with explanation. | Sets grouping inactive. | 4 |
+| Filters control | No filters. | Filter chips shown or Filters overflow. | Invalid draft remains unapplied. | Clears all filters or one selected chip. | 3 |
 | Columns control | Declared default visible columns and order. | Current visible columns and semantic order. | Unknown field blocked before persistence. | Resets the declared layout. | 5 |
-| Active chips (separate query strip) | Absent. | Ordered as declared below and limited by §7.5. | Invalid chip remains marked and excluded from query submission. | Removes the selected chip. | Below main row |
+| Active chips (separate query strip) | Absent when query context is default and no replacement is pending. | Ordered as declared below and limited by §7.5. | Invalid chip remains marked and excluded from query submission. | Removes the selected chip. | Below main row |
 | Workbook Find (Timeline, Hosts, Identities) | Closed; accessible name `Find in loaded rows`. | Local search active; panel may be collapsed. | Loaded-scope unavailable reason. | Explicit Close retires the search. | 6 |
 | Timeline Clear contents | Explicit selected-cell action. | Existing owner-admitted selection. | Existing authoring validation and recovery. | Clears selected contents under Core 03; distinct from query reset. | 7 |
-| Inspector opener | Closed state. | Open state reflects the active row context. | Disabled with an explanation when no inspectable context exists. | Closes the inspector. | 8 |
+| Inspector opener (Inspect) | Closed state. | Open state reflects the active row context. | Disabled with an explanation when no inspectable context exists. | Closes the inspector. | 10 |
+| Return | No trail: unavailable with reason. | Current origin restorable. | Local recovery preserves context. | Return and inspect is a one-level alternative. | 8 |
 | Create action | Visible only when owner behavior permits creation. | Draft-row creation active. | Owner validation remains local to the draft. | Cancels only the active uncommitted draft. | 9 |
 
 Design contract. Active chips MUST render in this order: group chip, sort chips in applied order, then filter chips in normalized query order.
@@ -1288,7 +1328,7 @@ Design contract. Dirty saved-view indication MUST NOT imply unsaved incident dat
 
 #### Saved-view discovery presentation
 
-Core 03 REQ-03-022A owns saved-view discovery retention and independent resource observation. The compact view-bar selector MUST open a non-modal paged popover with candidates in server order and inline Private, Shared or System scope labels. The active label, Modified state and immediate `Unsaved view` action MUST remain available during unrelated discovery loading/failure. The invalid state in the control table above means authoritative resource unavailability after access classification, never absence from a partial page.
+Core 03 REQ-03-022A owns saved-view discovery retention and independent resource observation. The compact view-bar selector MUST open a non-modal paged popover with candidates in server order and inline Private, Shared or System scope labels. The active label, Modified state and immediate `Base surface` action MUST remain available during unrelated discovery loading/failure. The invalid state in the control table above means authoritative resource unavailability after access classification, never absence from a partial page.
 
 Arrow keys and Home/End MUST move candidate focus without activation; Enter, Space or click MUST explicitly activate. Tab MUST reach ordinary Previous, Next, First, Refresh and Retry controls. Escape MUST dismiss and return focus to the trigger; outside dismissal MUST preserve the user's destination focus. Opening or paging MUST NOT open the inspector or apply query/layout. Pending activation MUST leave the current grid usable and report progress locally. Page counts MUST identify the current page, never a matching total. Loading, initial empty, continuation failure, stale retained results and resource unavailability MUST have accessible distinct descriptions and one announcement per transition. Existing density, geometry, zoom and focus tokens apply.
 
@@ -1361,6 +1401,59 @@ cell contents MUST NOT be repeated in announcements. Find-specific Escape and
 Enter handling applies only within Find; ordinary grid/editor/nested keys remain
 with their current owners.
 
+### 8.3A Action families, Commands and source reading
+
+Core restatement. Owner: Core 03 §2.5.2–2.5.7. Command matching, target capture,
+pins, Return, presets, reading and retained-authoring effects are Core-owned.
+
+Design contract. Every permitted action MUST have a labeled keyboard-reachable
+home; context menus, shortcuts and Commands are accelerators. Menus MUST use at
+most one submenu level; large collections use searchable lists.
+
+| Family | Labeled primary home |
+| --- | --- |
+| Capture | Grid and Add row. |
+| Inspect | Inspect and record actions. |
+| Relate | Relationships and existing quick-link controls. |
+| Follow up | Workflow and selected-record actions. |
+| Review | Owner-declared History/review surfaces. |
+| View | View bar and view selector. |
+
+Design contract. Commands MUST use a labeled native search input, ordinary
+result buttons, captured-target context, explicit Previous/Next result paging
+and Close. Empty results state No matching commands. Result focus MUST NOT
+activate an action. Unavailable required actions on readable content retain
+a safe reason and explicit Why unavailable? path.
+
+Design contract. Work MUST show Session working set and Session only, an ordered
+pin list with Open/Remove, its empty state, and labeled Task Requests, Decisions,
+Handoffs and Status Reviews links. Record header supplies Pin record; the view
+selector supplies Pin view or Pin base surface. No queue preview is rendered
+in this revision. Work and Recovery labels/counts MUST remain distinct.
+
+Design contract. Inspect value MUST expose the complete saved value in Details,
+with selectable text, Copy, local Soft wrap and authorized Edit. A value reader
+does not expand grid-row height. Saved/source, source-time conversion state and
+record/edit attribution MUST use distinct labels. Missing source time has no
+fabricated occurrence date. Actions belong beside their objects: Resolve beside
+a mention, Preview beside evidence, and relationship actions beside links.
+Existing Details explicit-authoring and independent-failure composition remain.
+
+Design contract. Tooltips MUST be non-interactive, show after 400 ms pointer
+dwell and immediately on keyboard focus, remain while hovered/focused and
+dismiss with Escape. Essential actions MUST NOT exist only in tooltips.
+Long interactive explanations use an explicit popover; only one explanatory
+popover is open at once. Ordinary dense targets MUST be at least 24×24 CSS
+pixels subject to adopted WCAG exceptions; default dock controls are 32 pixels
+high. Glyph size alone MUST NOT define the hit area. Drag operations retain
+non-drag equivalents.
+
+Design contract. An overlay MUST contain focus and make the obscured grid
+inert; an adjacent dock MUST NOT trap focus. Focus MUST remain visible below
+sticky chrome. Announce explicit location failure, query completion, scope
+change and save recovery politely, without announcing every key or remote row
+update. Persistent failed/uncertain work MUST NOT depend on a disappearing toast.
+
 ### 8.4 Keyboard interaction matrix
 
 Design contract. Keyboard behavior MUST use the matrix below. `Tab` order MUST enter each major region once before entering roving-focus children inside that region.
@@ -1373,9 +1466,9 @@ not complete a focus request; obsolete requests cannot restore focus.
 
 | Region or component | Entry key/path | Navigation keys | Activation | Commit | Cancel | Escape behavior | Focus return | Fallback focus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Top bar built-in tabs | `Tab` to tablist | Arrow keys between tabs | `Enter` or `Space` selects | Selection commits immediately | `Esc` no-op | No-op unless menu open | Active tab | Incident identity |
+| Footer built-in tabs | `Tab` to tablist | Arrow keys between tabs | `Enter` or `Space` selects | Selection commits immediately | `Esc` no-op | No-op unless menu open | Active tab | Incident identity |
 | `Surfaces` control | `Tab` to button | Arrow keys in menu | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
-| `System views` switcher | `Tab` to button | Arrow keys by group and item | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
+| `More views` switcher | `Tab` to button | Arrow keys by group and item | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
 | Saved-view selector | `Tab` to selector | Arrow keys in menu | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
 | Filter chips | `Tab` to chip group | Arrow keys between chips | `Enter` opens editor; `Delete` removes focused chip | Apply control commits | `Esc` closes editor | Close chip editor | Focused chip or chip group | Filter control |
 | Grid navigation mode | `Tab` to grid or one primary click on a committed cell | §8.6 key-command table | One primary click or printable key enters edit when writable; Timeline also uses `F2`; non-Timeline surfaces also use `Enter` | Not applicable | Timeline multi-cell range: collapse to active cell | §8.5 | Active cell | Grid container |
@@ -1394,7 +1487,7 @@ width and its eraser icon alone below that width; the full accessible name
 `Clear contents` and a descriptive tooltip remain available at every width.
 At narrow Timeline widths, Inspector and Add row use their existing icon-button
 treatment with complete accessible names and tooltips, preserving Find's label,
-the saved-view allocation and the required query-chip slots on one view-bar row.
+the saved-view allocation and conditional query-context row.
 It invokes the same selected-cell planner as
 Delete, independently of record-checkbox actions. Focus borrowing preserves the
 range and MUST NOT blur-submit authoring. An unavailable action exposes a safe
@@ -1408,19 +1501,22 @@ and an empty string as `Empty text`, independently of non-color conflict cues.
 
 ### 8.5 Escape priority ladder
 
-Design contract. When multiple dismissible layers are open, `Esc` MUST resolve exactly one layer using this priority order.
+Design contract. Native picker/IME ownership runs first. Within an active
+component, an owned child popup receives its declared dismissal before its parent
+closes. Otherwise Esc MUST resolve exactly one active layer in the table;
+a borrowed or detached editor is not an active editor. No event may cascade.
 
 | Priority | Active condition | Required result |
 | ---: | --- | --- |
 | 1 | Modal dialog open | Close only through safe cancel if safe cancel exists. If no safe cancel exists, `Esc` does nothing and accessible help explains the required action. |
 | 2 | Same-field conflict resolver open | Close resolver without committing and return focus to conflicted cell if still present. |
 | 3 | Evidence preview open | Close preview and return focus to invoking evidence affordance if still present. |
-| 4 | Menu or popover open | Close menu or popover and return focus to invoking control. |
+| 4 | Menu, popover, Commands or explanatory tooltip open | Dismiss only the innermost layer; Commands restores its eligible borrowed origin under Core 03 §2.5.2, other layers their invoker. |
 | 5 | Tentative Timeline range gesture | Cancel only that gesture and restore the previous still-valid selection; do not discard an editor draft. |
 | 6 | Grid cell editor open | Discard uncommitted editor value and return to grid navigation mode, retaining a still-valid completed range. |
 | 7 | Timeline grid navigation owns focus and a completed multi-cell range exists | Collapse the range to the active cell and consume this action. |
 | 8 | Ordinary Details editor owns focus | Detach that editor without submitting or discarding; return focus to its field Edit action. |
-| 9 | Inspector owns focus or the existing application close shortcut is admitted | Close inspector and return focus to invoking row or control in every supported band. |
+| 9 | Dock owns focus or its declared close action is admitted | Close the attached destination and return to eligible invoker or semantic fallback. |
 | 10 | No dismissible layer | No-op. |
 
 Design contract. Focus restoration MUST use this fallback ladder when the invoking element no longer exists:
@@ -1640,7 +1736,11 @@ Design contract. When `client_txn_conflict_blocked=true`, the `Conflict` label i
 | `Saved` | Text label only by default; no celebratory animation. | Text label. |
 | `Conflict` | Conflict semantic marker and local entry point. | Text label, affected count when `same_field_conflict_count` is greater than zero, and action path. |
 
-Design contract. The status strip MUST allocate visible state as follows: one primary save label; zero or one secondary message for the active `sheet_ref`; and one presence summary with deterministic `+N` overflow. Queue size MUST NOT occupy a fourth visible slot. The accessible primary description MAY include queue size; omission of queue size is conformant when the secondary message already communicates queued or blocked work.
+Design contract. The footer status landmark MUST allocate one primary save label
+and zero or one secondary message for the active `sheet_ref`. The presence
+summary with deterministic `+N` overflow belongs in the incident bar under
+§7.5; it MUST NOT displace footer navigation or save state. Queue size MUST NOT
+occupy another visible status slot. The accessible primary description MAY include queue size; omission of queue size is conformant when the secondary message already communicates queued or blocked work.
 
 Design contract. Secondary-message selection MUST use the first applicable row in this table. A workbook-global blocker is eligible on every active surface. A surface-local candidate is eligible only when its exact `sheet_ref` equals the active `sheet_ref`.
 
@@ -1655,7 +1755,11 @@ Design contract. Secondary-message selection MUST use the first applicable row i
 | `7` | Active-surface or workbook mutation is queued or in flight. | Sync progress summary. | No activation target. |
 | none | No candidate applies. | No secondary message. | No activation target. |
 
-Design contract. At `base` and `narrow_desktop`, primary, secondary, and presence allocations are visible. At `compact_desktop`, primary and presence are visible and the secondary message remains accessible after the primary label. At `below_supported_minimum`, the primary label remains visible whenever unsaved work exists; secondary and presence omission is conformant.
+Design contract. Base and narrow modes expose primary and secondary footer
+status and incident-bar presence. Compact mode preserves primary status and an
+accessible secondary summary, with reduced incident-bar presence. Below desktop
+and safe fallback preserve primary status whenever work is retained; secondary
+visual detail and presence are omitted before primary status.
 
 ### 10.2 Presence input schema
 
@@ -1973,7 +2077,9 @@ Design contract. Compound component states MUST resolve through this precedence 
 
 Design contract. Inspector field actions MUST remain discoverable at rest and
 use a quiet token-backed treatment, with targets at least 28×28 CSS px and enough
-width for the complete label. Focus, disabled, pending and hover remain distinct.
+width for the complete label. Default dock controls use §8.3A’s 32-pixel height;
+28 pixels remains only the dense field-action minimum. Focus, disabled, pending
+and hover remain distinct.
 Density comes from alignment and spacing, not smaller text.
 
 Design contract. Primary buttons MUST use `{components.button-primary}`. Secondary buttons MUST use `{components.button-secondary}`. Destructive buttons MUST use `{components.button-danger}` or a destructive dialog action row in §12.2.
@@ -2523,9 +2629,9 @@ query/control states. The current/capture/review layout studies at 1440×900,
 1280×720, 1024×720, and 768×640 remain twelve supporting attachments, not
 defaults or committed goldens. Rich Details, Relationships, and Evidence
 observations use the `evidence-collected` record at 1440×900 and 768×640; they
-augment the unchanged sparse inspector specimen. This revision adds no golden
-or design fixture identity. A later golden addition requires a named visual
-risk that existing captures cannot demonstrate.
+augment the unchanged sparse inspector specimen. The workbench amendment retains these fixture identities and adds the named
+state coverage in §15.2A. Existing goldens MUST NOT be replaced before their
+intended state transitions are verified; document adoption is not a capture.
 
 Design contract. The canonical shell selects `authentication-anomaly` by its
 semantic mapping and focuses the selected committed row's first visible Date
@@ -2559,7 +2665,7 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 | `D-VFIX-008` | Destructive actions in History, Relationships, and Workflow inspector states. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_history:timeline.activity_synopsis_text` | Declared account-attribution metadata and technical IDs. | `selector:[data-design-fixture='destructive-actions']` | Destructive actions have label text, destructive styling, and declared Workflow coverage when applicable. |
 | `D-VFIX-009` | Component state matrix sample. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | None. | `selector:[data-design-fixture='components']` | Required component states render and pass §14.3. |
 | `D-VFIX-010` | Narrow desktop shell. | `1024x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared account-attribution metadata, generated timestamps and technical IDs. | `full_viewport` | Built-in tabs collapse to `Surfaces`; required controls remain reachable. |
-| `D-VFIX-011` | Compact desktop shell. | `768x640 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared account-attribution metadata, generated timestamps and technical IDs. | `full_viewport` | Chips move to `Filters`; presence moves to status strip. |
+| `D-VFIX-011` | Compact desktop shell. | `768x640 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared account-attribution metadata, generated timestamps and technical IDs. | `full_viewport` | Query detail moves to Query; the conditional scope row and footer save state remain visible. |
 | `D-VFIX-012` | Successful, filtered, responsive, density, and read-only empty query states. | `1280x720 CSS px` plus declared responsive captures | `{layout.zoomDefault}` plus `200%` | `{density.compact-mode}`, `{density.default-mode}`, and `{density.comfortable-mode}` | `dark_graphite` | `top_left` | Declared technical IDs. | `selector:[data-design-fixture='empty-state']` | Production Workbook and shared Network Analysis grids distinguish filtered empty from successful empty, preserve the owned draft only when authorized, and keep their state regions within the grid work area. |
 | `D-VFIX-013` | Immediate and delayed initial-loading states for one held production generation. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared technical IDs. | `selector:[data-design-fixture='delayed-loading']` | Immediate owner-label copy precedes the exact delayed sentence at `2,000ms`; neither phase offers Retry or presents records. |
 | `D-VFIX-014` | Stale refresh with retained authorized rows and unavailable initial load without rows. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Declared technical IDs. | `selector:[data-design-fixture='error-presentation']` | One production Playwright scenario captures both §10.8 grid loci, their distinct row-retention postures, owner-authorized Retry, focus preservation, and live priority; permission loss is separately proven as a transient clear-before-navigation behavior. |
@@ -2570,6 +2676,29 @@ implementation fixture MAY declare one optional `design_contract_id`. Each
 `D-VFIX-001` through `D-VFIX-014` value MUST occur on exactly one current
 fixture, and no other `design_contract_id` is valid. Implementation-support
 fixtures that do not claim one of these design rows MUST omit the field.
+
+### 15.2A Workbench fixture coverage
+
+Design contract. The existing fixture owners MUST incorporate these state
+variants through the canonical visual/accessibility harness before claiming the
+workbench revision. This table extends required coverage, not fixture identity
+or the machine registry schema. Each design ID remains bound to one fixture
+scenario; that scenario can capture its named variants.
+
+| Existing fixture | Additional states | Visual risk and required observation |
+| --- | --- | --- |
+| D-VFIX-001 | Closed dock and combined footer. | Grid-first default, visible navigation and distinct save/lifecycle state. |
+| D-VFIX-002 | Record, Work and Recovery; full long-source reader; ordinary retained draft; Work empty, twenty pins, refused overflow and unavailable pin. | One attachment, exact source access, readable identity/actions and honest session scope. |
+| D-VFIX-007 | Accepted write with failed refresh and retained ordinary authoring. | Accepted receipt cannot look unsaved; retained authoring remains distinct. |
+| D-VFIX-010 and D-VFIX-011 | Each destination overlay with long labels and short/empty grids. | Correct width/height bounds, focus containment and persistent footer save state. |
+| D-VFIX-014 | Independent sibling read failure, Not applied query, outside-query navigation and unavailable target. | Prior authorized content/labels remain correctly associated; local recovery is visible. |
+
+Design contract. Synthetic specimens MUST include null/empty and uncertain
+dates, long raw text and labels, equal display labels with distinct identities,
+metadata-only evidence, conflicts and zero results. Only owner-approved unstable
+metadata may be masked; source text and failure states MUST NOT be concealed.
+A screenshot proves its fixture rendering, not discoverability, correctness of
+saved data or a timed claim.
 
 ### 15.3 Coding-agent and developer guidance
 
@@ -2612,7 +2741,7 @@ Non-goal. The items in this table are intentionally outside this revision. Omiss
 | Mobile/touch-specific design | Not supported. | Below-minimum inline-size behavior follows §7.4 and does not claim design conformance. |
 | Report/export visual design | Not owned by this design contract. | Snapshot/reporting UI requires a separate design artifact or future section. |
 | External visual reference board | Non-authoritative. | Inspiration only; it cannot override token, state, or surface contracts. |
-| All-surfaces-as-primary-tabs shell | Rejected for this revision. | Required system views remain in `System views`; built-in tabs remain primary at base viewport. |
+| All-surfaces-as-primary-tabs shell | Rejected for this revision. | Required system views remain in footer `More views`; built-in footer tabs remain primary at base viewport. |
 | Command-palette-only system-view access | Rejected for this revision. | Required system views MUST be reachable from the shell. |
 | General deployment settings and all-incident catalog | Rejected for this revision. | Deployment administration exposes only the panels in §4.5; no `General settings`, all-incident catalog/search/count/metadata, or cross-incident policy-default editor appears. |
 | Deployment-admin-driven incident membership | Rejected for this revision. | Incident membership controls remain incident-role authorized and are not exposed solely because the user is a deployment administrator. |
@@ -2663,7 +2792,12 @@ Design contract. Implementations and design revisions MUST NOT do any of the fol
 
 ## 18. Acceptance criteria
 
-Design contract. This `design.md` is ready to guide design implementation only when every criterion below passes.
+Design contract. Editorial adoption and implementation qualification MUST be
+assessed separately. This document is ready to guide implementation when its
+editorial and owner-boundary criteria close the design decisions. A rendered
+design-conformance claim additionally requires every applicable token/schema,
+behavior, accessibility and visual-execution criterion below to pass.
+Document adoption MUST NOT substitute for those downstream results.
 
 ### 18.1 Editorial validation criteria
 
@@ -2700,6 +2834,8 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-023` | §7.4 | Responsive algorithm validation | Every inline size selects exactly one shell chrome mode, and every block size selects exactly one independent block-size state. | Shell chrome mode selection depends on block size, or either algorithm has an overlap or gap. |
 | `D-AC-024` | §7.5 | Responsive fixture | Responsive overflow selects the same rendered location, truncation, popover, and accessible label for each declared inline size, and vertical-only resizing preserves top-bar chrome assignment. | Same inline size permits divergent shell-control placement during vertical-only resize. |
 | `D-AC-025` | §7.4 | Below-minimum fixture | Below-minimum inline-size behavior is explicitly non-conformant or degraded with safe navigation preserved. | Below-minimum inline size claims design conformance or loses safe navigation. |
+| `D-AC-026` | §§7.1–7.5, 15.2A | Workbench fixture review | Footer bands, single dock, exact boundary tiers and each named state variant satisfy Core 04 AC-593. | Independent sidebars, clipped save state, hidden query scope or stale geometry. |
+| `D-AC-027` | §§8.3A, 8.5 | Keyboard/accessibility review | Commands borrowing, one-layer Escape and overlay/adjacent focus satisfy Core 04 AC-573–576. | Draft submission/discard on opening, stale retargeting or cascading Escape. |
 
 ### 18.4 State and interaction criteria
 

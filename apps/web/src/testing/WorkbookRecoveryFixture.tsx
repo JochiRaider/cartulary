@@ -7,15 +7,14 @@ import {
   useState,
 } from "react";
 import { WorkbookRecoveryBoundary } from "../shared/WorkbookRecoveryBoundary";
-import {
-  WorkbookWorkAreaOverlayHost,
-  WorkbookWorkAreaOverlayProvider,
-} from "../shared/WorkbookWorkAreaOverlay";
+import { WorkbookWorkAreaOverlayProvider } from "../shared/WorkbookWorkAreaOverlay";
 import { WorkbookRecoveryNavigation } from "../shared/workbookRecoveryNavigation";
 import {
   WorkbookRecoveryEntry,
   WorkbookRecoveryPanel,
 } from "../workbook/components/WorkbookRecoveryPanel";
+import { WorkbookAuxiliaryDockProvider } from "../workbook/layout/WorkbookAuxiliaryDock";
+import { WorkbookSurfaceLayout } from "../workbook/layout/WorkbookSurfaceLayout";
 
 /** Isolated owners use the same entry, attachment and geometry as the production shell. */
 export function WorkbookRecoveryFixture({
@@ -40,34 +39,43 @@ export function WorkbookRecoveryFixture({
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   useEffect(() => () => own.dispose(), [own]);
   return (
-    <WorkbookWorkAreaOverlayProvider>
-      <WorkbookRecoveryBoundary
-        navigation={navigation}
-        detailHost={host}
-        invokerRef={invokerRef}
-      >
-        <WorkbookRecoveryEntry
+    <WorkbookAuxiliaryDockProvider>
+      <WorkbookWorkAreaOverlayProvider>
+        <WorkbookRecoveryBoundary
           navigation={navigation}
+          detailHost={host}
           invokerRef={invokerRef}
-        />
-        <WorkbookRecoveryPanel
-          navigation={navigation}
-          registerDetailHost={setHost}
-          invokerRef={invokerRef}
-          fallbackRef={fallbackRef}
-        />
-        {children}
-        {standalone ? (
-          <div style={{ position: "relative", height: "40rem" }}>
-            <section
-              aria-label="Workbook grid focus target"
-              tabIndex={-1}
-              ref={fallbackRef}
-            />
-            <WorkbookWorkAreaOverlayHost />
-          </div>
-        ) : null}
-      </WorkbookRecoveryBoundary>
-    </WorkbookWorkAreaOverlayProvider>
+        >
+          <WorkbookRecoveryEntry
+            navigation={navigation}
+            invokerRef={invokerRef}
+          />
+          <WorkbookRecoveryPanel
+            navigation={navigation}
+            registerDetailHost={setHost}
+            invokerRef={invokerRef}
+            fallbackRef={fallbackRef}
+          />
+          {children}
+          {standalone ? (
+            <div style={{ position: "relative", height: "40rem" }}>
+              <WorkbookSurfaceLayout
+                workAreaOnly
+                viewSchemaId="test"
+                viewBar={null}
+                statusStrip={null}
+                primaryGrid={
+                  <section
+                    aria-label="Workbook grid focus target"
+                    tabIndex={-1}
+                    ref={fallbackRef}
+                  />
+                }
+              />
+            </div>
+          ) : null}
+        </WorkbookRecoveryBoundary>
+      </WorkbookWorkAreaOverlayProvider>
+    </WorkbookAuxiliaryDockProvider>
   );
 }

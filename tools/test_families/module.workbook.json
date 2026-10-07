@@ -1005,6 +1005,42 @@
       ]
     },
     {
+      "row_id": "module.workbook.accessibility.workbench_commands",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_workbench_commands_responsive_admission"
+        ],
+        "titles": [
+          "a11y.workbench Commands remain visible and actionable across narrow width and zoom"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.assessment_timeline_support_enum_filtering_prese_9700791fe7",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -6628,6 +6664,57 @@
       "service_dependencies": [
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.workbook.catalog.locator_public_contract",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookLocatorBoundedWindowAndOrdinaryCursor_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.locator_validation",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestLocatorValidationPrecedence_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf",

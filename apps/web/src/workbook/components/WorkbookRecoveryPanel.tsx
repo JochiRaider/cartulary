@@ -4,9 +4,10 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import { WorkbookWorkAreaOverlay } from "../../shared/WorkbookWorkAreaOverlay";
 import type { WorkbookRecoveryNavigation } from "../../shared/workbookRecoveryNavigation";
+import { useWorkbookCommand } from "../commands/WorkbookCommands";
 import { WorkbookInspectorActionButton as Button } from "../inspector/presentation/WorkbookInspectorActions";
+import { WorkbookAuxiliaryDock } from "../layout/WorkbookAuxiliaryDock";
 
 export function WorkbookRecoveryEntry({
   navigation,
@@ -19,6 +20,18 @@ export function WorkbookRecoveryEntry({
     navigation.subscribe,
     navigation.getSnapshot,
   );
+  useWorkbookCommand({
+    id: "review.recovery",
+    family: "Review",
+    label: "Open Recovery",
+    terms: ["conflict", "failed", "pending", "save"],
+    targetKind: "shell",
+    availability: () => null,
+    invoke: () => {
+      navigation.openList();
+      return true;
+    },
+  });
   return (
     <Button
       style={{ whiteSpace: "nowrap", flexShrink: 0 }}
@@ -171,7 +184,11 @@ export function WorkbookRecoveryPanel({
     );
   };
   return (
-    <WorkbookWorkAreaOverlay ref={panel} label="Workbook recovery">
+    <WorkbookAuxiliaryDock
+      ref={panel}
+      label="Workbook recovery"
+      onClose={() => navigation.close()}
+    >
       <section
         aria-label="Recovery navigation"
         id="workbook-recovery-panel"
@@ -274,6 +291,6 @@ export function WorkbookRecoveryPanel({
           style={{ overflowWrap: "anywhere", minInlineSize: 0 }}
         />
       </section>
-    </WorkbookWorkAreaOverlay>
+    </WorkbookAuxiliaryDock>
   );
 }

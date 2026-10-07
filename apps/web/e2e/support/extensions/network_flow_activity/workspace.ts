@@ -43,6 +43,7 @@ export async function openClaimedNetworkAnalysis(
 ): Promise<string> {
   expectNetworkFlowRuntimeProfile("network_flow_claimed");
   const incidentId = await openNetworkFlowIncident(page, prefix, options);
+  await page.getByRole("button", { name: "More views", exact: true }).click();
   const tab = page.getByTestId(networkAnalysisTestId("tab"));
   await expect(tab).toBeVisible();
   await tab.click();

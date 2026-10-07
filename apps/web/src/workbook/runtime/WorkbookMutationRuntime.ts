@@ -41,6 +41,7 @@ import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import { executeWorkbookConflictResolution } from "../mutations/workbookConflictResolutionAdapter";
 import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
+import { WorkbookSessionNavigation } from "../navigation/WorkbookSessionNavigation";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type {
   WorkbookSourceWriteReservation,
@@ -328,6 +329,7 @@ export class WorkbookMutationRuntime {
     return drafts;
   }
   readonly taskDrafts = new TaskLifecycleDraftStore();
+  readonly sessionNavigation: WorkbookSessionNavigation;
   readonly scope: PendingReplayScope;
   readonly history: WorkbookRecordHistoryOwner;
   readonly entityMerge: WorkbookEntityMergeOwner;
@@ -368,6 +370,7 @@ export class WorkbookMutationRuntime {
     assemble: (host: WorkbookMutationFeatureHost) => WorkbookMutationFeatures,
     dependencies: WorkbookRuntimeDependencies = browserWorkbookRuntimeDependencies,
   ) {
+    this.sessionNavigation = new WorkbookSessionNavigation(scope.incidentId);
     this.scope = { ...scope };
     this.transactionIds = transactionIds;
     this.pendingMutationPort = pendingMutationPort;
@@ -1543,6 +1546,14 @@ export class WorkbookMutationRuntime {
 
   invalidate(reason: WorkbookMutationInvalidationReason): void {
     if (this.retired) return;
+    if (
+      ["runtime_disposed", "incident_changed", "incident_access_lost"].includes(
+        reason.kind,
+      )
+    )
+      this.sessionNavigation.clear();
+    if (reason.kind !== "incident_closed")
+      this.sessionNavigation.setReadable(false);
     if (
       reason.kind === "runtime_disposed" ||
       reason.kind === "incident_changed"

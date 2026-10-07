@@ -195,6 +195,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "platform.viewquery.unit.locator_predecessor_nulls",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/querypage",
+        "tests": [
+          "TestPredecessorNullBoundary_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "platform.viewquery.unit.sort_and_filter_ceilings_canonical_normalization_4ca84c1e10",
       "owner_id": "platform.viewquery",
       "family_id": "platform.viewquery.unit",

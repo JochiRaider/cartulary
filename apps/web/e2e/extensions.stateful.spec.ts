@@ -107,6 +107,7 @@ test("Verify extension availability bootstrap, no-store startup, lazy Network An
     });
     await held.waitForHit;
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+    await page.getByRole("button", { name: "More views", exact: true }).click();
     await page.getByTestId(networkAnalysisTestId("tab")).click();
     await expect(
       page.getByTestId(networkAnalysisTestId("workspace")),

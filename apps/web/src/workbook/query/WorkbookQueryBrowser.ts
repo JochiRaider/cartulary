@@ -41,6 +41,7 @@ type Proposal = {
   earlierEvicted: boolean;
   authored: WorkbookQueryState;
   destination: Destination;
+  navigation: boolean;
 };
 
 type WorkbookBrowsingSnapshot = {
@@ -82,6 +83,7 @@ const contractFailure = (
 export class WorkbookQueryBrowser {
   private snapshot = initialSnapshot();
   private pages: readonly Page[] = [];
+  private navigationPage: Page | null = null;
   private checkpoints: readonly Checkpoint[] = [];
   private resume: Checkpoint | null = null;
   private resumeAuthored: WorkbookQueryState | null = null;
@@ -118,6 +120,37 @@ export class WorkbookQueryBrowser {
       this.listeners.delete(listener);
     };
   };
+  /** Stage a bounded read; only its source owner's acceptance can replace labels and rows. */
+  adoptNavigation(page: WorkbookViewQueryAccepted) {
+    if (
+      page.viewSchemaId !== this.viewSchemaId ||
+      page.rows.length > workbookBrowsingBounds.pageLimit ||
+      page.paging.limit !== workbookBrowsingBounds.pageLimit
+    )
+      return false;
+    this.cancel();
+    this.navigationPage = page;
+    this.publish({
+      pending: "replace",
+      pendingAction: null,
+      failure: null,
+      requested: page.producingRequest.queryState,
+    });
+    return true;
+  }
+  checkpointFor(query: WorkbookQueryState) {
+    const page =
+      this.pages.find((page) =>
+        page.rows.some((row) => row.record_id === this.anchorRecordId),
+      ) ?? this.pages[0];
+    const checkpoint = page
+      ? { request: page.producingRequest, canonical: page.canonicalQuery }
+      : this.resume;
+    return checkpoint &&
+      savedViewJSONEqual(query, checkpoint.request.queryState)
+      ? checkpoint
+      : null;
+  }
   private publish(patch: Partial<WorkbookBrowsingSnapshot>) {
     this.snapshot = { ...this.snapshot, ...patch };
     for (const listener of this.listeners) listener();
@@ -248,6 +281,7 @@ export class WorkbookQueryBrowser {
     }
     this.cancel();
     this.pages = [];
+    this.navigationPage = null;
     this.failedDestination = null;
     this.publish({
       accepted: null,
@@ -268,6 +302,7 @@ export class WorkbookQueryBrowser {
     this.cancel();
     this.authorityGeneration += 1;
     this.pages = [];
+    this.navigationPage = null;
     this.checkpoints = [];
     this.resume = null;
     this.resumeAuthored = null;
@@ -350,7 +385,24 @@ export class WorkbookQueryBrowser {
     const abort = () => controller.abort();
     input.signal.addEventListener("abort", abort, { once: true });
     if (input.signal.aborted) controller.abort();
-    let destination = this.destination(input.queryState, action);
+    const navigationPage = this.navigationPage;
+    this.navigationPage = null;
+    const navigation =
+      navigationPage !== null &&
+      savedViewJSONEqual(
+        navigationPage.producingRequest.queryState,
+        input.queryState,
+      );
+    let destination: Destination = navigation
+      ? {
+          kind: "replace",
+          start: {
+            request: navigationPage.producingRequest,
+            canonical: navigationPage.canonicalQuery,
+          },
+          pageCount: 1,
+        }
+      : this.destination(input.queryState, action);
     this.recoveryDepth = options.recoveryDepth ?? 0;
     if (this.recoveryDepth > 0 && this.failedDestination)
       destination = this.failedDestination;
@@ -379,12 +431,20 @@ export class WorkbookQueryBrowser {
     let restarted = false;
     try {
       for (;;) {
-        const result = await this.readPages(
-          input.contract,
-          destination,
-          controller.signal,
-          generation,
-        );
+        const staged = navigation && !restarted ? navigationPage : null;
+        const result =
+          staged &&
+          savedViewJSONEqual(
+            staged.producingRequest.queryState,
+            input.queryState,
+          )
+            ? { kind: "accepted" as const, pages: [staged] }
+            : await this.readPages(
+                input.contract,
+                destination,
+                controller.signal,
+                generation,
+              );
         if (
           controller.signal.aborted ||
           generation !== this.generation ||
@@ -493,6 +553,7 @@ export class WorkbookQueryBrowser {
             earlierEvicted,
             authored: structuredClone(input.queryState),
             destination,
+            navigation,
           },
         };
         return { kind: "accepted", value };
@@ -623,6 +684,7 @@ export class WorkbookQueryBrowser {
     this.failedDestination = null;
     this.proposal = null;
     this.publish({
+      ...(candidate.plan.navigation ? { focusEpoch: ++this.focusEpoch } : {}),
       accepted: value,
       canonicalQuery: value.canonicalQuery,
       authored: candidate.plan.authored,

@@ -5,6 +5,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useWorkbookCommand } from "../../commands/WorkbookCommands";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import type { useTimelineBulkTagController } from "../bulk/useTimelineBulkTagController";
 
@@ -72,6 +74,35 @@ export function TimelineBulkTagControl({
             : null;
   const message = localError ?? blocked ?? operationMessage;
   const selectedCount = binding.selectedRecordIds.size;
+  useWorkbookCommand({
+    id: "relate.assign_tag_selection",
+    family: "Relate",
+    label: "Assign tag to selected records",
+    terms: ["bulk", "bounded", "tags"],
+    targetKind: "selection",
+    availability: (target) =>
+      target.kind !== "selection" ||
+      target.viewSchemaId !== timelineViewSchemaId ||
+      target.recordIds.length !== binding.selectedRecordIds.size ||
+      !target.recordIds.every((id) => binding.selectedRecordIds.has(id))
+        ? "The selection changed."
+        : !binding.canAssign || !draft?.canEdit
+          ? "Tag assignment is currently unavailable."
+          : blocked,
+    invoke: (target) => {
+      if (
+        target.kind !== "selection" ||
+        !binding.canAssign ||
+        !draft?.canEdit ||
+        blocked ||
+        !input.current
+      )
+        return false;
+      input.current.focus();
+      return true;
+    },
+  });
+
   if (draft === null) return null;
   if (!selectedCount && !draft.raw && !focused && !localError && !entry)
     return null;

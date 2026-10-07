@@ -62,7 +62,7 @@ export type SystemWorkbookSurfaceGroup = {
 
 const systemWorkbookSurfaceGroupDefinitions = [
   {
-    label: "Scope and indicators",
+    label: "Investigation",
     token: "scope-indicators",
     viewSchemaIds: [indicatorsViewSchemaId, assessmentsViewSchemaId],
   },
@@ -75,15 +75,12 @@ const systemWorkbookSurfaceGroupDefinitions = [
       partiesViewSchemaId,
       commLogViewSchemaId,
       handoffViewSchemaId,
+      statusReviewViewSchemaId,
+      lessonViewSchemaId,
     ],
   },
   {
-    label: "Review and learning",
-    token: "review-learning",
-    viewSchemaIds: [statusReviewViewSchemaId, lessonViewSchemaId],
-  },
-  {
-    label: "Optional artifact surfaces",
+    label: "Additional analysis",
     token: "optional-artifact-surfaces",
     viewSchemaIds: [
       findingsViewSchemaId,

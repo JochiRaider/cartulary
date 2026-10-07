@@ -1,9 +1,13 @@
 import {
   getReferenceFieldContract,
+  type ReferenceFieldContract,
+  requireViewContract,
   type ViewContract,
 } from "@cartulary/view-contracts";
+import { workbookFormInputStyle } from "../../components/workbookFormStyles";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import { genericCellLabel } from "../../models/genericWorkbookModel";
+import { useWorkbookWorkbench } from "../../navigation/WorkbookWorkbenchContext";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 
 /** Reference membership and permitted target kinds come from authored fields.
@@ -57,6 +61,13 @@ export function GenericInspectorReferenceSummary({
                   ? "Not available in this row."
                   : genericCellLabel(cell.value)}
               </dd>
+              <ReferenceDestinations
+                reference={getReferenceFieldContract(
+                  contract.viewSchemaId,
+                  field.fieldKey,
+                )}
+                value={cell?.value}
+              />
               {field.patchWritable ? (
                 <dd style={{ marginInlineStart: 0, minInlineSize: 0 }}>
                   <Button
@@ -77,4 +88,94 @@ export function GenericInspectorReferenceSummary({
       </dl>
     </>
   );
+}
+
+/** The read contract does not supply a target schema for polymorphic links.
+ * Require an explicit admitted surface; never parse a display label as identity
+ * or scan candidate surfaces to infer a record's type. */
+function ReferenceDestinations({
+  reference,
+  value,
+}: {
+  readonly reference: ReferenceFieldContract | undefined;
+  readonly value: unknown;
+}) {
+  const workbench = useWorkbookWorkbench();
+  if (!workbench || !reference || reference.identityKind === "incident_member")
+    return null;
+  const items: unknown[] =
+    reference.kind === "direct"
+      ? [value]
+      : value &&
+          typeof value === "object" &&
+          "items" in value &&
+          Array.isArray(value.items)
+        ? value.items
+        : [];
+  const ids = [
+    ...new Set(
+      items.flatMap((item) => {
+        const id =
+          typeof item === "string"
+            ? item
+            : item && typeof item === "object" && "linked_record_id" in item
+              ? item.linked_record_id
+              : null;
+        return typeof id === "string" &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(
+            id,
+          )
+          ? [id]
+          : [];
+      }),
+    ),
+  ];
+  return ids.map((recordId) => (
+    <dd
+      key={recordId}
+      style={{ marginInlineStart: 0 }}
+      data-workbook-navigation="true"
+    >
+      {reference.targetViewSchemaIds.length === 1 ? (
+        <Button
+          tone="quiet"
+          onClick={() => {
+            const id = reference.targetViewSchemaIds[0];
+            if (id)
+              workbench.open({
+                sheetRef: { kind: "view_schema", id },
+                recordId,
+              });
+          }}
+        >
+          Open{" "}
+          {requireViewContract(reference.targetViewSchemaIds[0] ?? "").title}{" "}
+          record
+        </Button>
+      ) : (
+        <label>
+          Open linked record {recordId}
+          <select
+            style={workbookFormInputStyle}
+            value=""
+            onChange={(event) => {
+              const id = event.currentTarget.value;
+              if (reference.targetViewSchemaIds.includes(id))
+                workbench.open({
+                  sheetRef: { kind: "view_schema", id },
+                  recordId,
+                });
+            }}
+          >
+            <option value="">Choose its surface…</option>
+            {reference.targetViewSchemaIds.map((id) => (
+              <option key={id} value={id}>
+                {requireViewContract(id).title}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+    </dd>
+  ));
 }

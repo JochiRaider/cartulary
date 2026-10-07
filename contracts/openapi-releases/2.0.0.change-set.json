@@ -2354,6 +2354,48 @@
       "classification": "additive",
       "owner_id": "module.auth",
       "rationale": "Core 04 REQ-04-166 and the fresh-deployment credential policy require bounded password workflows with the closed 503 authentication_capacity_exhausted response, Retry-After 1 and SHA-256 TOTP enrollment. SHA-1 credentials require fresh enrollment; no compatibility verifier is retained."
+    },
+    {
+      "fingerprint": "78a82b110a53734b50666b6971c192aa01ae4604c839fd3f265e5356531d5d09",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopted bounded locator: read-only standardized view location, disjoint non-disclosing outcomes and ordinary query cursors; source write contracts are unchanged."
+    },
+    {
+      "fingerprint": "9bd5c3735500c425d74c580f9e6b6857e7b1a82ef6fdbee2c07120d0a19b9f34",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopted bounded locator: read-only standardized view location, disjoint non-disclosing outcomes and ordinary query cursors; source write contracts are unchanged."
+    },
+    {
+      "fingerprint": "13b03174cf3b4e43ad9d41baefa7a5f52876974b494476b1c5ba806f3acd8bc1",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopted bounded locator: read-only standardized view location, disjoint non-disclosing outcomes and ordinary query cursors; source write contracts are unchanged."
+    },
+    {
+      "fingerprint": "16cfde450cbecbc9ac007a442a020095828a62f0cff817ade9745922ce039a16",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopted bounded locator: read-only standardized view location, disjoint non-disclosing outcomes and ordinary query cursors; source write contracts are unchanged."
+    },
+    {
+      "fingerprint": "df75b4073bbfddecb9a31f14e1a7f65f6287586243af0c0c66e632b2795375de",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopted bounded locator: read-only standardized view location, disjoint non-disclosing outcomes and ordinary query cursors; source write contracts are unchanged."
+    },
+    {
+      "fingerprint": "da0149cd068d4ee5201601d474349908542af3688041d0cac925c2ed81216060",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopted bounded locator: read-only standardized view location, disjoint non-disclosing outcomes and ordinary query cursors; source write contracts are unchanged."
+    },
+    {
+      "fingerprint": "be8c6830570199c8481e485b5e7c773b64440f7e3643ed4304daf58e94ffff27",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopted bounded locator: read-only standardized view location, disjoint non-disclosing outcomes and ordinary query cursors; source write contracts are unchanged."
     }
   ]
 }

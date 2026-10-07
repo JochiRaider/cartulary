@@ -57,6 +57,7 @@ const operationFamilyByID = {
   putIncidentDefaultWorkbookPreferences: "field_mutation",
   putTimelineTimeConversionProfile: "field_mutation",
   queryWorkbookView: "surface_load",
+  locateWorkbookViewRecord: "surface_load",
   resolveEntityMention: "field_mutation",
   resolveIndicatorObservation: "field_mutation",
   resolveRecordSameFieldConflict: "field_mutation",

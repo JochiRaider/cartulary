@@ -160,6 +160,7 @@ async function seedWithBrowser({ root, environment, privateDirectory, runRoot, p
     await expect(page.getByTestId("workbook-shell-ready")).toBeVisible({ timeout: 30000 });
     writeFileSync(path.join(runRoot, "review-workbook.png"), await page.screenshot(), { mode: 0o600 });
     if (profile === "network_flow_claimed") {
+      await page.getByRole("button", {name: "More views", exact: true}).click();
       await page.getByTestId("network-flow-analysis-tab").click();
       await page.getByTestId("network-flow-analysis-import-input").setInputFiles(path.join(samples, "network-flow.csv"));
       await page.getByTestId("network-flow-analysis-mapping-display-name").fill("Review network flows");

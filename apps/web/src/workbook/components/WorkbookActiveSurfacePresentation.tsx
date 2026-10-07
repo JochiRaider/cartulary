@@ -1,4 +1,4 @@
-import { lazy, type ReactNode, Suspense } from "react";
+import { type ComponentType, lazy, type ReactNode, Suspense } from "react";
 import { ExtensionAvailabilityProvider } from "../../extensions/ExtensionAvailabilityContext";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import {
@@ -25,6 +25,8 @@ type ExtensionWorkspaceRendererProps = {
   readonly savedGraphController: SavedGraphController;
   readonly importController: NetworkFlowImportController;
   readonly workbookStatus: ReactNode;
+  readonly workAreaFrame?: ComponentType<{ readonly children: ReactNode }>;
+  readonly workbookNavigation?: ReactNode;
   readonly apiBase: string | undefined;
   readonly currentUserId: string | null;
   readonly currentIncidentRole: WorkbookIncidentRole | null;

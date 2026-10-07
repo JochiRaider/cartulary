@@ -1,5 +1,6 @@
 import {
   networkAnalysisTestId,
+  systemViewSwitcherTriggerTestId,
   workbookIncidentIdentityTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -93,7 +94,7 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
             : ([
                 options.fallbackFocusTestId ??
                   networkAnalysisTestId("workspace"),
-                networkAnalysisTestId("tab"),
+                systemViewSwitcherTriggerTestId(),
                 workbookIncidentIdentityTestId(),
               ].flatMap((testId) =>
                 Array.from(document.getElementsByTagName("*")).filter(

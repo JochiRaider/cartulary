@@ -11,19 +11,25 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useWorkbookSecondaryPanel } from "../../shared/WorkbookRecoveryBoundary";
 import { WorkbookWorkAreaOverlayHost } from "../../shared/WorkbookWorkAreaOverlay";
 import { WorkbookShellSlotRegion } from "../components/WorkbookShellSlots";
+import { useWorkbookWorkbench } from "../navigation/WorkbookWorkbenchContext";
 import { WorkbookQueryBrowsingControls } from "../query/WorkbookQueryBrowsingControls";
 import { statusStripStyle } from "../utils/workbookStyles";
+import { useWorkbookAuxiliaryDock } from "./WorkbookAuxiliaryDock";
 import { WorkbookQuerySummaryHost } from "./WorkbookQuerySummarySlot";
 import {
   WorkbookInspectorNavigationContext,
   type WorkbookInspectorNavigationSelection,
 } from "./workbookInspectorNavigation";
-import type { WorkbookChromeMode } from "./workbookResponsiveLayout";
+import {
+  selectWorkbookChromeMode,
+  type WorkbookChromeMode,
+} from "./workbookResponsiveLayout";
 
 const inspectorKeyboardStepCssPx = 16;
 
 export function WorkbookSurfaceLayout({
   chromeMode = "base",
+  workAreaOnly = false,
   inspector,
   onRequestInspectorClose,
   restoreInspectorFocus,
@@ -42,6 +48,7 @@ export function WorkbookSurfaceLayout({
   onWorkAreaKeyDown,
 }: {
   readonly chromeMode?: WorkbookChromeMode | undefined;
+  readonly workAreaOnly?: boolean;
   readonly inspector?: ReactNode | undefined;
   readonly onRequestPreviewClose?: (() => void) | undefined;
   readonly onRequestInspectorClose?: (() => void) | undefined;
@@ -61,14 +68,32 @@ export function WorkbookSurfaceLayout({
   readonly onWorkAreaContextMenu?: MouseEventHandler<HTMLElement> | undefined;
   readonly onWorkAreaKeyDown?: KeyboardEventHandler<HTMLElement> | undefined;
 }) {
-  const inspectorOpen = inspector !== undefined;
+  const dock = useWorkbookAuxiliaryDock();
+  const inspectorOpen = inspector !== undefined || !!dock?.attachment;
+  const closeDestination = dock?.attachment?.close ?? onRequestInspectorClose;
   const [querySummaryHost, setQuerySummaryHost] = useState<HTMLElement | null>(
     null,
   );
   const inspectorNavigation =
     useRef<WorkbookInspectorNavigationSelection | null>(null);
-  const coordinatedClose = useWorkbookSecondaryPanel(inspectorOpen, () =>
-    onRequestInspectorClose?.(),
+  const coordinatedClose = useWorkbookSecondaryPanel(
+    inspector !== undefined,
+    () => onRequestInspectorClose?.(),
+  );
+  const workbench = useWorkbookWorkbench();
+  const registerInspector = workbench?.registerInspector;
+  useLayoutEffect(
+    () =>
+      registerInspector?.(viewSchemaId, "close", () => {
+        coordinatedClose.current = true;
+        onRequestInspectorClose?.();
+      }),
+    [
+      registerInspector,
+      viewSchemaId,
+      onRequestInspectorClose,
+      coordinatedClose,
+    ],
   );
   const inspectorIsAdjacent = chromeMode === "base";
   const backgroundIsInert = inspectorOpen && !inspectorIsAdjacent;
@@ -203,10 +228,14 @@ export function WorkbookSurfaceLayout({
       event.key === "Escape" &&
       !event.defaultPrevented &&
       inspectorOpen &&
-      onRequestInspectorClose
+      !event.nativeEvent.isComposing &&
+      (!inspectorIsAdjacent ||
+        (event.target instanceof Element &&
+          !!event.target.closest('[data-workbook-slot="inspector"]'))) &&
+      closeDestination
     ) {
       event.preventDefault();
-      onRequestInspectorClose();
+      closeDestination();
     }
   };
   const workAreaStyle = {
@@ -229,7 +258,10 @@ export function WorkbookSurfaceLayout({
           boxShadow: "none",
         }
       : chromeMode === "narrow_desktop"
-        ? workbookSurfaceNarrowInspectorSlotStyle
+        ? {
+            ...workbookSurfaceNarrowInspectorSlotStyle,
+            inlineSize: layoutMetrics.inspectorOverlayWidthCssPx,
+          }
         : workbookSurfaceCompactInspectorSlotStyle),
   } satisfies CSSProperties;
 
@@ -248,14 +280,22 @@ export function WorkbookSurfaceLayout({
         }
         data-testid={testId}
         data-workbook-responsive-band={chromeMode}
-        style={workbookSurfaceFrameStyle}
+        style={{
+          ...workbookSurfaceFrameStyle,
+          ...(workAreaOnly
+            ? { gridTemplateRows: "0px 0px minmax(0, 1fr) 0px" }
+            : {}),
+        }}
         onKeyDownCapture={closePreviewFromEscape}
         onKeyDown={closeInspectorFromEscape}
       >
         {workAreaAnnouncements}
         <WorkbookShellSlotRegion
           slot="view-bar"
-          style={workbookSurfaceViewBarStyle}
+          style={{
+            ...workbookSurfaceViewBarStyle,
+            ...(workAreaOnly ? { display: "none" } : {}),
+          }}
           viewSchemaId={viewSchemaId}
         >
           <WorkbookQuerySummaryHost.Provider value={querySummaryHost}>
@@ -291,7 +331,9 @@ export function WorkbookSurfaceLayout({
               viewSchemaId={viewSchemaId}
             >
               <div style={{ minHeight: 0, flex: "1 1 0" }}>{primaryGrid}</div>
-              <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
+              {workAreaOnly ? null : (
+                <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
+              )}
             </WorkbookShellSlotRegion>
             <div
               aria-hidden={
@@ -307,8 +349,43 @@ export function WorkbookSurfaceLayout({
               {workAreaOverlays}
             </div>
             <WorkbookWorkAreaOverlayHost />
-            {inspector === undefined ? null : (
+            {!inspectorOpen ? null : (
               <WorkbookShellSlotRegion
+                onKeyDown={(event) => {
+                  if (
+                    inspectorIsAdjacent ||
+                    event.key !== "Tab" ||
+                    event.defaultPrevented
+                  )
+                    return;
+                  const controls = Array.from(
+                    event.currentTarget.querySelectorAll<HTMLElement>(
+                      "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [contenteditable='true'], [tabindex]",
+                    ),
+                  ).filter(
+                    (element) =>
+                      element.tabIndex >= 0 &&
+                      !element.matches(":disabled") &&
+                      !element.closest("[hidden],[inert]") &&
+                      element.getClientRects().length > 0,
+                  );
+                  const first = controls[0],
+                    last = controls.at(-1);
+                  if (
+                    event.shiftKey &&
+                    (document.activeElement === first ||
+                      !controls.includes(document.activeElement as HTMLElement))
+                  ) {
+                    event.preventDefault();
+                    last?.focus();
+                  } else if (
+                    !event.shiftKey &&
+                    document.activeElement === last
+                  ) {
+                    event.preventDefault();
+                    first?.focus();
+                  }
+                }}
                 slot="inspector"
                 style={inspectorSlotStyle}
                 viewSchemaId={viewSchemaId}
@@ -332,14 +409,24 @@ export function WorkbookSurfaceLayout({
                     onPointerUp={finishPointerResize}
                   />
                 ) : null}
-                {inspector}
+                {dock?.attachment ? (
+                  <div
+                    ref={dock.setHost}
+                    style={{ minHeight: 0, height: "100%" }}
+                  />
+                ) : (
+                  inspector
+                )}
               </WorkbookShellSlotRegion>
             )}
           </section>
         </div>
         <WorkbookShellSlotRegion
           slot="status-strip"
-          style={workbookSurfaceStatusStripStyle}
+          style={{
+            ...workbookSurfaceStatusStripStyle,
+            ...(workAreaOnly ? { display: "none" } : {}),
+          }}
           viewSchemaId={viewSchemaId}
         >
           {statusStrip}
@@ -456,6 +543,7 @@ const workbookSurfaceOverlayLayerStyle = {
 } satisfies CSSProperties;
 
 const workbookSurfaceInspectorSlotStyle = {
+  background: "var(--ct-colors-surface-1)",
   position: "absolute" as const,
   zIndex: 8,
   insetBlock: 0,
@@ -476,11 +564,8 @@ const workbookSurfaceNarrowInspectorSlotStyle = {
   gridArea: "1 / 1",
   insetBlock: 0,
   insetInlineEnd: 0,
-  inlineSize:
-    "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
-  minInlineSize:
-    "min(var(--ct-layout-inspectorMinWidth), calc(100% - var(--ct-spacing-xl)))",
-  maxInlineSize: "var(--ct-layout-inspectorMaxWidth)",
+  minInlineSize: 0,
+  maxInlineSize: "100%",
   boxShadow: "var(--ct-elevation-drawer)",
 } satisfies CSSProperties;
 
@@ -521,3 +606,39 @@ export const workbookGridWithNoticeStyle = {
   minHeight: 0,
   height: "100%",
 } satisfies CSSProperties;
+
+/** The shell supplies the same auxiliary destination to extension work areas. */
+export function WorkbookExtensionWorkArea({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
+  const [mode, setMode] = useState(() =>
+    selectWorkbookChromeMode(window.innerWidth),
+  );
+  useLayoutEffect(() => {
+    const update = () =>
+      setMode(
+        selectWorkbookChromeMode(
+          window.visualViewport?.width ?? window.innerWidth,
+        ),
+      );
+    update();
+    window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+    };
+  }, []);
+  return (
+    <WorkbookSurfaceLayout
+      workAreaOnly
+      chromeMode={mode}
+      viewSchemaId="extension"
+      viewBar={null}
+      statusStrip={null}
+      primaryGrid={children}
+    />
+  );
+}

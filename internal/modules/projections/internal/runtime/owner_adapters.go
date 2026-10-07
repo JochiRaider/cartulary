@@ -400,3 +400,11 @@ func loadProviderRowTx(
 	}
 	return store.LoadRowTx(ctx, tx, viewSchemaID, recordID)
 }
+
+func (r *entityRows) SelectHostQueryProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) ([]entityports.HostQueryProjection, error) {
+	return r.hostReader.SelectHostQueryProjectionsTx(ctx, tx, incidentID, query, window)
+}
+
+func (r *entityRows) SelectIdentityQueryProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) ([]entityports.IdentityQueryProjection, error) {
+	return r.identityReader.SelectIdentityQueryProjectionsTx(ctx, tx, incidentID, query, window)
+}

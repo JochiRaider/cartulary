@@ -73,6 +73,35 @@ function fixture(count = 405) {
 }
 
 describe("Workbook query browsing", () => {
+  it("replays a located window through its ordinary cursor and refreshes from the beginning", async () => {
+    const { browser, query, read } = fixture();
+    await read();
+    await browser.activate("more", read);
+    const received = await query({
+      ...input(),
+      cursorToken: " opaque +/100= ",
+    });
+    if (received.kind !== "accepted") throw new Error("Expected page");
+    const located = received.value;
+    const previous = browser.getSnapshot().accepted;
+    expect(browser.adoptNavigation(located)).toBe(true);
+    expect(browser.getSnapshot().accepted).toBe(previous);
+    expect(browser.getSnapshot().pending).toBe("replace");
+    query.mockClear();
+    await read(); // The source owner consumes the staged observation without another read.
+    expect(query).not.toHaveBeenCalled();
+    expect(browser.getSnapshot().hasEarlier).toBe(false);
+    expect(browser.getSnapshot().accepted?.rows[0]?.record_id).toBe(
+      row(101).record_id,
+    );
+    await browser.reconcile(read);
+    expect(query.mock.calls[0]?.[0].cursorToken).toBe(" opaque +/100= ");
+    await browser.activate("restart", read);
+    expect(query.mock.calls[1]?.[0].cursorToken).toBeUndefined();
+    expect(browser.getSnapshot().accepted?.rows[0]?.record_id).toBe(
+      row(1).record_id,
+    );
+  });
   it("coalesces live invalidations and stages only the current three-page window", async () => {
     const { browser, query, read } = fixture();
     await read();

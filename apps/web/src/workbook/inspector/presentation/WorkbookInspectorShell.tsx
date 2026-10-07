@@ -21,8 +21,10 @@ import {
   useWorkbookInspectorNavigation,
   type WorkbookInspectorExplicitNavigation,
 } from "../../layout/workbookInspectorNavigation";
+import { useWorkbookWorkbench } from "../../navigation/WorkbookWorkbenchContext";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import { WorkbookInspectorActionButton } from "./WorkbookInspectorActions";
+import { WorkbookInspectorCommandSubject } from "./WorkbookInspectorCommandSubject";
 import {
   WorkbookInspectorCompactMetadata,
   WorkbookInspectorTechnicalDetails,
@@ -87,6 +89,7 @@ type WorkbookInspectorShellProps = ShellCommon &
   );
 
 export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
+  const workbench = useWorkbookWorkbench();
   const { accessibleLabel, config, elementRef, onClose, testId, mode } = props;
   const subject = mode === "saved" ? props.subject : null;
   const sections = mode === "empty" ? noSections : props.sections;
@@ -164,35 +167,36 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
     choose(section, destination);
   };
   return (
-    <aside
-      aria-label={accessibleLabel}
-      aria-labelledby={headingId}
-      data-inspector-state={
-        subject === null
-          ? mode === "creation"
-            ? "creation"
-            : "no_row_selected"
-          : "ready"
-      }
-      data-record-id={subject?.recordId}
-      data-row-version={subject?.rowVersion}
-      data-testid={testId}
-      data-view-schema-id={config.viewSchemaId}
-      ref={elementRef}
-      style={shellStyle}
-      onKeyDown={(event) => {
-        if (
-          event.key === "Escape" &&
-          !event.defaultPrevented &&
-          !event.nativeEvent.isComposing
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
+    <WorkbookInspectorCommandSubject value={subject}>
+      <aside
+        aria-label={accessibleLabel}
+        aria-labelledby={headingId}
+        data-inspector-state={
+          subject === null
+            ? mode === "creation"
+              ? "creation"
+              : "no_row_selected"
+            : "ready"
         }
-      }}
-    >
-      <style>{`
+        data-record-id={subject?.recordId}
+        data-row-version={subject?.rowVersion}
+        data-testid={testId}
+        data-view-schema-id={config.viewSchemaId}
+        ref={elementRef}
+        style={shellStyle}
+        onKeyDown={(event) => {
+          if (
+            event.key === "Escape" &&
+            !event.defaultPrevented &&
+            !event.nativeEvent.isComposing
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          }
+        }}
+      >
+        <style>{`
         [data-inspector-state] :is(button,input,select,textarea,summary,[tabindex]):focus-visible {
           outline: var(--ct-component-focus-ring-border);
           outline-offset: var(--ct-component-focus-ring-offset);
@@ -210,238 +214,265 @@ export function WorkbookInspectorShell(props: WorkbookInspectorShellProps) {
           text-decoration: underline;
         }
       `}</style>
-      <header style={headerStyle}>
-        <div style={titleRowStyle}>
-          <div style={titleStackStyle}>
-            <h2 id={headingId} style={titleStyle}>
-              {heading}
-            </h2>
+        <header style={headerStyle}>
+          <div style={titleRowStyle}>
+            <div style={titleStackStyle}>
+              <h2 id={headingId} style={titleStyle}>
+                {heading}
+              </h2>
+            </div>
+            {subject && workbench ? (
+              <button
+                type="button"
+                aria-label="Pin record to Work"
+                style={closeButtonStyle}
+                onClick={() =>
+                  workbench.pinRecord(
+                    subject.viewSchemaId,
+                    subject.recordId,
+                    subject.label,
+                  )
+                }
+              >
+                Pin
+              </button>
+            ) : null}
+            <button
+              aria-label="Close inspector"
+              ref={closeRef}
+              data-testid={workbookInspectorCloseButtonTestId(
+                config.viewSchemaId,
+              )}
+              style={closeButtonStyle}
+              type="button"
+              onClick={onClose}
+            >
+              <X aria-hidden="true" size={16} />
+              <span>Close</span>
+            </button>
           </div>
-          <button
-            aria-label="Close inspector"
-            ref={closeRef}
-            data-testid={workbookInspectorCloseButtonTestId(
-              config.viewSchemaId,
-            )}
-            style={closeButtonStyle}
-            type="button"
-            onClick={onClose}
-          >
-            <X aria-hidden="true" size={16} />
-            <span>Close</span>
-          </button>
-        </div>
-        {subject === null ? (
-          mode === "empty" ? (
-            <p style={messageStyle}>{workbookInspectorNoRowMessage}</p>
-          ) : null
-        ) : null}
-        {active ? (
-          <fieldset
-            ref={navigationRef}
-            aria-label="Section navigation"
-            style={navigationStyle}
-            onFocusCapture={(event) => onNavigationFocus(event.target)}
-            onBlurCapture={(event) => onNavigationBlur(event.relatedTarget)}
-            onKeyDown={(event) => {
-              if (
-                event.key === "Escape" &&
-                menuOpen &&
-                !event.nativeEvent.isComposing &&
-                !event.defaultPrevented
-              ) {
-                event.preventDefault();
-                event.stopPropagation();
-                dismissMenu();
-              }
-            }}
-          >
-            <div
-              aria-hidden="true"
-              inert
-              style={{
-                position: "absolute",
-                insetInline: 0,
-                blockSize: 0,
-                overflow: "hidden",
-                visibility: "hidden",
-                pointerEvents: "none",
+          {subject === null ? (
+            mode === "empty" ? (
+              <p style={messageStyle}>{workbookInspectorNoRowMessage}</p>
+            ) : null
+          ) : null}
+          {active ? (
+            <fieldset
+              ref={navigationRef}
+              aria-label="Section navigation"
+              style={navigationStyle}
+              onFocusCapture={(event) => onNavigationFocus(event.target)}
+              onBlurCapture={(event) => onNavigationBlur(event.relatedTarget)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Escape" &&
+                  menuOpen &&
+                  !event.nativeEvent.isComposing &&
+                  !event.defaultPrevented
+                ) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  dismissMenu();
+                }
               }}
             >
               <div
-                data-inspector-navigation-measure
-                ref={measurementRef}
                 aria-hidden="true"
                 inert
-                style={measurementStyle}
+                style={{
+                  position: "absolute",
+                  insetInline: 0,
+                  blockSize: 0,
+                  overflow: "hidden",
+                  visibility: "hidden",
+                  pointerEvents: "none",
+                }}
               >
-                {sections.map((section) => (
-                  <span
-                    key={section.panel.panelId}
-                    style={navigationButtonStyle}
-                  >
-                    {section.panel.label}
-                  </span>
-                ))}
+                <div
+                  data-inspector-navigation-measure
+                  ref={measurementRef}
+                  aria-hidden="true"
+                  inert
+                  style={measurementStyle}
+                >
+                  {sections.map((section) => (
+                    <span
+                      key={section.panel.panelId}
+                      style={navigationButtonStyle}
+                    >
+                      {section.panel.label}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-            {direct ? (
-              <nav
-                aria-label="Inspector sections"
-                style={directNavigationStyle}
-              >
-                {sections.map((section) => (
+              {direct ? (
+                <nav
+                  aria-label="Inspector sections"
+                  style={directNavigationStyle}
+                >
+                  {sections.map((section) => (
+                    <button
+                      type="button"
+                      key={section.panel.panelId}
+                      style={navigationButtonStyle}
+                      data-inspector-navigation-panel={section.panel.panelId}
+                      aria-current={
+                        section.panel.panelId === active.panel.panelId
+                          ? "location"
+                          : undefined
+                      }
+                      onClick={() => chooseDeliberately(section)}
+                    >
+                      {section.panel.label}
+                    </button>
+                  ))}
+                </nav>
+              ) : (
+                <>
+                  <WorkbookInspectorActionButton
+                    tone="quiet"
+                    ref={triggerRef}
+                    aria-controls={navigationId}
+                    aria-expanded={menuOpen}
+                    onClick={toggleMenu}
+                  >
+                    Sections: {active.panel.label}
+                  </WorkbookInspectorActionButton>
+                  {menuOpen ? (
+                    <nav
+                      id={navigationId}
+                      aria-label="Inspector sections"
+                      style={navigationMenuStyle}
+                    >
+                      {sections.map((section) => (
+                        <WorkbookInspectorActionButton
+                          key={section.panel.panelId}
+                          aria-current={
+                            section.panel.panelId === active.panel.panelId
+                              ? "location"
+                              : undefined
+                          }
+                          onClick={() => chooseDeliberately(section)}
+                        >
+                          {section.panel.label}
+                        </WorkbookInspectorActionButton>
+                      ))}
+                    </nav>
+                  ) : null}
+                </>
+              )}
+            </fieldset>
+          ) : null}
+          {attention.length ? (
+            <button
+              type="button"
+              style={{
+                ...attentionButtonStyle,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              onClick={() => {
+                const single =
+                  attention.length === 1 ? attention[0] : undefined;
+                if (single) {
+                  if (admitsAttention(single.entry))
+                    chooseDeliberately(
+                      single.section,
+                      single.entry.destination,
+                    );
+                  return;
+                }
+                if (attentionRef.current) reveal(attentionRef.current);
+                attentionRef.current?.focus({ preventScroll: true });
+              }}
+            >
+              {attention.length === 1
+                ? `View: ${attention[0]?.entry.label}`
+                : `Unfinished work (${attention.length})`}
+            </button>
+          ) : null}
+        </header>
+        <div
+          data-inspector-scroll-body
+          style={bodyStyle}
+          ref={bodyRef}
+          onScroll={() => {
+            if (observeScroll()) props.onDeliberateNavigation?.();
+          }}
+        >
+          {subject ? (
+            <details>
+              <summary>Record context</summary>
+              <RecordContext subject={subject} />
+              <p style={fullLabelStyle}>{subject.label}</p>
+            </details>
+          ) : null}
+          {attention.length ? (
+            <section
+              ref={attentionRef}
+              tabIndex={-1}
+              aria-label="Unfinished work"
+              style={panelSectionStyle}
+            >
+              <h3 style={panelTitleStyle}>Unfinished work</h3>
+              {attention.map(({ section, entry }) => (
+                <div
+                  key={entry.workId}
+                  data-inspector-attention={entry.category}
+                >
                   <button
                     type="button"
-                    key={section.panel.panelId}
-                    style={navigationButtonStyle}
-                    data-inspector-navigation-panel={section.panel.panelId}
-                    aria-current={
-                      section.panel.panelId === active.panel.panelId
-                        ? "location"
-                        : undefined
-                    }
-                    onClick={() => chooseDeliberately(section)}
-                  >
-                    {section.panel.label}
-                  </button>
-                ))}
-              </nav>
-            ) : (
-              <>
-                <WorkbookInspectorActionButton
-                  tone="quiet"
-                  ref={triggerRef}
-                  aria-controls={navigationId}
-                  aria-expanded={menuOpen}
-                  onClick={toggleMenu}
-                >
-                  Sections: {active.panel.label}
-                </WorkbookInspectorActionButton>
-                {menuOpen ? (
-                  <nav
-                    id={navigationId}
-                    aria-label="Inspector sections"
-                    style={navigationMenuStyle}
-                  >
-                    {sections.map((section) => (
-                      <WorkbookInspectorActionButton
-                        key={section.panel.panelId}
-                        aria-current={
-                          section.panel.panelId === active.panel.panelId
-                            ? "location"
-                            : undefined
-                        }
-                        onClick={() => chooseDeliberately(section)}
-                      >
-                        {section.panel.label}
-                      </WorkbookInspectorActionButton>
-                    ))}
-                  </nav>
-                ) : null}
-              </>
-            )}
-          </fieldset>
-        ) : null}
-        {attention.length ? (
-          <button
-            type="button"
-            style={{
-              ...attentionButtonStyle,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-            onClick={() => {
-              const single = attention.length === 1 ? attention[0] : undefined;
-              if (single) {
-                if (admitsAttention(single.entry))
-                  chooseDeliberately(single.section, single.entry.destination);
-                return;
-              }
-              if (attentionRef.current) reveal(attentionRef.current);
-              attentionRef.current?.focus({ preventScroll: true });
-            }}
-          >
-            {attention.length === 1
-              ? `View: ${attention[0]?.entry.label}`
-              : `Unfinished work (${attention.length})`}
-          </button>
-        ) : null}
-      </header>
-      <div
-        data-inspector-scroll-body
-        style={bodyStyle}
-        ref={bodyRef}
-        onScroll={() => {
-          if (observeScroll()) props.onDeliberateNavigation?.();
-        }}
-      >
-        {subject ? (
-          <details>
-            <summary>Record context</summary>
-            <RecordContext subject={subject} />
-            <p style={fullLabelStyle}>{subject.label}</p>
-          </details>
-        ) : null}
-        {attention.length ? (
-          <section
-            ref={attentionRef}
-            tabIndex={-1}
-            aria-label="Unfinished work"
-            style={panelSectionStyle}
-          >
-            <h3 style={panelTitleStyle}>Unfinished work</h3>
-            {attention.map(({ section, entry }) => (
-              <div key={entry.workId} data-inspector-attention={entry.category}>
-                <button
-                  type="button"
-                  style={attentionButtonStyle}
-                  onClick={() => {
-                    if (admitsAttention(entry))
-                      chooseDeliberately(section, entry.destination);
-                  }}
-                >
-                  {entry.label}
-                </button>
-                {entry.actions?.map((action) => (
-                  <WorkbookInspectorActionButton
-                    key={action.label}
+                    style={attentionButtonStyle}
                     onClick={() => {
-                      if (admitsAttention(entry)) action.invoke();
+                      if (admitsAttention(entry))
+                        chooseDeliberately(section, entry.destination);
                     }}
                   >
-                    {action.label}
-                  </WorkbookInspectorActionButton>
-                ))}
-              </div>
-            ))}
-          </section>
-        ) : null}
-        {sections.map((section) => (
-          <WorkbookInspectorPanelSection
-            key={section.panel.panelId}
-            panel={section.panel}
-            viewSchemaId={config.viewSchemaId}
-            onFocus={() => remember(section.panel.panelId)}
-            elementRef={(element) => {
-              registerSection(section.panel.panelId, element);
-              section.elementRef?.(element);
-            }}
-          >
-            {section.content}
-          </WorkbookInspectorPanelSection>
-        ))}
-        {mode === "saved" ? props.feedback : null}
-        {subject === null ? null : (
-          <section aria-label="Record technical metadata" style={metadataStyle}>
-            <WorkbookInspectorTechnicalDetails
-              fields={subjectTechnicalFields(subject)}
-            />
-          </section>
-        )}
-      </div>
-    </aside>
+                    {entry.label}
+                  </button>
+                  {entry.actions?.map((action) => (
+                    <WorkbookInspectorActionButton
+                      key={action.label}
+                      onClick={() => {
+                        if (admitsAttention(entry)) action.invoke();
+                      }}
+                    >
+                      {action.label}
+                    </WorkbookInspectorActionButton>
+                  ))}
+                </div>
+              ))}
+            </section>
+          ) : null}
+          {sections.map((section) => (
+            <WorkbookInspectorPanelSection
+              key={section.panel.panelId}
+              panel={section.panel}
+              viewSchemaId={config.viewSchemaId}
+              onFocus={() => remember(section.panel.panelId)}
+              elementRef={(element) => {
+                registerSection(section.panel.panelId, element);
+                section.elementRef?.(element);
+              }}
+            >
+              {section.content}
+            </WorkbookInspectorPanelSection>
+          ))}
+          {mode === "saved" ? props.feedback : null}
+          {subject === null ? null : (
+            <section
+              aria-label="Record technical metadata"
+              style={metadataStyle}
+            >
+              <WorkbookInspectorTechnicalDetails
+                fields={subjectTechnicalFields(subject)}
+              />
+            </section>
+          )}
+        </div>
+      </aside>
+    </WorkbookInspectorCommandSubject>
   );
 }
 

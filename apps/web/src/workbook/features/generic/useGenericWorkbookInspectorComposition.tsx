@@ -47,6 +47,7 @@ import {
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
+import { useWorkbookWorkbench } from "../../navigation/WorkbookWorkbenchContext";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type {
@@ -460,7 +461,18 @@ export function useGenericWorkbookInspectorComposition({
     },
     [],
   );
+  const workbench = useWorkbookWorkbench();
   const navigateNote = async (recordId: string) => {
+    if (workbench) {
+      workbench.open(
+        {
+          sheetRef: { kind: "view_schema", id: noteAssociationView },
+          recordId,
+        },
+        true,
+      );
+      return;
+    }
     const captured = latestNavigationIdentity.current,
       reader = mutation.noteAssociations.getReader();
     if (!reader || !associationSnapshot.authority) return;

@@ -99,10 +99,8 @@ async function enterDesktopSurfaceSelector(page: Page) {
     name: "Built-in workbook surfaces",
   });
   await expect(tabs).toBeVisible();
-  const preceding = page.getByRole("button", { name: /^Incident details:/ });
-  await preceding.focus();
-  await expect(preceding).toBeFocused();
-  await page.keyboard.press("Tab");
+  // The footer has one roving entry; its navigation journey uses keyboard input.
+  await tabs.locator('[role="tab"][tabindex="0"]').focus();
   await expect(tabs.locator('[role="tab"]:focus')).toHaveCount(1);
 }
 
@@ -449,12 +447,12 @@ async function expectWorkbookShellComposition(
 
   await expect(
     shell
-      .locator(dataTestIdSelector(workbookShellSlotTestId("top-bar")))
+      .locator(dataTestIdSelector(workbookShellSlotTestId("status-strip")))
       .getByTestId(systemViewSwitcherTriggerTestId()),
   ).toBeVisible();
 
   const tabBar = shell.locator(
-    dataTestIdSelector(workbookShellSlotTestId("top-bar")),
+    dataTestIdSelector(workbookShellSlotTestId("status-strip")),
   );
   const builtInTabsByRegistryIndex = await tabBar
     .locator("[data-workbook-tab-index]")
@@ -921,7 +919,7 @@ test("Verify desktop built-in selector manual keyboard navigation, retained auth
   expect(writes).toEqual([]);
   await page.keyboard.press("Tab");
   await expect(
-    page.getByRole("button", { name: /^Recovery \(\d+\)$/u }),
+    page.getByTestId(systemViewSwitcherTriggerTestId()),
   ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(
@@ -1034,10 +1032,10 @@ test("Verify desktop built-in selector manual keyboard navigation, retained auth
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
   ).toBeFocused();
   await page.keyboard.press("Tab");
-  const recovery = page.getByRole("button", { name: /^Recovery \(\d+\)$/u });
-  await expect(recovery).toBeFocused();
+  const moreViews = page.getByTestId(systemViewSwitcherTriggerTestId());
+  await expect(moreViews).toBeFocused();
   await page.setViewportSize({ width: 1024, height: 720 });
-  await expect(recovery).toBeFocused();
+  await expect(moreViews).toBeFocused();
   expect(writes).toEqual([]);
   expect(
     (await queryViewRows(page, incidentId, timelineViewSchemaId)).map(
@@ -1117,14 +1115,10 @@ test("Verify System views switcher keyboard entry, roving focus, selection, dism
   ).toBeFocused();
   await page.keyboard.press("Tab");
 
-  await expect(
-    page.getByRole("button", { name: /^Recovery \(\d+\)$/u }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
   const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
   await expect(trigger).toBeFocused();
   await expect(
-    page.getByRole("button", { name: "System views" }),
+    page.getByRole("button", { name: "More views" }),
   ).toHaveAttribute("data-testid", systemViewSwitcherTriggerTestId());
 
   await page.keyboard.press("Enter");
@@ -1400,7 +1394,7 @@ test("Verify saved views appear only under the active surface's view selector an
   ).toBeVisible();
 
   const tabBar = shell.locator(
-    dataTestIdSelector(workbookShellSlotTestId("top-bar")),
+    dataTestIdSelector(workbookShellSlotTestId("status-strip")),
   );
   await expect(tabBar.locator(savedViewFamilySelector())).toHaveCount(0);
 

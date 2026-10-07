@@ -4,6 +4,11 @@ import {
   relationshipChipAccessibleName,
   type WorkbookRelationshipChipPresentation,
 } from "../models/workbookRelationshipChip";
+import {
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+} from "../models/workbookSurfaceRegistry";
+import { useWorkbookWorkbench } from "../navigation/WorkbookWorkbenchContext";
 
 export function WorkbookRelationshipChip({
   presentation,
@@ -112,6 +117,7 @@ export function WorkbookRelationshipChipDetails({
 }: {
   readonly presentation: WorkbookRelationshipChipPresentation;
 }) {
+  const workbench = useWorkbookWorkbench();
   const resolutionLabels = {
     manual: "Manual",
     auto: "Automatic",
@@ -151,22 +157,45 @@ export function WorkbookRelationshipChipDetails({
       : [["Confidence", String(presentation.resolution.confidence)]]),
   ];
   return (
-    <dl style={{ margin: 0, display: "grid", gap: "0.4rem", minWidth: 0 }}>
-      {entries.map(([term, value]) => (
-        <div key={term}>
-          <dt style={{ color: "var(--ct-colors-ink-muted)" }}>{term}</dt>
-          <dd
-            style={{
-              margin: 0,
-              whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere",
-            }}
-          >
-            {value}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      {workbench && presentation.targetRecordId ? (
+        <button
+          type="button"
+          data-workbook-navigation="true"
+          onClick={() => {
+            if (presentation.targetRecordId)
+              workbench.open({
+                sheetRef: {
+                  kind: "view_schema",
+                  id:
+                    presentation.entityType === "host"
+                      ? hostsViewSchemaId
+                      : identitiesViewSchemaId,
+                },
+                recordId: presentation.targetRecordId,
+              });
+          }}
+        >
+          Open {presentation.entityType}
+        </button>
+      ) : null}
+      <dl style={{ margin: 0, display: "grid", gap: "0.4rem", minWidth: 0 }}>
+        {entries.map(([term, value]) => (
+          <div key={term}>
+            <dt style={{ color: "var(--ct-colors-ink-muted)" }}>{term}</dt>
+            <dd
+              style={{
+                margin: 0,
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+              }}
+            >
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </>
   );
 }
 

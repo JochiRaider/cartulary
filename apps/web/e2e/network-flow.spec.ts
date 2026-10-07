@@ -408,6 +408,7 @@ test("Network Analysis links compatible targets and recovers exact committed req
     .press("Enter");
   await expect(recovery).toHaveText("Recovery (0)");
   await expect(recovery).toBeFocused();
+  await page.getByRole("button", { name: "More views", exact: true }).click();
   await page.getByTestId(networkAnalysisTestId("tab")).click();
   await sourceCell.click();
   await trigger.click();
@@ -489,6 +490,9 @@ test("Network Analysis claimed empty state exposes import entry", async ({
   const duplicate = await page.context().newPage();
   try {
     await duplicate.goto(`/?incident_id=${incidentId}`);
+    await duplicate
+      .getByRole("button", { name: "More views", exact: true })
+      .click();
     await duplicate.getByTestId(networkAnalysisTestId("tab")).click();
     await expect(
       duplicate.getByTestId(networkAnalysisTestId("workspace")),
@@ -679,6 +683,7 @@ test("Network Analysis retains mapping review across workspace departure and inc
     dialog.getByTestId(networkAnalysisTestId("mapping-display-name")),
   ).toHaveValue("copyable-retained-mapping");
   await dialog.press("Escape");
+  await page.getByRole("button", { name: "More views", exact: true }).click();
   await page.getByTestId(networkAnalysisTestId("tab")).click();
   await trigger.click();
   await expect(
@@ -1189,6 +1194,9 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
   const other = await page.context().newPage();
   try {
     await other.goto(`/?incident_id=${incidentId}`);
+    await other
+      .getByRole("button", { name: "More views", exact: true })
+      .click();
     await other.getByTestId(networkAnalysisTestId("tab")).click();
     await other.getByTestId(networkAnalysisTestId("mode-graph")).click();
     await other.getByRole("button", { name: "Saved graphs" }).click();
@@ -1628,6 +1636,7 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   await expect(dialog).toHaveCount(0);
   expect(requests).toHaveLength(2);
   expect(requests[1]).toBe(requests[0]);
+  await page.getByRole("button", { name: "More views", exact: true }).click();
   await page.getByTestId(networkAnalysisTestId("tab")).click();
   await expect(page.getByRole("tab", { name: /Latest table/u })).toBeVisible();
   await expect(page.getByRole("tab", { name: /Recovered table/u })).toHaveCount(

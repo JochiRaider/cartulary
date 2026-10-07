@@ -2,7 +2,7 @@
 
 package openapioperations
 
-const CanonicalSHA256 = "e8a72a2caee4fd287263f64ee4ace3022dc2d33f6e2f39e2028635f9b34d9c1e"
+const CanonicalSHA256 = "e83d4759732fee02aed5f93fc6a20de0f0fe9f72ced7fd118bf220195d26c89c"
 const DocumentVersion = "2.0.0"
 
 type Operation struct {
@@ -85,6 +85,7 @@ var catalog = []Operation{
 	{OwnerID: "module.timeline", Method: "PUT", PathTemplate: "/api/v1/incidents/{incident_id}/timeline-time-conversion-profile", Pattern: "PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", OperationID: "putTimelineTimeConversionProfile", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.workbook", Method: "POST", PathTemplate: "/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations", Pattern: "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations", OperationID: "applyWorkbookBulkMutation", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.workbook", Method: "POST", PathTemplate: "/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste", Pattern: "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste", OperationID: "pasteWorkbookClipboard", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
+	{OwnerID: "module.workbook", Method: "POST", PathTemplate: "/api/v1/incidents/{incident_id}/views/{view_schema_id}/locate", Pattern: "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/locate", OperationID: "locateWorkbookViewRecord", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.workbook", Method: "POST", PathTemplate: "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query", Pattern: "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query", OperationID: "queryWorkbookView", Availability: "base", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.workbook", Method: "POST", PathTemplate: "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", Pattern: "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", OperationID: "createViewRow", Availability: "base", StateChanging: true, SuccessStatuses: []int{200, 201}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.workbook", Method: "GET", PathTemplate: "/api/v1/incidents/{incident_id}/workbook-preferences/default", Pattern: "GET /api/v1/incidents/{incident_id}/workbook-preferences/default", OperationID: "getIncidentDefaultWorkbookPreferences", Availability: "base", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},

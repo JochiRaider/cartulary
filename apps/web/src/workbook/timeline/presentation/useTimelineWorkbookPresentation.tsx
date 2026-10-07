@@ -456,6 +456,7 @@ export function useTimelineWorkbookPresentation({
     [timelineDraftRow, visibleTimelineColumns],
   );
   const registerTimelineGridHandle = useWorkbookSemanticGridFocus({
+    onNavigateRecord: handleSelectRow,
     dataRows: timelineGridRows,
     dataState: timelineDataState,
     draftFieldKeys: timelineDraftFieldKeys,
@@ -640,6 +641,7 @@ export function useTimelineWorkbookPresentation({
         ? {
             savedView: viewBarWorkingSet?.savedView ?? null,
             query: {
+              onApplyPreset: viewBarWorkingSet?.query?.onApplyPreset,
               contract: timelineContract,
               defaultFilterPopoverOpen: true,
               filterDraft,

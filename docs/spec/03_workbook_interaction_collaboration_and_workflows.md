@@ -31,7 +31,7 @@ Verified by: AC-005, AC-043, AC-231
 
 ## 2. Workbook surface
 
-Successful explicit selection of a base workbook surface MUST transfer focus
+Ordinary explicit selection of a base workbook surface MUST transfer focus
 to its first visible, currently authorized writable creation control in field
 order. When no such control is available, entry MUST select the first eligible
 committed cell in visible row and field order in navigation mode, then fall back
@@ -42,7 +42,8 @@ target receives focus; requesting that an unmounted target scroll into view is
 not completion. Surface replacement, unmount, authority loss, or subsequent
 deliberate user navigation MUST invalidate obsolete entry requests. A late mount
 or completion MUST NOT steal focus from newer work. Extension workspaces retain
-their own owner-defined entry capabilities.
+their own owner-defined entry capabilities. Record-directed entry and Return
+instead follow §2.5; they do not use creation-first focus.
 
 ### 2.1 Built-in tabs
 
@@ -650,6 +651,293 @@ Workbook rendering MUST apply the effective density computed by the account-pref
 Changing account density is a presentation preference only. It MUST NOT alter `view_schema` definitions, saved-view objects, saved-view `query_json`, saved-view `layout_json`, query request JSON, row data, row versions, collaboration ordering, `presence_snapshot` or `presence_delta` ordering, per-incident `user_workbook_preferences.home_sheet_ref`, `incident_workbook_preferences.default_sheet_ref`, workbook-startup selection, or incident portability content.
 Profiles: base
 Verified by: AC-431, AC-432
+
+### 2.5 Investigation workbench navigation and commands
+
+#### 2.5.1 Auxiliary destinations and source fidelity
+
+**REQ-03-311**
+The shell MUST provide one auxiliary attachment with destinations Record, Work
+and Recovery, closed on initial entry. Startup-surface selection remains §2.4.
+Opening another destination MUST detach the previous presentation without
+canceling admitted operations, discarding retained authoring, acknowledging
+conflicts or dismissing receipts. Execution and authorization remain owner-held.
+
+Record MUST use §2.3A's admitted Details, Relationships, Evidence, History and
+Workflow contributions. Inspect value MUST open the complete committed field
+in Details with selectable text, Copy and, when writable, explicit Edit.
+Copy MUST preserve the complete source, including visually clipped text.
+RAW Activity MUST remain inert and preserve whitespace and line endings.
+Soft wrap defaults on, remains reader-local and changes no copied or stored text.
+Saved content, local authoring, submission, accepted receipt and failed refresh
+MUST remain distinct. Ordinary Details still submits only through its declared
+Update action or shortcut. Independent reads/failures remain independent.
+
+Work MUST first open to Session working set and provide labeled navigation to
+Task Requests, Decisions, Handoffs and Status Reviews. This revision MUST NOT
+render inline coordination queue previews or fetch their counts on opening.
+Those links open canonical surfaces through §2.5.4 with return context.
+Coordination source models and legal transitions remain unchanged.
+Recovery retains its existing owner catalog, admission and ordering; Work items
+MUST NOT contribute to recovery counts.
+Profiles: base
+Verified by: AC-572, AC-591, AC-594, AC-595
+
+#### 2.5.2 Commands
+
+**REQ-03-312**
+The visible Commands control MUST open a non-modal metadata search. No new
+default global shortcut is added; Ctrl/Cmd+K retains link/resolve ownership.
+
+| Descriptor member | Required meaning |
+| --- | --- |
+| Command ID | Stable client identity independent of label. |
+| Family | Capture, Inspect, Relate, Follow up, Review, View, in this order. |
+| Label / search terms | Static metadata; source text cannot define commands. |
+| Target kind | Exactly shell, surface, committed record, cell, or existing bounded selection. |
+| Availability | Current owner-derived eligibility with an authorized safe explanation. |
+| Invocation | Exactly one declared owner binding; unknown bindings cannot execute. |
+
+Commands MUST capture its semantic target and pre-launch interaction origin
+before taking focus. It MUST borrow focus without blur submission, draft
+discard or copying authoring into another store. This is an explicit
+focus-borrowing exception like Find, not ordinary editor-to-cell navigation.
+The captured target MUST remain visible through an authorized context label;
+selection changes MUST NOT silently retarget it.
+
+Each opening starts with empty search and page one. Normalize input, labels and
+terms to NFC and locale-independent lowercase; split input on Unicode
+whitespace. Every nonempty token MUST occur as a substring in the label or a
+static term. Rank by label prefix matching the normalized tokens joined with one
+ASCII space, then all tokens in the label, then matches requiring terms.
+Ties use family order, normalized label and command ID, with strings compared
+by Unicode code-point order. Empty input uses family order and these tie-breaks.
+Explicit pages MUST contain at most twenty results. A search change resets
+to page one; no result can be hidden solely below the first page.
+
+| Event | Required result |
+| --- | --- |
+| Type, page, or move focus | No source operation or incident-content search. |
+| Cancel | Restore eligible borrowed origin, else the invoking control and existing semantic fallback. |
+| New deliberate interaction outside Commands | Close without restoring obsolete focus. |
+| Explicit activation | Owner revalidates captured identities, authority, versions, selection and authoring gates. |
+| Invocation unavailable | Keep Commands open with a safe reason; no execution. |
+| Invocation admitted | Close Commands; invoked owner owns destination focus. |
+| Review required | Open owner review; command activation is not confirmation. |
+| Completion after detachment | Owner settles operation; no reopening or focus theft. |
+
+The search input and ordinary result buttons MUST be labeled and keyboard
+reachable. Enter in the search input MUST NOT execute a result. Optional absent
+contributions MUST be omitted; required actions on readable content that are
+temporarily blocked MUST expose a safe reason. Unknown bindings and protected
+feature details MUST NOT become executable/disclosed through search.
+The index MUST NOT become an authorization service, extension registry or
+mutation/retry engine. Every action also has a labeled home outside Commands.
+Profiles: base
+Verified by: AC-574, AC-575, AC-576, AC-596
+
+#### 2.5.3 Session working set
+
+**REQ-03-313**
+Pins MUST be insertion-ordered, labeled Session only, and limited to twenty.
+A pin is a navigational descriptor, never a record, draft or operation store.
+
+| Kind | Duplicate identity | Opening behavior |
+| --- | --- | --- |
+| Committed record | Incident + canonical base view schema + record ID | Fresh locator using that base schema's default query. |
+| Base surface | Incident + canonical base sheet reference | Default query; compatible current schema working layout, otherwise schema defaults. |
+| Saved view | Incident + saved-view ID | Fresh authorized saved-view observation; current persisted query and layout. |
+| Supported extension root | Incident + canonical extension sheet reference | Existing owner-declared root entry. |
+
+Record pins use the base-surface pin layout rule. A record pin contains identity,
+an optional eligible field hint and an in-memory
+authorized display label; a surface pin contains identity and such a label.
+The field hint and label MUST NOT participate in duplicate equality.
+A duplicate MUST leave position and hint unchanged and announce
+Already in working set. Check duplicates before capacity. A twenty-first
+distinct target MUST be refused with Working set is full; remove a pin first.
+Removing a pin changes no source. Silent eviction is forbidden.
+
+Pinning a modified query MUST be labeled Pin base surface; preserving its query
+requires Save as. Saved-view rename does not alter pin identity.
+Draft-only records, evidence handles, operation payloads, rows, query pages,
+cursor tokens and copied authoring MUST NOT be stored in pins.
+Pin record belongs in the Record header, Pin view/Pin base surface in the view
+selector, and Remove in Work. Unavailable pins conceal protected labels and
+offer generic unavailable feedback and removal.
+Record opens use §2.5.4; view opens use ordinary entry after current validation.
+Profiles: base
+Verified by: AC-587, AC-588, AC-592
+
+#### 2.5.4 Record-directed navigation and window adoption
+
+**REQ-03-314**
+A deliberate record-location action MUST capture its semantic destination and
+origin and retain the prior authorized presentation until the destination is
+admissible. Explicit browsing MAY detach invalid/unsubmitted authoring under
+§14.9; omission of detachment leaves the existing attachment. Navigation MUST
+NOT submit or discard authoring or bypass ordinary cell acceptance gates.
+
+| Outcome | Required presentation |
+| --- | --- |
+| Located | Validate and atomically install rows, canonical metadata, surface/query identity and target selection. |
+| Outside query | Preserve origin; show This record is outside the current filters, Cancel and Open on base surface. |
+| Explicit base opening | New locator request with base defaults; no saved-view update or silent filter reset. |
+| Unavailable | Preserve origin; generic unavailable feedback with local recovery, no deletion/existence inference. |
+| Operational or contract failure | Preserve eligible origin and offer local read retry; do not reinterpret as unavailable. |
+| Unsupported endpoint | Navigation capability unavailable; no page-scanning fallback. |
+| Superseded request | No attachment, selection or focus effects. |
+
+The located page's producing request MUST be the ordinary query with its
+authored query overrides, limit 100 and returned window-start cursor; null maps
+to omitted cursor. Passive reconciliation MUST replay this request, not locate
+the original target again. Target movement/deletion follows ordinary live-query
+anchor fallback. The initial located window has no earlier checkpoint; its
+cursor alone MUST NOT create one. Later actual browsing uses §14.9's bounds.
+Refresh explicitly starts at the query beginning.
+
+Successful deliberate location MUST expand only the target's collapsed group,
+derived from current accepted `group_values`. It MUST preserve column visibility,
+other groups, filters and saved resources. Expansion remains ordinary local
+presentation state. Find, passive refresh and range movement do not acquire
+this reveal rule.
+
+Focus MUST target the requested visible eligible field, then the first eligible
+visible field, then the grid container. Navigation selects a committed cell in
+navigation mode; it MUST NOT reopen an editor. Only an explicit Inspect
+destination additionally opens Record. New deliberate interaction, unmount or
+authority loss invalidates pending attachment and focus intent. A scroll or
+mount request is not focus completion.
+Profiles: base
+Verified by: AC-577, AC-578, AC-579, AC-581, AC-584, AC-589, AC-597
+
+#### 2.5.5 Return trail
+
+**REQ-03-315**
+Return MUST use a memory-local stack of at most thirty-two origins, separate
+from §14.9's twenty query checkpoints. An origin contains incident and canonical
+sheet reference, accepted authored query overrides, compatible `cartulary.layout.v2`
+snapshot, optional committed record/field anchor, eligible semantic invoker and
+observed saved-view version when applicable. It MUST NOT contain unapplied query
+changes, server-added sort tails, rows, editor payloads, evidence, cursor tokens,
+DOM references or vendor indices. Extension roots carry only their supported
+root reference and eligible invoker; unsupported record/query anchors are absent.
+
+| Event | Stack effect |
+| --- | --- |
+| Successful explicit surface pivot, pin open or record-location action | Push origin captured when navigation began. |
+| Failed, canceled or superseded navigation | No change. |
+| Already satisfied semantic destination | No additional entry. |
+| Successful Return | Pop restored entry; do not push departing context. |
+| Failed/canceled Return | Keep entry. |
+| Explicit fallback successfully opens | Consume entry being restored. |
+| Thirty-third push | Evict oldest entry only. |
+
+Same pending navigation activation MUST be coalesced. Ordinary cell movement,
+editing, inspector section changes and passive reconciliation MUST NOT push.
+Return to an already satisfied authorized context counts as successful and pops
+once. There is no forward stack and browser Back MUST NOT be intercepted.
+
+Return MUST revalidate current access and schema compatibility. For a record
+anchor it first re-fetches one eligible existing checkpoint; if none exists or
+the target is absent from that accepted read, it invokes the locator once.
+Checkpoint and locator observations MUST be staged; a checkpoint lacking the
+anchor MUST NOT replace the origin while location is pending.
+It MUST NOT scan pages or retain another checkpoint cache. Invalid-cursor and
+freshness recovery share §14.9's existing limit of two automatic recovery
+attempts, including at most one invalid-cursor restart; locator fallback MUST
+NOT restart that budget. Exhaustion preserves the origin and offers local retry.
+A recordless base/view origin without an eligible checkpoint uses a first-page
+query. An extension root uses its owner entry contract.
+
+For a changed saved view, restore the captured compatible working query/layout
+and independently observe the latest authorized resource as comparison baseline.
+Modified reflects actual difference, not version change alone. Overwriting a
+changed saved resource requires the existing reviewed update path.
+Unavailable saved views or incompatible configurations preserve origin and offer
+explicit authorized base opening. This pending-destination rule does not change
+REQ-03-022A's fallback for a currently selected resource becoming unavailable.
+Outside-query anchors follow §2.5.4. Unavailable record anchors preserve origin
+and offer the original authorized surface without asserting record existence.
+Displaying or canceling a fallback offer MUST NOT consume the entry.
+
+Successful Return MUST detach an ordinary Record presentation without retiring
+owner work; it restores navigation focus, never an editor. Return and inspect
+additionally opens the authorized Record destination after admission.
+A labeled Return control and one-level Return and inspect alternative MUST be
+available in the View bar, with equivalent compact View-menu access.
+Profiles: base
+Verified by: AC-582, AC-583, AC-584, AC-585, AC-586
+
+#### 2.5.6 Timeline presets and scope
+
+**REQ-03-316**
+Timeline's view selector MUST offer these non-persisted presets. Each replaces
+the complete authored sort/filter/group configuration, preserves column layout
+and leaves saved-view resources unchanged. Modified MUST reflect actual
+query/layout difference; applying an identical configuration is not a change.
+
+| Preset | Sort override | Equality filter field and value | Grouping |
+| --- | --- | --- | --- |
+| Full timeline | Empty | None | Inactive |
+| Recent edits | `timeline.edited_at desc` | None | Inactive |
+| Unresolved references | Empty | `timeline.has_unresolved_mentions` = true | Inactive |
+| Date mismatch | Empty | `timeline.activity_time_pair_state` = `paired_mismatch` | Inactive |
+| With attached files | Empty | `timeline.has_evidence` = true | Inactive |
+
+Empty sort uses schema defaults. Inactive grouping omits `group_by`.
+Equality filters MUST use Core 01's `field_key`, `op:"eq"` and
+`arg:{value:…}` shape. No new predicate or field whitelist is admitted.
+Recent edits is not a historical diff; Date mismatch is not all temporal
+uncertainty; attached files retain Core 01's finalized-file definition.
+
+Commands searches metadata; Find in loaded rows searches only §13.5's admitted
+accepted presentation; Filter changes a server-evaluated query. The UI MUST
+label these scopes and avoid incident-wide absence/total claims from local
+results. Pending/failed replacement retains accepted rows and labels, with the
+request shown as Not applied and Retry/Revert. Applying a preset never writes
+source records or creates a snapshot.
+Profiles: base
+Verified by: AC-590, AC-595
+
+#### 2.5.7 Keyboard ownership and workflow continuity
+
+**REQ-03-317**
+Design §8.5 owns the one-event Escape ladder. Native picker and IME ownership,
+nested popup dismissal, modal safe cancellation, grid-editor discard and
+ordinary Details draft-retaining detachment MUST retain their distinct effects.
+A focus-borrowed or detached editor MUST NOT be treated as an active editor for
+Escape cancellation. One event MUST NOT cascade through owners.
+Overlay focus containment and adjacent-dock focus movement MUST preserve that
+ladder and semantic fallback. Existing shortcuts retain their admission rules;
+an unavailable shortcut MUST NOT consume the event.
+Profiles: base
+Verified by: AC-573, AC-574, AC-593
+
+**REQ-03-318**
+Capture, paste, correction and rough creation MUST remain usable with the dock
+closed and without new canonical-entity, evidence, chronology or coordination
+requirements. Core 01 §7.4.1 continues to own the ten source-preserving Timeline
+fields. Structural resolution MUST NOT rewrite their raw source strings.
+Source activity time, source-entered date text and record/edit attribution MUST
+remain distinct; an absent activity instant MUST NOT fall back to creation time.
+
+Related-record authoring MUST display its source association before submission.
+Opening it MUST NOT create a record. Success preserves the original context
+where the existing binding requires it; failure retains the exact owner draft
+and retry identity. Task ownership is not a row lock, review is not proof of
+truth, and handoff acknowledgement does not complete linked work. Notes,
+Tasks, Decisions, Handoffs and Status Reviews remain the durable source owners;
+no working-set record type or mandatory Timeline workflow fields are added.
+
+Opening Record, Work or Commands MUST NOT scan the incident, prefetch every
+surface, load full History or retrieve evidence bytes. Passive reads detach
+with their destination unless the existing owner requires a read for operation
+recovery. Grid adapters, owner commands, query/locator transport, shell
+presentation and ephemeral navigation MUST remain independently testable,
+using semantic identities rather than vendor coordinates.
+Profiles: base
+Verified by: AC-591, AC-594, AC-595, AC-596
 
 ## 3. Collaboration and concurrency model
 
@@ -3322,9 +3610,10 @@ technical tie-breakers to authored saved-view overrides.
 Hosts and Identities MUST have independent browsing and error lifetimes. Loaded
 Entity query pages MUST NOT be treated as a complete reference registry. Sheet
 departure releases passive query payloads and retains bounded request checkpoints
-and semantic anchors. Return within the same authorized workbook runtime MUST
-re-fetch one page near the prior anchor, using the ordinary invalid-cursor
-recovery if needed. An authority boundary invalidates protected browsing state,
+and semantic anchors. Surface restoration within the same authorized workbook
+runtime MUST re-fetch one page near the prior anchor; explicit Return follows
+§2.5.5, including locator fallback and the same bounded recovery budget.
+An authority boundary invalidates protected browsing state,
 including cursor checkpoints, under REQ-03-299/100.
 
 Explicit browsing actions MAY detach an invalid or unsubmitted editor while
@@ -3339,6 +3628,7 @@ because records were browsed. Original-source capabilities and required version
 floors survive independently of query membership; absence is not deletion or
 authorization loss.
 
+For a located window, §2.5.4 supplies its ordinary producing request.
 Live changes that can alter query placement MUST reconcile through the query
 owner by re-reading at most the current three-page window from its producing
 request. Reconciliation stages its result before publication and coalesces pending

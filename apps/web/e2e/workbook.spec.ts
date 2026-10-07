@@ -1336,6 +1336,8 @@ test("Timeline Sort editor keeps focus through a continuous keyboard session", a
   const trigger = page.getByTestId(
     workbookSortMenuTriggerTestId(timelineViewSchemaId),
   );
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   const menu = page.getByTestId(workbookSortMenuTestId(timelineViewSchemaId));
   await expect(menu).toBeVisible();
@@ -1442,6 +1444,8 @@ test("Timeline Sort editor keeps focus through a continuous keyboard session", a
   }
   await expect(grid.locator(":focus")).toHaveCount(1);
 
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   const surviving = added[1];
   if (surviving === undefined) throw new Error("Expected a surviving sort");
@@ -1482,6 +1486,8 @@ test("Timeline Filters editor preserves native keys, range traversal, and focus 
   const trigger = page.getByTestId(
     workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
   );
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   const dialog = page.getByTestId(
     workbookFilterPopoverTestId(timelineViewSchemaId),
@@ -1605,12 +1611,18 @@ test("Timeline Filters editor preserves native keys, range traversal, and focus 
     ),
   ).toBe(true);
 
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await field.press("Escape");
   await expect(trigger).toBeFocused();
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(trigger).toBeFocused();
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   const notesTab = page.getByTestId(surfaceTabTestId(notesViewSchemaId));
   await notesTab.focus();
@@ -1729,6 +1741,8 @@ test("Timeline requested Filters remain editable during held and failed replacem
     ),
   );
   try {
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     await field.selectOption("timeline.date_entered_sort_day");
     await page
@@ -1748,6 +1762,8 @@ test("Timeline requested Filters remain editable during held and failed replacem
     await expect.poll(() => visibleRecordIds(page)).toEqual(acceptedIds);
     await expect(chip).toHaveCount(0);
     await expect(trigger).toContainText("Unapplied");
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     await page
       .getByRole("button", { name: /Edit unapplied.*Date entered/i })
@@ -1785,6 +1801,11 @@ test("Timeline requested Filters remain editable during held and failed replacem
       .toEqual([String(beta.record_id)]);
     await expect(trigger).toContainText("Unapplied");
     await page.setViewportSize({ width: 768, height: 640 });
+    await expect(
+      page.getByRole("button", { name: "Query controls", exact: true }),
+    ).toBeVisible();
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     await page
       .getByRole("button", { name: /Edit Filter 1, Date Entered/i })
@@ -1792,6 +1813,8 @@ test("Timeline requested Filters remain editable during held and failed replacem
     await expect(lower).toHaveValue("2026-04-01");
     await lower.press("Escape");
     await expect(trigger).toBeFocused();
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     await page
       .getByRole("button", { name: /Edit unapplied.*Date entered/i })
@@ -1812,6 +1835,8 @@ test("Timeline requested Filters remain editable during held and failed replacem
     await expect
       .poll(() => visibleRecordIds(page))
       .toEqual([String(beta.record_id)]);
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     await page
       .getByRole("button", { name: /Edit unapplied.*Date entered/i })
@@ -1828,6 +1853,8 @@ test("Timeline requested Filters remain editable during held and failed replacem
       },
     ]);
     await expect.poll(() => visibleRecordIds(page)).toEqual([]);
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     const acceptedOverflow = page.getByRole("button", {
       name: /Edit Filter 1, Date Entered.*2026-09-01/i,
@@ -1928,6 +1955,8 @@ test("Notes canonical Filters reconcile pending clear, Revert and Retry", async 
     await expect(trigger).not.toContainText("Unapplied");
 
     outcome = "fail";
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect.poll(() => reads.length).toBe(2);
@@ -2622,6 +2651,9 @@ test("Saved-view authoring retains uncertain committed creates and requires a de
   });
   await expect(retry).toBeDisabled();
   await page.setViewportSize({ width: 768, height: 640 });
+  await expect(
+    page.getByRole("button", { name: "Query controls", exact: true }),
+  ).toBeVisible();
   await page
     .getByRole("checkbox", { name: /may create a duplicate/ })
     .scrollIntoViewIfNeeded();

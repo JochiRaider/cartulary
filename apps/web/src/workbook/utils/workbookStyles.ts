@@ -49,7 +49,10 @@ export const statusStripStyle = {
   background: "var(--ct-colors-surface-1)",
   color: "var(--ct-colors-ink-muted)",
   fontSize: "0.82rem",
-  overflow: "hidden",
+  overflow: "visible",
+  position: "relative",
+  zIndex: 10,
+  boxSizing: "border-box",
 } satisfies CSSProperties;
 
 export const statusStripItemStyle = {

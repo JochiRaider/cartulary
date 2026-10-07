@@ -351,6 +351,7 @@ export function AssessmentWorkbookSurface({
     }),
   );
   const registerGridHandle = useWorkbookSemanticGridFocus({
+    onNavigateRecord: setSelectedAssessmentRecordId,
     dataRows: gridRows,
     dataState,
     focusOwner: gridEntryFocus,

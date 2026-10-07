@@ -330,6 +330,13 @@ later claimed extension may add an owner-adopted extension-workspace variant,
 but this document does not define that wire shape and §9.2 MUST remain the
 exhaustive Base/standardized-optional `view_schema_id` registry.
 
+Owner restatement. Core 03 §2.5 distinguishes source activity time,
+source-entered date text and system record/edit attribution. Session navigation
+does not create a new source-record family. A pin is working memory; a saved view
+is durable configuration; a Task Request, Decision or Note carries durable
+investigative intent. Work exposes coordination entry paths; Recovery concerns
+unfinished application operations. These terms are not interchangeable.
+
 ## 9. Workbook-surface registry
 
 This registry is a domain-facing mirror of the current-profile standardized workbook-surface identity set. Core 01 owns the authoritative cross-layer workbook-surface mapping. This section MUST NOT define or restate exhaustive field registries, write targets, route shapes, projection-table names, or per-field defaults.
@@ -563,6 +570,12 @@ Declared scope: repository-wide terms whose misunderstanding would cause behavio
 | Built-in tab | Required primary sheet-like workbook surface in the base profile. | Every required surface or every visible shell tab. | Timeline, Hosts, Identities, Evidence, Notes | §11 | Core 03 | `base-required-surface` | `current-required` |
 | System view | Non-built-in contract-backed workbook surface with `surface_kind='system_view'`. | `scope='system'` saved view or requiredness by itself. | `surface_kind='system_view'`, `view_schema_id` | §11 | Core 01/Core 03 | `base` | `current-required` |
 | Required system view | System view with `surface_status='required system view'`. | All rows whose `surface_kind` is `system_view`. | required system `view_schema_id` values in §9.2 | §11 | Core 01/Core 03 | `base-required-surface` | `current-required` |
+| Auxiliary dock | One attachment presenting Record, Work or Recovery beside/over the workbook. | Independent operation owner or multiple simultaneous sidebars. | Session presentation destination | §11 | Core 03 §2.5.1; Design §7 | `base` | `current-required` |
+| Session working set | Manually pinned navigation targets for the current account/incident/browser runtime. | Durable evidence, task backlog, saved query or offline store. | Canonical sheet reference; optional record/field identity | §11 | Core 03 §2.5.3; Core 04 §2.2 | `base` | `current-required` |
+| Return trail | Bounded stack of semantic origins for deliberate workbook pivots. | Browser history, row cache, checkpoint cache or editor recovery store. | Incident, sheet reference, accepted authored query/layout and optional record anchor | §11 | Core 03 §2.5.5 | `base` | `current-required` |
+| Record locator | Read-only view-scoped classification and target-first query window. | General record-store lookup, arbitrary extension lookup or incident-wide search. | Base view schema and record ID; located/outside_query/unavailable | §11 | Core 01 §3.3.4.3; Core 04 §2.2 | `base` | `current-required` |
+| Window-start cursor | Ordinary protected query cursor representing the boundary preceding an initially located window. | Target-following locator token, immutable snapshot or copied row position. | Existing query cursor contract | §11 | Core 01 REQ-01-682 | `base` | `current-required` |
+| Commands | Searchable action metadata with captured semantic target and owner dispatch. | Incident-content search, authorization registry or mutation engine. | Stable client command ID and declared owner binding | §11 | Core 03 §2.5.2 | `base` | `current-required` |
 | Saved view | Incident-bound workbook configuration over exactly one immutable `view_schema_id`. | Required system view or projection row. | `saved_view_id`, `scope` token family | §11 | Core 03 | `base` | `current-required` |
 | Projection | Denormalized workbook read model used for workbook query, sorting, filtering, grouping, and row refresh. | Source of truth, history substrate, or graph-projection result. | projection row with `record_id` and `row_version` | §11 | Core 01/Core 02 | `base` | `current-required` |
 | Change set | Immutable attribution unit for one committed action. | UI action only or untracked transaction. | `change_set_id`, actor, timestamp, source | §11 | Core 02 | `base` | `current-required` |

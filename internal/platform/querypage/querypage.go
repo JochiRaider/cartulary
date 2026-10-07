@@ -17,6 +17,10 @@ var ErrInvalidPosition = errors.New("invalid query page position")
 type Window struct {
 	Limit    int
 	Position map[string]string
+	// TargetRecordID and Before are private bounded locator selections. They
+	// are never admitted from an ordinary public query request.
+	TargetRecordID string
+	Before         bool
 }
 
 type Result struct {
@@ -37,6 +41,16 @@ func Finish(rows []map[string]any, limit int) Result {
 }
 
 func AppendKeyset(builder *strings.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string) error {
+	return appendKeyset(builder, args, sort, fields, position, false)
+}
+
+// AppendBefore selects positions strictly before the boundary in the ordinary
+// NULLS LAST comparator. Callers reverse ORDER BY with NULLS FIRST.
+func AppendBefore(builder *strings.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string) error {
+	return appendKeyset(builder, args, sort, fields, position, true)
+}
+
+func appendKeyset(builder *strings.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string, before bool) error {
 	if len(position) == 0 {
 		return nil
 	}
@@ -66,7 +80,7 @@ func AppendKeyset(builder *strings.Builder, args *[]any, sort []viewschema.SortE
 	builder.WriteString("\n   AND (")
 	wroteBranch := false
 	for index, entry := range sort {
-		if values[index] == nil {
+		if values[index] == nil && !before {
 			continue
 		}
 		if wroteBranch {
@@ -87,15 +101,20 @@ func AppendKeyset(builder *strings.Builder, args *[]any, sort []viewschema.SortE
 		expr := fields[entry.FieldKey].Expression
 		builder.WriteByte('(')
 		builder.WriteString(expr)
-		if entry.Direction == "desc" {
-			builder.WriteString(" < ")
+		if values[index] == nil {
+			builder.WriteString(" IS NOT NULL")
 		} else {
-			builder.WriteString(" > ")
+			if (entry.Direction == "desc") != before {
+				builder.WriteString(" < ")
+			} else {
+				builder.WriteString(" > ")
+			}
+			builder.WriteString(placeholders[index])
+			if !before {
+				builder.WriteString(" OR " + expr + " IS NULL")
+			}
 		}
-		builder.WriteString(placeholders[index])
-		builder.WriteString(" OR ")
-		builder.WriteString(expr)
-		builder.WriteString(" IS NULL)")
+		builder.WriteByte(')')
 		builder.WriteByte(')')
 		wroteBranch = true
 	}

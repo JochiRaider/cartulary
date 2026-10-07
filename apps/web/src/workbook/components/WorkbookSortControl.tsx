@@ -4,8 +4,9 @@ import {
   workbookSortMenuTriggerTestId,
   workbookSortOptionTestId,
 } from "@cartulary/ui-contracts";
-import { type RefObject, useMemo } from "react";
+import { type RefObject, useMemo, useRef } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
+import { useWorkbookMenuPlacement } from "../layout/useWorkbookMenuPlacement";
 import {
   type WorkbookGridQueryCommand,
   type WorkbookGridQueryControlProjection,
@@ -46,6 +47,8 @@ export function WorkbookSortControl({
   readonly sortUnapplied: boolean;
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useWorkbookMenuPlacement(isOpen, panel);
   const itemKeys = useMemo(
     () => sortControlItemKeys(editorProjection),
     [editorProjection],
@@ -108,6 +111,7 @@ export function WorkbookSortControl({
       </button>
       {isOpen ? (
         <div
+          ref={panel}
           aria-label="Ordered sort controls"
           data-testid={workbookSortMenuTestId(surface)}
           id={workbookSortMenuTestId(surface)}

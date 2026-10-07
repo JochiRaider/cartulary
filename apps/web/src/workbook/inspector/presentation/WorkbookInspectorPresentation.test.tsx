@@ -467,7 +467,9 @@ describe("Workbook Inspector presentation", () => {
         rows.map((row) => row.getAttribute("data-inspector-saved-field")),
       ).toEqual(contract.fields.map((field) => field.fieldKey));
       rows.forEach((row, index) => {
-        expect(row.querySelector("dd")?.textContent).toBe(
+        expect(
+          row.querySelector("[data-inspector-saved-text]")?.textContent,
+        ).toBe(
           index === rows.length - 1
             ? "Not loaded"
             : ["Not set", "False", "0", "Empty text", "Readable value"][

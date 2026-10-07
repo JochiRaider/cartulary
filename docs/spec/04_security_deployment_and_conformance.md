@@ -977,6 +977,54 @@ Verified by: AC-059, AC-060, AC-104, AC-105, AC-106, AC-233
 
 A narrow live sensitive-evidence model MAY be added in future work if repeated real-world incidents show that export-scoped withholding is insufficient. It is not a current conformance requirement.
 
+### 2.2 Workbench navigation security
+
+**REQ-04-169**
+Pins, Return entries, command context, locator results and their labels/counts
+MUST remain protected by current account and incident authority. Cached
+labels MUST NOT establish permission. Session uncertainty MUST conceal protected
+navigation presentation and invalidate pending navigation intents. Same-account
+recovery MUST reauthorize before protected labels or destinations are exposed.
+
+Pins and Return state MUST be memory-local to the account/incident/browser
+runtime, with no browser-storage or server persistence. Incident exit, account
+replacement, logout, hard refresh or confirmed incident-access loss MUST clear
+that state. Confirmed incident loss MUST exit the incident; it MUST NOT erase
+the account session. These navigation rules MUST NOT weaken separately owned
+same-account retained drafts, admitted operations, receipts or replay guarantees.
+Query checkpoints remain subject to Core 03 REQ-03-299/100 authority retirement.
+
+Closed incidents MUST remain readable under existing authority while presenting
+Closed, read-only separately from save state. Closure does not mean saved,
+failed, offline or inaccessible. Read eligibility, authoring, operation and
+accepted-data state MUST remain independently represented.
+Profiles: base
+Verified by: AC-572, AC-584, AC-592, AC-594
+
+**REQ-04-170**
+Locator route admission MUST occur before target-specific evaluation. Absent,
+deleted, inaccessible and wrong-surface targets MUST share Core 01's unavailable
+variant without payload or condition-specific messages. Outside-query disclosure
+requires current authorization and surface membership. Operational failure MUST
+NOT be classified as target unavailability. Cursor tampering and cross-actor,
+incident, schema, query or limit replay MUST fail through the existing protected
+query contract.
+
+New commands and extension entries MUST use existing declared owner bindings.
+The client index MUST NOT broaden capabilities or treat an empty capability
+array as runtime-plugin permission. Absent optional contributions are omitted;
+required actions on readable content expose safe blocked reasons without
+revealing protected feature details. Extension root navigation follows its owner;
+extension record location requires an explicit owner contract.
+
+Evidence access MUST retain same-origin authorized handles and safe preview
+contracts. A failed preview MUST NOT trigger remote rendering, direct object-store
+opening or automatic download. No workbench action automatically transmits source
+text, identifiers, evidence or queries outside the deployment. The redesign adds
+no LLM execution, external search, generic record store or authorization cache.
+Profiles: base
+Verified by: AC-580, AC-581, AC-588, AC-594, AC-595, AC-596, AC-597
+
 ## 3. Attribution and audit requirements
 
 **REQ-04-036**
@@ -3619,6 +3667,90 @@ stopped; an unresolved live child remains owned and blocks another operation.
   - Verifies: REQ-03-220
 - **AC-403**: `roots.backup_storage` is present in the effective deployment configuration; the disconnected binding uses `binding_kind='filesystem_root'`; the on-prem or cloud binding uses only `filesystem_root` or `managed_service`; `/var/lib/cartulary/backups` is the canonical disconnected example path; `roots.export_outputs` and `roots.temporary_work` are not treated as authoritative backup roots; and backup artifacts or restore-verification extracts that carry incident data remain on encrypted storage, with the current filesystem-backed realization proving this through authenticated encrypted artifact envelopes and fail-closed missing-key behavior.
   - Verifies: REQ-04-053, REQ-04-058, REQ-04-071..REQ-04-073, REQ-04-076, REQ-04-107..REQ-04-108
+
+### 9.15 Investigation workbench acceptance
+
+These criteria define required outcomes, not execution results. Typed projections,
+verification routing and implementation evidence remain downstream work. Existing
+capture, conflict, queue, saved-view and authorization criteria continue to apply.
+
+- **AC-572**: Switch Record → Work → Recovery with an exact retained draft and an admitted write. Exactly one auxiliary destination is attached; draft, operation and receipt identities survive. Initial entry has the dock closed and honors configured startup.
+  - Verifies: REQ-03-311, REQ-04-169
+
+- **AC-573**: With a popup over a grid editor, first Escape dismisses only the popup and preserves the draft; subsequent Escape cancels the active editor under its owner. Native picker/composition, safe-cancel modal, conflict resolver, evidence preview, tentative/completed range and Details detachment each consume at most one event. A borrowed editor is not canceled.
+  - Verifies: REQ-03-317; design §8.5
+
+- **AC-574**: Open Commands from dirty, invalid and retained authoring. Opening, searching and paging do not submit, discard or duplicate drafts or read incident content. Cancel restores an eligible origin; successful owner dispatch keeps destination focus; Enter in search executes nothing.
+  - Verifies: REQ-03-312, REQ-03-317
+
+- **AC-575**: Capture a command target, then change selection, authority or row version. No silent retargeting occurs; invocation revalidates through its owner. Unavailable invocation keeps a safe reason; review is not confirmation; late completion does not reopen or steal focus.
+  - Verifies: REQ-03-312
+
+- **AC-576**: Search command metadata with canonically equivalent Unicode, case/whitespace differences, ties and more than twenty matches. Results follow the exact normalization/ranking order, query changes reset page one, explicit paging reaches all results, and every action has a labeled home outside search.
+  - Verifies: REQ-03-312
+
+- **AC-577**: Locate a matching authorized record beyond loaded pages using ascending/descending/null/tied sort fixtures. The response has 1–100 full rows, target first, canonical metadata and limit 100. The browser atomically adopts it with an ordinary-query producing request; no page scan or invented total occurs.
+  - Verifies: REQ-01-680, REQ-01-681, REQ-01-682, REQ-03-314
+
+- **AC-578**: Replay a located start cursor after predecessor deletion or movement. The comparator boundary remains usable without predecessor lookup; null start means ordinary first query. Initial location creates no earlier checkpoint. Forward continuation uses the normal query route and Refresh starts at the query beginning.
+  - Verifies: REQ-01-682, REQ-03-314
+
+- **AC-579**: Move the target, delete it or make it fail filters before reconciliation. Reconcile at most the current three pages using ordinary producing requests, with live-query anchor fallback. Do not re-locate or follow the target passively; retain separately owned drafts and receipts.
+  - Verifies: REQ-01-682, REQ-03-314
+
+- **AC-580**: Tamper with each cursor and replay it under another actor, incident, schema, normalized query or limit. Query-token validation rejects replay without protected rows. Inaccessible incident/view admission precedes target evaluation and retains its existing non-disclosing route error.
+  - Verifies: REQ-01-682, REQ-01-683, REQ-04-170
+
+- **AC-581**: Locate absent, deleted, inaccessible and wrong-surface targets. All yield the same unavailable variant with no identifying payload or condition-specific UI. Source/deadline failures remain errors. The current authorized context survives.
+  - Verifies: REQ-01-681, REQ-01-683, REQ-03-314, REQ-04-170
+
+- **AC-582**: Locate an authorized filtered-out record. Cancel leaves the origin and saved view unchanged; Open on base surface issues a new explicit default-query locator. No silent filter reset or unrelated-row success occurs.
+  - Verifies: REQ-03-314, REQ-03-315
+
+- **AC-583**: Navigate A → B → C and Return twice. Restore B then A without pushing C or B during Return. Already satisfied navigation does not push; an already satisfied Return pops once. Cell moves, editing and inspector section changes add no entries.
+  - Verifies: REQ-03-315
+
+- **AC-584**: Fail, cancel or supersede navigation/Return with a newer deliberate interaction, unmount or authority loss. No stale attachment or focus occurs; stack changes happen only on successful admission. Repeated pending activation coalesces. Return retry does not bypass the existing automatic-recovery budget.
+  - Verifies: REQ-03-314, REQ-03-315, REQ-04-169
+
+- **AC-585**: Push thirty-three distinct origins and exhaust the independent checkpoint cache. Exactly thirty-two origins and at most twenty checkpoints remain; entries contain no rows/cursors/drafts. Checkpoint miss invokes at most one locator fallback rather than scanning or creating a second cache.
+  - Verifies: REQ-03-315
+
+- **AC-586**: Return after saved-view edit, deletion, denial or incompatible schema configuration. Restore compatible captured query/layout against the latest authorized comparison baseline or retain origin and offer explicit base opening. Modified reflects actual difference. Only successful explicit fallback consumes the entry. No automatic saved-view write occurs.
+  - Verifies: REQ-03-315
+
+- **AC-587**: Pin twenty targets, pin a duplicate with another field hint, then add a distinct target. Duplicate announces Already in working set without changing order/hint; the distinct pin is refused. Remove changes no source. Identical labels with different stable identities remain distinct.
+  - Verifies: REQ-03-313
+
+- **AC-588**: Open record, base, saved-view and supported extension-root pins. Each uses its specified query/layout/entry owner. Saved-view rename preserves identity; dirty-query pinning is labeled Pin base surface. An unavailable target conceals protected labels, offers removal and performs no scan.
+  - Verifies: REQ-03-313, REQ-04-170
+
+- **AC-589**: Navigate deliberately to a record inside a collapsed group with a hidden requested field. Expand only its current accepted group, preserve hidden columns and query/layout resources, and focus the first eligible visible field or grid. Find/passive refresh/range movement do not expand groups. Return never reopens an editor.
+  - Verifies: REQ-03-314, REQ-03-315
+
+- **AC-590**: Apply identical and differing presets while a shared saved view is selected. Modified follows actual query/layout difference; columns and saved resource remain unchanged. Predicates use only admitted fields/operators and server-owned default tails never enter authored overrides.
+  - Verifies: REQ-03-316
+
+- **AC-591**: Accept an update, then fail its refresh; separately fail one association read. Keep receipt acceptance, exact retained drafts and readable siblings. Recovery repeats the read, not the mutation; switching docks does not acknowledge conflicts or cancel admitted work.
+  - Verifies: REQ-03-311, REQ-03-318
+
+- **AC-592**: Exercise session uncertainty, same-account recovery, account replacement, incident exit, logout, hard refresh and confirmed membership loss. Protected navigation is concealed, reauthorized or cleared at the correct boundary, independently from source-owner retained work. Confirmed incident loss exits without destroying the account session.
+  - Verifies: REQ-04-169, REQ-03-313, REQ-03-315
+
+- **AC-593**: At 319/320, 767/768, 1023/1024 and 1279/1280 CSS-pixel widths, with zoom, long labels, supported text spacing and 0/1/3/many rows, verify exact shell tiers, overlay versus adjacent focus, independent scrolling, resize clamps and persistent save status. Height-only changes do not change width tiers.
+  - Verifies: REQ-03-286, REQ-03-317; design §§7–8
+
+- **AC-594**: Read/copy long RAW Activity containing HTML, formula-like text, URLs and whitespace; inspect null versus empty text, missing activity instant, mismatched dates and metadata-only Evidence. Preserve exact inert source, no fabricated timestamp or file count, and safe preview failure. Closed/read-only remains distinct from save state.
+  - Verifies: REQ-01-312, REQ-03-311, REQ-03-318, REQ-04-169, REQ-04-170
+
+- **AC-595**: Open Record/Work/Commands, fail a query replacement, load a fourth page and use local Find. No all-surface/count/history/evidence prefetch occurs; old query labels remain with old rows and the request is Not applied with Retry/Revert. Three-page bounds, explicit continuation and honestly scoped local counts remain. Rough capture and related-task creation retain existing source requirements, association and failure identity.
+  - Verifies: REQ-03-311, REQ-03-316, REQ-03-318
+
+- **AC-596**: Review the adopted interfaces and exercise alternate entry paths to the same owner action. Workbook owns admission/token issuance, source owners membership/semantics, and Projections storage. Commands and navigation contain no generic source store, mutation retry engine or vendor-index identity. Source-write, record-family, extension and authorization boundaries remain unchanged.
+  - Verifies: REQ-00-077, REQ-01-684, REQ-03-312, REQ-03-318, REQ-04-170
+
+- **AC-597**: For locator requests test malformed/non-object/duplicate/trailing JSON, unknown and pagination members, query-string members, missing/null/malformed IDs, raw array limits and invalid sort/filter/group shapes. Verify prescribed validation precedence and safe reason details. Reject malformed located payloads, identity mismatch and unknown outcomes before row admission. Unsupported endpoints are capability failures, never record-unavailable results.
+  - Verifies: REQ-01-680, REQ-01-681, REQ-01-683, REQ-03-314
 
 ## 10. Non-goals preserved from the source artifact
 

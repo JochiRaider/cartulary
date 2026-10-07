@@ -180,7 +180,7 @@ export const surfaceTabStyle = {
   font: "inherit",
   cursor: "pointer",
   whiteSpace: "nowrap" as const,
-  minBlockSize: "var(--ct-layout-topBarHeight)",
+  minBlockSize: "var(--ct-layout-statusStripHeight)",
 };
 
 export const surfaceTabActiveStyle = {
@@ -229,7 +229,7 @@ export const surfaceMenuTriggerStyle = {
 export const surfacesMenuStyle = {
   position: "absolute" as const,
   zIndex: 18,
-  insetBlockStart: "calc(100% + 0.35rem)",
+  insetBlockEnd: "calc(100% + 0.35rem)",
   insetInlineStart: 0,
   display: "grid",
   gap: "0.2rem",

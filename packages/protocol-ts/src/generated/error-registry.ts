@@ -616,6 +616,18 @@ const value = {
         {
           "code": "cursor_snapshot_unavailable",
           "summary": "Reserved for future explicit snapshot routes; restart without a cursor if received."
+        },
+        {
+          "code": "malformed_locator_request",
+          "summary": "The locator body is not exactly one duplicate-free JSON object."
+        },
+        {
+          "code": "unknown_locator_member",
+          "summary": "The locator request contains a forbidden body or URL query member."
+        },
+        {
+          "code": "invalid_record_id",
+          "summary": "The locator target identifier is missing, null, or malformed."
         }
       ]
     },

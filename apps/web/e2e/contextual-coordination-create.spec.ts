@@ -364,9 +364,7 @@ async function switchSheet(page: Page, view: string) {
   const tab = page.getByTestId(surfaceTabTestId(view));
   if (await tab.count()) await tab.click();
   else {
-    await page
-      .getByRole("button", { name: "System views", exact: true })
-      .click();
+    await page.getByRole("button", { name: "More views", exact: true }).click();
     await page
       .locator(`[role="menuitemradio"][data-view-schema-id="${view}"]`)
       .click();

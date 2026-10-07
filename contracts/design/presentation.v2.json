@@ -3,17 +3,41 @@
   "owner_id": "package.ui",
   "verification_id": "package.ui.verification.machine_owned_presentation",
   "workbook_chrome": {
-    "query_chip_capacities": { "base": 3, "narrow_desktop": 2, "compact_desktop": 0, "below_supported_minimum": 0 },
+    "query_chip_capacities": {
+      "base": 3,
+      "narrow_desktop": 2,
+      "compact_desktop": 0,
+      "below_supported_minimum": 0
+    },
     "saved_view_startup_initially_open": false
   },
   "inspector": {
     "history_scalar_pair_max_lines": 2,
     "candidate_chooser_max_block_size_rem": 12,
-    "panel_kinds": ["regions", "commands_only"],
-    "data_states": ["initial_loading", "ready", "refreshing", "stale_failure", "unavailable"],
-    "access_states": ["readable", "concealed"],
-    "content_states": ["empty", "populated"],
-    "reference_viewport": { "width_px": 1280, "height_px": 720, "inspector_width_px": 420 },
+    "panel_kinds": [
+      "regions",
+      "commands_only"
+    ],
+    "data_states": [
+      "initial_loading",
+      "ready",
+      "refreshing",
+      "stale_failure",
+      "unavailable"
+    ],
+    "access_states": [
+      "readable",
+      "concealed"
+    ],
+    "content_states": [
+      "empty",
+      "populated"
+    ],
+    "reference_viewport": {
+      "width_px": 1280,
+      "height_px": 720,
+      "inspector_width_px": 420
+    },
     "persistent_region_max_height_px": 128,
     "field_action_min_size_px": 28,
     "property_stack_below_px": 320,
@@ -72,9 +96,24 @@
     ],
     "header_title_lines": 2,
     "narrative_preview_lines": 6,
-    "action_outcomes": {"open_authoring": "Opens authoring. Submit explicitly to save.", "review": "Opens review before any change.", "navigate": "Opens the related workbook view."},
-    "unavailable_causes": ["not_requested", "load_failed", "owner_blocked"],
-    "announcements": { "initial_loading": "polite", "refreshing": "polite", "background_stale": "polite", "rejected_action": "assertive", "not_requested": "none", "already_reported": "none" }
+    "action_outcomes": {
+      "open_authoring": "Opens authoring. Submit explicitly to save.",
+      "review": "Opens review before any change.",
+      "navigate": "Opens the related workbook view."
+    },
+    "unavailable_causes": [
+      "not_requested",
+      "load_failed",
+      "owner_blocked"
+    ],
+    "announcements": {
+      "initial_loading": "polite",
+      "refreshing": "polite",
+      "background_stale": "polite",
+      "rejected_action": "assertive",
+      "not_requested": "none",
+      "already_reported": "none"
+    }
   },
   "grid_cell_range_selection": {
     "stationary_tolerance_px": 4,
@@ -82,7 +121,9 @@
     "maximum_scroll_px_per_second": 720,
     "maximum_frame_ms": 32
   },
-  "workbook_frozen_columns": { "minimum_scrollable_width_px": 240 },
+  "workbook_frozen_columns": {
+    "minimum_scrollable_width_px": 240
+  },
   "workbook_column_sizing": {
     "minimum_width_px": 40,
     "maximum_width_px": 4096,
@@ -96,8 +137,17 @@
     "successful_navigation": "collapse"
   },
   "presence": {
-    "capacities": { "header": 5, "row": 3, "cell": 2 },
-    "mode_priority": { "editing": 1, "focused": 2, "viewing": 3, "idle": 4 },
+    "capacities": {
+      "header": 5,
+      "row": 3,
+      "cell": 2
+    },
+    "mode_priority": {
+      "editing": 1,
+      "focused": 2,
+      "viewing": 3,
+      "idle": 4
+    },
     "live": "none"
   },
   "initial_loading": {
@@ -133,7 +183,7 @@
       "row_retention": "show_none",
       "draft_retention": "hide_owner_draft",
       "message_strategy": "loading_surface",
-      "message": "Loading {surface_label}…",
+      "message": "Loading {surface_label}\u2026",
       "action_rule": "none"
     },
     {
@@ -147,7 +197,7 @@
       "row_retention": "retain_previously_authorized",
       "draft_retention": "show_owner_draft",
       "message_strategy": "refreshing_surface",
-      "message": "Refreshing {surface_label}…",
+      "message": "Refreshing {surface_label}\u2026",
       "action_rule": "none"
     },
     {
@@ -244,7 +294,9 @@
   "grid_state_composition": {
     "primary": "data_state",
     "co_display_interaction_mode": "read_only",
-    "suppress_interaction_for_data_states": ["permission_denied"],
+    "suppress_interaction_for_data_states": [
+      "permission_denied"
+    ],
     "live_region_rule": "single_highest_priority_atomic_message"
   },
   "transient_confirmation": {
@@ -272,7 +324,10 @@
       "family": "local_validation",
       "locus": "affected_editor_or_cell",
       "retention": "retain_committed_value_and_exact_local_draft",
-      "actions": ["correct_value", "cancel_draft"],
+      "actions": [
+        "correct_value",
+        "cancel_draft"
+      ],
       "focus_effect": "no_automatic_move",
       "live": "assertive"
     },
@@ -280,7 +335,9 @@
       "family": "same_field_conflict",
       "locus": "cell_marker_and_same_surface_resolver",
       "retention": "retain_saved_and_unsaved_values",
-      "actions": ["owner_declared_resolution"],
+      "actions": [
+        "owner_declared_resolution"
+      ],
       "focus_effect": "explicit_activation_then_recovery_list_or_invoker_fallback",
       "live": "assertive"
     },
@@ -288,7 +345,10 @@
       "family": "client_txn_conflict",
       "locus": "same_surface_non_modal_recovery_panel",
       "retention": "retain_blocker_and_later_fifo_units",
-      "actions": ["retry_with_new_request_id", "discard_blocked_edit"],
+      "actions": [
+        "retry_with_new_request_id",
+        "discard_blocked_edit"
+      ],
       "focus_effect": "no_automatic_move",
       "live": "polite"
     },
@@ -296,7 +356,9 @@
       "family": "queue_overflow",
       "locus": "status_secondary_and_same_surface_overflow_notice",
       "retention": "retain_64_units_and_refuse_65th",
-      "actions": ["enter_recovery"],
+      "actions": [
+        "enter_recovery"
+      ],
       "focus_effect": "no_automatic_move",
       "live": "assertive"
     },
@@ -304,7 +366,9 @@
       "family": "stale_refresh",
       "locus": "non_blocking_grid_and_status",
       "retention": "retain_previously_authorized_materialization",
-      "actions": ["retry"],
+      "actions": [
+        "retry"
+      ],
       "focus_effect": "preserve_selection_and_focus",
       "live": "assertive"
     },
@@ -312,7 +376,9 @@
       "family": "initial_load_failure",
       "locus": "blocking_grid_state",
       "retention": "retain_no_fabricated_rows",
-      "actions": ["retry_after_failure"],
+      "actions": [
+        "retry_after_failure"
+      ],
       "focus_effect": "do_not_focus_action_automatically",
       "live": "assertive"
     },
@@ -320,7 +386,9 @@
       "family": "authentication_required",
       "locus": "same_surface_session_recovery_notice",
       "retention": "retain_local_unsent_work_and_previously_authorized_materialization",
-      "actions": ["reauthenticate"],
+      "actions": [
+        "reauthenticate"
+      ],
       "focus_effect": "no_automatic_move",
       "live": "assertive"
     },
@@ -328,7 +396,9 @@
       "family": "permission_or_incident_access_loss",
       "locus": "authenticated_root",
       "retention": "clear_protected_materialization",
-      "actions": ["return_to_authenticated_root"],
+      "actions": [
+        "return_to_authenticated_root"
+      ],
       "focus_effect": "focus_authenticated_root_heading",
       "live": "assertive"
     },
@@ -336,7 +406,9 @@
       "family": "extension_unavailable",
       "locus": "ordinary_base_startup_fallback",
       "retention": "clear_extension_state_preserve_base_state",
-      "actions": ["run_base_fallback"],
+      "actions": [
+        "run_base_fallback"
+      ],
       "focus_effect": "focus_selected_base_surface_heading",
       "live": "assertive"
     },
@@ -344,7 +416,9 @@
       "family": "evidence_preview_blocked",
       "locus": "inspector_local_state",
       "retention": "retain_authorized_metadata_without_preview_bytes",
-      "actions": ["download_when_separately_authorized"],
+      "actions": [
+        "download_when_separately_authorized"
+      ],
       "focus_effect": "preserve_focus",
       "live": "polite"
     },
@@ -356,5 +430,80 @@
       "focus_effect": "no_automatic_move",
       "live": "assertive"
     }
-  ]
+  ],
+  "workbook_workbench": {
+    "pin_limit": 20,
+    "return_limit": 32,
+    "command_page_size": 20,
+    "grid_minimum_width_px": 720,
+    "command_families": [
+      "Capture",
+      "Inspect",
+      "Relate",
+      "Follow up",
+      "Review",
+      "View"
+    ],
+    "presets": [
+      {
+        "id": "full_timeline",
+        "label": "Full timeline",
+        "sort": [],
+        "filters": []
+      },
+      {
+        "id": "recent_edits",
+        "label": "Recent edits",
+        "sort": [
+          {
+            "field_key": "timeline.edited_at",
+            "direction": "desc"
+          }
+        ],
+        "filters": []
+      },
+      {
+        "id": "unresolved_references",
+        "label": "Unresolved references",
+        "sort": [],
+        "filters": [
+          {
+            "field_key": "timeline.has_unresolved_mentions",
+            "op": "eq",
+            "arg": {
+              "value": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "date_mismatch",
+        "label": "Date mismatch",
+        "sort": [],
+        "filters": [
+          {
+            "field_key": "timeline.activity_time_pair_state",
+            "op": "eq",
+            "arg": {
+              "value": "paired_mismatch"
+            }
+          }
+        ]
+      },
+      {
+        "id": "with_attached_files",
+        "label": "With attached files",
+        "sort": [],
+        "filters": [
+          {
+            "field_key": "timeline.has_evidence",
+            "op": "eq",
+            "arg": {
+              "value": true
+            }
+          }
+        ]
+      }
+    ]
+  }
 }

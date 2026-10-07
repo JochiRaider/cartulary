@@ -74,6 +74,7 @@ func RegisterRoutes(routeDependencies RouteDependencies) httpapi.RouteRegistrar 
 			"putCurrentUserWorkbookPreferences":     service.handleWorkbookPreferencesMe,
 			"putIncidentDefaultWorkbookPreferences": service.handleWorkbookPreferencesDefault,
 			"queryWorkbookView":                     service.handleQuery,
+			"locateWorkbookViewRecord":              service.handleLocate,
 			"resolveRecordSameFieldConflict":        service.handleConflictResolve,
 			"supersedeRecord":                       service.handleSupersede,
 		})

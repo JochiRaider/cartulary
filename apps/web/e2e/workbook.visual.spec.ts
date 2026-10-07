@@ -1290,6 +1290,15 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         scroll: { top: 0, left: "left" },
       }),
     );
+    if (
+      !(await page
+        .getByTestId(savedViewSelectorTestId(timelineViewSchemaId))
+        .isVisible())
+    ) {
+      await page
+        .getByRole("button", { name: "View controls", exact: true })
+        .click();
+    }
     await selectSavedView(page, timelineViewSchemaId, "");
     await captureRichTimelineInspector(
       page,
@@ -3541,8 +3550,8 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     await test.step("reload visual application", () =>
       reloadVisualApplication(page));
     await expect(
-      page.getByText("Closed, read-only", { exact: true }),
-    ).toBeVisible();
+      page.getByRole("status", { name: "Incident lifecycle", exact: true }),
+    ).toHaveText("Closed, read-only");
     await expect(
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toContainText("No Timeline records have been added.");
@@ -4875,8 +4884,8 @@ test.describe("browser.design-readiness visual readiness", () => {
     await test.step("reload visual application", () =>
       reloadVisualApplication(page));
     await expect(
-      page.getByText("Closed, read-only", { exact: true }),
-    ).toBeVisible();
+      page.getByRole("status", { name: "Incident lifecycle", exact: true }),
+    ).toHaveText("Closed, read-only");
     await expect(
       page.getByTestId(gridRowTestId(timelineViewSchemaId, staleRow.record_id)),
     ).toBeVisible();
@@ -9388,10 +9397,24 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
     page,
     "ordinary-closed-retained-narrow",
     {
-      ready: () =>
-        normalizeWorkbookGridVisualState(page, evidenceViewSchemaId, {
+      ready: async () => {
+        await normalizeWorkbookGridVisualState(page, evidenceViewSchemaId, {
           scroll: { top: 0, left: "left" },
-        }),
+        });
+        const lifecycleStatus = page.getByRole("status", {
+          name: "Incident lifecycle",
+        });
+        await expect(lifecycleStatus).toHaveText("Closed, read-only");
+        expect(
+          await lifecycleStatus.evaluate((element) => {
+            const label = element.getBoundingClientRect();
+            const band = element.closest("section")?.getBoundingClientRect();
+            return (
+              !!band && label.top >= band.top && label.bottom <= band.bottom
+            );
+          }),
+        ).toBe(true);
+      },
     },
   );
   await test.info().attach("ordinary-closed-retained-review", {

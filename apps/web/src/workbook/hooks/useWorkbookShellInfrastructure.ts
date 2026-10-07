@@ -3,6 +3,7 @@ import type { ExtensionAvailabilityController } from "../../extensions/extension
 import type { AttachWorkflow } from "../../shared/workflowAttachment";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookIncidentAdapter";
+import { createWorkbookRecordLocatorAdapter } from "../adapters/createWorkbookRecordLocatorAdapter";
 import { createWorkbookReferenceMemberReader } from "../adapters/createWorkbookReferenceMemberReader";
 import { createWorkbookStartupAdapter } from "../adapters/createWorkbookStartupAdapter";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
@@ -105,6 +106,15 @@ export function useWorkbookShellInfrastructure({
       readScopeKey,
     ],
   );
+  const recordLocator = useMemo(
+    () =>
+      createWorkbookRecordLocatorAdapter({
+        apiBase,
+        incidentId,
+        readScope: () => viewQuery.readScope?.() ?? null,
+      }),
+    [apiBase, incidentId, viewQuery],
+  );
   const workbookRuntime = useWorkbookShellRuntime({
     incidentId,
     onAuthorityUncertain,
@@ -126,6 +136,7 @@ export function useWorkbookShellInfrastructure({
     timelineCapture,
     timelineMentions,
     viewQuery,
+    recordLocator,
     workbookRuntime,
   };
 }

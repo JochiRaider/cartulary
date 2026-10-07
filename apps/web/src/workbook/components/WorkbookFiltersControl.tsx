@@ -10,8 +10,9 @@ import {
 } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { SlidersHorizontal } from "lucide-react";
-import { type AriaAttributes, type RefObject, useId } from "react";
+import { type AriaAttributes, type RefObject, useId, useRef } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
+import { useWorkbookMenuPlacement } from "../layout/useWorkbookMenuPlacement";
 import {
   booleanFilterControlKeys,
   isBooleanEqualityFilter,
@@ -107,6 +108,8 @@ export function WorkbookFiltersControl({
   readonly surface: string;
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useWorkbookMenuPlacement(isOpen, panel);
   const feedbackId = useId();
   const isBoolean = isBooleanEqualityFilter(contract, draft.fieldKey, draft.op);
   const enumChoices = enumFilterChoices(contract, draft);
@@ -229,6 +232,7 @@ export function WorkbookFiltersControl({
       </button>
       {isOpen ? (
         <div
+          ref={panel}
           aria-label={
             editingFieldKey === null
               ? "Add filter"

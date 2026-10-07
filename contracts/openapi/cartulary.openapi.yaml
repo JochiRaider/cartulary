@@ -4547,6 +4547,53 @@
         ]
       }
     },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/locate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
+      "post": {
+        "operationId": "locateWorkbookViewRecord",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkbookLocateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookLocateEnvelope"
+                }
+              }
+            },
+            "description": "Bounded location or non-disclosing classification"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Locate one authorized record in a bounded workbook query window.",
+        "tags": [
+          "workbook"
+        ]
+      }
+    },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
       "parameters": [
         {
@@ -21239,6 +21286,180 @@
             "type": "object"
           }
         ]
+      },
+      "WorkbookLocateEnvelope": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/WorkbookLocateLocatedData"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/WorkbookQueryMeta"
+              }
+            },
+            "required": [
+              "data",
+              "meta"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/WorkbookLocateOutsideQueryData"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/WorkbookLocateResultMeta"
+              }
+            },
+            "required": [
+              "data",
+              "meta"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/WorkbookLocateUnavailableData"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/WorkbookLocateResultMeta"
+              }
+            },
+            "required": [
+              "data",
+              "meta"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "WorkbookLocateLocatedData": {
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "located"
+            ],
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ViewRow"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "target_record_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "view_schema_id": {
+            "type": "string"
+          },
+          "window_start_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "outcome",
+          "target_record_id",
+          "incident_id",
+          "view_schema_id",
+          "rows",
+          "window_start_cursor"
+        ],
+        "type": "object"
+      },
+      "WorkbookLocateOutsideQueryData": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "enum": [
+              "outside_query"
+            ],
+            "type": "string"
+          },
+          "target_record_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "target_record_id"
+        ],
+        "type": "object"
+      },
+      "WorkbookLocateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/ViewQueryFilter"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "group_by": {
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "sort": {
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            },
+            "maxItems": 8,
+            "type": "array"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "type": "object"
+      },
+      "WorkbookLocateResultMeta": {
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "type": "object"
+      },
+      "WorkbookLocateUnavailableData": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "enum": [
+              "unavailable"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "type": "object"
       },
       "WorkbookQueryData": {
         "additionalProperties": false,

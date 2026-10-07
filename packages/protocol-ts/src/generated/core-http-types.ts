@@ -270,6 +270,23 @@ export type WorkbookClipboardPasteTarget =
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookLocateEnvelope".
+ */
+export type WorkbookLocateEnvelope =
+  | {
+      data: WorkbookLocateLocatedData;
+      meta: WorkbookQueryMeta;
+    }
+  | {
+      data: WorkbookLocateOutsideQueryData;
+      meta: WorkbookLocateResultMeta;
+    }
+  | {
+      data: WorkbookLocateUnavailableData;
+      meta: WorkbookLocateResultMeta;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "WorkbookStartupSource".
  */
 export type WorkbookStartupSource = "explicit" | "home" | "default" | "timeline";
@@ -6159,20 +6176,19 @@ export interface WorkbookClipboardPasteRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "WorkbookQueryEnvelope".
+ * via the `definition` "WorkbookLocateLocatedData".
  */
-export interface WorkbookQueryEnvelope {
-  data: WorkbookQueryData;
-  meta: WorkbookQueryMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "WorkbookQueryData".
- */
-export interface WorkbookQueryData {
+export interface WorkbookLocateLocatedData {
   incident_id: string;
-  rows: ViewRow[];
+  outcome: "located";
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  rows: [ViewRow, ...ViewRow[]];
+  target_record_id: string;
   view_schema_id: string;
+  window_start_cursor: string | null;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -6191,6 +6207,212 @@ export interface WorkbookQueryMetaQuery {
   filters: ViewQueryFilter[];
   group_by?: string;
   sort: SortEntry[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookLocateOutsideQueryData".
+ */
+export interface WorkbookLocateOutsideQueryData {
+  outcome: "outside_query";
+  target_record_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookLocateResultMeta".
+ */
+export interface WorkbookLocateResultMeta {
+  request_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookLocateUnavailableData".
+ */
+export interface WorkbookLocateUnavailableData {
+  outcome: "unavailable";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookLocateRequest".
+ */
+export interface WorkbookLocateRequest {
+  /**
+   * @maxItems 16
+   */
+  filters?:
+    | []
+    | [ViewQueryFilter]
+    | [ViewQueryFilter, ViewQueryFilter]
+    | [ViewQueryFilter, ViewQueryFilter, ViewQueryFilter]
+    | [ViewQueryFilter, ViewQueryFilter, ViewQueryFilter, ViewQueryFilter]
+    | [ViewQueryFilter, ViewQueryFilter, ViewQueryFilter, ViewQueryFilter, ViewQueryFilter]
+    | [ViewQueryFilter, ViewQueryFilter, ViewQueryFilter, ViewQueryFilter, ViewQueryFilter, ViewQueryFilter]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ]
+    | [
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter,
+        ViewQueryFilter
+      ];
+  group_by?: string;
+  record_id: string;
+  /**
+   * @maxItems 8
+   */
+  sort?:
+    | []
+    | [SortEntry]
+    | [SortEntry, SortEntry]
+    | [SortEntry, SortEntry, SortEntry]
+    | [SortEntry, SortEntry, SortEntry, SortEntry]
+    | [SortEntry, SortEntry, SortEntry, SortEntry, SortEntry]
+    | [SortEntry, SortEntry, SortEntry, SortEntry, SortEntry, SortEntry]
+    | [SortEntry, SortEntry, SortEntry, SortEntry, SortEntry, SortEntry, SortEntry]
+    | [SortEntry, SortEntry, SortEntry, SortEntry, SortEntry, SortEntry, SortEntry, SortEntry];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookQueryEnvelope".
+ */
+export interface WorkbookQueryEnvelope {
+  data: WorkbookQueryData;
+  meta: WorkbookQueryMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookQueryData".
+ */
+export interface WorkbookQueryData {
+  incident_id: string;
+  rows: ViewRow[];
+  view_schema_id: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

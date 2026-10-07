@@ -721,6 +721,7 @@ export function EntityWorkbookSurface({
       };
     });
   const registerGridHandle = useWorkbookSemanticGridFocus({
+    onNavigateRecord: setSelectedRecordId,
     dataRows: entityGridRows,
     dataState,
     draftFieldKeys: gridEntryDraftFieldKeys,

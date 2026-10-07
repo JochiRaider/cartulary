@@ -353,6 +353,16 @@ amendment and its complete server/client build together with matching compatible
 state, never by downgrading newly admitted state in place. This narrow exception
 does not authorize other breaking v1 route changes.
 
+The workbench amendment explicitly admits the additive Base Profile
+`POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/locate` route
+under §3.3.4.3 within v1. It changes no existing request, response, schema ID,
+cursor format, or source-write contract. Server support MUST precede activation
+of locator-dependent clients. An unsupported endpoint is a capability failure,
+not evidence about the target. Clients MUST NOT substitute page scanning.
+Additive response members follow this section; unknown outcome discriminants
+fail response admission. No general permission for unenumerated base routes is
+created.
+
 **REQ-01-022**
 All public requests and responses MUST address writable surfaces by stable identifiers. The client MUST identify the incident by `incident_id`, the active view by `view_schema_id`, record-scoped target rows by `record_id`, mention-scoped targets by `entity_mention_id`, record-scoped optimistic writes by `base_row_version`, mention-scoped optimistic writes by `base_mention_row_version`, writable cells by `field_key`, and multi-change user actions by `client_txn_id`. The public surface MUST NOT require clients to address mutations by visible row order, tab label, column label, projection-table name, or storage-table name.
 Profiles: base
@@ -1117,6 +1127,7 @@ Contract tables. The tables in §3.3.4 through §3.3.4.2 are the compact owner-l
 | Route | Auth context | Request contract summary | Omission and default summary | Response summary | Primary errors |
 | --- | --- | --- | --- | --- | --- |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` | Visible incident and visible view schema for the caller | Optional `sort[]`, optional `filters[]`, optional `group_by`, and pagination body members under §3.3.7 | Omitted `sort` or `sort: []` means no user sort override; omitted `filters` or `filters: []` means no filters; omitted `group_by` means grouping inactive; `group_by: null` is invalid | Returns `incident_id`, `view_schema_id`, `rows[]` as full `view_row_v1[]`, `meta.query`, and paging metadata | `invalid_view_query`, `invalid_pagination_request`, ordinary authorization failures |
+| `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/locate` | Visible incident and visible view schema for the caller | Closed locator request under §3.3.4.3 | Target required; query omissions follow ordinary query; fixed limit 100 | Disjoint located/outside-query/unavailable envelope under REQ-01-681 | REQ-01-683 and ordinary authorization/operational errors |
 
 **Table 3.3.4-B. Query request members**
 
@@ -1614,6 +1625,125 @@ Verified by: AC-231, AC-383
 When a previously single-entry-addressable history item later becomes not currently reversible because of dependent later changes, stale target state, or other already-defined rollback-precondition reasons, that item MUST remain present in `items[]`. The route MUST express current legality through `reversible` and `available_rollback_actions[]` rather than by omitting the item or removing `history_entry_ref`.
 Profiles: base
 Verified by: AC-231, AC-384
+
+##### 3.3.4.3 Bounded record locator
+
+**REQ-01-680**
+`POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/locate` MUST
+provide read-only location within a registered standardized workbook surface.
+It MUST reuse query authentication, incident/view visibility, read admission,
+query normalization, comparison, projection freshness, deadlines and common
+envelopes. It MUST NOT create source revision history, mutation receipts, source records,
+idempotency state, a new listener, ACL model, or data store.
+
+| Body member | Required shape | Omission and null |
+| --- | --- | --- |
+| `record_id` | Existing Core record identifier scalar | Required; null invalid. |
+| `sort` | Existing view-query sort array, at most eight raw entries | Omitted/empty means no user override; null invalid. |
+| `filters` | Existing view-query predicate array, at most sixteen raw entries | Omitted/empty means none; null invalid. |
+| `group_by` | One schema-admitted grouping-key string | Omitted means inactive; null invalid. |
+
+The request member set MUST be closed. `limit`, `cursor_token`, arbitrary
+source members and all URL query members MUST be rejected. The fixed query
+limit is 100. Existing nested sort/filter validation and canonicalization apply.
+The route applies to all exposed standardized workbook schemas under §7.4.
+Extension workspace resources are not implicitly workbook records.
+Profiles: base
+Verified by: AC-577, AC-580, AC-597
+
+**REQ-01-681**
+A successful locator response MUST use HTTP 200 and the common envelope, with
+one of the following disjoint variants. The listed variant-specific members
+MUST NOT occur in another variant. Common metadata includes `request_id`.
+
+| `data.outcome` | Required `data` members besides `outcome` | Required metadata besides common metadata |
+| --- | --- | --- |
+| `located` | `target_record_id`, `incident_id`, `view_schema_id`, `rows`, `window_start_cursor` | Ordinary `meta.query` and `meta.paging` with `limit=100`. |
+| `outside_query` | `target_record_id` | No `query` or `paging`. |
+| `unavailable` | None | No `query` or `paging`. |
+
+A located response MUST contain 1–100 full `view_row_v1` rows, with the target
+first and up to 99 following rows. Incident/schema identities MUST match the
+request, and `target_record_id` MUST match both the request and first row.
+Full cell membership and `group_values` follow REQ-01-036.
+`window_start_cursor` MUST be present as a normal query cursor string or null;
+null means an ordinary query with omitted `cursor_token`. Forward continuation,
+including terminal `has_more=false` and `next_cursor=null`, follows §3.3.7.
+There is no nested query-response envelope.
+
+`outside_query` MUST mean the target is currently authorized, active and a
+member of the addressed base surface, but fails the submitted filters.
+`unavailable` MUST combine absent, deleted, inaccessible and wrong-surface
+targets without identifying which condition applies. Neither outcome returns
+row content. Location MUST NOT silently redirect to a replacement or survivor.
+A superseded record still admitted by its source/surface contract remains
+locatable; supersession alone is not deletion.
+Profiles: base
+Verified by: AC-577, AC-580, AC-581, AC-597
+
+**REQ-01-682**
+Target classification, predecessor selection and initial window selection MUST
+use one consistent authorized read. For an authorized matching target:
+
+1. Use the ordinary effective comparator, including default-sort tails,
+   null ordering and `record_id` tie-breaker.
+2. Find the immediately preceding authorized query-matching row, if any.
+3. Issue `window_start_cursor` after that predecessor's comparator position;
+   use null when no predecessor exists.
+4. Return the target-first bounded window and its ordinary forward cursor.
+
+Both tokens MUST be issued by the ordinary query cursor owner for
+`workbook.view-query`, using existing `pc2` keyset protection and actor,
+incident, schema, normalized-query and limit binding. They MUST NOT be
+locator-route tokens or a new cursor mode. No expiry policy from another
+subsystem is imported.
+
+The start token represents a comparator boundary, not a dependency on the
+predecessor's continued existence. Replay is an ordinary live-authorized query;
+it need not remain target-first after intervening source changes. There is no
+retained server snapshot, global ordinal, earlier-page promise or stable total.
+Location MUST use bounded target membership, predecessor and window selection;
+neither a browser scan nor an unbounded server page walk is conformant.
+Private SQL/index design remains implementation latitude.
+Profiles: base
+Verified by: AC-577, AC-578, AC-579, AC-580
+
+**REQ-01-683**
+Route authentication and incident/view admission MUST precede target-specific
+evaluation. Existing non-disclosing route failures remain controlling. After
+route admission, validation MUST apply the following order before classification:
+
+| Order | Condition | HTTP / error code / reason |
+| ---: | --- | --- |
+| 1 | Malformed JSON, non-object body, duplicate member at any object level, or trailing JSON | `400 / invalid_view_query / malformed_locator_request` |
+| 2 | Unknown or forbidden top-level member, including any URL query member | `400 / invalid_view_query / unknown_locator_member` |
+| 3 | Missing, null or malformed record identifier | `400 / invalid_view_query / invalid_record_id`; `details.field=record_id` |
+| 4 | Invalid sort, filter or group | Existing query validation order, reason and safe details. |
+
+This table extends the `invalid_view_query` registry in §3.3.6.2 only for this
+route. Unknown member names and arbitrary submitted values MUST NOT be echoed.
+Limits, transport failures, deadlines and source-read failures MUST use their
+existing operational errors, never `unavailable`. Unknown response
+discriminants, missing required members and inconsistent identities MUST fail
+client response admission, preserving the eligible prior presentation.
+Profiles: base
+Verified by: AC-580, AC-581, AC-597
+
+**REQ-01-684**
+Workbook MUST own locator admission, canonical query construction, envelope
+mapping and query-token issuance. Its catalog-bound provider boundary MUST
+accept the addressed schema, authorized incident read context, validated target
+ID and canonical query, and return either unavailable, outside-query, or a
+located full-row window with its predecessor comparator position and forward
+position. Providers MUST NOT issue transport tokens or invent authorization.
+
+Source owners retain membership and projection meaning; Projections retains
+workbook projection SQL/storage ownership. The read boundary MUST NOT expose
+arbitrary tables, source fields or a general record-store API. Internal
+composition MAY follow existing owner/provider arrangements; omission of a
+separate provider interface does not relax these responsibilities.
+Profiles: base
+Verified by: AC-596
 
 #### 3.3.5.0A Timeline time-conversion profile
 
@@ -4024,6 +4154,9 @@ spelling `missing_minimum_create_signal` MUST NOT be accepted or emitted.
 
 | `reason_code` | Canonical meaning |
 | --- | --- |
+| `malformed_locator_request` | Locator-only structural failure under REQ-01-683. |
+| `unknown_locator_member` | Locator-only forbidden-member failure under REQ-01-683. |
+| `invalid_record_id` | Locator-only target-scalar failure under REQ-01-683; safe locator `field=record_id`. |
 | `unknown_filter_field` | `field_key` is not declared filterable for the active `view_schema_id`. |
 | `operator_not_allowed` | `op` is not allowed for that field's declared filter class. |
 | `invalid_filter_operand` | `arg` is malformed, empty after normalization, contradictory, or otherwise invalid for the selected `op`. |

@@ -1,0 +1,170 @@
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
+import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
+import type {
+  WorkbookQueryState,
+  WorkbookSavedViewLayoutJson,
+} from "../models/workbookQuery";
+
+const limits = cartularyDesignPresentation.workbookWorkbench;
+export type WorkbookSessionPin = {
+  readonly incidentId: string;
+  readonly sheetRef: SheetRef;
+  readonly recordId?: string;
+  readonly fieldKey?: string;
+  readonly label: string;
+};
+export type WorkbookReturnOrigin = {
+  readonly viewSchemaId?: string;
+  readonly incidentId: string;
+  readonly sheetRef: SheetRef;
+  readonly query?: WorkbookQueryState;
+  readonly layout?: WorkbookSavedViewLayoutJson;
+  readonly recordId?: string;
+  readonly fieldKey?: string;
+  readonly savedViewVersion?: number;
+  readonly invoker: "grid" | "view" | "work";
+};
+export function workbookPinIdentity(pin: WorkbookSessionPin) {
+  return JSON.stringify([
+    pin.incidentId,
+    sheetRefKey(pin.sheetRef),
+    pin.recordId ?? null,
+  ]);
+}
+type Snapshot = {
+  readonly pins: readonly WorkbookSessionPin[];
+  readonly trail: readonly WorkbookReturnOrigin[];
+  readonly message: string | null;
+  readonly readable: boolean;
+  readonly pending: boolean;
+};
+
+/** Session navigation metadata only. Reads and writes stay with their owners. */
+export class WorkbookSessionNavigation {
+  private pins: readonly WorkbookSessionPin[] = [];
+  private trail: readonly WorkbookReturnOrigin[] = [];
+  private listeners = new Set<() => void>();
+  private pending: {
+    key: string;
+    controller: AbortController;
+    promise: Promise<boolean>;
+  } | null = null;
+  private snapshot: Snapshot = {
+    pins: [],
+    trail: [],
+    message: null,
+    readable: false,
+    pending: false,
+  };
+  constructor(readonly incidentId: string) {}
+  getSnapshot = () => this.snapshot;
+  subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+  private publish(message: string | null = this.snapshot.message) {
+    this.snapshot = {
+      ...this.snapshot,
+      pins: this.snapshot.readable ? this.pins : [],
+      trail: this.snapshot.readable ? this.trail : [],
+      pending: this.pending !== null,
+      message: this.snapshot.readable ? message : null,
+    };
+    for (const listener of this.listeners) listener();
+  }
+  setReadable(readable: boolean) {
+    if (this.snapshot.readable === readable) return;
+    if (!readable) this.cancel();
+    this.snapshot = { ...this.snapshot, readable };
+    this.publish(null);
+  }
+  pin(pin: WorkbookSessionPin) {
+    if (
+      !this.snapshot.readable ||
+      pin.incidentId !== this.incidentId ||
+      (pin.recordId && pin.sheetRef.kind !== "view_schema")
+    )
+      return;
+    if (
+      this.pins.some(
+        (item) => workbookPinIdentity(item) === workbookPinIdentity(pin),
+      )
+    ) {
+      this.publish("Already in working set");
+      return;
+    }
+    if (this.pins.length >= limits.pin_limit) {
+      this.publish("Working set is full; remove a pin first.");
+      return;
+    }
+    this.pins = [...this.pins, structuredClone(pin)];
+    this.publish("Added to working set");
+  }
+  remove(pin: WorkbookSessionPin) {
+    this.pins = this.pins.filter(
+      (item) => workbookPinIdentity(item) !== workbookPinIdentity(pin),
+    );
+    this.publish(null);
+  }
+  concealPin(pin: WorkbookSessionPin) {
+    this.pins = this.pins.map((item) =>
+      workbookPinIdentity(item) === workbookPinIdentity(pin)
+        ? { ...item, label: "Unavailable item" }
+        : item,
+    );
+    this.publish("This item is unavailable.");
+  }
+  cancel() {
+    this.pending?.controller.abort();
+    this.pending = null;
+    this.publish(null);
+  }
+  clear() {
+    this.cancel();
+    this.pins = [];
+    this.trail = [];
+    this.publish(null);
+  }
+  /** prepare/commit is one owner-admitted navigation, never an optimistic pivot. */
+  navigate(
+    key: string,
+    origin: WorkbookReturnOrigin,
+    commit: (signal: AbortSignal) => Promise<"changed" | "same" | "failed">,
+    returning = false,
+  ): Promise<boolean> {
+    if (!this.snapshot.readable || origin.incidentId !== this.incidentId)
+      return Promise.resolve(false);
+    if (this.pending?.key === key) return this.pending.promise;
+    this.cancel();
+    const captured = structuredClone(origin);
+    const controller = new AbortController();
+    const request = { key, controller, promise: Promise.resolve(false) };
+    this.pending = request;
+    request.promise = Promise.resolve()
+      .then(() => commit(controller.signal))
+      .then((result) => {
+        if (
+          this.pending !== request ||
+          controller.signal.aborted ||
+          !this.snapshot.readable
+        )
+          return false;
+        if (result === "failed") return false;
+        if (returning) this.trail = this.trail.slice(0, -1);
+        else if (result === "changed")
+          this.trail = [...this.trail, captured].slice(-limits.return_limit);
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        if (this.pending === request) {
+          this.pending = null;
+          this.publish(null);
+        }
+      });
+    this.publish(null);
+    return request.promise;
+  }
+}

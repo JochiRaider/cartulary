@@ -57,6 +57,40 @@ func (reader *HostReader) SelectHostQueryProjections(
 	return result, nil
 }
 
+func (reader *HostReader) SelectHostQueryProjectionsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	query viewschema.QueryMeta,
+	window querypage.Window,
+) ([]entityports.HostQueryProjection, error) {
+	if reader == nil || tx == nil {
+		return nil, fmt.Errorf("query host projections: database is required")
+	}
+	sqlText, args, err := buildHostQueryPageSQL(incidentID, query, window)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, sqlText, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query host projections: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]entityports.HostQueryProjection, 0)
+	for rows.Next() {
+		row, scanErr := scanHostQueryProjection(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		result = append(result, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate host projections: %w", err)
+	}
+	return result, nil
+}
+
 func (reader *HostReader) CollectHostDerivedFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -143,6 +177,10 @@ SELECT
    AND r.deleted_at IS NULL
    AND p.host_state IN ('stub', 'canonical')`)
 	args := []any{incidentID}
+	if window.TargetRecordID != "" {
+		args = append(args, window.TargetRecordID)
+		builder.WriteString(" AND p.record_id = $2::uuid")
+	}
 
 	for _, filter := range query.Filters {
 		var expression string
@@ -167,7 +205,11 @@ SELECT
 		}
 	}
 
-	if err := querypage.AppendKeyset(
+	appendPosition := querypage.AppendKeyset
+	if window.Before {
+		appendPosition = querypage.AppendBefore
+	}
+	if err := appendPosition(
 		&builder,
 		&args,
 		query.Sort,
@@ -176,7 +218,7 @@ SELECT
 	); err != nil {
 		return "", nil, err
 	}
-	if err := appendEntityOrderBy(&builder, query.Sort, hostSortExpressions); err != nil {
+	if err := appendEntityOrderBy(&builder, query.Sort, hostSortExpressions, window.Before); err != nil {
 		return "", nil, err
 	}
 	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
@@ -240,6 +282,7 @@ func appendEntityOrderBy(
 	builder *strings.Builder,
 	sortEntries []viewschema.SortEntry,
 	expressions map[string]string,
+	before bool,
 ) error {
 	builder.WriteString(" ORDER BY ")
 	for index, sortEntry := range sortEntries {
@@ -251,12 +294,16 @@ func appendEntityOrderBy(
 			return fmt.Errorf("query sort field %q not mapped", sortEntry.FieldKey)
 		}
 		builder.WriteString(expression)
-		if sortEntry.Direction == "desc" {
+		if (sortEntry.Direction == "desc") != before {
 			builder.WriteString(" DESC")
 		} else {
 			builder.WriteString(" ASC")
 		}
-		builder.WriteString(" NULLS LAST")
+		if before {
+			builder.WriteString(" NULLS FIRST")
+		} else {
+			builder.WriteString(" NULLS LAST")
+		}
 	}
 	return nil
 }

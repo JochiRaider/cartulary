@@ -334,15 +334,17 @@ describe("workbook collaboration coverage", () => {
     );
     expect(resolver).toBeTruthy();
     expect(
-      screen.getByRole("region", { name: "Workbook recovery" }).style
+      screen
+        .getByRole("region", { name: "Workbook recovery" })
+        .closest<HTMLElement>('[data-workbook-slot="inspector"]')?.style
         .background,
     ).toBe("var(--ct-colors-surface-1)");
     expect(
-      screen.getByRole("region", { name: "Workbook recovery" }).style.border,
-    ).toBe("var(--ct-border-hairline)");
-    expect(
-      screen.getByRole("region", { name: "Workbook recovery" }).style.boxShadow,
-    ).toBe("var(--ct-elevation-popover)");
+      screen
+        .getByRole("region", { name: "Workbook recovery" })
+        .closest<HTMLElement>('[data-workbook-slot="inspector"]')?.style
+        .boxShadow,
+    ).toBe("none");
     expect(
       Array.from(resolver.querySelectorAll<HTMLElement>("[style]"))
         .map((element) => element.getAttribute("style"))
@@ -1221,7 +1223,9 @@ describe("workbook collaboration coverage", () => {
       /raw-transaction-id|raw-unit-id|\/api\/v1\/private|secret-token|unsafe:true|handler\.go/u,
     );
     expect(
-      screen.getByRole("region", { name: "Workbook recovery" }).style
+      screen
+        .getByRole("region", { name: "Workbook recovery" })
+        .closest<HTMLElement>('[data-workbook-slot="inspector"]')?.style
         .background,
     ).toBe("var(--ct-colors-surface-1)");
     const recoveryStatus = screen.getByRole("status", {

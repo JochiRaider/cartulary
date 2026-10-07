@@ -4,6 +4,7 @@ import {
 } from "@cartulary/ui-contracts";
 import {
   type CSSProperties,
+  type ReactNode,
   type RefObject,
   useId,
   useLayoutEffect,
@@ -12,6 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ActiveSurfaceSavedViewProjection } from "../models/workbookSavedViewControl";
+import { useWorkbookWorkbench } from "../navigation/WorkbookWorkbenchContext";
 import type { SavedViewDiscoveryAction } from "../savedviews/SavedViewDiscovery";
 import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
@@ -20,12 +22,14 @@ import { controlButtonStyle, menuStyle } from "./workbookGridControlStyles";
 /** Focus moves through candidates; only activation resolves and applies a resource. */
 export function SavedViewBrowser({
   controller,
+  presets,
   schema,
   projection,
   triggerRef,
   triggerStyle,
   onBase,
 }: {
+  presets?: ReactNode;
   controller: WorkbookSavedViewController;
   schema: string;
   projection: ActiveSurfaceSavedViewProjection;
@@ -33,6 +37,7 @@ export function SavedViewBrowser({
   triggerStyle: CSSProperties;
   onBase: () => void;
 }) {
+  const workbench = useWorkbookWorkbench();
   const snapshot = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
@@ -312,6 +317,16 @@ export function SavedViewBrowser({
             }
           }}
         >
+          {workbench ? (
+            <button
+              type="button"
+              style={controlButtonStyle}
+              onClick={workbench.pinCurrentView}
+            >
+              {workbench.pinViewLabel}
+            </button>
+          ) : null}
+          {presets}
           <div
             role="listbox"
             aria-label="Saved-view choices"
@@ -358,7 +373,11 @@ export function SavedViewBrowser({
                 focusedCandidateIndex.current = 0;
               }}
               onClick={() => {
-                onBase();
+                if (workbench)
+                  workbench.open({
+                    sheetRef: { kind: "view_schema", id: schema },
+                  });
+                else onBase();
                 close(true);
               }}
             >
@@ -397,6 +416,16 @@ export function SavedViewBrowser({
                 data-saved-view-id={candidate.saved_view_id}
                 data-view-schema-id={schema}
                 onClick={() => {
+                  if (workbench) {
+                    workbench.open({
+                      sheetRef: {
+                        kind: "saved_view",
+                        id: candidate.saved_view_id,
+                      },
+                    });
+                    close(false);
+                    return;
+                  }
                   void controller
                     .activateResource(candidate.saved_view_id, schema)
                     .then((applied) => {

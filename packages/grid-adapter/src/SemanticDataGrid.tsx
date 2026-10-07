@@ -1623,6 +1623,11 @@ function useSemanticDataGrid<Row>(
   );
   const prepareEditorActivationRef = useRef(prepareEditorActivation);
   prepareEditorActivationRef.current = prepareEditorActivation;
+  const revealRecordRef = useRef<((recordId: string) => boolean) | null>(null);
+  const selectionForCommands = useRef(coreRecordBulkSelection);
+  selectionForCommands.current = coreRecordBulkSelection;
+  const navigationRowsRef = useRef(dataRows);
+  navigationRowsRef.current = dataRows;
   useImperativeHandle(
     ref,
     () => ({
@@ -1639,6 +1644,16 @@ function useSemanticDataGrid<Row>(
       columnSizing: sizing.port,
       frozenColumns: freezing.port,
       presentation: presentationPort,
+      getSelectedRecordIds: () => [
+        ...(selectionForCommands.current?.selectedRecordIds ?? []),
+      ],
+      revealRecord: (recordId) =>
+        revealRecordRef.current?.(recordId) ??
+        navigationRowsRef.current.some(
+          (row) =>
+            row.rowIdentity.kind === "core_record" &&
+            row.rowIdentity.recordId === recordId,
+        ),
       navigateToCell: cellNavigation.navigate,
       activateEdit: (anchor, seed) => {
         cellNavigation.cancel();
@@ -2097,6 +2112,7 @@ function useSemanticDataGrid<Row>(
       requestFocus={requestFocus}
     >
       <ProductionGridBinding
+        revealRecordRef={revealRecordRef}
         density={density}
         grouping={grouping}
         presentationRef={semanticPresentationRef}
@@ -2111,6 +2127,7 @@ function useSemanticDataGrid<Row>(
 }
 
 function ProductionGridBinding<Row>({
+  revealRecordRef,
   density,
   grouping,
   presentationRef,
@@ -2120,6 +2137,9 @@ function ProductionGridBinding<Row>({
   sharedProps,
   vendorHandle,
 }: {
+  readonly revealRecordRef: MutableRefObject<
+    ((recordId: string) => boolean) | null
+  >;
   readonly density: GridDensity;
   readonly grouping: SemanticDataGridProps<Row>["grouping"];
   readonly presentationRef: MutableRefObject<GridRdgPresentationModel<Row>>;
@@ -2142,6 +2162,7 @@ function ProductionGridBinding<Row>({
   }
   return (
     <GroupedSemanticDataGrid
+      revealRecordRef={revealRecordRef}
       {...props}
       density={density}
       presentationRef={presentationRef}
@@ -2575,6 +2596,7 @@ function semanticRowAttributes(state: GridResolvedSemanticState) {
 }
 
 function GroupedSemanticDataGrid<Row>({
+  revealRecordRef,
   columns,
   grouping,
   density = "default",
@@ -2585,6 +2607,9 @@ function GroupedSemanticDataGrid<Row>({
   surface,
   vendorHandle,
 }: SemanticDataGridProps<Row> & {
+  readonly revealRecordRef: MutableRefObject<
+    ((recordId: string) => boolean) | null
+  >;
   readonly sharedProps: DataGridProps<
     GridDataRow<Row>,
     GridDraftRow<Row>,
@@ -2646,6 +2671,32 @@ function GroupedSemanticDataGrid<Row>({
       return next;
     });
   }, [expansionScope, groupIds]);
+  useLayoutEffect(() => {
+    const reveal = (recordId: string) => {
+      const bucket = groupBuckets.find((bucket) =>
+        bucket.rows.some(
+          (row) =>
+            row.rowIdentity.kind === "core_record" &&
+            row.rowIdentity.recordId === recordId,
+        ),
+      );
+      if (!bucket) return false;
+      setCollapsedGroupIdsByScope((current) => {
+        const collapsed = current.get(expansionScope);
+        if (!collapsed?.has(bucket.id)) return current;
+        const next = new Map(current);
+        const remaining = new Set(collapsed);
+        remaining.delete(bucket.id);
+        next.set(expansionScope, remaining);
+        return next;
+      });
+      return true;
+    };
+    revealRecordRef.current = reveal;
+    return () => {
+      if (revealRecordRef.current === reveal) revealRecordRef.current = null;
+    };
+  }, [revealRecordRef, groupBuckets, expansionScope]);
   const expandedGroupIds = useMemo(
     () => new Set(groupIds.filter((id) => !collapsedGroupIds.has(id))),
     [collapsedGroupIds, groupIds],

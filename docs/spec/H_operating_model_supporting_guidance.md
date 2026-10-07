@@ -55,6 +55,42 @@ Recommended practice:
 
 Do not require the inspector for ordinary Timeline, Host, Identity, Evidence, or Notes row creation, inline editing, paste, correction, or rough capture.
 
+## 3B. Work, Return and durable investigative intent
+
+Core 03 §2.5 and Core 04 §2.2 own the interaction and privacy rules described
+here. This guidance adds no capture prerequisites or workflow transitions.
+
+Use Session working set for a few records and views being compared in the
+current sitting. Its Session only label means a pin is not a saved finding,
+assigned task, evidence association or promise of reload recovery. Use Notes,
+Task Requests, Decisions or saved views when another analyst or a later session
+needs the intent. Pin base surface does not save a modified query; Save as does.
+
+Use Return after following a record, coordination link or pin to restore the
+previous working context. Return and inspect deliberately adds the Record
+destination. An outside-filter message calls for an explicit choice: keep the
+current view or open the target's base surface. A generic unavailable message
+does not establish that a record was deleted.
+
+Work links lead to the existing Task Requests, Decisions, Handoffs and Status
+Reviews surfaces. Review and assignment stay with those records. Recovery lists
+unfinished application work: a failed refresh, uncertain write or unresolved
+conflict is different from an overdue task. An accepted write with a failed
+refresh needs a read, not another submission.
+
+A practical investigation path is to capture source text and uncertain time,
+inspect the full value, attach evidence when available, resolve a mention when
+justified, and create a linked Task Request. During handoff, describe current
+state, open work, risks and next checks in the Handoff record. None of these
+practices makes a completeness checklist a condition of Timeline capture.
+
+Commands finds actions, Find in loaded rows finds currently loaded eligible
+cells, and Filter changes the server query. Recent edits is not a handoff diff.
+Date mismatch identifies the declared paired-date state, not every time problem.
+With attached files excludes metadata-only evidence. Explain these scopes in
+training using the visible labels rather than claiming exhaustive incident
+search or complete chronology.
+
 ## 4. Companion findings-document discipline
 
 Use the workbook as the compact, queryable control surface for incident facts, relationships, and next actions.

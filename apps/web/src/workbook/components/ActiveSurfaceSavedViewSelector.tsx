@@ -4,6 +4,7 @@ import {
 } from "@cartulary/ui-contracts";
 import {
   type Dispatch,
+  type ReactNode,
   type RefObject,
   useEffect,
   useMemo,
@@ -37,6 +38,7 @@ import {
 } from "./workbookFormStyles";
 
 export type ActiveSurfaceSavedViewSelectorProps = {
+  readonly presets?: ReactNode;
   readonly activeViewSchemaId: string;
   readonly chromeMode: WorkbookChromeMode;
   readonly currentIncidentRole: string | null;
@@ -54,6 +56,7 @@ export type ActiveSurfaceSavedViewSelectorProps = {
 
 export function ActiveSurfaceSavedViewSelector({
   activeViewSchemaId,
+  presets,
   chromeMode,
   controller,
   currentIncidentRole,
@@ -144,6 +147,7 @@ export function ActiveSurfaceSavedViewSelector({
 
   return (
     <SavedViewControlPresentation
+      presets={presets}
       activeViewSchemaId={activeViewSchemaId}
       chromeMode={chromeMode}
       control={control}
@@ -163,6 +167,7 @@ export function ActiveSurfaceSavedViewSelector({
 }
 
 function SavedViewControlPresentation({
+  presets,
   activeViewSchemaId,
   chromeMode,
   control,
@@ -178,6 +183,7 @@ function SavedViewControlPresentation({
   onInspectPreferences,
   selectorRef,
 }: {
+  readonly presets?: ReactNode;
   readonly activeViewSchemaId: string;
   readonly chromeMode: WorkbookChromeMode;
   readonly control: SavedViewSurfaceControlState;
@@ -208,6 +214,7 @@ function SavedViewControlPresentation({
       }}
     >
       <SavedViewSelectionField
+        presets={presets}
         controller={controller}
         activeViewSchemaId={activeViewSchemaId}
         condensedControls={condensedControls}
@@ -248,6 +255,7 @@ function SavedViewControlPresentation({
 }
 
 function SavedViewSelectionField({
+  presets,
   activeViewSchemaId,
   condensedControls,
   onSelectBaseSurface,
@@ -255,6 +263,7 @@ function SavedViewSelectionField({
   selectorRef,
   controller,
 }: {
+  readonly presets?: ReactNode;
   readonly activeViewSchemaId: string;
   readonly condensedControls: boolean;
   readonly dispatch: Dispatch<SavedViewControlEvent>;
@@ -276,6 +285,7 @@ function SavedViewSelectionField({
         <span style={savedViewSelectorLabelStyle}>View:</span>
       )}
       <SavedViewBrowser
+        presets={presets}
         controller={controller}
         schema={activeViewSchemaId}
         projection={projection}

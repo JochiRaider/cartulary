@@ -46,6 +46,7 @@ const workbookOperationIDs = [
   "putIncidentDefaultWorkbookPreferences",
   "putTimelineTimeConversionProfile",
   "queryWorkbookView",
+  "locateWorkbookViewRecord",
   "resolveEntityMention",
   "resolveIndicatorObservation",
   "resolveRecordSameFieldConflict",

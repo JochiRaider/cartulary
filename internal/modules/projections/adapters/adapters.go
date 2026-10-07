@@ -348,6 +348,12 @@ func newWorkbookQueryProviders(
 						command.Window,
 					)
 				},
+				func(ctx context.Context, command workbook.LocateCommand) (querypage.Location, error) {
+					if command.ViewSchemaID != viewSchemaID {
+						return querypage.Location{}, fmt.Errorf("wrong locator surface")
+					}
+					return store.LocateRows(ctx, command.IncidentID, viewSchemaID, command.RecordID, command.Query)
+				},
 			)
 			if err != nil {
 				return nil, fmt.Errorf("construct query provider %q: %w", viewSchemaID, err)

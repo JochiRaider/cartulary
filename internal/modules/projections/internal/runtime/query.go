@@ -36,6 +36,12 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaI
 }
 
 func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
+	return s.queryRowsPage(ctx, s.pool, incidentID, viewSchemaID, query, window)
+}
+
+func (s *Store) queryRowsPage(ctx context.Context, reader interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
 	registry, err := s.providerRegistry()
 	if err != nil {
 		return querypage.Result{}, err
@@ -48,7 +54,7 @@ func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSch
 	if err != nil {
 		return querypage.Result{}, err
 	}
-	rows, err := s.pool.Query(ctx, sqlText, args...)
+	rows, err := reader.Query(ctx, sqlText, args...)
 	if err != nil {
 		return querypage.Result{}, fmt.Errorf("query workbook rows: %w", err)
 	}

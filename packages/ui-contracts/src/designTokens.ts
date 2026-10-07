@@ -1,3 +1,4 @@
+import { cartularyDesignPresentation } from "./generated/design-presentation";
 import {
   type CartularyDesignTokenVarName,
   cartularyDesignTokenVars,
@@ -102,6 +103,7 @@ export type WorkbookLayoutMetrics = {
   readonly inspectorDefaultWidthCssPx: number;
   readonly inspectorEffectiveMaxWidthCssPx: number;
   readonly inspectorMinWidthCssPx: number;
+  readonly inspectorOverlayWidthCssPx: number;
   readonly narrowMinWidthCssPx: number;
 };
 
@@ -119,6 +121,8 @@ export function workbookLayoutMetrics(
     inspectorMinWidthCssPx,
     Math.min(
       inspectorMaximum.maximumCssPx,
+      finiteViewportWidth -
+        cartularyDesignPresentation.workbookWorkbench.grid_minimum_width_px,
       (finiteViewportWidth * inspectorMaximum.viewportWidthPercent) / 100,
     ),
   );
@@ -134,6 +138,10 @@ export function workbookLayoutMetrics(
     ),
     inspectorEffectiveMaxWidthCssPx,
     inspectorMinWidthCssPx,
+    inspectorOverlayWidthCssPx: Math.min(
+      inspectorMaximum.maximumCssPx,
+      finiteViewportWidth,
+    ),
     narrowMinWidthCssPx: fixedLayoutMetricPx("--ct-layout-narrowMinWidth"),
   };
 }

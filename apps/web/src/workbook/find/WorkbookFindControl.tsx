@@ -1,6 +1,7 @@
 import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
 import { Search } from "lucide-react";
 import { type RefObject, useId, useLayoutEffect } from "react";
+import { useWorkbookCommand } from "../commands/WorkbookCommands";
 import { workbookQuietCommandStyle } from "../components/workbookFormStyles";
 import { menuStyle } from "../components/workbookGridControlStyles";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
@@ -32,6 +33,21 @@ export function WorkbookFindControl({
   chromeMode: WorkbookChromeMode;
 }) {
   const { snapshot, inputRef } = binding;
+  useWorkbookCommand({
+    id: "view.find_loaded",
+    family: "View",
+    label: "Find in loaded rows",
+    terms: ["search", "cells"],
+    targetKind: "surface",
+    availability: () =>
+      binding.available ? null : "Loaded rows are not currently readable.",
+    invoke: () => {
+      if (!binding.available) return false;
+      binding.capture();
+      binding.open();
+      return true;
+    },
+  });
   const id = useId();
   useLayoutEffect(() => {
     if (snapshot.open) inputRef.current?.focus();

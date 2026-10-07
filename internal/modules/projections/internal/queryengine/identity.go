@@ -57,6 +57,40 @@ func (reader *IdentityReader) SelectIdentityQueryProjections(
 	return result, nil
 }
 
+func (reader *IdentityReader) SelectIdentityQueryProjectionsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	query viewschema.QueryMeta,
+	window querypage.Window,
+) ([]entityports.IdentityQueryProjection, error) {
+	if reader == nil || tx == nil {
+		return nil, fmt.Errorf("query identity projections: database is required")
+	}
+	sqlText, args, err := buildIdentityQueryPageSQL(incidentID, query, window)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, sqlText, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query identity projections: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]entityports.IdentityQueryProjection, 0)
+	for rows.Next() {
+		row, scanErr := scanIdentityQueryProjection(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		result = append(result, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate identity projections: %w", err)
+	}
+	return result, nil
+}
+
 func (reader *IdentityReader) CollectIdentityDerivedFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -141,6 +175,10 @@ SELECT
    AND r.deleted_at IS NULL
    AND p.identity_state IN ('stub', 'canonical')`)
 	args := []any{incidentID}
+	if window.TargetRecordID != "" {
+		args = append(args, window.TargetRecordID)
+		builder.WriteString(" AND p.record_id = $2::uuid")
+	}
 
 	for _, filter := range query.Filters {
 		var expression string
@@ -161,7 +199,11 @@ SELECT
 		}
 	}
 
-	if err := querypage.AppendKeyset(
+	appendPosition := querypage.AppendKeyset
+	if window.Before {
+		appendPosition = querypage.AppendBefore
+	}
+	if err := appendPosition(
 		&builder,
 		&args,
 		query.Sort,
@@ -170,7 +212,7 @@ SELECT
 	); err != nil {
 		return "", nil, err
 	}
-	if err := appendEntityOrderBy(&builder, query.Sort, identitySortExpressions); err != nil {
+	if err := appendEntityOrderBy(&builder, query.Sort, identitySortExpressions, window.Before); err != nil {
 		return "", nil, err
 	}
 	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {

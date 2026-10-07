@@ -504,6 +504,8 @@ export type GridHandle = {
   /** True only for the grid navigation cell itself, never a nested editor/control. */
   readonly ownsNavigationFocus?: (target: EventTarget | null) => boolean;
   readonly presentation?: GridPresentationPort;
+  /** Explicit record navigation may expand only the target's collapsed group. */
+  readonly revealRecord?: (recordId: string) => boolean;
   readonly navigateToCell?: (
     anchor: GridCellAnchor,
     options?: GridCellNavigationOptions,
@@ -522,6 +524,7 @@ export type GridHandle = {
   /** Release editor presentation while leaving retained source drafts untouched. */
   readonly detachEdit?: () => void;
   readonly getActiveCell?: () => GridCellAnchor | null;
+  readonly getSelectedRecordIds?: () => readonly string[];
   readonly requestFocus: (
     target: GridFocusTarget,
     options?: {

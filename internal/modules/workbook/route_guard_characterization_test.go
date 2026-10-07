@@ -137,6 +137,7 @@ func requireWorkbookOperationGuardMatrix(t *testing.T, harness *appsupport.Serve
 		{"putCurrentUserWorkbookPreferences", "PUT", "/api/v1/incidents/{incident_id}/workbook-preferences/me", true},
 		{"putIncidentDefaultWorkbookPreferences", "PUT", "/api/v1/incidents/{incident_id}/workbook-preferences/default", true},
 		{"queryWorkbookView", "POST", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query", false},
+		{"locateWorkbookViewRecord", "POST", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/locate", false},
 		{"resolveRecordSameFieldConflict", "POST", "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", true},
 		{"supersedeRecord", "POST", "/api/v1/records/{record_id}/supersede", true},
 	}

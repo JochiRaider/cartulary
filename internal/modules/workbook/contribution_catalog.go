@@ -25,6 +25,7 @@ const (
 // not receive a view-schema ID because the catalog binds that identity once
 // during application assembly.
 type QueryProvider interface {
+	LocatorProvider
 	QueryRowsPage(context.Context, QueryCommand) (querypage.Result, error)
 }
 
@@ -38,17 +39,32 @@ type QueryCommand struct {
 	Window       querypage.Window
 }
 
+// LocatorProvider is a read-only, exact-surface contribution. Workbook has
+// already authorized the incident and normalized the query.
+type LocatorProvider interface {
+	LocateRows(context.Context, LocateCommand) (querypage.Location, error)
+}
+
+type LocateCommand struct {
+	IncidentID   uuid.UUID
+	ViewSchemaID string
+	RecordID     uuid.UUID
+	Query        viewschema.QueryMeta
+}
+
 type queryProvider struct {
-	query func(context.Context, QueryCommand) (querypage.Result, error)
+	locate func(context.Context, LocateCommand) (querypage.Location, error)
+	query  func(context.Context, QueryCommand) (querypage.Result, error)
 }
 
 func NewQueryProvider(
 	query func(context.Context, QueryCommand) (querypage.Result, error),
+	locate func(context.Context, LocateCommand) (querypage.Location, error),
 ) (QueryProvider, error) {
-	if query == nil {
-		return nil, errors.New("query provider requires query function")
+	if query == nil || locate == nil {
+		return nil, errors.New("query provider requires query and locator functions")
 	}
-	return &queryProvider{query: query}, nil
+	return &queryProvider{query: query, locate: locate}, nil
 }
 
 func (provider *queryProvider) QueryRowsPage(
@@ -698,4 +714,8 @@ func expectedQuerySurfaces(descriptors providercontract.DescriptorSet) (map[stri
 		}
 	}
 	return expected, nil
+}
+
+func (provider *queryProvider) LocateRows(ctx context.Context, command LocateCommand) (querypage.Location, error) {
+	return provider.locate(ctx, command)
 }

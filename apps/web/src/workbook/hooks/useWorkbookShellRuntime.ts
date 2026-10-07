@@ -157,6 +157,11 @@ export function useWorkbookShellRuntime({
   return {
     savedViewOwner,
     commands: {
+      applyQueryStateForSurface,
+      currentQueryStateForSurface,
+      applyLayoutStateForSurface,
+      currentLayoutStateForSurface,
+      applyWorkbookIdentity,
       acknowledgeGridEntryFocus,
       cancelGridEntryFocus,
       selectWorkbookSurface,

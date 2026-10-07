@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useWorkbookMenuPlacement } from "../layout/useWorkbookMenuPlacement";
 import type {
   WorkbookColumnSizingControls,
   WorkbookFrozenColumnControls,
@@ -53,6 +54,7 @@ export function WorkbookColumnsControl({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  useWorkbookMenuPlacement(isOpen, panel);
   const widthButtons = useRef(new Map<string, HTMLButtonElement>());
   const earlierButtons = useRef(new Map<string, HTMLButtonElement>());
   const laterButtons = useRef(new Map<string, HTMLButtonElement>());

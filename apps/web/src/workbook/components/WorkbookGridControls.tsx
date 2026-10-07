@@ -1,6 +1,7 @@
 import { workbookViewBarQueryControlsTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useWorkbookCommand } from "../commands/WorkbookCommands";
 import type {
   WorkbookColumnSizingControls,
   WorkbookFrozenColumnControls,
@@ -31,9 +32,12 @@ import { WorkbookColumnsControl } from "./WorkbookColumnsControl";
 import { WorkbookFiltersControl } from "./WorkbookFiltersControl";
 import { WorkbookGroupControl } from "./WorkbookGroupControl";
 import { WorkbookSortControl } from "./WorkbookSortControl";
+import { WorkbookTimelinePresetCommands } from "./WorkbookTimelinePresets";
 
 export type WorkbookGridControlsProps = {
   readonly chromeMode?: WorkbookChromeMode | undefined;
+  readonly menu?: boolean | undefined;
+  readonly onRequestMenu?: (() => void) | undefined;
   readonly contract: ViewContract;
   readonly defaultFilterPopoverOpen?: boolean | undefined;
   readonly filterDraft: FilterDraft;
@@ -50,6 +54,7 @@ export type WorkbookGridControlsProps = {
   readonly onResetColumns: () => void;
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
+  readonly onApplyPreset?: ((id: string) => void) | undefined;
   readonly queryState: WorkbookQueryState;
   readonly requestedFilters?: WorkbookQueryState["filters"] | undefined;
   readonly requestedGroupBy?: WorkbookQueryState["groupBy"] | undefined;
@@ -62,6 +67,8 @@ export type WorkbookGridControlsProps = {
 
 export function WorkbookGridControls({
   chromeMode = "base",
+  menu = false,
+  onRequestMenu,
   contract,
   defaultFilterPopoverOpen = false,
   filterDraft,
@@ -76,6 +83,7 @@ export function WorkbookGridControls({
   onRemoveFilter,
   onSortChange,
   queryState,
+  onApplyPreset,
   requestedFilters,
   requestedGroupBy,
   requestedSort,
@@ -215,8 +223,32 @@ export function WorkbookGridControls({
       data-hidden-query-chip-count={projection.hiddenChips.length}
       data-query-chip-capacity={projection.visibleChipCapacity}
       data-testid={workbookViewBarQueryControlsTestId(surface)}
-      style={queryControlsStyleFor(chromeMode)}
+      style={{
+        ...queryControlsStyleFor(chromeMode),
+        ...(menu
+          ? { flexWrap: "wrap", gap: "var(--ct-spacing-sm)", minInlineSize: 0 }
+          : {}),
+      }}
     >
+      {(["sort", "filters", "group", "columns"] as const).map((panel) => (
+        <QueryCommand
+          key={panel}
+          panel={panel}
+          surface={surface}
+          open={() => {
+            onRequestMenu?.();
+            queryEntryReturnFocusRef.current = null;
+            dispatch({ type: "close_panel", subjectKey });
+            dispatch({ type: "toggle_panel", panel, subjectKey });
+          }}
+        />
+      ))}
+      {onApplyPreset ? (
+        <WorkbookTimelinePresetCommands
+          onApply={onApplyPreset}
+          surface={surface}
+        />
+      ) : null}
       <WorkbookSortControl
         constrained={chromeMode !== "base" || projection.hiddenChips.length > 0}
         editorProjection={sortEditorProjection}
@@ -449,4 +481,38 @@ function queryControlsStyleFor(chromeMode: WorkbookChromeMode) {
     padding: 0,
     overflow: "visible",
   };
+}
+
+function QueryCommand({
+  panel,
+  surface,
+  open,
+}: {
+  readonly panel: "sort" | "filters" | "group" | "columns";
+  readonly surface: string;
+  readonly open: () => void;
+}) {
+  useWorkbookCommand({
+    id: `view.${panel}`,
+    family: "View",
+    label: {
+      sort: "Sort",
+      filters: "Filter",
+      group: "Group",
+      columns: "Columns",
+    }[panel],
+    terms: ["query", "view"],
+    targetKind: "surface",
+    availability: (target) =>
+      target.kind === "surface" && target.viewSchemaId === surface
+        ? null
+        : "The selected surface changed.",
+    invoke: (target) => {
+      if (target.kind !== "surface" || target.viewSchemaId !== surface)
+        return false;
+      open();
+      return true;
+    },
+  });
+  return null;
 }

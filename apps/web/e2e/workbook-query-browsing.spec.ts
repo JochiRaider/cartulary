@@ -401,6 +401,8 @@ test("Timestamp drafts correct locally and fractional ranges select exact popula
   const trigger = page.getByTestId(
     workbookFilterPopoverTriggerTestId(taskRequestsViewSchemaId),
   );
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await page
     .getByTestId(gridFilterFieldTestId(taskRequestsViewSchemaId))
@@ -477,6 +479,11 @@ test("Timestamp drafts correct locally and fractional ranges select exact popula
   await expect(browsing).toContainText("1 records loaded");
   await browsing.getByRole("button", { name: "Revert", exact: true }).click();
   await page.setViewportSize({ width: 768, height: 640 });
+  await expect(
+    page.getByRole("button", { name: "Query controls", exact: true }),
+  ).toBeVisible();
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await page.getByRole("button", { name: /^Edit Filter 1, Due/ }).click();
   await lower.fill("tomorrow");
@@ -743,6 +750,8 @@ test("Boolean filters preserve typed saved and accepted operands across matching
       `${count} records loaded; end of current results.`,
     );
   };
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await page
     .getByTestId(gridFilterFieldTestId(timelineViewSchemaId))
@@ -795,6 +804,8 @@ test("Boolean filters preserve typed saved and accepted operands across matching
   await expect(
     page.getByTestId(gridRowTestId(timelineViewSchemaId, row.record_id)),
   ).toBeVisible();
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await page
     .getByRole("button", { name: /Edit unapplied.*Has Evidence/i })
@@ -825,6 +836,11 @@ test("Boolean filters preserve typed saved and accepted operands across matching
   await apply.click();
   await accept({ value: false }, 1);
   await page.setViewportSize({ width: 768, height: 640 });
+  await expect(
+    page.getByRole("button", { name: "Query controls", exact: true }),
+  ).toBeVisible();
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await page
     .getByRole("button", { name: /^Edit Filter 1, Has Evidence/ })
@@ -930,6 +946,8 @@ test("Enum equality choices remain explicit and preserve custom queries", async 
   const value = page.getByTestId(gridFilterValueTestId(timelineViewSchemaId));
   const field = "timeline.activity_time_pair_state";
   const start = requests.length;
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await page
     .getByTestId(gridFilterFieldTestId(timelineViewSchemaId))
@@ -1060,6 +1078,11 @@ test("Enum equality choices remain explicit and preserve custom queries", async 
     .poll(() => accepted.at(-1)?.meta.query.filters?.[0]?.arg)
     .toEqual({ value: "Disabled" });
   await page.setViewportSize({ width: 768, height: 640 });
+  await expect(
+    page.getByRole("button", { name: "Query controls", exact: true }),
+  ).toBeVisible();
+  if (!(await trigger.isVisible()))
+    await page.getByText("Query ▾", { exact: true }).click();
   await trigger.click();
   await page
     .getByRole("button", { name: /^Edit Filter 1, Activity Time Pair State/ })
@@ -2985,6 +3008,8 @@ async function dateFilterCorrection(page: Page, view: string) {
     const anchor = page.getByTestId(workbookFocusAnchorTestId());
     const previousAnchor = await anchor.textContent();
     const trigger = page.getByTestId(workbookFilterPopoverTriggerTestId(view));
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     await page.getByTestId(gridFilterFieldTestId(view)).selectOption(dateField);
     const value = page.getByRole("textbox", {
@@ -2995,6 +3020,9 @@ async function dateFilterCorrection(page: Page, view: string) {
     const count = requests.length;
     await value.fill(" 2026-04-31 ");
     await page.setViewportSize({ width: 768, height: 640 });
+    await expect(
+      page.getByRole("button", { name: "Query controls", exact: true }),
+    ).toBeVisible();
     const bounds = await page
       .getByRole("dialog", { name: "Add filter" })
       .boundingBox();
@@ -3099,6 +3127,8 @@ async function dateFilterCorrection(page: Page, view: string) {
       browsing.getByRole("button", { name: "Retry", exact: true }),
     ).toBeVisible();
     await expect(chip).toContainText("equals 2026-04-18");
+    if (!(await trigger.isVisible()))
+      await page.getByText("Query ▾", { exact: true }).click();
     await trigger.click();
     await page
       .getByRole("button", { name: /Edit unapplied.*2026-04-18/ })

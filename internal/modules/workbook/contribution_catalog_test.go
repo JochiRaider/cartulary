@@ -17,7 +17,7 @@ import (
 )
 
 func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *testing.T) {
-	if _, err := NewQueryProvider(nil); err == nil {
+	if _, err := NewQueryProvider(nil, nil); err == nil {
 		t.Fatal("query provider accepted a nil query function")
 	}
 	descriptors, queryContributions, createContributions, patchContributions, conflictContributions := validCatalogInputs(t)
@@ -1120,6 +1120,9 @@ func validCatalogInputs(t testing.TB) (
 		queryProvider, err := NewQueryProvider(
 			func(context.Context, QueryCommand) (querypage.Result, error) {
 				return querypage.Result{}, nil
+			},
+			func(context.Context, LocateCommand) (querypage.Location, error) {
+				return querypage.Location{Outcome: "unavailable"}, nil
 			},
 		)
 		if err != nil {

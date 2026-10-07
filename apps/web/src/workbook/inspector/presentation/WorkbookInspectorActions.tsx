@@ -4,14 +4,17 @@ import {
   type ComponentPropsWithRef,
   type CSSProperties,
   type ReactNode,
+  useContext,
   useId,
 } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import { useWorkbookCommand } from "../../commands/WorkbookCommands";
 import {
   workbookFormButtonStyle,
   workbookQuietCommandStyle,
   workbookTypography,
 } from "../../components/workbookFormStyles";
+import { WorkbookInspectorCommandSubject } from "./WorkbookInspectorCommandSubject";
 import type { WorkbookInspectorActionBinding } from "./workbookInspectorPresentationModel";
 import {
   type WorkbookInspectorDisabledReason,
@@ -52,6 +55,7 @@ export function WorkbookInspectorContextualAction({
   readonly outcomeDescriptionId?: string | undefined;
   readonly onInvoke: () => void;
 }) {
+  const subject = useContext(WorkbookInspectorCommandSubject);
   const reasonId = useId();
   const outcomeId = useId();
   const reason =
@@ -62,6 +66,42 @@ export function WorkbookInspectorContextualAction({
     }) ??
     additionalDisabledReason ??
     null;
+  useWorkbookCommand(
+    subject
+      ? {
+          id: `record.${binding.semanticKey}`,
+          family:
+            binding.capability.kind === "create_related" ||
+            binding.capability.kind === "note_create"
+              ? "Follow up"
+              : binding.capability.kind === "indicator"
+                ? "Relate"
+                : "Review",
+          label: binding.featureGroup.label,
+          terms: [binding.featureGroup.panelId],
+          targetKind: "record",
+          availability: (target) =>
+            target.kind !== "record" ||
+            target.recordId !== subject.recordId ||
+            target.viewSchemaId !== subject.viewSchemaId
+              ? "The selected record changed."
+              : reason
+                ? workbookInspectorDisabledReasonText(reason)
+                : null,
+          invoke: (target) => {
+            if (
+              target.kind !== "record" ||
+              target.recordId !== subject.recordId ||
+              target.viewSchemaId !== subject.viewSchemaId ||
+              reason
+            )
+              return false;
+            onInvoke();
+            return true;
+          },
+        }
+      : null,
+  );
   return (
     <div style={contextualActionStyle}>
       <WorkbookInspectorActionButton

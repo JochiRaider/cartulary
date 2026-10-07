@@ -11,6 +11,7 @@ import {
 } from "../collaboration/workbookPresencePresentation";
 import { WorkbookContinuityAnchorStatus } from "../continuity/useWorkbookGridContinuity";
 import type { WorkbookContinuityAnchor } from "../continuity/workbookContinuityPort";
+import { WorkbookFooterNavigationHost } from "../layout/WorkbookAuxiliaryDock";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
   useWorkbookMutationRuntime,
@@ -87,7 +88,18 @@ export function WorkbookStatusStrip({
     chromeMode !== "below_supported_minimum" && message !== null;
   return (
     <>
-      <span style={{ ...statusStripItemStyle, flex: "0 0 auto" }}>
+      <WorkbookFooterNavigationHost />
+      <fieldset
+        aria-label="Save status"
+        style={{
+          ...statusStripItemStyle,
+          flex: "0 0 auto",
+          margin: 0,
+          padding: 0,
+          border: 0,
+          minInlineSize: 0,
+        }}
+      >
         <span aria-hidden="true" style={statusIconStyle(status.primaryLabel)} />
         {canActivate ? (
           <button
@@ -116,7 +128,7 @@ export function WorkbookStatusStrip({
               : ""}
           </span>
         ) : null}
-      </span>
+      </fieldset>
       {showSecondary ? (
         <span
           id={detailId}

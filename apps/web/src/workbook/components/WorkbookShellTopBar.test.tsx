@@ -104,7 +104,7 @@ describe("Workbook desktop surface selector", () => {
     expect(h.props.onSelectSurface).not.toHaveBeenCalled();
     await h.user.tab();
     expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: "System views" }),
+      screen.getByRole("button", { name: "More views" }),
     );
     await h.user.tab({ shift: true });
     expect(document.activeElement).toBe(tab(evidenceViewSchemaId));

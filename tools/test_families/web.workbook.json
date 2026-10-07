@@ -710,6 +710,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.command_search",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/commands/workbookCommandIndex.test.ts",
+        "titles": [
+          "command metadata search breaks equal labels by stable identity and never invokes actions during matching",
+          "command metadata search normalizes NFC and Unicode whitespace with deterministic match tiers and family ties"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.committed_grid_autosave",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -4484,6 +4509,7 @@
           "Workbook query browsing labels replacement Retry by its initiating action and fences superseded recovery",
           "Workbook query browsing re-fetches a detached position and keeps canonical presentation separate from unapplied intent",
           "Workbook query browsing rejects a producing-request mismatch and follows authoritative continuation on short and empty pages",
+          "Workbook query browsing replays a located window through its ordinary cursor and refreshes from the beginning",
           "Workbook query browsing retains an accepted empty result after refresh failure and trusts short-page continuation"
         ]
       },
@@ -4786,6 +4812,32 @@
           "Saved-view operation owner retains working configuration on background version changes and transient resource failure",
           "Saved-view operation owner treats saved-view denial as a resource problem and revalidates incident access",
           "Saved-view operation owner uses authoritative access loss and never publishes a stale access recovery"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.session_navigation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/navigation/WorkbookSessionNavigation.test.ts",
+        "titles": [
+          "session working set and return trail bounds semantic origins and consumes Return only after acceptance, without a bounce entry",
+          "session working set and return trail coalesces identical pivots, cancels obsolete reads, and pushes only successful changed origins",
+          "session working set and return trail detects duplicates before capacity, preserves insertion order, and never evicts pins"
         ]
       },
       "evidence_class": "unit",
@@ -6532,6 +6584,61 @@
           "useWorkbookSemanticGridFocus uses only the newest generation when mounting follows a rapid switch",
           "useWorkbookSemanticGridFocus waits for completed draft focus without acknowledging or falling back",
           "useWorkbookSemanticGridFocus waits through busy data and retries from the ready state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbench_commands_interaction",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/commands/WorkbookCommands.test.tsx",
+        "titles": [
+          "Commands interaction conceals open command context immediately when incident authority becomes uncertain",
+          "Commands interaction keeps the captured record and revalidates selection and owner eligibility before invocation",
+          "Commands interaction pages all commands without execution and restores the borrowed draft on cancel"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbench_navigation_admission",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/navigation/useWorkbookWorkbench.test.tsx",
+        "titles": [
+          "navigation selects the accepted record through its owner before inspection, and ignores cancelled focus",
+          "workbench navigation admission keeps an outside-query origin until an explicit base locator succeeds",
+          "workbench navigation admission keeps ordinary surface entry with its existing read and recovery owner",
+          "workbench navigation admission opens record pins with defaults and preserves pins after operational failure",
+          "workbench navigation admission refuses observations older than owner evidence and conceals uncertain authority",
+          "workbench navigation admission retains origin while location is pending and rejects late cancelled attachment"
         ]
       },
       "evidence_class": "unit",
