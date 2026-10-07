@@ -11,6 +11,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { taskAuthority } from "../../testing/taskWorkbookTestSupport";
 import { prepareWorkbookInspectorChange } from "../inspector/prepareWorkbookInspectorChange";
@@ -39,6 +40,363 @@ const evidence = {
   acceptRow: () => null,
 };
 afterEach(cleanup);
+
+it("applies a typed Timeline candidate query without changing the parent draft or selected identities", async () => {
+  const user = userEvent.setup();
+  const store = new WorkbookInspectorDraftStore();
+  store.setAuthority(taskAuthority);
+  const write = vi.fn();
+  const reader = {
+    page: vi.fn(async (input: WorkbookReferenceRequest) =>
+      accepted(input, input.queryState.filters.length ? 100 : 0),
+    ),
+  };
+  render(
+    <Form
+      store={store}
+      fieldKey="task.linked_record_ids"
+      write={write}
+      reader={reader}
+    />,
+  );
+  const parent = screen.getByTestId(genericEditValueTestId(view));
+  await user.type(parent, id(800));
+  await user.click(
+    screen.getByRole("button", { name: "Choose linked records" }),
+  );
+  await user.selectOptions(
+    screen.getByLabelText("Reference surface"),
+    "cartulary.view.timeline.v2",
+  );
+  const candidates = await screen.findByRole("listbox", {
+    name: "Linked Records candidates",
+  });
+  await user.selectOptions(candidates, `record:${id(1)}`);
+  await user.click(screen.getByText("Linked Records ordering and filters"));
+  const reads = reader.page.mock.calls.length;
+  const fields = screen.getByLabelText(
+    "Linked Records filter field",
+  ) as HTMLSelectElement;
+  expect(Array.from(fields.options, (option) => option.value)).toEqual(
+    requireViewContract("cartulary.view.timeline.v2").filterFields,
+  );
+  await user.selectOptions(fields, "timeline.has_evidence");
+  await user.selectOptions(
+    screen.getByLabelText("Linked Records filter value"),
+    "true",
+  );
+  await user.selectOptions(
+    screen.getByLabelText("Linked Records order"),
+    "timeline.edited_at:desc",
+  );
+  await user.click(screen.getByRole("button", { name: "Add filter" }));
+  expect(reader.page).toHaveBeenCalledTimes(reads);
+  // An unfinished, unadded operand must not block the valid staged query.
+  await user.selectOptions(fields, "timeline.date_entered_sort_day");
+  const apply = screen.getByRole("button", { name: "Apply candidate query" });
+  await user.click(apply);
+  await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(reads + 1));
+  expect(reader.page.mock.lastCall?.[0]).toEqual({
+    identityKind: "record",
+    viewSchemaId: "cartulary.view.timeline.v2",
+    queryState: {
+      filters: [
+        { fieldKey: "timeline.has_evidence", op: "eq", arg: { value: true } },
+      ],
+      sort: [{ fieldKey: "timeline.edited_at", direction: "desc" }],
+      groupBy: null,
+    },
+  });
+  expect(document.activeElement).toBe(apply);
+  expect(parent).toHaveProperty("value", id(800));
+  expect(
+    screen.getByRole("button", { name: "Remove selected Candidate 1" }),
+  ).toBeTruthy();
+  expect(write).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Use selection" }));
+  expect(parent).toHaveProperty("value", `${id(800)}\n${id(1)}`);
+  expect(write).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Update parent" }));
+  expect(write).toHaveBeenCalledTimes(1);
+});
+it("stages corrected date ranges enum values and exact literal sets until apply and resets the cursor without losing selection", async () => {
+  const user = userEvent.setup();
+  const store = new WorkbookInspectorDraftStore();
+  store.setAuthority(taskAuthority);
+  const write = vi.fn();
+  const reader = {
+    page: vi.fn(async (input: WorkbookReferenceRequest) =>
+      accepted(input, input.cursorToken ? 100 : 0),
+    ),
+  };
+  render(
+    <Form
+      store={store}
+      fieldKey="task.linked_record_ids"
+      write={write}
+      reader={reader}
+    />,
+  );
+  const parent = screen.getByTestId(genericEditValueTestId(view));
+  await user.type(parent, `${id(800)}\nraw unfinished input`);
+  await user.click(
+    screen.getByRole("button", { name: "Choose linked records" }),
+  );
+  await user.selectOptions(
+    screen.getByLabelText("Reference surface"),
+    "cartulary.view.timeline.v2",
+  );
+  await user.selectOptions(
+    await screen.findByRole("listbox"),
+    `record:${id(1)}`,
+  );
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.selectOptions(
+    await screen.findByRole("listbox"),
+    `record:${id(101)}`,
+  );
+  await user.click(screen.getByText("Linked Records ordering and filters"));
+  const reads = reader.page.mock.calls.length;
+  const field = screen.getByLabelText("Linked Records filter field");
+  await user.selectOptions(field, "timeline.date_entered_sort_day");
+  await user.selectOptions(
+    screen.getByLabelText("Linked Records filter operator"),
+    "range",
+  );
+  const from = screen.getByLabelText("Linked Records filter from");
+  await user.type(from, "2026-02-30");
+  await user.type(
+    screen.getByLabelText("Linked Records filter to"),
+    "2026-03-20",
+  );
+  expect(from.getAttribute("aria-invalid")).toBe("true");
+  expect(screen.getByRole("button", { name: "Add filter" })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  await user.clear(from);
+  await user.type(from, "2026-03-01");
+  await user.click(screen.getByRole("button", { name: "Add filter" }));
+  await user.selectOptions(field, "timeline.activity_time_pair_state");
+  await user.selectOptions(
+    screen.getByLabelText("Linked Records filter value"),
+    "paired_generated",
+  );
+  await user.click(screen.getByRole("button", { name: "Add filter" }));
+  await user.selectOptions(field, "timeline.tags");
+  await user.type(
+    screen.getByLabelText("Linked Records filter value 1"),
+    "blue,green",
+  );
+  await user.click(screen.getByRole("button", { name: "Add value" }));
+  await user.type(
+    screen.getByLabelText("Linked Records filter value 2"),
+    "two words",
+  );
+  await user.click(screen.getByRole("button", { name: "Add filter" }));
+  expect(reader.page).toHaveBeenCalledTimes(reads);
+  await user.click(
+    screen.getByRole("button", { name: "Apply candidate query" }),
+  );
+  expect(reader.page.mock.lastCall?.[0]).toEqual({
+    identityKind: "record",
+    viewSchemaId: "cartulary.view.timeline.v2",
+    queryState: {
+      filters: [
+        {
+          fieldKey: "timeline.activity_time_pair_state",
+          op: "eq",
+          arg: { value: "paired_generated" },
+        },
+        {
+          fieldKey: "timeline.date_entered_sort_day",
+          op: "range",
+          arg: { gte: "2026-03-01", lte: "2026-03-20" },
+        },
+        {
+          fieldKey: "timeline.tags",
+          op: "contains_any",
+          arg: { values: ["blue,green", "two words"] },
+        },
+      ],
+      sort: [],
+      groupBy: null,
+    },
+  });
+  expect(screen.getByRole("button", { name: "Previous" })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  expect(
+    screen.getByRole("button", { name: "Remove selected Candidate 101" }),
+  ).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Remove filter Tags" }));
+  expect(reader.page).toHaveBeenCalledTimes(reads + 1);
+  await user.click(
+    screen.getByRole("button", { name: "Reset candidate query" }),
+  );
+  expect(reader.page.mock.lastCall?.[0].queryState).toEqual({
+    filters: [],
+    sort: [],
+    groupBy: null,
+  });
+  expect(reader.page.mock.lastCall?.[0].cursorToken).toBeUndefined();
+  expect(
+    screen.queryByRole("button", { name: "Remove filter Tags" }),
+  ).toBeNull();
+  expect(
+    screen.getByRole("button", {
+      name: "Remove selected Candidate 1",
+    }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Remove selected Candidate 101" }),
+  ).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Cancel references" }));
+  expect(parent).toHaveProperty("value", `${id(800)}\nraw unfinished input`);
+  expect(document.activeElement).toBe(parent);
+  expect(write).not.toHaveBeenCalled();
+});
+
+it("discards incompatible query drafts on source and reader replacement while retaining parent identities", async () => {
+  const user = userEvent.setup();
+  const store = new WorkbookInspectorDraftStore();
+  store.setAuthority(taskAuthority);
+  const write = vi.fn();
+  const reader = {
+    page: vi.fn(async (input: WorkbookReferenceRequest) => accepted(input, 0)),
+  };
+  const renderForm = (port: WorkbookReferenceReadPort) => (
+    <Form
+      store={store}
+      fieldKey="task.linked_record_ids"
+      write={write}
+      reader={port}
+    />
+  );
+  const { rerender } = render(renderForm(reader));
+  const parent = screen.getByTestId(genericEditValueTestId(view));
+  await user.type(parent, id(800));
+  await user.click(
+    screen.getByRole("button", { name: "Choose linked records" }),
+  );
+  const surface = screen.getByLabelText("Reference surface");
+  await user.selectOptions(surface, "cartulary.view.timeline.v2");
+  await user.click(screen.getByText("Linked Records ordering and filters"));
+  await user.selectOptions(
+    screen.getByLabelText("Linked Records filter field"),
+    "timeline.has_evidence",
+  );
+  await user.selectOptions(
+    screen.getByLabelText("Linked Records filter value"),
+    "true",
+  );
+  await user.click(screen.getByRole("button", { name: "Add filter" }));
+  await user.selectOptions(surface, "cartulary.view.notes.v1");
+  expect(
+    screen.getByText("Linked Records ordering and filters").parentElement,
+  ).toHaveProperty("open", false);
+  await user.selectOptions(surface, "cartulary.view.timeline.v2");
+  await user.click(screen.getByText("Linked Records ordering and filters"));
+  expect(
+    screen.queryByRole("button", { name: "Remove filter Has Evidence" }),
+  ).toBeNull();
+  expect(screen.getByLabelText("Linked Records order")).toHaveProperty(
+    "value",
+    "",
+  );
+  const replacement = {
+    page: vi.fn(async (input: WorkbookReferenceRequest) =>
+      accepted(input, 100),
+    ),
+  };
+  rerender(renderForm(replacement));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await user.click(
+    screen.getByRole("button", { name: "Choose linked records" }),
+  );
+  await user.click(screen.getByText("Linked Records ordering and filters"));
+  expect(replacement.page.mock.calls[0]?.[0].queryState).toEqual({
+    filters: [],
+    sort: [],
+    groupBy: null,
+  });
+  expect(
+    screen.queryByRole("button", { name: "Remove filter Has Evidence" }),
+  ).toBeNull();
+  expect(parent).toHaveProperty("value", id(800));
+  expect(write).not.toHaveBeenCalled();
+});
+
+it("navigates the query disclosure without submitting an enclosing form and keeps membership unfiltered", async () => {
+  const user = userEvent.setup();
+  const store = new WorkbookInspectorDraftStore();
+  store.setAuthority(taskAuthority);
+  const write = vi.fn(),
+    submit = vi.fn((event: React.FormEvent) => event.preventDefault());
+  const reader = {
+    page: vi.fn(async (input: WorkbookReferenceRequest) =>
+      accepted(input, 100),
+    ),
+  };
+  const form = (fieldKey: string) => (
+    <form onSubmit={submit}>
+      <Form store={store} fieldKey={fieldKey} write={write} reader={reader} />
+      <button type="submit">Save enclosing form</button>
+    </form>
+  );
+  const { rerender } = render(form("task.requester_party_id"));
+  await user.click(
+    screen.getByRole("button", { name: "Choose requester party" }),
+  );
+  const summary = screen.getByText("Requester Party ordering and filters");
+  expect(document.activeElement).toBe(summary);
+  await user.tab({ shift: true });
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Cancel references" }),
+  );
+  await user.tab();
+  expect(document.activeElement).toBe(summary);
+  await user.keyboard("{Enter}");
+  await user.selectOptions(
+    screen.getByLabelText("Requester Party filter field"),
+    "party.display_name",
+  );
+  await user.type(
+    screen.getByLabelText("Requester Party filter value"),
+    "Analyst{Enter}",
+  );
+  expect(submit).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Add filter" }));
+  await user.click(
+    screen.getByRole("button", { name: "Apply candidate query" }),
+  );
+  await user.selectOptions(
+    await screen.findByRole("listbox"),
+    `party:${id(101)}`,
+  );
+  await user.click(screen.getByRole("button", { name: "Use selection" }));
+  expect(screen.getByTestId(genericEditValueTestId(view))).toHaveProperty(
+    "value",
+    id(101),
+  );
+  expect(write).not.toHaveBeenCalled();
+  rerender(form("task.owner_user_id"));
+  await user.click(screen.getByRole("button", { name: "Choose owner" }));
+  expect(screen.queryByText("Owner ordering and filters")).toBeNull();
+  expect(reader.page.mock.lastCall?.[0]).toEqual({
+    identityKind: "incident_member",
+    viewSchemaId: "incident_members",
+    queryState: { filters: [], sort: [], groupBy: null },
+  });
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(
+    screen.getByTestId(genericEditValueTestId(view)),
+  );
+  expect(submit).not.toHaveBeenCalled();
+});
+
 function accepted(
   input: WorkbookReferenceRequest,
   offset: number,
@@ -506,23 +864,23 @@ it("retires a pending read when the ordinary filter is applied", async () => {
   );
   const surface = screen.getByLabelText("Reference surface");
   fireEvent.change(surface, {
-    target: { value: "cartulary.view.indicators.v1" },
+    target: { value: "cartulary.view.timeline.v2" },
   });
   const next = screen.getByRole("button", { name: "Next" });
   await waitFor(() => expect(next).toHaveProperty("disabled", false));
   next.focus();
   fireEvent.click(next);
+  fireEvent.click(screen.getByText("Linked Records ordering and filters"));
   const filterField = screen.getByRole("combobox", {
-    name: "Reference filter field",
-  }) as HTMLSelectElement;
-  const selectedFilter = filterField.options[1]?.value;
-  if (!selectedFilter) throw new Error("Missing ordinary reference filter");
-  fireEvent.change(filterField, { target: { value: selectedFilter } });
+    name: "Linked Records filter field",
+  });
+  fireEvent.change(filterField, { target: { value: "timeline.has_evidence" } });
   fireEvent.change(
-    screen.getByRole("textbox", { name: "Reference filter value" }),
-    { target: { value: "needle" } },
+    screen.getByRole("combobox", { name: "Linked Records filter value" }),
+    { target: { value: "true" } },
   );
-  const apply = screen.getByRole("button", { name: "Apply filter" });
+  fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+  const apply = screen.getByRole("button", { name: "Apply candidate query" });
   apply.focus();
   fireEvent.click(apply);
   const priorRequest = reader.page.mock.calls[2]?.[0];

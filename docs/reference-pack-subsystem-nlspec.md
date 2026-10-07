@@ -1,6 +1,6 @@
 ---
 title: Cartulary Reference Pack Subsystem NLSpec
-status: draft
+status: adopted/current
 document_class: nlspec
 document_version: 0.2.0
 contract_major: 2
@@ -11,8 +11,6 @@ schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 # 1. Status, scope, authority, and promotion conditions
 
 This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.[^7]
-
-The document remains `status: draft` until the coordinated owner requirements in Table 1-A are satisfied through the existing document-status process. A draft implementation may use this document for development, but it must not claim Reference Pack Extension Profile conformance while any required promotion condition remains open. Pre-production implementation acceptance is distinct from that promotion: it requires the behavioral, projection and executable evidence in §32, without a second implementation or an independent recreation/interchangeability report. This distinction reflects the project owner's explicit pre-production scope decision on 2026-10-04.
 
 Contract major 2 replaces the adopted Reference Pack administration contract. The canonical pack, content-profile, and algorithm identifiers introduced here have never been adopted and retain their `.v1` identifiers for first adoption. Application compatibility majors and the `/api/v1` route namespace are separate contracts and are not incremented by this document. Retired pack bytes are rejected; no compatibility reader or dual-write format is defined. Incident portability's changed reference representation requires incident-bundle format 5. A migration MUST reject incompatible retained state before mutation rather than invent trust, silently delete incident data, or rewrite indicator identities.
 
@@ -2917,7 +2915,7 @@ Implementation acceptance requires the following behavioral evidence. Coordinate
 
 [^6]: `R03-Kanvas_technical_research_report.md`, locally downloaded reference-data families and missing signature/checksum verification, lines 911-915 and 1036-1040.
 
-[^7]: `00_document_set_status_and_precedence.md`, §§4.2 and 5.1, lines 77-109 and 146-193; `01_architecture_storage_and_view_contracts.md`, §11 and §17.4, lines 5790-6012 and 7347-7497; `02_domain_model_schema_and_history.md`, §11 and §14.1, lines 1484-1499 and 1987-2026; `03_workbook_interaction_collaboration_and_workflows.md`, §2; `04_security_deployment_and_conformance.md`, §4.1, §9.4, and §12.3.1, lines 470-490, 1130-1150, and 2072-2135. Source limit: these files define the current outer profile and owner boundaries; the companion amendments required by this draft have not been applied by this artifact.
+[^7]: `00_document_set_status_and_precedence.md`, §§4.2 and 5.1, lines 77-109 and 146-193; `01_architecture_storage_and_view_contracts.md`, §11 and §17.4, lines 5790-6012 and 7347-7497; `02_domain_model_schema_and_history.md`, §11 and §14.1, lines 1484-1499 and 1987-2026; `03_workbook_interaction_collaboration_and_workflows.md`, §2; `04_security_deployment_and_conformance.md`, §4.1, §9.4, and §12.3.1, lines 470-490, 1130-1150, and 2072-2135. Source limit: these files define the current outer profile and owner boundaries.
 
 [^8]: `nlspec-spec.md`, “Behavioral Completeness,” “Unambiguous Interfaces,” “Explicit Defaults and Boundaries,” “Mapping Tables for Translation,” “Testable Acceptance Criteria,” and “Spec Economy,” lines 11-122 and 142-216.
 

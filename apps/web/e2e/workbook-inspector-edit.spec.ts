@@ -31,6 +31,7 @@ import {
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
+import { createUploadedEvidenceFixture } from "./support/evidence/fixtures";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";
@@ -1275,6 +1276,211 @@ test("a11y.inspector retained editing and recovery remain named keyboard reachab
   });
 });
 
+test("Existing Task reference queries stage typed Timeline filters and ordering before explicit link update", async ({
+  page,
+  workerAdmin,
+}) => {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("RTQ"),
+    "Existing Task Timeline query",
+  );
+  const task = await createViewRow(page, incident, taskRequestsViewSchemaId, {
+    client_txn_id: uniqueTxn("rtq-task"),
+    "task.title": "Link evidence-backed activity",
+    "task.task_kind": "question",
+    "task.owner_user_id": workerAdmin.user_id,
+  });
+  const evidence = await createUploadedEvidenceFixture(page, incident, {
+    body: Buffer.from("Synthetic collected source for candidate filtering."),
+    contentType: "text/plain",
+    filename: "candidate-source.txt",
+    title: "Collected source",
+    collectorPartyText: "Test analyst",
+    requestedAt: "2026-04-18T15:06:12Z",
+    txnPrefix: "rtq-evidence",
+  });
+  const rows = [];
+  for (const title of [
+    "Selected outside filter",
+    "Older evidence",
+    "Newer evidence",
+  ]) {
+    rows.push(
+      await createViewRow(page, incident, timelineViewSchemaId, {
+        client_txn_id: uniqueTxn("rtq-timeline"),
+        "timeline.activity_synopsis_text": title,
+      }),
+    );
+  }
+  const [outside, older, newer] = rows;
+  if (!outside || !older || !newer)
+    throw new Error("Missing Timeline query fixture");
+  for (const row of [older, newer]) {
+    await patchRecord(page, row.record_id, {
+      base_row_version: row.row_version,
+      client_txn_id: uniqueTxn("rtq-link"),
+      view_schema_id: timelineViewSchemaId,
+      changes: [
+        {
+          field_key: "timeline.attached_evidence_ids",
+          action_payload: {
+            kind: "collection_actions_v1",
+            actions: [
+              { op: "add_record_ref", linked_record_id: evidence.record_id },
+            ],
+          },
+        },
+      ],
+    });
+  }
+  const reads: Record<string, unknown>[] = [],
+    canonical: Record<string, unknown>[] = [],
+    writes: unknown[] = [];
+  await page.route(`**/views/${timelineViewSchemaId}/query`, async (route) => {
+    reads.push(route.request().postDataJSON());
+    const response = await route.fetch();
+    canonical.push((await response.json()).meta.query);
+    await route.fulfill({ response });
+  });
+  await page.route(`**/records/${task.record_id}`, async (route) => {
+    if (route.request().method() === "PATCH")
+      writes.push(route.request().postDataJSON());
+    await route.continue();
+  });
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${taskRequestsViewSchemaId}`,
+  );
+  await openGenericInspectorForRecord(
+    page,
+    taskRequestsViewSchemaId,
+    task.record_id,
+  );
+  await page
+    .getByTestId(
+      workbookInspectorPanelTestId(taskRequestsViewSchemaId, "relationships"),
+    )
+    .getByRole("button", { name: "Manage Linked Records", exact: true })
+    .click();
+  const input = page.getByTestId(
+    genericEditValueTestId(taskRequestsViewSchemaId),
+  );
+  const choose = page
+    .getByTestId(
+      workbookInspectorPanelTestId(taskRequestsViewSchemaId, "details"),
+    )
+    .getByRole("button", { name: "Choose linked records", exact: true });
+  await choose.focus();
+  await choose.press("Enter");
+  const popup = page.getByRole("dialog", {
+    name: "Choose linked records",
+    exact: true,
+  });
+  await popup
+    .getByLabel("Reference surface")
+    .selectOption(timelineViewSchemaId);
+  const candidates = popup.getByRole("listbox", {
+    name: "Linked Records candidates",
+  });
+  await expect(candidates.getByRole("option")).toHaveCount(3);
+  await candidates.selectOption(`record:${outside.record_id}`);
+  const summary = popup.locator("summary");
+  await summary.focus();
+  await summary.press("Enter");
+  const beforeQuery = reads.length;
+  await popup
+    .getByLabel("Linked Records filter field")
+    .selectOption("timeline.has_evidence");
+  await popup.getByLabel("Linked Records filter value").selectOption("true");
+  await popup
+    .getByLabel("Linked Records order")
+    .selectOption("timeline.edited_at:desc");
+  await popup.getByRole("button", { name: "Add filter", exact: true }).click();
+  expect(reads).toHaveLength(beforeQuery);
+  const apply = popup.getByRole("button", {
+    name: "Apply candidate query",
+    exact: true,
+  });
+  await apply.focus();
+  await apply.press("Enter");
+  await expect(candidates.getByRole("option")).toHaveCount(2);
+  expect(reads.at(-1)?.filters).toEqual([
+    { field_key: "timeline.has_evidence", op: "eq", arg: { value: true } },
+  ]);
+  expect(reads.at(-1)?.sort).toEqual([
+    { field_key: "timeline.edited_at", direction: "desc" },
+  ]);
+  expect(reads.at(-1)?.cursor_token).toBeUndefined();
+  expect(canonical.at(-1)?.filters).toEqual(reads.at(-1)?.filters);
+  expect(canonical.at(-1)?.sort).toEqual(
+    expect.arrayContaining([
+      { field_key: "timeline.edited_at", direction: "desc" },
+    ]),
+  );
+  expect(
+    await candidates
+      .locator("option")
+      .evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value),
+      ),
+  ).toEqual([`record:${newer.record_id}`, `record:${older.record_id}`]);
+  await expect(apply).toBeFocused();
+  await expect(
+    popup.getByRole("button", {
+      name: "Remove selected Selected outside filter",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(input).toHaveValue("");
+  expect(writes).toHaveLength(0);
+  await candidates.selectOption([
+    `record:${newer.record_id}`,
+    `record:${older.record_id}`,
+  ]);
+  await popup
+    .getByRole("button", { name: "Use selection", exact: true })
+    .click();
+  const selected = [outside.record_id, newer.record_id, older.record_id];
+  await expect(input).toHaveValue(selected.join("\n"));
+  expect(writes).toHaveLength(0);
+  await choose.click();
+  await popup
+    .getByRole("button", { name: "Cancel references", exact: true })
+    .press("Escape");
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(selected.join("\n"));
+  await page
+    .getByTestId(genericEditSubmitTestId(taskRequestsViewSchemaId))
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Inspector changes" }),
+  ).toContainText("Saved, version 2");
+  expect(writes).toHaveLength(1);
+  expect(writes[0]).toMatchObject({
+    changes: [
+      {
+        field_key: "task.linked_record_ids",
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: selected.map((linked_record_id) => ({
+            op: "add_record_ref",
+            linked_record_id,
+          })),
+        },
+      },
+    ],
+  });
+  const saved = (
+    await queryViewRows(page, incident, taskRequestsViewSchemaId)
+  ).find((row) => row.record_id === task.record_id);
+  const links = saved?.cells["task.linked_record_ids"]?.value as {
+    items: { item_ref: string }[];
+  };
+  expect(links.items.map((item) => item.item_ref).sort()).toEqual(
+    selected.map((id) => `record_ref:${id}`).sort(),
+  );
+});
+
 test("Reference selection reaches later real targets and retains staged choices through source and refresh failures", async ({
   page,
   workerAdmin,
@@ -1398,20 +1604,27 @@ test("Reference selection reaches later real targets and retains staged choices 
   if (!later) throw new Error("Missing later candidate");
   await list.selectOption([...(await selectedOnPage()), later]);
   await popup
-    .getByLabel("Reference filter field")
+    .getByText("Linked Records ordering and filters", { exact: true })
+    .click();
+  await popup
+    .getByLabel("Linked Records filter field")
     .selectOption("note.created_by_user_id");
   const beforeFilter = reads.length;
   await popup
-    .getByLabel("Reference filter value")
+    .getByLabel("Linked Records filter value")
     .fill("00000000-0000-4000-8000-000000000999");
   expect(reads).toHaveLength(beforeFilter);
+  await popup.getByRole("button", { name: "Add filter", exact: true }).click();
   await popup
-    .getByRole("button", { name: "Apply filter", exact: true })
+    .getByRole("button", { name: "Apply candidate query", exact: true })
     .click();
   await expect(popup).toContainText("Page 1: 0 candidates; end of this source");
-  await popup.getByLabel("Reference filter value").fill(workerAdmin.user_id);
   await popup
-    .getByRole("button", { name: "Apply filter", exact: true })
+    .getByLabel("Linked Records filter value")
+    .fill(workerAdmin.user_id);
+  await popup.getByRole("button", { name: "Add filter", exact: true }).click();
+  await popup
+    .getByRole("button", { name: "Apply candidate query", exact: true })
     .click();
   await expect(popup).toContainText("Page 1: 100 candidates; more available");
   await expect(list.locator("option")).toHaveCount(100);

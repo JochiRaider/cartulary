@@ -2487,6 +2487,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.existing_task_reference_queries_stage_typed_time_f92c8c967a",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-inspector-edit.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "existing_task_timeline_reference_query"
+        ],
+        "titles": [
+          "Existing Task reference queries stage typed Timeline filters and ordering before explicit link update"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.filter_editor_keyboard_focus",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",

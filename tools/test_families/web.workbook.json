@@ -4684,18 +4684,22 @@
       "selector": {
         "file": "apps/web/src/workbook/components/WorkbookReferenceControl.test.tsx",
         "titles": [
+          "applies a typed Timeline candidate query without changing the parent draft or selected identities",
           "conceals a pending picker without restoring obsolete focus on authority loss",
+          "discards incompatible query drafts on source and reader replacement while retaining parent identities",
           "distinguishes duplicate labels and retains off-page identity during removal",
           "does not reclaim focus when a pending reference read completes after departure",
           "keeps First and Previous as focus anchors during held reads",
           "keeps a keyboard-activated Next focusable through pending and exhausted reads",
           "keeps keyboard Retry present during a held read and permits repeated failure",
           "moves staged removal focus by stable identity and leaves the parent draft untouched",
+          "navigates the query disclosure without submitting an enclosing form and keeps membership unfiltered",
           "retires a pending read when the ordinary filter is applied",
           "retires a pending read when the parent record is replaced",
           "retires pending read focus on source replacement and popup closure",
           "retries only failed reads while retaining raw inspector work and fences dismissal",
           "stages collection choices across pages and eligible surfaces without editing or submitting the inspector until acceptance",
+          "stages corrected date ranges enum values and exact literal sets until apply and resets the cursor without losing selection",
           "uses a labelled local fallback when a sole selected item has no candidate",
           "uses committed target presentation without retargeting staged identity or editing the parent",
           "uses exact collection action identities in declared order with the pending edit limit"

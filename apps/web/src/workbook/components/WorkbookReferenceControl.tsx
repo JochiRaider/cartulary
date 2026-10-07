@@ -18,7 +18,6 @@ import { DecisionSupersessionContext } from "../features/coordination/DecisionSu
 import { NoteCreateContext } from "../features/notes/NoteCreateContext";
 import { WorkbookInspectorActionButton as Button } from "../inspector/presentation/WorkbookInspectorActions";
 import { genericInspectorRowLabel } from "../models/genericWorkbookModel";
-import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import {
   type WorkbookReference,
@@ -28,6 +27,7 @@ import {
 import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import { WorkbookReferenceSelection } from "../services/WorkbookReferenceSelection";
 import { useSelectedReferenceRemovalFocus } from "./useSelectedReferenceRemovalFocus";
+import { WorkbookCandidateQueryControl } from "./WorkbookCandidateQueryControl";
 import { menuStyle } from "./workbookGridControlStyles";
 
 export const WorkbookReferenceContext = createContext<{
@@ -194,11 +194,7 @@ export function WorkbookReferenceControl(props: Props) {
     window.addEventListener("resize", position);
     window.addEventListener("scroll", position, true);
     window.visualViewport?.addEventListener("resize", position);
-    popup
-      .querySelector<HTMLElement>(
-        "select:not(:disabled),input:not(:disabled),button:not(:disabled)",
-      )
-      ?.focus({ preventScroll: true });
+    pickerFocusControls(popup)[0]?.focus({ preventScroll: true });
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", position);
@@ -307,11 +303,7 @@ export function WorkbookReferenceControl(props: Props) {
               close();
             }
             if (event.key === "Tab") {
-              const controls = Array.from(
-                event.currentTarget.querySelectorAll<HTMLElement>(
-                  "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)",
-                ),
-              );
+              const controls = pickerFocusControls(event.currentTarget);
               const index = controls.indexOf(
                 document.activeElement as HTMLElement,
               );
@@ -323,6 +315,13 @@ export function WorkbookReferenceControl(props: Props) {
                 controls[event.shiftKey ? controls.length - 1 : 0]?.focus();
               }
             }
+            // Text operands must not implicitly submit the enclosing editor form.
+            if (
+              event.key === "Enter" &&
+              event.target instanceof HTMLInputElement &&
+              event.target.type === "text"
+            )
+              event.preventDefault();
             event.stopPropagation();
           }}
         >
@@ -341,6 +340,18 @@ export function WorkbookReferenceControl(props: Props) {
       ) : null}
     </div>
   );
+}
+
+/** Closed query disclosures contribute only their summary to keyboard navigation. */
+function pickerFocusControls(popup: HTMLElement) {
+  return Array.from(
+    popup.querySelectorAll<HTMLElement>(
+      "summary,button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)",
+    ),
+  ).filter((control) => {
+    const closed = control.closest("details:not([open])");
+    return !closed || control === closed.querySelector("summary");
+  });
 }
 
 type ReadAction = "first" | "previous" | "next" | "retry";
@@ -546,21 +557,6 @@ function ReferencePicker(
     }
   }, [controller, acceptedNotes, snapshot.source]);
   const source = getViewContract(snapshot.source);
-  const filters =
-    source?.fields.filter(
-      (field) =>
-        source.filterableFieldMap[field.fieldKey] &&
-        field.readKind === "text" &&
-        field.filterOps.some(
-          (op) => op === "prefix" || op === "full_text" || op === "eq",
-        ),
-    ) ?? [];
-  const [filterField, setFilterField] = useState("");
-  const [filterValue, setFilterValue] = useState("");
-  const filter = filters.find((field) => field.fieldKey === filterField);
-  const filterOp = filter?.filterOps.find(
-    (op) => op === "prefix" || op === "full_text" || op === "eq",
-  );
   const selectedKeys = snapshot.selected.map(workbookReferenceKey);
   const presentedSelected = snapshot.selected.map(props.present);
   const pickerId = useId();
@@ -596,8 +592,6 @@ function ReferencePicker(
             value={snapshot.source}
             onChange={(event) => {
               reads.retire();
-              setFilterField("");
-              setFilterValue("");
               void controller.replace(event.currentTarget.value);
             }}
           >
@@ -609,66 +603,17 @@ function ReferencePicker(
           </select>
         </label>
       ) : null}
-      {filters.length ? (
-        <div>
-          <label>
-            Filter field
-            <select
-              style={fieldStyle}
-              aria-label="Reference filter field"
-              value={filterField}
-              onChange={(event) => setFilterField(event.currentTarget.value)}
-            >
-              <option value="">All candidates</option>
-              {filters.map((field) => (
-                <option value={field.fieldKey} key={field.fieldKey}>
-                  {field.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {filter ? (
-            <label>
-              {filterOp === "prefix"
-                ? "Starts with"
-                : filterOp === "full_text"
-                  ? "Search text"
-                  : "Equals"}
-              <input
-                aria-label="Reference filter value"
-                style={fieldStyle}
-                value={filterValue}
-                onChange={(event) => setFilterValue(event.currentTarget.value)}
-              />
-            </label>
-          ) : null}
-          <Button
-            type="button"
-            tone="secondary"
-            disabled={!!filter && !filterValue}
-            onClick={() => {
-              reads.retire();
-              void controller.replace(snapshot.source, {
-                ...emptyWorkbookQueryState(),
-                filters:
-                  filter && filterOp && filterValue
-                    ? [
-                        {
-                          fieldKey: filter.fieldKey,
-                          op: filterOp,
-                          arg:
-                            filterOp === "full_text"
-                              ? { query: filterValue }
-                              : { value: filterValue },
-                        },
-                      ]
-                    : [],
-              });
-            }}
-          >
-            Apply filter
-          </Button>
-        </div>
+      {props.field.identityKind !== "incident_member" && source ? (
+        <WorkbookCandidateQueryControl
+          key={snapshot.source}
+          view={snapshot.source}
+          label={props.label}
+          query={snapshot.queryState}
+          onApply={(query) => {
+            reads.retire();
+            void controller.replace(snapshot.source, query);
+          }}
+        />
       ) : null}
       {snapshot.loading ? <p role="status">Loading references…</p> : null}
       {snapshot.failure ? (
