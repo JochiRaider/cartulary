@@ -250,6 +250,41 @@
       ]
     },
     {
+      "row_id": "module.savedviews.browser.timestamp_saved_queries_reload_and_reopen_withou_6a98a26dd7",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "workbook_timestamp_saved_roundtrip"
+        ],
+        "titles": [
+          "Timestamp saved queries reload and reopen without losing fractional instant meaning"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.savedviews.browser.verify_saved_view_create_update_select_default_u_ce0bb1647d",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.browser",
@@ -518,6 +553,34 @@
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
       "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.savedviews.integration.timestamp_saved_queries_preserve_precision_and_r_993e5032bf",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract",
+        "module.savedviews.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestSavedViewTimestampCompatibility_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
         "postgres"
       ]
     },

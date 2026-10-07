@@ -83,6 +83,7 @@ import {
   createSavedViewFromCurrentSurface,
   selectSavedView,
   setSavedViewDraftName,
+  updateSavedViewFromCurrentSurface,
 } from "./support/workbook/savedViews";
 
 const schemas = [
@@ -104,6 +105,345 @@ const schemas = [
   forensicKeywordsViewSchemaId,
   assessmentsViewSchemaId,
 ];
+
+async function timestampTaskFixture(page: Page) {
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("TIMESTAMP"),
+    "Timestamp range membership",
+  );
+  const values = [
+    "2026-04-17T23:59:59.999Z",
+    "2026-04-18T00:00:00Z",
+    "2026-04-18T00:00:00.05Z",
+    "2026-04-18T00:00:00.1Z",
+    "2026-04-18T00:00:00.101Z",
+  ];
+  const rows = [];
+  for (const value of values)
+    rows.push(
+      await createViewRow(page, incident, taskRequestsViewSchemaId, {
+        client_txn_id: uniqueTxn("timestamp-task"),
+        "task.title": `Due ${value}`,
+        "task.task_kind": "question",
+        "task.due_at": value,
+      }),
+    );
+  return { incident, rows };
+}
+
+test("Timestamp drafts correct locally and fractional ranges select exact populated workbook membership", async ({
+  page,
+}) => {
+  const { incident, rows } = await timestampTaskFixture(page);
+  const note = await createViewRow(page, incident, notesViewSchemaId, {
+    client_txn_id: uniqueTxn("timestamp-note"),
+    "note.title": "Timestamp correction",
+  });
+  const notes = await observeQuery(page, incident, notesViewSchemaId);
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${notesViewSchemaId}`,
+  );
+  await expect(
+    page.getByTestId(gridRowTestId(notesViewSchemaId, note.record_id)),
+  ).toBeVisible();
+  await page
+    .getByTestId(workbookFilterPopoverTriggerTestId(notesViewSchemaId))
+    .click();
+  await page
+    .getByTestId(gridFilterFieldTestId(notesViewSchemaId))
+    .selectOption("note.updated_at");
+  const value = page.getByTestId(gridFilterValueTestId(notesViewSchemaId));
+  const applyNote = page.getByTestId(gridFilterApplyTestId(notesViewSchemaId));
+  const before = notes.length;
+  await value.fill(" tomorrow ");
+  await expect(applyNote).toBeDisabled();
+  await expect(value).toHaveValue(" tomorrow ");
+  await expect(value).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("dialog")).toContainText(
+    "numeric timezone offset",
+  );
+  expect(notes.length).toBe(before);
+  const updated = note.cells["note.updated_at"]?.value;
+  if (typeof updated !== "string")
+    throw new Error("Missing authoritative Note timestamp");
+  await value.fill(updated);
+  await applyNote.click();
+  await expect
+    .poll(() => notes.at(-1)?.response.meta.query.filters[0]?.arg)
+    .toEqual({ value: updated });
+  await expect(
+    page.getByTestId(gridRowTestId(notesViewSchemaId, note.record_id)),
+  ).toBeVisible();
+  const reads = await observeQuery(page, incident, taskRequestsViewSchemaId);
+  await switchOrdinarySheet(page, taskRequestsViewSchemaId);
+  const browsing = page.getByRole("group", { name: "Workbook browsing" });
+  await expect(browsing).toContainText(
+    "5 records loaded; end of current results.",
+  );
+  const trigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(taskRequestsViewSchemaId),
+  );
+  await trigger.click();
+  await page
+    .getByTestId(gridFilterFieldTestId(taskRequestsViewSchemaId))
+    .selectOption("task.due_at");
+  await page
+    .getByTestId(workbookFilterOperatorTestId(taskRequestsViewSchemaId))
+    .selectOption("range");
+  const lower = page.getByRole("textbox", {
+    name: "Lower-bound value",
+    exact: true,
+  });
+  const upper = page.getByRole("textbox", {
+    name: "Upper-bound value",
+    exact: true,
+  });
+  const apply = page.getByTestId(
+    gridFilterApplyTestId(taskRequestsViewSchemaId),
+  );
+  await lower.fill("2026-04-18T00:00:00Z");
+  await upper.fill("2026-04-18T00:00:00.1Z");
+  await apply.click();
+  const expected = rows
+    .slice(1, 4)
+    .map((row) => row.record_id)
+    .sort();
+  await expect
+    .poll(() =>
+      reads
+        .at(-1)
+        ?.response.data.rows.map((row) => row.record_id)
+        .sort(),
+    )
+    .toEqual(expected);
+  const chip = page.getByTestId(
+    workbookQueryEntryTestId(taskRequestsViewSchemaId, "filter", "task.due_at"),
+  );
+  await expect(chip).toContainText("2026-04-18T00:00:00.1Z");
+  for (const row of rows)
+    await expect(
+      page.getByTestId(gridRowTestId(taskRequestsViewSchemaId, row.record_id)),
+    ).toHaveCount(expected.includes(row.record_id) ? 1 : 0);
+  await chip.click();
+  const acceptedReads = reads.length;
+  await lower.fill("2026-04-18T00:00:00.1Z");
+  await upper.fill("2026-04-18T00:00:00Z");
+  await expect(apply).toBeDisabled();
+  expect(reads.length).toBe(acceptedReads);
+  await expect(lower).toHaveAttribute("aria-invalid", "true");
+  await lower.fill("2026-04-18T00:00:00Z");
+  await upper.fill("2026-04-18T00:00:00.1Z");
+  await page
+    .getByLabel("Lower-bound comparison", { exact: true })
+    .selectOption("gt");
+  await page
+    .getByLabel("Upper-bound comparison", { exact: true })
+    .selectOption("lt");
+  await apply.click();
+  await expect
+    .poll(() => reads.at(-1)?.response.data.rows.map((row) => row.record_id))
+    .toEqual([rows[2]?.record_id]);
+  // A genuine failed read still retains its accepted row and chips.
+  await chip.click();
+  await upper.fill("2026-04-18T00:00:00.2Z");
+  await page.route(
+    `**/incidents/${incident}/views/${taskRequestsViewSchemaId}/query`,
+    (route) => route.abort("failed"),
+    { times: 1 },
+  );
+  await apply.click();
+  await expect(
+    browsing.getByRole("button", { name: "Retry", exact: true }),
+  ).toBeVisible();
+  await expect(chip).toContainText("2026-04-18T00:00:00.1Z");
+  await expect(browsing).toContainText("1 records loaded");
+  await browsing.getByRole("button", { name: "Revert", exact: true }).click();
+  await page.setViewportSize({ width: 768, height: 640 });
+  await trigger.click();
+  await page.getByRole("button", { name: /^Edit Filter 1, Due/ }).click();
+  await lower.fill("tomorrow");
+  await expect(apply).toBeDisabled();
+  await lower.focus();
+  await expect(lower).toBeInViewport();
+  await expect(page.getByRole("dialog")).toContainText("2026-04-18T00:00:00Z");
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+});
+
+test("Timestamp saved queries reload and reopen without losing fractional instant meaning", async ({
+  page,
+}) => {
+  const { incident } = await timestampTaskFixture(page);
+  const reads = await observeQuery(page, incident, taskRequestsViewSchemaId);
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${taskRequestsViewSchemaId}`,
+  );
+  await expect(
+    page.getByRole("group", { name: "Workbook browsing" }),
+  ).toContainText("5 records loaded");
+  await page
+    .getByTestId(workbookFilterPopoverTriggerTestId(taskRequestsViewSchemaId))
+    .click();
+  await page
+    .getByTestId(gridFilterFieldTestId(taskRequestsViewSchemaId))
+    .selectOption("task.due_at");
+  await page
+    .getByTestId(workbookFilterOperatorTestId(taskRequestsViewSchemaId))
+    .selectOption("range");
+  await page
+    .getByLabel("Lower-bound value", { exact: true })
+    .fill("2026-04-17T19:59:59.999999999-04:00");
+  await page
+    .getByLabel("Upper-bound value", { exact: true })
+    .fill("2026-04-18T00:00:00.1Z");
+  await page
+    .getByTestId(gridFilterApplyTestId(taskRequestsViewSchemaId))
+    .click();
+  const arg = {
+    gte: "2026-04-17T23:59:59.999999999Z",
+    lte: "2026-04-18T00:00:00.1Z",
+  };
+  await expect
+    .poll(() => reads.at(-1)?.response.meta.query.filters[0]?.arg)
+    .toEqual(arg);
+  const saved = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/incidents/${incident}/saved-views`),
+  );
+  await setSavedViewDraftName(
+    page,
+    taskRequestsViewSchemaId,
+    "Precise timestamp window",
+  );
+  await createSavedViewFromCurrentSurface(page, taskRequestsViewSchemaId);
+  const response = await saved;
+  expect(response.ok()).toBe(true);
+  const resource = (await response.json()).data;
+  expect(resource.query_json.filters).toEqual([
+    { field_key: "task.due_at", op: "range", arg },
+  ]);
+  await page.reload();
+  await expect(
+    page.getByRole("group", { name: "Workbook browsing" }),
+  ).toContainText("3 records loaded");
+  await page
+    .getByTestId(
+      workbookQueryEntryTestId(
+        taskRequestsViewSchemaId,
+        "filter",
+        "task.due_at",
+      ),
+    )
+    .click();
+  await expect(
+    page.getByLabel("Lower-bound value", { exact: true }),
+  ).toHaveValue(arg.gte);
+  await expect(
+    page.getByLabel("Upper-bound value", { exact: true }),
+  ).toHaveValue(arg.lte);
+  await expect(
+    page.getByTestId(gridFilterApplyTestId(taskRequestsViewSchemaId)),
+  ).toBeEnabled();
+  await page.keyboard.press("Escape");
+  // Model a resource read from before the fix; the integration fixture separately
+  // persists this older predicate in PostgreSQL and verifies it is never repaired.
+  const savedPath = `/incidents/${incident}/saved-views/${resource.saved_view_id}`;
+  const older = {
+    ...resource,
+    query_json: {
+      ...resource.query_json,
+      filters: [
+        {
+          field_key: "task.due_at",
+          op: "range",
+          arg: {
+            gte: "2026-04-18T00:00:00.1Z",
+            lte: "2026-04-18T00:00:00Z",
+          },
+        },
+      ],
+    },
+  };
+  // Startup carries the selected resource. Keep all read paths consistent until
+  // the explicit correction, including repeated reads after cancellation.
+  const savedReads = `**/incidents/${incident}/saved-views**`;
+  const startupRead = `**/incidents/${incident}/workbook-startup**`;
+  const olderRead = async (route: Route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const envelope = await response.json();
+    const data =
+      "selected_saved_view" in envelope.data
+        ? { ...envelope.data, selected_saved_view: older }
+        : Array.isArray(envelope.data.saved_views)
+          ? {
+              ...envelope.data,
+              saved_views: envelope.data.saved_views.map(
+                (view: { saved_view_id: string }) =>
+                  view.saved_view_id === resource.saved_view_id ? older : view,
+              ),
+            }
+          : envelope.data.saved_view_id === resource.saved_view_id
+            ? older
+            : envelope.data;
+    await route.fulfill({ response, json: { ...envelope, data } });
+  };
+  await page.route(savedReads, olderRead);
+  await page.route(startupRead, olderRead);
+  const rejected = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/views/${taskRequestsViewSchemaId}/query`) &&
+      response.status() === 400,
+  );
+  await page.reload();
+  await rejected;
+  await page
+    .getByTestId(workbookFilterPopoverTriggerTestId(taskRequestsViewSchemaId))
+    .click();
+  await page.getByRole("button", { name: /^Edit Filter 1, Due/ }).click();
+  const lower = page.getByLabel("Lower-bound value", { exact: true });
+  const upper = page.getByLabel("Upper-bound value", { exact: true });
+  await expect(lower).toHaveValue("2026-04-18T00:00:00.1Z");
+  await expect(upper).toHaveValue("2026-04-18T00:00:00Z");
+  await expect(
+    page.getByTestId(gridFilterApplyTestId(taskRequestsViewSchemaId)),
+  ).toBeDisabled();
+  // Choose a correction distinct from the valid backing fixture so this is a
+  // real versioned write, not an unchanged PATCH against the underlying row.
+  const corrected = { gte: "2026-04-18T00:00:00Z", lte: arg.lte };
+  await lower.fill(corrected.gte);
+  await upper.fill(corrected.lte);
+  await page
+    .getByTestId(gridFilterApplyTestId(taskRequestsViewSchemaId))
+    .click();
+  await expect(
+    page.getByRole("group", { name: "Workbook browsing" }),
+  ).toContainText("3 records loaded");
+  await page.unroute(savedReads, olderRead);
+  await page.unroute(startupRead, olderRead);
+  const updated = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(savedPath),
+  );
+  await updateSavedViewFromCurrentSurface(
+    page,
+    taskRequestsViewSchemaId,
+    resource.saved_view_id,
+  );
+  const updateResponse = await updated;
+  expect(updateResponse.ok()).toBe(true);
+  const updatedResource = (await updateResponse.json()).data;
+  expect(updatedResource.query_json.filters).toEqual([
+    { field_key: "task.due_at", op: "range", arg: corrected },
+  ]);
+  expect(updatedResource.saved_view_version).toBeGreaterThan(
+    resource.saved_view_version,
+  );
+});
 
 test("Boolean filters preserve typed saved and accepted operands across matching modes", async ({
   page,

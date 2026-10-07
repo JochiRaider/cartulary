@@ -12,6 +12,10 @@ import {
   restoreBooleanFilterOperand,
 } from "./workbookBooleanFilterOperand";
 import { isWorkbookColumnWidth } from "./workbookColumnSizing";
+import {
+  timestampFilterGuidance,
+  timestampFilterInstant,
+} from "./workbookTimestampFilterOperand";
 
 export type WorkbookFilter = {
   readonly arg: Record<string, unknown>;
@@ -200,6 +204,66 @@ export function validateFilterDraft(
     return invalid("Select this field again to use its declared value type.", [
       "field",
     ]);
+  }
+  if (field.readKind === "timestamp") {
+    if (draft.op === "eq" && draft.operandKind !== "null") {
+      // Check every raw member before the serializer trims, sorts and coalesces values.
+      const values =
+        draft.operandKind === "values"
+          ? typeof draft.values === "string"
+            ? draft.values.split(/[\n,]/u)
+            : draft.values
+          : [draft.value];
+      if (
+        draft.valueType !== "string" ||
+        values.length === 0 ||
+        Array.from(values).some(
+          (value) =>
+            typeof value !== "string" ||
+            timestampFilterInstant(value.trim()) === null,
+        )
+      ) {
+        return invalid(
+          draft.operandKind === "values"
+            ? `Every set member must be a timestamp. ${timestampFilterGuidance}`
+            : timestampFilterGuidance,
+          ["value"],
+        );
+      }
+    }
+    if (draft.op === "range") {
+      const lower = draft.lowerValue.trim(),
+        upper = draft.upperValue.trim();
+      if (lower === "" && upper === "")
+        return invalid(
+          `Enter at least one timestamp bound. ${timestampFilterGuidance}`,
+          ["lower_value", "upper_value"],
+        );
+      const lowerInstant = timestampFilterInstant(lower),
+        upperInstant = timestampFilterInstant(upper);
+      const badLower = lower !== "" && lowerInstant === null,
+        badUpper = upper !== "" && upperInstant === null;
+      if (badLower || badUpper)
+        return invalid(timestampFilterGuidance, [
+          ...(badLower ? ["lower_value" as const] : []),
+          ...(badUpper ? ["upper_value" as const] : []),
+        ]);
+      if (lowerInstant !== null && upperInstant !== null) {
+        if (lowerInstant > upperInstant)
+          return invalid(
+            "The lower-bound timestamp must be at or before the upper-bound timestamp.",
+            ["lower_value", "upper_value"],
+          );
+        if (
+          lowerInstant === upperInstant &&
+          (draft.lowerKind === "gt" || draft.upperKind === "lt")
+        )
+          return invalid(
+            "Equal instants require inclusive lower and upper bounds.",
+            ["lower_value", "upper_value", "lower_kind", "upper_kind"],
+          );
+      }
+    }
   }
   const filter = buildFilterFromDraft(draft);
   if (field.readKind === "date" && draft.op === "range") {

@@ -426,6 +426,7 @@
           "authoring candidate presentation retains selected identities across twelve evicted pages with bounded options and reduced payloads",
           "authoring candidate presentation retires held read focus after outside interaction scope replacement and authority loss",
           "authoring candidate presentation stages boolean reference filters before an explicit typed read",
+          "authoring candidate presentation stages timestamp filters only after local correction and retains selected Party identity through discovery",
           "authoring candidate presentation starts and cleans up scoped reads under StrictMode without requesting record filters for membership",
           "authoring candidate presentation uses an accessible field fallback when the sole candidate selector is disabled",
           "authoring candidate presentation uses prior identity order for first middle last and sole removals",
@@ -2123,6 +2124,7 @@
           "WorkbookGridControls keeps focus on a semantic column action when movement or freezing disables its invoker",
           "WorkbookGridControls keeps impossible date correction in the editor with associated feedback",
           "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
+          "WorkbookGridControls keeps invalid timestamp drafts editable with operand guidance native keys and accepted filters",
           "WorkbookGridControls keeps newer invalid text and caret while an older Fit completes",
           "WorkbookGridControls keeps pending Fit focus and busy state without admitting a duplicate or reclaiming departed focus",
           "WorkbookGridControls keeps pending Fit focused when availability changes and moves to Restore after it becomes unavailable",
@@ -6336,6 +6338,7 @@
           "useWorkbookQueryController applies consecutive filter edits to the latest requested query",
           "useWorkbookQueryController keeps query state isolated by exact view_schema_id",
           "useWorkbookQueryController refuses direct invalid date admission and preserves raw input and requested intent",
+          "useWorkbookQueryController refuses direct timestamp admission without changing requested state or raw draft",
           "useWorkbookQueryController refuses direct unset boolean admission and preserves the authored draft and query"
         ]
       },
@@ -6958,21 +6961,24 @@
         "titles": [
           "workbookQuery builds every declared filter operator without losing argument shape",
           "workbookQuery builds tag and boolean filters from the client-local draft state",
+          "workbookQuery compares timestamp ranges as nanosecond instants with offset and inclusive equality semantics",
           "workbookQuery describes filter chip labels from contract metadata",
           "workbookQuery initializes filter drafts from the declared contract operators",
           "workbookQuery keeps a full semantic layout permutation while compiling visible columns",
           "workbookQuery keeps grouping separate from authored sorting and cleared overrides",
-          "workbookQuery keeps non-date and timestamp operands unchanged and rejects wrong-schema dates",
+          "workbookQuery keeps text operands unchanged and rejects malformed timestamp and wrong-schema drafts",
           "workbookQuery preserves date equality sets null encoding and exact raw input",
           "workbookQuery projects active enum metadata and preserves exact set literals on reopening",
           "workbookQuery refuses impossible date drafts without replacing query state",
+          "workbookQuery rejects every invalid timestamp set member and round trips valid saved operands",
           "workbookQuery rejects malformed boolean operands without coercion and preserves contract overrides",
           "workbookQuery rejects structural layout keys and out-of-range widths",
           "workbookQuery retains enum custom literals case variants and mixed equality shapes",
           "workbookQuery round trips declared boolean scalar set and null operands without changing JSON types",
           "workbookQuery supports ordered additive sort cycles and enforces the owner limit",
           "workbookQuery validates calendar dates for every declared date filter",
-          "workbookQuery validates one-sided date ranges and inclusive boundaries"
+          "workbookQuery validates one-sided date ranges and inclusive boundaries",
+          "workbookQuery validates timestamp equality for every declared timestamp filter without losing raw input"
         ]
       },
       "evidence_class": "unit",

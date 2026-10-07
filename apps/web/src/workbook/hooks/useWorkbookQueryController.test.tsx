@@ -131,6 +131,63 @@ function FilterQueryHarness({
 }
 
 describe("useWorkbookQueryController", () => {
+  it("refuses direct timestamp admission without changing requested state or raw draft", () => {
+    const invalid: Extract<FilterDraft, { op: "eq" }> = {
+      fieldKey: "note.updated_at",
+      op: "eq",
+      operandKind: "value",
+      valueType: "string",
+      value: " tomorrow ",
+      values: "",
+    };
+    function Harness() {
+      const { snapshot } = useWorkbookQueryController({
+        surface: "cartulary.view.notes.v1",
+      });
+      const controls = snapshot.activeQueryControls;
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              controls.onApplyFilter({
+                ...invalid,
+                value: "2026-04-18T00:00:00Z",
+              })
+            }
+          >
+            Seed timestamp
+          </button>
+          <button
+            type="button"
+            onClick={() => controls.onFilterDraftChange(invalid)}
+          >
+            Draft timestamp
+          </button>
+          <button type="button" onClick={() => controls.onApplyFilter(invalid)}>
+            Apply timestamp
+          </button>
+          <output aria-label="query">
+            {JSON.stringify(snapshot.genericQueryState)}
+          </output>
+          <output aria-label="draft">
+            {JSON.stringify(controls.filterDraft)}
+          </output>
+        </>
+      );
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByText("Seed timestamp"));
+    const accepted = screen.getByLabelText("query").textContent;
+    fireEvent.click(screen.getByText("Draft timestamp"));
+    expect(screen.getByLabelText("query").textContent).toBe(accepted);
+    fireEvent.click(screen.getByText("Apply timestamp"));
+    expect(screen.getByLabelText("query").textContent).toBe(accepted);
+    expect(
+      JSON.parse(screen.getByLabelText("draft").textContent ?? "{}"),
+    ).toEqual(invalid);
+  });
+
   it("refuses direct invalid date admission and preserves raw input and requested intent", () => {
     render(<FilterQueryHarness />);
     fireEvent.click(screen.getByRole("button", { name: "Seed query" }));

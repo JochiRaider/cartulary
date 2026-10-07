@@ -95,6 +95,65 @@ function readGate() {
   return { promise, resolve };
 }
 describe("authoring candidate presentation", () => {
+  it("stages timestamp filters only after local correction and retains selected Party identity through discovery", async () => {
+    const user = userEvent.setup();
+    const { props, reader, onApply } = setup();
+    vi.mocked(reader.page)
+      .mockResolvedValueOnce(page(1, null))
+      .mockResolvedValue({
+        kind: "accepted",
+        value: { candidates: [], nextCursor: null, hasMore: false },
+      });
+    render(<WorkbookAuthoringReferencePicker {...props} />);
+    await screen.findByRole("option", { name: "Party 1-0" });
+    select("1-0");
+    await user.click(screen.getByText("Parties ordering and filters"));
+    await user.selectOptions(
+      screen.getByLabelText("Parties filter field"),
+      "party.updated_at",
+    );
+    const value = screen.getByLabelText(
+      "Parties filter value",
+    ) as HTMLInputElement;
+    await user.type(value, " tomorrow ");
+    await user.click(screen.getByRole("button", { name: "Add filter" }));
+    expect(value.value).toBe(" tomorrow ");
+    expect(value.getAttribute("aria-invalid")).toBe("true");
+    expect(
+      document.getElementById(value.getAttribute("aria-describedby") ?? "")
+        ?.textContent,
+    ).toContain("numeric timezone offset");
+    expect(reader.page).toHaveBeenCalledTimes(1);
+    await user.clear(value);
+    await user.type(value, "2026-04-18T00:00:00.000000001Z");
+    expect(reader.page).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Add filter" }));
+    expect(reader.page).toHaveBeenCalledTimes(1);
+    await user.click(
+      screen.getByRole("button", { name: "Apply candidate query" }),
+    );
+    await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(2));
+    expect(
+      vi.mocked(reader.page).mock.calls[1]?.[0].queryState.filters,
+    ).toEqual([
+      {
+        fieldKey: "party.updated_at",
+        op: "eq",
+        arg: { value: "2026-04-18T00:00:00.000000001Z" },
+      },
+    ]);
+    await waitFor(() =>
+      expect(screen.queryByRole("option", { name: "Party 1-0" })).toBeNull(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Remove selected Parties Party 1-0" }),
+    ).toBeTruthy();
+    expect(onApply).not.toHaveBeenCalled();
+    click("Apply references");
+    expect(onApply).toHaveBeenCalledWith([
+      { recordId: "1-0", displayText: "Party 1-0", viewSchemaId: view },
+    ]);
+  });
   it("stages boolean reference filters before an explicit typed read", async () => {
     const user = userEvent.setup();
     const { props, reader, onApply } = setup();

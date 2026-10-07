@@ -1,7 +1,9 @@
 package viewquery
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -262,6 +264,113 @@ func TestQueryNormalizationMeta_Unit(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTimestampQueryNormalization_Unit(t *testing.T) {
+	const second = "2026-04-18T00:00:00Z"
+	const fraction = "2026-04-18T00:00:00.1Z"
+	for _, surface := range []struct{ view, field string }{
+		{"cartulary.view.notes.v1", "note.updated_at"},
+		{"cartulary.view.task_requests.v1", "task.due_at"},
+		{timelineViewSchemaID, "timeline.date_entered_sort_day"},
+	} {
+		for _, persisted := range []bool{false, true} {
+			check := func(name, op string, arg map[string]any, want map[string]any) {
+				t.Helper()
+				t.Run(fmt.Sprintf("%s/persisted=%t/%s", surface.field, persisted, name), func(t *testing.T) {
+					body, err := json.Marshal(map[string]any{"filters": []any{map[string]any{"field_key": surface.field, "op": op, "arg": arg}}})
+					if err != nil {
+						t.Fatal(err)
+					}
+					var filters []viewschema.Filter
+					var failure *ValidationError
+					if persisted {
+						var normalized json.RawMessage
+						normalized, failure = NormalizePersisted(body, surface.view)
+						if failure == nil {
+							var query PersistedQuery
+							if err := json.Unmarshal(normalized, &query); err != nil {
+								t.Fatal(err)
+							}
+							filters = query.Filters
+							// Canonical saved queries must remain stable on subsequent loads.
+							again, err := NormalizePersisted(normalized, surface.view)
+							if err != nil || !bytes.Equal(normalized, again) {
+								t.Fatalf("unstable saved query: %s / %s: %+v", normalized, again, err)
+							}
+						}
+					} else {
+						var query Query
+						query, failure = Decode(bytes.NewReader(body), surface.view)
+						filters = query.Meta.Filters
+					}
+					if want == nil {
+						if failure == nil || failure.ReasonCode != "invalid_filter_operand" || failure.FieldKey != surface.field || failure.FilterIndex == nil || *failure.FilterIndex != 0 {
+							t.Fatalf("expected attributed invalid operand for %s: %+v", body, failure)
+						}
+						return
+					}
+					if failure != nil || len(filters) != 1 || !reflect.DeepEqual(filters[0].Arg, want) {
+						t.Fatalf("normalize %s: got %#v / %+v, want %#v", body, filters, failure, want)
+					}
+				})
+			}
+			if surface.view == timelineViewSchemaID {
+				// Date-only ranges retain their canonical lexical ordering.
+				check("date forward", "range", map[string]any{"gte": "2026-04-18", "lte": "2026-04-19"}, map[string]any{"gte": "2026-04-18", "lte": "2026-04-19"})
+				check("date reverse", "range", map[string]any{"gte": "2026-04-19", "lte": "2026-04-18"}, nil)
+				check("date equal closed", "range", map[string]any{"gte": "2026-04-18", "lte": "2026-04-18"}, map[string]any{"gte": "2026-04-18", "lte": "2026-04-18"})
+				check("date equal open", "range", map[string]any{"gt": "2026-04-18", "lte": "2026-04-18"}, nil)
+				continue
+			}
+			for _, value := range []any{"tomorrow", "2026-02-29T00:00:00Z", "1900-02-29T00:00:00Z", "2026-04-31T00:00:00Z", "2026-04-18", "2026-04-18T00:00:00", " " + second, second + " ", "2026-04-18T24:00:00Z", "2026-04-18T00:00:60Z", true, 42, []any{}, map[string]any{}} {
+				check(fmt.Sprintf("invalid scalar %v", value), "eq", map[string]any{"value": value}, nil)
+			}
+			for _, pair := range [][2]string{
+				{second, second}, {"2026-04-17T20:00:00-04:00", second},
+				{"2026-04-18T00:30:00+01:00", "2026-04-17T23:30:00Z"},
+				{"2026-04-18T00:00:00.1234567899Z", "2026-04-18T00:00:00.123456789Z"},
+				{"0000-02-29T00:00:00Z", "0000-02-29T00:00:00Z"},
+			} {
+				check("scalar "+pair[0], "eq", map[string]any{"value": pair[0]}, map[string]any{"value": pair[1]})
+			}
+			check("null equality", "eq", map[string]any{"value": nil}, map[string]any{"value": nil})
+			check("normalized set ordering remains unchanged", "eq", map[string]any{"values": []any{second, fraction, "2026-04-17T20:00:00-04:00"}}, map[string]any{"values": []any{fraction, second}})
+			for _, values := range [][]any{{}, {second, nil}, {second, "tomorrow"}, {second, ""}, {second, 42}} {
+				check(fmt.Sprintf("invalid set %v", values), "eq", map[string]any{"values": values}, nil)
+			}
+			check("forward 100ms", "range", map[string]any{"gte": second, "lte": fraction}, map[string]any{"gte": second, "lte": fraction})
+			check("reverse 100ms", "range", map[string]any{"gte": fraction, "lte": second}, nil)
+			for _, key := range []string{"gt", "gte", "lt", "lte"} {
+				check("one sided "+key, "range", map[string]any{key: second}, map[string]any{key: second})
+			}
+			for _, arg := range []map[string]any{{}, {"gte": nil}, {"gt": second, "gte": second}, {"lt": second, "lte": second}, {"gte": "tomorrow", "lte": fraction}, {"gte": second, "lte": "tomorrow"}} {
+				check(fmt.Sprintf("invalid bounds %v", arg), "range", arg, nil)
+			}
+			for _, lower := range []string{"gt", "gte"} {
+				for _, upper := range []string{"lt", "lte"} {
+					check("open or closed "+lower+upper, "range", map[string]any{lower: second, upper: fraction}, map[string]any{lower: second, upper: fraction})
+					var equal map[string]any
+					if lower == "gte" && upper == "lte" {
+						equal = map[string]any{lower: second, upper: second}
+					}
+					check("equal offsets "+lower+upper, "range", map[string]any{lower: "2026-04-17T20:00:00-04:00", upper: second}, equal)
+				}
+			}
+			for _, pair := range [][2]string{
+				{"2026-04-18T00:00:00.000000001Z", "2026-04-18T00:00:00.000000002Z"},
+				{"2026-04-17T23:30:00Z", "2026-04-18T00:00:00Z"},
+			} {
+				check("forward "+pair[0], "range", map[string]any{"gt": pair[0], "lt": pair[1]}, map[string]any{"gt": pair[0], "lt": pair[1]})
+				check("reverse "+pair[0], "range", map[string]any{"gte": pair[1], "lte": pair[0]}, nil)
+			}
+			check("equal after nanosecond truncation", "range", map[string]any{"gt": "2026-04-18T00:00:00.1234567891Z", "lte": "2026-04-18T00:00:00.1234567899Z"}, nil)
+			// Existing Go parser extensions are characterization, not authoring syntax.
+			for _, pair := range [][2]string{{"2026-04-18T0:00:00Z", second}, {"2026-04-18T00:00:00,1Z", fraction}, {"2026-04-19T00:00:00+24:00", second}, {"2026-04-18T01:00:00+00:60", second}} {
+				check("incidental parser acceptance "+pair[0], "eq", map[string]any{"value": pair[0]}, map[string]any{"value": pair[1]})
+			}
+		}
 	}
 }
 

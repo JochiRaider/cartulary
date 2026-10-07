@@ -56,11 +56,103 @@ afterEach(() => {
 });
 
 describe("WorkbookGridControls", () => {
+  it("keeps invalid timestamp drafts editable with operand guidance native keys and accepted filters", async () => {
+    const user = userEvent.setup(),
+      applied = vi.fn();
+    const surface = "cartulary.view.notes.v1";
+    const contract = requireViewContract(surface);
+    const initial: WorkbookQueryState = {
+      ...emptyWorkbookQueryState(),
+      filters: [
+        {
+          fieldKey: "note.updated_at",
+          op: "eq",
+          arg: { value: "2026-04-18T00:00:00Z" },
+        },
+      ],
+    };
+    render(
+      <FilterGridControls
+        contract={contract}
+        applied={applied}
+        initial={initial}
+      />,
+    );
+    const chip = screen.getByRole("button", { name: /Filter 1, Updated/ });
+    await user.click(chip);
+    const value = screen.getByTestId(
+      gridFilterValueTestId(surface),
+    ) as HTMLInputElement;
+    await user.clear(value);
+    await user.type(value, " tomorrow ");
+    const apply = screen.getByRole("button", { name: "Apply" });
+    expect((apply as HTMLButtonElement).disabled).toBe(true);
+    await user.click(apply);
+    expect(applied).not.toHaveBeenCalled();
+    expect(value.value).toBe(" tomorrow ");
+    expect(value.getAttribute("aria-invalid")).toBe("true");
+    expect(
+      document.getElementById(value.getAttribute("aria-describedby") ?? "")
+        ?.textContent,
+    ).toContain("2026-04-18T00:00:00Z");
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    for (const key of [
+      "Home",
+      "End",
+      "ArrowLeft",
+      "ArrowRight",
+      "Delete",
+      "Backspace",
+      "Tab",
+    ]) {
+      const event = new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+      });
+      value.dispatchEvent(event);
+      expect(event.defaultPrevented, key).toBe(false);
+    }
+    expect(chip.textContent).toContain("2026-04-18T00:00:00Z");
+    await user.clear(value);
+    await user.type(value, "2026-04-17T20:00:00.000000001-04:00");
+    await user.click(apply);
+    expect(applied).toHaveBeenCalledWith({
+      fieldKey: "note.updated_at",
+      op: "eq",
+      arg: { value: "2026-04-17T20:00:00.000000001-04:00" },
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: /Filter 1, Updated/ }),
+    );
+    await user.click(screen.getByRole("button", { name: /Filter 1, Updated/ }));
+    await user.selectOptions(screen.getByLabelText("Operator"), "range");
+    const lower = screen.getByLabelText("Lower-bound value"),
+      upper = screen.getByLabelText("Upper-bound value");
+    await user.type(lower, "2026-04-18T00:00:00.1Z");
+    await user.type(upper, "2026-04-18T00:00:00Z");
+    expect(lower.getAttribute("aria-invalid")).toBe("true");
+    expect(upper.getAttribute("aria-describedby")).toBe(
+      lower.getAttribute("aria-describedby"),
+    );
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Apply",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(applied).toHaveBeenCalledTimes(1);
+  });
+
   it("reopens boolean sets and null with typed explicit choices", async () => {
     const user = userEvent.setup();
     const applied = vi.fn();
     render(
-      <EnumGridControls
+      <FilterGridControls
         applied={applied}
         initial={{
           ...emptyWorkbookQueryState(),
@@ -112,7 +204,7 @@ describe("WorkbookGridControls", () => {
     const user = userEvent.setup();
     const applied = vi.fn();
     render(
-      <EnumGridControls
+      <FilterGridControls
         applied={applied}
         initial={{
           ...emptyWorkbookQueryState(),
@@ -215,7 +307,7 @@ describe("WorkbookGridControls", () => {
   it("offers ordered enum choices without implicit admission and preserves null and set shapes", async () => {
     const user = userEvent.setup();
     const applied = vi.fn();
-    render(<EnumGridControls applied={applied} />);
+    render(<FilterGridControls applied={applied} />);
     const trigger = screen.getByTestId(
       workbookFilterPopoverTriggerTestId(timelineSurface),
     );
@@ -291,7 +383,7 @@ describe("WorkbookGridControls", () => {
     const user = userEvent.setup();
     const applied = vi.fn();
     render(
-      <EnumGridControls
+      <FilterGridControls
         applied={applied}
         initial={{
           filters: [
@@ -360,7 +452,7 @@ describe("WorkbookGridControls", () => {
     const contract = requireViewContract(timelineSurface);
     render(
       <>
-        <EnumGridControls applied={apply} />
+        <FilterGridControls applied={apply} />
         <WorkbookCandidateQueryControl
           view="cartulary.view.parties.v1"
           label="Other"
@@ -436,7 +528,7 @@ describe("WorkbookGridControls", () => {
     const field = contract.fieldMap["timeline.activity_time_pair_state"];
     if (!field) throw new Error("Missing field");
     render(
-      <EnumGridControls
+      <FilterGridControls
         applied={apply}
         contract={{
           ...contract,
@@ -2282,7 +2374,7 @@ function columnsGeometry(panel: HTMLElement, scale = 1, height = 300) {
     });
 }
 
-function EnumGridControls({
+function FilterGridControls({
   applied,
   initial = emptyWorkbookQueryState(),
   contract = requireViewContract(timelineSurface),
@@ -2293,12 +2385,18 @@ function EnumGridControls({
 }) {
   const [queryState, setQueryState] = useState(initial);
   const [draft, setDraft] = useState(() =>
-    filterDraftForField(contract, "timeline.activity_time_pair_state", "eq"),
+    filterDraftForField(
+      contract,
+      contract.filterFields.includes("timeline.activity_time_pair_state")
+        ? "timeline.activity_time_pair_state"
+        : (contract.filterFields[0] ?? ""),
+      "eq",
+    ),
   );
   return (
     <WorkbookGridControls
       contract={contract}
-      surface={timelineSurface}
+      surface={contract.viewSchemaId}
       filterDraft={draft}
       queryState={queryState}
       layoutState={defaultWorkbookLayoutState(contract)}

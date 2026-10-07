@@ -523,7 +523,7 @@ describe("workbookQuery", () => {
     ).toEqual({ gt: "2026-04-18" });
   });
 
-  it("keeps non-date and timestamp operands unchanged and rejects wrong-schema dates", () => {
+  it("keeps text operands unchanged and rejects malformed timestamp and wrong-schema drafts", () => {
     const contract = requireViewContract("cartulary.view.timeline.v2");
     const text: FilterDraft = {
       fieldKey: "timeline.tags",
@@ -549,7 +549,7 @@ describe("workbookQuery", () => {
         lowerValue: "unchanged timestamp input",
         upperValue: "2026-04-18T00:00:00+04:00",
       }).kind,
-    ).toBe("valid");
+    ).toBe("invalid");
     const state = emptyWorkbookQueryState();
     expect(
       applyFilterDraft(requireViewContract("cartulary.view.hosts.v1"), state, {
@@ -558,6 +558,204 @@ describe("workbookQuery", () => {
         lowerValue: "2026-04-18",
       }),
     ).toBe(state);
+  });
+
+  it("validates timestamp equality for every declared timestamp filter without losing raw input", () => {
+    const consumers = listViewContracts().flatMap((contract) =>
+      contract.fields
+        .filter(
+          (field) =>
+            field.readKind === "timestamp" &&
+            contract.filterFields.includes(field.fieldKey),
+        )
+        .map((field) => ({ contract, field })),
+    );
+    expect(consumers.length).toBeGreaterThan(0);
+    for (const { contract, field } of consumers) {
+      const draft = filterDraftForField(contract, field.fieldKey, "eq");
+      if (draft.op !== "eq") throw new Error("Expected timestamp equality");
+      for (const value of [
+        "0000-02-29T00:00:00Z",
+        "0099-12-31T23:59:59Z",
+        "2000-02-29T12:00:00Z",
+        "2026-04-18T00:00:00Z",
+        "2026-04-17T20:00:00-04:00",
+        "2026-04-18T00:00:00.000000001Z",
+        "2026-04-18T00:00:00.1234567899+05:30",
+        " 2026-04-18T00:00:00.1Z \n",
+      ]) {
+        const raw = { ...draft, value };
+        expect(
+          validateFilterDraft(contract, raw),
+          `${field.fieldKey}: ${value}`,
+        ).toEqual({
+          kind: "valid",
+          filter: {
+            fieldKey: field.fieldKey,
+            op: "eq",
+            arg: { value: value.trim() },
+          },
+        });
+        expect(raw.value).toBe(value);
+      }
+      for (const value of [
+        "",
+        "tomorrow",
+        "1900-02-29T00:00:00Z",
+        "2026-02-29T00:00:00Z",
+        "2026-04-31T00:00:00Z",
+        "2026-04-18",
+        "2026-04-18T00:00:00",
+        "2026-04-18T24:00:00Z",
+        "2026-04-18T00:60:00Z",
+        "2026-04-18T00:00:60Z",
+        "2026-04-18T00:00:00+24:00",
+        "2026-04-18T00:00:00+01:60",
+        "2026-04-18T0:00:00Z",
+        "2026-04-18t00:00:00z",
+        "2026-04-18T00:00:00,1Z",
+      ]) {
+        const state = emptyWorkbookQueryState();
+        expect(
+          validateFilterDraft(contract, { ...draft, value }),
+          `${field.fieldKey}: ${value}`,
+        ).toMatchObject({
+          kind: "invalid",
+          controls: ["value"],
+          message: expect.stringContaining("2026-04-18T00:00:00Z"),
+        });
+        expect(applyFilterDraft(contract, state, { ...draft, value })).toBe(
+          state,
+        );
+      }
+      expect(
+        validateFilterDraft(contract, { ...draft, operandKind: "null" }),
+      ).toMatchObject({ kind: "valid", filter: { arg: { value: null } } });
+      expect(
+        validateFilterDraft(contract, {
+          ...draft,
+          valueType: "number",
+          value: "42",
+        }).kind,
+      ).toBe("invalid");
+    }
+  });
+
+  it("rejects every invalid timestamp set member and round trips valid saved operands", () => {
+    const contract = requireViewContract("cartulary.view.notes.v1");
+    const draft = filterDraftForField(contract, "note.updated_at", "eq");
+    if (draft.op !== "eq") throw new Error("Expected equality");
+    const a = "2026-04-18T00:00:00.000000001Z";
+    const b = "2026-04-17T20:00:00.1-04:00";
+    for (const values of [
+      "",
+      `${a},tomorrow`,
+      `${a},`,
+      `${a}, ,${b}`,
+      [a, ""],
+      [a, null] as unknown as string[],
+      [a, 42] as unknown as string[],
+      Object.assign(Array<string>(2), { 0: a }),
+    ]) {
+      const raw = { ...draft, operandKind: "values" as const, values };
+      const state = emptyWorkbookQueryState();
+      expect(applyFilterDraft(contract, state, raw)).toBe(state);
+      expect(raw.values).toBe(values);
+    }
+    for (const arg of [
+      { value: a },
+      { values: [a, b].sort() },
+      { value: null },
+      { gte: a, lte: b },
+    ]) {
+      const filter = {
+        fieldKey: draft.fieldKey,
+        op: "gte" in arg ? ("range" as const) : ("eq" as const),
+        arg,
+      };
+      const state = { ...emptyWorkbookQueryState(), filters: [filter] };
+      const restored = workbookQueryStateFromSavedViewQueryJson(
+        contract,
+        buildSavedViewQueryJson(contract, state),
+      );
+      expect(restored).toEqual(state);
+      const restoredFilter = restored.filters[0];
+      if (!restoredFilter) throw new Error("Missing restored filter");
+      expect(
+        validateFilterDraft(
+          contract,
+          filterDraftFromFilter(contract, restoredFilter),
+        ),
+      ).toEqual({ kind: "valid", filter });
+    }
+  });
+
+  it("compares timestamp ranges as nanosecond instants with offset and inclusive equality semantics", () => {
+    const contract = requireViewContract("cartulary.view.task_requests.v1");
+    const draft = filterDraftForField(contract, "task.due_at", "range");
+    if (draft.op !== "range") throw new Error("Expected range");
+    for (const [lowerValue, upperValue, kind] of [
+      ["", "", "invalid"],
+      ["tomorrow", "", "invalid"],
+      ["", "tomorrow", "invalid"],
+      ["2026-04-18T00:00:00Z", "", "valid"],
+      ["", "2026-04-18T00:00:00Z", "valid"],
+      ["2026-04-18T00:00:00Z", "2026-04-18T00:00:00.1Z", "valid"],
+      ["2026-04-18T00:00:00.1Z", "2026-04-18T00:00:00Z", "invalid"],
+      [
+        "2026-04-18T00:00:00.000000001Z",
+        "2026-04-18T00:00:00.000000002Z",
+        "valid",
+      ],
+      [
+        "2026-04-18T00:00:00.000000002Z",
+        "2026-04-18T00:00:00.000000001Z",
+        "invalid",
+      ],
+      ["2026-04-18T00:30:00+01:00", "2026-04-17T23:45:00Z", "valid"],
+      ["2026-04-17T23:45:00Z", "2026-04-18T00:30:00+01:00", "invalid"],
+    ] as const) {
+      expect(
+        validateFilterDraft(contract, { ...draft, lowerValue, upperValue })
+          .kind,
+        `${lowerValue}..${upperValue}`,
+      ).toBe(kind);
+    }
+    for (const lowerKind of ["gt", "gte"] as const)
+      for (const upperKind of ["lt", "lte"] as const) {
+        for (const [lowerValue, upperValue] of [
+          ["2026-04-18T00:00:00Z", "2026-04-17T20:00:00-04:00"],
+          [
+            "2026-04-18T00:00:00.1234567899Z",
+            "2026-04-18T00:00:00.1234567891Z",
+          ],
+        ])
+          expect(
+            validateFilterDraft(contract, {
+              ...draft,
+              lowerKind,
+              upperKind,
+              lowerValue: lowerValue ?? "",
+              upperValue: upperValue ?? "",
+            }).kind,
+          ).toBe(
+            lowerKind === "gte" && upperKind === "lte" ? "valid" : "invalid",
+          );
+      }
+    expect(
+      validateFilterDraft(contract, {
+        ...draft,
+        lowerValue: "tomorrow",
+        upperValue: "2026-04-18T00:00:00Z",
+      }),
+    ).toMatchObject({ kind: "invalid", controls: ["lower_value"] });
+    expect(
+      validateFilterDraft(contract, {
+        ...draft,
+        upperValue: "tomorrow",
+        lowerValue: "2026-04-18T00:00:00Z",
+      }),
+    ).toMatchObject({ kind: "invalid", controls: ["upper_value"] });
   });
 
   it("refuses impossible date drafts without replacing query state", () => {

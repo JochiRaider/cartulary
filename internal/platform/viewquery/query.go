@@ -548,13 +548,13 @@ func normalizeRangeArg(index int, fieldKey string, kind FieldKind, arg map[strin
 		return nil, filterError(index, fieldKey, "invalid_filter_operand")
 	}
 
-	if contradictionDetected(canonical) {
+	if contradictionDetected(kind, canonical) {
 		return nil, filterError(index, fieldKey, "invalid_filter_operand")
 	}
 	return canonical, nil
 }
 
-func contradictionDetected(bounds map[string]any) bool {
+func contradictionDetected(kind FieldKind, bounds map[string]any) bool {
 	var (
 		lowerValue string
 		lowerOpen  bool
@@ -594,6 +594,14 @@ func contradictionDetected(bounds map[string]any) bool {
 		return false
 	}
 	cmp := strings.Compare(lowerValue, upperValue)
+	if kind == FieldKindTimestamp {
+		lower, lowerOK := fieldnorm.NormalizeTimestampInstant(lowerValue)
+		upper, upperOK := fieldnorm.NormalizeTimestampInstant(upperValue)
+		if !lowerOK || !upperOK {
+			return true
+		}
+		cmp = lower.Compare(upper)
+	}
 	if cmp > 0 {
 		return true
 	}

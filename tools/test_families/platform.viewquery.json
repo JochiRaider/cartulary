@@ -73,6 +73,41 @@
       ]
     },
     {
+      "row_id": "platform.viewquery.browser.timestamp_drafts_correct_locally_and_fractional_349e7ec0a3",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "workbook_timestamp_range_membership"
+        ],
+        "titles": [
+          "Timestamp drafts correct locally and fractional ranges select exact populated workbook membership"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "platform.viewquery.frontend.grid_sort_filter_and_group_controls_send_only_st_63c9867421",
       "owner_id": "platform.viewquery",
       "family_id": "platform.viewquery.frontend",
@@ -172,6 +207,30 @@
         "package": "./internal/platform/viewquery",
         "tests": [
           "TestQueryNormalizationMeta_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.viewquery.unit.timestamp_query_operands_normalize_and_ranges_co_0b505c0d19",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewquery",
+        "tests": [
+          "TestTimestampQueryNormalization_Unit"
         ]
       },
       "evidence_class": "unit",

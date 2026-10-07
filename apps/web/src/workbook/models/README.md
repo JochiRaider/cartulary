@@ -18,6 +18,7 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 
 | File | Responsibility |
 | --- | --- |
+| [workbookTimestampFilterOperand.ts](workbookTimestampFilterOperand.ts) | Explicit-zone timestamp query parsing and nanosecond comparison, independent of write workflows. |
 | [WorkbookGridDraftStore.ts](WorkbookGridDraftStore.ts) | Retained raw grid input, revision-specific validation, original baseline, explicit clear and authorization lifetime. |
 | [WorkbookGridDraftStore.test.ts](WorkbookGridDraftStore.test.ts) | Exact input, stale completion, review and account/incident retirement evidence. |
 | [workbookGridEditValue.ts](workbookGridEditValue.ts) | Declared grid-only scalar and reference validation without changing unfinished text. |

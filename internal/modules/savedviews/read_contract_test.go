@@ -220,3 +220,61 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodGet, endpoint+suffix, nil, httptestx.WithCookies(viewer)), http.StatusNotFound, "saved_view_not_found")
 	}
 }
+
+func TestSavedViewTimestampCompatibility_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "saved-view-timestamp-compatibility")
+	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "timestamp-incident", "incident_key": "IR-TIMESTAMP", "title": "Timestamp compatibility"})
+	id := incident["incident_id"].(string)
+	const schema = "cartulary.view.notes.v1"
+	const savedID = "00000000-0000-4000-8000-000000008201"
+	seedSavedView(t, harness.DB, savedID, id, schema, "private", "Older timestamp range", adminID, "2026-08-01T00:00:00Z")
+	query := func(lower, upper string) map[string]any {
+		return map[string]any{"sort": []any{}, "filters": []any{map[string]any{"field_key": "note.updated_at", "op": "range", "arg": map[string]any{"gte": lower, "lte": upper}}}}
+	}
+	invalid := query("2026-04-18T00:00:00.1Z", "2026-04-18T00:00:00Z")
+	raw, err := json.Marshal(invalid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This represents a row persisted before chronological range validation.
+	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE saved_views SET query_json=$2 WHERE saved_view_id=$1`, savedID, raw); err != nil {
+		t.Fatal(err)
+	}
+	endpoint := harness.Server.HTTP.URL + "/api/v1/incidents/" + id
+	request := func(method, path string, body any) *http.Response {
+		return httptestx.DoJSON(t, method, endpoint+path, body, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
+	}
+	read := func() map[string]any {
+		return httptestx.RequireSuccessEnvelope(t, request(http.MethodGet, "/saved-views/"+savedID, nil), http.StatusOK)["data"].(map[string]any)
+	}
+	before := read()
+	if !reflect.DeepEqual(before["query_json"], invalid) {
+		t.Fatal("read changed the older predicate", before)
+	}
+	startup := httptestx.RequireSuccessEnvelope(t, request(http.MethodGet, "/workbook-startup?sheet_ref_kind=saved_view&sheet_ref_id="+savedID, nil), http.StatusOK)["data"].(map[string]any)
+	if !reflect.DeepEqual(startup["selected_saved_view"].(map[string]any)["query_json"], invalid) {
+		t.Fatal("startup changed the older predicate", startup)
+	}
+	failure := httptestx.RequireErrorEnvelope(t, request(http.MethodPost, "/views/"+schema+"/query", invalid), http.StatusBadRequest, "invalid_view_query")
+	if failure["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_filter_operand" {
+		t.Fatal(failure)
+	}
+	httptestx.RequireErrorEnvelope(t, request(http.MethodPost, "/saved-views", map[string]any{"view_schema_id": schema, "display_name": "Invalid copy", "query_json": invalid}), http.StatusBadRequest, "invalid_mutation_payload")
+	httptestx.RequireErrorEnvelope(t, request(http.MethodPatch, "/saved-views/"+savedID, map[string]any{"base_saved_view_version": before["saved_view_version"], "query_json": invalid}), http.StatusBadRequest, "invalid_mutation_payload")
+	if !reflect.DeepEqual(read(), before) {
+		t.Fatal("rejection rewrote or removed the stored query")
+	}
+	valid := query("2026-04-17T20:00:00.000000001-04:00", "2026-04-18T00:00:00.1Z")
+	expected := query("2026-04-18T00:00:00.000000001Z", "2026-04-18T00:00:00.1Z")
+	updated := httptestx.RequireSuccessEnvelope(t, request(http.MethodPatch, "/saved-views/"+savedID, map[string]any{"base_saved_view_version": before["saved_view_version"], "query_json": valid}), http.StatusOK)["data"].(map[string]any)
+	if !reflect.DeepEqual(updated["query_json"], expected) || !reflect.DeepEqual(read(), updated) {
+		t.Fatal("explicit correction lost canonical precision", updated)
+	}
+	httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, "/views/"+schema+"/query", updated["query_json"]), http.StatusOK)
+	created := httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, "/saved-views", map[string]any{"view_schema_id": schema, "display_name": "Valid fractional query", "query_json": valid}), http.StatusCreated)["data"].(map[string]any)
+	if !reflect.DeepEqual(created["query_json"], expected) {
+		t.Fatal("create lost instant meaning", created)
+	}
+}

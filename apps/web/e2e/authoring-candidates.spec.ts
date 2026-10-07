@@ -64,6 +64,89 @@ function button(scope: Locator | Page, name: string) {
   return scope.getByRole("button", { name, exact: true });
 }
 
+test("Party timestamp candidate filters stage explicitly and preserve selected identities", async ({
+  page,
+}) => {
+  const f = await openTimelineEvidenceFixture(page);
+  const party = await createViewRow(page, f.incident, partiesViewSchemaId, {
+    client_txn_id: uniqueTxn("timestamp-party"),
+    "party.display_name": "Timestamp Party",
+    "party.party_kind": "person",
+  });
+  await button(f.form, "Keep draft and close").click();
+  await page
+    .getByTestId(
+      workbookInspectorFeatureActionTestId(
+        timelineViewSchemaId,
+        "create_related.task_request",
+      ),
+    )
+    .click();
+  const task = page.getByRole("region", {
+    name: "Create task request",
+    exact: true,
+  });
+  await button(task, "Choose Requester Party").click();
+  const picker = task.getByRole("region", {
+    name: "Choose Requester Party",
+    exact: true,
+  });
+  const select = picker.getByRole("combobox", {
+    name: "Requester Party",
+    exact: true,
+  });
+  await expect(
+    select.getByRole("option", { name: "Timestamp Party", exact: true }),
+  ).toBeAttached();
+  await select.selectOption(party.record_id);
+  const queries: { filters?: unknown }[] = [];
+  await page.route(
+    `**/incidents/${f.incident}/views/${partiesViewSchemaId}/query`,
+    async (route) => {
+      queries.push(route.request().postDataJSON());
+      await route.continue();
+    },
+  );
+  await picker
+    .getByText("Requester Party ordering and filters", { exact: true })
+    .click();
+  await picker
+    .getByLabel("Requester Party filter field", { exact: true })
+    .selectOption("party.updated_at");
+  const value = picker.getByLabel("Requester Party filter value", {
+    exact: true,
+  });
+  await value.fill("tomorrow");
+  await expect(button(picker, "Add filter")).toBeDisabled();
+  await expect(value).toHaveAttribute("aria-invalid", "true");
+  expect(queries).toHaveLength(0);
+  await value.fill("0001-01-01T00:00:00.000000001Z");
+  await button(picker, "Add filter").click();
+  expect(queries).toHaveLength(0);
+  await button(picker, "Apply candidate query").click();
+  await expect.poll(() => queries.length).toBe(1);
+  expect(queries[0]?.filters).toEqual([
+    {
+      field_key: "party.updated_at",
+      op: "eq",
+      arg: { value: "0001-01-01T00:00:00.000000001Z" },
+    },
+  ]);
+  await expect(
+    select.getByRole("option", { name: "Timestamp Party", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    button(picker, "Remove selected Requester Party Timestamp Party"),
+  ).toBeVisible();
+  await button(picker, "Apply references").click();
+  await expect(
+    task.getByRole("group", {
+      name: "Requester Party selected references",
+      exact: true,
+    }),
+  ).toContainText("Timestamp Party");
+});
+
 test("Boolean support filters stage typed queries and retain selected identities across pages", async ({
   page,
 }) => {

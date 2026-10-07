@@ -171,6 +171,36 @@ INSERT INTO saved_views (
 		len(emptyFiles[0].Payload) != 0 {
 		t.Fatalf("zero-row saved-view export = %#v; want required zero-byte member", emptyFiles)
 	}
+	t.Run("timestamp export validates without repairing older stored predicates", func(t *testing.T) {
+		layout, failure := viewschema.DefaultLayout("cartulary.view.notes.v1")
+		if failure != nil {
+			t.Fatal(failure)
+		}
+		valid := `{"sort":[],"filters":[{"field_key":"note.updated_at","op":"range","arg":{"gte":"2026-04-18T00:00:00.000000001Z","lte":"2026-04-18T00:00:00.1Z"}}]}`
+		invalid := `{"sort":[],"filters":[{"field_key":"note.updated_at","op":"range","arg":{"gte":"2026-04-18T00:00:00.1Z","lte":"2026-04-18T00:00:00Z"}}]}`
+		for _, query := range []string{valid, invalid} {
+			if _, err := db.Exec(ctx, `UPDATE saved_views SET view_schema_id='cartulary.view.notes.v1', layout_json=$2, query_json=$3 WHERE saved_view_id=$1`, rows[0].id, layout, query); err != nil {
+				t.Fatal(err)
+			}
+			files, err := exportIncidentBundleFiles(ctx, savedViewExportContext{Query: db, IncidentID: incidentID})
+			if query == invalid {
+				if err == nil {
+					t.Fatal("export admitted contradictory timestamp range")
+				}
+			} else if err != nil || len(files) != 1 || !bytes.Contains(files[0].Payload, []byte("2026-04-18T00:00:00.000000001Z")) {
+				t.Fatalf("valid range export lost precision: %v", err)
+			}
+			var stored []byte
+			if err := db.QueryRow(ctx, `SELECT query_json FROM saved_views WHERE saved_view_id=$1`, rows[0].id).Scan(&stored); err != nil {
+				t.Fatal(err)
+			}
+			equal, err := jsonStructurallyEqual([]byte(query), stored)
+			if err != nil || !equal {
+				t.Fatalf("export repaired stored predicate: %s, %v", stored, err)
+			}
+		}
+	})
+
 }
 
 func TestIncidentBundleSavedViewPortableOwnerRoundTripAndRollback_Integration(t *testing.T) {
@@ -778,6 +808,37 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 }
 
 func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
+
+	t.Run("timestamp query preparation preserves precision and rejects contradictions", func(t *testing.T) {
+		for _, reverse := range []bool{false, true} {
+			row := validPortableSavedViewRow(t)
+			row["view_schema_id"] = "cartulary.view.notes.v1"
+			layout, failure := viewschema.DefaultLayout("cartulary.view.notes.v1")
+			if failure != nil {
+				t.Fatal(failure)
+			}
+			var layoutValue map[string]any
+			if err := json.Unmarshal(layout, &layoutValue); err != nil {
+				t.Fatal(err)
+			}
+			row["layout_json"] = layoutValue
+			lower, upper := "2026-04-18T00:00:00.000000001Z", "2026-04-18T00:00:00.1Z"
+			if reverse {
+				lower, upper = upper, "2026-04-18T00:00:00Z"
+			}
+			row["query_json"] = map[string]any{"sort": []any{}, "filters": []any{map[string]any{"field_key": "note.updated_at", "op": "range", "arg": map[string]any{"gte": lower, "lte": upper}}}}
+			original := encodePortableSavedViewRow(t, row)
+			prepared, err := prepareSavedViewImport(savedViewMapBundle{"data/saved_views.ndjson": original}, strictSavedViewImportContext(t))
+			if reverse {
+				requireSavedViewInvariantFailure(t, err, "saved_views.query_layout_legal")
+			} else if err != nil || len(prepared.rows) != 1 || !bytes.Contains(prepared.rows[0].QueryJSON, []byte(lower)) {
+				t.Fatalf("lost valid timestamp query: %v", err)
+			}
+			if !bytes.Equal(original, encodePortableSavedViewRow(t, row)) {
+				t.Fatal("preparation changed source predicate")
+			}
+		}
+	})
 	t.Run("versioned layout grammar and lossless current preparation", func(t *testing.T) {
 		for _, version := range []int{5} {
 			row := validPortableSavedViewRow(t)
