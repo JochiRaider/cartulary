@@ -24,7 +24,7 @@ export function assertLazyCaseContext(context) {
 export function assertImportAndFailureIsolation(context) {
   const supportURL = pathToFileURL(path.join(context.root, "tools/harness/tests/contract-suite-support.mjs")).href;
   const contextURL = pathToFileURL(path.join(context.root, "tools/harness/tests/contract-test-context.mjs")).href;
-  const policyURL = pathToFileURL(path.join(context.root, "tools/harness/test-catalog/postgres-fixture-policy.mjs")).href;
+  const policyURL = pathToFileURL(path.join(context.root, "tools/harness/test-support/owner-fixtures.mjs")).href;
   const childEnvironment = { ...process.env };
   delete childEnvironment.NODE_TEST_CONTEXT;
   const directory = mkdtempSync(path.join(tmpdir(), "cartulary-contract-isolation."));

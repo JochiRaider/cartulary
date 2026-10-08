@@ -101,7 +101,14 @@ async function fixture(page: Page, view: string) {
   await page.goto(`/?incident_id=${incident}&view_schema_id=${view}`);
   await sockets.waitForAcceptedSocket();
   await expect(page.getByTestId(gridShellTestId(view))).toBeVisible();
-  await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
+  const columnsTrigger = page.getByTestId(
+    workbookColumnsMenuTriggerTestId(view),
+  );
+  if (!(await columnsTrigger.isVisible()))
+    await page
+      .getByRole("button", { name: "View options controls", exact: true })
+      .click();
+  await columnsTrigger.click();
   const columns = page.getByTestId(workbookColumnsMenuTestId(view));
   const fields = requireViewContract(view).fields;
   const boundaryField = requireViewContract(view).fieldMap[field];
@@ -132,6 +139,7 @@ async function fixture(page: Page, view: string) {
   await columns
     .getByRole("button", { name: "Close columns", exact: true })
     .click();
+  await closeViewOptions(page);
   await expect(page.locator(gridScrollportSelector())).toHaveAttribute(
     "data-grid-freeze-state",
     "active",
@@ -150,6 +158,18 @@ const editor = (page: Page, view: string, record: string, field: string) =>
       : `grid-editor-${record}-${field}`,
   );
 
+async function closeViewOptions(page: Page) {
+  const viewOptions = page.getByRole("button", {
+    name: "View options controls",
+    exact: true,
+  });
+  if (
+    (await viewOptions.isVisible()) &&
+    (await viewOptions.getAttribute("aria-expanded")) === "true"
+  )
+    await page.keyboard.press("Escape");
+}
+
 async function activate(
   page: Page,
   view: string,
@@ -159,12 +179,18 @@ async function activate(
 ) {
   const contract = requireViewContract(view).fieldMap[field];
   if (contract?.defaultHidden) {
-    await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
+    const trigger = page.getByTestId(workbookColumnsMenuTriggerTestId(view));
+    if (!(await trigger.isVisible()))
+      await page
+        .getByRole("button", { name: "View options controls", exact: true })
+        .click();
+    await trigger.click();
     const option = page
       .getByTestId(workbookColumnsMenuTestId(view))
       .getByRole("checkbox", { name: contract.label, exact: true });
     if (!(await option.isChecked())) await option.click();
-    await page.getByTestId(workbookColumnsMenuTriggerTestId(view)).click();
+    await trigger.click();
+    await closeViewOptions(page);
   }
   await scrollGridCellIntoView({
     page,
@@ -1080,6 +1106,9 @@ function correctionAccess({
     await page.evaluate((zoom) => {
       document.documentElement.style.zoom = String(zoom);
     }, zoom);
+    // Responsive placement preserves the focused Columns control by revealing
+    // View options. Dismiss that setup menu before authoring in the grid.
+    await closeViewOptions(page);
     try {
       const input = await activate(page, f.view, f.row.record_id, field, () =>
         sample("before-activation", rowCellTestId(f.row.record_id, field)),

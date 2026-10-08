@@ -743,16 +743,49 @@ async function expectTextSpacingViewBarResilience(
         ) ?? null,
         "Columns button",
       );
+      const mode = viewBar.dataset.chromeMode;
+      const queryInMenu =
+        mode === "compact_desktop" || mode === "below_supported_minimum";
       const orderedControls: ReadonlyArray<readonly [string, HTMLElement]> = [
         ["saved-view", requireElement(select(savedViewSelector), "saved view")],
         [
           "saved-view-actions",
           requireElement(select(actionMenuSelector), "saved view actions"),
         ],
-        ["sort", requireElement(select(sortSelector), "Sort button")],
-        ["group", requireElement(select(groupingSelector), "Group select")],
-        ["filters", requireElement(select(filterSelector), "Filters button")],
-        ["columns", columns],
+        ...(queryInMenu
+          ? [
+              [
+                "query-menu",
+                requireElement(
+                  viewBar.querySelector<HTMLButtonElement>(
+                    'button[aria-label="Query controls"]',
+                  ),
+                  "Query menu",
+                ),
+              ] as const,
+            ]
+          : ([
+              ["sort", requireElement(select(sortSelector), "Sort button")],
+              [
+                "filters",
+                requireElement(select(filterSelector), "Filters button"),
+              ],
+              [
+                "group",
+                requireElement(select(groupingSelector), "Group select"),
+              ],
+            ] as const)),
+        mode === "base"
+          ? ["columns", columns]
+          : [
+              "view-options",
+              requireElement(
+                viewBar.querySelector<HTMLButtonElement>(
+                  'button[aria-label="View options controls"]',
+                ),
+                "View options menu",
+              ),
+            ],
         ...Array.from(
           viewBar.querySelectorAll<HTMLButtonElement>("button"),
         ).flatMap((button) => {
@@ -4167,8 +4200,8 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       ).ok,
     ).toBe(true);
     await expect(
-      page.getByText("Closed, read-only", { exact: true }),
-    ).toBeVisible();
+      page.getByRole("status", { name: "Incident lifecycle", exact: true }),
+    ).toHaveText("Closed, read-only");
     await openTimelineInspector(page, dismissedRow.record_id);
     for (const viewport of [
       { width: 1440, height: 900 },
@@ -10302,12 +10335,13 @@ test("a11y.saved-view-discovery keyboard activation dismissal scope and bounded 
     await expect(trigger).toBeFocused();
     // Outside dismissal keeps the newly chosen focus destination.
     await trigger.click();
-    const grouping = page.getByTestId(
-      gridGroupingSelectTestId(timelineViewSchemaId),
-    );
-    await grouping.click();
+    const outside = page.getByRole("button", {
+      name: "Query controls",
+      exact: true,
+    });
+    await outside.click();
     await expect(browser).toHaveCount(0);
-    await expect(grouping).toBeFocused();
+    await expect(outside).toBeFocused();
   } finally {
     const current = (
       await (
@@ -10732,6 +10766,36 @@ test("a11y.workbench Commands remain visible and actionable across narrow width 
       contentType: "image/png",
     });
   }
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await search.fill("sort");
+  await commands
+    .getByRole("button", { name: "View · Sort", exact: true })
+    .click();
+  const sort = page.getByTestId(workbookSortMenuTestId(timelineViewSchemaId));
+  await expect(sort).toBeVisible();
+  await sort.press("Escape");
+  await expect(sort).toHaveCount(0);
+  await page
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .locator(gridScrollportSelector())
+    .focus();
+  for (const width of [768, 1440, 768]) {
+    await page.setViewportSize({ width, height: 768 });
+    if (width === 768) {
+      await expect(
+        page.getByRole("button", { name: "Query controls", exact: true }),
+      ).toHaveAttribute("aria-expanded", "false");
+      await expect(
+        page.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
+      ).toBeHidden();
+    }
+  }
+  await trigger.click();
+  await expect(search).toBeFocused();
+  await search.fill("open work");
   await commands
     .getByRole("button", { name: "Follow up · Open Work", exact: true })
     .click();

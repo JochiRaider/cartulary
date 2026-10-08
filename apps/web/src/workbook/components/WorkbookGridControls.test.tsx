@@ -801,6 +801,12 @@ describe("WorkbookGridControls", () => {
     const onApplyFilter = vi.fn(admitFilter);
     render(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         contract={contract}
         surface={timelineSurface}
         filterDraft={defaultFilterDraft(contract)}
@@ -933,6 +939,12 @@ describe("WorkbookGridControls", () => {
     }));
     render(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         contract={contract}
         surface={timelineSurface}
         filterDraft={defaultFilterDraft(contract)}
@@ -1081,7 +1093,16 @@ describe("WorkbookGridControls", () => {
       sizing,
     };
     const { rerender } = render(
-      <WorkbookGridControls {...props} requestedFilters={requested} />,
+      <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
+        {...props}
+        requestedFilters={requested}
+      />,
     );
     const trigger = screen.getByTestId(
       workbookFilterPopoverTriggerTestId(timelineSurface),
@@ -1126,7 +1147,18 @@ describe("WorkbookGridControls", () => {
       { key: "Escape" },
     );
 
-    rerender(<WorkbookGridControls {...props} requestedFilters={[]} />);
+    rerender(
+      <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
+        {...props}
+        requestedFilters={[]}
+      />,
+    );
     expect(chip.isConnected).toBe(true);
     fireEvent.click(trigger);
     const restore = screen.getByRole("button", { name: /Restore Date/i });
@@ -1151,6 +1183,12 @@ describe("WorkbookGridControls", () => {
 
     rerender(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         {...props}
         requestedFilters={[
           ...accepted.filters,
@@ -1273,6 +1311,12 @@ describe("WorkbookGridControls", () => {
     const onRemoveFilter = vi.fn();
     render(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
@@ -1340,6 +1384,12 @@ describe("WorkbookGridControls", () => {
     const onRemoveFilter = vi.fn();
     render(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
@@ -1885,6 +1935,12 @@ describe("WorkbookGridControls", () => {
     };
     const { rerender } = render(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         {...common}
@@ -1904,6 +1960,12 @@ describe("WorkbookGridControls", () => {
 
     rerender(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         {...common}
@@ -1921,6 +1983,12 @@ describe("WorkbookGridControls", () => {
     const onFilterDraftChange = vi.fn();
     render(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
@@ -2490,6 +2558,12 @@ describe("WorkbookGridControls", () => {
     const onResetColumns = vi.fn();
     render(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
@@ -2602,6 +2676,12 @@ function FilterGridControls({
   );
   return (
     <WorkbookGridControls
+      composeControls={({ query, columns }) => (
+        <>
+          {query}
+          {columns}
+        </>
+      )}
       contract={contract}
       surface={contract.viewSchemaId}
       filterDraft={draft}
@@ -2669,6 +2749,12 @@ function StatefulGridControls({
   );
   return (
     <WorkbookGridControls
+      composeControls={({ query, columns }) => (
+        <>
+          {query}
+          {columns}
+        </>
+      )}
       subjectKey={subjectKey}
       freezing={controls.freezing}
       sizing={controls.sizing}
@@ -2752,6 +2838,12 @@ function ControlledSortGridControls({
   const contract = requireViewContract(timelineSurface);
   return (
     <WorkbookGridControls
+      composeControls={({ query, columns }) => (
+        <>
+          {query}
+          {columns}
+        </>
+      )}
       contract={contract}
       filterDraft={defaultFilterDraft(contract)}
       freezing={{ status: null, onBoundaryChange: vi.fn() }}
@@ -2787,6 +2879,12 @@ function ControlledGroupGridControls({
   const contract = requireViewContract(timelineSurface);
   return (
     <WorkbookGridControls
+      composeControls={({ query, columns }) => (
+        <>
+          {query}
+          {columns}
+        </>
+      )}
       contract={contract}
       filterDraft={defaultFilterDraft(contract)}
       freezing={{ status: null, onBoundaryChange: vi.fn() }}

@@ -5,7 +5,11 @@
   },
   "blocking_web_surface": {
     "root": "apps/web",
-    "rules": ["unused_files", "unused_exports", "unused_types"]
+    "rules": [
+      "unused_files",
+      "unused_exports",
+      "unused_types"
+    ]
   },
   "blocking_package_surfaces": {
     "packages": [
@@ -26,11 +30,23 @@
         ]
       }
     ],
-    "rules": ["unused_exports", "unused_types"]
+    "rules": [
+      "unused_exports",
+      "unused_types"
+    ]
   },
   "task_surface": {
     "owner_path": "tools/task_surface_owner.json",
-    "script_extensions": [".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"],
+    "script_extensions": [
+      ".cjs",
+      ".cts",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".mts",
+      ".ts",
+      ".tsx"
+    ],
     "required_node_tool_backing_scripts": true
   },
   "harness_entrypoints": {
@@ -40,22 +56,26 @@
       "tools/harness/browser/browser-runtime-profile.mjs",
       "tools/harness/browser/browser-session-evidence.mjs",
       "tools/harness/browser/browser-target-finalizer-cli.mjs",
+      "tools/harness/contract/generated/foundation-schema-validators.cjs",
       "tools/harness/contract/harness-contract-cli.mjs",
-      "tools/harness/diagnostics/vitest-failure-details.mjs",
       "tools/harness/diagnostics/vitest-collector.mjs",
+      "tools/harness/diagnostics/vitest-failure-details.mjs",
+      "tools/harness/execution/cartulary-runner-cli.mjs",
+      "tools/harness/execution/run-make-node-tool-cli.mjs",
       "tools/harness/execution/vitest-invocation-cli.mjs",
-      "tools/harness/observability/canonical-evidence.mjs",
-      "tools/harness/observability/canonical-performance-cli.mjs",
       "tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs",
       "tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs",
-      "tools/harness/scheduler/work-graph/runner-cli.mjs",
+      "tools/harness/observability/canonical-evidence.mjs",
+      "tools/harness/observability/canonical-performance-cli.mjs",
       "tools/harness/output/test-output.mjs",
       "tools/harness/readiness/diagnose-inotify.mjs",
+      "tools/harness/scheduler/work-graph/runner-cli.mjs",
       "tools/harness/static-analysis/font-bundle-check-cli.mjs",
       "tools/harness/static-analysis/govulncheck-findings.mjs",
       "tools/harness/test-support/harness-artifact-assert.mjs",
       "tools/harness/test-support/json-test-helper.mjs"
-    ]
+    ],
+    "facade_owner_path": "tools/harness_helper_ownership.json"
   },
   "harness_dynamic_exports": [],
   "vitest": {
@@ -75,20 +95,35 @@
   },
   "vite_public_assets": {
     "public_root": "apps/web/public",
-    "html_entry_files": ["apps/web/index.html", "apps/web/measurement.html", "apps/web/presence.html"],
-    "url_prefixes": ["/assets/"],
-    "always_used_files": ["apps/web/public/assets/fonts/fonts.css"]
+    "html_entry_files": [
+      "apps/web/index.html",
+      "apps/web/measurement.html",
+      "apps/web/presence.html"
+    ],
+    "url_prefixes": [
+      "/assets/"
+    ],
+    "always_used_files": [
+      "apps/web/public/assets/fonts/fonts.css"
+    ]
   },
   "executable_tooling_dependencies": [
     {
       "package_name": "@cyclonedx/cdxgen",
       "owner_script": "tools/release-evidence/generate-sbom-license-evidence.mjs",
-      "command": ["pnpm", "exec", "cdxgen"]
+      "command": [
+        "pnpm",
+        "exec",
+        "cdxgen"
+      ]
     }
   ],
   "static_policy": {
     "runtime_enabled": false,
     "per_file_suppression_growth": false
   },
-  "extensions": {}
+  "extensions": {},
+  "typescript": {
+    "project_file": "tsconfig.json"
+  }
 }

@@ -38,8 +38,6 @@ export type ExtensionRouteReadiness =
   | "invalid";
 
 export class ExtensionAvailabilityUnavailableError extends Error {
-  readonly code = "extension_workspace_unavailable";
-
   constructor() {
     super("Extension workspace availability is not current.");
     this.name = "AbortError";

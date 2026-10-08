@@ -481,21 +481,6 @@ export class ImportClient {
       cursors.add(cursor);
     }
   }
-  async readUnit(
-    sessionId: string,
-    unitId: string,
-    signal: AbortSignal,
-  ): Promise<ImportReadResult<DiscoveredImportUnit>> {
-    const r = await this.request<{ data: DiscoveredImportUnit }>(
-      "getImportUnit",
-      signal,
-      { paths: { import_session_id: sessionId, import_unit_id: unitId } },
-    );
-    if (r.kind === "failed") return r;
-    return validImportUnit(r.value.data, sessionId, unitId)
-      ? received(r.value.data)
-      : failed(importContractFailure());
-  }
   async preview(
     unit: DiscoveredImportUnit,
     signal: AbortSignal,

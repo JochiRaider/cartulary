@@ -6,7 +6,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { WorkbookRecoveryFixture } from "../testing/WorkbookRecoveryFixture";
 import { explorationFixture } from "./explorationTestFixtures";
 import {
@@ -44,7 +44,6 @@ afterEach(cleanup);
 it("withdraws removed graph focus safely and cancels an older semantic focus intent", () => {
   const graph = explorationFixture(2, 1, true);
   let navigate: (action: ExplorationAction) => void = () => {};
-  const bind = vi.fn(() => () => {});
   function Subject() {
     const [navigation, setNavigation] = useState(() =>
       transitionExploration(emptyExploration("reader"), {
@@ -70,7 +69,6 @@ it("withdraws removed graph focus safely and cancels an older semantic focus int
           isFocusCurrent={(intent) =>
             explorationFocusCurrent(navigation, intent)
           }
-          bindFocusRestoration={bind}
         />
       </>
     );

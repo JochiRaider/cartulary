@@ -10,11 +10,10 @@ import {
 } from "../contract/index.mjs";
 export { validateProfileMeasurementObservation } from "./profile-adapters/index.mjs";
 
-export const registrySchemaID = "cartulary.performance_fixture_snapshot_owner.v2";
-export const builderPolicySchemaID = "cartulary.performance_fixture_builder_policy.v1";
-export const snapshotKeySchemaID = "cartulary.performance_fixture_snapshot_key.v2";
-export const defaultRegistryPath = "tools/performance_fixture_snapshot_owner.json";
-export const defaultBuilderPolicyPath = "tools/performance_fixture_builder_policy.json";
+const registrySchemaID = "cartulary.performance_fixture_snapshot_owner.v2";
+const builderPolicySchemaID = "cartulary.performance_fixture_builder_policy.v1";
+const defaultRegistryPath = "tools/performance_fixture_snapshot_owner.json";
+const defaultBuilderPolicyPath = "tools/performance_fixture_builder_policy.json";
 const migrationRunnerIdentity = "cartulary-postgres-migrate/goose/v3.27.0";
 const supportedArtifactPolicyGenerations = new Set([
   [

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { validateSchemaSync } from "../contract/index.mjs";
 
 const harnessHelperOwnershipSchemaID =
   "cartulary.harness_helper_ownership.v1";
@@ -7,6 +8,7 @@ const harnessHelperOwnershipSchemaID =
 export function loadHarnessHelperOwnership(root = process.cwd()) {
   const file = path.join(root, "tools/harness_helper_ownership.json");
   const owner = JSON.parse(readFileSync(file, "utf8"));
+  validateSchemaSync(harnessHelperOwnershipSchemaID, owner);
   if (owner.schema_id !== harnessHelperOwnershipSchemaID) {
     throw new Error(`${file}.schema_id must be ${harnessHelperOwnershipSchemaID}`);
   }
@@ -17,6 +19,9 @@ export function loadHarnessHelperOwnership(root = process.cwd()) {
       throw new Error(`${file} duplicates facade key ${facade.key}`);
     }
     seenKeys.add(facade.key);
+    for (const consumer of facade.allowed_consumers) {
+      if (!existsSync(path.join(root, consumer))) throw new Error(`${file} references missing consumer ${consumer}`);
+    }
     for (const facadePath of facade.paths ?? []) {
       if (seenPaths.has(facadePath)) {
         throw new Error(`${file} assigns ${facadePath} to more than one facade`);
@@ -42,8 +47,8 @@ export function ownerFacadePathLists(owner) {
   return groups;
 }
 
-export function allowedPrivateImportSources(owner) {
+export function allowedPrivateImportSources(owner, boundaryGroup) {
   return new Set(
-    (owner.facades ?? []).flatMap((facade) => facade.allowed_consumers ?? []),
+    (owner.facades ?? []).filter((facade) => facade.boundary_group === boundaryGroup).flatMap((facade) => facade.allowed_consumers ?? []),
   );
 }

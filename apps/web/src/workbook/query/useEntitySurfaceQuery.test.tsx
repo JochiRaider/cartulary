@@ -23,6 +23,7 @@ import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
+  notesViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import { useEntitySurfaceQuery } from "./useEntitySurfaceQuery";
@@ -66,6 +67,19 @@ it("browses only the active Entity sheet and releases its rows independently on 
   expect(fetch).toHaveBeenCalledTimes(2);
   expect(hook.result.current.identityRows).toHaveLength(1);
   expect(hook.result.current.hosts.browsing.accepted).toBeNull();
+  hook.rerender({ activeViewSchemaId: hostsViewSchemaId });
+  expect(hook.result.current.identityRows).toEqual([]);
+  await act(() => hook.result.current.refresh());
+  expect(fetch).toHaveBeenCalledTimes(3);
+  hook.rerender({ activeViewSchemaId: notesViewSchemaId });
+  expect(hook.result.current.entityIndex).toEqual({});
+  await act(() => hook.result.current.refresh());
+  await act(async () => {
+    await expect(
+      hook.result.current.refresh({ requireAcceptance: true }),
+    ).rejects.toThrow("active reader");
+  });
+  expect(fetch).toHaveBeenCalledTimes(3);
   hook.unmount();
   const empty = async (): Promise<WorkbookViewQueryResult> => ({
     kind: "accepted",
@@ -195,16 +209,23 @@ function queryResponse(viewSchemaId: string, rows: readonly unknown[]) {
 }
 
 function EntityQueryHarness({
+  activeViewSchemaId,
   onAuthorityUncertain,
 }: {
+  readonly activeViewSchemaId: string;
   readonly onAuthorityUncertain?: (() => void) | undefined;
 }) {
   const query = useEntitySurfaceQuery({
+    activeViewSchemaId,
     hostQueryState: emptyWorkbookQueryState(),
     identityQueryState: emptyWorkbookQueryState(),
     onAuthorityUncertain,
     viewQuery,
   });
+  const isHost = activeViewSchemaId === hostsViewSchemaId;
+  const recordId = isHost ? hostCurrentId : identityCurrentId;
+  const fieldKey = isHost ? "host.display_name" : "identity.display_name";
+  const rowVersion = isHost ? 2 : 4;
   return (
     <>
       <button onClick={() => void query.refresh()} type="button">
@@ -220,27 +241,29 @@ function EntityQueryHarness({
         onClick={() =>
           query.applyRecordChanged(
             {
-              record_id: hostCurrentId,
-              row_version: 2,
+              record_id: recordId,
+              row_version: rowVersion,
               change_set_id: "change-1",
               client_txn_id: "txn-1",
               actor_user_id: "user-2",
-              changed_field_keys: ["host.display_name"],
+              changed_field_keys: [fieldKey],
               affected_views: [
                 {
-                  view_schema_id: hostsViewSchemaId,
+                  view_schema_id: activeViewSchemaId,
                   change_kind: "patch",
                   patch_cells: {
-                    record_id: hostCurrentId,
-                    row_version: 2,
+                    record_id: recordId,
+                    row_version: rowVersion,
                     cells: {
-                      "host.display_name": { value: "Patched host" },
+                      [fieldKey]: {
+                        value: isHost ? "Patched host" : "Patched identity",
+                      },
                     },
                   },
                 },
               ],
             },
-            hostsViewSchemaId,
+            activeViewSchemaId,
           )
         }
         type="button"
@@ -264,209 +287,51 @@ function EntityQueryHarness({
 }
 
 describe("useEntitySurfaceQuery", () => {
-  it("requires an accepted current query before authorization recovery can resume", async () => {
-    const onAuthorityUncertain = vi.fn();
-    const query = vi.fn().mockResolvedValue({
-      kind: "rejected",
-      failure: { kind: "invalid_contract", message: "Malformed query" },
-    });
-    const view = renderHook(() =>
-      useEntitySurfaceQuery({
-        hostQueryState: emptyWorkbookQueryState(),
-        identityQueryState: emptyWorkbookQueryState(),
-        onAuthorityUncertain,
-        viewQuery: { query },
-      }),
-    );
-    await act(async () => {
-      await expect(
-        view.result.current.refresh({ requireAcceptance: true }),
-      ).rejects.toMatchObject({
-        recovery: { kind: "unavailable", failure: "contract" },
-      });
-    });
-    expect(onAuthorityUncertain).not.toHaveBeenCalled();
-    query.mockResolvedValue({ kind: "aborted" });
-    await act(async () => {
-      await expect(
-        view.result.current.refresh({ requireAcceptance: true }),
-      ).rejects.toMatchObject({ recovery: { kind: "cancelled" } });
-    });
-    view.unmount();
-  });
-
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("owns dual host and identity admission, indexing, live patching, and explicit cleanup", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
-          return Promise.resolve(
-            queryResponse(hostsViewSchemaId, [
-              hostRow(hostCurrentId, 1, "Current host"),
-            ]),
-          );
-        }
-        return Promise.resolve(
-          queryResponse(identitiesViewSchemaId, [
-            identityRow(identityCurrentId, 3, "Current identity"),
-          ]),
-        );
-      }),
-    );
-    render(<EntityQueryHarness />);
-
-    fireEvent.click(screen.getByRole("button", { name: "refresh" }));
-    await waitFor(() =>
-      expect(screen.getByLabelText("entity-load-state").textContent).toBe(
-        "ready",
-      ),
-    );
-    expect(screen.getByLabelText("host-rows").textContent).toBe(
-      `${hostCurrentId}:Current host`,
-    );
-    expect(screen.getByLabelText("identity-rows").textContent).toBe(
-      `${identityCurrentId}:Current identity`,
-    );
-    expect(screen.getByLabelText("entity-index").textContent).toBe(
-      `${hostCurrentId},${identityCurrentId}`,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "patch" }));
-    await waitFor(() =>
-      expect(screen.getByLabelText("host-rows").textContent).toBe(
-        `${hostCurrentId}:Patched host`,
-      ),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "clear" }));
-    expect(screen.getByLabelText("host-rows").textContent).toBe("");
-    expect(screen.getByLabelText("identity-rows").textContent).toBe("");
-    expect(screen.getByLabelText("entity-index").textContent).toBe("");
+  it("requires an accepted current query before authorization recovery can resume", async () => {
+    for (const activeViewSchemaId of [
+      hostsViewSchemaId,
+      identitiesViewSchemaId,
+    ]) {
+      const onAuthorityUncertain = vi.fn();
+      const query = vi.fn().mockResolvedValue({
+        kind: "rejected",
+        failure: { kind: "invalid_contract", message: "Malformed query" },
+      });
+      const view = renderHook(() =>
+        useEntitySurfaceQuery({
+          activeViewSchemaId,
+          hostQueryState: emptyWorkbookQueryState(),
+          identityQueryState: emptyWorkbookQueryState(),
+          onAuthorityUncertain,
+          viewQuery: { query },
+        }),
+      );
+      await act(async () => {
+        await expect(
+          view.result.current.refresh({ requireAcceptance: true }),
+        ).rejects.toMatchObject({
+          recovery: { kind: "unavailable", failure: "contract" },
+        });
+      });
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(onAuthorityUncertain).not.toHaveBeenCalled();
+      query.mockResolvedValue({ kind: "aborted" });
+      await act(async () => {
+        await expect(
+          view.result.current.refresh({ requireAcceptance: true }),
+        ).rejects.toMatchObject({ recovery: { kind: "cancelled" } });
+      });
+      view.unmount();
+    }
   });
 
-  it("rejects obsolete dual-query results after a rapid refresh", async () => {
-    const firstHost = deferred<Response>();
-    const firstIdentity = deferred<Response>();
-    const firstSignals: AbortSignal[] = [];
-    let callCount = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-        callCount += 1;
-        if (callCount <= 2 && init?.signal) {
-          firstSignals.push(init.signal);
-        }
-        const viewSchemaId = String(input).includes(
-          `/views/${hostsViewSchemaId}/query`,
-        )
-          ? hostsViewSchemaId
-          : identitiesViewSchemaId;
-        if (callCount === 1) return firstHost.promise;
-        if (callCount === 2) return firstIdentity.promise;
-        return Promise.resolve(
-          viewSchemaId === hostsViewSchemaId
-            ? queryResponse(viewSchemaId, [
-                hostRow(hostCurrentId, 2, "Current host"),
-              ])
-            : queryResponse(viewSchemaId, [
-                identityRow(identityCurrentId, 2, "Current identity"),
-              ]),
-        );
-      }),
-    );
-    render(<EntityQueryHarness />);
-
-    fireEvent.click(screen.getByRole("button", { name: "refresh" }));
-    await waitFor(() => expect(callCount).toBe(2));
-    fireEvent.click(screen.getByRole("button", { name: "refresh" }));
-    await waitFor(() =>
-      expect(screen.getByLabelText("entity-index").textContent).toBe(
-        `${hostCurrentId},${identityCurrentId}`,
-      ),
-    );
-    expect(firstSignals).toHaveLength(2);
-    expect(firstSignals.every((signal) => signal.aborted)).toBe(true);
-
-    firstHost.resolve(
-      queryResponse(hostsViewSchemaId, [
-        hostRow(hostObsoleteId, 1, "Obsolete host"),
-      ]),
-    );
-    firstIdentity.resolve(
-      queryResponse(identitiesViewSchemaId, [
-        identityRow(identityObsoleteId, 1, "Obsolete identity"),
-      ]),
-    );
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(screen.getByLabelText("entity-index").textContent).toBe(
-      `${hostCurrentId},${identityCurrentId}`,
-    );
-  });
-
-  it("clears protected rows on access loss and aborts both queries on teardown", async () => {
-    const onAuthorityUncertain = vi.fn();
-    const pendingSignals: AbortSignal[] = [];
-    let accessDenied = false;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-        const viewSchemaId = String(input).includes(
-          `/views/${hostsViewSchemaId}/query`,
-        )
-          ? hostsViewSchemaId
-          : identitiesViewSchemaId;
-        if (accessDenied) {
-          return Promise.resolve(errorResponse("authorization_denied", 403));
-        }
-        if (init?.signal) pendingSignals.push(init.signal);
-        return Promise.resolve(
-          viewSchemaId === hostsViewSchemaId
-            ? queryResponse(viewSchemaId, [
-                hostRow(hostCurrentId, 1, "Current host"),
-              ])
-            : queryResponse(viewSchemaId, [
-                identityRow(identityCurrentId, 1, "Current identity"),
-              ]),
-        );
-      }),
-    );
-    const rendered = render(
-      <EntityQueryHarness onAuthorityUncertain={onAuthorityUncertain} />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "refresh" }));
-    await waitFor(() =>
-      expect(screen.getByLabelText("entity-index").textContent).toBe(
-        `${hostCurrentId},${identityCurrentId}`,
-      ),
-    );
-    accessDenied = true;
-    fireEvent.click(screen.getByRole("button", { name: "refresh" }));
-    await waitFor(() =>
-      expect(screen.getByLabelText("entity-load-state").textContent).toBe(
-        "permission_denied",
-      ),
-    );
-    expect(onAuthorityUncertain).toHaveBeenCalledTimes(2);
-    expect(screen.getByLabelText("entity-index").textContent).toBe("");
-
-    accessDenied = false;
-    fireEvent.click(screen.getByRole("button", { name: "refresh" }));
-    await waitFor(() => expect(pendingSignals).toHaveLength(4));
-    const teardownSignals = pendingSignals.slice(-2);
-    rendered.unmount();
-    expect(teardownSignals.every((signal) => signal.aborted)).toBe(true);
-  });
-  it("conceals protected rows before rejecting an acceptance-required merge refresh", async () => {
-    const onAuthorityUncertain = vi.fn();
+  it("owns explicit host and identity admission, indexing, live patching, and cleanup", async () => {
     const fetch = vi.fn((input: RequestInfo | URL) =>
       Promise.resolve(
         String(input).includes(`/views/${hostsViewSchemaId}/query`)
@@ -474,33 +339,229 @@ describe("useEntitySurfaceQuery", () => {
               hostRow(hostCurrentId, 1, "Current host"),
             ])
           : queryResponse(identitiesViewSchemaId, [
-              identityRow(identityCurrentId, 1, "Current identity"),
+              identityRow(identityCurrentId, 3, "Current identity"),
             ]),
       ),
     );
     vi.stubGlobal("fetch", fetch);
-    const query = renderHook(() =>
-      useEntitySurfaceQuery({
-        hostQueryState: emptyWorkbookQueryState(),
-        identityQueryState: emptyWorkbookQueryState(),
-        onAuthorityUncertain,
-        viewQuery,
-      }),
-    );
-    await act(() => query.result.current.refresh({ requireAcceptance: true }));
-    expect(query.result.current.hostRows).toHaveLength(1);
-    expect(query.result.current.identityRows).toHaveLength(1);
-    fetch.mockImplementation(() =>
-      Promise.resolve(errorResponse("authorization_denied", 403)),
-    );
-    await act(async () => {
-      await expect(
+    for (const activeViewSchemaId of [
+      hostsViewSchemaId,
+      identitiesViewSchemaId,
+    ]) {
+      const isHost = activeViewSchemaId === hostsViewSchemaId;
+      const label = isHost ? "host" : "identity";
+      const recordId = isHost ? hostCurrentId : identityCurrentId;
+      const view = render(
+        <EntityQueryHarness activeViewSchemaId={activeViewSchemaId} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText("entity-load-state").textContent).toBe(
+          "ready",
+        ),
+      );
+      expect(screen.getByLabelText(`${label}-rows`).textContent).toBe(
+        `${recordId}:Current ${label}`,
+      );
+      expect(
+        screen.getByLabelText(isHost ? "identity-rows" : "host-rows")
+          .textContent,
+      ).toBe("");
+      expect(screen.getByLabelText("entity-index").textContent).toBe(recordId);
+      fireEvent.click(screen.getByRole("button", { name: "patch" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText(`${label}-rows`).textContent).toBe(
+          `${recordId}:Patched ${label}`,
+        ),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "clear" }));
+      expect(screen.getByLabelText("host-rows").textContent).toBe("");
+      expect(screen.getByLabelText("identity-rows").textContent).toBe("");
+      expect(screen.getByLabelText("entity-index").textContent).toBe("");
+      view.unmount();
+    }
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects obsolete Entity results after rapid refresh and schema departure", async () => {
+    for (const activeViewSchemaId of [
+      hostsViewSchemaId,
+      identitiesViewSchemaId,
+    ]) {
+      const isHost = activeViewSchemaId === hostsViewSchemaId;
+      const recordId = isHost ? hostCurrentId : identityCurrentId;
+      const opposite = isHost ? identitiesViewSchemaId : hostsViewSchemaId;
+      const first = deferred<Response>(),
+        departed = deferred<Response>();
+      const signals: AbortSignal[] = [];
+      let calls = 0;
+      const fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        calls++;
+        if (init?.signal) signals.push(init.signal);
+        if (calls === 1) return first.promise;
+        if (calls === 3) return departed.promise;
+        return Promise.resolve(
+          String(input).includes(`/views/${hostsViewSchemaId}/query`)
+            ? queryResponse(hostsViewSchemaId, [
+                hostRow(hostCurrentId, 2, "Current host"),
+              ])
+            : queryResponse(identitiesViewSchemaId, [
+                identityRow(identityCurrentId, 2, "Current identity"),
+              ]),
+        );
+      });
+      vi.stubGlobal("fetch", fetch);
+      const view = render(
+        <EntityQueryHarness activeViewSchemaId={activeViewSchemaId} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+      await waitFor(() => expect(calls).toBe(1));
+      fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText("entity-index").textContent).toBe(
+          recordId,
+        ),
+      );
+      expect(signals[0]?.aborted).toBe(true);
+      await act(async () => {
+        first.resolve(
+          queryResponse(activeViewSchemaId, [
+            isHost
+              ? hostRow(hostObsoleteId, 1, "Obsolete host")
+              : identityRow(identityObsoleteId, 1, "Obsolete identity"),
+          ]),
+        );
+      });
+      expect(screen.getByLabelText("entity-index").textContent).toBe(recordId);
+      fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+      await waitFor(() => expect(calls).toBe(3));
+      view.rerender(<EntityQueryHarness activeViewSchemaId={opposite} />);
+      expect(signals[2]?.aborted).toBe(true);
+      expect(screen.getByLabelText("entity-index").textContent).toBe("");
+      fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText("entity-load-state").textContent).toBe(
+          "ready",
+        ),
+      );
+      await act(async () => {
+        departed.resolve(errorResponse("authorization_denied", 403));
+      });
+      expect(screen.getByLabelText("entity-index").textContent).toBe(
+        isHost ? identityCurrentId : hostCurrentId,
+      );
+      expect(screen.getByLabelText("entity-load-state").textContent).toBe(
+        "ready",
+      );
+      view.unmount();
+    }
+  });
+
+  it("clears protected rows on access loss and aborts active queries on teardown", async () => {
+    for (const activeViewSchemaId of [
+      hostsViewSchemaId,
+      identitiesViewSchemaId,
+    ]) {
+      const onAuthorityUncertain = vi.fn();
+      const pending = deferred<Response>();
+      const signals: AbortSignal[] = [];
+      let denied = false,
+        held = false;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+          if (denied)
+            return Promise.resolve(errorResponse("authorization_denied", 403));
+          if (init?.signal) signals.push(init.signal);
+          if (held) return pending.promise;
+          return Promise.resolve(
+            queryResponse(activeViewSchemaId, [
+              activeViewSchemaId === hostsViewSchemaId
+                ? hostRow(hostCurrentId, 1, "Current host")
+                : identityRow(identityCurrentId, 1, "Current identity"),
+            ]),
+          );
+        }),
+      );
+      const view = render(
+        <EntityQueryHarness
+          activeViewSchemaId={activeViewSchemaId}
+          onAuthorityUncertain={onAuthorityUncertain}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText("entity-load-state").textContent).toBe(
+          "ready",
+        ),
+      );
+      denied = true;
+      fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText("entity-load-state").textContent).toBe(
+          "permission_denied",
+        ),
+      );
+      expect(onAuthorityUncertain).toHaveBeenCalledTimes(1);
+      expect(screen.getByLabelText("entity-index").textContent).toBe("");
+      denied = false;
+      held = true;
+      fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+      await waitFor(() => expect(signals).toHaveLength(2));
+      view.unmount();
+      expect(signals[1]?.aborted).toBe(true);
+      await act(async () => {
+        pending.resolve(queryResponse(activeViewSchemaId, []));
+      });
+    }
+  });
+
+  it("conceals protected rows before rejecting an acceptance-required merge refresh", async () => {
+    for (const activeViewSchemaId of [
+      hostsViewSchemaId,
+      identitiesViewSchemaId,
+    ]) {
+      const onAuthorityUncertain = vi.fn();
+      const fetch = vi.fn(() =>
+        Promise.resolve(
+          queryResponse(activeViewSchemaId, [
+            activeViewSchemaId === hostsViewSchemaId
+              ? hostRow(hostCurrentId, 1, "Current host")
+              : identityRow(identityCurrentId, 1, "Current identity"),
+          ]),
+        ),
+      );
+      vi.stubGlobal("fetch", fetch);
+      const query = renderHook(() =>
+        useEntitySurfaceQuery({
+          activeViewSchemaId,
+          hostQueryState: emptyWorkbookQueryState(),
+          identityQueryState: emptyWorkbookQueryState(),
+          onAuthorityUncertain,
+          viewQuery,
+        }),
+      );
+      await act(() =>
         query.result.current.refresh({ requireAcceptance: true }),
-      ).rejects.toThrow();
-    });
-    expect(query.result.current.hostRows).toEqual([]);
-    expect(query.result.current.identityRows).toEqual([]);
-    expect(query.result.current.loadState.kind).toBe("permission_denied");
-    expect(onAuthorityUncertain).toHaveBeenCalledTimes(2);
+      );
+      expect(
+        activeViewSchemaId === hostsViewSchemaId
+          ? query.result.current.hostRows
+          : query.result.current.identityRows,
+      ).toHaveLength(1);
+      fetch.mockImplementation(() =>
+        Promise.resolve(errorResponse("authorization_denied", 403)),
+      );
+      await act(async () => {
+        await expect(
+          query.result.current.refresh({ requireAcceptance: true }),
+        ).rejects.toThrow();
+      });
+      expect(query.result.current.hostRows).toEqual([]);
+      expect(query.result.current.identityRows).toEqual([]);
+      expect(query.result.current.loadState.kind).toBe("permission_denied");
+      expect(onAuthorityUncertain).toHaveBeenCalledTimes(1);
+      query.unmount();
+    }
   });
 });

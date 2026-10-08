@@ -1,14 +1,9 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const defaultRepoRoot = path.resolve(scriptDir, "../..");
 
 const idPattern = /^[a-z][a-z0-9_-]*$/u;
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/u;
 
-export const runtimeBinaryRecordKeys = Object.freeze([
+const runtimeBinaryRecordKeys = Object.freeze([
   "id",
   "producer_target",
   "output_make_variable",
@@ -122,89 +117,4 @@ export function normalizeRuntimeBinaryEntries(entries = [], options = {}) {
     records.push(record);
   }
   return records;
-}
-
-export function runtimeBinaryRegistry(entries = [], options = {}) {
-  return new Map(
-    normalizeRuntimeBinaryEntries(entries, options).map((record) => [record.id, record]),
-  );
-}
-
-function registryFrom(value, label) {
-  if (value instanceof Map) {
-    return value;
-  }
-  return runtimeBinaryRegistry(value ?? [], { label });
-}
-
-function recordForID(registry, id, label) {
-  const record = registry.get(id);
-  if (!record) {
-    throw new Error(`${label} runtime binary ${id} is missing from runtime_binaries registry`);
-  }
-  return record;
-}
-
-function runtimeBinaryDTO(record) {
-  return {
-    id: record.id,
-    producer_target: record.producerTarget,
-    output_make_variable: record.outputMakeVariable,
-    consumer_env: record.consumerEnv,
-    default_output_path: record.defaultOutputPath,
-  };
-}
-
-export function runtimeBinaryRecordsForIDs(entries, ids = [], label = "runtime_binaries") {
-  const registry = registryFrom(entries, label);
-  return ids.map((id) => runtimeBinaryDTO(recordForID(registry, id, label)));
-}
-
-export function runtimeBinaryProducerTargetsForIDs(entries, ids = [], label = "runtime_binaries") {
-  const registry = registryFrom(entries, label);
-  return ids.map((id) => recordForID(registry, id, label).producerTarget);
-}
-
-export function runtimeBinaryDefaultEnvForIDs(entries, ids = [], label = "runtime_binaries") {
-  const registry = registryFrom(entries, label);
-  const env = {};
-  for (const id of ids) {
-    const record = recordForID(registry, id, label);
-    env[record.consumerEnv] = record.defaultOutputPath;
-  }
-  return env;
-}
-
-export function runtimeBinaryAbsoluteEnvForIDs(
-  entries,
-  ids = [],
-  { repoRoot = defaultRepoRoot, label = "runtime_binaries" } = {},
-) {
-  const registry = registryFrom(entries, label);
-  const env = {};
-  for (const id of ids) {
-    const record = recordForID(registry, id, label);
-    env[record.consumerEnv] = path.join(repoRoot, record.defaultOutputPath);
-  }
-  return env;
-}
-
-function runtimeBinaryIDs(entries = []) {
-  return normalizeRuntimeBinaryEntries(entries).map((record) => record.id);
-}
-
-export function runtimeBinaryIDsForRows(rows = []) {
-  return Array.from(new Set(rows.flatMap((row) => row.runtime_binaries ?? []))).sort(
-    (left, right) => String(left).localeCompare(String(right)),
-  );
-}
-
-export function loadRuntimeBinaryRegistry({
-  repoRoot = defaultRepoRoot,
-  topologyPath = path.join(repoRoot, "tools", "execution_topology_manifest.json"),
-} = {}) {
-  const topology = JSON.parse(readFileSync(topologyPath, "utf8"));
-  return runtimeBinaryRegistry(topology.runtime_binaries ?? [], {
-    label: "runtime_binaries",
-  });
 }

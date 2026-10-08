@@ -76,3 +76,7 @@ Timeline mention rendering retains a named, bounded Host/Identity observation in
 Acceptance-required recovery rejects failed, aborted or superseded Entity reference
 reads. Silent ordinary reference observations cannot settle a feature-owned
 acknowledged refresh obligation.
+
+Entity sheet activation requires an exact active schema: Hosts and Identities
+read only while selected. Timeline reference observations retain an independent
+bounded reader; inactive sheets cannot satisfy acceptance-required recovery.

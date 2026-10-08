@@ -56,7 +56,7 @@ App workflow state remains in [app](../../app/README.md), operation lifetime in
 | [workbookGridQueryControls.ts](workbookGridQueryControls.ts) | Pure query-control projection, closure-free command descriptors, exact controlled-value parsers, ordered-sort commands, and surface-keyed transient reducer. |
 | [workbookQuery.test.ts](workbookQuery.test.ts) | Tests declared query operators, argument shapes, sort, and grouping construction. |
 | [workbookQuery.ts](workbookQuery.ts) | Workbook query, filter, sort, grouping, and request-building helpers. |
-| [workbookSurfaceQueryRuntime.ts](workbookSurfaceQueryRuntime.ts) | Resolves view-schema contracts and maps them to the appropriate workbook query owner slot. |
+| [workbookSurfaceQueryRuntime.ts](workbookSurfaceQueryRuntime.ts) | Resolves exact view-schema contracts and rejects unknown schemas. |
 | [workbookSurfaceRegistration.test.ts](workbookSurfaceRegistration.test.ts) | Tests for policy registration completeness, uniqueness, and extension-workspace exclusion. |
 | [workbookSurfaceRegistration.ts](workbookSurfaceRegistration.ts) | Exact `view_schema_id` registration and bounded-context policy registry for all exposed workbook schemas. |
 | [workbookSurfaceRegistry.test.ts](workbookSurfaceRegistry.test.ts) | Tests for workbook surface registry invariants. |

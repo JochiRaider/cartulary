@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { validatePostgresFixturePolicy } from "../test-catalog/postgres-fixture-policy.mjs";
+import { validatePostgresFixturePolicy } from "../test-support/owner-fixtures.mjs";
 import { groupRowsByPerformanceFixture, postgresMigrationDigest, snapshotKey } from "../performance-fixture/index.mjs";
 
 export function assertPostgresCatalogClosure(context) {

@@ -6,7 +6,7 @@ import { generateRunId, validateResultRoot, validateRunId } from "../../contract
 import { parseStrictJSON } from "../../contract/index.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { processIdentity, processIdentityAlive } from "../../runtime/host-admission.mjs";
-import { restrictedExecutableInputRoots } from "../../test-catalog/restricted-input-boundary.mjs";
+import { restrictedExecutableInputRoots } from "../../test-catalog/index.mjs";
 import { repoRoot } from "./policy.mjs";
 import { ReviewFailure, validate, limits } from "./contract.mjs";
 

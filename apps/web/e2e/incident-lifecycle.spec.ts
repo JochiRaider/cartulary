@@ -457,8 +457,8 @@ test("lifecycle closure retains rejected workbook work and allowed configuration
     .click();
   await expect(page.getByRole("grid")).toHaveAttribute("aria-readonly", "true");
   await expect(
-    page.getByText("Closed, read-only", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("status", { name: "Incident lifecycle", exact: true }),
+  ).toHaveText("Closed, read-only");
   await expect(page.getByTestId(saveStateTestId())).not.toHaveText(
     "Closed, read-only",
   );

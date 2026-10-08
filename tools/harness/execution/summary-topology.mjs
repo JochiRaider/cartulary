@@ -145,7 +145,7 @@ function scheduleSources(schedule, target) {
   return Array.from(byTarget.values()).sort((left, right) => left.target.localeCompare(right.target));
 }
 
-export function serviceBackedScheduleChildren(context, target) {
+function serviceBackedScheduleChildren(context, target) {
   const schedule = findServiceBackedSchedule(context, target);
   if (!schedule) {
     return [];

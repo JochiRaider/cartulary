@@ -67,14 +67,17 @@ Verified by: AC-469
 ### 1.1 Investigation workbench amendment — 2026-10-06
 
 The workbench document revision is adopted as requirements, with implementation,
-typed projections and behavioral/visual/accessibility evidence pending. Its source
+typed projections and behavioral/visual/accessibility evidence pending at adoption. Its source
 baseline is repository commit `886750d965278a32452dbbeced77f55910f758f5`.
 The supplied `cartulary-timeline-workbench-redesign-proposal.md` version 0.1.0
 is provenance, not another authority. Appendix D records every proposal clause
 and acceptance disposition, worked examples, research limits and the implementation
-handoff. No rendered application audit or benchmark result is implied.
+handoff. No rendered application audit or benchmark result is implied by adoption.
+Subsequent engineering implementation and routed validation are recorded in
+`docs/handoffs/ui-ux/workbook-workbench-implementation.md`; that record does not
+change requirement authority or establish release qualification.
 
-| Owner revision | Adopted scope | Downstream status |
+| Owner revision | Adopted scope | Downstream status at adoption |
 | --- | --- | --- |
 | Core 00 REQ-00-077 | Ownership and adoption boundary | Document adoption only. |
 | Core 01 REQ-01-680–684; §3.3.1 | Locator, query replay boundary and additive v1 admission | Projection/implementation pending. |
@@ -177,7 +180,7 @@ With `docs/extension-subsystem-nlspec.md` and every companion named by its coord
 | `reference_pack` | `true` | `2` | Reference Pack owner sections in Core 01, specialized by the coordinated Reference Pack NLSpec 0.2.0 cutover | `[]` |
 | `snapshot_reporting` | `true` | `1` | adopted Reporting and Report Composition owner documents | `[]` |
 
-The Reference Pack major-2 row is the coordinated pre-production cutover amendment and matches `contracts/extensions/fragments/core00.recognition.json`. The subsystem boundary in `docs/reference-pack-subsystem-nlspec.md` owns format, trust, profiles, immutable sets and consumer semantics; Core retains recognition, public transport, common Jobs and the other outer owner boundaries. Its draft status permits implementation and development acceptance but does not establish a production profile-conformance claim. The promotion conditions remain explicit in that document. A second implementation or recreation/interchangeability report is not a pre-production acceptance prerequisite.
+The Reference Pack major-2 row is the coordinated pre-production cutover amendment and matches `contracts/extensions/fragments/core00.recognition.json`. The subsystem boundary in `docs/reference-pack-subsystem-nlspec.md` owns format, trust, profiles, immutable sets and consumer semantics; Core retains recognition, public transport, common Jobs and the other outer owner boundaries. The subsystem NLSpec is adopted/current at 0.2.0 within those boundaries. Adoption establishes requirements, not implementation readiness or a production profile-conformance claim; its execution and publication conditions remain explicit in that document. A second implementation or recreation/interchangeability report is not a pre-production acceptance prerequisite.
 
 Primary-owner references in this table are human navigation and adoption evidence. Executable dependency declarations MUST identify only imported typed schemas, algorithms, and artifacts with real executable resolvers, as required by Extensions §1.1. They MUST NOT bind document versions, document digests, owner-document manifests, or requirement-accounting metadata. Tests, generators, runtime metadata and release evidence MUST NOT read, stat, hash or otherwise depend on Markdown. Capability facts are prohibited in Extensions contract major `2`; every required capability array is present and empty, and attempted activation fails with `extension_capability_not_supported`. A structurally valid nonempty capability array is an activation attempt even when it contains an unknown future string; callers MUST NOT receive a token-specific classification or have any supplied token echoed. Structural array or member-type failures remain request or manifest validation failures. This requirement is current through the atomic Extensions companion adoption; no pre-adoption recognition or capability contract remains current.
 Profiles: base

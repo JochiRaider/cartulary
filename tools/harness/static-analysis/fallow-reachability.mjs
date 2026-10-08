@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 
 import {
   repoRoot as defaultRepoRoot,
@@ -153,11 +154,50 @@ function collectTaskSurfaceScripts(root, reachabilityOwner) {
 }
 
 function collectHarnessEntrypoints(root, reachabilityOwner) {
-  const files = uniqueSorted(reachabilityOwner.harness_entrypoints.files ?? []);
+  const facadeOwnerPath = reachabilityOwner.harness_entrypoints.facade_owner_path;
+  const facadeFiles = facadeOwnerPath
+    ? readJSON(assertExistingFile(root, facadeOwnerPath, "harness_entrypoints.facade_owner_path")).facades.flatMap((facade) => facade.paths)
+    : [];
+  const extensions = new Set(reachabilityOwner.task_surface.script_extensions);
+  const files = uniqueSorted([
+    ...(reachabilityOwner.harness_entrypoints.files ?? []),
+    ...facadeFiles.filter((file) => isScriptPath(file, extensions)),
+  ]);
   for (const file of files) {
     assertExistingFile(root, file, "harness_entrypoints.files");
   }
   return files;
+}
+
+// Build projects own compile fixtures; ordinary project sources are not roots.
+// Use TypeScript's own include/exclude/extends resolution rather than a parallel
+// list of fixtures or a glob that could hide orphan implementation files.
+function collectTypeScriptCompileEntrypoints(root, owner) {
+  if (!owner.typescript) return [];
+  const visited = new Set(), fixtures = [];
+  const visit = (projectFile) => {
+    const relative = repoRel(root, projectFile);
+    assertExistingFile(root, relative, "typescript.project_file");
+    if (!relative.endsWith(".json")) throw new Error("TypeScript projects must be JSON inputs");
+    if (visited.has(projectFile)) return;
+    visited.add(projectFile);
+    const loaded = ts.readConfigFile(projectFile, ts.sys.readFile);
+    if (loaded.error) throw new Error(ts.flattenDiagnosticMessageText(loaded.error.messageText, "\n"));
+    const config = ts.parseJsonConfigFileContent(loaded.config, ts.sys, path.dirname(projectFile));
+    if (config.errors.length) throw new Error(config.errors.map((error) => ts.flattenDiagnosticMessageText(error.messageText, "\n")).join("\n"));
+    for (const file of config.fileNames) {
+      if (file.endsWith(".compile.ts") || file.endsWith(".compile.tsx")) {
+        const fixture = repoRel(root, file);
+        assertExistingFile(root, fixture, "TypeScript compile fixture");
+        fixtures.push(fixture);
+      }
+    }
+    for (const reference of config.projectReferences ?? []) {
+      visit(reference.path.endsWith(".json") ? reference.path : path.join(reference.path, "tsconfig.json"));
+    }
+  };
+  visit(assertExistingFile(root, owner.typescript.project_file, "typescript.project_file"));
+  return uniqueSorted(fixtures);
 }
 
 function collectHarnessDynamicExports(root, reachabilityOwner) {
@@ -327,6 +367,7 @@ export function buildResolvedFallowConfig({
   const taskSurfaceScripts = collectTaskSurfaceScripts(root, owner);
   const harnessEntrypoints = collectHarnessEntrypoints(root, owner);
   const harnessDynamicExports = collectHarnessDynamicExports(root, owner);
+  const compileEntrypoints = collectTypeScriptCompileEntrypoints(root, owner);
   const viteModuleEntrypoints = collectViteModuleEntrypoints(root, owner.vite_public_assets);
   const executableToolingDependencies = uniqueSorted(
     owner.executable_tooling_dependencies.map((entry) => entry.package_name),
@@ -339,6 +380,7 @@ export function buildResolvedFallowConfig({
       ...taskSurfaceScripts,
       ...harnessEntrypoints,
       ...viteModuleEntrypoints,
+      ...compileEntrypoints,
     ]),
     ignoreExports: mergeIgnoreExportRules([
       ...(baseConfig.ignoreExports ?? []),
@@ -382,6 +424,7 @@ export function buildResolvedFallowConfig({
     stats: {
       task_surface_entry_points: taskSurfaceScripts.length,
       harness_entry_points: harnessEntrypoints.length,
+      typescript_compile_entry_points: compileEntrypoints.length,
       harness_dynamic_export_files: harnessDynamicExports.length,
       harness_dynamic_exports: harnessDynamicExports.reduce(
         (count, rule) => count + rule.exports.length,

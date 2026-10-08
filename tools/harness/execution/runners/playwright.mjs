@@ -4,11 +4,6 @@ import {
   publicExitCodeForFailures,
 } from "../../contract/failure-taxonomy.mjs";
 
-export const runnerContract = Object.freeze({
-  runner: "playwright",
-  selector_kind: "playwright_exact_scenarios",
-});
-
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }

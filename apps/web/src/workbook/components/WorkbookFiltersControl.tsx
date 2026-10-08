@@ -109,7 +109,7 @@ export function WorkbookFiltersControl({
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const panel = useRef<HTMLDivElement>(null);
-  useWorkbookMenuPlacement(isOpen, panel);
+  useWorkbookMenuPlacement(isOpen, panel, triggerRef);
   const feedbackId = useId();
   const isBoolean = isBooleanEqualityFilter(contract, draft.fieldKey, draft.op);
   const enumChoices = enumFilterChoices(contract, draft);
@@ -233,6 +233,7 @@ export function WorkbookFiltersControl({
       {isOpen ? (
         <div
           ref={panel}
+          popover="manual"
           aria-label={
             editingFieldKey === null
               ? "Add filter"

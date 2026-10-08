@@ -82,7 +82,6 @@ function setup() {
     readJob: unavailable,
     readSession: unavailable,
     listUnits: unavailable,
-    readUnit: unavailable,
     preview: unavailable,
   } satisfies WorkbookImportPort;
   const bind = (

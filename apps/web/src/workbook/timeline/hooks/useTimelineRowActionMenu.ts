@@ -260,8 +260,14 @@ export function useTimelineRowActionMenu({
   const onExternalScroll = useCallback(
     (event: Event) => {
       const grid = gridHandleRef.current?.getScrollElement();
-      // Native inputs can reset their own text scroll offset when focus is
-      // borrowed. A descendant scroll does not move the invoking grid cell.
+      // Native inputs can reset their own text offset when focus is borrowed
+      // from grid or Inspector authoring. Neither moves the invoking cell.
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      )
+        return;
+      // Scrolling inside the grid's editors does not move the invoking cell.
       if (
         event.target instanceof Node &&
         event.target !== grid &&

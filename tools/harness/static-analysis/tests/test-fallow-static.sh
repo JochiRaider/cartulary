@@ -417,6 +417,22 @@ export function runCdxgen(pnpm = "pnpm") {
 }
 JS
 
+cat >"$reachability_root/packages/example/tsconfig.json" <<'JSON'
+{"include": ["src"]}
+JSON
+cat >"$reachability_root/packages/example/src/contract.compile.ts" <<'TS'
+// Compile-only consumer: no runtime entry or test title.
+export type ContractFixture = { required: string };
+TS
+cat >"$reachability_root/packages/example/src/orphan.ts" <<'TS'
+export const unusedProjectSource = true;
+TS
+cat >"$reachability_root/tools/harness/static-analysis/shell-child.mjs" <<'JS'
+console.log("real shell-launched helper");
+JS
+cat >"$reachability_root/tools/harness/static-analysis/orphan.mjs" <<'JS'
+export const unusedTool = true;
+JS
 cat >"$reachability_root/tools/task_surface_owner.json" <<'JSON'
 {
   "schema_id": "cartulary.task_surface_owner.v1",
@@ -424,7 +440,8 @@ cat >"$reachability_root/tools/task_surface_owner.json" <<'JSON'
     {
       "name": "example-tool",
       "backing_scripts": [
-        "tools/harness/static-analysis/example-cli.mjs"
+        "tools/harness/static-analysis/example-cli.mjs",
+        "tools/harness/static-analysis/shell-child.mjs"
       ]
     }
   ],
@@ -476,6 +493,7 @@ cat >"$reachability_root/tools/fallow/reachability_owner.json" <<'JSON'
       "tools/harness/test-support/example-direct.mjs"
     ]
   },
+  "typescript": { "project_file": "packages/example/tsconfig.json" },
   "harness_dynamic_exports": [
     {
       "file": "tools/harness/test-support/example-dynamic.mjs",
@@ -533,7 +551,13 @@ if (result.stats.vite_module_entry_points !== 2 ||
     !result.config.entry.includes("apps/web/src/measurement/main.ts")) {
   throw new Error("expected production and measurement module roots from HTML");
 }
-if (result.stats.task_surface_entry_points < 2) {
+if (result.stats.typescript_compile_entry_points !== 1 ||
+    !result.config.entry.includes("packages/example/src/contract.compile.ts") ||
+    !result.config.entry.includes("tools/harness/static-analysis/shell-child.mjs") ||
+    result.config.entry.includes("packages/example/src/orphan.ts")) {
+  throw new Error("compile fixtures and declared shell children must be roots without hiding ordinary orphans");
+}
+if (result.stats.task_surface_entry_points < 3) {
   throw new Error("expected task-surface scripts in resolved Fallow config");
 }
 if (result.stats.harness_entry_points !== 1) {
@@ -588,6 +612,13 @@ assert.equal(hasUsableFallowOutput({outputFile: malformed, exitCode: 0}), false)
 writeFileSync(malformed, '{"error":true}');
 assert.equal(hasUsableFallowOutput({outputFile: malformed, exitCode: 1}), false);
 const text = JSON.stringify(data);
+for (const live of ["packages/example/src/contract.compile.ts", "tools/harness/static-analysis/shell-child.mjs"]) {
+  if (data.unused_files.some((finding) => finding.path === live)) throw new Error(`real compile/launch root reported unused: ${live}`);
+}
+for (const orphan of ["packages/example/src/orphan.ts", "tools/harness/static-analysis/orphan.mjs"]) {
+  if (!data.unused_files.some((finding) => finding.path === orphan)) throw new Error(`orphan hidden by reachability correction: ${orphan}`);
+}
+
 for (const file of ["main.ts", "fixture.ts"]) {
   if (text.includes(`apps/web/src/measurement/${file}`)) {
     throw new Error(`live measurement module reported unused: ${file}`);

@@ -15,6 +15,7 @@ import { authHeadersForStorageState } from "../auth/storageState";
 import { apiBase } from "../runtime/configuration";
 import {
   publicHttpOperation,
+  publicHttpOperationFailure,
   readHttpOperationResponse,
 } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
@@ -47,7 +48,11 @@ export async function createViewRow(
   });
   if (!response.ok) {
     throw new Error(
-      `createViewRow failed with HTTP ${response.status}: ${JSON.stringify(response.payload)}`,
+      publicHttpOperationFailure(
+        "createViewRow",
+        response.status,
+        response.payload,
+      ),
     );
   }
   return response.payload.data.row;
@@ -73,7 +78,11 @@ export async function queryViewRows(
   });
   if (!response.ok) {
     throw new Error(
-      `queryWorkbookView failed with HTTP ${response.status}: ${JSON.stringify(response.payload)}`,
+      publicHttpOperationFailure(
+        "queryWorkbookView",
+        response.status,
+        response.payload,
+      ),
     );
   }
   return (response.payload satisfies QueryWorkbookViewResponse).data.rows;
@@ -218,7 +227,11 @@ export async function patchRecord(
   });
   if (!response.ok) {
     throw new Error(
-      `patchRecord failed with HTTP ${response.status}: ${JSON.stringify(response.payload)}`,
+      publicHttpOperationFailure(
+        "patchRecord",
+        response.status,
+        response.payload,
+      ),
     );
   }
   return (response.payload satisfies PatchRecordResponse).data.row;

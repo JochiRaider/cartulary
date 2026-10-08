@@ -126,7 +126,6 @@ function setup(xlsx = false, selectionFailure = false) {
       }),
       readSession: async () => ({ kind: "received", value: session }),
       listUnits: async () => ({ kind: "received", value: units }),
-      readUnit: async () => ({ kind: "received", value: unit }),
       preview: async (u: DiscoveredImportUnit) => ({
         kind: "received",
         value: importTestPreview(u),

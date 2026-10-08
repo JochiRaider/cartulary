@@ -1,11 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { type SetStateAction, useCallback, useMemo, useRef } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookActiveSurfacePort } from "../collaboration/workbookSurfacePort";
 import type { AssessmentCommittedRecordPort } from "../features/assessments/assessmentOperation";
@@ -27,11 +21,6 @@ import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import type { WorkbookSurfacesFacadeProps } from "../surfaces/WorkbookSurfacesFacade";
 
-type QueryStateOwner = {
-  readonly state: WorkbookQueryState;
-  readonly setState: Dispatch<SetStateAction<WorkbookQueryState>>;
-};
-
 type WorkbookSurfaceQueriesOptions = {
   readonly ordinaryCreateOwner?: WorkbookCommittedRecordPort;
   readonly explicitPatchOwner?: WorkbookExplicitPatchOwner;
@@ -39,14 +28,14 @@ type WorkbookSurfaceQueriesOptions = {
   readonly indicatorOwner?: WorkbookCommittedRecordPort;
   readonly assessmentOwner?: AssessmentCommittedRecordPort;
   readonly activeContract: ViewContract;
-  readonly assessment: QueryStateOwner;
-  readonly generic: QueryStateOwner;
-  readonly hosts: QueryStateOwner;
-  readonly identities: QueryStateOwner;
+  readonly queryStateForSurface: (viewSchemaId: string) => WorkbookQueryState;
+  readonly setQueryStateForSurface: (
+    viewSchemaId: string,
+    action: SetStateAction<WorkbookQueryState>,
+  ) => void;
   readonly onAuthorityUncertain: (() => void) | undefined;
   readonly sheetRef: SheetRef;
   readonly surface: string;
-  readonly timeline: QueryStateOwner;
   readonly viewQuery: WorkbookViewQueryPort;
 };
 
@@ -58,14 +47,11 @@ export function useWorkbookSurfaceQueries({
   indicatorOwner,
   assessmentOwner,
   activeContract,
-  assessment,
-  generic,
-  hosts,
-  identities,
+  queryStateForSurface,
+  setQueryStateForSurface,
   onAuthorityUncertain,
   sheetRef,
   surface,
-  timeline,
   viewQuery,
 }: WorkbookSurfaceQueriesOptions): {
   readonly activeSurfacePort: WorkbookActiveSurfacePort | null;
@@ -84,6 +70,21 @@ export function useWorkbookSurfaceQueries({
   };
 } {
   const browsingRegistry = useWorkbookBrowsingRegistry();
+  // Each callback retains the exact schema it was composed for, including generic
+  // surfaces after navigation. Unrelated state updates do not replace setters.
+  const setters = useMemo(() => {
+    const bind =
+      (viewSchemaId: string) => (action: SetStateAction<WorkbookQueryState>) =>
+        setQueryStateForSurface(viewSchemaId, action);
+    return {
+      assessment: bind(assessmentsViewSchemaId),
+      generic: bind(surface),
+      hosts: bind(hostsViewSchemaId),
+      identities: bind(identitiesViewSchemaId),
+      timeline: bind(timelineViewSchemaId),
+    };
+  }, [setQueryStateForSurface, surface]);
+  const timelineQueryState = queryStateForSurface(timelineViewSchemaId);
   const genericSurfaceActive =
     surface !== timelineViewSchemaId &&
     surface !== hostsViewSchemaId &&
@@ -97,7 +98,7 @@ export function useWorkbookSurfaceQueries({
     active: genericSurfaceActive,
     contract: activeContract,
     onAuthorityUncertain,
-    queryState: generic.state,
+    queryState: queryStateForSurface(surface),
     viewQuery,
     viewSchemaId: surface,
   });
@@ -105,15 +106,15 @@ export function useWorkbookSurfaceQueries({
     committedRecords: assessmentOwner,
     active: surface === assessmentsViewSchemaId,
     onAuthorityUncertain,
-    queryState: assessment.state,
+    queryState: queryStateForSurface(assessmentsViewSchemaId),
     viewQuery,
   });
   const entityQuery = useEntitySurfaceQuery({
     activeViewSchemaId: surface,
     ordinaryCreateOwner,
     editOwner: explicitPatchOwner,
-    hostQueryState: hosts.state,
-    identityQueryState: identities.state,
+    hostQueryState: queryStateForSurface(hostsViewSchemaId),
+    identityQueryState: queryStateForSurface(identitiesViewSchemaId),
     onAuthorityUncertain,
     viewQuery,
   });
@@ -220,7 +221,7 @@ export function useWorkbookSurfaceQueries({
         loadState: assessmentLoadState,
         refresh: refreshAssessment,
         rows: assessmentRows,
-        setState: assessment.setState,
+        setState: setters.assessment,
         state: assessmentQuery.acceptedQueryState,
       },
       entities: {
@@ -229,7 +230,7 @@ export function useWorkbookSurfaceQueries({
             surface === timelineViewSchemaId
               ? entityQuery.references.hosts
               : hostRows,
-          setState: hosts.setState,
+          setState: setters.hosts,
           state: entityQuery.hosts.acceptedQueryState,
         },
         identities: {
@@ -237,7 +238,7 @@ export function useWorkbookSurfaceQueries({
             surface === timelineViewSchemaId
               ? entityQuery.references.identities
               : identityRows,
-          setState: identities.setState,
+          setState: setters.identities,
           state: entityQuery.identities.acceptedQueryState,
         },
         index:
@@ -251,23 +252,23 @@ export function useWorkbookSurfaceQueries({
         loadState: genericLoadState,
         refresh: refreshGeneric,
         rows: genericRows,
-        setState: generic.setState,
+        setState: setters.generic,
         state: genericQuery.acceptedQueryState,
       },
       timeline: {
-        setState: timeline.setState,
-        state: timeline.state,
+        setState: setters.timeline,
+        state: timelineQueryState,
       },
       viewQuery,
     }),
     [
-      assessment.setState,
+      setters.assessment,
       assessmentLoadState,
       assessmentRows,
       assessmentQuery.acceptedQueryState,
       entityIndex,
       entityLoadState,
-      generic.setState,
+      setters.generic,
       genericLoadState,
       genericRows,
       genericQuery.acceptedQueryState,
@@ -278,14 +279,14 @@ export function useWorkbookSurfaceQueries({
       entityQuery.references.identities,
       entityQuery.references.index,
       surface,
-      hosts.setState,
-      identities.setState,
+      setters.hosts,
+      setters.identities,
       identityRows,
       refreshAssessment,
       refreshEntities,
       refreshGeneric,
-      timeline.setState,
-      timeline.state,
+      setters.timeline,
+      timelineQueryState,
       viewQuery,
     ],
   );

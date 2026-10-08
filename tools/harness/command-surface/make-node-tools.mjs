@@ -117,7 +117,7 @@ function ownerDiagnosticTool(mode, target) {
   };
 }
 
-export const makeNodeTools = {
+const makeNodeTools = {
   "author-test-row-id": {
     inputs: ["FAMILY_ID", "CLAIM", "SELECTOR_KEY"],
     script: "./tools/harness/test-catalog/row-id-authoring-cli.mjs",
@@ -487,7 +487,7 @@ export function makeNodeToolResultDirMakeEnvVars(name) {
   return resultDirMakeEnvVars(makeNodeTool(name).resultDir);
 }
 
-export function makeNodeToolMakeEnvVars(name) {
+function makeNodeToolMakeEnvVars(name) {
   const tool = makeNodeTool(name);
   return uniqueNames([
     ...contractInputNames(name),
@@ -496,7 +496,7 @@ export function makeNodeToolMakeEnvVars(name) {
   ]);
 }
 
-export function makeNodeToolKnownEnvVars() {
+function makeNodeToolKnownEnvVars() {
   return uniqueNames([
     ...makeNodeToolNames().flatMap((name) => makeNodeToolMakeEnvVars(name)),
     ...publicContractInputNames(),

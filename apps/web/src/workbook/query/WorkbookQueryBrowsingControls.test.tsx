@@ -55,7 +55,7 @@ function Harness({
   const query = useGenericSurfaceQuery({
     active: true,
     contract,
-    queryState: intent.snapshot.genericQueryState,
+    queryState: intent.snapshot.queryStateForSurface(notesViewSchemaId),
     viewQuery: port,
     viewSchemaId: notesViewSchemaId,
     onAuthorityUncertain: undefined,

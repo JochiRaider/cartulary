@@ -9,7 +9,7 @@ import {
   failureHeadlineForSummary,
   validateSchemaSync,
 } from "../contract/index.mjs";
-import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-events.mjs";
+import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
 import { printObservabilityPerformance } from "../observability/observability.mjs";
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
 import { validateHistoricalPerformanceEvidence } from "./historical-performance-evidence.mjs";

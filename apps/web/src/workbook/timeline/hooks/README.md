@@ -95,3 +95,8 @@ and live authority fence every pass; cancellation aborts Adapter requests and
 cancels frames/timers without changing mutation settlement. Adapter registration
 notifications own virtualized target readiness. Only unnotified registered-input
 or transient geometry readiness retains the bounded 50 ms / 60-retry fallback.
+
+Native input and textarea text scrolling, including Inspector authoring during
+row-menu focus borrowing, does not move the invoking semantic cell and does not
+dismiss its menu. Actual grid or external container movement retains the existing
+dismissal and owned-focus policy.

@@ -1,6 +1,6 @@
 import { workbookViewBarQueryControlsTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { type ReactNode, useEffect, useMemo, useReducer, useRef } from "react";
 import { useWorkbookCommand } from "../commands/WorkbookCommands";
 import type {
   WorkbookColumnSizingControls,
@@ -37,7 +37,16 @@ import { WorkbookTimelinePresetCommands } from "./WorkbookTimelinePresets";
 export type WorkbookGridControlsProps = {
   readonly chromeMode?: WorkbookChromeMode | undefined;
   readonly menu?: boolean | undefined;
-  readonly onRequestMenu?: (() => void) | undefined;
+  readonly onRequestMenu?:
+    | ((
+        panel: "sort" | "filters" | "group" | "columns",
+        focusTarget?: HTMLElement,
+      ) => void)
+    | undefined;
+  readonly composeControls: (controls: {
+    readonly query: ReactNode;
+    readonly columns: ReactNode;
+  }) => ReactNode;
   readonly contract: ViewContract;
   readonly filterDraft: FilterDraft;
   readonly layoutState: WorkbookResolvedLayoutState;
@@ -68,6 +77,7 @@ export function WorkbookGridControls({
   chromeMode = "base",
   menu = false,
   onRequestMenu,
+  composeControls,
   contract,
   filterDraft,
   layoutState,
@@ -224,156 +234,191 @@ export function WorkbookGridControls({
           : {}),
       }}
     >
-      {(["sort", "filters", "group", "columns"] as const).map((panel) => (
-        <QueryCommand
-          key={panel}
-          panel={panel}
-          surface={surface}
-          open={() => {
-            onRequestMenu?.();
-            queryEntryReturnFocusRef.current = null;
-            dispatch({ type: "close_panel", subjectKey });
-            dispatch({ type: "toggle_panel", panel, subjectKey });
-          }}
-        />
-      ))}
-      {onApplyPreset ? (
-        <WorkbookTimelinePresetCommands
-          onApply={onApplyPreset}
-          surface={surface}
-        />
-      ) : null}
-      <WorkbookSortControl
-        constrained={chromeMode !== "base" || projection.hiddenChips.length > 0}
-        editorProjection={sortEditorProjection}
-        isOpen={surfaceState.openPanel === "sort"}
-        onClose={closePanel}
-        onCommand={onCommand}
-        onToggle={() => {
-          queryEntryReturnFocusRef.current = null;
-          dispatch({ type: "toggle_panel", panel: "sort", subjectKey });
-        }}
-        projection={projection}
-        returnFocusRef={queryEntryReturnFocusRef}
-        requestedFieldKey={
-          surfaceState.openPanel === "sort" &&
-          surfaceState.activeEntryKey?.startsWith("sort:")
-            ? surfaceState.activeEntryKey.slice("sort:".length)
-            : null
-        }
-        surface={surface}
-        sortUnapplied={sortUnapplied}
-        triggerRef={sortTriggerRef}
-      />
-      <WorkbookGroupControl
-        groupUnapplied={groupUnapplied}
-        isOpen={surfaceState.openPanel === "group"}
-        onClose={closePanel}
-        onCommand={onCommand}
-        onToggle={() => {
-          queryEntryReturnFocusRef.current = null;
-          dispatch({ type: "toggle_panel", panel: "group", subjectKey });
-        }}
-        projection={projection}
-        returnFocusRef={queryEntryReturnFocusRef}
-        selectedFieldKey={editorGroupBy}
-        subjectKey={subjectKey}
-        surface={surface}
-        triggerRef={groupTriggerRef}
-      />
-      <WorkbookFiltersControl
-        contract={contract}
-        draft={surfaceState.filterDraft}
-        filterCount={queryState.filters.length}
-        requestedFilterCount={editorFilters.length}
-        requestedChanges={requestedFilterChanges}
-        isOpen={surfaceState.openPanel === "filters"}
-        onApply={(draft) => {
-          const validation = validateFilterDraft(contract, draft);
-          if (validation.kind === "invalid") return validation;
-          onFilterDraftChange(draft);
-          return onApplyFilter(draft);
-        }}
-        onComplete={(draft) => {
-          dispatch({
-            type: "complete_filter",
-            filterDraft: clearFilterDraftValue(draft, contract),
-            subjectKey,
-          });
-        }}
-        onChangeDraft={(draft) => {
-          dispatch({
-            type: "change_filter_draft",
-            filterDraft: draft,
-            subjectKey,
-          });
-        }}
-        onClose={closeFilterPanel}
-        onCommand={onCommand}
-        editingFieldKey={surfaceState.editingFilterFieldKey}
-        editingRequestedFilter={
-          surfaceState.activeEntryKey?.startsWith("requested-filter:") ?? false
-        }
-        onEditFilter={(fieldKey) => {
-          const filter = queryState.filters.find(
-            (candidate) => candidate.fieldKey === fieldKey,
-          );
-          if (filter === undefined) return;
-          dispatch({
-            type: "edit_filter",
-            activeEntryKey: `filter:${fieldKey}`,
-            fieldKey,
-            filterDraft: filterDraftFromFilter(contract, filter),
-            subjectKey,
-          });
-        }}
-        onEditRequestedFilter={(fieldKey) => {
-          const filter = editorFilters.find(
-            (candidate) => candidate.fieldKey === fieldKey,
-          );
-          if (filter === undefined) return;
-          dispatch({
-            type: "edit_filter",
-            activeEntryKey: `requested-filter:${fieldKey}`,
-            fieldKey,
-            filterDraft: filterDraftFromFilter(contract, filter),
-            subjectKey,
-          });
-        }}
-        onRestoreFilter={(filter) =>
-          onApplyFilter(filterDraftFromFilter(contract, filter))
-        }
-        onEditQueryEntry={activateQueryChip}
-        onToggle={() => {
-          queryEntryReturnFocusRef.current = null;
-          if (surfaceState.openPanel !== "filters") {
-            dispatch({
-              type: "change_filter_draft",
-              subjectKey,
-              filterDraft,
-            });
-          }
-          dispatch({ type: "toggle_panel", panel: "filters", subjectKey });
-        }}
-        projection={projection}
-        returnFocusRef={queryEntryReturnFocusRef}
-        surface={surface}
-        triggerRef={filterTriggerRef}
-      />
-      <WorkbookColumnsControl
-        key={`${surface}:${subjectKey}`}
-        sizing={sizing}
-        freezing={freezing}
-        isOpen={surfaceState.openPanel === "columns"}
-        onClose={closePanel}
-        onCommand={onCommand}
-        onToggle={() => {
-          queryEntryReturnFocusRef.current = null;
-          dispatch({ type: "toggle_panel", panel: "columns", subjectKey });
-        }}
-        projection={projection}
-        surface={surface}
-      />
+      {composeControls({
+        query: (
+          <>
+            {(["sort", "filters", "group"] as const).map((panel) => (
+              <QueryCommand
+                key={panel}
+                panel={panel}
+                surface={surface}
+                open={() => {
+                  onRequestMenu?.(panel);
+                  queryEntryReturnFocusRef.current = null;
+                  dispatch({ type: "close_panel", subjectKey });
+                  dispatch({ type: "toggle_panel", panel, subjectKey });
+                }}
+              />
+            ))}
+            {onApplyPreset ? (
+              <WorkbookTimelinePresetCommands
+                onApply={onApplyPreset}
+                surface={surface}
+              />
+            ) : null}
+            <WorkbookSortControl
+              constrained={
+                chromeMode !== "base" || projection.hiddenChips.length > 0
+              }
+              editorProjection={sortEditorProjection}
+              isOpen={surfaceState.openPanel === "sort"}
+              onClose={closePanel}
+              onCommand={onCommand}
+              onToggle={() => {
+                queryEntryReturnFocusRef.current = null;
+                dispatch({ type: "toggle_panel", panel: "sort", subjectKey });
+              }}
+              projection={projection}
+              returnFocusRef={queryEntryReturnFocusRef}
+              requestedFieldKey={
+                surfaceState.openPanel === "sort" &&
+                surfaceState.activeEntryKey?.startsWith("sort:")
+                  ? surfaceState.activeEntryKey.slice("sort:".length)
+                  : null
+              }
+              surface={surface}
+              sortUnapplied={sortUnapplied}
+              triggerRef={sortTriggerRef}
+            />
+            <WorkbookFiltersControl
+              contract={contract}
+              draft={surfaceState.filterDraft}
+              filterCount={queryState.filters.length}
+              requestedFilterCount={editorFilters.length}
+              requestedChanges={requestedFilterChanges}
+              isOpen={surfaceState.openPanel === "filters"}
+              onApply={(draft) => {
+                const validation = validateFilterDraft(contract, draft);
+                if (validation.kind === "invalid") return validation;
+                onFilterDraftChange(draft);
+                return onApplyFilter(draft);
+              }}
+              onComplete={(draft) => {
+                dispatch({
+                  type: "complete_filter",
+                  filterDraft: clearFilterDraftValue(draft, contract),
+                  subjectKey,
+                });
+              }}
+              onChangeDraft={(draft) => {
+                dispatch({
+                  type: "change_filter_draft",
+                  filterDraft: draft,
+                  subjectKey,
+                });
+              }}
+              onClose={closeFilterPanel}
+              onCommand={onCommand}
+              editingFieldKey={surfaceState.editingFilterFieldKey}
+              editingRequestedFilter={
+                surfaceState.activeEntryKey?.startsWith("requested-filter:") ??
+                false
+              }
+              onEditFilter={(fieldKey) => {
+                const filter = queryState.filters.find(
+                  (candidate) => candidate.fieldKey === fieldKey,
+                );
+                if (filter === undefined) return;
+                dispatch({
+                  type: "edit_filter",
+                  activeEntryKey: `filter:${fieldKey}`,
+                  fieldKey,
+                  filterDraft: filterDraftFromFilter(contract, filter),
+                  subjectKey,
+                });
+              }}
+              onEditRequestedFilter={(fieldKey) => {
+                const filter = editorFilters.find(
+                  (candidate) => candidate.fieldKey === fieldKey,
+                );
+                if (filter === undefined) return;
+                dispatch({
+                  type: "edit_filter",
+                  activeEntryKey: `requested-filter:${fieldKey}`,
+                  fieldKey,
+                  filterDraft: filterDraftFromFilter(contract, filter),
+                  subjectKey,
+                });
+              }}
+              onRestoreFilter={(filter) =>
+                onApplyFilter(filterDraftFromFilter(contract, filter))
+              }
+              onEditQueryEntry={activateQueryChip}
+              onToggle={() => {
+                queryEntryReturnFocusRef.current = null;
+                if (surfaceState.openPanel !== "filters") {
+                  dispatch({
+                    type: "change_filter_draft",
+                    subjectKey,
+                    filterDraft,
+                  });
+                }
+                dispatch({
+                  type: "toggle_panel",
+                  panel: "filters",
+                  subjectKey,
+                });
+              }}
+              projection={projection}
+              returnFocusRef={queryEntryReturnFocusRef}
+              surface={surface}
+              triggerRef={filterTriggerRef}
+            />
+            <WorkbookGroupControl
+              groupUnapplied={groupUnapplied}
+              isOpen={surfaceState.openPanel === "group"}
+              onClose={closePanel}
+              onCommand={onCommand}
+              onToggle={() => {
+                queryEntryReturnFocusRef.current = null;
+                dispatch({ type: "toggle_panel", panel: "group", subjectKey });
+              }}
+              projection={projection}
+              returnFocusRef={queryEntryReturnFocusRef}
+              selectedFieldKey={editorGroupBy}
+              subjectKey={subjectKey}
+              surface={surface}
+              triggerRef={groupTriggerRef}
+            />
+          </>
+        ),
+        columns: (
+          <>
+            <QueryCommand
+              panel="columns"
+              surface={surface}
+              open={() => {
+                onRequestMenu?.("columns");
+                queryEntryReturnFocusRef.current = null;
+                dispatch({ type: "close_panel", subjectKey });
+                dispatch({
+                  type: "toggle_panel",
+                  panel: "columns",
+                  subjectKey,
+                });
+              }}
+            />
+            <WorkbookColumnsControl
+              key={`${surface}:${subjectKey}`}
+              sizing={sizing}
+              freezing={freezing}
+              isOpen={surfaceState.openPanel === "columns"}
+              onClose={closePanel}
+              onCommand={onCommand}
+              onToggle={() => {
+                queryEntryReturnFocusRef.current = null;
+                dispatch({
+                  type: "toggle_panel",
+                  panel: "columns",
+                  subjectKey,
+                });
+              }}
+              projection={projection}
+              surface={surface}
+            />
+          </>
+        ),
+      })}
       <WorkbookQuerySummarySlot>
         <WorkbookActiveQueryChips
           activeKey={surfaceState.rovingEntryKey}
@@ -390,7 +435,9 @@ export function WorkbookGridControls({
                   : chip.identity.kind === "group"
                     ? groupTriggerRef.current
                     : filterTriggerRef.current;
-            if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+            if (!trigger?.isConnected) return;
+            if (menu && onRequestMenu) onRequestMenu("filters", trigger);
+            else trigger.focus({ preventScroll: true });
           }}
           onRovingEntryChange={(entryKey) => {
             dispatch({ type: "set_roving_entry", entryKey, subjectKey });

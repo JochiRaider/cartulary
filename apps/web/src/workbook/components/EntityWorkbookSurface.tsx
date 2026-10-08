@@ -373,6 +373,13 @@ export function EntityWorkbookSurface({
     viewSchemaId: surface,
   });
   continuityPortRef.current = entityFocus.port;
+  const restoreInspectorFocus = () => {
+    const token = inspectorContinuityTokenRef.current;
+    inspectorContinuityTokenRef.current = null;
+    return token === null
+      ? false
+      : (continuityPortRef.current?.restore(token) ?? false);
+  };
   const entityInspector = useEntityWorkbookInspectorComposition({
     sheetRef,
     canMerge,
@@ -392,11 +399,7 @@ export function EntityWorkbookSurface({
     },
     onRefreshEntities,
     onAuthorityUncertain,
-    onRestoreFocus: () => {
-      const token = inspectorContinuityTokenRef.current;
-      inspectorContinuityTokenRef.current = null;
-      if (token !== null) continuityPortRef.current?.restore(token);
-    },
+    onRestoreFocus: restoreInspectorFocus,
 
     rows,
     selectedEntity,
@@ -800,6 +803,7 @@ export function EntityWorkbookSurface({
     <WorkbookQuerySurfaceLayout
       chromeMode={chromeMode}
       inspector={entityInspector.node}
+      restoreInspectorFocus={restoreInspectorFocus}
       onRequestInspectorClose={() => {
         entityInspector.close();
       }}

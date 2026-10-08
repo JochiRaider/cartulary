@@ -72,7 +72,7 @@ function lineForIndex(source, index) {
   return source.slice(0, index).split("\n").length;
 }
 
-export function scanRestrictedReadSource(
+function scanRestrictedReadSource(
   consumerPath,
   source,
   restrictedRoots,

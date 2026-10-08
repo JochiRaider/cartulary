@@ -105,6 +105,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.frontend_unit.overlay_visibility_retirement",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/layout/useWorkbookMenuPlacement.test.tsx",
+        "titles": [
+          "placement retirement preserves the owner's current visibility across reopening"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.frontend_unit.viewport_layout_subscription",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.frontend_unit",
@@ -643,6 +667,30 @@
         "file": "apps/web/src/workbook/timeline/adapters/createTimelineMentionSourceReader.test.ts",
         "titles": [
           "aborted Review source reading does not request another Timeline page"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.captured_schema_callbacks_survive_navigation_wit_b1b057054b",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx",
+        "titles": [
+          "useWorkbookQueryController keeps captured surface setters stable and applies consecutive updates to their original schema after navigation"
         ]
       },
       "evidence_class": "unit",
@@ -4170,7 +4218,7 @@
         "titles": [
           "ordinary creation query reconciliation fences late generic reads immediately when authorization is concealed",
           "ordinary creation query reconciliation keeps all generic schema queries above accepted versions without inserting filtered records",
-          "ordinary creation query reconciliation reconciles both Entity queries and prevents obsolete reads after suspension"
+          "ordinary creation query reconciliation reconciles explicit Entity sheets and prevents obsolete reads after suspension"
         ]
       },
       "evidence_class": "unit",
@@ -6693,7 +6741,8 @@
           "workbench navigation admission keeps ordinary surface entry with its existing read and recovery owner",
           "workbench navigation admission opens record pins with defaults and preserves pins after operational failure",
           "workbench navigation admission refuses observations older than owner evidence and conceals uncertain authority",
-          "workbench navigation admission retains origin while location is pending and rejects late cancelled attachment"
+          "workbench navigation admission retains origin while location is pending and rejects late cancelled attachment",
+          "workbench navigation reconciles a superseded inspector request until committed attachment and fences cancellation"
         ]
       },
       "evidence_class": "unit",

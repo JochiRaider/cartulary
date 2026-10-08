@@ -1280,15 +1280,28 @@ test("Timeline bulk tag controls fit density Inspector zoom and text spacing wit
         await expect(
           query.getByRole("button", { name: "Saved view", exact: true }),
         ).toBeInViewport();
+        const chromeMode = await query.getAttribute("data-chrome-mode");
+        const queryMenu = query.getByRole("button", {
+          name: "Query controls",
+          exact: true,
+        });
+        if (chromeMode === "compact_desktop") await queryMenu.press("Enter");
         await expect(
           query.getByRole("button", {
             name: "Filters, 0 active filters",
             exact: true,
           }),
         ).toBeInViewport();
+        if (chromeMode === "compact_desktop") await queryMenu.press("Escape");
+        const viewMenu = query.getByRole("button", {
+          name: "View options controls",
+          exact: true,
+        });
+        if (chromeMode !== "base") await viewMenu.press("Enter");
         await expect(
           query.getByRole("button", { name: "Columns", exact: true }),
         ).toBeInViewport();
+        if (chromeMode !== "base") await viewMenu.press("Escape");
       }
       for (const name of ["Find in loaded rows", "Clear contents", "Add row"])
         await expect(

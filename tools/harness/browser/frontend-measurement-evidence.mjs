@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 
 import { validateSchemaSync } from "../contract/index.mjs";
-import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-events.mjs";
+import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
 
 const forbiddenKey = /^(?:bucket_name|credential|credentials|database_name|dsn|email|entered_text|password|payload|record_id|runtime_path|secret|token|transaction_id|txn_id|user_id)$/iu;
 const reportByteLimit = 32 * 1024 * 1024;

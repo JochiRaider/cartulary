@@ -77,8 +77,11 @@ The verification ID `package.ui` routes `packages/ui-contracts`; a functional
 uses `lucide-react` directly and has no standalone implementation registry.
 `harness.visual` owns fixture contracts but is not an active task-guide owner;
 its public fixture entry point is `make browser-e2e-visual`. Report Composition
-is adopted/current at 1.2.0; the Reference Pack subsystem NLSpec remains draft.
-These qualifications are not defects to repair by inventing implementations.
+is adopted/current at 1.2.0; Reference Pack is adopted/current at 0.2.0, with
+Core retaining recognition, transport and other outer boundaries. Adoption and
+engineering execution evidence do not establish release qualification. The
+Workbench adoption-time pending notes precede the implementation evidence in
+`docs/handoffs/ui-ux/workbook-workbench-implementation.md`.
 
 ## Product constraints
 

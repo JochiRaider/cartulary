@@ -7,7 +7,7 @@ import path from "node:path";
 import { createCommandFailureContext, CommandFailure } from "../../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { atomicLocalFile, readLocalFile, removePrivateFile } from "../../runtime/secure-local-files.mjs";
-import { createAcquisitionLaunch, closeAcquisitionLaunch, recordAcquisitionProcess, createBrowserAcquisition, settleBrowserAcquisition } from "../../browser/browser-acquisition.mjs";
+import { createAcquisitionLaunch, closeAcquisitionLaunch, recordAcquisitionProcess, createBrowserAcquisition, settleBrowserAcquisition, browserAcquisitionLaunchArguments } from "../adapters/browser.mjs";
 
 import {
   normalizeFailureClass,
@@ -652,8 +652,8 @@ export function productionFixtureProviders({
         try {
           onOwnedResource({ kind: "browser_stack", target: acquisitionFile, state: "pending" });
           const launchID = createAcquisitionLaunch(acquisitionFile, "producer");
-          await acquireProcess(process.execPath, ["--", new URL("../../browser/browser-acquisition.mjs", import.meta.url).pathname, "launch", acquisitionFile, launchID, lifecycle,
-            "--session-start", "--env-file", envFile, "--lease-file", leaseFile], { cwd: root, environment, signal,
+          await acquireProcess(process.execPath, browserAcquisitionLaunchArguments(acquisitionFile, launchID, lifecycle,
+            ["--session-start", "--env-file", envFile, "--lease-file", leaseFile]), { cwd: root, environment, signal,
               onChildProcess: (pid) => { recordAcquisitionProcess(acquisitionFile, launchID, pid); return onChildProcess?.(pid) ?? (() => {}); },
               onReaped: () => closeAcquisitionLaunch(acquisitionFile, launchID),
             });

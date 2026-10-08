@@ -46,6 +46,7 @@ export const stackedLabelStyle = {
 };
 
 export const menuStyle = {
+  color: "inherit",
   position: "absolute" as const,
   zIndex: 20,
   insetBlockStart: "calc(100% + 0.35rem)",

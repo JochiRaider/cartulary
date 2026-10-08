@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { browserTrustTool } from "../browser/browser-trust.mjs";
+import { browserTrustTool } from "../browser/index.mjs";
 
 const toolchainPinsSchemaID = "cartulary.toolchain_pins.v1";
 

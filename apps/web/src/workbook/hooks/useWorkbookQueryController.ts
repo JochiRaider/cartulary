@@ -26,10 +26,7 @@ import {
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import { useWorkbookQueryPresentation } from "../query/WorkbookQueryBrowsingContext";
-import {
-  useWorkbookQueryState,
-  type WorkbookQueryStateSetter,
-} from "../view-state/useWorkbookQueryState";
+import { useWorkbookQueryState } from "../view-state/useWorkbookQueryState";
 
 type WorkbookActiveQueryControls = {
   readonly contract: ViewContract;
@@ -92,32 +89,9 @@ export function useWorkbookQueryController({
     [entryFor, browsing],
   );
 
-  const makeQuerySetter = useCallback(
-    (viewSchemaId: string): WorkbookQueryStateSetter =>
-      (action) =>
-        setQueryStateForSurface(viewSchemaId, action),
-    [setQueryStateForSurface],
-  );
-
-  const setTimelineQueryState = useMemo(
-    () => makeQuerySetter(timelineViewSchemaId),
-    [makeQuerySetter],
-  );
-  const setHostQueryState = useMemo(
-    () => makeQuerySetter(hostsViewSchemaId),
-    [makeQuerySetter],
-  );
-  const setIdentityQueryState = useMemo(
-    () => makeQuerySetter(identitiesViewSchemaId),
-    [makeQuerySetter],
-  );
-  const setAssessmentQueryState = useMemo(
-    () => makeQuerySetter(assessmentsViewSchemaId),
-    [makeQuerySetter],
-  );
-  const setGenericQueryState = useMemo(
-    () => makeQuerySetter(surface),
-    [makeQuerySetter, surface],
+  const queryStateForSurface = useCallback(
+    (viewSchemaId: string) => entryFor(viewSchemaId).queryState,
+    [entryFor],
   );
 
   const activeContract = useMemo(
@@ -141,7 +115,8 @@ export function useWorkbookQueryController({
     activeBrowser?.canonicalIntent(activeEntry.queryState) ??
     activeEntry.queryState;
   const activeQueryControls = useMemo<WorkbookActiveQueryControls>(() => {
-    const setActiveQueryState = makeQuerySetter(surface);
+    const setActiveQueryState = (action: SetStateAction<WorkbookQueryState>) =>
+      setQueryStateForSurface(surface, action);
     const setActiveFilterDraft = (action: SetStateAction<FilterDraft>) =>
       setFilterDraftForSurface(surface, action);
     return {
@@ -199,7 +174,7 @@ export function useWorkbookQueryController({
     activeEntry,
     activeBrowser,
     canonicalRequestedQuery.filters,
-    makeQuerySetter,
+    setQueryStateForSurface,
     setFilterDraftForSurface,
     surface,
     presentedQuery,
@@ -209,20 +184,12 @@ export function useWorkbookQueryController({
     commands: {
       applyQueryStateForSurface,
       currentQueryStateForSurface,
-      setAssessmentQueryState,
-      setGenericQueryState,
-      setHostQueryState,
-      setIdentityQueryState,
-      setTimelineQueryState,
+      setQueryStateForSurface,
     },
     snapshot: {
       activeContract,
       activeQueryControls,
-      assessmentQueryState: entryFor(assessmentsViewSchemaId).queryState,
-      genericQueryState: activeEntry.queryState,
-      hostQueryState: entryFor(hostsViewSchemaId).queryState,
-      identityQueryState: entryFor(identitiesViewSchemaId).queryState,
-      timelineQueryState: entryFor(timelineViewSchemaId).queryState,
+      queryStateForSurface,
     },
   };
 }

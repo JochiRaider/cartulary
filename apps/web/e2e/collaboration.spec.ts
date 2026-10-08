@@ -1253,18 +1253,39 @@ test("keeps live updates conflict markers and presence markers anchored to recor
       "timeline.has_evidence",
       "false",
     );
+    const groupedRead = page.waitForResponse((response) => {
+      const request = response.request();
+      return (
+        request.method() === "POST" &&
+        new URL(response.url()).pathname ===
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query` &&
+        (request.postDataJSON() as { group_by?: string }).group_by ===
+          "timeline.capture_state"
+      );
+    });
     await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+    expect((await groupedRead).status()).toBe(200);
+    const browsing = page.getByRole("group", {
+      name: "Workbook browsing",
+      exact: true,
+    });
+    await expect(
+      browsing.getByRole("button", { name: "Refresh", exact: true }),
+    ).toBeEnabled();
+    await expect(browsing.getByRole("status")).toHaveText(
+      `${24 + commandRows.length + 1} records loaded; end of current results.`,
+    );
 
     for (const { baseSummary, recordId, scenario, sortLabel } of commandRows) {
+      const input = page.getByTestId(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      );
       await scrollGridCellIntoView({
         cellKey: "timeline.activity_synopsis_text",
         page,
         recordId,
         surface: timelineViewSchemaId,
       });
-      const input = page.getByTestId(
-        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-      );
       await expect(input).toHaveText(baseSummary);
 
       await patchTimelineField(
@@ -1690,6 +1711,8 @@ test("replays queued unsent writes after re-authentication without silent reload
         "collaboration-conflict halt C base",
       ),
     );
+    // Keep the disconnected front in place until the accepting observer is armed.
+    const conflictController = await installPatchController(page);
     const transportController =
       await installPatchTransportFailureController(page);
 
@@ -1734,11 +1757,11 @@ test("replays queued unsent writes after re-authentication without silent reload
         "3",
       );
 
-      const conflictController = await installPatchController(page);
+      const heldPatch = conflictController.holdNextPatch({ recordId: firstId });
       try {
-        const heldPatch = conflictController.holdNextPatch();
         await transportController.dispose();
-        await heldPatch.waitForHit;
+        expect((await heldPatch.waitForHit).recordId).toBe(firstId);
+        expect(successfulPatchCalls(conflictController.calls)).toHaveLength(0);
         await patchTimelineField(
           page,
           firstId,
@@ -1775,10 +1798,11 @@ test("replays queued unsent writes after re-authentication without silent reload
           [thirdId]: "collaboration-conflict halt C base",
         });
       } finally {
-        await conflictController.dispose();
+        heldPatch.release();
       }
     } finally {
       await transportController.dispose();
+      await conflictController.dispose();
     }
   });
 

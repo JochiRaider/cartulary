@@ -17,28 +17,48 @@
     "extensions"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.fallow_reachability_owner.v1" },
+    "schema_id": {
+      "const": "cartulary.fallow_reachability_owner.v1"
+    },
     "base_config": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path"],
+      "required": [
+        "path"
+      ],
       "properties": {
-        "path": { "$ref": "#/$defs/repo_path" }
+        "path": {
+          "$ref": "#/$defs/repo_path"
+        }
       }
     },
     "blocking_web_surface": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["root", "rules"],
+      "required": [
+        "root",
+        "rules"
+      ],
       "properties": {
-        "root": { "const": "apps/web" },
-        "rules": { "const": ["unused_files", "unused_exports", "unused_types"] }
+        "root": {
+          "const": "apps/web"
+        },
+        "rules": {
+          "const": [
+            "unused_files",
+            "unused_exports",
+            "unused_types"
+          ]
+        }
       }
     },
     "blocking_package_surfaces": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["packages", "rules"],
+      "required": [
+        "packages",
+        "rules"
+      ],
       "properties": {
         "packages": {
           "type": "array",
@@ -46,14 +66,25 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["package_name", "entrypoint", "own_test_globs"],
+            "required": [
+              "package_name",
+              "entrypoint",
+              "own_test_globs"
+            ],
             "properties": {
-              "package_name": { "type": "string", "minLength": 1 },
-              "entrypoint": { "$ref": "#/$defs/repo_path" },
+              "package_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "entrypoint": {
+                "$ref": "#/$defs/repo_path"
+              },
               "own_test_globs": {
                 "type": "array",
                 "minItems": 1,
-                "items": { "$ref": "#/$defs/repo_glob" },
+                "items": {
+                  "$ref": "#/$defs/repo_glob"
+                },
                 "uniqueItems": true
               }
             }
@@ -62,7 +93,12 @@
         "rules": {
           "type": "array",
           "minItems": 1,
-          "items": { "enum": ["unused_exports", "unused_types"] },
+          "items": {
+            "enum": [
+              "unused_exports",
+              "unused_types"
+            ]
+          },
           "uniqueItems": true
         }
       }
@@ -76,25 +112,47 @@
         "required_node_tool_backing_scripts"
       ],
       "properties": {
-        "owner_path": { "$ref": "#/$defs/repo_path" },
+        "owner_path": {
+          "$ref": "#/$defs/repo_path"
+        },
         "script_extensions": {
           "type": "array",
           "minItems": 1,
-          "items": { "enum": [".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"] },
+          "items": {
+            "enum": [
+              ".cjs",
+              ".cts",
+              ".js",
+              ".jsx",
+              ".mjs",
+              ".mts",
+              ".ts",
+              ".tsx"
+            ]
+          },
           "uniqueItems": true
         },
-        "required_node_tool_backing_scripts": { "const": true }
+        "required_node_tool_backing_scripts": {
+          "const": true
+        }
       }
     },
     "harness_entrypoints": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["files"],
+      "required": [
+        "files"
+      ],
       "properties": {
         "files": {
           "type": "array",
-          "items": { "$ref": "#/$defs/repo_path" },
+          "items": {
+            "$ref": "#/$defs/repo_path"
+          },
           "uniqueItems": true
+        },
+        "facade_owner_path": {
+          "$ref": "#/$defs/repo_path"
         }
       }
     },
@@ -103,18 +161,38 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["file", "exports", "owner", "evidence", "removal_trigger"],
+        "required": [
+          "file",
+          "exports",
+          "owner",
+          "evidence",
+          "removal_trigger"
+        ],
         "properties": {
-          "file": { "$ref": "#/$defs/repo_path" },
+          "file": {
+            "$ref": "#/$defs/repo_path"
+          },
           "exports": {
             "type": "array",
             "minItems": 1,
-            "items": { "type": "string", "minLength": 1 },
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
             "uniqueItems": true
           },
-          "owner": { "type": "string", "minLength": 1 },
-          "evidence": { "type": "string", "minLength": 1 },
-          "removal_trigger": { "type": "string", "minLength": 1 }
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "removal_trigger": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "default": []
@@ -122,19 +200,29 @@
     "vitest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["config_file", "setup_files", "test_entry_globs"],
+      "required": [
+        "config_file",
+        "setup_files",
+        "test_entry_globs"
+      ],
       "properties": {
-        "config_file": { "$ref": "#/$defs/repo_path" },
+        "config_file": {
+          "$ref": "#/$defs/repo_path"
+        },
         "setup_files": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/repo_path" },
+          "items": {
+            "$ref": "#/$defs/repo_path"
+          },
           "uniqueItems": true
         },
         "test_entry_globs": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/repo_glob" },
+          "items": {
+            "$ref": "#/$defs/repo_glob"
+          },
           "uniqueItems": true
         }
       }
@@ -142,25 +230,39 @@
     "vite_public_assets": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["public_root", "html_entry_files", "url_prefixes", "always_used_files"],
+      "required": [
+        "public_root",
+        "html_entry_files",
+        "url_prefixes",
+        "always_used_files"
+      ],
       "properties": {
-        "public_root": { "$ref": "#/$defs/repo_path" },
+        "public_root": {
+          "$ref": "#/$defs/repo_path"
+        },
         "html_entry_files": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/repo_path" },
+          "items": {
+            "$ref": "#/$defs/repo_path"
+          },
           "uniqueItems": true
         },
         "url_prefixes": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^/[A-Za-z0-9._/-]+/$" },
+          "items": {
+            "type": "string",
+            "pattern": "^/[A-Za-z0-9._/-]+/$"
+          },
           "uniqueItems": true
         },
         "always_used_files": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/repo_path" },
+          "items": {
+            "$ref": "#/$defs/repo_path"
+          },
           "uniqueItems": true
         }
       }
@@ -170,14 +272,26 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["package_name", "owner_script", "command"],
+        "required": [
+          "package_name",
+          "owner_script",
+          "command"
+        ],
         "properties": {
-          "package_name": { "type": "string", "minLength": 1 },
-          "owner_script": { "$ref": "#/$defs/repo_path" },
+          "package_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner_script": {
+            "$ref": "#/$defs/repo_path"
+          },
           "command": {
             "type": "array",
             "minItems": 2,
-            "items": { "type": "string", "minLength": 1 }
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
@@ -185,13 +299,34 @@
     "static_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["runtime_enabled", "per_file_suppression_growth"],
+      "required": [
+        "runtime_enabled",
+        "per_file_suppression_growth"
+      ],
       "properties": {
-        "runtime_enabled": { "const": false },
-        "per_file_suppression_growth": { "const": false }
+        "runtime_enabled": {
+          "const": false
+        },
+        "per_file_suppression_growth": {
+          "const": false
+        }
       }
     },
-    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+    "extensions": {
+      "$ref": "cartulary.harness.defs.v1#/$defs/extensions"
+    },
+    "typescript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_file"
+      ],
+      "properties": {
+        "project_file": {
+          "$ref": "#/$defs/repo_path"
+        }
+      }
+    }
   },
   "$defs": {
     "repo_path": {

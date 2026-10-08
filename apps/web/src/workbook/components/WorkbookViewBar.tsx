@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 import { useWorkbookCommand } from "../commands/WorkbookCommands";
+import { useWorkbookMenuPlacement } from "../layout/useWorkbookMenuPlacement";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import { useWorkbookWorkbench } from "../navigation/WorkbookWorkbenchContext";
 import { WorkbookReturnControl } from "../navigation/WorkbookWorkPanel";
@@ -30,7 +31,10 @@ import { WorkbookTimelinePresets } from "./WorkbookTimelinePresets";
 import { workbookQuietCommandStyle } from "./workbookFormStyles";
 
 export type WorkbookViewBarWorkingSetBinding = {
-  readonly query: Omit<WorkbookGridControlsProps, "chromeMode"> | null;
+  readonly query: Omit<
+    WorkbookGridControlsProps,
+    "chromeMode" | "composeControls"
+  > | null;
   readonly savedView: Omit<
     ActiveSurfaceSavedViewSelectorProps,
     "chromeMode"
@@ -64,7 +68,8 @@ export function WorkbookViewBar({
 }: WorkbookViewBarProps) {
   const workbench = useWorkbookWorkbench();
   const browsing = useWorkbookBrowsingRegistry();
-  const queryMenu = useRef<(() => void) | null>(null);
+  const queryMenu = useRef<((focusTarget?: HTMLElement) => void) | null>(null);
+  const viewMenu = useRef<((focusTarget?: HTMLElement) => void) | null>(null);
   const registerInspector = workbench?.registerInspector;
   useLayoutEffect(
     () =>
@@ -151,6 +156,9 @@ export function WorkbookViewBar({
         }
       : null,
   );
+  const queryInMenu =
+    chromeMode === "compact_desktop" ||
+    chromeMode === "below_supported_minimum";
   const compactActions =
     iconOnlyActions ||
     chromeMode === "compact_desktop" ||
@@ -163,59 +171,80 @@ export function WorkbookViewBar({
     >
       <div style={controlRailStyle}>
         {chromeMode === "base" ? <WorkbookReturnControl /> : null}
-        <ViewBarMenu label="View" enabled={chromeMode !== "base"}>
-          {chromeMode !== "base" ? <WorkbookReturnControl /> : null}
-          {workingSet?.savedView ? (
-            <div
-              style={
-                chromeMode === "base"
-                  ? savedViewAllocationStyleFor(chromeMode)
-                  : undefined
+        {workingSet?.savedView && chromeMode !== "below_supported_minimum" ? (
+          <div style={savedViewAllocationStyleFor(chromeMode)}>
+            <ActiveSurfaceSavedViewSelector
+              {...workingSet.savedView}
+              chromeMode={chromeMode}
+              presets={
+                workingSet.query?.onApplyPreset ? (
+                  <WorkbookTimelinePresets
+                    onApply={workingSet.query.onApplyPreset}
+                  />
+                ) : undefined
               }
-            >
-              <ActiveSurfaceSavedViewSelector
-                {...workingSet.savedView}
-                chromeMode={chromeMode === "base" ? chromeMode : "base"}
-                presets={
-                  workingSet.query?.onApplyPreset ? (
-                    <WorkbookTimelinePresets
-                      onApply={workingSet.query.onApplyPreset}
-                    />
-                  ) : undefined
-                }
-              />
-            </div>
-          ) : null}
-          {chromeMode !== "base" && onInspectorToggle && workbench ? (
-            <button
-              type="button"
-              style={toolbarButtonStyle}
-              data-grid-editor-external-action="true"
-              onClick={() => {
-                if (workbench.requestInspectValue()) onInspectorToggle();
-              }}
-            >
-              Inspect value
-            </button>
-          ) : null}
-        </ViewBarMenu>
+            />
+          </div>
+        ) : null}
         {workingSet?.query ? (
-          <ViewBarMenu
-            label="Query"
-            enabled={chromeMode !== "base"}
-            menuRef={queryMenu}
-          >
-            <div
-              style={chromeMode === "base" ? queryAllocationStyle : undefined}
-            >
-              <WorkbookGridControls
-                {...workingSet.query}
-                chromeMode={chromeMode}
-                menu={chromeMode !== "base"}
-                onRequestMenu={() => queryMenu.current?.()}
-              />
-            </div>
-          </ViewBarMenu>
+          <div style={queryAllocationStyle}>
+            <WorkbookGridControls
+              {...workingSet.query}
+              chromeMode={chromeMode}
+              menu={queryInMenu}
+              onRequestMenu={(panel, focusTarget) => {
+                if (panel === "columns") {
+                  if (chromeMode !== "base") viewMenu.current?.(focusTarget);
+                } else if (queryInMenu) queryMenu.current?.(focusTarget);
+              }}
+              composeControls={({ query, columns }) => (
+                <>
+                  <ViewBarMenu
+                    label="Query"
+                    enabled={queryInMenu}
+                    menuRef={queryMenu}
+                  >
+                    {query}
+                  </ViewBarMenu>
+                  <ViewBarMenu
+                    label="View options"
+                    enabled={chromeMode !== "base"}
+                    menuRef={viewMenu}
+                  >
+                    {chromeMode === "below_supported_minimum" &&
+                    workingSet.savedView ? (
+                      <ActiveSurfaceSavedViewSelector
+                        {...workingSet.savedView}
+                        chromeMode="base"
+                        presets={
+                          workingSet.query?.onApplyPreset ? (
+                            <WorkbookTimelinePresets
+                              onApply={workingSet.query.onApplyPreset}
+                            />
+                          ) : undefined
+                        }
+                      />
+                    ) : null}
+                    {chromeMode !== "base" ? <WorkbookReturnControl /> : null}
+                    {columns}
+                    {chromeMode !== "base" && onInspectorToggle && workbench ? (
+                      <button
+                        type="button"
+                        style={toolbarButtonStyle}
+                        data-grid-editor-external-action="true"
+                        onClick={() => {
+                          if (workbench.requestInspectValue())
+                            onInspectorToggle();
+                        }}
+                      >
+                        Inspect value
+                      </button>
+                    ) : null}
+                  </ViewBarMenu>
+                </>
+              )}
+            />
+          </div>
         ) : null}
       </div>
       <div style={rightRailStyle}>
@@ -343,22 +372,41 @@ function ViewBarMenu({
   children,
   menuRef,
 }: {
-  readonly menuRef?: RefObject<(() => void) | null>;
+  readonly menuRef?: RefObject<((focusTarget?: HTMLElement) => void) | null>;
   readonly label: string;
   readonly enabled: boolean;
   readonly children: ReactNode;
 }) {
   const root = useRef<HTMLFieldSetElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const [pendingFocus, setPendingFocus] = useState<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
+  useWorkbookMenuPlacement(enabled && open, panel, root);
   useLayoutEffect(() => {
-    if (menuRef) menuRef.current = () => setOpen(true);
+    if (menuRef)
+      menuRef.current = (focusTarget) => {
+        setPendingFocus(focusTarget ?? null);
+        setOpen(true);
+      };
     return () => {
       if (menuRef) menuRef.current = null;
     };
   }, [menuRef]);
   useLayoutEffect(() => {
-    setOpen(enabled && !!root.current?.contains(document.activeElement));
+    setOpen(
+      (current) =>
+        enabled &&
+        (current || !!root.current?.contains(document.activeElement)),
+    );
   }, [enabled]);
+  useLayoutEffect(() => {
+    if (!pendingFocus) return;
+    const target = pendingFocus;
+    setPendingFocus(null);
+    if (!enabled || !open) return;
+    if (target?.isConnected && panel.current?.contains(target))
+      target.focus({ preventScroll: true });
+  }, [enabled, open, pendingFocus]);
   useEffect(() => {
     if (!enabled) return;
     const closeOutside = (event: Event) => {
@@ -410,16 +458,20 @@ function ViewBarMenu({
         {label} ▾
       </button>
       <div
+        ref={panel}
+        popover={enabled ? "manual" : undefined}
         style={
           enabled
             ? {
+                color: "inherit",
                 position: "absolute",
                 insetBlockStart: "100%",
                 insetInlineStart: 0,
                 inlineSize:
                   "min(var(--ct-layout-viewBarOverlayMaxInlineSize), 85vw)",
                 maxBlockSize: "70vh",
-                overflow: "visible",
+                overflow: "auto",
+                boxSizing: "border-box",
                 padding: "var(--ct-spacing-sm)",
                 display: open ? "grid" : "none",
                 gap: "var(--ct-spacing-sm)",

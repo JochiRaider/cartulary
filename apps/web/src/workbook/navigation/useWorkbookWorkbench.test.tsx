@@ -124,6 +124,7 @@ function fixture() {
     hook,
     target,
     detachPresentation,
+    registry,
   };
 }
 
@@ -259,6 +260,94 @@ describe("workbench navigation admission", () => {
     f.hook.rerender(f.options);
     expect(f.session.getSnapshot().pins[0]?.label).toBe("Saved label");
   });
+});
+
+it("workbench navigation reconciles a superseded inspector request until committed attachment and fences cancellation", async () => {
+  for (const cancelled of [false, true]) {
+    const f = fixture();
+    const binding = f.registry.prepare(f.query, notesViewSchemaId, true);
+    f.registry.commit(binding);
+    const grid = {
+      requestFocus: vi.fn(async () => "focused"),
+      presentation: {
+        getSnapshot: () => ({
+          surface: { kind: "view_schema", viewSchemaId: notesViewSchemaId },
+          rowIdentities: [{ kind: "core_record", recordId }],
+          fieldKeys: ["note.title"],
+          revision: 1,
+        }),
+        subscribe: () => () => {},
+      },
+    } as unknown as GridHandle;
+    f.registry.bindGrid(
+      notesViewSchemaId,
+      { current: grid },
+      (_id, committed) => committed(),
+    );
+    f.registry.updatePresentation(notesViewSchemaId, Symbol(), true, () => {});
+    const wrongSubjectFocus = vi.fn(() => true);
+    act(() =>
+      f.hook.result.current.registerInspectorFocus(
+        notesViewSchemaId,
+        "unrelated-record",
+        wrongSubjectFocus,
+      ),
+    );
+    const supersededOpen = vi.fn();
+    act(() =>
+      f.hook.result.current.registerInspector(
+        notesViewSchemaId,
+        supersededOpen,
+      ),
+    );
+    act(() => f.hook.result.current.open(f.target, true));
+    await waitFor(() => expect(f.applyIdentity).toHaveBeenCalledOnce());
+    // The staged page still needs explicit acceptance by its read owner.
+    await act(async () => {
+      const browser = binding.currentBrowser();
+      if (!browser) throw new Error("Missing destination browser");
+      const read = await browser.query({
+        contract,
+        queryState: emptyWorkbookQueryState(),
+        signal: new AbortController().signal,
+      });
+      if (read.kind !== "accepted")
+        throw new Error("Missing accepted destination");
+      browser.accept(read.value);
+    });
+    await waitFor(() => expect(supersededOpen).toHaveBeenCalledOnce());
+    expect(grid.requestFocus).toHaveBeenCalledOnce();
+    expect(wrongSubjectFocus).not.toHaveBeenCalled();
+
+    // A committed lifecycle replacement can discard the first open request.
+    // Its registration is a new readiness event, not evidence of attachment.
+    if (cancelled) act(() => f.hook.result.current.cancelNavigation());
+    const replacementOpen = vi.fn();
+    act(() =>
+      f.hook.result.current.registerInspector(
+        notesViewSchemaId,
+        replacementOpen,
+      ),
+    );
+    await act(async () => {});
+    expect(replacementOpen).toHaveBeenCalledTimes(cancelled ? 0 : 1);
+    const focus = vi.fn(() => true);
+    act(() =>
+      f.hook.result.current.registerInspectorFocus(
+        notesViewSchemaId,
+        recordId,
+        focus,
+      ),
+    );
+    await act(async () => {});
+    expect(focus).toHaveBeenCalledTimes(cancelled ? 0 : 1);
+    act(() => f.registry.resumeNavigation());
+    await act(async () => {});
+    expect(replacementOpen).toHaveBeenCalledTimes(cancelled ? 0 : 1);
+    expect(focus).toHaveBeenCalledTimes(cancelled ? 0 : 1);
+    expect(wrongSubjectFocus).not.toHaveBeenCalled();
+    f.hook.unmount();
+  }
 });
 
 it("navigation selects the accepted record through its owner before inspection, and ignores cancelled focus", async () => {

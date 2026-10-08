@@ -17,3 +17,5 @@ export {
   targetForCatalogRow,
 } from "./target-routing.mjs";
 export { buildSourceSnapshot } from "./source-snapshot.mjs";
+export { requiredServicesForFixture, assertFixtureServiceDependencies } from "./service-dependencies.mjs";
+export { restrictedExecutableInputRoots, validateExecutableInputPolicy } from "./restricted-input-boundary.mjs";

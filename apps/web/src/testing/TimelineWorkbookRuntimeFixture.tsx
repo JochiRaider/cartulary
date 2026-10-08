@@ -1,6 +1,13 @@
 import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type SetStateAction,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type SheetRef, sheetRefKey } from "../shared/sheetRef";
 import { WorkbookRecoveryNavigation } from "../shared/workbookRecoveryNavigation";
 import { createWorkbookBatchTransport } from "../workbook/adapters/createWorkbookBatchTransport";
@@ -23,6 +30,7 @@ import { useWorkbookRecoveryFocus } from "../workbook/hooks/useWorkbookRecoveryF
 import { useWorkbookColumnLayoutController } from "../workbook/layout/useWorkbookColumnLayoutController";
 import type { WorkbookResolvedLayoutState } from "../workbook/layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../workbook/layout/workbookResponsiveLayout";
+import type { WorkbookQueryState } from "../workbook/models/workbookQuery";
 
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "../workbook/mutations/createWorkbookMutationCommandPorts";
@@ -130,6 +138,13 @@ function TimelineWorkbookRuntimeFixtureContent({
   const queryController = useWorkbookQueryController({
     surface: timelineViewSchemaId,
   });
+  const setQueryStateForSurface =
+    queryController.commands.setQueryStateForSurface;
+  const setTimelineQueryState = useCallback(
+    (action: SetStateAction<WorkbookQueryState>) =>
+      setQueryStateForSurface(timelineViewSchemaId, action),
+    [setQueryStateForSurface],
+  );
   const layoutOwner = useWorkbookColumnLayoutController({
     activeContract: timelineContract,
     contextKey: incidentId,
@@ -351,8 +366,11 @@ function TimelineWorkbookRuntimeFixtureContent({
                 },
                 query: {
                   viewQuery,
-                  state: queryController.snapshot.timelineQueryState,
-                  setState: queryController.commands.setTimelineQueryState,
+                  state:
+                    queryController.snapshot.queryStateForSurface(
+                      timelineViewSchemaId,
+                    ),
+                  setState: setTimelineQueryState,
                   viewBarWorkingSet: {
                     savedView: null,
                     query:

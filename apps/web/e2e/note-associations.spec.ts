@@ -165,7 +165,14 @@ test("Notes manage existing sources evidence and directional references with ret
   ).toHaveCount(0);
   expect(bodies).toHaveLength(2);
   await recovery.getByRole("button", { name: /Close recovery/i }).click();
+  // Association changes can move the Note before its located window's cursor.
+  // Passive reconciliation retains that window; explicit Refresh starts over.
+  await page
+    .getByRole("group", { name: "Workbook browsing", exact: true })
+    .getByRole("button", { name: "Refresh", exact: true })
+    .click();
   await openGenericInspectorForRecord(page, notesViewSchemaId, note.record_id);
+  expect(bodies).toHaveLength(2);
   await expect(panel).toContainText("Associated evidence");
   await test.info().attach("note-associations-populated-review", {
     body: await page.screenshot({ animations: "disabled" }),

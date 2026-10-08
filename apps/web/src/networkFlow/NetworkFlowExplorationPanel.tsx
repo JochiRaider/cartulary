@@ -61,7 +61,6 @@ export function NetworkFlowExplorationPanel({
   onLinkEdge,
   onLinkVertex,
   isFocusCurrent,
-  bindFocusRestoration,
 }: {
   readonly navigation: ExplorationNavigation;
   readonly contributorPage: ExplorationContributorPage;
@@ -79,7 +78,6 @@ export function NetworkFlowExplorationPanel({
   ) => void;
   readonly onLinkVertex: () => void;
   readonly isFocusCurrent: (focus: ExplorationFocus) => boolean;
-  readonly bindFocusRestoration: (restore: () => boolean) => () => void;
 }) {
   const [drawerAttached, setDrawerAttached] = useState(true);
   const onNavigate = useCallback(
@@ -145,25 +143,6 @@ export function NetworkFlowExplorationPanel({
   );
   const root = useRef<HTMLElement | null>(null);
   const ownsFocus = useRef(false);
-  const latestNavigation = useRef(navigation);
-  latestNavigation.current = navigation;
-  useLayoutEffect(
-    () =>
-      bindFocusRestoration(() => {
-        const container = root.current;
-        if (!container?.isConnected || !latestNavigation.current.active)
-          return false;
-        const selector = latestNavigation.current.selection;
-        const target = selector
-          ? container.querySelector<HTMLElement>(
-              `[data-graph-selector-id="${explorationSelectionId(selector)}"]`,
-            )
-          : null;
-        (target ?? container).focus();
-        return true;
-      }),
-    [bindFocusRestoration],
-  );
   const coordinated = useWorkbookSecondaryPanel(drawerOpen, () =>
     setDrawerAttached(false),
   );

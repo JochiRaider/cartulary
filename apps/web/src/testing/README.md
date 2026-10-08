@@ -89,3 +89,17 @@ extension frame as the shell. There is no optional-frame or legacy overlay path.
 Named headings may identify direct actual-focus assertions. Readiness uses
 stable selectors; the selector policy distinguishes these uses structurally and
 rejects ambiguous aliases. Focus checks must not move focus to create success.
+
+
+Browser HTTP helpers preserve response envelopes for assertions, while failure
+messages use the shared operation/status/registered-code diagnostic. Request and
+response bodies, private URLs, authoring data and capabilities do not belong in
+retained failure text. Unknown response codes are reported as unrecognized;
+the authored error projection supplies the supported vocabulary.
+
+Replay fixtures acquire the accepting patch observer before a disconnected front
+interceptor. Configure the exact-record hold while that front still blocks
+requests, then remove the front to admit replay. Release test-owned holds and
+retire interceptors in reverse acquisition order.
+
+Saved View activation completes with the existing ordinary creation target focused. When a scenario immediately edits a query chip, await that destination before starting the next gesture; unchanged row membership alone cannot establish that the activation finished. Recovery panel dismissal belongs to its current attachment: test Escape and reopening before explicit sheet navigation, then reveal retained drafts for the next real authoring action. Navigation does not remove the underlying recovery obligation.

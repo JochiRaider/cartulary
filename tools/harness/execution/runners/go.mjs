@@ -3,11 +3,6 @@ import { createInterface } from "node:readline";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
 
-export const runnerContract = Object.freeze({
-  runner: "go",
-  selector_kind: "go_exact_tests",
-});
-
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }

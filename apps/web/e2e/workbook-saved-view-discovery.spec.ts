@@ -1,4 +1,5 @@
 import {
+  draftCellTestId,
   gridGroupingSelectTestId,
   gridSortHeaderTestId,
   savedViewOptionTestId,
@@ -177,13 +178,17 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
     name: "Saved views",
     exact: true,
   });
+  const choices = browser.getByRole("listbox", {
+    name: "Saved-view choices",
+    exact: true,
+  });
   await expect.poll(() => firstPending).toBe(true);
   await expect(
-    browser.getByRole("option", { name: "Unsaved view", exact: true }),
+    choices.getByRole("option", { name: "Unsaved view", exact: true }),
   ).toBeVisible();
   await expect(trigger).toContainText(startup.display_name);
   first.release();
-  await expect(browser.getByRole("option")).toHaveCount(51);
+  await expect(choices.getByRole("option")).toHaveCount(51);
   const browsingWrites: string[] = [];
   const browsingQueries: string[] = [];
   page.on("request", (request) => {
@@ -206,13 +211,13 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
       savedViewOptionTestId(timelineViewSchemaId, startup.saved_view_id),
     ),
   ).toHaveCount(0);
-  const base = browser.getByRole("option", {
+  const base = choices.getByRole("option", {
     name: "Unsaved view",
     exact: true,
   });
   await expect(base).toBeFocused();
   await page.keyboard.press("End");
-  await expect(browser.getByRole("option").last()).toBeFocused();
+  await expect(choices.getByRole("option").last()).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
     browser.getByRole("button", { name: "First", exact: true }),
@@ -231,7 +236,7 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
     browser.getByRole("button", { name: "Retry page" }),
   ).toBeVisible();
   await expect(next).toBeFocused();
-  await expect(browser.getByRole("option")).toHaveCount(51);
+  await expect(choices.getByRole("option")).toHaveCount(51);
   await expect(trigger).toHaveAttribute(
     "data-selected-saved-view-id",
     startup.saved_view_id,
@@ -255,14 +260,14 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
   await expect.poll(() => laterPending).toBe(true);
   await expect(retry).toBeFocused();
   await expect(retry).toHaveAttribute("aria-busy", "true");
-  await expect(browser.getByRole("option")).toHaveCount(51);
+  await expect(choices.getByRole("option")).toHaveCount(51);
   await expect(trigger).toHaveAttribute(
     "data-selected-saved-view-id",
     startup.saved_view_id,
   );
   later.release();
-  await expect(browser.getByRole("option")).toHaveCount(4);
-  await expect(browser.getByRole("option").nth(1)).toBeFocused();
+  await expect(choices.getByRole("option")).toHaveCount(4);
+  await expect(choices.getByRole("option").nth(1)).toBeFocused();
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await expect(
     page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
@@ -286,17 +291,17 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
     browser.getByRole("button", { name: "Previous", exact: true }),
   ).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(browser.getByRole("option")).toHaveCount(51);
-  await expect(browser.getByRole("option").nth(1)).toBeFocused();
+  await expect(choices.getByRole("option")).toHaveCount(51);
+  await expect(choices.getByRole("option").nth(1)).toBeFocused();
   await page.keyboard.press("End");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
   await expect(next).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(browser.getByRole("option")).toHaveCount(4);
+  await expect(choices.getByRole("option")).toHaveCount(4);
   expect(browsingQueries).toHaveLength(0);
   expect(browsingWrites).toEqual([]);
-  const candidate = browser
+  const candidate = choices
     .getByRole("option")
     .filter({ hasText: "Discovery" })
     .first();
@@ -316,7 +321,9 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
   ).toHaveValue("timeline.capture_state");
   await expect(analystHeader).toHaveCount(0);
   await expect(browser).toHaveCount(0);
-  await expect(trigger).toBeFocused();
+  await expect(
+    page.getByTestId(draftCellTestId("timeline.date_entered_text")),
+  ).toBeFocused();
   await trigger.press("Enter");
   await expect(browser).toBeVisible();
   await browser.press("Escape");

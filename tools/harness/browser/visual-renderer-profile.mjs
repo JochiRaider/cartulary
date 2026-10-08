@@ -5,7 +5,7 @@ import { isDeepStrictEqual } from "node:util";
 import { validateSchemaSync } from "../contract/index.mjs";
 
 export const visualRendererProfilePath = "tools/frontend_visual_renderer_profile.json";
-export const fontManifestPath = "assets/fonts/FONT_MANIFEST.json";
+const fontManifestPath = "assets/fonts/FONT_MANIFEST.json";
 export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 export function loadVisualRendererProfile(root) {

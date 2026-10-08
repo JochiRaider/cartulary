@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
-import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-events.mjs";
+import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
 
 function usage() {
   throw new Error("usage: scheduler-event-order-drift-cli.mjs [--target <target>] <run-dir>");

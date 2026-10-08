@@ -1296,7 +1296,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         .isVisible())
     ) {
       await page
-        .getByRole("button", { name: "View controls", exact: true })
+        .getByRole("button", { name: "View options controls", exact: true })
         .click();
     }
     await selectSavedView(page, timelineViewSchemaId, "");

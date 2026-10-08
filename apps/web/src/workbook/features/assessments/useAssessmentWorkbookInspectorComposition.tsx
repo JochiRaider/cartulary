@@ -157,7 +157,7 @@ export function useAssessmentWorkbookInspectorComposition({
   ).filter(isAssessmentConfidenceBand);
   const close = () => {
     creation.commands.cancel();
-    inspector.commands.close({ restoreFocus: true });
+    inspector.commands.close();
   };
   const node = isOpen ? (
     <AssessmentWorkbookInspector

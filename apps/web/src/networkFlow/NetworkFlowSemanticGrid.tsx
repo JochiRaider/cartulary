@@ -51,7 +51,6 @@ import { useNetworkFlowGridLayout } from "./useNetworkFlowGridLayout";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 
 export function NetworkFlowAcceptedGrid({
-  gridRef,
   error,
   filtered,
   loadGenerationKey = 0,
@@ -66,7 +65,6 @@ export function NetworkFlowAcceptedGrid({
   sort,
   onSelectionChange,
 }: {
-  readonly gridRef?: RefObject<GridHandle | null> | undefined;
   readonly error: NetworkFlowRequestError | null;
   readonly filtered: boolean;
   readonly loadGenerationKey?: string | number | undefined;
@@ -117,7 +115,6 @@ export function NetworkFlowAcceptedGrid({
   });
   return (
     <NetworkFlowGridFrame
-      externalGridRef={gridRef}
       columnsControl={layout}
       gridSchemaId="network_flow.accepted_rows.v1"
       onSelectionChange={onSelectionChange}
@@ -416,7 +413,6 @@ export function NetworkFlowContributorGrid({
 }
 
 function NetworkFlowGridFrame<Row extends object>({
-  externalGridRef,
   children,
   columnsControl,
   gridSchemaId,
@@ -425,7 +421,6 @@ function NetworkFlowGridFrame<Row extends object>({
   semanticPageSelection = false,
   rows,
 }: {
-  readonly externalGridRef?: RefObject<GridHandle | null> | undefined;
   readonly children: (state: {
     readonly activeAnchor: GridCellAnchor | null;
     readonly cellRange: GridCellRange | null;
@@ -452,27 +447,23 @@ function NetworkFlowGridFrame<Row extends object>({
   const [cellRange, setCellRange] = useState<GridCellRange | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   useWorkbookSecondaryPanel(inspectorOpen, () => setInspectorOpen(false));
-  const localGridRef = useRef<GridHandle | null>(null);
-  const gridRef = externalGridRef ?? localGridRef;
+  const gridRef = useRef<GridHandle | null>(null);
   const focusRestorationRef = useRef(false);
   const lastRowIndexRef = useRef(0);
-  const restoreGridAnchor = useCallback(
-    (anchor: GridCellAnchor) => {
-      focusRestorationRef.current = true;
-      const handle = gridRef.current;
-      void (async () => {
-        try {
-          const result = await handle?.requestFocus({ kind: "cell", anchor });
-          if (result === "unavailable" && gridRef.current === handle) {
-            await handle?.requestFocus({ kind: "root" });
-          }
-        } finally {
-          focusRestorationRef.current = false;
+  const restoreGridAnchor = useCallback((anchor: GridCellAnchor) => {
+    focusRestorationRef.current = true;
+    const handle = gridRef.current;
+    void (async () => {
+      try {
+        const result = await handle?.requestFocus({ kind: "cell", anchor });
+        if (result === "unavailable" && gridRef.current === handle) {
+          await handle?.requestFocus({ kind: "root" });
         }
-      })();
-    },
-    [gridRef],
-  );
+      } finally {
+        focusRestorationRef.current = false;
+      }
+    })();
+  }, []);
   const rowResourceIds = useMemo(
     () =>
       rows.flatMap((row) => {
@@ -594,7 +585,6 @@ function NetworkFlowGridFrame<Row extends object>({
     restoreGridAnchor,
     rowResourceIds,
     rowResourceKey,
-    gridRef,
   ]);
   const visibleFieldKey = columnsControl.orderedVisibleFieldKeys.join("\u0000");
   useEffect(() => {
@@ -613,7 +603,6 @@ function NetworkFlowGridFrame<Row extends object>({
     activeAnchor,
     columnsControl.orderedVisibleFieldKeys,
     visibleFieldKey,
-    gridRef,
     semanticPageSelection,
   ]);
   useEffect(() => {

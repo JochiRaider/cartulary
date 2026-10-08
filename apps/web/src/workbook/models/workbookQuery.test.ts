@@ -38,10 +38,7 @@ import {
   workbookGroupValue,
   workbookQueryStateFromSavedViewQueryJson,
 } from "./workbookQuery";
-import {
-  workbookContractForViewSchemaId,
-  workbookQuerySurfaceSlot,
-} from "./workbookSurfaceQueryRuntime";
+import { workbookContractForViewSchemaId } from "./workbookSurfaceQueryRuntime";
 
 describe("workbookQuery", () => {
   it("validates every raw literal member without dropping blanks or imposing tag creation limits", () => {
@@ -1135,14 +1132,6 @@ describe("workbookQuery", () => {
     expect(defaultFilterDraft(contract).fieldKey).toBe(
       "timeline.date_entered_sort_day",
     );
-    expect(workbookQuerySurfaceSlot("cartulary.view.timeline.v2")).toBe(
-      "timeline",
-    );
-    expect(workbookQuerySurfaceSlot("cartulary.view.hosts.v1")).toBe("hosts");
-    expect(workbookQuerySurfaceSlot("cartulary.view.assessments.v1")).toBe(
-      "assessments",
-    );
-    expect(workbookQuerySurfaceSlot("cartulary.view.notes.v1")).toBe("generic");
     expect(
       workbookContractForViewSchemaId("cartulary.view.notes.v1").viewSchemaId,
     ).toBe("cartulary.view.notes.v1");

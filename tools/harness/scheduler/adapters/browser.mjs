@@ -11,3 +11,7 @@ export {
   browserStageCompletionNeeds,
   browserStageSessionKey,
 } from "../../browser/browser-scheduler-dependencies.mjs";
+export {
+  createAcquisitionLaunch, closeAcquisitionLaunch, recordAcquisitionProcess,
+  createBrowserAcquisition, settleBrowserAcquisition, browserAcquisitionLaunchArguments,
+} from "../../browser/browser-acquisition.mjs";

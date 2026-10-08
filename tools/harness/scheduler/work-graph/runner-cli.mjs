@@ -22,8 +22,8 @@ import {
   attachLocalSession,
   resolveServiceSessionMode,
 } from "../../services/local-session.mjs";
-import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/canonical-unit-events.mjs";
-import { buildSourceSnapshot } from "../../test-catalog/source-snapshot.mjs";
+import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mjs";
+import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
 import { FixtureBroker, createSuiteController, CleanupResults, aggregateCleanup } from "../fixture-broker/index.mjs";
 import {
   productionFixtureProviders,

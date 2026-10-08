@@ -1,5 +1,3 @@
-export const serviceDependencyIDs = Object.freeze(["object_store", "postgres"]);
-
 export function requiredServicesForFixture(fixtureCapability) {
   if (fixtureCapability.startsWith("postgres_")) return ["postgres"];
   if (fixtureCapability === "object_store_namespace") return ["object_store"];

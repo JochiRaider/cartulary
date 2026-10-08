@@ -57,13 +57,13 @@ import {
   loadTaskSurfaceManifest,
 } from "./task-surface/index.mjs";
 import { quickCheckRenderIndex } from "./render-execution-topology-artifacts.mjs";
-import { validateVerificationContracts } from "../test-catalog/verification-contracts.mjs";
-import { validateTestCatalog } from "../test-catalog/test-catalog.mjs";
-import { validateTestCatalogImportBoundary } from "../test-catalog/import-boundary.mjs";
-import { validateExecutableInputPolicy } from "../test-catalog/restricted-input-boundary.mjs";
+import { validateVerificationContracts } from "../test-catalog/index.mjs";
+import { validateTestCatalog } from "../test-catalog/index.mjs";
+import { validateTestCatalogImportBoundary } from "../test-catalog/index.mjs";
+import { validateExecutableInputPolicy } from "../test-catalog/index.mjs";
 import { loadHistoricalPerformanceSchemaRegistry } from "../diagnostics/historical-performance-evidence.mjs";
 import { validateTimelineRecipe } from "../fixtures/timeline-investigation/index.mjs";
-import { validateFrontendVisualGoldenManifest } from "../browser/frontend-visual-golden-manifest.mjs";
+import { validateFrontendVisualGoldenManifest } from "../browser/index.mjs";
 
 
 import { generateLayout } from "../workspace/layout.mjs";

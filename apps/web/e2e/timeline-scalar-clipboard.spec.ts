@@ -824,12 +824,8 @@ test("Timeline scalar paste retains multiline scrolling composition and readable
       await page
         .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
         .click();
-    await page
-      .getByRole("button", {
-        name: "Show full value for RAW Activity",
-        exact: true,
-      })
-      .click();
+    // RAW source text is already rendered in full; it has no preview expander.
+    await expect(saved).toHaveCSS("-webkit-line-clamp", "none");
     await expect(saved).toHaveText(completed.value);
     await saved.evaluate((node) => {
       const range = document.createRange();

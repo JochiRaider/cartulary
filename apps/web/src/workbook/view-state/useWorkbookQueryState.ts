@@ -1,11 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useReducer,
-} from "react";
+import { type SetStateAction, useCallback, useEffect, useReducer } from "react";
 import {
   defaultFilterDraft,
   emptyWorkbookQueryState,
@@ -160,7 +154,3 @@ export function useWorkbookQueryState(viewSchemaIds: readonly string[]) {
     updateEntry,
   };
 }
-
-export type WorkbookQueryStateSetter = Dispatch<
-  SetStateAction<WorkbookQueryState>
->;

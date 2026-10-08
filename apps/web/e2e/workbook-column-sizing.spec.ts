@@ -71,7 +71,9 @@ const width = (node: Locator) =>
 async function showColumns(page: Page, view: string = surface) {
   if (!(await columns(page, view).isVisible())) {
     if (!(await trigger(page, view).isVisible()))
-      await page.getByText("Query ▾", { exact: true }).click();
+      await page
+        .getByRole("button", { name: "View options controls", exact: true })
+        .click();
     await trigger(page, view).click();
   }
 }
@@ -1184,7 +1186,13 @@ test("a11y.column-sizing native controls retain keyboard focus at narrow width z
         "* { letter-spacing: 0.12em !important; word-spacing: 0.16em !important; line-height: 1.5 !important; }",
     });
     if (!(await trigger(page).isVisible())) {
-      await tabTo(page, page.getByText("Query ▾", { exact: true }));
+      await tabTo(
+        page,
+        page.getByRole("button", {
+          name: "View options controls",
+          exact: true,
+        }),
+      );
       await page.keyboard.press("Enter");
     }
     await tabTo(page, trigger(page));

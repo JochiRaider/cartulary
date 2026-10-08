@@ -373,10 +373,6 @@ function testTitles(root, file, source) {
   return counts;
 }
 
-export function collectSourceTestTitleCounts({ root, file, approvedRoots }) {
-  const { source } = containedFile(root, file, approvedRoots, `${file}.title_discovery`);
-  return new Map(testTitles(root, file, source));
-}
 
 function packageDirectory(root, packagePath, approvedRoots, label) {
   if (!packagePath.startsWith("./") || /[*?{}[\]\\]/u.test(packagePath)) {

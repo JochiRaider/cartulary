@@ -25,7 +25,10 @@ import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
 import { apiBase } from "../runtime/configuration";
-import { publicHttpOperation } from "../transport/publicHttpOperationClient";
+import {
+  publicHttpOperation,
+  publicHttpOperationFailure,
+} from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
 import { createEnvironmentTestControlClient } from "../transport/testControlEnvironment";
 
@@ -167,7 +170,11 @@ export async function createSavedView(
   });
   if (!response.ok) {
     throw new Error(
-      `createIncidentSavedView failed with HTTP ${response.status}: ${JSON.stringify(response.payload)}`,
+      publicHttpOperationFailure(
+        "createIncidentSavedView",
+        response.status,
+        response.payload,
+      ),
     );
   }
   return response.payload.data;
@@ -189,7 +196,11 @@ export async function deleteSavedView(
   });
   if (!response.ok) {
     throw new Error(
-      `deleteIncidentSavedView failed with HTTP ${response.status}: ${JSON.stringify(response.payload)}`,
+      publicHttpOperationFailure(
+        "deleteIncidentSavedView",
+        response.status,
+        response.payload,
+      ),
     );
   }
   return response.payload.data;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { FixtureBroker, createSuiteController, CleanupResults, dedicatedPoolProvider, DedicatedResourcePool, productionFixtureProviders } from "../scheduler/fixture-broker/index.mjs";
-import { readBrowserAcquisition, settleBrowserAcquisition } from "../browser/browser-acquisition.mjs";
+import { readBrowserAcquisition, settleBrowserAcquisition } from "../test-support/owner-fixtures.mjs";
 import { buildWorkGraph, runWorkGraph } from "../scheduler/work-graph/index.mjs";
 import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../runtime/resource-recovery.mjs";

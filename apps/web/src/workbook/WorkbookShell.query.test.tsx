@@ -400,6 +400,12 @@ describe("workbook query controls", () => {
     };
     const { rerender } = render(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         contract={contract}
@@ -551,6 +557,12 @@ describe("workbook query controls", () => {
 
     rerender(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         chromeMode="narrow_desktop"
@@ -589,6 +601,12 @@ describe("workbook query controls", () => {
 
     rerender(
       <WorkbookGridControls
+        composeControls={({ query, columns }) => (
+          <>
+            {query}
+            {columns}
+          </>
+        )}
         freezing={{ status: null, onBoundaryChange: vi.fn() }}
         sizing={sizing}
         chromeMode="compact_desktop"

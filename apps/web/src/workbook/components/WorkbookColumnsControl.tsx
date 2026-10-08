@@ -54,7 +54,7 @@ export function WorkbookColumnsControl({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  useWorkbookMenuPlacement(isOpen, panel);
+  useWorkbookMenuPlacement(isOpen, panel, trigger);
   const widthButtons = useRef(new Map<string, HTMLButtonElement>());
   const earlierButtons = useRef(new Map<string, HTMLButtonElement>());
   const laterButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -254,6 +254,7 @@ export function WorkbookColumnsControl({
       {isOpen ? (
         <div
           ref={panel}
+          popover="manual"
           aria-label="Column controls"
           data-testid={workbookColumnsMenuTestId(surface)}
           id={workbookColumnsMenuTestId(surface)}

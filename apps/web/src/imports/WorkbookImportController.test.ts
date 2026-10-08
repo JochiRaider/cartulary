@@ -125,7 +125,6 @@ function harness() {
     readJob: vi.fn(async () => received(job)),
     readSession: vi.fn(async () => received(session)),
     listUnits: vi.fn(async () => received(units)),
-    readUnit: vi.fn(async () => received(units[0] as DiscoveredImportUnit)),
     preview: vi.fn(async (unit: DiscoveredImportUnit) =>
       received(importTestPreview(unit)),
     ),

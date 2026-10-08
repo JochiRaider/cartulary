@@ -6,7 +6,10 @@ import { rowHistoryItemTestId } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
 import { apiBase } from "../runtime/configuration";
-import { publicHttpOperation } from "../transport/publicHttpOperationClient";
+import {
+  publicHttpOperation,
+  publicHttpOperationFailure,
+} from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
 
 type RecordHistoryOptions = {
@@ -32,7 +35,11 @@ export async function fetchRecordHistoryPage(
   });
   if (!response.ok) {
     throw new Error(
-      `getRecordHistory failed with HTTP ${response.status}: ${JSON.stringify(response.payload)}`,
+      publicHttpOperationFailure(
+        "getRecordHistory",
+        response.status,
+        response.payload,
+      ),
     );
   }
   return response.payload satisfies GetRecordHistoryResponse;

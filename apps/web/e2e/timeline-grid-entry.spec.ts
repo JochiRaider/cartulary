@@ -228,6 +228,8 @@ test("Timeline row actions preserve native authoring and dismiss to the semantic
     }),
   );
   await inspectorDraft.fill("Unsubmitted Inspector authoring");
+  // Complete the Inspector editor reveal before borrowing its focus.
+  await expect(inspectorDraft).toBeInViewport({ ratio: 1 });
   await cell(page, otherId).click({ button: "right" });
   const otherMenu = page.getByTestId(
     workbookRowContextMenuTestId(timelineViewSchemaId, otherId),
@@ -1588,7 +1590,7 @@ test("Timeline paste retains committed creates through lost response navigation 
     await externalPatch(page, incidentId, target, source, "Intervening source");
     const before = await fetchRecordHistoryCount(page, target);
     await openRecoveryItem(page, /^(Paste|Fill|Tag assignment) ·/);
-    await page.setViewportSize({ width: 390, height: 480 });
+    await page.setViewportSize({ width: 390, height: 360 });
     const retry = page.getByRole("button", {
       name: "Retry paste",
       exact: true,
@@ -1619,6 +1621,11 @@ test("Timeline paste retains committed creates through lost response navigation 
       recovery.getByRole("textbox", { name: "Original batch input" }),
     ).toHaveValue("Captured update\nCaptured new record");
     expect(await retry.evaluate((element) => element.isConnected)).toBe(true);
+    expect(
+      await recovery.evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    ).toBeGreaterThanOrEqual(replayScroll);
     expect(await recovery.evaluate((element) => element.scrollTop)).toBe(
       replayScroll,
     );
@@ -1646,7 +1653,7 @@ test("Timeline paste retains committed creates through lost response navigation 
       name: "Retry refresh",
       exact: true,
     });
-    await page.setViewportSize({ width: 390, height: 480 });
+    await page.setViewportSize({ width: 390, height: 360 });
     await tabTo(page, refresh);
     holdRefresh = true;
     const refreshScroll = await recovery.evaluate((element) => {
@@ -1769,7 +1776,7 @@ test("Timeline batch recovery honors newer scroll and pointer intent during held
     await clipboard(page, "Scroll-intent update\nScroll-intent create");
     await loss;
     await openRecoveryItem(page, /^Paste ·/);
-    await page.setViewportSize({ width: 390, height: 480 });
+    await page.setViewportSize({ width: 390, height: 360 });
     const panel = page.getByRole("region", {
       name: "Workbook recovery",
       exact: true,
@@ -1782,6 +1789,11 @@ test("Timeline batch recovery honors newer scroll and pointer intent during held
     await page.keyboard.press("Enter");
     await replayHit;
     await expect(retry).toBeFocused();
+    expect(
+      await panel.evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    ).toBeGreaterThan(0);
     await panel.hover();
     await page.mouse.wheel(0, 180);
     await expect

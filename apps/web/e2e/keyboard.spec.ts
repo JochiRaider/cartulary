@@ -355,22 +355,58 @@ async function readWorkbookViewBarGeometry(page: Page) {
         ),
         "workbook view bar",
       );
-      const columns = requireElement(
-        Array.from(
-          queryControls.querySelectorAll<HTMLButtonElement>("button"),
-        ).find((button) => button.textContent?.trim() === "Columns") ?? null,
-        "Columns button",
-      );
+      const mode = viewBar.dataset.chromeMode;
+      const queryInMenu =
+        mode === "compact_desktop" || mode === "below_supported_minimum";
       const controls: ReadonlyArray<readonly [string, HTMLElement]> = [
         ["saved-view", requireElement(select(savedViewSelector), "saved view")],
         [
           "saved-view-actions",
           requireElement(select(actionMenuSelector), "saved view actions"),
         ],
-        ["sort", requireElement(select(sortSelector), "Sort button")],
-        ["group", requireElement(select(groupingSelector), "Group select")],
-        ["filters", requireElement(select(filterSelector), "Filters button")],
-        ["columns", columns],
+        ...(queryInMenu
+          ? [
+              [
+                "query-menu",
+                requireElement(
+                  viewBar.querySelector<HTMLButtonElement>(
+                    'button[aria-label="Query controls"]',
+                  ),
+                  "Query menu",
+                ),
+              ] as const,
+            ]
+          : ([
+              ["sort", requireElement(select(sortSelector), "Sort button")],
+              [
+                "filters",
+                requireElement(select(filterSelector), "Filters button"),
+              ],
+              [
+                "group",
+                requireElement(select(groupingSelector), "Group select"),
+              ],
+            ] as const)),
+        mode === "base"
+          ? [
+              "columns",
+              requireElement(
+                Array.from(
+                  queryControls.querySelectorAll<HTMLButtonElement>("button"),
+                ).find((button) => button.textContent?.trim() === "Columns") ??
+                  null,
+                "Columns button",
+              ),
+            ]
+          : [
+              "view-options",
+              requireElement(
+                viewBar.querySelector<HTMLButtonElement>(
+                  'button[aria-label="View options controls"]',
+                ),
+                "View options menu",
+              ),
+            ],
         [
           "inspector",
           requireElement(select(inspectorSelector), "Inspector button"),
@@ -499,6 +535,40 @@ async function expectWorkbookViewBarGeometry(
       `${options.label}: ${previous?.name ?? "previous"} before ${control.name}`,
     ).toBeGreaterThanOrEqual((previous?.right ?? 0) - 1);
   });
+  const viewBar = page.getByRole("region", {
+    name: "Workbook query and action controls",
+  });
+  const mode = await viewBar.getAttribute("data-chrome-mode");
+  if (mode === "compact_desktop") {
+    const query = viewBar.getByRole("button", {
+      name: "Query controls",
+      exact: true,
+    });
+    await query.press("Enter");
+    await expect(
+      page.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
+    ).toBeInViewport();
+    await expect(
+      page.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    ).toBeInViewport();
+    await expect(
+      page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
+    ).toBeInViewport();
+    await query.press("Escape");
+  }
+  if (mode !== "base") {
+    const view = viewBar.getByRole("button", {
+      name: "View options controls",
+      exact: true,
+    });
+    await view.press("Enter");
+    await expect(
+      viewBar.getByRole("button", { name: "Columns", exact: true }),
+    ).toBeInViewport();
+    await view.press("Escape");
+  }
   return geometry;
 }
 

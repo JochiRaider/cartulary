@@ -57,9 +57,6 @@ export class EvidenceUploadSession {
   get status() {
     return { phase: this.phase, pending: this.pending, failure: this.failure };
   }
-  get filename() {
-    return this.file?.name ?? "";
-  }
   get blob() {
     return this.slotReceipt?.data ?? null;
   }

@@ -2831,7 +2831,7 @@
       ],
       "groups": [
         {
-          "name": "visual-workbook-visual",
+          "name": "visual-8e6ca2fcf23c909aff8cf3c520c115aef9599096a074532317669eac2a831b7a",
           "target": "browser-e2e-visual",
           "kind": "visual",
           "coverage": "authoritative",
@@ -2840,48 +2840,972 @@
           "browser_session_group": "browser-e2e-visual-default",
           "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
           "selected_row_ids": [
-            "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
-            "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
-            "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec",
-            "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c",
-            "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
-            "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7",
-            "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7",
-            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4",
-            "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830",
-            "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc",
-            "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af",
-            "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc",
-            "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810",
-            "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206",
-            "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf",
-            "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0",
-            "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
-            "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
-            "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
-            "module.workbook.visual.contextual_task_decision_creation",
-            "module.workbook.visual.coordination_create_authoring_recovery",
-            "module.workbook.visual.decision_supersession_review_recovery",
-            "module.workbook.visual.indicator_lifecycle_authoring",
-            "module.workbook.visual.indicator_observations_authoring",
-            "module.workbook.visual.note_create_authoring_recovery",
-            "module.workbook.visual.ordinary_create_authoring_recovery",
-            "module.workbook.visual.preferences",
-            "module.workbook.visual.timeline_capture_actions",
-            "module.workbook.visual.timeline_related_evidence",
-            "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
-            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
-            "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.administrative_audit_browsing",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
-            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
-            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
-            "web.design.visual.incident_import_workflow",
-            "web.design.visual.lifecycle",
-            "web.design.visual.membership_audit_browsing",
-            "web.design.visual.membership_management_visual",
-            "web.design.visual.metadata_editing",
-            "web.design.visual.reference_pack_administration",
+            "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-bb31ad9d632780639945107e1b5898e3f2870b08ed9c057840d2e0c49bd36ef7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-338f2cd8c669ffe7f294075fa35d8fafc830a73b33d68d3faf64788fdbff7aa1",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-fea900251a21f4ce4e0e3894a2902f4773c80b3f762bb4f154b7886d7179c244",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-e3a5ce695286e80c1662f1b5b11a3d1a51976db9f9daf736e6186e4cb6a947bc",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-92ac6e2d068e027163c6352913fa2af8194ef65bce2d85ac18f331e9e1ee3932",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-6ab4c309c6d2dbe4dca1c52eaeb6c1273dbb69fd273130ff2d1ac4aaa60b529a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-9bfb75a194769319ebba5271e71566593ff3c29e1affb3eaf6c1a3533e57402a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-2d8ae5fe026a495fff970c5e4376f9c1129373bb909fcd4cc43636bf7711d05b",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-4789f51f9b920a4602652f461fb9e4aada2e2d5c773d40973634d22d3e0e94c5",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-c1e7e8d1336df260eea7a8b74edafb6a18e37086f192541aff8752e10d888d97",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-0007a4fbdf4a810b1da734fb7151d3a1aa0f0a75b2df92a60d6b35ac58a865d5",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-f9c89d310b54b00325ccb8a224b8d7ba2dd0a73f110e0d91896fb1f8f91a3eaa",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-3af32115b0bf96117ec5593845266935ec18a78de988f4e00121314009257336",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-97bfef936cf806c318ce16e3bf2e1a2271bc74d64fef6daa3fe4564e2045e33b",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-b0cbd2989f67fe2b1b1d2300f83a26947e5903f5ceee72a7da2190a17a573962",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-2d9d0f944dde3a6534df5c721e255d846dc846affa737e330b996dc5971ddbd7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-6c4285607a5fbd2964c408a75a641ebc3fa1722bdda1929cea742a85f72eb443",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-0f960887260a1f315484b49c062226dc0ead71fe9f2fc0dae0d360daf9c268eb",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-5dc246706c807f766fee7e222fd501aee4a24d55a3c3f2186d4dc4b9a683953a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.contextual_task_decision_creation"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-32be1be381513d5386ace2b2f3bcd2a4c1741e57fddd0777adc55baf37f130f9",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.coordination_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-87683684d65c6ef52826d42b00d95f1529eb5fceda6cd5f81557ee929be8d973",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.decision_supersession_review_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-015c8c076c537a1d93e801c453f95d9ec89f8747d4f3102d85b10516ae8fcb2d",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.indicator_lifecycle_authoring"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-e537b49befa59fae577072bd80e54a76aa69cd3b57c38e93de3f565e39aebd92",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.indicator_observations_authoring"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-85bf5ada26955b4d3d722f4c528967ce75c8541cb4bccf6632c70c25afa6ae12",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.note_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-627d716b1de2203801f4fb2d4a6f6879939f6ff9cfd1a9575e42c2eab5a3ce41",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.ordinary_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-83d73340ad535b993994e5946d0dcc1da00c29893e66bddfefb0f08aedb475a7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.preferences"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-4d585a759fc35cbfe5a25c57ed3e487709a07bc42917eeef41e0715372ea5260",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.timeline_capture_actions"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-f7247e980eb6a06ba5bfc273b4e5e494a62228f8dd4184d5006d3f80f275f2d4",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "module.workbook.visual.timeline_related_evidence"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-b30c3e81f8a58656fa186e20f5194a9c75c3eabb7bac876df96df65bad323342",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-d840806c01cdd98cfeab4594381770af18424e4c13b5bce105d08eeeae66a76c",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-0904c3b66be7464dc257d54f62a0117aeb37bf8c4e7b54fc99f06a8f95094eef",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.account_settings_editing_states_5af731dc29"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-dfc988b9da6f2bf1bcc17610c48c5b916254ebdbfb65f988dfc9d56f8c7e0b2d",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.administrative_audit_browsing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-7078467b3d563ff64d715e28c75cbf2a40194f282a15e046626f60587e7a4191",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-b8f792510dff5a2da9f677e352b7a1ca4083413af5cd45364cb58f18321e0402",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-10bc356a969921c6f3e5ab829525e9fd2f7af9db40b45bdd7741c1fdd286fe39",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-d398a010863b121dd84c5a2298eda831cac42bfeba3ca599fa30ef42882ff591",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.incident_import_workflow"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-910ea5877395175f2535029e4bc40785f7500c1704740010fc395665a4063eb8",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.lifecycle"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-a3233ac363e1dbfee5293f570c42784cb734d1f85c72692d07614f901c8efb0c",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.membership_audit_browsing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-94df700a10acd8f4437a7727adaace788819ea95ce450d1b5ef6ef53f3d99e09",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.membership_management_visual"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-8e2622fdeded3a8e656351543fb1272a1faf251890b5174e5dbb4e88ffe75fa1",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.metadata_editing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-034f30c7dcacff0aaef624f01ba75ca15613c3adf8b56bb5e6e8cef80e25aa40",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
+            "web.design.visual.reference_pack_administration"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "visual-d5a172edc5f15f82f5ddb09695d828b47bfa5354e0a655ce6ee6f7218d39d324",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "selected_row_ids": [
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],
           "specs": [
@@ -2896,7 +3820,7 @@
           ]
         },
         {
-          "name": "visual-network-flow-claimed-workbook-visual",
+          "name": "visual-network-flow-claimed-a0b34609e59c70fa54d542ad4059efa1aceba35d33e111ec4ae01b6d4880fde7",
           "target": "browser-e2e-visual",
           "kind": "visual",
           "coverage": "supplemental",
@@ -3114,55 +4038,937 @@
           ]
         },
         {
-          "name": "visual-workbook-visual",
+          "name": "visual-8e6ca2fcf23c909aff8cf3c520c115aef9599096a074532317669eac2a831b7a",
           "target": "browser-e2e-visual",
           "kind": "visual",
           "coverage": "authoritative",
           "execution_dependency": "browser_visual",
           "workers": "1",
           "selected_row_ids": [
-            "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
-            "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
-            "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec",
-            "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c",
-            "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
-            "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7",
-            "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7",
-            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4",
-            "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830",
-            "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc",
-            "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af",
-            "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc",
-            "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810",
-            "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206",
-            "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf",
-            "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0",
-            "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
-            "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
-            "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
-            "module.workbook.visual.contextual_task_decision_creation",
-            "module.workbook.visual.coordination_create_authoring_recovery",
-            "module.workbook.visual.decision_supersession_review_recovery",
-            "module.workbook.visual.indicator_lifecycle_authoring",
-            "module.workbook.visual.indicator_observations_authoring",
-            "module.workbook.visual.note_create_authoring_recovery",
-            "module.workbook.visual.ordinary_create_authoring_recovery",
-            "module.workbook.visual.preferences",
-            "module.workbook.visual.timeline_capture_actions",
-            "module.workbook.visual.timeline_related_evidence",
-            "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
-            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
-            "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.administrative_audit_browsing",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
-            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
-            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
-            "web.design.visual.incident_import_workflow",
-            "web.design.visual.lifecycle",
-            "web.design.visual.membership_audit_browsing",
-            "web.design.visual.membership_management_visual",
-            "web.design.visual.metadata_editing",
-            "web.design.visual.reference_pack_administration",
+            "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-bb31ad9d632780639945107e1b5898e3f2870b08ed9c057840d2e0c49bd36ef7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-338f2cd8c669ffe7f294075fa35d8fafc830a73b33d68d3faf64788fdbff7aa1",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-fea900251a21f4ce4e0e3894a2902f4773c80b3f762bb4f154b7886d7179c244",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-e3a5ce695286e80c1662f1b5b11a3d1a51976db9f9daf736e6186e4cb6a947bc",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-92ac6e2d068e027163c6352913fa2af8194ef65bce2d85ac18f331e9e1ee3932",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-6ab4c309c6d2dbe4dca1c52eaeb6c1273dbb69fd273130ff2d1ac4aaa60b529a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-9bfb75a194769319ebba5271e71566593ff3c29e1affb3eaf6c1a3533e57402a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-2d8ae5fe026a495fff970c5e4376f9c1129373bb909fcd4cc43636bf7711d05b",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-4789f51f9b920a4602652f461fb9e4aada2e2d5c773d40973634d22d3e0e94c5",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-c1e7e8d1336df260eea7a8b74edafb6a18e37086f192541aff8752e10d888d97",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-0007a4fbdf4a810b1da734fb7151d3a1aa0f0a75b2df92a60d6b35ac58a865d5",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-f9c89d310b54b00325ccb8a224b8d7ba2dd0a73f110e0d91896fb1f8f91a3eaa",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-3af32115b0bf96117ec5593845266935ec18a78de988f4e00121314009257336",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-97bfef936cf806c318ce16e3bf2e1a2271bc74d64fef6daa3fe4564e2045e33b",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-b0cbd2989f67fe2b1b1d2300f83a26947e5903f5ceee72a7da2190a17a573962",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-2d9d0f944dde3a6534df5c721e255d846dc846affa737e330b996dc5971ddbd7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-6c4285607a5fbd2964c408a75a641ebc3fa1722bdda1929cea742a85f72eb443",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-0f960887260a1f315484b49c062226dc0ead71fe9f2fc0dae0d360daf9c268eb",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-5dc246706c807f766fee7e222fd501aee4a24d55a3c3f2186d4dc4b9a683953a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.contextual_task_decision_creation"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-32be1be381513d5386ace2b2f3bcd2a4c1741e57fddd0777adc55baf37f130f9",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.coordination_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-87683684d65c6ef52826d42b00d95f1529eb5fceda6cd5f81557ee929be8d973",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.decision_supersession_review_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-015c8c076c537a1d93e801c453f95d9ec89f8747d4f3102d85b10516ae8fcb2d",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.indicator_lifecycle_authoring"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-e537b49befa59fae577072bd80e54a76aa69cd3b57c38e93de3f565e39aebd92",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.indicator_observations_authoring"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-85bf5ada26955b4d3d722f4c528967ce75c8541cb4bccf6632c70c25afa6ae12",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.note_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-627d716b1de2203801f4fb2d4a6f6879939f6ff9cfd1a9575e42c2eab5a3ce41",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.ordinary_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-83d73340ad535b993994e5946d0dcc1da00c29893e66bddfefb0f08aedb475a7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.preferences"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-4d585a759fc35cbfe5a25c57ed3e487709a07bc42917eeef41e0715372ea5260",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.timeline_capture_actions"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-f7247e980eb6a06ba5bfc273b4e5e494a62228f8dd4184d5006d3f80f275f2d4",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.timeline_related_evidence"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-b30c3e81f8a58656fa186e20f5194a9c75c3eabb7bac876df96df65bad323342",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-d840806c01cdd98cfeab4594381770af18424e4c13b5bce105d08eeeae66a76c",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-0904c3b66be7464dc257d54f62a0117aeb37bf8c4e7b54fc99f06a8f95094eef",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.account_settings_editing_states_5af731dc29"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-dfc988b9da6f2bf1bcc17610c48c5b916254ebdbfb65f988dfc9d56f8c7e0b2d",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.administrative_audit_browsing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-7078467b3d563ff64d715e28c75cbf2a40194f282a15e046626f60587e7a4191",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-b8f792510dff5a2da9f677e352b7a1ca4083413af5cd45364cb58f18321e0402",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-10bc356a969921c6f3e5ab829525e9fd2f7af9db40b45bdd7741c1fdd286fe39",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-d398a010863b121dd84c5a2298eda831cac42bfeba3ca599fa30ef42882ff591",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.incident_import_workflow"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-910ea5877395175f2535029e4bc40785f7500c1704740010fc395665a4063eb8",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.lifecycle"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-a3233ac363e1dbfee5293f570c42784cb734d1f85c72692d07614f901c8efb0c",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.membership_audit_browsing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-94df700a10acd8f4437a7727adaace788819ea95ce450d1b5ef6ef53f3d99e09",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.membership_management_visual"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-8e2622fdeded3a8e656351543fb1272a1faf251890b5174e5dbb4e88ffe75fa1",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.metadata_editing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-034f30c7dcacff0aaef624f01ba75ca15613c3adf8b56bb5e6e8cef80e25aa40",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.reference_pack_administration"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default"
+        },
+        {
+          "name": "visual-d5a172edc5f15f82f5ddb09695d828b47bfa5354e0a655ce6ee6f7218d39d324",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],
           "specs": [
@@ -3971,55 +5777,937 @@
           ]
         },
         {
-          "name": "visual-workbook-visual",
+          "name": "visual-8e6ca2fcf23c909aff8cf3c520c115aef9599096a074532317669eac2a831b7a",
           "target": "browser-e2e-visual",
           "kind": "visual",
           "coverage": "authoritative",
           "execution_dependency": "browser_visual",
           "workers": "1",
           "selected_row_ids": [
-            "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
-            "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
-            "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec",
-            "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c",
-            "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
-            "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7",
-            "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7",
-            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4",
-            "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830",
-            "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc",
-            "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af",
-            "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc",
-            "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810",
-            "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206",
-            "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf",
-            "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0",
-            "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
-            "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
-            "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
-            "module.workbook.visual.contextual_task_decision_creation",
-            "module.workbook.visual.coordination_create_authoring_recovery",
-            "module.workbook.visual.decision_supersession_review_recovery",
-            "module.workbook.visual.indicator_lifecycle_authoring",
-            "module.workbook.visual.indicator_observations_authoring",
-            "module.workbook.visual.note_create_authoring_recovery",
-            "module.workbook.visual.ordinary_create_authoring_recovery",
-            "module.workbook.visual.preferences",
-            "module.workbook.visual.timeline_capture_actions",
-            "module.workbook.visual.timeline_related_evidence",
-            "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
-            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
-            "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.administrative_audit_browsing",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
-            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
-            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
-            "web.design.visual.incident_import_workflow",
-            "web.design.visual.lifecycle",
-            "web.design.visual.membership_audit_browsing",
-            "web.design.visual.membership_management_visual",
-            "web.design.visual.metadata_editing",
-            "web.design.visual.reference_pack_administration",
+            "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-bb31ad9d632780639945107e1b5898e3f2870b08ed9c057840d2e0c49bd36ef7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-338f2cd8c669ffe7f294075fa35d8fafc830a73b33d68d3faf64788fdbff7aa1",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-fea900251a21f4ce4e0e3894a2902f4773c80b3f762bb4f154b7886d7179c244",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-e3a5ce695286e80c1662f1b5b11a3d1a51976db9f9daf736e6186e4cb6a947bc",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-92ac6e2d068e027163c6352913fa2af8194ef65bce2d85ac18f331e9e1ee3932",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-6ab4c309c6d2dbe4dca1c52eaeb6c1273dbb69fd273130ff2d1ac4aaa60b529a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-9bfb75a194769319ebba5271e71566593ff3c29e1affb3eaf6c1a3533e57402a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-2d8ae5fe026a495fff970c5e4376f9c1129373bb909fcd4cc43636bf7711d05b",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-4789f51f9b920a4602652f461fb9e4aada2e2d5c773d40973634d22d3e0e94c5",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-c1e7e8d1336df260eea7a8b74edafb6a18e37086f192541aff8752e10d888d97",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-0007a4fbdf4a810b1da734fb7151d3a1aa0f0a75b2df92a60d6b35ac58a865d5",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-f9c89d310b54b00325ccb8a224b8d7ba2dd0a73f110e0d91896fb1f8f91a3eaa",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-3af32115b0bf96117ec5593845266935ec18a78de988f4e00121314009257336",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-97bfef936cf806c318ce16e3bf2e1a2271bc74d64fef6daa3fe4564e2045e33b",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-b0cbd2989f67fe2b1b1d2300f83a26947e5903f5ceee72a7da2190a17a573962",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-2d9d0f944dde3a6534df5c721e255d846dc846affa737e330b996dc5971ddbd7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-6c4285607a5fbd2964c408a75a641ebc3fa1722bdda1929cea742a85f72eb443",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-0f960887260a1f315484b49c062226dc0ead71fe9f2fc0dae0d360daf9c268eb",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-5dc246706c807f766fee7e222fd501aee4a24d55a3c3f2186d4dc4b9a683953a",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.contextual_task_decision_creation"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-32be1be381513d5386ace2b2f3bcd2a4c1741e57fddd0777adc55baf37f130f9",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.coordination_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-87683684d65c6ef52826d42b00d95f1529eb5fceda6cd5f81557ee929be8d973",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.decision_supersession_review_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-015c8c076c537a1d93e801c453f95d9ec89f8747d4f3102d85b10516ae8fcb2d",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.indicator_lifecycle_authoring"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-e537b49befa59fae577072bd80e54a76aa69cd3b57c38e93de3f565e39aebd92",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.indicator_observations_authoring"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-85bf5ada26955b4d3d722f4c528967ce75c8541cb4bccf6632c70c25afa6ae12",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.note_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-627d716b1de2203801f4fb2d4a6f6879939f6ff9cfd1a9575e42c2eab5a3ce41",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.ordinary_create_authoring_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-83d73340ad535b993994e5946d0dcc1da00c29893e66bddfefb0f08aedb475a7",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.preferences"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-4d585a759fc35cbfe5a25c57ed3e487709a07bc42917eeef41e0715372ea5260",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.timeline_capture_actions"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-f7247e980eb6a06ba5bfc273b4e5e494a62228f8dd4184d5006d3f80f275f2d4",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.workbook.visual.timeline_related_evidence"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-b30c3e81f8a58656fa186e20f5194a9c75c3eabb7bac876df96df65bad323342",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-d840806c01cdd98cfeab4594381770af18424e4c13b5bce105d08eeeae66a76c",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-0904c3b66be7464dc257d54f62a0117aeb37bf8c4e7b54fc99f06a8f95094eef",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.account_settings_editing_states_5af731dc29"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-dfc988b9da6f2bf1bcc17610c48c5b916254ebdbfb65f988dfc9d56f8c7e0b2d",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.administrative_audit_browsing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-7078467b3d563ff64d715e28c75cbf2a40194f282a15e046626f60587e7a4191",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-b8f792510dff5a2da9f677e352b7a1ca4083413af5cd45364cb58f18321e0402",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-10bc356a969921c6f3e5ab829525e9fd2f7af9db40b45bdd7741c1fdd286fe39",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-d398a010863b121dd84c5a2298eda831cac42bfeba3ca599fa30ef42882ff591",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.incident_import_workflow"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-910ea5877395175f2535029e4bc40785f7500c1704740010fc395665a4063eb8",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.lifecycle"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-a3233ac363e1dbfee5293f570c42784cb734d1f85c72692d07614f901c8efb0c",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.membership_audit_browsing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-94df700a10acd8f4437a7727adaace788819ea95ce450d1b5ef6ef53f3d99e09",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.membership_management_visual"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-8e2622fdeded3a8e656351543fb1272a1faf251890b5174e5dbb4e88ffe75fa1",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.metadata_editing"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-034f30c7dcacff0aaef624f01ba75ca15613c3adf8b56bb5e6e8cef80e25aa40",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
+            "web.design.visual.reference_pack_administration"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook.visual.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "visual-d5a172edc5f15f82f5ddb09695d828b47bfa5354e0a655ce6ee6f7218d39d324",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "selected_row_ids": [
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],
           "specs": [
@@ -4035,7 +6723,7 @@
           "browser_session_group": "browser-e2e-default"
         },
         {
-          "name": "visual-network-flow-claimed-workbook-visual",
+          "name": "visual-network-flow-claimed-a0b34609e59c70fa54d542ad4059efa1aceba35d33e111ec4ae01b6d4880fde7",
           "target": "browser-e2e-visual",
           "kind": "visual",
           "coverage": "supplemental",

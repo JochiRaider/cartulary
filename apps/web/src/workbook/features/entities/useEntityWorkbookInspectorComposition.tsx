@@ -416,7 +416,7 @@ export function useEntityWorkbookInspectorComposition({
       onFailure(result.failure);
   }
 
-  const close = () => inspector.commands.close({ restoreFocus: true });
+  const close = () => inspector.commands.close();
   const mergeSnapshot = merge.snapshot;
   const node = isOpen ? (
     <EntityInspectorPresentation

@@ -1,7 +1,5 @@
 import { createHash } from "node:crypto";
 
-import { parseStrictJSON } from "./strict-json.mjs";
-
 function rejectUnpairedSurrogates(value, label) {
   for (let index = 0; index < value.length; index += 1) {
     const unit = value.charCodeAt(index);
@@ -18,8 +16,6 @@ function rejectUnpairedSurrogates(value, label) {
     }
   }
 }
-
-export { parseStrictJSON };
 
 export function canonicalJSONString(value) {
   if (value === null || typeof value === "boolean" || typeof value === "string") {

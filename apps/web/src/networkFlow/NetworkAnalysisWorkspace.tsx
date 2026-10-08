@@ -1,8 +1,4 @@
-import type {
-  GridCellAnchor,
-  GridCellRange,
-  GridHandle,
-} from "@cartulary/grid-adapter";
+import type { GridCellAnchor, GridCellRange } from "@cartulary/grid-adapter";
 import {
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,
@@ -12,10 +8,8 @@ import type { ReactNode } from "react";
 import {
   type ComponentType,
   type CSSProperties,
-  type RefObject,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -285,33 +279,6 @@ function NetworkAnalysisWorkspaceContent({
     onMessage: setMessage,
     onProtectedStateLoss: handleWorkspaceError,
   });
-  const acceptedGridRef = useRef<GridHandle | null>(null);
-  const graphFocusRestorer = useRef<(() => boolean) | null>(null);
-  const bindGraphFocusRestoration = useCallback((restore: () => boolean) => {
-    graphFocusRestorer.current = restore;
-    return () => {
-      if (graphFocusRestorer.current === restore)
-        graphFocusRestorer.current = null;
-    };
-  }, []);
-  useLayoutEffect(
-    () =>
-      indicatorLinkOperation.bindFocusRestoration(async () => {
-        if (mode === "graph" && graphSurface === "explore")
-          return graphFocusRestorer.current?.() ?? false;
-        const handle = acceptedGridRef.current;
-        if (handle === null) return false;
-        if (rowGridSelection.activeAnchor !== null) {
-          const result = await handle.requestFocus({
-            kind: "cell",
-            anchor: rowGridSelection.activeAnchor,
-          });
-          if (result !== "unavailable") return result === "focused";
-        }
-        return (await handle.requestFocus({ kind: "root" })) === "focused";
-      }),
-    [indicatorLinkOperation, rowGridSelection.activeAnchor, mode, graphSurface],
-  );
   const workspaceSelectionContext = (
     graphContext: string,
     surface = graphSurface,
@@ -752,7 +719,6 @@ function NetworkAnalysisWorkspaceContent({
                   tables={tableController.tables}
                   onNavigate={graphController.navigate}
                   isFocusCurrent={graphController.isFocusCurrent}
-                  bindFocusRestoration={bindGraphFocusRestoration}
                   onLinkEdge={(fieldKey) => {
                     const candidate = networkFlowEdgeLinkCandidate({
                       edge: graphController.selectedEdge,
@@ -793,7 +759,6 @@ function NetworkAnalysisWorkspaceContent({
             />
           ) : (
             <RowsPanel
-              gridRef={acceptedGridRef}
               linkLimitError={indicatorLinkController.limitError}
               onRetryLinkLimit={indicatorLinkOperation.loadLimit}
               activeTable={tableController.activeTable}
@@ -1002,7 +967,6 @@ function EmptyNetworkAnalysisState({
 }
 
 function RowsPanel({
-  gridRef,
   linkLimitError,
   onRetryLinkLimit,
   activeTable,
@@ -1020,7 +984,6 @@ function RowsPanel({
   rows,
   rowLinkSelection,
 }: {
-  readonly gridRef: RefObject<GridHandle | null>;
   readonly linkLimitError: string | null;
   readonly onRetryLinkLimit: () => void;
   readonly page: NetworkFlowPageNavigation;
@@ -1073,7 +1036,6 @@ function RowsPanel({
         </div>
       ) : null}
       <NetworkFlowAcceptedGrid
-        gridRef={gridRef}
         error={error}
         filtered={query.filters.length > 0 || query.timeWindow !== null}
         loadGenerationKey={loadGenerationKey}

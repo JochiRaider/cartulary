@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 import {
   allowedPrivateImportSources,
@@ -10,8 +11,6 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
-const helperOwnership = loadHarnessHelperOwnership(defaultRepoRoot);
-const ownerFacadePaths = ownerFacadePathLists(helperOwnership);
 const ignoredDirectoryNames = new Set([
   ".cache",
   ".git",
@@ -24,45 +23,16 @@ const ignoredDirectoryNames = new Set([
   "tmp",
 ]);
 const knownHarnessOwnerRoots = new Set([
-  "backend",
-  "browser",
-  "command-surface",
-  "contract",
-  "diagnostics",
-  "execution",
-  "finalization",
-  "generated-artifacts",
-  "migration",
-  "output",
-  "readiness",
-  "scheduler",
-  "smoke",
-  "static-analysis",
-  "test-catalog",
-  "test-support",
-  "tests",
+  "backend", "browser", "command-surface", "contract", "diagnostics",
+  "evidence-accounting", "execution", "finalization", "fixtures",
+  "generated-artifacts", "observability", "output", "performance-fixture",
+  "readiness", "runtime", "scheduler", "services", "smoke", "static-analysis",
+  "test-catalog", "test-support", "tests", "workspace",
 ]);
-for (const paths of Object.values(ownerFacadePaths)) {
-  for (const facadePath of paths) {
-    const ownerRoot = facadePath.split("/")[2];
-    if (ownerRoot) knownHarnessOwnerRoots.add(ownerRoot);
-  }
-}
-const executionSubsystems = new Set(["backend", "browser", "frontend", "scheduler"]);
-const backendOwnerFacadePaths = new Set(ownerFacadePaths.backend ?? []);
-const frontendOwnerFacadePaths = new Set(ownerFacadePaths.frontend ?? []);
-const browserOwnerFacadePaths = new Set(ownerFacadePaths.browser ?? []);
-const serviceBackedExecutionOwnerFacadePaths = new Set(
-  ownerFacadePaths.service_backed_execution ?? [],
-);
-const schedulerOwnerFacadePaths = new Set(ownerFacadePaths.scheduler ?? []);
-const schedulerDiagnosticsOwnerFacadePaths = new Set(
-  ownerFacadePaths.scheduler_diagnostics ?? [],
-);
-const testOutputOwnerFacadePaths = new Set(ownerFacadePaths.test_output ?? []);
-const executionRuntimeOwnerFacadePaths = new Set(ownerFacadePaths.execution_runtime ?? []);
-const commandSurfaceOwnerFacadePaths = new Set(ownerFacadePaths.command_surface ?? []);
-const browserPrivateImportAllowedSources = allowedPrivateImportSources(helperOwnership);
+const protectedOwnerGroups = new Map([
+  ["backend", "backend"], ["browser", "browser"],
+  ["test-catalog", "test_catalog"], ["evidence-accounting", "evidence_accounting"],
+]);
 
 function normalizePath(value) {
   return value.split(path.sep).join("/");
@@ -107,17 +77,19 @@ function sourceFiles(root, scanRoot = "tools/harness") {
 }
 
 function importSpecifiers(content) {
+  const source = ts.createSourceFile("harness.mjs", content, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const specifiers = [];
-  const patterns = [
-    /\bimport\s+(?:[^"'()]*?\s+from\s*)?["']([^"']+)["']/gu,
-    /\bexport\s+(?:[^"']*?\s+from\s*)["']([^"']+)["']/gu,
-    /\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu,
-  ];
-  for (const pattern of patterns) {
-    for (const match of content.matchAll(pattern)) {
-      specifiers.push(match[1]);
+  function visit(node) {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+      specifiers.push(node.moduleSpecifier.text);
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+               node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0])) {
+      specifiers.push(node.arguments[0].text);
     }
+    ts.forEachChild(node, visit);
   }
+  visit(source);
   return specifiers;
 }
 
@@ -234,316 +206,40 @@ function subsystemForPath(repoPath) {
   return parts[2] ?? "";
 }
 
-function isExecutionToPlanningEdge(edge) {
-  return (
-    executionSubsystems.has(subsystemForPath(edge.source)) &&
-    edge.target.startsWith("tools/harness/planning/")
-  );
-}
-
-function planningImportViolation(edge) {
-  const sourceSubsystem = subsystemForPath(edge.source);
-  return {
-    rule: "forbidden_planning_import",
-    source: edge.source,
-    target: edge.target,
-    message:
-      `${edge.source} ${edgeVerb(edge)} ${edge.target}; ${sourceSubsystem} modules must use an ` +
-      "approved planning adapter entrypoint for normalized planning data.",
-  };
-}
-
-function isPrivateCoreImport(edge) {
-  return edge.target.startsWith("tools/harness/core/");
-}
-
-function privateCoreImportViolation(edge) {
-  return {
-    rule: "forbidden_private_core_import",
-    source: edge.source,
-    target: edge.target,
-    message:
-      `${edge.source} ${edgeVerb(edge)} ${edge.target}; harness code must use the owning ` +
-      "contract, output, execution, finalization, diagnostics, smoke, frontend, " +
-      "browser, backend, scheduler, planning, or generated-artifact entrypoint.",
-  };
-}
-
-function isPrivateBackendImplementationImport(edge) {
-  if (!edge.target.startsWith("tools/harness/backend/")) {
-    return false;
-  }
-  if (backendOwnerFacadePaths.has(edge.target)) {
-    return false;
-  }
-  return subsystemForPath(edge.source) !== "backend";
-}
-
-function privateBackendImplementationImportViolation(edge) {
-  return {
-    rule: "forbidden_private_backend_import",
-    source: edge.source,
-    target: edge.target,
-    message:
-      `${edge.source} ${edgeVerb(edge)} ${edge.target}; non-backend harness code must use ` +
-      "the backend target, shard, or duration owner facade.",
-  };
-}
-
-function isPrivateFrontendCatchAllImport(edge) {
-  return (
-    edge.target.startsWith("tools/harness/frontend/") &&
-    !frontendOwnerFacadePaths.has(edge.target)
-  );
-}
-
-function privateFrontendCatchAllImportViolation(edge) {
-  return {
-    rule: "forbidden_private_frontend_catch_all_import",
-    source: edge.source,
-    target: edge.target,
-    message:
-      `${edge.source} ${edgeVerb(edge)} ${edge.target}; frontend harness helpers must use ` +
-      "the declared catalog, output, execution, readiness, browser, " +
-      "generated-artifact, or static-analysis owner facade.",
-  };
-}
-
-function isPrivateBrowserImplementationImport(edge) {
-  if (!edge.target.startsWith("tools/harness/browser/")) {
-    return false;
-  }
-  if (browserOwnerFacadePaths.has(edge.target)) {
-    return false;
-  }
-  if (subsystemForPath(edge.source) === "browser") {
-    return false;
-  }
-  if (browserPrivateImportAllowedSources.has(edge.source)) {
-    return false;
-  }
-  return true;
-}
-
-function privateBrowserImplementationImportViolation(edge) {
-  return {
-    rule: "forbidden_private_browser_import",
-    source: edge.source,
-    target: edge.target,
-    message:
-      `${edge.source} ${edgeVerb(edge)} ${edge.target}; non-owner harness code must use ` +
-      "the declared browser owner facade for browser harness contracts.",
-  };
-}
-
-function isPrivateBrowserImportFromScheduler(edge) {
-  return (
-    subsystemForPath(edge.source) === "scheduler" &&
-    edge.source !== "tools/harness/scheduler/adapters/browser.mjs" &&
-    edge.target.startsWith("tools/harness/browser/")
-  );
-}
-
-function privateBrowserImportFromSchedulerViolation(edge) {
-  return {
-    rule: "forbidden_scheduler_private_browser_import",
-    source: edge.source,
-    target: edge.target,
-    message:
-      `${edge.source} ${edgeVerb(edge)} ${edge.target}; scheduler code must use ` +
-      "tools/harness/scheduler/adapters/browser.mjs for browser harness contracts.",
-  };
-}
-
-function adjacencyFromEdges(files, edges) {
-  const adjacency = new Map(files.map((file) => [file, []]));
-  for (const edge of edges) {
-    if (!adjacency.has(edge.source)) {
-      adjacency.set(edge.source, []);
-    }
-    if (!adjacency.has(edge.target)) {
-      adjacency.set(edge.target, []);
-    }
-    adjacency.get(edge.source).push(edge.target);
-  }
-  for (const targets of adjacency.values()) {
-    targets.sort(sortStrings);
-  }
-  return adjacency;
-}
-
-function stronglyConnectedComponents(adjacency) {
-  let index = 0;
-  const indexes = new Map();
-  const lowLinks = new Map();
-  const stack = [];
-  const onStack = new Set();
-  const components = [];
-
-  function visit(node) {
-    indexes.set(node, index);
-    lowLinks.set(node, index);
-    index += 1;
-    stack.push(node);
-    onStack.add(node);
-
-    for (const target of adjacency.get(node) ?? []) {
-      if (!indexes.has(target)) {
-        visit(target);
-        lowLinks.set(node, Math.min(lowLinks.get(node), lowLinks.get(target)));
-        continue;
-      }
-      if (onStack.has(target)) {
-        lowLinks.set(node, Math.min(lowLinks.get(node), indexes.get(target)));
-      }
-    }
-
-    if (lowLinks.get(node) !== indexes.get(node)) {
-      return;
-    }
-
-    const component = [];
-    while (stack.length > 0) {
-      const member = stack.pop();
-      onStack.delete(member);
-      component.push(member);
-      if (member === node) {
-        break;
-      }
-    }
-    components.push(component.sort(sortStrings));
-  }
-
-  for (const node of [...adjacency.keys()].sort(sortStrings)) {
-    if (!indexes.has(node)) {
-      visit(node);
-    }
-  }
-  return components;
-}
-
-function forbiddenCrossSubsystemSccs(files, edges) {
-  const adjacency = adjacencyFromEdges(files, edges);
-  const edgeKeys = new Set(
-    edges
-      .filter((edge) => isExecutionToPlanningEdge(edge))
-      .map((edge) => `${edge.source}=>${edge.target}`),
-  );
-  const byComponent = [];
-  for (const component of stronglyConnectedComponents(adjacency)) {
-    if (component.length < 2) {
-      continue;
-    }
-    const members = new Set(component);
-    const hasPlanning = component.some((file) => subsystemForPath(file) === "planning");
-    const hasExecution = component.some((file) => executionSubsystems.has(subsystemForPath(file)));
-    if (!hasPlanning || !hasExecution) {
-      continue;
-    }
-    const forbiddenEdges = edges
-      .filter((edge) => members.has(edge.source) && members.has(edge.target))
-      .filter((edge) => edgeKeys.has(`${edge.source}=>${edge.target}`))
-      .map((edge) => ({
-        source: edge.source,
-        target: edge.target,
-      }));
-    if (forbiddenEdges.length === 0) {
-      continue;
-    }
-    byComponent.push({
-      rule: "forbidden_cross_subsystem_scc",
-      files: component,
-      forbidden_edges: forbiddenEdges,
-      message:
-        "forbidden harness import cycle crosses planning and execution subsystems: " +
-        component.join(", "),
-    });
-  }
-  return byComponent.sort((left, right) => sortStrings(left.files[0], right.files[0]));
-}
-
-function ownerFacadeReport() {
-  return Object.fromEntries(
-    Object.entries(ownerFacadePaths)
-      .sort(([left], [right]) => sortStrings(left, right))
-      .map(([owner, paths]) => [owner, [...paths].sort(sortStrings)]),
-  );
-}
-
 export function collectHarnessImportBoundaryViolations(
   root = defaultRepoRoot,
   { scanRoot = "tools/harness" } = {},
 ) {
   const resolvedRoot = path.resolve(root);
-  const harnessRoot = path.join(resolvedRoot, "tools/harness");
-  const unknownOwnerRootViolations = existsSync(harnessRoot)
-    ? readdirSync(harnessRoot, { withFileTypes: true })
-        .filter(
-          (entry) =>
-            entry.isDirectory() &&
-            !ignoredDirectoryNames.has(entry.name) &&
-            !knownHarnessOwnerRoots.has(entry.name),
-        )
-        .map((entry) => ({
-          rule: "forbidden_unknown_harness_owner_root",
-          source: `tools/harness/${entry.name}`,
-          target: "tools/harness",
-          message:
-            `tools/harness/${entry.name} is not a declared top-level harness owner root; ` +
-            "place the implementation under its semantic owner.",
-        }))
-    : [];
+  const ownership = loadHarnessHelperOwnership(resolvedRoot);
+  const ownerFacades = ownerFacadePathLists(ownership);
   const files = sourceFiles(resolvedRoot, scanRoot);
   const edges = collectEdges(resolvedRoot, files);
-  const edgeViolations = edges
-    .filter((edge) => isExecutionToPlanningEdge(edge))
-    .map(planningImportViolation);
-  const privateCoreViolations = edges
-    .filter((edge) => isPrivateCoreImport(edge))
-    .map(privateCoreImportViolation);
-  const privateBackendViolations = edges
-    .filter((edge) => isPrivateBackendImplementationImport(edge))
-    .map(privateBackendImplementationImportViolation);
-  const privateFrontendViolations = edges
-    .filter((edge) => isPrivateFrontendCatchAllImport(edge))
-    .map(privateFrontendCatchAllImportViolation);
-  const privateBrowserViolations = edges
-    .filter((edge) => isPrivateBrowserImplementationImport(edge))
-    .map(privateBrowserImplementationImportViolation);
-  const privateSchedulerBrowserViolations = edges
-    .filter((edge) => isPrivateBrowserImportFromScheduler(edge))
-    .map(privateBrowserImportFromSchedulerViolation);
-  const forbiddenSccs = forbiddenCrossSubsystemSccs(files, edges);
-  const sccViolations = forbiddenSccs.map((scc) => ({
-    rule: scc.rule,
-    source: scc.files[0],
-    target: scc.files[scc.files.length - 1],
-    message: scc.message,
-  }));
-  return {
-    root: resolvedRoot,
-    files,
-    edges,
-    owner_facades: ownerFacadeReport(),
-    violations: [
-      ...unknownOwnerRootViolations,
-      ...edgeViolations,
-      ...privateCoreViolations,
-      ...privateBackendViolations,
-      ...privateFrontendViolations,
-      ...privateBrowserViolations,
-      ...privateSchedulerBrowserViolations,
-      ...sccViolations,
-    ],
-    forbidden_sccs: forbiddenSccs,
-  };
-}
-
-function assertHarnessImportBoundary(root = defaultRepoRoot, options = {}) {
-  const report = collectHarnessImportBoundaryViolations(root, options);
-  if (report.violations.length === 0) {
-    return report;
+  const violations = [];
+  for (const ownerRoot of new Set(files.filter((file) => file.split("/").length > 3).map(subsystemForPath))) {
+    if (!knownHarnessOwnerRoots.has(ownerRoot)) violations.push({
+      rule: "forbidden_unknown_harness_owner_root", source: `tools/harness/${ownerRoot}`,
+      target: "tools/harness", message: `${ownerRoot} is not a current semantic harness owner root`,
+    });
   }
-  const details = report.violations.map((violation) => `- ${violation.message}`).join("\n");
-  throw new Error(`harness import boundary violations:\n${details}`);
+  for (const edge of edges) {
+    const sourceOwner = subsystemForPath(edge.source);
+    const targetOwner = subsystemForPath(edge.target);
+    let rule;
+    if (targetOwner === "core" || targetOwner === "frontend") {
+      rule = "forbidden_private_catch_all_import";
+    } else if (sourceOwner === "scheduler" && targetOwner === "browser" &&
+               !allowedPrivateImportSources(ownership, "browser").has(edge.source)) {
+      rule = "forbidden_scheduler_private_browser_import";
+    } else if (protectedOwnerGroups.has(targetOwner) && sourceOwner !== targetOwner) {
+      const group = protectedOwnerGroups.get(targetOwner);
+      if (!(ownerFacades[group] ?? []).includes(edge.target) &&
+          !allowedPrivateImportSources(ownership, group).has(edge.source)) {
+        rule = `forbidden_private_${group}_import`;
+      }
+    }
+    if (rule) violations.push({ rule, source: edge.source, target: edge.target,
+      message: `${edge.source} ${edgeVerb(edge)} ${edge.target}; use the declared semantic owner facade` });
+  }
+  return { root: resolvedRoot, files, edges, owner_facades: ownerFacades, violations };
 }

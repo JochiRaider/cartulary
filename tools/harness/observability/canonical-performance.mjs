@@ -3,9 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { canonicalJSONString, validateSchemaSync } from "../contract/index.mjs";
-import { reduceCanonicalUnitIntervals } from "../evidence-accounting/canonical-unit-events.mjs";
+import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
 
-export const evidenceSchemaID = "cartulary.harness_performance_evidence_roots.v3";
+const evidenceSchemaID = "cartulary.harness_performance_evidence_roots.v3";
 export const baselineSchemaID = "cartulary.harness_public_target_duration_baselines.v3";
 
 function compareASCII(left, right) {
@@ -44,7 +44,7 @@ export function nearestRankP90(values) {
   return sorted[Math.ceil(sorted.length * 0.9) - 1];
 }
 
-export function intervalUnionMs(intervals) {
+function intervalUnionMs(intervals) {
   const sorted = intervals
     .filter(({ start, end }) => Number.isFinite(start) && Number.isFinite(end) && end >= start)
     .sort((left, right) => left.start - right.start || left.end - right.end);
@@ -288,7 +288,7 @@ function assertUnique(items, key, label) {
   if (new Set(values).size !== values.length) throw new Error(`${label} contains duplicate ${key}`);
 }
 
-export async function buildQualifiedBaseline({
+async function buildQualifiedBaseline({
   repositoryRoot,
   baseDirectory,
   surface,

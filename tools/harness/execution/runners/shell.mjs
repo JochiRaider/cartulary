@@ -1,8 +1,3 @@
-export const runnerContract = Object.freeze({
-  runner: "shell",
-  selector_kind: "shell_registered_command",
-});
-
 export function buildShellInvocations(rows, command = process.env.MAKE || "make") {
   return rows.map((row) => ({
     command,

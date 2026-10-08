@@ -63,16 +63,16 @@ import {
   resolveGraphNodeBinary,
   withGraphNodeRuntime,
 } from "../scheduler/work-graph/executor.mjs";
-import { buildSourceSnapshot } from "../test-catalog/source-snapshot.mjs";
+import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { validateFixtureProfile } from "../test-catalog/index.mjs";
-import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
+import { resolveRowSelector } from "../test-support/owner-fixtures.mjs";
 import { startManagedSuite } from "../scheduler/fixture-broker/providers.mjs";
 import {
   cleanupStaleSuiteRuntimeRoots,
   createSuiteRuntime,
   scanRetainedRoot,
 } from "../runtime/suite-runtime.mjs";
-import { validateFrontendAttachment } from "../browser/browser-session-evidence.mjs";
+import { validateFrontendAttachment } from "../test-support/owner-fixtures.mjs";
 import { resolveFrontendArtifact, sealFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
 import { createContractTestContext } from "./contract-test-context.mjs";
@@ -970,6 +970,24 @@ function assertGraphContract(context, kind) {
       assert.ok(isolatedPlan.shards.every((shard) => shard.isolated));
       return;
     }
+    case "visual_semantic_partition": {
+      const graph = context.compiler.compile({ kind: "target", target: "browser-e2e-visual" });
+      const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:visual:"));
+      const rows = context.catalog.rows.filter((row) => row.runner === "playwright" && row.selector.stage === "visual");
+      const selected = groups.flatMap((unit) => {
+        const ids = unit.command.environment.CARTULARY_BROWSER_SELECTED_ROW_IDS.split(",");
+        assert.equal(ids.length, 1, "visual execution bounds each existing semantic row independently");
+        return ids;
+      });
+      assert.equal(new Set(selected).size, selected.length, "visual claims execute exactly once");
+      assert.deepEqual(selected.sort(), rows.map((row) => row.row_id).sort(), "no active visual claim is omitted");
+      for (const unit of graph.units) {
+        assert.ok(Buffer.byteLength(`.tmp-${unit.unit_id}.json.2147483647`) <= 255,
+          "private visual group/reset artifacts leave room for atomic-write names");
+      }
+      validateWorkGraph(graph);
+      return;
+    }
     case "measurement_semantic_identity": {
       const graph = context.compiler.compile({ kind: "target", target: "browser-e2e-measurement" });
       const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:measurement:measurement-measurement-timeline-grid-"));
@@ -1439,6 +1457,9 @@ function directoryCacheFixture() {
   mkdirSync(path.join(fixture.output, "nested"), { mode: 0o750 });
   writeFileSync(path.join(fixture.output, "root.txt"), "root\n", { mode: 0o600 });
   writeFileSync(path.join(fixture.output, "nested/child.txt"), "child\n", { mode: 0o640 });
+  // Cache preservation tests the intended source modes, not the caller's mask.
+  chmodSync(path.join(fixture.output, "nested"), 0o750);
+  chmodSync(path.join(fixture.output, "nested/child.txt"), 0o640);
   fixture.unit.reusable_artifact_outputs[0] = {
     ...fixture.unit.reusable_artifact_outputs[0],
     artifact_type: "directory",
@@ -2091,6 +2112,7 @@ const suiteCases = {
     semanticCase("active_owner_row_coverage", "every active owner retains current row coverage", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "active_owner_coverage")),
   ],
   graph: [
+    semanticCase("visual_semantic_partition", "visual groups bound complete catalog claims without duplicate or missing execution", ["TH-HARNESS-AC-011", "TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "visual_semantic_partition")),
     semanticCase("measurement_semantic_identity", "measurement groups preserve complete semantic identities independently of private storage", ["TH-HARNESS-AC-011", "TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "measurement_semantic_identity")),
     semanticCase("aggregate_graph_determinism", "aggregate work graphs are deterministic", ["TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "aggregate_determinism")),
     semanticCase("row_evidence_output_contract", "row graphs declare exact current-run evidence outputs", ["TH-HARNESS-AC-087"], (context) => assertGraphContract(context, "row_evidence_outputs")),

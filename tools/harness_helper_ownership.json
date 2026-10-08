@@ -49,7 +49,9 @@
       ],
       "allowed_consumers": [
         "tools/harness/output/test-output/playwright-artifacts.mjs",
-        "tools/harness/scheduler/adapters/browser.mjs"
+        "tools/harness/scheduler/adapters/browser.mjs",
+        "tools/harness/test-support/browser-contract-tests.mjs",
+        "tools/harness/test-support/owner-fixtures.mjs"
       ]
     },
     {
@@ -203,6 +205,16 @@
       "boundary_group": "test_catalog",
       "paths": [
         "tools/harness/test-catalog/index.mjs"
+      ],
+      "allowed_consumers": [
+        "tools/harness/test-support/owner-fixtures.mjs"
+      ]
+    },
+    {
+      "key": "test_evidence_accounting",
+      "boundary_group": "evidence_accounting",
+      "paths": [
+        "tools/harness/evidence-accounting/index.mjs"
       ],
       "allowed_consumers": []
     },

@@ -108,7 +108,7 @@ export function WorkbookCommandsControl() {
   const trigger = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const origin = useRef<HTMLElement | null>(null);
-  useWorkbookMenuPlacement(open, panel);
+  useWorkbookMenuPlacement(open, panel, trigger);
   const captured = useRef<{
     surface: string;
     selection: readonly string[];
@@ -262,9 +262,11 @@ export function WorkbookCommandsControl() {
       {open ? (
         <section
           ref={panel}
+          popover="manual"
           aria-label="Commands"
           style={{
             // Escape the below-minimum header's horizontal scrollport.
+            color: "inherit",
             position: "fixed",
             insetInlineEnd: "var(--ct-spacing-sm)",
             top: "var(--ct-layout-topBarHeight)",

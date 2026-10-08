@@ -26,7 +26,7 @@ const identitiesContract = requireViewContract(identitiesViewSchemaId);
 export type EntitySurfaceQueryInput = {
   readonly ordinaryCreateOwner?: WorkbookCommittedRecordPort | undefined;
   readonly editOwner?: WorkbookCommittedRecordPort | undefined;
-  readonly activeViewSchemaId?: string;
+  readonly activeViewSchemaId: string;
   readonly hostQueryState: WorkbookQueryState;
   readonly identityQueryState: WorkbookQueryState;
   readonly onAuthorityUncertain: (() => void) | undefined;
@@ -47,18 +47,14 @@ export function useEntitySurfaceQuery(input: EntitySurfaceQueryInput) {
   };
   const hosts = useGenericSurfaceQuery({
     ...shared,
-    active:
-      input.activeViewSchemaId === undefined ||
-      input.activeViewSchemaId === hostsViewSchemaId,
+    active: input.activeViewSchemaId === hostsViewSchemaId,
     contract: hostsContract,
     viewSchemaId: hostsViewSchemaId,
     queryState: input.hostQueryState,
   });
   const identities = useGenericSurfaceQuery({
     ...shared,
-    active:
-      input.activeViewSchemaId === undefined ||
-      input.activeViewSchemaId === identitiesViewSchemaId,
+    active: input.activeViewSchemaId === identitiesViewSchemaId,
     contract: identitiesContract,
     viewSchemaId: identitiesViewSchemaId,
     queryState: input.identityQueryState,
@@ -80,23 +76,15 @@ export function useEntitySurfaceQuery(input: EntitySurfaceQueryInput) {
   );
   const refreshHosts = hosts.refresh,
     refreshIdentities = identities.refresh;
-  const refreshBoth = useCallback(
-    async (options?: { readonly requireAcceptance?: boolean }) => {
-      await Promise.all([refreshHosts(options), refreshIdentities(options)]);
-    },
-    [refreshHosts, refreshIdentities],
-  );
   // An inactive sheet or a reference observation must not replace this sheet's reader.
   const refresh =
-    input.activeViewSchemaId === undefined
-      ? refreshBoth
-      : input.activeViewSchemaId === hostsViewSchemaId
-        ? refreshHosts
-        : input.activeViewSchemaId === identitiesViewSchemaId
-          ? refreshIdentities
-          : input.activeViewSchemaId === timelineViewSchemaId
-            ? references.refresh
-            : inactiveRead;
+    input.activeViewSchemaId === hostsViewSchemaId
+      ? refreshHosts
+      : input.activeViewSchemaId === identitiesViewSchemaId
+        ? refreshIdentities
+        : input.activeViewSchemaId === timelineViewSchemaId
+          ? references.refresh
+          : inactiveRead;
   const invalidateHosts = hosts.invalidate,
     invalidateIdentities = identities.invalidate;
   const invalidate = useCallback(

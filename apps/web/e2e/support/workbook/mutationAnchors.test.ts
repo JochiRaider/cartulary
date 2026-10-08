@@ -201,7 +201,9 @@ describe("workbook row mutation support", () => {
 
     await expect(
       fetchRecordHistory(page, validPayload.data.record_id),
-    ).rejects.toThrow(/getRecordHistory failed with HTTP 502/u);
+    ).rejects.toThrow(
+      "public HTTP operation getRecordHistory failed: HTTP 502; code=unrecognized_error",
+    );
   });
 
   it("posts the stable fill-down envelope through the same-origin page context", async () => {

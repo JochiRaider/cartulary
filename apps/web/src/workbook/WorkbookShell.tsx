@@ -357,29 +357,11 @@ function WorkbookShellContent({
     indicatorOwner: infrastructure.mutationRuntime.indicatorRecords,
     assessmentOwner: infrastructure.mutationRuntime.assessmentAuthoring,
     activeContract: snapshot.activeContract,
-    assessment: {
-      setState: commands.setAssessmentQueryState,
-      state: snapshot.assessmentQueryState,
-    },
-    generic: {
-      setState: commands.setGenericQueryState,
-      state: snapshot.genericQueryState,
-    },
-    hosts: {
-      setState: commands.setHostQueryState,
-      state: snapshot.hostQueryState,
-    },
-    identities: {
-      setState: commands.setIdentityQueryState,
-      state: snapshot.identityQueryState,
-    },
+    queryStateForSurface: snapshot.queryStateForSurface,
+    setQueryStateForSurface: commands.setQueryStateForSurface,
     onAuthorityUncertain: authorization.loadSessionRole,
     sheetRef: snapshot.startupSheetRef,
     surface: snapshot.surface,
-    timeline: {
-      setState: commands.setTimelineQueryState,
-      state: snapshot.timelineQueryState,
-    },
     viewQuery: infrastructure.viewQuery,
   });
   useLayoutEffect(() => {

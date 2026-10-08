@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,12 +7,12 @@ import { normalizeRuntimeBinaryEntries } from "../runtime-binary-registry.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 export const executionTopologySchemaID = "cartulary.execution_topology.v8";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v2";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
-export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v11";
+const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
+const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v11";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -302,7 +303,7 @@ export function renderBrowserBatchManifest(topology) {
             .replaceAll(/[^a-zA-Z0-9]+/gu, "-")
             .replaceAll(/^-|-$/gu, "")
             .toLowerCase();
-          const rowPartitions = resourceProfileID === "browser_measurement_quiet"
+          const rowPartitions = resourceProfileID === "browser_measurement_quiet" || policyGroup.kind === "visual"
             ? fileRows.map((row) => [row])
             : [fileRows];
           return rowPartitions.map((partition) => {
@@ -316,9 +317,16 @@ export function renderBrowserBatchManifest(topology) {
             const quietIdentity = resourceProfileID === "browser_measurement_quiet"
               ? partition[0].row_id
               : "";
+            // Group names are private storage components; full claim identities
+            // remain in selected_row_ids and every result. Keep reset pairs bounded.
+            const visualStorageIdentity = policyGroup.kind === "visual"
+              ? createHash("sha256").update(partition[0].row_id).digest("hex")
+              : null;
             const group = {
               ...clone(policyGroup),
-              name: [policyGroup.name, fileIdentity, quietIdentity].filter(Boolean).join("-"),
+              name: visualStorageIdentity
+                ? `${policyGroup.name}-${visualStorageIdentity}`
+                : [policyGroup.name, fileIdentity, quietIdentity].filter(Boolean).join("-"),
               selected_row_ids: partition.map((row) => row.row_id),
               specs: [file],
               runtime_profile_id: runtimeProfileID,
@@ -345,55 +353,5 @@ export function renderBrowserBatchManifest(topology) {
       service_requirement: globalRuntimeProfiles.get(profile.id).serviceRequirement,
     })),
     stages,
-  };
-}
-
-export function executionDependencyMetadata(root = repoRoot) {
-  const topology = loadExecutionTopology({ root });
-  return new Map(topology.executionDependencies.map((entry) => [entry.id, entry]));
-}
-
-export function serviceBackedGoExecutionDependencies(root = repoRoot) {
-  return new Set(loadExecutionTopology({ root }).executionDependencies
-    .filter((entry) => entry.category === "backend" && entry.serviceBacked && !entry.supportTarget)
-    .map((entry) => entry.id));
-}
-
-export function serviceBackedSupportTargets(root = repoRoot) {
-  return new Set(loadExecutionTopology({ root }).executionDependencies
-    .filter((entry) => entry.serviceBacked && entry.supportTarget)
-    .map((entry) => entry.target));
-}
-
-export function validExecutionDependencyIDs(root = repoRoot) {
-  return new Set(executionDependencyMetadata(root).keys());
-}
-
-export function validSupportTargetIDs(root = repoRoot) {
-  return serviceBackedSupportTargets(root);
-}
-
-export function compareExecutionDependencyIDs(left, right, root = repoRoot) {
-  const metadata = executionDependencyMetadata(root);
-  return (metadata.get(left)?.order ?? Number.MAX_SAFE_INTEGER) -
-    (metadata.get(right)?.order ?? Number.MAX_SAFE_INTEGER) || compareASCII(left, right);
-}
-
-export function targetForExecutionDependencyID(id, label = "execution_dependency", root = repoRoot) {
-  if (id === "") return "";
-  const info = executionDependencyMetadata(root).get(id);
-  if (!info) throw new Error(`${label} has no execution dependency metadata for ${id}`);
-  return info.target;
-}
-
-export function topologySummary(topology) {
-  return {
-    schema_id: topology.raw.schema_id,
-    execution_dependencies: topology.executionDependencies.length,
-    go_targets: topology.goTargets.targets.length,
-    raw_go_aggregates: topology.goTargets.rawAggregates.length,
-    task_targets: topology.taskSurface.targets.length,
-    browser_stages: topology.browserBatch.stages.length,
-    generated_outputs: clone(topology.generatedOutputs),
   };
 }

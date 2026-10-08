@@ -116,15 +116,6 @@ export class NetworkFlowIndicatorLinkController {
   private workSequence = 0;
   private admission = false;
   private active = false;
-  private focusRestorer: (() => Promise<boolean>) | null = null;
-  bindFocusRestoration(restore: () => Promise<boolean>): () => void {
-    this.focusRestorer = restore;
-    return () => {
-      if (this.focusRestorer === restore) this.focusRestorer = null;
-    };
-  }
-  readonly restoreFocus = async (): Promise<boolean> =>
-    this.focusRestorer?.() ?? false;
   private removedSources = new Set<string>();
 
   constructor(

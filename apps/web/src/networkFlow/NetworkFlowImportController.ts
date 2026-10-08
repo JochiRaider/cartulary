@@ -65,7 +65,6 @@ export type NetworkFlowImportPort = Pick<
   | "readJob"
   | "readSession"
   | "listUnits"
-  | "readUnit"
   | "preview"
   | "previewMapping"
 >;

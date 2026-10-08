@@ -572,7 +572,7 @@ export function useGenericWorkbookInspectorComposition({
         )
       : null;
   }
-  const close = () => inspector.commands.close({ restoreFocus: true });
+  const close = () => inspector.commands.close();
   const node = isOpen ? (
     <GenericWorkbookInspectorPresentation
       isOpen={isOpen}

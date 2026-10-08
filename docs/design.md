@@ -272,7 +272,10 @@ Design contract. `domain.md` governs repository vocabulary interpretation. This 
 
 External dependency. Core 00 §1.1 records adoption of this 0.6.0 workbench
 revision. Typed design projections and rendered/behavioral/accessibility evidence
-are pending downstream implementation; document adoption establishes no pass.
+were pending downstream implementation at adoption; document adoption establishes
+no pass. Subsequent engineering implementation and routed evidence are recorded in
+`docs/handoffs/ui-ux/workbook-workbench-implementation.md`, without establishing
+release qualification.
 Token names retained for existing consumers do not authorize old geometry after
 the complete revised implementation is activated.
 

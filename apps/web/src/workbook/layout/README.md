@@ -17,6 +17,7 @@ repeated viewport subtraction in surface components.
 | [useWorkbookColumnSizingBinding.ts](useWorkbookColumnSizingBinding.ts) | Supplies source defaults and the mounted neutral GridHandle sizing capability; never owns widths or vendor nodes. |
 | [useWorkbookLayoutFacade.ts](useWorkbookLayoutFacade.ts) | Composition facade for effective density, responsive mode, interaction mode, column state, and surface layout commands. |
 | [useWorkbookResponsiveLayout.ts](useWorkbookResponsiveLayout.ts) | Viewport subscription and semantic responsive-layout snapshot. |
+| [useWorkbookMenuPlacement.ts](useWorkbookMenuPlacement.ts) | Explicit anchor and visual-viewport placement for native manual top-layer panels; preserves command-owned focus/dismissal and escapes nested scroll clipping. |
 | [workbookColumnLayout.ts](workbookColumnLayout.ts) | Contract-normalized column ordering, visibility, width, semantic frozen prefix, movement, and materialization helpers. |
 | [workbookDensity.ts](workbookDensity.ts) | Account density preference resolution. |
 | [workbookResponsiveLayout.ts](workbookResponsiveLayout.ts) | Responsive layout classification and surface-band helpers. |
@@ -71,3 +72,16 @@ Workbook surfaces to the required browsing provider. `WorkbookExtensionWorkArea`
 uses the reusable frame; Network Flow receives that frame explicitly from shell
 composition. Auxiliary destinations require the dock provider; a temporarily
 unmounted host is allowed while the frame commits the attachment.
+
+User dismissal restores inspector focus through the layout's existing semantic
+restoration port. Surface compositions close the source inspector without a
+second restoration side effect. Explicit action-completion focus remains a
+separate use of the same source continuity port. Coordinated navigation departure
+suppresses restoration of the old record anchor; it must not compete with the
+pending destination attachment.
+
+Placement acquires and restores only its physical position, margin and viewport
+bounds. Retirement preserves the panel owner’s current display and other authored
+styles, including a dismissal committed while placement is active. Native panels
+inherit the existing foreground explicitly; browser defaults do not supply palette
+policy.

@@ -91,7 +91,6 @@ function setup() {
     readJob: unavailable,
     readSession: unavailable,
     listUnits: unavailable,
-    readUnit: unavailable,
     preview: unavailable,
     previewMapping: unavailable,
   } satisfies NetworkFlowImportPort;

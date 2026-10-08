@@ -1,3 +1,4 @@
+import { errorRegistry } from "@cartulary/protocol-ts/errors";
 import {
   buildHTTPOperationPath,
   encodeHTTPOperationQuery,
@@ -50,7 +51,6 @@ type PublicHttpOperationObservedResult<OperationID extends HTTPOperationID> =
 
 type ObservedHttpOperationRequest = {
   readonly method: () => string;
-  readonly postData: () => string | null;
 };
 
 type ObservedHttpOperationResponse = {
@@ -58,8 +58,29 @@ type ObservedHttpOperationResponse = {
   readonly request: () => ObservedHttpOperationRequest;
   readonly status: () => number;
   readonly text: () => Promise<string>;
-  readonly url: () => string;
 };
+
+/** Diagnostics expose contract identity, never transport bodies or capabilities. */
+export function publicHttpOperationFailure(
+  operationID: HTTPOperationID,
+  status: number,
+  payload: unknown,
+): string {
+  const envelope =
+    typeof payload === "object" && payload !== null
+      ? (payload as { error?: unknown })
+      : null;
+  const error =
+    typeof envelope?.error === "object" && envelope.error !== null
+      ? (envelope.error as { code?: unknown })
+      : null;
+  const code =
+    typeof error?.code === "string" &&
+    errorRegistry.errors.some((entry) => entry.code === error.code)
+      ? error.code
+      : "unrecognized_error";
+  return `public HTTP operation ${operationID} failed: HTTP ${status}; code=${code}`;
+}
 
 export async function publicHttpOperation<OperationID extends HTTPOperationID>(
   options: PublicHttpOperationOptions<OperationID>,
@@ -184,17 +205,21 @@ export async function readHttpOperationResponse<
 ): Promise<HTTPOperationResponse<OperationID>> {
   const binding = httpOperationBindings[operationID];
   const request = response.request();
-  const responseBody = await response.text().catch((error: unknown) => {
-    return `<<failed to read response body: ${String(error)}>>`;
-  });
+  const responseBody = await response
+    .text()
+    .catch(() => "response body unavailable");
   if (!response.ok()) {
+    let failurePayload: unknown;
+    try {
+      failurePayload = JSON.parse(responseBody);
+    } catch {
+      failurePayload = undefined;
+    }
     throw new Error(
-      observedOperationDiagnostic(
+      publicHttpOperationFailure(
         operationID,
-        response,
-        request,
-        responseBody,
-        `HTTP ${response.status()}`,
+        response.status(),
+        failurePayload,
       ),
     );
   }
@@ -206,8 +231,6 @@ export async function readHttpOperationResponse<
       observedOperationDiagnostic(
         operationID,
         response,
-        request,
-        responseBody,
         "invalid_public_contract_response: response body is not JSON",
       ),
     );
@@ -222,20 +245,13 @@ export async function readHttpOperationResponse<
       observedOperationDiagnostic(
         operationID,
         response,
-        request,
-        responseBody,
         [
           "invalid_public_contract_response",
           ...(methodMatches ? [] : [`expected_method=${binding.method}`]),
           ...(statusMatches
             ? []
             : [`expected_status=${binding.success_statuses.join(",")}`]),
-          ...(validation.ok
-            ? []
-            : [
-                `schema_id=${validation.schemaId}`,
-                `instance_path=${validation.instancePath}`,
-              ]),
+          ...(validation.ok ? [] : [`schema_id=${validation.schemaId}`]),
         ].join("; "),
       ),
     );
@@ -246,23 +262,7 @@ export async function readHttpOperationResponse<
 function observedOperationDiagnostic(
   operationID: HTTPOperationID,
   response: ObservedHttpOperationResponse,
-  request: ObservedHttpOperationRequest,
-  responseBody: string,
   reason: string,
 ) {
-  return [
-    `public HTTP operation ${operationID} failed: ${reason}`,
-    `method=${request.method()}`,
-    `url=${response.url()}`,
-    `request_body=${truncateDiagnostic(request.postData() ?? "")}`,
-    `response_body=${truncateDiagnostic(responseBody)}`,
-  ].join("\n");
-}
-
-function truncateDiagnostic(value: string) {
-  const limit = 4000;
-  if (value.length <= limit) {
-    return value;
-  }
-  return `${value.slice(0, limit)}...<truncated ${value.length - limit} chars>`;
+  return `public HTTP operation ${operationID} failed: ${reason}; HTTP ${response.status()}`;
 }

@@ -899,6 +899,7 @@
         "apps/web/src/workbook/layout/useWorkbookColumnLayoutController.ts",
         "apps/web/src/workbook/layout/useWorkbookColumnSizingBinding.ts",
         "apps/web/src/workbook/layout/useWorkbookLayoutFacade.ts",
+        "apps/web/src/workbook/layout/useWorkbookMenuPlacement.test.tsx",
         "apps/web/src/workbook/layout/useWorkbookMenuPlacement.ts",
         "apps/web/src/workbook/layout/useWorkbookResponsiveLayout.test.tsx",
         "apps/web/src/workbook/layout/useWorkbookResponsiveLayout.ts",

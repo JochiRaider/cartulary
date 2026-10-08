@@ -30,6 +30,13 @@ mutation state in [runtime](../runtime/README.md), and geometry in
 | [WorkbookSortControl.tsx](WorkbookSortControl.tsx) | Complete ordered-sort add, direction, priority, removal, and limit menu. |
 | [WorkbookViewBar.tsx](WorkbookViewBar.tsx) | Shared saved-view, query, inspector, and create control composition. |
 
+Query and View options composition keeps one command/draft owner. Panels use
+native manual top-layer popovers and the existing viewport-placement port with
+an explicit live anchor. This keeps nested editors outside parent scroll clipping
+at browser zoom while retaining DOM containment, source-owned dismissal and
+registered keyboard focus. Saved View discovery retains its independent browsing
+lifetime and placement.
+
 ## Surface and shell presentation
 
 | File | Responsibility |
@@ -156,3 +163,9 @@ used by Party linking and Timeline mentions as well as authoring.
 with local search and explicit review activation. Its test verifies bounded
 choices and absence of implicit activation. Receipt lifetime remains with the
 batch owner; this presentation retains no independent inventory.
+
+When responsive overflow retires a focused query chip, its existing menu-open
+request carries the fallback control. The menu owner reveals the committed panel
+before focusing that connected descendant; no hidden control receives focus.
+
+Outer Query and View options menu requests apply only when that menu is enabled in the current chrome mode. A base-layout command cannot retain an invisible open that appears after later resizing; focused-chip fallback still opens its current compact Query panel before committed focus.

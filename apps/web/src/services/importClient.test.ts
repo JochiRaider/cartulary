@@ -172,24 +172,24 @@ describe("Workbook import typed transport", () => {
       ),
     );
     expect((await service.readJob(ids.job, signal())).kind).toBe("failed");
-    fetch.mockResolvedValue(
-      jsonResponse(
-        importTestEnvelope(
-          importTestUnit({ mapping_fingerprint: "a".repeat(64) }),
-        ),
-      ),
-    );
-    expect((await service.readUnit(ids.session, ids.unit, signal())).kind).toBe(
-      "failed",
-    );
-    fetch.mockResolvedValue(
-      jsonResponse(
-        importTestEnvelope(importTestUnit({ unit_status: "ready" })),
-      ),
-    );
-    expect((await service.readUnit(ids.session, ids.unit, signal())).kind).toBe(
-      "failed",
-    );
+    for (const unit of [
+      importTestUnit({ mapping_fingerprint: "a".repeat(64) }),
+      importTestUnit({ unit_status: "ready" }),
+    ]) {
+      const envelope = importTestEnvelope({ import_units: [unit] });
+      fetch.mockResolvedValue(
+        jsonResponse({
+          ...envelope,
+          meta: {
+            ...envelope.meta,
+            paging: { limit: 50, has_more: false, next_cursor: null },
+          },
+        }),
+      );
+      expect((await service.listUnits(ids.session, signal())).kind).toBe(
+        "failed",
+      );
+    }
     fetch.mockResolvedValue(
       jsonResponse(
         importTestEnvelope(

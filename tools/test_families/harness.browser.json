@@ -434,6 +434,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.public_http_diagnostic_privacy",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/transport/publicJsonClient.test.ts",
+        "titles": [
+          "public HTTP failure diagnostics retains status and registered codes without capabilities bodies or private URLs"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.boundary_support.publicjsonclient_suite_a3aedb76f9",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",

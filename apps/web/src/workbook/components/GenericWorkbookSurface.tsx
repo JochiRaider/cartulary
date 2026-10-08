@@ -344,6 +344,13 @@ export function ContractWorkbookSurface({
     );
     return createFields.filter((field) => !gridFieldKeys.has(field.fieldKey));
   }, [createFields, visibleAnchorColumns]);
+  const restoreInspectorFocus = () => {
+    const token = inspectorContinuityTokenRef.current;
+    inspectorContinuityTokenRef.current = null;
+    return token === null
+      ? false
+      : (continuityPortRef.current?.restore(token) ?? false);
+  };
   const genericInspector = useGenericWorkbookInspectorComposition({
     readScope:
       mutationRuntime.recordReadScope?.actorId === currentUserId
@@ -368,11 +375,7 @@ export function ContractWorkbookSurface({
       setEditRecordId("");
     },
     onRefresh,
-    onRestoreFocus: () => {
-      const token = inspectorContinuityTokenRef.current;
-      inspectorContinuityTokenRef.current = null;
-      if (token !== null) void continuityPortRef.current?.restore(token);
-    },
+    onRestoreFocus: restoreInspectorFocus,
     onRestoreEvidenceFocus: (recordId) => {
       const fieldKey = visibleAnchorColumns[0]?.fieldKey;
       if (fieldKey !== undefined)
@@ -687,6 +690,7 @@ export function ContractWorkbookSurface({
     <WorkbookQuerySurfaceLayout
       chromeMode={chromeMode}
       inspector={genericInspector.node}
+      restoreInspectorFocus={restoreInspectorFocus}
       onRequestPreviewClose={genericInspector.ownerRecordActions.closePreview}
       onRequestInspectorClose={() => {
         genericInspector.close();

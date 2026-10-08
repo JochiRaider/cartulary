@@ -9,6 +9,16 @@ export async function showTimelineCollectionColumns(
   page: Page,
   labels: readonly string[] = ["Hosts", "Identities", "Tags"],
 ) {
+  const controls = page.getByRole("region", {
+    name: "Workbook query and action controls",
+    exact: true,
+  });
+  const viewOptions = controls.getByRole("button", {
+    name: "View options controls",
+    exact: true,
+  });
+  const openedViewOptions = await viewOptions.isVisible();
+  if (openedViewOptions) await viewOptions.click();
   await page
     .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
     .click();
@@ -36,6 +46,13 @@ export async function showTimelineCollectionColumns(
   await menu.getByRole("checkbox").first().focus();
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
+  if (
+    openedViewOptions &&
+    (await viewOptions.getAttribute("aria-expanded")) === "true"
+  ) {
+    await page.keyboard.press("Escape");
+    await expect(viewOptions).toHaveAttribute("aria-expanded", "false");
+  }
 }
 
 export async function expectCollectionControlPainted(control: Locator) {

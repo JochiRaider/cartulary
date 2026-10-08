@@ -4,21 +4,42 @@ import { type RefObject, useLayoutEffect } from "react";
 export function useWorkbookMenuPlacement(
   open: boolean,
   ref: RefObject<HTMLElement | null>,
+  anchorRef: RefObject<HTMLElement | null>,
 ) {
   useLayoutEffect(() => {
     const panel = ref.current;
-    if (!open || !panel) return;
-    const original = {
-      maxWidth: panel.style.maxWidth,
-      maxHeight: panel.style.maxHeight,
-      translate: panel.style.translate,
-    };
+    const anchor = anchorRef.current;
+    if (!open || !panel || !anchor) return;
+    const placementProperties = [
+      "position",
+      "top",
+      "right",
+      "bottom",
+      "left",
+      "margin-top",
+      "margin-right",
+      "margin-bottom",
+      "margin-left",
+      "max-width",
+      "max-height",
+    ];
+    const originalPlacement = placementProperties.map((property) => ({
+      property,
+      value: panel.style.getPropertyValue(property),
+      priority: panel.style.getPropertyPriority(property),
+    }));
     const authoredMaxHeight = panel.style.maxBlockSize || panel.style.maxHeight;
-    let shiftX = 0;
+    // A nested command panel must escape its parent menu's scroll clipping.
+    // DOM containment remains intact for the owner's outside/focus handling.
+    panel.showPopover?.();
+    panel.style.position = "fixed";
+    panel.style.inset = "auto";
+    panel.style.margin = "0";
     const place = () => {
-      if (!panel.isConnected || panel.offsetWidth === 0) return;
+      if (!panel.isConnected || !anchor.isConnected || panel.offsetWidth === 0)
+        return;
       const style = getComputedStyle(panel);
-      const initial = panel.getBoundingClientRect();
+      const bounds = panel.getBoundingClientRect();
       const cssWidth =
         Number.parseFloat(style.width) +
         (style.boxSizing === "border-box"
@@ -29,45 +50,42 @@ export function useWorkbookMenuPlacement(
               style.borderLeftWidth,
               style.borderRightWidth,
             ].reduce((sum, value) => sum + (Number.parseFloat(value) || 0), 0));
-      const scale = initial.width / cssWidth;
+      const scale = bounds.width / cssWidth;
       if (!Number.isFinite(scale) || scale <= 0) return;
-      const viewport = panel.ownerDocument.documentElement;
+      const viewport = window.visualViewport;
+      const left = viewport?.offsetLeft ?? 0;
+      const top = viewport?.offsetTop ?? 0;
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
       const spacing = Number.parseFloat(style.paddingLeft) || 0;
-      const availableWidth = Math.max(
-        0,
-        viewport.clientWidth / scale - spacing * 2,
-      );
-      const availableHeight = Math.max(
-        0,
-        (viewport.clientHeight - initial.top) / scale - spacing,
-      );
-      panel.style.maxWidth = `${availableWidth}px`;
+      panel.style.maxWidth = `${Math.max(0, width / scale - spacing * 2)}px`;
+      const maxHeight = `${Math.max(0, height / scale - spacing * 2)}px`;
       panel.style.maxHeight = authoredMaxHeight
-        ? `min(${authoredMaxHeight}, ${availableHeight}px)`
-        : `${availableHeight}px`;
-      const bounds = panel.getBoundingClientRect();
-      const naturalLeft = bounds.left - shiftX * scale;
-      const left = Math.max(
-        spacing * scale,
-        Math.min(
-          naturalLeft,
-          viewport.clientWidth - bounds.width - spacing * scale,
-        ),
-      );
-      shiftX = (left - naturalLeft) / scale;
-      panel.style.translate = `${shiftX}px 0`;
+        ? `min(${authoredMaxHeight}, ${maxHeight})`
+        : maxHeight;
+      const placed = panel.getBoundingClientRect();
+      const target = anchor.getBoundingClientRect();
+      panel.style.left = `${Math.max(left + spacing * scale, Math.min(target.left, left + width - placed.width - spacing * scale)) / scale}px`;
+      panel.style.top = `${Math.max(top + spacing * scale, Math.min(target.bottom, top + height - placed.height - spacing * scale)) / scale}px`;
     };
     place();
     const observer =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(place);
     observer?.observe(panel);
+    observer?.observe(anchor);
     window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
     window.visualViewport?.addEventListener("resize", place);
     return () => {
       observer?.disconnect();
       window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
       window.visualViewport?.removeEventListener("resize", place);
-      Object.assign(panel.style, original);
+      if (panel.popover === "manual") panel.hidePopover?.();
+      for (const { property, value, priority } of originalPlacement) {
+        if (value) panel.style.setProperty(property, value, priority);
+        else panel.style.removeProperty(property);
+      }
     };
-  }, [open, ref]);
+  }, [open, ref, anchorRef]);
 }

@@ -247,12 +247,20 @@ test("Timeline Review read preserves narrow collection editing", async ({
     .locator(autoResolutionNoticeFamilySelector())
     .filter({ has: page.getByRole("button", { name: "Review", exact: true }) });
   await expect(notices).toHaveCount(1);
+  const queryMenu = page.getByRole("button", {
+    name: "Query controls",
+    exact: true,
+  });
+  await queryMenu.click();
   await applyFilterChip(
     page,
     timelineViewSchemaId,
     "timeline.tags",
     "review-collection-editing",
   );
+  await expect(queryMenu).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(queryMenu).toHaveAttribute("aria-expanded", "false");
   await expect(
     page.getByTestId(gridRowTestId(timelineViewSchemaId, source.record_id)),
   ).toHaveCount(0);

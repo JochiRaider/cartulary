@@ -118,6 +118,19 @@ describe("Timeline row menu lifetime", () => {
     Object.defineProperty(editorScroll, "target", { value: input });
     act(() => h.result.current.menu?.onExternalScroll(editorScroll));
     expect(h.result.current.menu).not.toBeNull();
+    for (const tag of ["input", "textarea"]) {
+      // Borrowed Inspector focus can reset a native editor's own text offset.
+      // The invoking grid anchor does not move when that external editor scrolls.
+      const inspectorEditor = document.createElement(tag);
+      document.body.append(inspectorEditor);
+      const inspectorTextScroll = new Event("scroll");
+      Object.defineProperty(inspectorTextScroll, "target", {
+        value: inspectorEditor,
+      });
+      act(() => h.result.current.menu?.onExternalScroll(inspectorTextScroll));
+      expect(h.result.current.menu).not.toBeNull();
+      inspectorEditor.remove();
+    }
     h.grid.scrollTop = 80;
     act(() => h.result.current.menu?.onExternalScroll(queuedScroll));
     expect(h.result.current.menu).toBeNull();

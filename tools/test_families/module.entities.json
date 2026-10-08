@@ -486,9 +486,9 @@
         "file": "apps/web/src/workbook/query/useEntitySurfaceQuery.test.tsx",
         "titles": [
           "browses only the active Entity sheet and releases its rows independently on departure",
-          "useEntitySurfaceQuery clears protected rows on access loss and aborts both queries on teardown",
-          "useEntitySurfaceQuery owns dual host and identity admission, indexing, live patching, and explicit cleanup",
-          "useEntitySurfaceQuery rejects obsolete dual-query results after a rapid refresh",
+          "useEntitySurfaceQuery clears protected rows on access loss and aborts active queries on teardown",
+          "useEntitySurfaceQuery owns explicit host and identity admission, indexing, live patching, and cleanup",
+          "useEntitySurfaceQuery rejects obsolete Entity results after rapid refresh and schema departure",
           "useEntitySurfaceQuery requires an accepted current query before authorization recovery can resume"
         ]
       },

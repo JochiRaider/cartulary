@@ -3,8 +3,8 @@ import { createInterface } from "node:readline";
 
 import { validateSchemaSync } from "../contract/index.mjs";
 
-export const defaultCanonicalEventLineLimit = 1024 * 1024;
-export const terminalEventNames = new Set(["completed", "failed", "skipped", "cancelled"]);
+const defaultCanonicalEventLineLimit = 1024 * 1024;
+const terminalEventNames = new Set(["completed", "failed", "skipped", "cancelled"]);
 const terminalStatuses = new Map([
   ["completed", "passed"],
   ["failed", "failed"],

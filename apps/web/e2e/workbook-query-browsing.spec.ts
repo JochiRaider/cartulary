@@ -190,9 +190,17 @@ test("Literal saved arrays reload reopen and reapply without changing membership
     });
     expect(saved.query_json.filters).toEqual([filter]);
     await selectSavedView(page, view, saved.saved_view_id);
+    // Complete the adopted creation-first activation before another query gesture.
+    await expect(
+      page.getByTestId(draftCellTestId("timeline.date_entered_text")),
+    ).toBeFocused();
     await expectLiteralMembership(page, view, [a], ids);
     await page.reload();
     await selectSavedView(page, view, saved.saved_view_id);
+    // Complete the adopted creation-first activation before another query gesture.
+    await expect(
+      page.getByTestId(draftCellTestId("timeline.date_entered_text")),
+    ).toBeFocused();
     await expectLiteralMembership(page, view, [a], ids);
     await page
       .getByTestId(workbookQueryEntryTestId(view, "filter", f.tags))
@@ -215,6 +223,9 @@ test("Literal saved arrays reload reopen and reapply without changing membership
     expect(resource.query_json.filters).toEqual([filter]);
     await page.reload();
     await selectSavedView(page, view, resource.saved_view_id);
+    await expect(
+      page.getByTestId(draftCellTestId("timeline.date_entered_text")),
+    ).toBeFocused();
     await expectLiteralMembership(page, view, [a], ids);
     await page
       .getByTestId(workbookQueryEntryTestId(view, "filter", f.tags))

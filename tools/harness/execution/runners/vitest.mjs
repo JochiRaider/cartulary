@@ -5,8 +5,6 @@ import {
   reconcileVitestReport, selectedVitestObservations, vitestObservationKey,
 } from "../../diagnostics/vitest-failure-details.mjs";
 
-export const runnerContract = Object.freeze({ runner: "vitest", selector_kind: "vitest_exact_titles" });
-
 function regexEscape(value) { return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"); }
 
 export function buildVitestInvocations(root, rows, workers, command, runRoot) {

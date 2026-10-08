@@ -511,11 +511,13 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expectFirstDataRow(page, String(alpha.record_id));
-  expect(await visibleRecordIds(page)).toEqual([
-    String(alpha.record_id),
-    String(beta.record_id),
-    String(gamma.record_id),
-  ]);
+  await expect
+    .poll(() => visibleRecordIds(page))
+    .toEqual([
+      String(alpha.record_id),
+      String(beta.record_id),
+      String(gamma.record_id),
+    ]);
 
   const filterRequest = waitForViewQuery(
     page,
@@ -1203,11 +1205,13 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expectFirstDataRow(page, String(alpha.record_id));
-  expect(await visibleRecordIds(page)).toEqual([
-    String(alpha.record_id),
-    String(beta.record_id),
-    String(gamma.record_id),
-  ]);
+  await expect
+    .poll(() => visibleRecordIds(page))
+    .toEqual([
+      String(alpha.record_id),
+      String(beta.record_id),
+      String(gamma.record_id),
+    ]);
 
   const filterRequest = waitForViewQuery(
     page,
@@ -1232,7 +1236,9 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
     sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expectFirstDataRow(page, String(beta.record_id));
-  expect(await visibleRecordIds(page)).toEqual([String(beta.record_id)]);
+  await expect
+    .poll(() => visibleRecordIds(page))
+    .toEqual([String(beta.record_id)]);
 
   const removeFilterRequest = waitForViewQuery(
     page,
@@ -1284,11 +1290,13 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
     ),
   ]);
   expect(new Set(groupTestIds).size).toBe(groupTestIds.length);
-  expect(await visibleRecordIds(page)).toEqual([
-    String(alpha.record_id),
-    String(gamma.record_id),
-    String(beta.record_id),
-  ]);
+  await expect
+    .poll(() => visibleRecordIds(page))
+    .toEqual([
+      String(alpha.record_id),
+      String(gamma.record_id),
+      String(beta.record_id),
+    ]);
   for (const state of ["reviewed", "rough"]) {
     const groupTestId = gridGroupRowTestId(
       timelineViewSchemaId,
@@ -1457,9 +1465,13 @@ test("Timeline Sort editor keeps focus through a continuous keyboard session", a
   ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
-    page.getByRole("combobox", { name: "Group rows" }),
+    page.getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId)),
   ).toBeFocused();
   await expect(menu).toBeHidden();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("combobox", { name: "Group rows" }),
+  ).toBeFocused();
 });
 
 test("Timeline Filters editor preserves native keys, range traversal, and focus return across surfaces", async ({

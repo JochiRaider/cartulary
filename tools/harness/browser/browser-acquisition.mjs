@@ -308,6 +308,11 @@ async function launch(file, launchID, command, args) {
   for (const [name, listener] of signals) process.removeListener(name, listener);
 }
 
+// The browser owner constructs its executable protocol; an import facade is not a CLI.
+export function browserAcquisitionLaunchArguments(file, launchID, command, args) {
+  return ["--", fileURLToPath(import.meta.url), "launch", file, launchID, command, ...args];
+}
+
 // The service launcher lives in the producer group until it has published the
 // detached child's exact identity. Its ticket survives interruption before that
 // publication; the detached wrapper also journals before starting any payload.
@@ -317,7 +322,7 @@ async function spawnService(file, role, logFile, command, args) {
   try {
     output = createSecureWriteStream(logFile);
     if (stopping(file)) throw invalid();
-    child = spawn(process.execPath, ["--", fileURLToPath(import.meta.url), "launch", file, launchID, command, ...args], {
+    child = spawn(process.execPath, browserAcquisitionLaunchArguments(file, launchID, command, args), {
       detached: true, stdio: ["ignore", output.fd, output.fd], env: process.env,
     });
     // Attach before returning to the event loop, including failed exec/spawn.

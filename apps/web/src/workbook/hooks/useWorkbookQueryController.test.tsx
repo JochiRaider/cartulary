@@ -1,9 +1,27 @@
-import { cleanup, fireEvent, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
-import { renderWithWorkbookQueryBrowsing as render } from "../../testing/workbookQueryTestSupport";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  acceptedQueryMetadata,
+  renderWithWorkbookQueryBrowsing as render,
+  renderHookWithWorkbookQueryBrowsing as renderHook,
+} from "../../testing/workbookQueryTestSupport";
 import type { FilterDraft } from "../models/workbookQuery";
 import { filterDraftMembers } from "../models/workbookQuery";
+import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
+import {
+  decisionsViewSchemaId,
+  hostsViewSchemaId,
+  notesViewSchemaId,
+} from "../models/workbookSurfaceRegistry";
+import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookQueryController } from "./useWorkbookQueryController";
+import { useWorkbookSurfaceQueries } from "./useWorkbookSurfaceQueries";
 
 const impossibleDateDraft: FilterDraft = {
   fieldKey: "timeline.date_entered_sort_day",
@@ -28,10 +46,13 @@ function QueryControllerHarness({
     <section aria-label={`Workbook ${instanceId}`}>
       <button
         onClick={() => {
-          controller.commands.setTimelineQueryState((current) => ({
-            ...current,
-            groupBy: "timeline.capture_state",
-          }));
+          controller.commands.setQueryStateForSurface(
+            "cartulary.view.timeline.v2",
+            (current) => ({
+              ...current,
+              groupBy: "timeline.capture_state",
+            }),
+          );
         }}
         type="button"
       >
@@ -39,10 +60,13 @@ function QueryControllerHarness({
       </button>
       <button
         onClick={() => {
-          controller.commands.setHostQueryState((current) => ({
-            ...current,
-            groupBy: "host.entity_subtype",
-          }));
+          controller.commands.setQueryStateForSurface(
+            "cartulary.view.hosts.v1",
+            (current) => ({
+              ...current,
+              groupBy: "host.entity_subtype",
+            }),
+          );
         }}
         type="button"
       >
@@ -50,8 +74,12 @@ function QueryControllerHarness({
       </button>
       <output aria-label={`query-controller-state-${instanceId}`}>
         {JSON.stringify({
-          hosts: controller.snapshot.hostQueryState.groupBy,
-          timeline: controller.snapshot.timelineQueryState.groupBy,
+          hosts: controller.snapshot.queryStateForSurface(
+            "cartulary.view.hosts.v1",
+          ).groupBy,
+          timeline: controller.snapshot.queryStateForSurface(
+            "cartulary.view.timeline.v2",
+          ).groupBy,
         })}
       </output>
     </section>
@@ -94,13 +122,19 @@ function FilterQueryHarness({
             op: "contains_any",
             values: filterDraftMembers(["seed"]),
           });
-          controller.commands.setTimelineQueryState((current) => ({
-            ...current,
-            groupBy: "timeline.capture_state",
-            sort: [
-              { fieldKey: "timeline.date_entered_sort_day", direction: "desc" },
-            ],
-          }));
+          controller.commands.setQueryStateForSurface(
+            "cartulary.view.timeline.v2",
+            (current) => ({
+              ...current,
+              groupBy: "timeline.capture_state",
+              sort: [
+                {
+                  fieldKey: "timeline.date_entered_sort_day",
+                  direction: "desc",
+                },
+              ],
+            }),
+          );
         }}
         type="button"
       >
@@ -125,13 +159,104 @@ function FilterQueryHarness({
         </button>
       ))}
       <output aria-label="requested-query">
-        {JSON.stringify(controller.snapshot.timelineQueryState)}
+        {JSON.stringify(
+          controller.snapshot.queryStateForSurface(
+            "cartulary.view.timeline.v2",
+          ),
+        )}
       </output>
     </section>
   );
 }
 
 describe("useWorkbookQueryController", () => {
+  it("keeps captured surface setters stable and applies consecutive updates to their original schema after navigation", async () => {
+    const query = vi.fn<WorkbookViewQueryPort["query"]>(async (input) => ({
+      kind: "accepted",
+      value: {
+        incidentId: "incident-one",
+        rows: [],
+        viewSchemaId: input.contract.viewSchemaId,
+        ...acceptedQueryMetadata(input.contract.viewSchemaId, input.queryState),
+      },
+    }));
+    const viewQuery = { query };
+    const { result, rerender } = renderHook(
+      ({ surface }: { readonly surface: string }) => {
+        const controller = useWorkbookQueryController({ surface });
+        const composition = useWorkbookSurfaceQueries({
+          activeContract: workbookContractForViewSchemaId(surface),
+          queryStateForSurface: controller.snapshot.queryStateForSurface,
+          setQueryStateForSurface: controller.commands.setQueryStateForSurface,
+          onAuthorityUncertain: undefined,
+          sheetRef: { kind: "view_schema", id: surface },
+          surface,
+          viewQuery,
+        });
+        return { controller, composition };
+      },
+      { initialProps: { surface: notesViewSchemaId as string } },
+    );
+    const captured = result.current.composition.facadeQueries.generic.setState;
+    const update = result.current.controller.commands.setQueryStateForSurface;
+    await act(() => result.current.composition.refreshProjection.generic());
+    const initialReads = query.mock.calls.length;
+    rerender({ surface: notesViewSchemaId });
+    act(() =>
+      update(hostsViewSchemaId, (current) => ({
+        ...current,
+        groupBy: "host.entity_subtype",
+      })),
+    );
+    expect(result.current.controller.commands.setQueryStateForSurface).toBe(
+      update,
+    );
+    expect(result.current.composition.facadeQueries.generic.setState).toBe(
+      captured,
+    );
+    expect(query).toHaveBeenCalledTimes(initialReads);
+    rerender({ surface: decisionsViewSchemaId });
+    act(() => {
+      captured((current) => ({
+        ...current,
+        sort: [...current.sort, { fieldKey: "note.title", direction: "desc" }],
+      }));
+      captured((current) => ({
+        ...current,
+        sort: [
+          ...current.sort,
+          { fieldKey: "note.updated_at", direction: "asc" },
+        ],
+      }));
+    });
+    expect(
+      result.current.controller.snapshot.queryStateForSurface(notesViewSchemaId)
+        .sort,
+    ).toEqual([
+      { fieldKey: "note.title", direction: "desc" },
+      { fieldKey: "note.updated_at", direction: "asc" },
+    ]);
+    expect(
+      result.current.controller.snapshot.queryStateForSurface(
+        decisionsViewSchemaId,
+      ).sort,
+    ).toEqual([]);
+    rerender({ surface: notesViewSchemaId });
+    rerender({ surface: decisionsViewSchemaId });
+    act(() =>
+      captured((current) => ({ ...current, sort: current.sort.slice(1) })),
+    );
+    expect(
+      result.current.controller.snapshot.queryStateForSurface(notesViewSchemaId)
+        .sort,
+    ).toEqual([{ fieldKey: "note.updated_at", direction: "asc" }]);
+    expect(
+      result.current.controller.snapshot.queryStateForSurface(
+        decisionsViewSchemaId,
+      ).sort,
+    ).toEqual([]);
+  });
+
   it("refuses direct timestamp admission without changing requested state or raw draft", () => {
     const invalid: Extract<FilterDraft, { op: "eq" }> = {
       fieldKey: "note.updated_at",
@@ -169,7 +294,9 @@ describe("useWorkbookQueryController", () => {
             Apply timestamp
           </button>
           <output aria-label="query">
-            {JSON.stringify(snapshot.genericQueryState)}
+            {JSON.stringify(
+              snapshot.queryStateForSurface("cartulary.view.notes.v1"),
+            )}
           </output>
           <output aria-label="draft">
             {JSON.stringify(controls.filterDraft)}

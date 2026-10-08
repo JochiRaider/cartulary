@@ -1,7 +1,7 @@
 import {
   assertFixtureServiceDependencies,
   requiredServicesForFixture,
-} from "../../test-catalog/service-dependencies.mjs";
+} from "../../test-catalog/index.mjs";
 
 export { assertFixtureServiceDependencies, requiredServicesForFixture };
 

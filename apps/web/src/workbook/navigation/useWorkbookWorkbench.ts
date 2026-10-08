@@ -377,7 +377,6 @@ export function useWorkbookWorkbench(options: {
         registry.detachPresentation(runtime.snapshot.surface);
         registry.grid(runtime.snapshot.surface)?.detachEdit?.();
         commands.cancelGridEntryFocus();
-        let inspectorOpened = false;
         registry.stageNavigation(
           page,
           query.query,
@@ -390,17 +389,14 @@ export function useWorkbookWorkbench(options: {
           inspect
             ? () => {
                 if (!admitted()) return true;
-                if (!inspectorOpened) {
-                  const open = inspectorBindings.current.get(view);
-                  if (!open) return false;
-                  inspectorOpened = true;
-                  open();
-                  return false;
-                }
                 const binding = inspectorFocus.current.get(view);
-                return (
-                  !!binding && binding.recordId === anchor && binding.focus()
-                );
+                if (binding && binding.recordId === anchor && binding.focus())
+                  return true;
+                // An open request can be superseded by a committed lifecycle
+                // change. Attachment and focus, rather than invocation, finish
+                // this handshake; registration notifications reconcile it.
+                inspectorBindings.current.get(view)?.();
+                return false;
               }
             : undefined,
           {
@@ -417,7 +413,10 @@ export function useWorkbookWorkbench(options: {
           },
         );
         if (resource) runtime.savedViewOwner.acceptResource(resource);
-        commands.applyQueryStateForSurface(view, queryState);
+        // Applying this authorized destination is a fresh requested intent.
+        // Its read owner consumes the staged page; a sheet reload would reset
+        // that accepted window and the inspector handoff a second time.
+        commands.applyQueryStateForSurface(view, structuredClone(queryState));
         commands.applyLayoutStateForSurface(view, layout);
         commands.applyWorkbookIdentity(
           {
@@ -426,7 +425,7 @@ export function useWorkbookWorkbench(options: {
               : target.sheetRef,
             viewSchemaId: view,
           },
-          { reloadSheet: true, focusFirstGridTarget: !anchor && !returning },
+          { focusFirstGridTarget: !anchor && !returning },
         );
         if (
           returning?.savedViewVersion &&

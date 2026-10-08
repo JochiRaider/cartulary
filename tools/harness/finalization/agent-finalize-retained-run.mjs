@@ -2,8 +2,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
-import { reduceCanonicalUnitIntervals } from "../evidence-accounting/canonical-unit-events.mjs";
-import { buildSourceSnapshot } from "../test-catalog/source-snapshot.mjs";
+import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
+import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 
 function preflightFailure(actionID, reason, failureClass = "artifact") {
   return {

@@ -6,7 +6,7 @@ import { createSuiteRuntime, scanRetainedRoot } from "../../runtime/suite-runtim
 import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
 import { readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
-import { buildSourceSnapshot } from "../../test-catalog/source-snapshot.mjs";
+import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
 import { preparationFailure } from "./failure.mjs";
 import { prepareReview } from "./preparation.mjs";
 import { boundedCleanup, purgeReviewDetail, recordResource, recoveryResources, stopOwnedProcess } from "./ownership.mjs";

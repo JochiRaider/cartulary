@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
-import { reduceCanonicalUnitIntervals } from "../evidence-accounting/canonical-unit-events.mjs";
+import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
 
 function usage() {
   throw new Error("usage: scheduler-summary-timing-drift-cli.mjs [--target <target>] <run-dir>");

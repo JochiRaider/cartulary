@@ -1608,8 +1608,8 @@ test("Timeline collection authoring isolates surfaces and settles native departu
   });
   await page.reload();
   await expect(
-    page.getByText("Closed, read-only", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("status", { name: "Incident lifecycle", exact: true }),
+  ).toHaveText("Closed, read-only");
   await showTimelineCollectionColumns(page);
   for (const [field, label] of fields) {
     const items = relationshipItemsTestId(row.record_id, field, "grid");

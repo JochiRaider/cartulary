@@ -98,7 +98,7 @@ async function returnToOrigin(page: Page, inspect = false) {
       .isVisible())
   )
     await page
-      .getByRole("button", { name: "View controls", exact: true })
+      .getByRole("button", { name: "View options controls", exact: true })
       .click();
   if (inspect) {
     await page.getByLabel("Return options", { exact: true }).click();

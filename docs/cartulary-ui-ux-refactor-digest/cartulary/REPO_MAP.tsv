@@ -16,7 +16,7 @@ OpenTelemetry subsystem NLSpec	docs/opentelemetry-instrumentation-nlspec.md	adop
 Report Composition subsystem NLSpec	docs/report-composition-nlspec.md	adopted subsystem NLSpec	Report Composition behavior authority within its scope at version 1.2.0	VERIFIED	front matter status is adopted/current and document_version is 1.2.0
 Reporting subsystem NLSpec	docs/reporting-subsystem-nlspec.md	adopted subsystem NLSpec	Reporting behavior authority within its scope	VERIFIED	front matter status is adopted/current
 Testing Harness subsystem NLSpec	docs/testing-harness-nlspec.md	adopted subsystem NLSpec	Testing Harness behavior authority within its scope	VERIFIED	front matter status is adopted/current
-Reference Pack subsystem NLSpec	docs/reference-pack-subsystem-nlspec.md	draft subsystem NLSpec	present but draft and non-authoritative	VERIFIED	front matter status is draft
+Reference Pack subsystem NLSpec	docs/reference-pack-subsystem-nlspec.md	adopted subsystem NLSpec	current 0.2.0; owns format, trust, profiles, immutable sets and consumers	VERIFIED	front matter adopted/current; Core retains outer boundaries; qualification separate
 design contract	docs/design.md	design owner	design direction within its stated boundary	VERIFIED	AGENTS.md declares this design direction
 domain contract	docs/domain.md	domain owner	vocabulary and owner navigation within its stated boundary	VERIFIED	AGENTS.md declares this ownership
 modular-refactor planning framework	docs/handoffs/cartulary_modular_refactor_planning_framework.md	planning framework	later modular-refactor planning procedure	VERIFIED	file exists under docs/handoffs

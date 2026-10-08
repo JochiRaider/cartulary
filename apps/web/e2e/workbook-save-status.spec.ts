@@ -430,6 +430,14 @@ test("Keep queue overflow globally accessible after real editor admission reache
           .map((target, index) => [target.record_id, `Queued edit ${index}`]),
       ),
     );
+    await overflow.press("Escape");
+    await expect(overflow).not.toBeVisible();
+    await expect(page.getByTestId(saveStateActionButtonTestId())).toBeFocused();
+    await page.getByTestId(saveStateActionButtonTestId()).press("Enter");
+    await expectRecoveryFocus(page, "Pending queue full");
+    await overflow
+      .getByRole("button", { name: "Close queued edit notice" })
+      .click();
     await selectSurface(page, timelineViewSchemaId);
     const refused = rows[64];
     if (refused === undefined) throw new Error("Missing refused row fixture");
@@ -439,14 +447,6 @@ test("Keep queue overflow globally accessible after real editor admission reache
       recordId: refused.record_id,
       cellKey: "timeline.activity_synopsis_text",
     });
-    await overflow.press("Escape");
-    await expect(overflow).not.toBeVisible();
-    await expect(page.getByTestId(saveStateActionButtonTestId())).toBeFocused();
-    await page.getByTestId(saveStateActionButtonTestId()).press("Enter");
-    await expectRecoveryFocus(page, "Pending queue full");
-    await overflow
-      .getByRole("button", { name: "Close queued edit notice" })
-      .click();
     await page
       .getByTestId(
         rowCellTestId(refused.record_id, "timeline.activity_synopsis_text"),

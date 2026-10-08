@@ -271,6 +271,13 @@ export function AssessmentWorkbookSurface({
       }),
     [apiBase, incidentId, mutationRuntime],
   );
+  const restoreInspectorFocus = () => {
+    const token = inspectorContinuityTokenRef.current;
+    inspectorContinuityTokenRef.current = null;
+    return token === null
+      ? false
+      : (continuityPortRef.current?.restore(token) ?? false);
+  };
   const assessmentInspector = useAssessmentWorkbookInspectorComposition({
     sheetRef,
     canCreate,
@@ -292,11 +299,7 @@ export function AssessmentWorkbookSurface({
       setSelectedAssessmentRecordId(null);
     },
     onRefreshAssessmentRows,
-    onRestoreFocus: () => {
-      const token = inspectorContinuityTokenRef.current;
-      inspectorContinuityTokenRef.current = null;
-      if (token !== null) continuityPortRef.current?.restore(token);
-    },
+    onRestoreFocus: restoreInspectorFocus,
     onSelectAssessment: selectAssessment,
     roleCanCreate,
     selectedAssessment,
@@ -380,6 +383,7 @@ export function AssessmentWorkbookSurface({
     <WorkbookQuerySurfaceLayout
       chromeMode={chromeMode}
       inspector={assessmentInspector.node}
+      restoreInspectorFocus={restoreInspectorFocus}
       onRequestInspectorClose={assessmentInspector.close}
       primaryGrid={
         <GridViewport

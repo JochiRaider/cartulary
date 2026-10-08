@@ -24,3 +24,10 @@ plugin registry or public workflow API.
 mounting, replacement cleanup, late refresh fencing and detached acknowledgement.
 
 [Workbook](../README.md) · [Runtime](../runtime/README.md)
+
+Workbench navigation completes inspector opening only when the matching committed
+record binding focuses. Invoking an opener is a request, and a replacement may
+supersede it; the existing notification-driven handshake retries while admission
+is still current. Cancellation fences every later registration/focus attempt.
+Presentation closes use the layout's single restoration boundary; source close
+callbacks do not independently restore the old grid anchor during navigation.

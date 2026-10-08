@@ -131,96 +131,113 @@ describe("ordinary creation query reconciliation", () => {
     await act(() => hook.result.current.refresh());
     expect(query).toHaveBeenCalledTimes(1);
   });
-  it("reconciles both Entity queries and prevents obsolete reads after suspension", async () => {
-    const { owner, queryState } = fixture();
-    let version = 1;
-    const query = vi.fn<WorkbookViewQueryPort["query"]>(
-      async ({ contract }) => ({
-        kind: "accepted",
-        value: {
-          incidentId: incident,
-          viewSchemaId: contract.viewSchemaId,
-          ...acceptedQueryMetadata(contract.viewSchemaId),
-          rows: [
-            fullWorkbookViewRow(
-              contract,
-              contract.viewSchemaId.includes("hosts")
-                ? record
-                : "20000000-0000-4000-8000-000000000002",
-              version,
-              {},
-            ),
-          ],
-        },
-      }),
-    );
-    const hook = renderHook(() =>
-      useEntitySurfaceQuery({
-        ordinaryCreateOwner: owner,
-        hostQueryState: queryState,
-        identityQueryState: queryState,
-        viewQuery: { query },
-        onAuthorityUncertain: undefined,
-      }),
-    );
-    await act(() => hook.result.current.refresh());
-    act(() => {
-      owner.acceptRow(
-        fullWorkbookViewRow(
-          requireViewContract("cartulary.view.hosts.v1"),
-          record,
-          3,
-          {},
-        ),
+  it("reconciles explicit Entity sheets and prevents obsolete reads after suspension", async () => {
+    for (const activeViewSchemaId of [
+      "cartulary.view.hosts.v1",
+      "cartulary.view.identities.v1",
+    ]) {
+      const { owner, queryState } = fixture();
+      let version = 1;
+      const query = vi.fn<WorkbookViewQueryPort["query"]>(
+        async ({ contract }) => ({
+          kind: "accepted",
+          value: {
+            incidentId: incident,
+            viewSchemaId: contract.viewSchemaId,
+            ...acceptedQueryMetadata(contract.viewSchemaId),
+            rows: [
+              fullWorkbookViewRow(
+                contract,
+                contract.viewSchemaId.includes("hosts")
+                  ? record
+                  : "20000000-0000-4000-8000-000000000002",
+                version,
+                {},
+              ),
+            ],
+          },
+        }),
       );
-      owner.acceptRow(
-        fullWorkbookViewRow(
-          requireViewContract("cartulary.view.identities.v1"),
-          "20000000-0000-4000-8000-000000000002",
-          3,
-          {},
-        ),
+      const hook = renderHook(() =>
+        useEntitySurfaceQuery({
+          activeViewSchemaId,
+          ordinaryCreateOwner: owner,
+          hostQueryState: queryState,
+          identityQueryState: queryState,
+          viewQuery: { query },
+          onAuthorityUncertain: undefined,
+        }),
       );
-      owner.setAuthority({ ...authority, closed: true });
-    });
-    expect(hook.result.current.hostRows[0]?.rowVersion).toBe(3);
-    expect(hook.result.current.identityRows[0]?.rowVersion).toBe(3);
-    await act(async () => {
-      await expect(
-        hook.result.current.refresh({ requireAcceptance: true }),
-      ).rejects.toThrow();
-    });
-    expect(hook.result.current.hostRows[0]?.rowVersion).toBe(3);
-    version = 4;
-    await act(() => hook.result.current.refresh());
-    expect(hook.result.current.hostRows[0]?.rowVersion).toBe(4);
-    const pending = deferred<WorkbookViewQueryResult>();
-    query.mockReturnValue(pending.promise);
-    let loading: Promise<void> | undefined;
-    act(() => {
-      loading = hook.result.current.refresh();
-      owner.suspend();
-    });
-    await act(async () => {
-      pending.resolve({
-        kind: "accepted",
-        value: {
-          incidentId: incident,
-          viewSchemaId: "cartulary.view.hosts.v1",
-          ...acceptedQueryMetadata("cartulary.view.hosts.v1"),
-          rows: [
-            fullWorkbookViewRow(
-              requireViewContract("cartulary.view.hosts.v1"),
-              record,
-              5,
-              {},
-            ),
-          ],
-        },
+      await act(() => hook.result.current.refresh());
+      act(() => {
+        owner.acceptRow(
+          fullWorkbookViewRow(
+            requireViewContract("cartulary.view.hosts.v1"),
+            record,
+            3,
+            {},
+          ),
+        );
+        owner.acceptRow(
+          fullWorkbookViewRow(
+            requireViewContract("cartulary.view.identities.v1"),
+            "20000000-0000-4000-8000-000000000002",
+            3,
+            {},
+          ),
+        );
+        owner.setAuthority({ ...authority, closed: true });
       });
-      await loading;
-    });
-    expect(hook.result.current.hostRows).toEqual([]);
-    expect(hook.result.current.identityRows).toEqual([]);
+      const selectedRows = () =>
+        activeViewSchemaId === "cartulary.view.hosts.v1"
+          ? hook.result.current.hostRows
+          : hook.result.current.identityRows;
+      expect(selectedRows()[0]?.rowVersion).toBe(3);
+      expect(
+        activeViewSchemaId === "cartulary.view.hosts.v1"
+          ? hook.result.current.identityRows
+          : hook.result.current.hostRows,
+      ).toEqual([]);
+      await act(async () => {
+        await expect(
+          hook.result.current.refresh({ requireAcceptance: true }),
+        ).rejects.toThrow();
+      });
+      expect(selectedRows()[0]?.rowVersion).toBe(3);
+      version = 4;
+      await act(() => hook.result.current.refresh());
+      expect(selectedRows()[0]?.rowVersion).toBe(4);
+      const pending = deferred<WorkbookViewQueryResult>();
+      query.mockReturnValue(pending.promise);
+      let loading: Promise<void> | undefined;
+      act(() => {
+        loading = hook.result.current.refresh();
+        owner.suspend();
+      });
+      await act(async () => {
+        pending.resolve({
+          kind: "accepted",
+          value: {
+            incidentId: incident,
+            viewSchemaId: activeViewSchemaId,
+            ...acceptedQueryMetadata(activeViewSchemaId),
+            rows: [
+              fullWorkbookViewRow(
+                requireViewContract(activeViewSchemaId),
+                activeViewSchemaId.includes("hosts")
+                  ? record
+                  : "20000000-0000-4000-8000-000000000002",
+                5,
+                {},
+              ),
+            ],
+          },
+        });
+        await loading;
+      });
+      expect(hook.result.current.hostRows).toEqual([]);
+      expect(hook.result.current.identityRows).toEqual([]);
+      hook.unmount();
+    }
   });
 });

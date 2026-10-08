@@ -5205,12 +5205,15 @@
     {
       "name": "generate-artifacts",
       "backing_scripts": [
+        "tools/database-migrations/generate-catalog-projections.mjs",
+        "tools/harness/browser/frontend-visual-golden-manifest.mjs",
+        "tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs",
         "tools/harness/generated-artifacts/generate-artifacts.sh",
         "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs",
-        "tools/harness/browser/frontend-visual-golden-manifest.mjs",
+        "tools/harness/generated-artifacts/performance/performance-contracts-cli.mjs",
         "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
-        "tools/protocol-ts/generate-protocol-types.mjs",
-        "tools/harness/workspace/layout.mjs"
+        "tools/harness/workspace/layout.mjs",
+        "tools/protocol-ts/generate-protocol-types.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -5221,6 +5224,7 @@
       "backing_scripts": [
         "tools/generate_drift_scratch_inputs.json",
         "tools/harness/generated-artifacts/check-generate-drift.sh",
+        "tools/harness/generated-artifacts/generated-transaction.mjs",
         "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
@@ -6318,7 +6322,8 @@
         "tools/release-evidence/package-fixture-tls.sh",
         "tools/release-evidence/package-release.mjs",
         "tools/release-evidence/package-smoke-cleanup.sh",
-        "tools/release-evidence/portable-package-recovery.mjs"
+        "tools/release-evidence/portable-package-recovery.mjs",
+        "tools/release-evidence/recovery-interruption.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11329,14 +11334,17 @@
     {
       "name": "browser-e2e",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11462,14 +11470,17 @@
     {
       "name": "browser-e2e-webserver-backed",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11632,14 +11643,17 @@
     {
       "name": "browser-e2e-support",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "command_id": "cartulary.harness.command.browser_e2e_support.v2",
       "target_class": "internal_helper",
@@ -11651,14 +11665,17 @@
     {
       "name": "browser-e2e-stateful",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11822,14 +11839,17 @@
     {
       "name": "browser-e2e-resettable",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -11838,14 +11858,17 @@
     {
       "name": "browser-e2e-measurement",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11970,14 +11993,17 @@
     {
       "name": "browser-e2e-a11y",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12103,14 +12129,17 @@
     {
       "name": "browser-e2e-visual",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12236,14 +12265,17 @@
     {
       "name": "browser-e2e-visual-update",
       "backing_scripts": [
+        "tools/harness/browser/browser-acquisition.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-reset-attempt.mjs",
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
+        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/scheduler/work-graph/index.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",

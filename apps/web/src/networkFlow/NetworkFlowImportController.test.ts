@@ -206,7 +206,6 @@ function harness() {
       async (): Promise<ImportReadResult<DiscoveredImportUnit[]>> =>
         received([unit]),
     ),
-    readUnit: vi.fn(async () => received(approved)),
     preview: vi.fn(
       async (): Promise<ImportReadResult<typeof source>> => received(source),
     ),

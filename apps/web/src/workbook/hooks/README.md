@@ -19,7 +19,7 @@ Timeline-specific controllers live under
 | [useWorkbookProjectionRefreshController.test.tsx](useWorkbookProjectionRefreshController.test.tsx) | Direct tests for initial and sheet-triggered projection refresh ownership. |
 | [useWorkbookProjectionRefreshController.ts](useWorkbookProjectionRefreshController.ts) | Initial session/entity and sheet-triggered projection refresh coordinator. |
 | [useWorkbookQueryController.test.tsx](useWorkbookQueryController.test.tsx) | Direct tests for exact-view-schema query-state isolation. |
-| [useWorkbookQueryController.ts](useWorkbookQueryController.ts) | Schema-keyed query/filter controller and active query-control adapter. |
+| [useWorkbookQueryController.ts](useWorkbookQueryController.ts) | Instance-local schema-addressed requested-state read/update, separate canonical intent and Saved View application, and active query-control adapter. |
 | [useWorkbookSavedViewController.test.tsx](useWorkbookSavedViewController.test.tsx) | Direct tests for saved-view loading and selection precedence. |
 | [useWorkbookSavedViewController.ts](useWorkbookSavedViewController.ts) | Binds active query/layout configuration and selection effects to the session-owned saved-view controller. |
 | [useWorkbookStartupController.test.tsx](useWorkbookStartupController.test.tsx) | Direct tests for workbook selection, focus intent, versioning, and URL state. |

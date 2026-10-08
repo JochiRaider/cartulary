@@ -50,7 +50,7 @@ import {
 
 export type WorkbookImportPort = Pick<
   ImportClient,
-  "send" | "readJob" | "readSession" | "listUnits" | "readUnit" | "preview"
+  "send" | "readJob" | "readSession" | "listUnits" | "preview"
 >;
 export type WorkbookImportBinding = {
   readonly scope: ImportScope;

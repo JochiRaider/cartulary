@@ -88,7 +88,11 @@ async function exercise(scenario) {
     fs.mkdirSync(directory, { mode: 0o700 });
     return directory;
   });
-  if (scenario === "parent-mode") fs.mkdirSync(parent, { mode: 0o755 });
+  if (scenario === "parent-mode") {
+    fs.mkdirSync(parent, { mode: 0o755 });
+    // This negative fixture must remain unsafe under a restrictive caller mask.
+    fs.chmodSync(parent, 0o755);
+  }
   if (scenario === "parent-symlink") fs.symlinkSync(repoRoot, parent);
   if (scenario === "parent-owner") patch("lstatSync", (file, ...args) => {
     const stat = originalStat(file, ...args);

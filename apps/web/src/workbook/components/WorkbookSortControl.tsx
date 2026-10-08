@@ -48,7 +48,7 @@ export function WorkbookSortControl({
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const panel = useRef<HTMLDivElement>(null);
-  useWorkbookMenuPlacement(isOpen, panel);
+  useWorkbookMenuPlacement(isOpen, panel, triggerRef);
   const itemKeys = useMemo(
     () => sortControlItemKeys(editorProjection),
     [editorProjection],
@@ -112,6 +112,7 @@ export function WorkbookSortControl({
       {isOpen ? (
         <div
           ref={panel}
+          popover="manual"
           aria-label="Ordered sort controls"
           data-testid={workbookSortMenuTestId(surface)}
           id={workbookSortMenuTestId(surface)}

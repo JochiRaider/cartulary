@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { ownedProcess } from "../runtime/owned-process.mjs";
 
-import { createAcquisitionLaunch, recordAcquisitionProcess } from "../browser/browser-acquisition.mjs";
+import { createAcquisitionLaunch, recordAcquisitionProcess } from "../test-support/owner-fixtures.mjs";
 
 if (process.env.CARTULARY_FIXTURE_PARENT_ONLY !== undefined) {
   throw new Error("parent-only binding leaked into the owned fixture");

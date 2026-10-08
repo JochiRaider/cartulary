@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   publicHttpOperation,
+  publicHttpOperationFailure,
   publicHttpOperationObserved,
+  readHttpOperationResponse,
 } from "./publicHttpOperationClient";
 import { atJsonOrigin, requestPublicJson } from "./publicJsonClient";
 
@@ -246,5 +248,73 @@ describe("public HTTP operation client", () => {
       status: 502,
     });
     expect("response" in malformed).toBe(false);
+  });
+});
+
+describe("public HTTP failure diagnostics", () => {
+  it("retains status and registered codes without capabilities bodies or private URLs", async () => {
+    const secrets = [
+      "private-conflict-capability",
+      "private-request-authoring",
+      "private-url-cursor",
+    ];
+    const response = {
+      ok: () => false,
+      request: () => ({
+        method: () => "PATCH",
+        postData: () => JSON.stringify({ password: secrets[1] }),
+      }),
+      status: () => 409,
+      text: async () =>
+        JSON.stringify({
+          error: {
+            code: "same_field_conflict",
+            conflict: { conflict_token: secrets[0] },
+            message: secrets[1],
+          },
+        }),
+      url: () => `https://private.example.test/records?cursor=${secrets[2]}`,
+    };
+    const failure: unknown = await readHttpOperationResponse(
+      response,
+      "patchRecord",
+    ).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    const message = (failure as Error).message;
+    expect(message).toContain("HTTP 409");
+    expect(message).toContain("same_field_conflict");
+    for (const secret of secrets) expect(message).not.toContain(secret);
+    expect(
+      publicHttpOperationFailure("patchRecord", 409, {
+        error: {
+          code: "same_field_conflict",
+          conflict: { conflict_token: secrets[0] },
+        },
+      }),
+    ).toBe(
+      "public HTTP operation patchRecord failed: HTTP 409; code=same_field_conflict",
+    );
+    expect(
+      publicHttpOperationFailure("patchRecord", 409, {
+        error: { code: secrets[0], message: secrets[1] },
+      }),
+    ).toBe(
+      "public HTTP operation patchRecord failed: HTTP 409; code=unrecognized_error",
+    );
+    const invalidSuccess: unknown = await readHttpOperationResponse(
+      {
+        ...response,
+        ok: () => true,
+        status: () => 200,
+        text: async () => secrets[0] ?? "",
+      },
+      "patchRecord",
+    ).catch((error: unknown) => error);
+    expect(invalidSuccess).toBeInstanceOf(Error);
+    expect((invalidSuccess as Error).message).toContain(
+      "invalid_public_contract_response",
+    );
+    for (const secret of secrets)
+      expect((invalidSuccess as Error).message).not.toContain(secret);
   });
 });

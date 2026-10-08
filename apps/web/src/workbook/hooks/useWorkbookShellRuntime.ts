@@ -64,23 +64,12 @@ export function useWorkbookShellRuntime({
   const workbookQueries = useWorkbookQueryController({
     surface,
   });
-  const {
-    activeContract,
-    activeQueryControls,
-    assessmentQueryState,
-    genericQueryState,
-    hostQueryState,
-    identityQueryState,
-    timelineQueryState,
-  } = workbookQueries.snapshot;
+  const { activeContract, activeQueryControls, queryStateForSurface } =
+    workbookQueries.snapshot;
   const {
     applyQueryStateForSurface,
     currentQueryStateForSurface,
-    setAssessmentQueryState,
-    setGenericQueryState,
-    setHostQueryState,
-    setIdentityQueryState,
-    setTimelineQueryState,
+    setQueryStateForSurface,
   } = workbookQueries.commands;
   const workbookLayouts = useWorkbookColumnLayoutController({
     activeContract,
@@ -166,11 +155,7 @@ export function useWorkbookShellRuntime({
       cancelGridEntryFocus,
       selectWorkbookSurface,
       selectExtensionWorkspace,
-      setAssessmentQueryState,
-      setGenericQueryState,
-      setHostQueryState,
-      setIdentityQueryState,
-      setTimelineQueryState,
+      setQueryStateForSurface,
       selectSavedView,
     },
     snapshot: {
@@ -178,18 +163,14 @@ export function useWorkbookShellRuntime({
       activeLayoutControls,
       activeLayoutState,
       activeQueryControls,
+      queryStateForSurface,
       activeSavedViewModified,
-      assessmentQueryState,
-      genericQueryState,
-      hostQueryState,
-      identityQueryState,
       gridEntryFocusRequest,
       savedViewsResource,
       sheetReloadToken,
       startupSheetRef,
       startupPending: startupAdmission.pending,
       surface,
-      timelineQueryState,
     },
   };
 }

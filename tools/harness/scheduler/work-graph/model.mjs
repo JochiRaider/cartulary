@@ -26,7 +26,7 @@ export function unitSemanticDigest(unit) {
   return semanticJSONDigest(semanticUnit(unit));
 }
 
-export function finalizeUnit(unit) {
+function finalizeUnit(unit) {
   const complete = { ...unit, semantic_digest: "" };
   complete.semantic_digest = unitSemanticDigest(complete);
   return complete;
