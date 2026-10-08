@@ -1661,6 +1661,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser.contextual_task_plain_candidate_clicks_retain_ed_b7902be5cd",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/reference-multiple.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "explicit_contextual_task_multi_references"
+        ],
+        "titles": [
+          "Contextual Task plain candidate clicks retain editable source context through Cancel and Apply"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser.coordination_create_matrix",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -2472,6 +2507,41 @@
         ],
         "titles": [
           "Entity Find searches accepted bounded windows through continuation eviction and failed replacement on both schemas"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.existing_task_plain_candidate_clicks_stage_addit_2f405d8a84",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/reference-multiple.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "explicit_existing_task_multi_references"
+        ],
+        "titles": [
+          "Existing Task plain candidate clicks stage additive references until explicit Update"
         ]
       },
       "evidence_class": "browser",

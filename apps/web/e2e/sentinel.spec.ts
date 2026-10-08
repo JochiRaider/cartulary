@@ -94,6 +94,7 @@ import {
 } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import {
+  activateCandidateIdentities,
   openReferenceCandidates,
   selectReferenceCandidates,
 } from "./support/workbook/references";
@@ -3800,7 +3801,10 @@ async function setGenericCreateField(
         .getByRole("button", { name: /^Choose /u })
         .first()
         .click();
-    await input.locator("select").last().selectOption(value);
+    const choices = input.locator("[data-workbook-multi-candidates]");
+    if (await choices.count())
+      await activateCandidateIdentities(choices, value);
+    else await input.locator("select").last().selectOption(value);
     await input
       .getByRole("button", { name: "Apply references", exact: true })
       .click();

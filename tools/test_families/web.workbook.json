@@ -433,6 +433,7 @@
       "selector": {
         "file": "apps/web/src/workbook/components/WorkbookAuthoringReferencePicker.test.tsx",
         "titles": [
+          "authoring candidate presentation adds equal-label identities with plain clicks and Space while preserving editable context and metadata",
           "authoring candidate presentation applies query edits explicitly without clearing selection and rejects over-limit changes",
           "authoring candidate presentation cancels unapplied staging restores invoking focus and reopens with parent selection",
           "authoring candidate presentation cannot restore labels from obsolete accepted revisions authorities targets or disposed reads",
@@ -4764,6 +4765,7 @@
           "keeps First and Previous as focus anchors during held reads",
           "keeps a keyboard-activated Next focusable through pending and exhausted reads",
           "keeps keyboard Retry present during a held read and permits repeated failure",
+          "keeps settled collection Retry geometry while plain activations retain every staged identity",
           "moves staged removal focus by stable identity and leaves the parent draft untouched",
           "navigates the query disclosure without submitting an enclosing form and keeps membership unfiltered",
           "retires a pending read when the ordinary filter is applied",

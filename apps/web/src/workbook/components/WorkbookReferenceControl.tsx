@@ -28,6 +28,7 @@ import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedReco
 import { WorkbookReferenceSelection } from "../services/WorkbookReferenceSelection";
 import { useSelectedReferenceRemovalFocus } from "./useSelectedReferenceRemovalFocus";
 import { WorkbookCandidateQueryControl } from "./WorkbookCandidateQueryControl";
+import { WorkbookMultiCandidatePicker } from "./WorkbookMultiCandidatePicker";
 import { menuStyle } from "./workbookGridControlStyles";
 
 export const WorkbookReferenceContext = createContext<{
@@ -372,6 +373,10 @@ function useReferenceReadControls(
   const intentRef = useRef<ReadIntent | null>(null);
   const admissionRef = useRef<WorkbookReferenceSelection | null>(null);
   const [shownIntent, setShownIntent] = useState<ReadIntent | null>(null);
+  const retryPresentation = useRef<{
+    controller: WorkbookReferenceSelection;
+    scopeKey: string;
+  } | null>(null);
   const intent =
     shownIntent === intentRef.current &&
     shownIntent?.controller === controller &&
@@ -484,6 +489,8 @@ function useReferenceReadControls(
     )
       return;
     admissionRef.current = controller;
+    if (action === "retry")
+      retryPresentation.current = { controller, scopeKey };
     const read = controller[action]();
     if (controller.getSnapshot().loading) {
       const next = {
@@ -505,7 +512,15 @@ function useReferenceReadControls(
       },
     );
   };
-  return { control, invoke, intent, retire };
+  return {
+    control,
+    invoke,
+    intent,
+    retire,
+    retryShown:
+      retryPresentation.current?.controller === controller &&
+      retryPresentation.current.scopeKey === scopeKey,
+  };
 }
 
 function ReferencePicker(
@@ -560,7 +575,7 @@ function ReferencePicker(
   const selectedKeys = snapshot.selected.map(workbookReferenceKey);
   const presentedSelected = snapshot.selected.map(props.present);
   const pickerId = useId();
-  const selector = useRef<HTMLSelectElement>(null);
+  const selector = useRef<HTMLElement | null>(null);
   const selectionGroup = useRef<HTMLFieldSetElement>(null);
   const scopeKey = `${pickerId}:${props.field.viewSchemaId}:${props.field.fieldKey}:${props.sourceRecordId ?? ""}:${snapshot.source}:${JSON.stringify(snapshot.queryState)}`;
   const removalFocus = useSelectedReferenceRemovalFocus({
@@ -624,7 +639,9 @@ function ReferencePicker(
           {snapshot.failure.detail.message}
         </p>
       ) : null}
-      {snapshot.failure || reads.intent?.action === "retry" ? (
+      {snapshot.failure ||
+      reads.intent?.action === "retry" ||
+      (props.field.kind === "collection" && reads.retryShown) ? (
         <Button
           type="button"
           tone="secondary"
@@ -636,48 +653,61 @@ function ReferencePicker(
       ) : null}
       {snapshot.page ? (
         <>
-          <label>
-            {props.label}
-            <select
-              ref={selector}
-              aria-label={`${props.label} candidates`}
-              style={fieldStyle}
+          {props.field.kind === "collection" ? (
+            <WorkbookMultiCandidatePicker
+              focusTargetRef={(element) => {
+                selector.current = element;
+              }}
+              label={`${props.label} candidates`}
+              candidates={snapshot.page.candidates
+                .map(props.present)
+                .map((item) => ({
+                  key: workbookReferenceKey(item),
+                  displayText: item.displayText,
+                  identityText: item.identity.id,
+                }))}
+              selectedKeys={selectedKeys}
               disabled={!snapshot.page.candidates.length}
-              multiple={props.field.kind === "collection"}
-              size={Math.min(6, Math.max(2, snapshot.page.candidates.length))}
-              value={
-                props.field.kind === "collection"
-                  ? selectedKeys
-                  : snapshot.page.candidates.some(
-                        (item) =>
-                          workbookReferenceKey(item) === selectedKeys[0],
-                      )
+              onToggle={(key, checked) =>
+                controller.selectCandidate(key, checked)
+              }
+            />
+          ) : (
+            <label>
+              {props.label}
+              <select
+                ref={(element) => {
+                  selector.current = element;
+                }}
+                aria-label={`${props.label} candidates`}
+                style={fieldStyle}
+                disabled={!snapshot.page.candidates.length}
+                size={Math.min(6, Math.max(2, snapshot.page.candidates.length))}
+                value={
+                  snapshot.page.candidates.some(
+                    (item) => workbookReferenceKey(item) === selectedKeys[0],
+                  )
                     ? selectedKeys[0]
                     : ""
-              }
-              onChange={(event) =>
-                controller.selectPage(
-                  Array.from(event.currentTarget.selectedOptions).map(
-                    (option) => option.value,
-                  ),
-                )
-              }
-            >
-              {props.field.kind === "direct" ? (
+                }
+                onChange={(event) =>
+                  controller.selectCandidate(event.currentTarget.value, true)
+                }
+              >
                 <option value="" disabled>
                   Select a candidate on this page
                 </option>
-              ) : null}
-              {snapshot.page.candidates.map(props.present).map((item) => (
-                <option
-                  key={workbookReferenceKey(item)}
-                  value={workbookReferenceKey(item)}
-                >
-                  {item.displayText} ({item.identity.id})
-                </option>
-              ))}
-            </select>
-          </label>
+                {snapshot.page.candidates.map(props.present).map((item) => (
+                  <option
+                    key={workbookReferenceKey(item)}
+                    value={workbookReferenceKey(item)}
+                  >
+                    {item.displayText} ({item.identity.id})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <p role="status">
             Page {snapshot.pageNumber}: {snapshot.page.candidates.length}{" "}
             candidates
@@ -721,7 +751,7 @@ function ReferencePicker(
         data-reference-focus-fallback
         style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}
       >
-        <p>
+        <p role="status">
           Selected for this edit: {snapshot.selected.length}. Selection is
           retained across pages and sources.
         </p>

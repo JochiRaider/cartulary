@@ -1,6 +1,6 @@
 import { genericCreateFieldTestId } from "@cartulary/ui-contracts";
 import { listViewContracts } from "@cartulary/view-contracts";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 function createFieldLabel(testId: string) {
   return listViewContracts()
@@ -50,7 +50,8 @@ export async function openReferenceCandidates(
     .map((name) =>
       picker
         .getByRole("combobox", { name, exact: true })
-        .or(picker.getByRole("listbox", { name, exact: true })),
+        .or(picker.getByRole("listbox", { name, exact: true }))
+        .or(picker.getByRole("group", { name, exact: true })),
     )
     .reduce((left, right) => left.or(right));
   return { picker, candidates };
@@ -72,7 +73,7 @@ export async function selectReferenceCandidates(
     ? [recordIds]
     : recordIds) {
     const option = candidates.locator(
-      `option[value="${recordId}"], option[value$=":${recordId}"]`,
+      `option[value="${recordId}"], option[value$=":${recordId}"], input[type="checkbox"][value="${recordId}"], input[type="checkbox"][value$=":${recordId}"]`,
     );
     await expect(option).toHaveCount(1);
     const value = await option.getAttribute("value");
@@ -80,9 +81,35 @@ export async function selectReferenceCandidates(
       throw new Error(`Missing candidate identity for ${recordId}`);
     values.push(value);
   }
-  await candidates.selectOption(values);
+  await activateCandidateIdentities(candidates, values);
   await picker
     .getByRole("button", { name: /^(Apply references|Use selection)$/u })
     .click();
   await expect(picker).toBeHidden();
+}
+
+/** Native activation of explicit controls; selection authority remains in the product. */
+export async function activateCandidateIdentities(
+  candidates: Locator,
+  identities: string | readonly string[],
+) {
+  const ids = typeof identities === "string" ? [identities] : identities;
+  if (await candidates.evaluate((element) => element.tagName === "SELECT")) {
+    await candidates.selectOption([...ids]);
+    return;
+  }
+  if (!ids.length) {
+    const checked = await candidates
+      .getByRole("checkbox", { checked: true })
+      .evaluateAll((inputs) =>
+        inputs.map((input) => (input as HTMLInputElement).value),
+      );
+    for (const id of checked)
+      await candidates
+        .locator(`input[type="checkbox"][value="${id}"]`)
+        .uncheck();
+    return;
+  }
+  for (const id of ids)
+    await candidates.locator(`input[type="checkbox"][value="${id}"]`).check();
 }

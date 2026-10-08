@@ -73,13 +73,14 @@ function setup() {
   };
   return { reader, props, onApply, onCancel };
 }
+const candidateName = (label: string) =>
+  new RegExp(`^${label.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\(`);
 const select = (...ids: string[]) => {
-  const list = screen.getByRole("listbox", {
-    name: "Parties",
-  }) as HTMLSelectElement;
-  for (const option of list.options)
-    option.selected = ids.includes(option.value);
-  fireEvent.change(list);
+  const list = screen.getByRole("group", { name: "Parties" });
+  for (const input of list.querySelectorAll<HTMLInputElement>(
+    'input[type="checkbox"]',
+  ))
+    if (input.checked !== ids.includes(input.value)) fireEvent.click(input);
 };
 const click = (name: string) =>
   fireEvent.click(screen.getByRole("button", { name }));
@@ -95,6 +96,62 @@ function readGate() {
   return { promise, resolve };
 }
 describe("authoring candidate presentation", () => {
+  it("adds equal-label identities with plain clicks and Space while preserving editable context and metadata", async () => {
+    const user = userEvent.setup();
+    const { props, reader, onApply, onCancel } = setup();
+    const source = { ...candidate("source"), rowVersion: 7 };
+    const a = {
+      ...candidate("a"),
+      displayText: "Same complete candidate label",
+    };
+    const b = { ...candidate("b"), displayText: a.displayText };
+    vi.mocked(reader.page).mockResolvedValue({
+      kind: "accepted",
+      value: {
+        candidates: [source, a, b],
+        nextCursor: null,
+        hasMore: false,
+      },
+    });
+    render(
+      <WorkbookAuthoringReferencePicker
+        {...props}
+        selected={[source]}
+        maximum={3}
+      />,
+    );
+    const first = await screen.findByRole("checkbox", {
+      name: `${a.displayText} (a)`,
+    });
+    const second = screen.getByRole("checkbox", {
+      name: `${b.displayText} (b)`,
+    });
+    await user.click(first);
+    await user.click(second);
+    expect(screen.getByText(/3 selected \(maximum 3\)/)).toBeTruthy();
+    first.focus();
+    await user.tab();
+    expect(document.activeElement).toBe(second);
+    expect(first).toHaveProperty("checked", true);
+    expect(second).toHaveProperty("checked", true);
+    await user.keyboard(" ");
+    expect(first).toHaveProperty("checked", true);
+    expect(second).toHaveProperty("checked", false);
+    expect(onApply).not.toHaveBeenCalled();
+    expect(reader.page).toHaveBeenCalledTimes(1);
+    await user.click(
+      screen.getByRole("checkbox", { name: "Party source (source)" }),
+    );
+    click("Apply references");
+    expect(onApply).toHaveBeenCalledWith([
+      expect.objectContaining({
+        recordId: "a",
+        displayText: a.displayText,
+        viewSchemaId: view,
+      }),
+    ]);
+    expect(onCancel).not.toHaveBeenCalled();
+  });
   it("stages timestamp filters only after local correction and retains selected Party identity through discovery", async () => {
     const user = userEvent.setup();
     const { props, reader, onApply } = setup();
@@ -105,7 +162,7 @@ describe("authoring candidate presentation", () => {
         value: { candidates: [], nextCursor: null, hasMore: false },
       });
     render(<WorkbookAuthoringReferencePicker {...props} />);
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     select("1-0");
     await user.click(screen.getByText("Parties ordering and filters"));
     await user.selectOptions(
@@ -143,7 +200,9 @@ describe("authoring candidate presentation", () => {
       },
     ]);
     await waitFor(() =>
-      expect(screen.queryByRole("option", { name: "Party 1-0" })).toBeNull(),
+      expect(
+        screen.queryByRole("checkbox", { name: candidateName("Party 1-0") }),
+      ).toBeNull(),
     );
     expect(
       screen.getByRole("button", { name: "Remove selected Parties Party 1-0" }),
@@ -187,10 +246,11 @@ describe("authoring candidate presentation", () => {
         views={[targetView]}
       />,
     );
-    await screen.findByRole("option", { name: "Selected task" });
-    await user.selectOptions(
-      screen.getByRole("listbox", { name: "Task references" }),
-      task.recordId,
+    await screen.findByRole("checkbox", {
+      name: candidateName("Selected task"),
+    });
+    await user.click(
+      screen.getByRole("checkbox", { name: candidateName("Selected task") }),
     );
     await user.click(screen.getByText("Task references ordering and filters"));
     await user.selectOptions(
@@ -214,7 +274,9 @@ describe("authoring candidate presentation", () => {
     await user.click(screen.getByRole("button", { name: "Retry candidates" }));
     await waitFor(() =>
       expect(
-        screen.queryByRole("option", { name: "Selected task" }),
+        screen.queryByRole("checkbox", {
+          name: candidateName("Selected task"),
+        }),
       ).toBeNull(),
     );
     expect(
@@ -302,13 +364,13 @@ describe("authoring candidate presentation", () => {
     const rendered = render(
       <WorkbookAuthoringReferencePicker {...props} selected={[retained]} />,
     );
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     expect(
       screen
         .getByRole("button", { name: /^Remove selected Parties / })
         .getAttribute("aria-label"),
     ).toBe("Remove selected Parties Party 1-0");
-    const selector = screen.getByRole("listbox", {
+    const selector = screen.getByRole("group", {
       name: "Parties",
     });
     rendered.rerender(
@@ -334,7 +396,7 @@ describe("authoring candidate presentation", () => {
         },
       }),
     );
-    expect(screen.getByRole("listbox", { name: "Parties" })).toBe(selector);
+    expect(screen.getByRole("group", { name: "Parties" })).toBe(selector);
     expect(
       screen
         .getByRole("button", { name: /^Remove selected Parties / })
@@ -386,7 +448,9 @@ describe("authoring candidate presentation", () => {
         selected={items}
       />,
     );
-    await screen.findByRole("option", { name: longName.trim() });
+    await screen.findByRole("checkbox", {
+      name: candidateName(longName.trim()),
+    });
     const remove = screen.getByRole("button", {
       name: `Remove selected Parties ${longName}(one)`,
     });
@@ -397,11 +461,15 @@ describe("authoring candidate presentation", () => {
     ).toBeTruthy();
     remove.focus();
     click("Next candidates");
-    await screen.findByRole("option", { name: "Party 2-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 2-0") });
     expect(document.activeElement).toBe(remove);
-    expect(screen.queryByRole("option", { name: longName.trim() })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: candidateName(longName.trim()) }),
+    ).toBeNull();
     click("Previous candidates");
-    await screen.findByRole("option", { name: "Updated Party" });
+    await screen.findByRole("checkbox", {
+      name: candidateName("Updated Party"),
+    });
     expect(document.activeElement).toBe(remove);
     expect(remove.getAttribute("aria-label")).toBe(
       "Remove selected Parties Updated Party",
@@ -411,9 +479,10 @@ describe("authoring candidate presentation", () => {
     await waitFor(() =>
       expect(
         screen
-          .getByRole("listbox", { name: "Parties" })
-          .querySelector('option[value="one"]')?.textContent,
-      ).toBe(""),
+          .getByRole("group", { name: "Parties" })
+          .querySelector('input[value="one"]')
+          ?.getAttribute("aria-label"),
+      ).toBe("one (one)"),
     );
     expect(remove.getAttribute("aria-label")).toBe(
       "Remove selected Parties Updated Party",
@@ -449,7 +518,7 @@ describe("authoring candidate presentation", () => {
         selected={[member]}
       />,
     );
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     click("Apply references");
     expect(onApply).toHaveBeenCalledWith([member]);
   });
@@ -502,7 +571,9 @@ describe("authoring candidate presentation", () => {
     const rendered = render(boundary(0, "a"));
     await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(1));
     rendered.rerender(boundary(1, "a"));
-    await screen.findByRole("option", { name: "Current label" });
+    await screen.findByRole("checkbox", {
+      name: candidateName("Current label"),
+    });
     await act(async () => obsolete.resolve(accepted("Obsolete label")));
     expect(screen.getByRole("list").textContent).toContain("Current label");
     expect(screen.queryByText("Obsolete label")).toBeNull();
@@ -515,11 +586,15 @@ describe("authoring candidate presentation", () => {
     );
     expect(screen.getByRole("list").textContent).not.toContain("label");
     rendered.rerender(boundary(1, "b"));
-    await screen.findByRole("option", { name: "Restored label" });
+    await screen.findByRole("checkbox", {
+      name: candidateName("Restored label"),
+    });
     click("Refresh candidates");
     await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(5));
     rendered.rerender(boundary(1, "b", true, "new-draft"));
-    await screen.findByRole("option", { name: "New target label" });
+    await screen.findByRole("checkbox", {
+      name: candidateName("New target label"),
+    });
     await act(async () => disposed.resolve(accepted("Disposed label")));
     click("Apply references");
     expect(onApply).toHaveBeenCalledWith([
@@ -544,7 +619,7 @@ describe("authoring candidate presentation", () => {
       .mockImplementationOnce(() => previous.promise)
       .mockImplementationOnce(() => empty.promise);
     render(<WorkbookAuthoringReferencePicker {...props} />);
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
 
     for (const [name, gate, result, count] of [
       ["First candidates", first, page(1), 2],
@@ -608,7 +683,7 @@ describe("authoring candidate presentation", () => {
       .mockResolvedValueOnce(rejected)
       .mockImplementationOnce(() => restart.promise);
     render(<WorkbookAuthoringReferencePicker {...props} />);
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     select("1-0");
     click("Next candidates");
     await screen.findByRole("alert");
@@ -643,7 +718,7 @@ describe("authoring candidate presentation", () => {
     ).toBe(true);
 
     click("First candidates");
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     click("Next candidates");
     await screen.findByRole("alert");
     const retryAgain = screen.getByRole("button", {
@@ -698,7 +773,7 @@ describe("authoring candidate presentation", () => {
       </WorkbookCandidateAuthorityContext.Provider>
     );
     const rendered = render(boundary(0, "account-a"));
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     const refresh = screen.getByRole("button", { name: "Refresh candidates" });
     refresh.focus();
     await user.keyboard("{Enter}");
@@ -712,14 +787,16 @@ describe("authoring candidate presentation", () => {
     refresh.focus();
     await user.keyboard("{Enter}");
     rendered.rerender(boundary(1, "account-a"));
-    await screen.findByRole("option", { name: "Party 2-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 2-0") });
     const newRefresh = screen.getByRole("button", {
       name: "Refresh candidates",
     });
     newRefresh.focus();
     await act(async () => oldScope.resolve(page(3, null)));
     expect(document.activeElement).toBe(newRefresh);
-    expect(screen.queryByRole("option", { name: "Party 3-0" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: candidateName("Party 3-0") }),
+    ).toBeNull();
 
     await user.keyboard("{Enter}");
     rendered.rerender(boundary(1, "account-b", false));
@@ -800,7 +877,9 @@ describe("authoring candidate presentation", () => {
       fireEvent.click(source);
       expect(document.activeElement).toBe(
         expected === "selector"
-          ? screen.getByRole("listbox", { name: "Records" })
+          ? screen.getByRole("checkbox", {
+              name: candidateName("Current page"),
+            })
           : screen.getByRole("button", {
               name: `Remove selected Records Reference ${expected}`,
             }),
@@ -832,7 +911,7 @@ describe("authoring candidate presentation", () => {
     });
     remove.focus();
     fireEvent.click(remove);
-    expect(screen.getByRole("listbox", { name: "Records" })).toHaveProperty(
+    expect(screen.getByRole("group", { name: "Records" })).toHaveProperty(
       "disabled",
       true,
     );
@@ -976,23 +1055,25 @@ describe("authoring candidate presentation", () => {
   it("retains selected identities across twelve evicted pages with bounded options and reduced payloads", async () => {
     const { props, reader, onApply } = setup();
     render(<WorkbookAuthoringReferencePicker {...props} />);
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     select("1-0");
     for (let number = 2; number <= 13; number++) {
       click("Next candidates");
-      await screen.findByRole("option", { name: `Party ${number}-0` });
+      await screen.findByRole("checkbox", {
+        name: candidateName(`Party ${number}-0`),
+      });
       expect(
-        screen
-          .getAllByRole("option")
-          .filter(
-            (option) =>
-              option.parentElement?.getAttribute("data-testid") ===
-              "candidates",
-          ),
+        Array.from(
+          screen
+            .getByTestId("candidates")
+            .querySelectorAll('input[type="checkbox"]'),
+        ),
       ).toHaveLength(100);
     }
     select("13-0");
-    expect(screen.queryByRole("option", { name: "Party 1-0" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: candidateName("Party 1-0") }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Remove selected Parties Party 1-0" }),
     ).toBeTruthy();
@@ -1031,7 +1112,7 @@ describe("authoring candidate presentation", () => {
       )
       .mockResolvedValueOnce(page(2));
     render(<WorkbookAuthoringReferencePicker {...props} />);
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     click("Next candidates");
     click("Next candidates");
     select("1-0");
@@ -1051,7 +1132,7 @@ describe("authoring candidate presentation", () => {
     click("Apply references");
     expect(onApply.mock.calls.at(-1)?.[0]).toHaveLength(2);
     click("Retry candidates");
-    await screen.findByRole("option", { name: "Party 2-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 2-0") });
     expect(vi.mocked(reader.page).mock.calls[2]?.[0].cursor).toBe("page-2");
     expect(vi.mocked(reader.page).mock.calls[2]?.[0].queryState).toEqual(
       vi.mocked(reader.page).mock.calls[1]?.[0].queryState,
@@ -1060,7 +1141,7 @@ describe("authoring candidate presentation", () => {
   it("applies query edits explicitly without clearing selection and rejects over-limit changes", async () => {
     const { props, reader, onApply } = setup();
     render(<WorkbookAuthoringReferencePicker {...props} maximum={1} />);
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     select("1-0");
     select("1-0", "1-1");
     expect(screen.getByRole("alert").textContent).toContain("at most 1");
@@ -1098,6 +1179,15 @@ describe("authoring candidate presentation", () => {
         (item: WorkbookAuthoringSelection) => item.recordId,
       ),
     ).toEqual(["1-0"]);
+    select();
+    expect(screen.queryByRole("alert")).toBeNull();
+    select("1-1");
+    click("Apply references");
+    expect(
+      onApply.mock.calls
+        .at(-1)?.[0]
+        .map((item: WorkbookAuthoringSelection) => item.recordId),
+    ).toEqual(["1-1"]);
   });
   it("cancels unapplied staging restores invoking focus and reopens with parent selection", async () => {
     const { props, onApply } = setup();
@@ -1110,15 +1200,17 @@ describe("authoring candidate presentation", () => {
       />,
     );
     click("Choose parties");
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     select("1-0");
-    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("group", { name: "Parties" }), {
+      key: "Escape",
+    });
     expect(document.activeElement).toBe(
       screen.getByRole("button", { name: "Choose parties" }),
     );
     expect(onApply).not.toHaveBeenCalled();
     click("Choose parties");
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     click("Apply references");
     expect(onApply).toHaveBeenCalledWith([
       { recordId: "off-page", displayText: "Retained", viewSchemaId: view },
@@ -1159,7 +1251,7 @@ describe("authoring candidate presentation", () => {
     const rendered = render(boundary("old"));
     await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(1));
     rendered.rerender(boundary("current"));
-    await screen.findByRole("option", { name: "Party 2-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 2-0") });
     await act(async () =>
       finish({
         kind: "rejected",
@@ -1174,14 +1266,16 @@ describe("authoring candidate presentation", () => {
     click("Refresh candidates");
     await waitFor(() => expect(onAuthorityFailure).toHaveBeenCalledTimes(1));
     expect(screen.queryByText("Protected label")).toBeNull();
-    expect(screen.queryByRole("option", { name: "Party 2-0" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: candidateName("Party 2-0") }),
+    ).toBeNull();
     expect(
       screen
         .getByRole("button", { name: "Apply references" })
         .hasAttribute("disabled"),
     ).toBe(true);
     rendered.rerender(boundary("current", "session-a-restored"));
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     expect(screen.queryByText("Protected label")).toBeNull();
     rendered.unmount();
     for (const [kind, message] of [
@@ -1223,7 +1317,7 @@ describe("authoring candidate presentation", () => {
         />
       </StrictMode>,
     );
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("checkbox", { name: candidateName("Party 1-0") });
     expect(reader.availableViews).not.toHaveBeenCalled();
     expect(screen.queryByText("Parties ordering and filters")).toBeNull();
     vi.mocked(reader.page).mockImplementation((input) => {

@@ -23,7 +23,7 @@ function sameIds(left: readonly string[], right: readonly string[]) {
   );
 }
 
-/** Reveal only inside the nearest owned scrollport; never scroll the page or grid. */
+/** Reveal inside nested owned scrollports; never scroll the page or grid. */
 function revealLocalFocus(target: HTMLElement) {
   for (
     let parent = target.parentElement;
@@ -49,7 +49,6 @@ function revealLocalFocus(target: HTMLElement) {
       parent.scrollLeft += control.left - viewport.left;
     else if (control.right > viewport.right)
       parent.scrollLeft += control.right - viewport.right;
-    return;
   }
 }
 

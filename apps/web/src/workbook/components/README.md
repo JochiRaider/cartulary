@@ -73,7 +73,8 @@ confirmation remain in their existing controllers.
 | [WorkbookGridEditorControl.tsx](WorkbookGridEditorControl.tsx) | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. |
 | [WorkbookReferenceControl.tsx](WorkbookReferenceControl.tsx) | Existing-record exact-ID input, staged top-layer picker, and authorized selected presentation; no mutation owner. |
 | [WorkbookReferenceControl.test.tsx](WorkbookReferenceControl.test.tsx) | Inspector staging, explicit acceptance, read-only retry, exact collection payloads, and committed-label updates. |
-| [WorkbookRecordCandidatePicker.tsx](WorkbookRecordCandidatePicker.tsx) | Shared semantic record-candidate selection control for owner workflows. |
+| [WorkbookRecordCandidatePicker.tsx](WorkbookRecordCandidatePicker.tsx) | Native single-target candidate control retained for Party linking and single authoring. |
+| [WorkbookMultiCandidatePicker.tsx](WorkbookMultiCandidatePicker.tsx) | Bounded checkbox presentation with complete wrapped labels and stable identities; explicit identity toggles only. |
 | [WorkbookRelationshipChip.test.tsx](WorkbookRelationshipChip.test.tsx) | Tests relationship-chip state details, semantic selectors, and optional selection behavior. |
 | [WorkbookRelationshipChip.tsx](WorkbookRelationshipChip.tsx) | Shared relationship-chip presentation over an explicit label, state, detail, selector identity, selection, and command model. |
 
@@ -151,13 +152,21 @@ scope changes; candidate admission and stale-response handling stay with the
 discovery owner.
 
 Authoring record pickers use WorkbookAuthoringReferencePicker for attachment-local
-staging, WorkbookCandidateSelection for current-page membership and explicit
+staging, WorkbookCandidateSelection for explicit identity toggles and selected-item
 removal, WorkbookCandidateQueryControl for explicitly applied schema queries,
 and WorkbookCandidateBrowsing for local read recovery. Selections remain separate
 from the accepted page; callers supply their own maximum and semantic target.
 Source-review callers alone request captured row versions. Apply never dispatches
-a write. WorkbookRecordCandidatePicker remains the native selection presentation
-used by Party linking and Timeline mentions as well as authoring.
+a write. Ordinary collection reference controls and multiple-mode authoring/support
+use WorkbookMultiCandidatePicker. Its checkboxes add or remove one staged identity;
+focus movement and label inspection do not change selection or issue reads. Labels
+and full identities wrap inside the existing bounded chooser. Count limits, retained
+metadata, query/paging and acceptance remain with their existing owners. The first
+enabled checkbox supplies selected-item removal focus fallback, revealed through
+nested owned scrollports. Settled ordinary collection Retry stays mounted and
+disabled after focus departs so the following pointer gesture keeps stable geometry.
+WorkbookRecordCandidatePicker retains native single-target presentation for Party
+linking, Assessment subjects, source review and single-reference authoring.
 
 `WorkbookBatchRecordChoices.tsx` presents up to twenty returned Timeline records
 with local search and explicit review activation. Its test verifies bounded

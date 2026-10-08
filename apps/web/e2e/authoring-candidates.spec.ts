@@ -36,6 +36,7 @@ import {
   queryViewRows,
 } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
+import { activateCandidateIdentities } from "./support/workbook/references";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 import { openTimelineEvidenceFixture } from "./support/workbook/timelineRelatedEvidence";
 
@@ -64,11 +65,11 @@ test("Literal candidate filters stage exact members and retain contextual select
     name: "Choose Linked Records",
     exact: true,
   });
-  const candidates = picker.getByRole("listbox", {
+  const candidates = picker.getByRole("group", {
     name: "Linked Records",
     exact: true,
   });
-  await candidates.selectOption(selected.record_id);
+  await activateCandidateIdentities(candidates, selected.record_id);
   const requests: unknown[] = [],
     memberships: string[][] = [];
   let failNext = false;
@@ -105,7 +106,7 @@ test("Literal candidate filters stage exact members and retain contextual select
   expect(requests).toHaveLength(0);
   await button(picker, "Apply candidate query").click();
   await expect.poll(() => memberships.at(-1)).toEqual([first.record_id]);
-  await expect(candidates.getByRole("option")).toHaveCount(1);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(1);
   const retained = picker.getByRole("button", {
     name: /Remove selected Linked Records .*B component/,
   });
@@ -142,12 +143,12 @@ test("Literal Assessment support filters stage exact members and retain selected
     name: "Choose assessment support",
     exact: true,
   });
-  const candidates = support.getByRole("listbox", {
+  const candidates = support.getByRole("group", {
     name: "Timeline support candidates",
     exact: true,
   });
-  await expect(candidates.getByRole("option")).toHaveCount(3);
-  await candidates.selectOption(selected.record_id);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(3);
+  await activateCandidateIdentities(candidates, selected.record_id);
   const requests: unknown[] = [],
     memberships: string[][] = [];
   await page.route(
@@ -206,11 +207,13 @@ test("Literal Assessment support filters stage exact members and retain selected
             ? [selected.record_id, separate.record_id]
             : [separate.record_id];
       await expect.poll(() => memberships.at(-1)).toEqual(expected.sort());
-      await expect(candidates.getByRole("option")).toHaveCount(expected.length);
+      await expect(candidates.getByRole("checkbox")).toHaveCount(
+        expected.length,
+      );
       const optionIds = await candidates
-        .getByRole("option")
+        .getByRole("checkbox")
         .evaluateAll((options) =>
-          options.map((option) => (option as HTMLOptionElement).value).sort(),
+          options.map((option) => (option as HTMLInputElement).value).sort(),
         );
       expect(optionIds).toEqual(expected.sort());
       await expect(
@@ -249,11 +252,13 @@ async function seed(page: Page, incident: string, view: string, field: string) {
   return ids;
 }
 async function chooseFirst(select: Locator, multiple = false) {
-  const option = select.getByRole("option").nth(multiple ? 0 : 1);
+  const option = multiple
+    ? select.getByRole("checkbox").first()
+    : select.getByRole("option").nth(1);
   await expect(option).toBeAttached();
   const id = await option.getAttribute("value");
   if (!id) throw new Error("Missing exact candidate identity");
-  await select.selectOption(id);
+  await activateCandidateIdentities(select, id);
   return id;
 }
 function button(scope: Locator | Page, name: string) {
@@ -379,15 +384,15 @@ test("Boolean support filters stage typed queries and retain selected identities
     name: "Choose assessment support",
     exact: true,
   });
-  const candidates = support.getByRole("listbox", {
+  const candidates = support.getByRole("group", {
     name: "Timeline support candidates",
     exact: true,
   });
-  await expect(candidates.getByRole("option")).toHaveCount(100);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(100);
   const first = await chooseFirst(candidates, true);
   expect(ids).toContain(first);
   await button(support, "Next candidates").click();
-  await expect(candidates.getByRole("option")).toHaveCount(5);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(5);
   const second = await chooseFirst(candidates, true);
   expect(ids).toContain(second);
   expect(first).not.toBe(second);
@@ -447,9 +452,9 @@ test("Boolean support filters stage typed queries and retain selected identities
   await expect(button(support, "Add filter")).toBeFocused();
   await page.keyboard.press("Enter");
   expect(queries).toHaveLength(0);
-  await expect(candidates.getByRole("option")).toHaveCount(5);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(5);
   await button(support, "Apply candidate query").click();
-  await expect(candidates.getByRole("option")).toHaveCount(100);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(100);
   const filters = [
     { field_key: "timeline.has_evidence", op: "eq", arg: { values: [false] } },
   ];
@@ -466,7 +471,7 @@ test("Boolean support filters stage typed queries and retain selected identities
   await expect(button(support, "Retry candidates")).toBeVisible();
   expect(await selected.allTextContents()).toEqual(identities);
   await button(support, "Retry candidates").click();
-  await expect(candidates.getByRole("option")).toHaveCount(0);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(0);
   expect(queries.at(-1)?.filters).toEqual([
     { field_key: "timeline.has_evidence", op: "eq", arg: { values: [true] } },
   ]);
@@ -480,7 +485,7 @@ test("Boolean support filters stage typed queries and retain selected identities
     }),
   ).toContainText("Supporting records (2/64)");
   await button(page, "Choose support").click();
-  await candidates.selectOption([]);
+  await activateCandidateIdentities(candidates, []);
   await candidates.press("Escape");
   await expect(button(page, "Choose support")).toBeFocused();
   await expect(
@@ -609,15 +614,15 @@ test("Assessment Timeline support enum filtering preserves staged selection", as
     name: "Choose assessment support",
     exact: true,
   });
-  const candidates = support.getByRole("listbox", {
+  const candidates = support.getByRole("group", {
     name: "Timeline support candidates",
     exact: true,
   });
-  await expect(candidates.getByRole("option")).toHaveCount(100);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(100);
   const first = await chooseFirst(candidates, true);
   expect(ids).toContain(first);
   await button(support, "Next candidates").click();
-  await expect(candidates.getByRole("option")).toHaveCount(5);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(5);
   const second = await chooseFirst(candidates, true);
   expect(second).not.toBe(first);
   await page.setViewportSize({ width: 768, height: 640 });
@@ -653,9 +658,9 @@ test("Assessment Timeline support enum filtering preserves staged selection", as
   expect(queries).toHaveLength(0);
   await button(support, "Add filter").click();
   expect(queries).toHaveLength(0);
-  await expect(candidates.getByRole("option")).toHaveCount(5);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(5);
   await button(support, "Apply candidate query").click();
-  await expect(candidates.getByRole("option")).toHaveCount(100);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(100);
   expect(queries).toHaveLength(1);
   expect(queries[0]?.filters).toEqual([
     {
@@ -711,7 +716,7 @@ test("Assessment Timeline support enum filtering preserves staged selection", as
     }),
   ).toHaveCount(2);
   await button(support, "Retry candidates").click();
-  await expect(candidates.getByRole("option")).toHaveCount(0);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(0);
   await expect(
     support.getByRole("button", {
       name: /^Remove selected Timeline support candidates /,
@@ -727,12 +732,12 @@ test("Assessment Timeline support enum filtering preserves staged selection", as
   await expect(button(page, "Choose support")).toBeFocused();
   await expect(selected).toContainText("Supporting records (0/64)");
   await button(page, "Choose support").click();
-  await expect(candidates.getByRole("option")).toHaveCount(100);
-  await candidates.selectOption(first);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(100);
+  await activateCandidateIdentities(candidates, first);
   await button(support, "Apply support selection").click();
   await expect(selected).toContainText("Supporting records (1/64)");
   await button(page, "Choose support").click();
-  await candidates.selectOption([]);
+  await activateCandidateIdentities(candidates, []);
   await candidates.press("Escape");
   await expect(selected).toContainText("Supporting records (1/64)");
   await expect(
@@ -1020,14 +1025,14 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
   await references
     .getByRole("combobox", { name: "Reference surface", exact: true })
     .selectOption(partiesViewSchemaId);
-  const records = references.getByRole("listbox", {
+  const records = references.getByRole("group", {
     name: "Linked Records",
     exact: true,
   });
-  await expect(records.getByRole("option")).toHaveCount(100);
+  await expect(records.getByRole("checkbox")).toHaveCount(100);
   await chooseFirst(records, true);
   await button(references, "Next candidates").click();
-  await expect(records.getByRole("option")).toHaveCount(6);
+  await expect(records.getByRole("checkbox")).toHaveCount(6);
   await chooseFirst(records, true);
   await expect(
     references.getByRole("button", {
@@ -1189,7 +1194,9 @@ test("Timeline contextual Party candidate reads keep keyboard focus through pend
     await read.control.focus();
     await expect(read.control).toBeFocused();
     read.release();
-    await expect(picker.getByRole("status")).toContainText("Page 1");
+    await expect(
+      picker.getByRole("status").filter({ hasText: /Page|Loading candidates/ }),
+    ).toContainText("Page 1");
     await expect(read.control).toBeFocused();
     await expect(read.control).toHaveAttribute("aria-busy", "false");
   }
@@ -1236,7 +1243,9 @@ test("Timeline contextual Party candidate reads keep keyboard focus through pend
 
   const first = await admit("First candidates");
   first.release();
-  await expect(picker.getByRole("status")).toContainText("Page 1");
+  await expect(
+    picker.getByRole("status").filter({ hasText: /Page|Loading candidates/ }),
+  ).toContainText("Page 1");
   await expect(first.control).toBeFocused();
   await expect(title).toHaveValue("Keyboard retained task draft");
   await button(picker, "Cancel references").click();
@@ -1292,27 +1301,30 @@ test("Timeline contextual reference removal keeps keyboard focus in the referenc
   await picker
     .getByRole("combobox", { name: "Reference surface", exact: true })
     .selectOption(partiesViewSchemaId);
-  const select = picker.getByRole("listbox", {
+  const select = picker.getByRole("group", {
     name: "Linked Records",
     exact: true,
   });
-  await expect(select.getByRole("option")).toHaveCount(100);
+  await expect(select.getByRole("checkbox")).toHaveCount(100);
   const firstPageIds = await select
-    .getByRole("option")
+    .getByRole("checkbox")
     .evaluateAll((options) =>
-      options.slice(0, 3).map((option) => (option as HTMLOptionElement).value),
+      options.slice(0, 3).map((option) => (option as HTMLInputElement).value),
     );
-  await select.selectOption(firstPageIds);
+  await activateCandidateIdentities(select, firstPageIds);
   const remove = picker.getByRole("button", {
     name: /^Remove selected Linked Records /,
   });
   await expect(remove).toHaveCount(3);
   await button(picker, "Next candidates").click();
-  await expect(select.getByRole("option")).toHaveCount(6);
+  await expect(select.getByRole("checkbox")).toHaveCount(6);
   await expect(remove).toHaveCount(3);
-  const lastId = await select.getByRole("option").first().getAttribute("value");
+  const lastId = await select
+    .getByRole("checkbox")
+    .first()
+    .getAttribute("value");
   if (!lastId) throw new Error("Missing off-page candidate identity");
-  await select.selectOption(lastId);
+  await activateCandidateIdentities(select, lastId);
   await expect(remove).toHaveCount(4);
   const scrollOffsets = async () => ({
     ...(await page.evaluate(() => ({
@@ -1335,6 +1347,10 @@ test("Timeline contextual reference removal keeps keyboard focus in the referenc
       return null;
     }),
   });
+  const fallbackName = await select
+    .getByRole("checkbox")
+    .first()
+    .getAttribute("aria-label");
   const observations: {
     position: string;
     focus: string | null;
@@ -1346,7 +1362,7 @@ test("Timeline contextual reference removal keeps keyboard focus in the referenc
     ["last", 2, 1],
     ["sole", 1, 0],
   ] as const) {
-    await select.focus();
+    await select.getByRole("checkbox").last().focus();
     for (let index = 0; index < tabCount; index++)
       await page.keyboard.press("Tab");
     await expect(remove.nth(tabCount - 1)).toBeFocused();
@@ -1374,7 +1390,7 @@ test("Timeline contextual reference removal keeps keyboard focus in the referenc
     expect.stringMatching(/^Remove selected Linked Records /),
     expect.stringMatching(/^Remove selected Linked Records /),
     expect.stringMatching(/^Remove selected Linked Records /),
-    "SELECT",
+    fallbackName,
   ]);
   await button(picker, "Apply references").click();
   await expect(title).toHaveValue("Retained keyboard authoring");
@@ -1384,7 +1400,7 @@ test("Timeline contextual reference removal keeps keyboard focus in the referenc
   await picker
     .getByRole("combobox", { name: "Reference surface", exact: true })
     .selectOption(partiesViewSchemaId);
-  await select.selectOption(firstPageIds.slice(0, 2));
+  await activateCandidateIdentities(select, firstPageIds.slice(0, 2));
   await expect(remove).toHaveCount(2);
   await button(picker, "Cancel references").click();
   await expect(parentRemove).toHaveCount(0);
@@ -1394,7 +1410,7 @@ test("Timeline contextual reference removal keeps keyboard focus in the referenc
   await picker
     .getByRole("combobox", { name: "Reference surface", exact: true })
     .selectOption(partiesViewSchemaId);
-  await select.selectOption(firstPageIds.slice(0, 2));
+  await activateCandidateIdentities(select, firstPageIds.slice(0, 2));
   await button(picker, "Apply references").click();
   await expect(parentRemove).toHaveCount(2);
   await choose.focus();
@@ -1602,11 +1618,11 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
     name: "Choose assessment support",
     exact: true,
   });
-  const candidates = support.getByRole("listbox", {
+  const candidates = support.getByRole("group", {
     name: "Timeline support candidates",
     exact: true,
   });
-  await expect(candidates.getByRole("option")).toHaveCount(100);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(100);
   let releaseSupport!: () => void;
   let requestedSupport!: () => void;
   const supportGate = new Promise<void>((resolve) => {
@@ -1638,7 +1654,7 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
   );
   const first = await chooseFirst(candidates, true);
   await button(support, "Next candidates").click();
-  await expect(candidates.getByRole("option")).toHaveCount(5);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(5);
   const second = await chooseFirst(candidates, true);
   expect(second).not.toBe(first);
   await expect(
@@ -1649,7 +1665,7 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
   const supportRemove = support.getByRole("button", {
     name: /^Remove selected Timeline support candidates /,
   });
-  await candidates.focus();
+  await candidates.getByRole("checkbox").last().focus();
   await page.keyboard.press("Tab");
   await expect(supportRemove.first()).toBeFocused();
   await page.keyboard.press("Space");
@@ -1658,13 +1674,13 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
   await button(support, "Cancel support selection").click();
   await expect(button(page, "Choose support")).toBeFocused();
   await button(page, "Choose support").click();
-  await expect(candidates.getByRole("option")).toHaveCount(100);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(100);
   const retainedSupport = await candidates
-    .getByRole("option")
+    .getByRole("checkbox")
     .evaluateAll((options) =>
-      options.slice(0, 2).map((option) => (option as HTMLOptionElement).value),
+      options.slice(0, 2).map((option) => (option as HTMLInputElement).value),
     );
-  await candidates.selectOption(retainedSupport);
+  await activateCandidateIdentities(candidates, retainedSupport);
   await button(support, "Apply support selection").click();
   await expect(
     page.getByRole("region", {
@@ -1673,8 +1689,8 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
     }),
   ).toContainText("Supporting records (2/64)");
   await button(page, "Choose support").click();
-  await expect(candidates.getByRole("option")).toHaveCount(100);
-  await candidates.selectOption([]);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(100);
+  await activateCandidateIdentities(candidates, []);
   await candidates.press("Escape");
   await expect(button(page, "Choose support")).toBeFocused();
   await expect(

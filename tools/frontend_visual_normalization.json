@@ -294,6 +294,12 @@
         "expected_count": 1
       },
       {
+        "id": "candidate-reference-id",
+        "target": "[data-generated-metadata=\"candidate-reference-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000001",
+        "expected_count": 1
+      },
+      {
         "id": "incident-key",
         "target": "[data-generated-metadata=\"incident-key\"]",
         "replacement": "IR-VISUAL-FIXTURE",
@@ -2000,6 +2006,12 @@
         "id": "account-actor",
         "target": "[data-generated-metadata=\"account-actor\"]",
         "replacement": "Playwright Worker Admin",
+        "expected_count": 1
+      },
+      {
+        "id": "candidate-reference-id",
+        "target": "[data-generated-metadata=\"candidate-reference-id\"]",
+        "replacement": "00000000-0000-0000-0000-000000000001",
         "expected_count": 1
       },
       {

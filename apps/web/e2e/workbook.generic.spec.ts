@@ -31,6 +31,7 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { createViewRow, waitForViewRowByCell } from "./support/workbook/query";
 import {
+  activateCandidateIdentities,
   openReferenceCandidates,
   selectReferenceCandidates,
 } from "./support/workbook/references";
@@ -546,10 +547,10 @@ async function setGenericCreateField(
       await trigger.click();
     const field = contract.fieldMap[fieldKey];
     const reference = input.getByRole(
-      field?.writeKind === "action_payload" ? "listbox" : "combobox",
+      field?.writeKind === "action_payload" ? "group" : "combobox",
       { name: field?.label ?? "", exact: true },
     );
-    await reference.selectOption(value);
+    await activateCandidateIdentities(reference, value);
     await input
       .getByRole("button", { name: "Apply references", exact: true })
       .click();
@@ -565,6 +566,8 @@ async function setGenericCreateField(
 async function waitForGenericOption(page: Page, testId: string, value: string) {
   const { candidates } = await openReferenceCandidates(page, testId, undefined);
   await expect(
-    candidates.locator(`option[value="${value}"], option[value$=":${value}"]`),
+    candidates.locator(
+      `option[value="${value}"], option[value$=":${value}"], input[type="checkbox"][value="${value}"], input[type="checkbox"][value$=":${value}"]`,
+    ),
   ).toHaveCount(1);
 }

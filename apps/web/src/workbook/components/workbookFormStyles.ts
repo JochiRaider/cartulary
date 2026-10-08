@@ -57,6 +57,10 @@ export const workbookCommandStateStyles = `
   outline: var(--ct-component-focus-ring-border);
   outline-offset: var(--ct-component-focus-ring-offset);
 }
+.cartulary-shell [data-workbook-multi-candidates] input:focus-visible {
+  outline: var(--ct-component-focus-ring-border);
+  outline-offset: var(--ct-component-focus-ring-offset);
+}
 .cartulary-shell [data-reference-focus-fallback]:focus {
   outline: var(--ct-component-focus-ring-border);
   outline-offset: var(--ct-component-focus-ring-offset);

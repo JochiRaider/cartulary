@@ -278,29 +278,26 @@ export class WorkbookReferenceSelection {
       ),
     });
   }
-  /** Only current-page selection changes; off-page choices retain their order. */
-  selectPage(keys: readonly string[]): void {
+  /** An explicit identity toggle never reconciles away other staged choices. */
+  selectCandidate(key: string, checked: boolean): void {
     if (this.#disposed || this.#snapshot.concealed || !this.#snapshot.page)
       return;
-    const candidates = this.#snapshot.page.candidates;
-    const pageKeys = new Set(candidates.map(workbookReferenceKey));
-    const wanted = new Set(keys);
+    if (!checked) {
+      this.remove(key);
+      return;
+    }
+    const candidate = this.#snapshot.page.candidates.find(
+      (item) => workbookReferenceKey(item) === key,
+    );
+    if (!candidate) return;
     const selected =
       this.limit === 1
-        ? []
-        : this.#snapshot.selected.filter(
-            (item) =>
-              !pageKeys.has(workbookReferenceKey(item)) ||
-              wanted.has(workbookReferenceKey(item)),
-          );
-    const existing = new Set(selected.map(workbookReferenceKey));
-    for (const candidate of candidates) {
-      const key = workbookReferenceKey(candidate);
-      if (wanted.has(key) && !existing.has(key)) {
-        selected.push(candidate);
-        existing.add(key);
-      }
-    }
+        ? [candidate]
+        : this.#snapshot.selected.some(
+              (item) => workbookReferenceKey(item) === key,
+            )
+          ? this.#snapshot.selected
+          : [...this.#snapshot.selected, candidate];
     if (selected.length > this.limit) {
       this.#publish({
         ...this.#snapshot,

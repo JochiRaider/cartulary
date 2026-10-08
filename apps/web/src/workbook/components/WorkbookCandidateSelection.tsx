@@ -3,9 +3,10 @@ import { WorkbookCandidateAuthorityContext } from "../hooks/useWorkbookCandidate
 import { WorkbookInspectorActionButton as Button } from "../inspector/presentation/WorkbookInspectorActions";
 import type { WorkbookCandidate } from "../ports/WorkbookCandidateReadPort";
 import { useSelectedReferenceRemovalFocus } from "./useSelectedReferenceRemovalFocus";
+import { WorkbookMultiCandidatePicker } from "./WorkbookMultiCandidatePicker";
 import { WorkbookRecordCandidatePicker } from "./WorkbookRecordCandidatePicker";
 
-/** Only current-page membership changes on page selection. Removal is explicit. */
+/** Selection remains owner-controlled and independent of the accepted page. */
 export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
   candidates,
   selected,
@@ -31,7 +32,7 @@ export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
 }) {
   const [error, setError] = useState<string | null>(null);
   const authority = useContext(WorkbookCandidateAuthorityContext);
-  const selector = useRef<HTMLSelectElement>(null);
+  const selector = useRef<HTMLElement | null>(null);
   const group = useRef<HTMLFieldSetElement>(null);
   const removalFocus = useSelectedReferenceRemovalFocus({
     ids: selected.map((item) => item.recordId),
@@ -55,51 +56,85 @@ export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
         padding: 0,
       }}
     >
-      <WorkbookRecordCandidatePicker
-        selectorRef={selector}
-        candidates={concealed ? [] : candidates}
-        label={label}
-        testId={testId}
-        selection={multiple ? "multiple" : "single"}
-        disabled={
-          disabled || concealed || !authority.canRead || !candidates.length
-        }
-        selectedRecordIds={selected
-          .filter((item) =>
-            candidates.some(
-              (candidate) => candidate.recordId === item.recordId,
-            ),
-          )
-          .map((item) => item.recordId)}
-        onSelectedRecordIdsChange={(ids) => {
-          const retained = multiple
-            ? selected.filter(
-                (item) =>
-                  !candidates.some(
-                    (candidate) => candidate.recordId === item.recordId,
-                  ),
-              )
-            : [];
-          const next = [
-            ...retained,
-            ...ids.flatMap((id) => {
-              const item =
-                selected.find((item) => item.recordId === id) ??
-                candidates.find((item) => item.recordId === id);
-              return item ? [item] : [];
-            }),
-          ];
-          if (next.length > maximum) {
-            setError(
-              `Choose at most ${maximum} references. Existing selections are retained.`,
-            );
-            return;
+      {multiple ? (
+        <WorkbookMultiCandidatePicker
+          focusTargetRef={(element) => {
+            selector.current = element;
+          }}
+          candidates={
+            concealed
+              ? []
+              : candidates.map((item) => ({
+                  key: item.recordId,
+                  displayText: item.displayText,
+                  identityText: item.recordId,
+                }))
           }
-          setError(null);
-          onChange(next);
-        }}
-      />
-      <span>
+          selectedKeys={selected.map((item) => item.recordId)}
+          label={label}
+          testId={testId}
+          disabled={
+            disabled || concealed || !authority.canRead || !candidates.length
+          }
+          onToggle={(id, checked) => {
+            if (disabled || concealed || !authority.canRead) return;
+            const item =
+              selected.find((value) => value.recordId === id) ??
+              candidates.find((value) => value.recordId === id);
+            if (!item) return;
+            const next = checked
+              ? selected.some((value) => value.recordId === id)
+                ? selected
+                : [...selected, item]
+              : selected.filter((value) => value.recordId !== id);
+            if (next.length > maximum) {
+              setError(
+                `Choose at most ${maximum} references. Existing selections are retained.`,
+              );
+              return;
+            }
+            setError(null);
+            onChange(next);
+          }}
+        />
+      ) : (
+        <WorkbookRecordCandidatePicker
+          selectorRef={(element) => {
+            selector.current = element;
+          }}
+          candidates={concealed ? [] : candidates}
+          label={label}
+          testId={testId}
+          disabled={
+            disabled || concealed || !authority.canRead || !candidates.length
+          }
+          selectedRecordIds={selected
+            .filter((item) =>
+              candidates.some(
+                (candidate) => candidate.recordId === item.recordId,
+              ),
+            )
+            .map((item) => item.recordId)}
+          onSelectedRecordIdsChange={(ids) => {
+            if (disabled || concealed || !authority.canRead) return;
+            const next = ids.flatMap((id) => {
+              const item =
+                selected.find((value) => value.recordId === id) ??
+                candidates.find((value) => value.recordId === id);
+              return item ? [item] : [];
+            });
+            if (next.length > maximum) {
+              setError(
+                `Choose at most ${maximum} references. Existing selections are retained.`,
+              );
+              return;
+            }
+            setError(null);
+            onChange(next);
+          }}
+        />
+      )}
+      <span role="status">
         {selected.length} selected{multiple ? ` (maximum ${maximum})` : ""}.
         Selections outside this page are retained.
       </span>

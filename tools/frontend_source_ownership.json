@@ -536,6 +536,7 @@
         "apps/web/src/workbook/components/WorkbookIncidentIdentityDisclosure.test.tsx",
         "apps/web/src/workbook/components/WorkbookIncidentIdentityDisclosure.tsx",
         "apps/web/src/workbook/components/WorkbookLiteralSetFilterOperand.tsx",
+        "apps/web/src/workbook/components/WorkbookMultiCandidatePicker.tsx",
         "apps/web/src/workbook/components/WorkbookParkedGridDrafts.test.tsx",
         "apps/web/src/workbook/components/WorkbookParkedGridDrafts.tsx",
         "apps/web/src/workbook/components/WorkbookPresenceMarkers.tsx",

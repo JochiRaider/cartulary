@@ -327,6 +327,7 @@ import {
 } from "./support/workbook/query";
 import { expectQuerySummaryGeometry } from "./support/workbook/querySummary";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
+import { activateCandidateIdentities } from "./support/workbook/references";
 import {
   clickTimelineRowAction,
   openTimelineInspector,
@@ -8894,13 +8895,16 @@ test("a11y.assessment deliberate subjects staged support and retained drafts rem
   const candidates = page.getByTestId(
     assessmentCreateControlTestId("support-refs"),
   );
-  await candidates.selectOption(support.record_id);
+  await activateCandidateIdentities(candidates, support.record_id);
   for (const viewport of [
     { width: 1280, height: 720 },
     { width: 768, height: 640 },
   ]) {
     await page.setViewportSize(viewport);
-    await expectDecisionControlReachable(page, candidates);
+    await expectDecisionControlReachable(
+      page,
+      candidates.getByRole("checkbox").first(),
+    );
     await testInfo.attach(`assessment-support-discovery-${viewport.width}`, {
       body: await page.screenshot({ animations: "disabled", caret: "hide" }),
       contentType: "image/png",
@@ -9037,20 +9041,28 @@ test("a11y.contextual-create target fields reference cancellation and retained r
     await expect(
       picker.getByRole("button", { name: "Apply references", exact: true }),
     ).toBeEnabled();
-    const candidates = picker.getByRole("listbox", {
+    const candidates = picker.getByRole("group", {
       name: target === "decision" ? "Support Refs" : "Linked Records",
       exact: true,
     });
     const originalIds = await candidates.evaluate((element) =>
-      Array.from((element as HTMLSelectElement).selectedOptions).map(
-        (option) => option.value,
-      ),
+      Array.from(
+        element.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+      )
+        .filter((input) => input.checked)
+        .map((input) => input.value),
     );
-    await candidates.selectOption([]);
+    await activateCandidateIdentities(candidates, []);
     await candidates.press("Escape");
     await expect(choose).toBeFocused();
     await choose.press("Enter");
-    await expect(candidates).toHaveValues(originalIds);
+    expect(
+      await candidates
+        .getByRole("checkbox", { checked: true })
+        .evaluateAll((inputs) =>
+          inputs.map((input) => (input as HTMLInputElement).value),
+        ),
+    ).toEqual(originalIds);
     await candidates.press("Escape");
     for (const viewport of [
       { width: 1280, height: 720 },

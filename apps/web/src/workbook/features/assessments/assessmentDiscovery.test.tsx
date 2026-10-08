@@ -73,11 +73,8 @@ describe("Assessment discovery", () => {
       />,
     );
     await user.click(screen.getByRole("button", { name: "Choose support" }));
-    await screen.findByRole("option", { name: "Record a" });
-    await user.selectOptions(
-      screen.getByRole("listbox", { name: "Timeline support candidates" }),
-      "a",
-    );
+    await screen.findByRole("checkbox", { name: "Record a (a)" });
+    await user.click(screen.getByRole("checkbox", { name: "Record a (a)" }));
     await user.click(
       screen.getByText("Timeline support candidates ordering and filters"),
     );
@@ -146,14 +143,14 @@ describe("Assessment discovery", () => {
       />,
     );
     await user.click(screen.getByRole("button", { name: "Choose support" }));
-    await screen.findByRole("option", { name: "Record a" });
-    const list = screen.getByRole("listbox", {
+    await screen.findByRole("checkbox", { name: "Record a (a)" });
+    screen.getByRole("group", {
       name: "Timeline support candidates",
     });
-    await user.selectOptions(list, "a");
+    await user.click(screen.getByRole("checkbox", { name: "Record a (a)" }));
     await user.click(screen.getByRole("button", { name: "Next candidates" }));
-    await screen.findByRole("option", { name: "Record c" });
-    await user.selectOptions(list, "c");
+    await screen.findByRole("checkbox", { name: "Record c (c)" });
+    await user.click(screen.getByRole("checkbox", { name: "Record c (c)" }));
     await user.click(
       screen.getByText("Timeline support candidates ordering and filters"),
     );
@@ -236,7 +233,7 @@ describe("Assessment discovery", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Choose support" }));
     await waitFor(() => expect(support).toHaveBeenCalledTimes(1));
-    await screen.findByRole("option", { name: "Record a" });
+    await screen.findByRole("checkbox", { name: "Record a (a)" });
     const refresh = screen.getByRole("button", { name: "Refresh candidates" });
     refresh.focus();
     await user.keyboard("{Enter}");
@@ -532,12 +529,11 @@ describe("Assessment discovery", () => {
     await waitFor(() => expectCandidatePageStatus("end of this query"));
     const select = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
-    ) as HTMLSelectElement;
-    const [first, second] = Array.from(select.options);
+    );
+    const [first, second] = Array.from(select.querySelectorAll("input"));
     if (!first || !second) throw new Error("Expected two support candidates.");
-    first.selected = false;
-    second.selected = true;
-    fireEvent.change(select);
+    fireEvent.click(first);
+    fireEvent.click(second);
     fireEvent.keyDown(select, { key: "Escape" });
     expect(update).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(trigger);

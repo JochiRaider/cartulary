@@ -9051,8 +9051,10 @@ test("Capture contextual Task and Decision authoring references and retained rec
   };
   for (const target of ["task_request", "decision"] as const) {
     await page.setViewportSize({ width: 1280, height: 720 });
-    const { view } = await openContextualCreationFixture(page, target, (url) =>
-      navigateVisualApplication(page, url),
+    const { view, source } = await openContextualCreationFixture(
+      page,
+      target,
+      (url) => navigateVisualApplication(page, url),
     );
     const form = page.getByRole("region", {
       name: target === "decision" ? "Create decision" : "Create task request",
@@ -9080,6 +9082,9 @@ test("Capture contextual Task and Decision authoring references and retained rec
     await expect(
       picker.getByRole("button", { name: "Apply references", exact: true }),
     ).toBeEnabled();
+    await expect(
+      picker.locator(`input[type="checkbox"][value="${source.record_id}"]`),
+    ).toBeChecked();
     await capture(page, `contextual-${target}-references-narrow`, {
       anchor: { ...anchor, locator: picker },
     });

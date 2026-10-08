@@ -354,11 +354,11 @@ describe("Assessment workbook surface", () => {
     await openSupportPicker();
     const supportSelect = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
-    ) as HTMLSelectElement;
-    const supportOption = supportSelect.options.item(0);
+    );
+    const supportOption = supportSelect.querySelector("input");
     expect(supportOption).not.toBeNull();
-    (supportOption as HTMLOptionElement).selected = true;
-    fireEvent.change(supportSelect);
+    if (!supportOption) throw new Error("Missing support candidate");
+    fireEvent.click(supportOption);
     fireEvent.click(
       screen.getByRole("button", { name: "Apply support selection" }),
     );
@@ -643,16 +643,20 @@ describe("Assessment workbook surface", () => {
     await openSupportPicker();
     const initialSupportPicker = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
-    ) as HTMLSelectElement;
-    expect(Array.from(initialSupportPicker.selectedOptions)).toHaveLength(0);
+    );
+    expect(initialSupportPicker.querySelectorAll("input:checked")).toHaveLength(
+      0,
+    );
     expect(
-      Array.from(initialSupportPicker.options).map((option) => ({
-        label: option.text,
-        value: option.value,
-      })),
+      Array.from(initialSupportPicker.querySelectorAll("input")).map(
+        (option) => ({
+          label: option.getAttribute("aria-label"),
+          value: option.value,
+        }),
+      ),
     ).toEqual([
       {
-        label: "Supporting timeline row",
+        label: "Supporting timeline row (00000000-0000-4000-8000-000000000102)",
         value: "00000000-0000-4000-8000-000000000102",
       },
     ]);
@@ -721,11 +725,11 @@ describe("Assessment workbook surface", () => {
     await openSupportPicker();
     const followOnSupportPicker = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
-    ) as HTMLSelectElement;
-    const supportOption = followOnSupportPicker.options.item(0);
+    );
+    const supportOption = followOnSupportPicker.querySelector("input");
     expect(supportOption).not.toBeNull();
-    (supportOption as HTMLOptionElement).selected = true;
-    fireEvent.change(followOnSupportPicker);
+    if (!supportOption) throw new Error("Missing support candidate");
+    fireEvent.click(supportOption);
     fireEvent.click(
       screen.getByRole("button", { name: "Apply support selection" }),
     );
@@ -1355,7 +1359,7 @@ async function openSupportPicker() {
       (
         screen.getByTestId(
           assessmentCreateControlTestId("support-refs"),
-        ) as HTMLSelectElement
+        ) as HTMLFieldSetElement
       ).disabled,
     ).toBe(false),
   );

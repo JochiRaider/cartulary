@@ -79,8 +79,9 @@ test("Notes manage existing sources evidence and directional references with ret
     .getByRole("button", { name: "Manage related notes", exact: true })
     .click();
   await related
-    .getByRole("listbox", { name: "Related notes" })
-    .selectOption(other.record_id);
+    .getByRole("group", { name: "Related notes" })
+    .locator(`input[value="${other.record_id}"]`)
+    .check();
   await related.getByRole("button", { name: "Link selected records" }).click();
   await expect(related).toContainText("Associations saved.");
   await related
@@ -133,8 +134,9 @@ test("Notes manage existing sources evidence and directional references with ret
     .click();
   await page
     .getByRole("region", { name: "Note evidence", exact: true })
-    .getByRole("listbox", { name: "Evidence" })
-    .selectOption(evidence.record_id);
+    .getByRole("group", { name: "Evidence" })
+    .locator(`input[value="${evidence.record_id}"]`)
+    .check();
   await panel.getByRole("button", { name: "Link selected records" }).click();
   await expect(panel).toContainText("outcome is unconfirmed");
   await page
@@ -315,15 +317,17 @@ test("Inspector collection and reference rejections retain authored values and s
       await picker
         .getByRole("combobox", { name: "Reference surface" })
         .selectOption(notesViewSchemaId);
-      const options = picker.getByRole("listbox", {
+      const options = picker.getByRole("group", {
         name: "Linked Records candidates",
       });
       await expect(
-        options.getByRole("option", { name: /Retained reference Note/ }),
+        options.getByRole("checkbox", { name: /Retained reference Note/ }),
       ).toHaveCount(1);
-      await options.selectOption({
-        label: `Retained reference Note (${note.record_id})`,
-      });
+      await options
+        .getByRole("checkbox", {
+          name: `Retained reference Note (${note.record_id})`,
+        })
+        .check();
       await picker.getByRole("button", { name: "Use selection" }).click();
     }
     const authored = await input.inputValue();

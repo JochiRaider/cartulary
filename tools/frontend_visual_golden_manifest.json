@@ -232,7 +232,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-references-narrow-linux.png",
-      "sha256": "3ff312ebe4940fcb4883b575603c237f4770bc721ce7cca3cecbbfe01a3ccdc4"
+      "sha256": "76f5823749cd0c2f8bd792a0b919f7171046e4db5723581a2aa1ad8e54f8d742"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-linux.png",
@@ -252,7 +252,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-references-narrow-linux.png",
-      "sha256": "e245b5fa09b76f66680c42a231afc36fcd11d1675f9aa42136f875a53dadfdf8"
+      "sha256": "b96098834ff5645b0d7b972d108b703b77e0341690d95b2ab5f44944086d009d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png",

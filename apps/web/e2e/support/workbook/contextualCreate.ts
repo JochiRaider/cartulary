@@ -150,8 +150,9 @@ export async function retainTimelineContextualSource(
         exact: true,
       });
       await picker
-        .getByRole("listbox", { name: "Affected Records", exact: true })
-        .selectOption([fixture.source.record_id]);
+        .getByRole("group", { name: "Affected Records", exact: true })
+        .locator(`input[value="${fixture.source.record_id}"]`)
+        .check();
       await picker
         .getByRole("button", { name: "Apply references", exact: true })
         .click();

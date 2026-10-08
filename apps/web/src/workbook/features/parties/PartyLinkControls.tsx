@@ -241,7 +241,6 @@ export function PartyLinkControls({
       <WorkbookRecordCandidatePicker
         label="Existing party"
         testId={coordinationWorkflowTestId("party-existing")}
-        selection="single"
         disabled={disabled || candidates.phase !== "ready"}
         candidates={candidates.rows
           .map((candidate) => ({

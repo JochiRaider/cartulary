@@ -76,9 +76,9 @@ describe("Workbook reference selection", () => {
       onAuthorityFailure: vi.fn(),
     });
     await picker.replace(view);
-    picker.selectPage([workbookReferenceKey(candidate("3"))]);
+    picker.selectCandidate(workbookReferenceKey(candidate("3")), true);
     for (let i = 0; i < 15; i += 1) await picker.next();
-    picker.selectPage([workbookReferenceKey(candidate("1504"))]);
+    picker.selectCandidate(workbookReferenceKey(candidate("1504")), true);
     expect(picker.getSnapshot().page?.candidates).toHaveLength(100);
     expect(picker.getSnapshot().previousCount).toBe(10);
     expect(
@@ -215,10 +215,13 @@ describe("Workbook reference selection", () => {
     });
     await picker.replace(view);
     expect(picker.getSnapshot().page?.candidates).toHaveLength(99);
-    picker.selectPage(Array.from({ length: 65 }, (_, i) => `record:${i + 1}`));
-    expect(picker.getSnapshot().selected).toHaveLength(0);
+    for (let i = 1; i <= 65; i++) picker.selectCandidate(`record:${i}`, true);
+    expect(picker.getSnapshot().selected).toHaveLength(64);
     expect(picker.getSnapshot().selectionError).toContain("64");
-    picker.selectPage(["record:1"]);
+    picker.selectCandidate("record:64", false);
+    expect(picker.getSnapshot().selectionError).toBeNull();
+    picker.selectCandidate("record:65", true);
+    expect(picker.getSnapshot().selected.at(-1)?.identity.id).toBe("65");
     await picker.replace("cartulary.view.assessments.v1");
     expect(picker.getSnapshot().selected[0]?.identity.id).toBe("1");
     picker.dispose();

@@ -50,6 +50,7 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
+import { activateCandidateIdentities } from "./support/workbook/references";
 import {
   activateCommittedGridCell,
   openGenericInspectorForRecord,
@@ -1379,11 +1380,11 @@ test("Existing Task reference queries stage typed Timeline filters and ordering 
   await popup
     .getByLabel("Reference surface")
     .selectOption(timelineViewSchemaId);
-  const candidates = popup.getByRole("listbox", {
+  const candidates = popup.getByRole("group", {
     name: "Linked Records candidates",
   });
-  await expect(candidates.getByRole("option")).toHaveCount(3);
-  await candidates.selectOption(`record:${outside.record_id}`);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(3);
+  await activateCandidateIdentities(candidates, `record:${outside.record_id}`);
   const summary = popup.locator("summary");
   await summary.focus();
   await summary.press("Enter");
@@ -1403,7 +1404,7 @@ test("Existing Task reference queries stage typed Timeline filters and ordering 
   });
   await apply.focus();
   await apply.press("Enter");
-  await expect(candidates.getByRole("option")).toHaveCount(2);
+  await expect(candidates.getByRole("checkbox")).toHaveCount(2);
   expect(reads.at(-1)?.filters).toEqual([
     { field_key: "timeline.has_evidence", op: "eq", arg: { value: true } },
   ]);
@@ -1419,9 +1420,9 @@ test("Existing Task reference queries stage typed Timeline filters and ordering 
   );
   expect(
     await candidates
-      .locator("option")
+      .getByRole("checkbox")
       .evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value),
+        options.map((option) => (option as HTMLInputElement).value),
       ),
   ).toEqual([`record:${newer.record_id}`, `record:${older.record_id}`]);
   await expect(apply).toBeFocused();
@@ -1433,7 +1434,7 @@ test("Existing Task reference queries stage typed Timeline filters and ordering 
   ).toBeVisible();
   await expect(input).toHaveValue("");
   expect(writes).toHaveLength(0);
-  await candidates.selectOption([
+  await activateCandidateIdentities(candidates, [
     `record:${newer.record_id}`,
     `record:${older.record_id}`,
   ]);
@@ -1570,19 +1571,20 @@ test("Reference selection reaches later real targets and retains staged choices 
     .getByRole("button", { name: "Retry references", exact: true })
     .click();
   await expect(popup).toContainText("Page 1: 100 candidates; more available");
-  const list = popup.getByRole("listbox", {
+  const list = popup.getByRole("group", {
     name: "Linked Records candidates",
   });
-  const first = await list.locator("option").first().getAttribute("value");
+  const first = await list.getByRole("checkbox").first().getAttribute("value");
   if (!first) throw new Error("Missing page one candidate");
   const selectedOnPage = () =>
     list.evaluate((element) =>
       Array.from(
-        (element as HTMLSelectElement).selectedOptions,
-        (option) => option.value,
-      ),
+        element.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+      )
+        .filter((input) => input.checked)
+        .map((input) => input.value),
     );
-  await list.selectOption([...(await selectedOnPage()), first]);
+  await activateCandidateIdentities(list, [...(await selectedOnPage()), first]);
   const next = popup.getByRole("button", { name: "Next", exact: true });
   await next.focus();
   await next.press("Enter");
@@ -1590,7 +1592,7 @@ test("Reference selection reaches later real targets and retains staged choices 
     "accepted page is retained",
   );
   await expect(next).toBeFocused();
-  await expect(list.locator("option")).toHaveCount(100);
+  await expect(list.getByRole("checkbox")).toHaveCount(100);
   const retry = popup.getByRole("button", {
     name: "Retry references",
     exact: true,
@@ -1600,9 +1602,9 @@ test("Reference selection reaches later real targets and retains staged choices 
   await expect(popup).toContainText("Page 2: 5 candidates; end of this source");
   await expect(retry).toBeFocused();
   await expect(retry).toHaveAttribute("aria-disabled", "true");
-  const later = await list.locator("option").last().getAttribute("value");
+  const later = await list.getByRole("checkbox").last().getAttribute("value");
   if (!later) throw new Error("Missing later candidate");
-  await list.selectOption([...(await selectedOnPage()), later]);
+  await activateCandidateIdentities(list, [...(await selectedOnPage()), later]);
   await popup
     .getByText("Linked Records ordering and filters", { exact: true })
     .click();
@@ -1627,13 +1629,13 @@ test("Reference selection reaches later real targets and retains staged choices 
     .getByRole("button", { name: "Apply candidate query", exact: true })
     .click();
   await expect(popup).toContainText("Page 1: 100 candidates; more available");
-  await expect(list.locator("option")).toHaveCount(100);
+  await expect(list.getByRole("checkbox")).toHaveCount(100);
   const surface = popup.getByLabel("Reference surface");
   await surface.focus();
   await surface.selectOption(indicatorView);
   await expect(surface).toBeFocused();
-  await expect(list.locator("option")).toHaveCount(1);
-  await list.selectOption(`record:${indicator.record_id}`);
+  await expect(list.getByRole("checkbox")).toHaveCount(1);
+  await activateCandidateIdentities(list, `record:${indicator.record_id}`);
   expect(writes).toHaveLength(0);
   await expect(input).toHaveValue(retained.record_id);
   await popup
@@ -2014,8 +2016,9 @@ test("Reference target deletion merge and membership removal preserve exact choi
   });
   await records.getByLabel("Reference surface").selectOption(hostsViewSchemaId);
   await records
-    .getByRole("listbox", { name: "Linked Records candidates" })
-    .selectOption(`record:${loser.record_id}`);
+    .getByRole("group", { name: "Linked Records candidates" })
+    .locator(`input[value="record:${loser.record_id}"]`)
+    .check();
   await records.getByRole("button", { name: "Use selection" }).click();
   const merged = await publicHttpOperation({
     operationID: "mergeEntityRecord",
@@ -2038,7 +2041,7 @@ test("Reference target deletion merge and membership removal preserve exact choi
     "Page 1: 1 candidates; end of this source",
   );
   await expect(
-    records.getByRole("option", { name: new RegExp(loser.record_id) }),
+    records.getByRole("checkbox", { name: new RegExp(loser.record_id) }),
   ).toHaveCount(0);
   await expect(records).toContainText("Chosen before merge");
   await records.getByRole("button", { name: "Cancel references" }).click();

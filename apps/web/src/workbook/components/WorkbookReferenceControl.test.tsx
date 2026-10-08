@@ -68,10 +68,12 @@ it("applies a typed Timeline candidate query without changing the parent draft o
     screen.getByLabelText("Reference surface"),
     "cartulary.view.timeline.v2",
   );
-  const candidates = await screen.findByRole("listbox", {
+  await screen.findByRole("group", {
     name: "Linked Records candidates",
   });
-  await user.selectOptions(candidates, `record:${id(1)}`);
+  await user.click(
+    screen.getByRole("checkbox", { name: `Candidate 1 (${id(1)})` }),
+  );
   await user.click(screen.getByText("Linked Records ordering and filters"));
   const reads = reader.page.mock.calls.length;
   const fields = screen.getByLabelText(
@@ -146,14 +148,12 @@ it("stages corrected date ranges enum values and exact literal sets until apply 
     screen.getByLabelText("Reference surface"),
     "cartulary.view.timeline.v2",
   );
-  await user.selectOptions(
-    await screen.findByRole("listbox"),
-    `record:${id(1)}`,
+  await user.click(
+    await screen.findByRole("checkbox", { name: `Candidate 1 (${id(1)})` }),
   );
   await user.click(screen.getByRole("button", { name: "Next" }));
-  await user.selectOptions(
-    await screen.findByRole("listbox"),
-    `record:${id(101)}`,
+  await user.click(
+    await screen.findByRole("checkbox", { name: `Candidate 101 (${id(101)})` }),
   );
   await user.click(screen.getByText("Linked Records ordering and filters"));
   const reads = reader.page.mock.calls.length;
@@ -497,17 +497,17 @@ it("stages collection choices across pages and eligible surfaces without editing
   fireEvent.click(
     screen.getByRole("button", { name: "Choose linked records" }),
   );
-  const select = await screen.findByRole("listbox", {
+  const select = await screen.findByRole("group", {
     name: "Linked Records candidates",
   });
   const choose = (value: string) => {
-    for (const option of (select as HTMLSelectElement).options)
-      option.selected = option.value === `record:${value}`;
-    fireEvent.change(select);
+    const input = select.querySelector(`input[value="record:${value}"]`);
+    if (!input) throw new Error("Missing candidate");
+    fireEvent.click(input);
   };
   choose(id(1));
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  await screen.findByRole("option", { name: `Candidate 101 (${id(101)})` });
+  await screen.findByRole("checkbox", { name: `Candidate 101 (${id(101)})` });
   choose(id(101));
   fireEvent.change(screen.getByLabelText("Reference surface"), {
     target: { value: "cartulary.view.indicators.v1" },
@@ -530,14 +530,13 @@ it("stages collection choices across pages and eligible surfaces without editing
   fireEvent.click(
     screen.getByRole("button", { name: "Choose linked records" }),
   );
-  await screen.findByRole("option", { name: `Candidate 1 (${id(1)})` });
-  const current = screen.getByRole("listbox", {
+  await screen.findByRole("checkbox", { name: `Candidate 1 (${id(1)})` });
+  const current = screen.getByRole("group", {
     name: "Linked Records candidates",
-  }) as HTMLSelectElement;
-  const firstOption = current.options[0];
+  });
+  const firstOption = current.querySelector("input");
   if (!firstOption) throw new Error("Missing candidate");
-  firstOption.selected = true;
-  fireEvent.change(current);
+  fireEvent.click(firstOption);
   fireEvent.click(screen.getByRole("button", { name: "Use selection" }));
   expect(
     (screen.getByTestId(genericEditValueTestId(view)) as HTMLTextAreaElement)
@@ -695,9 +694,9 @@ it("keeps First and Previous as focus anchors during held reads", async () => {
   fireEvent.click(
     screen.getByRole("button", { name: "Choose linked records" }),
   );
-  await screen.findByRole("option", { name: `Candidate 1 (${id(1)})` });
+  await screen.findByRole("checkbox", { name: `Candidate 1 (${id(1)})` });
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  await screen.findByRole("option", { name: `Candidate 101 (${id(101)})` });
+  await screen.findByRole("checkbox", { name: `Candidate 101 (${id(101)})` });
   const first = screen.getByRole("button", { name: "First" });
   first.focus();
   fireEvent.click(first);
@@ -715,7 +714,7 @@ it("keeps First and Previous as focus anchors during held reads", async () => {
   screen.getByRole("button", { name: "Elsewhere" }).focus();
   await waitFor(() => expect(first).toHaveProperty("disabled", true));
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  await screen.findByRole("option", { name: `Candidate 101 (${id(101)})` });
+  await screen.findByRole("checkbox", { name: `Candidate 101 (${id(101)})` });
   const previous = screen.getByRole("button", { name: "Previous" });
   previous.focus();
   fireEvent.click(previous);
@@ -982,7 +981,7 @@ it("conceals a pending picker without restoring obsolete focus on authority loss
   );
   expect(document.activeElement).toBe(elsewhere);
   expect(
-    screen.queryByRole("listbox", { name: "Linked Records candidates" }),
+    screen.queryByRole("group", { name: "Linked Records candidates" }),
   ).toBeNull();
   expect(write).not.toHaveBeenCalled();
 });
@@ -1080,7 +1079,7 @@ it("moves staged removal focus by stable identity and leaves the parent draft un
     fireEvent.click(source);
     expect(document.activeElement).toBe(
       expected === 0
-        ? screen.getByRole("listbox", { name: "Linked Records candidates" })
+        ? screen.getByRole("checkbox", { name: `Candidate 1 (${id(1)})` })
         : screen.getByRole("button", {
             name: `Remove selected Candidate ${expected}`,
           }),
@@ -1318,4 +1317,51 @@ it("uses committed target presentation without retargeting staged identity or ed
     })?.references?.[0],
   ).toMatchObject({ recordId: id(1), displayText: "Committed target label" });
   expect(write).not.toHaveBeenCalled();
+});
+
+it("keeps settled collection Retry geometry while plain activations retain every staged identity", async () => {
+  const user = userEvent.setup();
+  const store = new WorkbookInspectorDraftStore();
+  store.setAuthority(taskAuthority);
+  const write = vi.fn();
+  const page = vi
+    .fn()
+    .mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Read unavailable" },
+    })
+    .mockImplementation(async (input: WorkbookReferenceRequest) =>
+      accepted(input, 0),
+    );
+  render(
+    <Form
+      store={store}
+      fieldKey="task.linked_record_ids"
+      write={write}
+      reader={{ page }}
+    />,
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Choose linked records" }),
+  );
+  const retry = await screen.findByRole("button", { name: "Retry references" });
+  retry.focus();
+  await user.keyboard("{Enter}");
+  const first = await screen.findByRole("checkbox", {
+    name: `Candidate 1 (${id(1)})`,
+  });
+  await user.click(first);
+  await user.click(
+    screen.getByRole("checkbox", { name: `Candidate 2 (${id(2)})` }),
+  );
+  expect(first).toHaveProperty("checked", true);
+  expect(retry.isConnected).toBe(true);
+  expect(retry).toHaveProperty("disabled", true);
+  expect(screen.getByText(/Selected for this edit: 2/)).toBeTruthy();
+  expect(page).toHaveBeenCalledTimes(2);
+  expect(write).not.toHaveBeenCalled();
+  expect(screen.getByTestId(genericEditValueTestId(view))).toHaveProperty(
+    "value",
+    "",
+  );
 });
