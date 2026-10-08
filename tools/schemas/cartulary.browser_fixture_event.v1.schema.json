@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_fixture_event.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "attempt_id",
+    "stage",
+    "phase",
+    "outcome",
+    "elapsed_ms",
+    "deadline_ms",
+    "message"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.browser_fixture_event.v1"
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase": {
+      "enum": [
+        "startup",
+        "acquisition",
+        "cleanup",
+        "terminal"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "started",
+        "succeeded",
+        "failed"
+      ]
+    },
+    "elapsed_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "deadline_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "message": {
+      "type": "string"
+    }
+  }
+}

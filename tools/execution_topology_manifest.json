@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v8",
+  "schema_id": "cartulary.execution_topology.v9",
   "runtime_profiles": [
     {
       "id": "default",
@@ -462,7 +462,8 @@
         "runtime_profile_id": "none",
         "resource_profile_id": "standard",
         "service_dependencies": [],
-        "estimated_work_ms": 1500
+        "estimated_work_ms": 1500,
+        "minimum_tier": "full"
       },
       {
         "id": "backend-unit-suiteservices",
@@ -479,7 +480,8 @@
         "runtime_profile_id": "none",
         "resource_profile_id": "standard",
         "service_dependencies": [],
-        "estimated_work_ms": 2000
+        "estimated_work_ms": 2000,
+        "minimum_tier": "full"
       },
       {
         "id": "backend-integration-testutil",
@@ -502,7 +504,8 @@
           "object_store",
           "postgres"
         ],
-        "estimated_work_ms": 5000
+        "estimated_work_ms": 5000,
+        "minimum_tier": "full"
       },
       {
         "id": "backend-process-processtest",
@@ -521,7 +524,8 @@
           "object_store",
           "postgres"
         ],
-        "estimated_work_ms": 8000
+        "estimated_work_ms": 8000,
+        "minimum_tier": "full"
       }
     ]
   },

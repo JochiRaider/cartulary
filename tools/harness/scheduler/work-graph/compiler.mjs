@@ -1,5 +1,4 @@
-import { resolveBrowserFrontendArtifact } from "../../generated-artifacts/execution-topology.mjs";
-import { readFileSync } from "node:fs";
+import { loadExecutionTopology, resolveBrowserFrontendArtifact } from "../../generated-artifacts/execution-topology.mjs";
 import path from "node:path";
 
 import {
@@ -19,10 +18,6 @@ import {
   assertServiceDependencies,
   topologyResourceClaims,
 } from "./resource-claims.mjs";
-
-function readJSON(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
-}
 
 function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -292,15 +287,19 @@ export class WorkGraphCompiler {
   constructor(root) {
     this.root = root;
     this.owner = loadWorkGraphOwner(root);
-    this.taskSurface = readJSON(path.join(root, "tools/task_surface_owner.json"));
-    this.topology = readJSON(path.join(root, "tools/execution_topology_manifest.json"));
+    const topology = loadExecutionTopology({
+      root,
+      manifestPath: path.resolve(root, "tools/execution_topology_manifest.json"),
+    });
+    this.taskSurface = topology.taskSurface;
+    this.topology = topology.raw;
     this.runtimeBinaryProducer = new Map(
       this.topology.runtime_binaries.map((binary) => [binary.id, binary.producer_target]),
     );
     this.familyRuntimeBinaries = new Map(
       this.topology.go_targets.family_runtime_binaries.map((family) => [family.family_id, family.runtime_binary_ids]),
     );
-    this.rawGoAggregates = this.topology.go_targets.raw_go_aggregates ?? [];
+    this.rawGoAggregates = this.topology.go_targets.raw_go_aggregates;
     this.commandTargets = commandTargetMap(this.taskSurface);
     this.availableGoLanes = 4;
     this.availablePostgresLanes = 4;
@@ -608,7 +607,10 @@ export class WorkGraphCompiler {
   }
 
   compileRawGoTarget(target) {
-    const entries = this.rawGoAggregates.filter((entry) => entry.target === target);
+    return this.compileRawGoEntries(this.rawGoAggregates.filter((entry) => entry.target === target));
+  }
+
+  compileRawGoEntries(entries) {
     if (entries.length === 0) return buildWorkGraph([]);
     const needsServices = entries.some((entry) => entry.service_dependencies.length > 0);
     const readiness = needsServices ? this.compilePolicyTarget("test-service-images") : buildWorkGraph([]);
@@ -746,13 +748,16 @@ export class WorkGraphCompiler {
     const maximumTier = this.owner.aggregate_tiers[target];
     if (!maximumTier) throw new Error(`unknown aggregate ${target}`);
     const maximumRank = this.owner.tier_order.indexOf(maximumTier);
+    const admitted = (entry) => {
+      const rank = this.owner.tier_order.indexOf(entry.minimum_tier);
+      if (rank < 0) throw new Error(`invalid minimum tier for ${entry.row_id ?? entry.id}`);
+      return rank <= maximumRank;
+    };
     const rowIDs = this.catalog.rows
-      .filter(
-        (row) => this.owner.tier_order.indexOf(row.minimum_tier) <= maximumRank,
-      )
+      .filter(admitted)
       .map((row) => row.row_id);
     const rows = rowIDs.map((rowID) => this.catalog.rowByID.get(rowID));
-    const selectedTargets = new Set(rows.map((row) => this.rowTargets.get(row.row_id)));
+    const rawEntries = this.rawGoAggregates.filter(admitted);
     const browserTargets = new Set();
     const policyTargets = new Set(this.aggregatePolicyRoots(target));
     const policyRows = new Map();
@@ -798,9 +803,7 @@ export class WorkGraphCompiler {
       forcedOwnerIDs.map((ownerID) => [ownerID, this.compileOwner(ownerID)]),
     );
     for (const graph of forcedOwnerGraphs.values()) units.push(...graph.units);
-    for (const selectedTarget of [...selectedTargets].sort(compareASCII)) {
-      units.push(...this.compileRawGoTarget(selectedTarget).units);
-    }
+    units.push(...this.compileRawGoEntries(rawEntries).units);
     for (const browserTarget of [...browserTargets].sort(compareASCII)) {
       units.push(...this.compileTarget(browserTarget).units);
     }

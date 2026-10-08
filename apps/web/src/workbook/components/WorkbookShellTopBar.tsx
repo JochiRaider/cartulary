@@ -44,6 +44,7 @@ import {
   builtInWorkbookSurfacePanelId,
   requiredBuiltInWorkbookSurfaceIds,
 } from "../models/workbookSurfaceRegistry";
+import { WorkbookNavigationStatus } from "../navigation/WorkbookWorkPanel";
 import { displayInitials } from "../utils/workbookPresence";
 import { SystemViewSwitcher } from "./SystemViewSwitcher";
 import { WorkbookIncidentIdentityDisclosure } from "./WorkbookIncidentIdentityDisclosure";
@@ -468,6 +469,7 @@ export function WorkbookShellTopBar({
               </span>
             ) : null}
           </div>
+          <WorkbookNavigationStatus compact={layout.chromeMode !== "base"} />
         </WorkbookFooterNavigation>
       </div>
       <div style={shellTopBarActionsStyle}>

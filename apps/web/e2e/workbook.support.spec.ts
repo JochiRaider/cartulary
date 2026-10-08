@@ -12,11 +12,16 @@ import {
 import {
   gridGroupRowTestId,
   rowCellTestId,
+  savedViewOptionTestId,
+  savedViewSelectorTestId,
+  saveStateTestId,
   timelineRowMarkReviewedButtonTestId,
   workbookColumnsMenuTestId,
   workbookColumnsMenuTriggerTestId,
+  workbookNavigationStatusTestId,
   workbookQueryEntryTestId,
   workbookShellReadyTestId,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
@@ -351,3 +356,144 @@ function readPostBody(request: { postData: () => string | null }) {
   }
   return JSON.parse(raw) as Record<string, unknown>;
 }
+
+test("Pending saved-view navigation preserves a Columns click and rejects late attachment", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("NAV"),
+    "Navigation gesture continuity",
+  );
+  const view = await createSavedView(page, incidentId, {
+    display_name: "Navigation target",
+    scope: "private",
+    view_schema_id: timelineViewSchemaId,
+  });
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 720 },
+    { width: 768, height: 640 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    const columnsTrigger = page.getByTestId(
+      workbookColumnsMenuTriggerTestId(timelineViewSchemaId),
+    );
+    const directColumns = await columnsTrigger.isVisible();
+    const trigger = directColumns
+      ? columnsTrigger
+      : page.getByRole("button", { name: "View options controls" });
+    await expect(trigger).toBeVisible();
+    const original = await trigger.boundingBox();
+    const navigation = page.getByTestId(workbookNavigationStatusTestId());
+    const navBounds = await navigation.boundingBox();
+    const footer = page.getByTestId(workbookShellSlotTestId("status-strip"));
+    const footerBounds = await footer.boundingBox();
+    const save = page.getByTestId(saveStateTestId());
+    await expect(save).toBeInViewport({ ratio: 1 });
+    await expect(navigation).toBeInViewport({ ratio: 1 });
+    const moreViewsBounds = await page
+      .getByRole("button", { name: "More views", exact: true })
+      .boundingBox();
+    const saveBounds = await save.boundingBox();
+    if (!moreViewsBounds || !navBounds || !saveBounds)
+      throw new Error("Footer controls are missing");
+    expect(moreViewsBounds.x + moreViewsBounds.width).toBeLessThanOrEqual(
+      navBounds.x,
+    );
+    expect(navBounds.x + navBounds.width).toBeLessThanOrEqual(saveBounds.x);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const route = `**/api/v1/incidents/${incidentId}/saved-views/${view.saved_view_id}`;
+    await page.route(route, async (request) => {
+      await held;
+      await request.continue().catch(() => {});
+    });
+    try {
+      await page
+        .getByTestId(savedViewSelectorTestId(timelineViewSchemaId))
+        .click();
+      await page
+        .getByTestId(
+          savedViewOptionTestId(timelineViewSchemaId, view.saved_view_id),
+        )
+        .click();
+
+      await expect(navigation).toHaveAttribute(
+        "data-navigation-outcome",
+        "pending",
+      );
+      expect(await trigger.boundingBox()).toEqual(original);
+      expect(await navigation.boundingBox()).toEqual(navBounds);
+      expect(await footer.boundingBox()).toEqual(footerBounds);
+      const navTrigger = navigation.getByRole("button", {
+        name: "Navigation",
+        exact: true,
+      });
+      await navTrigger.focus();
+      await page.keyboard.press("Enter");
+      const details = page.getByRole("dialog", { name: "Navigation details" });
+      await expect(details).toBeFocused();
+      const bounds = await details.boundingBox();
+      if (!bounds) throw new Error("Navigation details has no rendered bounds");
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.y).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+      await page.keyboard.press("Escape");
+      await expect(navTrigger).toBeFocused();
+      await expect(navigation).toHaveAttribute(
+        "data-navigation-outcome",
+        "pending",
+      );
+      await trigger.click();
+      await expect(navigation).toHaveAttribute(
+        "data-navigation-outcome",
+        "cancelled",
+      );
+      if (!directColumns) await columnsTrigger.click();
+      const columns = page.getByTestId(
+        workbookColumnsMenuTestId(timelineViewSchemaId),
+      );
+      await expect(
+        columns.getByRole("checkbox", { name: "Analyst", exact: true }),
+      ).toBeVisible();
+      expect(await trigger.boundingBox()).toEqual(original);
+      const arrived = page.waitForResponse(
+        (response) =>
+          response
+            .url()
+            .endsWith(
+              `/api/v1/incidents/${incidentId}/saved-views/${view.saved_view_id}`,
+            ) && response.request().method() === "GET",
+      );
+      release();
+      await (await arrived).finished();
+      await expect(navigation).toHaveAttribute(
+        "data-navigation-outcome",
+        "cancelled",
+      );
+      await expect(
+        page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+      ).toHaveAttribute("data-selected-saved-view-id", "");
+      await expect(columns).toBeVisible();
+      expect(await navigation.boundingBox()).toEqual(navBounds);
+      expect(await footer.boundingBox()).toEqual(footerBounds);
+      await expect(save).toBeVisible();
+      expect(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollHeight <= window.innerHeight &&
+            document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+    } finally {
+      release();
+      await page.unroute(route);
+    }
+  }
+});

@@ -177,6 +177,10 @@ export function workbookFilterPopoverTestId(
   return stableTestId(viewFirstTestId(viewSchemaId, "filter-popover"));
 }
 
+export function workbookNavigationStatusTestId(): string {
+  return "workbook-navigation-status";
+}
+
 export function workbookShellReadyTestId(): string {
   return "workbook-shell-ready";
 }

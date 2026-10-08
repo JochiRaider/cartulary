@@ -9486,12 +9486,13 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
       body: await recovery.ariaSnapshot(),
       contentType: "text/plain",
     });
-    // Global account navigation remains visible while the narrow bar scrolls.
+    // Account navigation and footer navigation remain reachable in their own bands.
     await expect(account).toBeInViewport({ ratio: 1 });
     await recover.press("Enter");
     await expect(recovery).toContainText("Row accepted.");
     await expect(account).toBeInViewport({ ratio: 1 });
-    const systemViews = page.getByRole("button", {
+    const footer = page.getByTestId(workbookShellSlotTestId("status-strip"));
+    const systemViews = footer.getByRole("button", {
       name: "More views",
       exact: true,
     });
@@ -9503,10 +9504,26 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
     await expect(account).toBeInViewport({ ratio: 1 });
     const systemBounds = await systemViews.boundingBox();
     const accountBounds = await account.boundingBox();
-    if (!systemBounds || !accountBounds) throw new Error("Top bar is missing");
-    expect(systemBounds.x + systemBounds.width).toBeLessThanOrEqual(
-      accountBounds.x,
+    if (!systemBounds || !accountBounds)
+      throw new Error("Workbook chrome is missing");
+    expect(systemBounds.y).toBeGreaterThanOrEqual(
+      accountBounds.y + accountBounds.height,
     );
+    const navigation = footer.getByRole("button", {
+      name: "Navigation",
+      exact: true,
+    });
+    await expectDecisionControlReachable(page, navigation);
+    await expectVisibleFocus(navigation);
+    await expect(footer.getByTestId(saveStateTestId())).toBeInViewport({
+      ratio: 1,
+    });
+    await navigation.press("Enter");
+    await expect(
+      page.getByRole("dialog", { name: "Navigation details" }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(navigation).toBeFocused();
     await testInfo.attach("ordinary-toolbar-focus-390", {
       body: await page.screenshot({ animations: "disabled", caret: "hide" }),
       contentType: "image/png",

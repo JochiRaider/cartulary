@@ -5,10 +5,11 @@ import { fileURLToPath } from "node:url";
 
 import { normalizeRuntimeBinaryEntries } from "../runtime-binary-registry.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v8";
+export const executionTopologySchemaID = "cartulary.execution_topology.v9";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v2";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
@@ -116,7 +117,8 @@ function normalizeGoTargets(raw, runtimeBinaries) {
       }),
     );
   }
-  const rawAggregates = (raw.go_targets?.raw_go_aggregates ?? []).map((entry) => ({
+  uniqueByID(raw.go_targets.raw_go_aggregates, "go_targets.raw_go_aggregates");
+  const rawAggregates = raw.go_targets.raw_go_aggregates.map((entry) => ({
     id: entry.id,
     target: entry.target,
     section: entry.section,
@@ -129,16 +131,11 @@ function normalizeGoTargets(raw, runtimeBinaries) {
     resourceProfileID: entry.resource_profile_id,
     serviceDependencies: [...entry.service_dependencies],
     estimatedWorkMs: entry.estimated_work_ms,
+    minimumTier: entry.minimum_tier,
   }));
   for (const entry of rawAggregates) {
-    if (!new Set(["none", "postgres_transaction", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]).has(entry.fixtureCapability)) {
-      throw new Error(`raw Go aggregate ${entry.id} has invalid fixture capability`);
-    }
-    if (!new Set(["default", "network_flow_claimed", "none"]).has(entry.runtimeProfileID)) {
-      throw new Error(`raw Go aggregate ${entry.id} has invalid runtime profile`);
-    }
-    if (!Number.isInteger(entry.estimatedWorkMs) || entry.estimatedWorkMs < 1) {
-      throw new Error(`raw Go aggregate ${entry.id} has invalid estimated work`);
+    if (!byName.has(entry.target)) {
+      throw new Error(`raw Go aggregate ${entry.id} has unknown backend target ${entry.target}`);
     }
   }
   return { targets, byName, runtimeBinariesByFamily, rawAggregates };
@@ -188,14 +185,7 @@ export function loadExecutionTopology(options = {}) {
   );
   const raw = readJSON(manifestPath);
   requireSchema(raw, executionTopologySchemaID, manifestPath);
-  const allowedKeys = new Set([
-    "schema_id", "runtime_profiles", "resource_profiles", "browser_reset_policy", "service_resource_minimums", "generated_outputs",
-    "runtime_binaries", "execution_dependencies", "go_targets", "browser_e2e_batch",
-    "task_surface_owner",
-  ]);
-  for (const key of Object.keys(raw)) {
-    if (!allowedKeys.has(key)) throw new Error(`${manifestPath} contains unsupported key ${key}`);
-  }
+  validateSchemaSync(executionTopologySchemaID, raw);
   if (typeof raw.task_surface_owner !== "string" || raw.task_surface_owner.includes(".generated.")) {
     throw new Error("task_surface_owner must reference an authored owner input");
   }

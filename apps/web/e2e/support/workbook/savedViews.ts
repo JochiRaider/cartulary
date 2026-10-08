@@ -19,6 +19,7 @@ import {
   savedViewStartupToggleTestId,
   savedViewStatusTestId,
   savedViewUpdateButtonTestId,
+  workbookNavigationStatusTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -257,9 +258,33 @@ export async function selectSavedView(
       )
     : false;
   if (!expanded) await selector.click();
+  const navigation = page.getByTestId(workbookNavigationStatusTestId());
+  const evaluate = requireSavedViewEvaluate(
+    navigation,
+    "selectSavedView requires navigation observation",
+  );
+  const previousAttempt = await evaluate((element) =>
+    Number(element.getAttribute("data-navigation-attempt-id")),
+  );
   await page
     .getByTestId(savedViewOptionTestId(surface, savedViewId || "base"))
     .click();
+  await expect
+    .poll(async () => {
+      const observed = (await evaluate((element) => ({
+        attempt: Number(element.getAttribute("data-navigation-attempt-id")),
+        outcome: element.getAttribute("data-navigation-outcome"),
+        ready:
+          element.getAttribute("data-navigation-presentation-ready") === "true",
+      }))) as { attempt: number; outcome: string; ready: boolean };
+      if (observed.attempt <= Number(previousAttempt)) return false;
+      if (observed.attempt !== Number(previousAttempt) + 1)
+        throw new Error("Saved-view navigation was superseded");
+      if (["failed", "cancelled"].includes(observed.outcome))
+        throw new Error(`Saved-view navigation ${observed.outcome}`);
+      return observed.outcome === "succeeded" && observed.ready;
+    })
+    .toBe(true);
   await expect
     .poll(() => readSavedViewSelectionState(page, surface))
     .toEqual({

@@ -44,8 +44,22 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_group_result.v6",
-      "path": "tools/schemas/cartulary.browser_group_result.v6.schema.json",
+      "schema_id": "cartulary.browser_fixture_event.v1",
+      "path": "tools/schemas/cartulary.browser_fixture_event.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "browser fixture process owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.browser_fixture_lifecycle.v1",
+      "path": "tools/schemas/cartulary.browser_fixture_lifecycle.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "browser fixture process owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.browser_group_result.v7",
+      "path": "tools/schemas/cartulary.browser_group_result.v7.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence adapter",
       "validation": "json-shape-check"
@@ -128,8 +142,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.execution_topology.v8",
-      "path": "tools/schemas/cartulary.execution_topology.v8.schema.json",
+      "schema_id": "cartulary.execution_topology.v9",
+      "path": "tools/schemas/cartulary.execution_topology.v9.schema.json",
       "classification": "owner_input",
       "producer": "execution topology owner",
       "validation": "json-shape-check"
@@ -401,8 +415,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_row_result.v2",
-      "path": "tools/schemas/cartulary.harness_row_result.v2.schema.json",
+      "schema_id": "cartulary.harness_row_result.v3",
+      "path": "tools/schemas/cartulary.harness_row_result.v3.schema.json",
       "classification": "public_contract",
       "producer": "canonical row runner",
       "validation": "json-shape-check"

@@ -17,6 +17,7 @@ export type WorkbookInspectValue = {
   readonly fieldKey: string;
 };
 export type WorkbookWorkbench = {
+  readonly navigationReady: boolean;
   readonly inspectValue: WorkbookInspectValue | null;
   readonly requestInspectValue: () => boolean;
   readonly acknowledgeInspectValue: (revision: number) => void;

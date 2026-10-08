@@ -98,7 +98,7 @@ export async function importCanonical(request) {
     if (fixture && !fixture.capture_profiles[capture.expected_golden_path]) throw new ReviewFailure("invalid_artifact");
     if (fixture) for (const [key, value] of Object.entries(fixture.capture_profiles[capture.expected_golden_path] ?? {})) if (capture.capture_profile[key] !== value) throw new ReviewFailure("invalid_artifact");
     const groups = target.group_results.map((ref) => {
-      const group = readJSON(containedFile(root, ref.ref), "cartulary.browser_group_result.v6", ref.sha256).value;
+      const group = readJSON(containedFile(root, ref.ref), "cartulary.browser_group_result.v7", ref.sha256).value;
       if (group.target_id !== target.target_id || group.group_id !== ref.group_id || group.browser_session_id !== ref.browser_session_id || group.stage_id !== "visual") throw new ReviewFailure("invalid_artifact");
       return group;
     });

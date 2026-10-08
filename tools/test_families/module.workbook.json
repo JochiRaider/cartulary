@@ -6702,6 +6702,41 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser_support.pending_navigation_preserves_interaction",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_f8f1fe853329"
+        ],
+        "titles": [
+          "Pending saved-view navigation preserves a Columns click and rejects late attachment"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser_support",

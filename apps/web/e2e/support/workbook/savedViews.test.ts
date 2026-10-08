@@ -6,6 +6,7 @@ import {
   savedViewOptionTestId,
   savedViewSelectorTestId,
   savedViewSetHomeButtonTestId,
+  workbookNavigationStatusTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
@@ -20,8 +21,13 @@ describe("saved-view workbook support", () => {
   it("selects by stable ID and reads identity from data attributes", async () => {
     const selector = document.createElement("button");
     selector.dataset.activeViewSchemaId = timelineViewSchemaId;
-    selector.dataset.selectedSheetRefKind = "view_schema";
-    selector.dataset.selectedSavedViewId = "";
+    // The identity already matches after reload; only this attempt can settle.
+    selector.dataset.selectedSheetRefKind = "saved_view";
+    selector.dataset.selectedSavedViewId = "saved-view-1";
+    const navigation = document.createElement("div");
+    navigation.dataset.navigationAttemptId = "0";
+    navigation.dataset.navigationOutcome = "idle";
+    navigation.dataset.navigationPresentationReady = "false";
     let selectionRequested = false;
     let observeSelection!: () => void;
     const selectionObserved = new Promise<void>((resolve) => {
@@ -32,18 +38,28 @@ describe("saved-view workbook support", () => {
         expect([
           savedViewSelectorTestId(timelineViewSchemaId),
           savedViewOptionTestId(timelineViewSchemaId, "saved-view-1"),
+          workbookNavigationStatusTestId(),
         ]).toContain(testId);
         return {
           click: async () => {
             if (testId === savedViewSelectorTestId(timelineViewSchemaId))
               selector.setAttribute("aria-expanded", "true");
-            else selectionRequested = true;
+            else {
+              selectionRequested = true;
+              navigation.dataset.navigationAttemptId = "1";
+              navigation.dataset.navigationOutcome = "pending";
+            }
           },
           evaluate: async (
             callback: (element: Element, argument?: unknown) => unknown,
             argument?: unknown,
           ) => {
-            const result = callback(selector, argument);
+            const result = callback(
+              testId === workbookNavigationStatusTestId()
+                ? navigation
+                : selector,
+              argument,
+            );
             if (selectionRequested && typeof result === "object")
               observeSelection();
             return result;
@@ -69,6 +85,10 @@ describe("saved-view workbook support", () => {
     expect(settled).toBe(false);
     selector.dataset.selectedSheetRefKind = "saved_view";
     selector.dataset.selectedSavedViewId = "saved-view-1";
+    // Matching the selected identity must not settle a pending attempt.
+    expect(settled).toBe(false);
+    navigation.dataset.navigationOutcome = "succeeded";
+    navigation.dataset.navigationPresentationReady = "true";
     await selection;
 
     await expect(

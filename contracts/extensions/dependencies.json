@@ -94,7 +94,7 @@
       "dependency_id": "testing_harness",
       "imported_schema_ids": [
         "cartulary.harness_evidence_root_manifest.v1",
-        "cartulary.harness_row_result.v2",
+        "cartulary.harness_row_result.v3",
         "cartulary.harness_run_manifest.v1",
         "cartulary.harness_run_summary.v1",
         "cartulary.harness_target_summary.v1",

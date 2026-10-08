@@ -3961,6 +3961,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.navigation_feedback",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/navigation/WorkbookNavigationStatus.test.tsx",
+        "titles": [
+          "navigation details retain keyboard access and stable status controls across outcomes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.note_associations",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -4887,6 +4911,7 @@
       "selector": {
         "file": "apps/web/src/workbook/navigation/WorkbookSessionNavigation.test.ts",
         "titles": [
+          "navigation completion requires current presentation and cancellation fences accepted destinations",
           "session working set and return trail bounds semantic origins and consumes Return only after acceptance, without a bounce entry",
           "session working set and return trail coalesces identical pivots, cancels obsolete reads, and pushes only successful changed origins",
           "session working set and return trail detects duplicates before capacity, preserves insertion order, and never evicts pins"

@@ -31,7 +31,16 @@ export function workbookPinIdentity(pin: WorkbookSessionPin) {
     pin.recordId ?? null,
   ]);
 }
+type WorkbookNavigationOutcome =
+  | "idle"
+  | "pending"
+  | "admitted"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
 type Snapshot = {
+  readonly attemptId: number;
+  readonly outcome: WorkbookNavigationOutcome;
   readonly pins: readonly WorkbookSessionPin[];
   readonly trail: readonly WorkbookReturnOrigin[];
   readonly message: string | null;
@@ -52,6 +61,8 @@ export class WorkbookSessionNavigation {
     promise: Promise<boolean>;
   } | null = null;
   private snapshot: Snapshot = {
+    attemptId: 0,
+    outcome: "idle",
     pins: [],
     trail: [],
     message: null,
@@ -118,7 +129,25 @@ export class WorkbookSessionNavigation {
     );
     this.publish("This item is unavailable.");
   }
+  completePresentation(
+    attemptId: number,
+    outcome: "succeeded" | "failed" | "cancelled" = "succeeded",
+  ) {
+    if (
+      this.snapshot.attemptId !== attemptId ||
+      this.snapshot.outcome !== "admitted" ||
+      !this.snapshot.readable
+    )
+      return;
+    this.snapshot = { ...this.snapshot, outcome };
+    this.publish();
+  }
   cancel() {
+    if (
+      this.snapshot.outcome === "pending" ||
+      this.snapshot.outcome === "admitted"
+    )
+      this.snapshot = { ...this.snapshot, outcome: "cancelled" };
     this.intent?.abort();
     this.intent = null;
     this.pending = null;
@@ -146,6 +175,11 @@ export class WorkbookSessionNavigation {
     this.intent = controller;
     const request = { key, controller, promise: Promise.resolve(false) };
     this.pending = request;
+    this.snapshot = {
+      ...this.snapshot,
+      attemptId: this.snapshot.attemptId + 1,
+      outcome: "pending",
+    };
     request.promise = Promise.resolve()
       .then(() => commit(controller.signal))
       .then((result) => {
@@ -155,13 +189,21 @@ export class WorkbookSessionNavigation {
           !this.snapshot.readable
         )
           return false;
-        if (result === "failed") return false;
+        if (result === "failed") {
+          this.snapshot = { ...this.snapshot, outcome: "failed" };
+          return false;
+        }
+        this.snapshot = { ...this.snapshot, outcome: "admitted" };
         if (returning) this.trail = this.trail.slice(0, -1);
         else if (result === "changed")
           this.trail = [...this.trail, captured].slice(-limits.return_limit);
         return true;
       })
-      .catch(() => false)
+      .catch(() => {
+        if (this.pending === request)
+          this.snapshot = { ...this.snapshot, outcome: "failed" };
+        return false;
+      })
       .finally(() => {
         if (this.pending === request) {
           this.pending = null;

@@ -177,17 +177,31 @@ have been replaced in their original sections; the requirements below state the
 shared architecture those sections implement.
 
 **TH-HARNESS-REQ-800**
-Every active test-family row MUST declare exactly one `minimum_tier` from the
+Every active test-family row and authored raw Go aggregate entry MUST declare exactly one `minimum_tier` from the
 closed ordered set `fast`, `standard`, `full`, or `release`. The order is
-monotonic: a selector for tier N admits rows whose minimum tier is N or lower.
-The authored catalog MUST NOT contain `default_check`, an inferred tier, or an
+monotonic: an aggregate selector for tier N admits rows and raw Go groups whose minimum tier is N or lower.
+The authored catalog and raw Go entries MUST NOT contain `default_check`, an inferred tier, or an
 implicit tier fallback.
+
+The current execution topology input is `cartulary.execution_topology.v9`.
+Its `go_targets.raw_go_aggregates` array MUST be explicit, including when empty.
+Each entry MUST have a unique identity, a declared backend target, and a valid
+minimum tier. Missing, null, incorrectly typed, and unknown tiers MUST fail
+before child work in both topology generation and graph compilation. Current
+commands MUST NOT accept v8 topology inputs or infer tiers for them.
+
+Aggregate compilation MUST select raw Go groups independently of catalog rows
+that happen to use the same backend target. Tier selection MUST precede unit
+construction and readiness dependency expansion. An excluded group MUST NOT
+introduce readiness work; a dependency shared with a selected consumer remains
+required. Direct backend targets select their complete declared raw groups
+without aggregate-tier filtering.
 
 The five aggregate policies are closed:
 
-| Entry point | Row selection | Additional policy work |
+| Entry point | Row and raw Go group selection | Additional policy work |
 | --- | --- | --- |
-| `test-fast` | `fast` | Readiness required by selected fast rows only. |
+| `test-fast` | `fast` | Readiness required by selected fast work only. |
 | `check` | `fast` and `standard` | Standard static, boundary, generated-drift, security, and evidence checks. |
 | `test` | `fast`, `standard`, and `full` | Functional evidence collation only. |
 | `ci` | `fast`, `standard`, and `full` | CI security, policy, and deployable-shape work. |
@@ -1169,6 +1183,11 @@ Non-default harness smoke tiers MAY carry owner-specific regression checks for h
 
 The current owner-controlled harness smoke tiers are `fast`, `execution`, `extended`, `lifecycle`, and `full`. Make helper targets MUST expose the active tiers as `run-harness-smoke-fast`, `run-harness-smoke-execution`, `run-harness-smoke-extended`, `run-harness-smoke-lifecycle`, and `run-harness-smoke-full`. The execution helper target is the narrow validation surface for shell command execution, runner wrappers, Make-node dispatch, service-backed runner delegation, and fast Make-sequence wrapper behavior. The lifecycle helper target is the narrow validation surface for browser/dev stack lifecycle, reset, readiness, and teardown harness changes. The execution and lifecycle helper targets MUST remain helper-only and MUST NOT become default local `check` work by themselves.
 
+Harness smoke tiers select smoke checks and are distinct from the aggregate
+minimum tiers in TH-HARNESS-REQ-800. Shared tier names do not imply shared
+membership. Comprehensive aggregate-routing regressions MUST remain in
+owner-controlled regression suites rather than expand the three fast smoke roles.
+
 A negative harness fixture whose assertion depends on injected failing work or on a caller-supplied malformed, empty, or otherwise invalid artifact MUST prevent cache reuse or producer regeneration from bypassing or replacing that exact input. The fixture MUST apply the bypass at the narrowest invocation boundary: a nested graph-backed public Make probe MUST supply its accepted cache-mode selection to that nested public invocation, and an artifact-validation probe MUST make the injected artifact itself non-remakeable rather than enumerate the producer's current prerequisites. A parent-only environment override is not sufficient when an owning wrapper strips public-input variables before launching the fixture.
 
 Every such fixture MUST prove that the injected input reached the intended boundary. A fake executable fixture MUST retain invocation evidence identifying the selected fixture input, and an injected artifact fixture MUST prove the artifact remains byte-identical after validation. Reordering the fixture after a warm successful invocation, adding an ordinary producer prerequisite, or adding a phony readiness prerequisite MUST NOT change the negative fixture verdict.
@@ -1184,7 +1203,25 @@ passes.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-006, TH-HARNESS-AC-027
 
 Aggregate placement MUST be selected from `minimum_tier` under
-TH-HARNESS-REQ-800. Every selected row retains its verification, evidence
+TH-HARNESS-REQ-800. UI-review self-tests, including both seeded runtime profiles;
+browser-support self-tests; Go fixture, lifecycle, and test-service self-tests;
+command-surface, evidence-accounting, and catalog regression suites; and shared
+test-utils self-tests MUST have minimum tier `full`. Raw Go groups testing
+configuration fixtures, suite services and failure helpers, integration helpers,
+and process helpers follow the same placement. These suites MUST remain
+reachable through `test`, `ci`, and `release-check` and their direct selectors.
+
+This policy MUST NOT remove current-artifact schema or catalog validation,
+generated drift or generated-artifact policy checks, migration integrity,
+product/static/security gates, or the three required smoke roles from `check`.
+Embedded web-asset tests and the harness runtime admission/reset contract retain
+their existing fast and standard tiers respectively. Product and architecture
+rows retain their owner-selected tiers even when their tests live in helper
+packages. Placement MUST NOT be inferred from package-name prefixes. Policy
+dependency expansion MUST NOT reintroduce the full-tier self-regression suites
+into `test-fast` or `check`.
+
+Every selected row retains its verification, evidence
 class, runtime profile, resource profile, and fixture capability. Task-surface
 inclusion, graph reachability, and target projection membership MUST agree. An
 unknown row, inactive row, missing verification, duplicate selection, or tier
@@ -1403,6 +1440,31 @@ namespace. Authentication, authorization, endpoint, ownership, malformed
 response, and other cleanup failures remain fail-closed. Repeated finalization
 MUST NOT convert successful cleanup into `cleanup_error` merely because the
 owned resource is already absent.
+
+Child fixtures owned by browser tests MUST retain diagnostic ownership after
+readiness until process and output-stream closure. They MUST emit a versioned, attempt-bound
+lifecycle report with ordered acquisition/cleanup stages, elapsed times, bounded
+deadlines, normalized failures and process outcome. Credential-bearing readiness
+payloads remain private. Bounded stderr diagnostics MUST cross the Section 15
+redaction boundary before retention. Missing terminal evidence after termination
+MUST remain explicit and MUST NOT imply successful retirement.
+
+HTTP fixture retirement within a browser test MUST close accepted connections
+that have not admitted a request, including connections accepted while listener shutdown
+begins. It MUST cancel and drain active request and WebSocket lifetimes before
+releasing their borrowed resources. Graceful retirement MUST NOT wait for a
+future request on an unused connection.
+
+Fixture cleanup MUST preserve a primary test failure and independently report
+cleanup failures. Cleanup-only failure is `harness/cleanup_error`; combined
+failures retain all observations and follow Section 9 primary ordering.
+Current row results and browser-group results MUST carry the versioned browser
+fixture diagnostic variant when relevant. The changed row/group schemas use a
+hard cutover: prior schema IDs remain archival evidence, without active-run
+fallback, translation or dual writing. The adapter MUST consume validated
+structured diagnostics, not classify by matching
+human error strings. One failed cleanup step MUST NOT prevent independent owned
+resources from being retired; repeated finalization MUST be idempotent.
 
 The Playwright result adapter MUST join observations by exact normalized selector file and exact catalog title. Zero observations, multiple observations, aggregate process success without selector observations, and an unauthorized Playwright skip are accounting failures; a product assertion failure MUST remain a product failure. Reports, stdout, and stderr MUST be retained through the redaction boundary, and only exact selector observations may close catalog rows.
 
@@ -7567,7 +7629,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-079 | Sections 4, 8, 10, 17 | Public-target performance acceptance | Target/provider windows with one forced-cold root, one discarded warm-up, and five or conditionally six measured roots; p50, nearest-rank p90, MAD, variability-band and leave-one-out stability; canonical non-overlapping timing; ordering, duplicate, failed, cold, retried, dirty, provenance mismatch, missing-command, exact reviewed policy transition, required-improvement targets, 47-row public closure including `openapi-compatibility-check`, separate internal diagnostics, and independent check-window fixtures | Baseline writer, performance checker, retained-run inspection, canonical unit-event accounting, and task-surface owner closure | Exact Section 10.5 formulas and cardinality pass for every required public command, required improvement clears the variability band without p90 regression, every other p90 is non-regressing, all material intervals are singly attributed, and the public roster/count/bindings/rows/sum close exactly | Bounded performance summary | `duration_baseline_drift`, exit `13`, with every rejected-root reason | Verified root refs and bindings, timing sources, policy projections, samples, p50, p90, deviations, variability bands, structural metrics, roster arithmetic, and verdicts | Hand-edited baseline, inferred/newest root, mismatched or failed run, dispatch-only timing, multiply attributed intervals, opaque policy change, blanket percentage, archival-reader translation, or moved required work passes | retained inputs unchanged; baseline writes only after complete validation |
 | TH-HARNESS-AC-080 | Sections 5, 9, 17 | Versioned focus-continuity observation | Delayed mention mutation whose focused control unmounts, whose semantic Timeline row is initially offscreen, and whose projection delivers `N-1`, then response version `N`; instrumented postcondition helper | Focus-continuity model and React fixtures plus the exact live browser row through its canonical owner slice | One attempt succeeds only after the stable source row reaches at least `N` and the application restores the row-local focus target; helper interaction counters remain zero | Existing bounded unit/browser summary | Product assertion diagnostic with expected/rendered versions, target presence, active-element identity, mounted row IDs, and scroll geometry | Ordered lifecycle generations, response source identity/version, rendered version observations, and focus/viewport observation | `N-1` settles continuity, the helper focuses or scrolls after mutation, user interruption still permits focus stealing, or a later pass replaces the failed invocation | ordinary target cleanup; historical failed evidence remains unchanged |
 | TH-HARNESS-AC-081 | Sections 8, 17 | Incremental accumulated validation | At least three source versions containing an unaffected passing target, an affected passing target, a failed affected attempt, a relevant repair, an unrelated repair, a selector/profile change, and malformed impact/provenance entries | Build and validate the accumulated workstream ledger; execute only each version's deterministic affected closure | Success only when all current requirements resolve exactly once to the newest applicable pass, unaffected passes carry forward, the repaired affected failure is superseded by a later-version pass, and unrelated or same-version attempts cannot erase a failure | Bounded closure summary by source version and carried/rerun/superseded count | Bounded impact, provenance, duplicate, missing, conflict, or same-version-retry diagnostic | Source-snapshot roster, changed-input digests, affected row/target closure, retained root refs, pass provenance, failure history, and supersession edges | Filename heuristic omits impact, changed contract carries forward, failed same-version result is retried away, historical bytes are relabeled, performance samples cross source within one window, or missing current work closes | retained attempts remain immutable; no scheduler or cache reuse is inferred |
-| TH-HARNESS-AC-082 | Section 2.1 | Tier selection | Complete catalog plus invalid, duplicate, and redundancy fixtures | Cutover disposition and tier-reachability validation | Every active row has one minimum tier and reaches its declared aggregate union | Bounded tier counts | Exact row/tier diagnostic | Tier report and evidence-union closure | Boolean fallback, missing tier, or silent row removal passes | no child work |
+| TH-HARNESS-AC-082 | Section 2.1 | Tier selection | Complete catalog plus invalid, duplicate, and redundancy fixtures | Cutover disposition and tier-reachability validation | Every active row and raw Go group has one minimum tier and reaches its declared aggregate union; direct selection remains unfiltered | Bounded tier counts | Exact row/tier diagnostic | Tier report and evidence-union closure | Boolean fallback, missing or invalid tier, implicit raw-group selection, or silent coverage removal passes | no child work |
 | TH-HARNESS-AC-083 | Section 2.1 | Canonical graph identity | Equivalent direct, aggregate, leaf, and owner-slice selectors plus semantic mutations | Compile and compare graphs | Equivalent selections have identical units/digests and changed semantics change the digest | Bounded graph summary | Graph validation diagnostic | Canonical graph and digest report | Duplicate execution, cycle, or invalid claim reaches child work | scratch graph removed |
 | TH-HARNESS-AC-084 | Section 2.1 | Unified scheduling | Contention, starvation, failure, cancellation, and simultaneous-completion fixtures | Deterministic scheduler simulation and process tests | Rank, fit, backfill, aging, failure propagation, and cancellation match REQ-802 | Bounded scheduler summary | Scheduler diagnostic | Unit events and capability snapshot | Unheld reservation, starvation, or leaked process passes | owned work cleaned |
 | TH-HARNESS-AC-085 | Section 2.1 | Capacity closure | CPU, memory, process, IO, port, service, missing-data, and override fixtures | Capability resolver validation | Resolved capacity is the safe multidimensional minimum and every override is declared/recorded | Bounded capability summary | Configuration diagnostic | Capability snapshot and sources | CPU-only inference or undeclared override passes | no child work |

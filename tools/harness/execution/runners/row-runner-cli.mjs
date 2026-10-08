@@ -202,7 +202,7 @@ async function main() {
   }
   for (const result of results) {
     writeResult({
-      schema_id: "cartulary.harness_row_result.v2",
+      schema_id: "cartulary.harness_row_result.v3",
       ...result,
       runner: rows[0].runner,
       started_at: startedAt,

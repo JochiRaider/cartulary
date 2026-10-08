@@ -37,7 +37,7 @@ try {
   rmSync(scratch, { recursive: true, force: true });
 }
 for (const [file, schemaID] of [
-  ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v8"],
+  ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v9"],
   ["tools/scheduler_manifest.json", "cartulary.scheduler_manifest.v3"],
   ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v11"],
   ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v2"],
@@ -50,6 +50,7 @@ const attachments = JSON.parse(readFileSync(path.join(root, "tools/harness_schem
 for (const retired of [
   "cartulary.test_family_manifest.v2",
   "cartulary.execution_topology.v5",
+  "cartulary.execution_topology.v8",
   "cartulary.scheduler_manifest.v2",
 ]) {
   assert.equal(attachments.attachments.some((entry) => entry.schema_id === retired), false, `${retired} must be rejected as current input`);

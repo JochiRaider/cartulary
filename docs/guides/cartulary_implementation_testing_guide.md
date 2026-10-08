@@ -51,6 +51,20 @@ parallel registry, title-prefix convention, handwritten target map, or runtime
 translation table. Add or change behavior at the owning specification and
 catalog inputs, then regenerate through Make.
 
+## Aggregate Placement and Harness Changes
+
+`make check` retains product coverage, current-artifact validation, static and
+security gates, and the three required harness smoke roles. Broad harness
+self-regression suites, including seeded UI-review tests and shared test-helper
+suites, run at the `full` aggregate tier through `make test`, CI, and release
+verification. Harness smoke tiers are a separate selection surface.
+
+For harness changes, use the owning slice recommended by `make task-guide`;
+passing `make check` alone does not exercise those full-tier regressions.
+Explicit owner/row selection and direct backend targets are not filtered by
+aggregate tiers. Product-owned rows in helper packages retain their own tiers.
+See TH-HARNESS-REQ-800, 053, and 054 for the placement contract.
+
 ## Plan a Change
 
 Start with read-only discovery:
@@ -218,6 +232,33 @@ live borrowers. If status reports `stale`, `expired`, or `invalid`, do not edit
 the descriptor or remove containers by name; use the session-down command so
 cleanup can verify exact ownership. Status output intentionally omits credentials,
 container identities, runtime paths, and administrative endpoints.
+
+The restore browser test owns its child in a Playwright fixture that yields
+ownership before a dependent fixture waits for readiness. Startup failure and
+test-body timeout therefore still receive an independent teardown lifetime.
+Its inline `cartulary-browser-fixture-lifecycle` attachment
+contains `cartulary.browser_fixture_lifecycle.v1`: attempt identity, ordered
+resource acquisition and cleanup events, elapsed times, local stage deadlines,
+redacted stderr, process closure, and every test/cleanup failure. A zero stage
+deadline means that stage uses the outer process cleanup deadline. Read this
+attachment before rerunning a failed restore. Startup stdout contains private
+credentials and must never be copied into retained diagnostics. Cleanup-only
+failure is `harness/cleanup_error`; an accompanying product failure keeps its
+primary classification while the cleanup observation remains in the report and
+failure dossiers. Current row results use `cartulary.harness_row_result.v3` and
+browser-group results use `cartulary.browser_group_result.v7`; prior versions are
+archival inputs, not active-run fallbacks. Forced termination or missing terminal
+evidence cannot pass.
+
+The restore fixture retires preconnected HTTP sockets before draining active
+requests and WebSockets. A completed TLS handshake without HTTP headers is not
+active request work. Known multiline credential values remain redacted even
+when bounded stderr retention discards their earlier lines.
+
+Saved-view browser helpers await the navigation attempt started by the action,
+its admitted destination and completed presentation, then its selected identity.
+The footer's Navigation control carries this observation and accessible details.
+An already-selected view is not evidence that a fresh navigation completed.
 
 The retired ambient service-active boolean is no longer produced or consumed.
 Child authority comes from the exact suite identity, runtime or borrower lease,

@@ -321,6 +321,12 @@ test("Delayed record reads preserve Work and cannot supersede newer interaction.
   const locatePath = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/locate`;
   await page.route(locatePath, (route) => route.abort("failed"));
   await openPin(page);
+  await page
+    .getByRole("button", { name: "Navigation", exact: true })
+    .press("Enter");
+  await expect(
+    page.getByRole("dialog", { name: "Navigation details" }),
+  ).toBeFocused();
   await expect(
     page.getByRole("button", { name: "Retry navigation", exact: true }),
   ).toBeVisible();

@@ -276,6 +276,7 @@ export {
   workbookInspectorFeatureActionTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
+  workbookNavigationStatusTestId,
   workbookPreferenceTestId,
   workbookQueryEntryTestId,
   workbookQueryOverflowEntryTestId,

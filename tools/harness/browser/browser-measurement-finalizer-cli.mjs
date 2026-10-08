@@ -149,7 +149,7 @@ async function main() {
   const group = readArtifact(
     base,
     groupResultRelative,
-    "cartulary.browser_group_result.v6",
+    "cartulary.browser_group_result.v7",
   );
   if (
     group.artifact.target_id !== options.target ||

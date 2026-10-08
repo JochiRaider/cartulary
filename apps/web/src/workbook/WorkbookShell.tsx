@@ -129,7 +129,6 @@ import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { useWorkbookWorkbench } from "./navigation/useWorkbookWorkbench";
 import { WorkbookWorkbenchContext } from "./navigation/WorkbookWorkbenchContext";
 import {
-  WorkbookNavigationNotice,
   WorkbookReturnControl,
   WorkbookWorkControls,
 } from "./navigation/WorkbookWorkPanel";
@@ -837,6 +836,30 @@ function WorkbookShellContent({
                                         }
                                       }}
                                       onKeyDownCapture={(event) => {
+                                        if (
+                                          !event.ctrlKey &&
+                                          !event.metaKey &&
+                                          !event.altKey &&
+                                          [
+                                            "Tab",
+                                            "Escape",
+                                            "Enter",
+                                            " ",
+                                            "ArrowUp",
+                                            "ArrowDown",
+                                            "ArrowLeft",
+                                            "ArrowRight",
+                                            "Home",
+                                            "End",
+                                            "PageUp",
+                                            "PageDown",
+                                          ].includes(event.key) &&
+                                          event.target instanceof Element &&
+                                          event.target.closest(
+                                            "[data-workbook-navigation-feedback]",
+                                          )
+                                        )
+                                          return;
                                         const activation =
                                           ["Enter", " "].includes(event.key) &&
                                           event.target instanceof Element &&
@@ -1049,7 +1072,6 @@ function WorkbookShellContent({
                                                 },
                                               }}
                                             >
-                                              <WorkbookNavigationNotice />
                                               {activeContent}
                                             </WorkbookReferenceContext.Provider>
                                           }

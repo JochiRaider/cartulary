@@ -267,7 +267,7 @@ function semanticResultForUnit(unit, runRoot) {
       const info = lstatSync(file);
       assertRegularFile(info, `cache semantic row result ${relative}`);
       const result = JSON.parse(readFileSync(file, "utf8"));
-      validateSchemaSync("cartulary.harness_row_result.v2", result);
+      validateSchemaSync("cartulary.harness_row_result.v3", result);
       if (result.terminal_state !== "passed") {
         throw new CacheEntryError(`cache semantic row result did not pass: ${result.row_id}`);
       }
@@ -380,7 +380,7 @@ function semanticEvidenceItems(unit, semanticResult, clock) {
   const timestamp = clock().toISOString();
   const items = semanticResult.rows.map((row) => {
     const payload = {
-      schema_id: "cartulary.harness_row_result.v2",
+      schema_id: "cartulary.harness_row_result.v3",
       row_id: row.row_id,
       terminal_state: "passed",
       duration_ms: 0,

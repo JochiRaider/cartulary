@@ -75,7 +75,7 @@ function writeRowResults(rowResults, runner, startedAt, finishedAt, wallDuration
   secureMkdir(rowsRoot);
   for (const row of rowResults) {
     const payload = {
-      schema_id: "cartulary.harness_row_result.v2",
+      schema_id: "cartulary.harness_row_result.v3",
       ...row,
       runner,
       started_at: startedAt,
@@ -369,7 +369,7 @@ async function main() {
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
   const result = {
-    schema_id: "cartulary.browser_group_result.v6",
+    schema_id: "cartulary.browser_group_result.v7",
     target_id: target,
     stage_id: stage.name,
     group_id: group.name,

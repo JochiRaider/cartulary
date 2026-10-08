@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { repoRoot } from "../../../contract/index.mjs";
+import { browserFixtureDiagnostic, repoRoot } from "../../../contract/index.mjs";
 
 import {
   existsSync,
@@ -712,7 +712,7 @@ function summarizePlaywrightRun(reportFile, stepLabel, selection = null) {
         if (result.status && result.status !== "skipped") {
           executedResults.push({
             retry: result.retry ?? 0,
-            status: result.status,
+            status: browserFixtureDiagnostic(result)?.failures.length ? "failed" : result.status,
             result,
           });
         }
@@ -764,7 +764,8 @@ function summarizePlaywrightRun(reportFile, stepLabel, selection = null) {
           .find((entry) => typeof entry === "string" && entry.trim() !== "")
           ?.split("\n")[0] ||
         `${spec.title ?? "playwright spec"} failed`;
-      dossiers.push({
+      const fixture = browserFixtureDiagnostic(attempt.result);
+      for (const failure of fixture?.failures.length ? fixture.failures : [{}]) dossiers.push({
         coverage: classification.coverage,
         step: classification.step,
         id: classification.id,
@@ -772,6 +773,7 @@ function summarizePlaywrightRun(reportFile, stepLabel, selection = null) {
         package_or_file: classification.owner,
         symbol_or_title: spec.title ?? "(missing title)",
         message: message.trim(),
+        ...failure,
         reproduce: `pnpm --dir apps/web exec playwright test ${classification.owner.replace(/^apps\/web\//, "")} -g '^${escapeSingleQuotes(spec.title ?? "")}$'`,
         raw:
           attachments.length > 0

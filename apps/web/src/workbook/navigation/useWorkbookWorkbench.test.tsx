@@ -64,6 +64,7 @@ function fixture() {
   // The hook consumes only these owner ports; no source operation is available.
   const runtime = {
     snapshot: {
+      gridEntryFocusRequest: { kind: "idle" },
       surface: timelineViewSchemaId,
       startupSheetRef: { kind: "view_schema", id: timelineViewSchemaId },
       activeContract: requireViewContract(timelineViewSchemaId),

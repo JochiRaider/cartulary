@@ -4,6 +4,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { sheetRefsEqual } from "../../shared/sheetRef";
 import type { useWorkbookShellRuntime } from "../hooks/useWorkbookShellRuntime";
@@ -62,6 +63,42 @@ export function useWorkbookWorkbench(options: {
   const { incidentId, query, locator, readable } = options;
   const registry = useWorkbookBrowsingRegistry();
   const session = options.session;
+  const navigation = useSyncExternalStore(
+    session.subscribe,
+    session.getSnapshot,
+  );
+  useSyncExternalStore(registry.subscribe, registry.getSnapshot);
+  const completion = useRef<{
+    attempt: number;
+    target: WorkbookNavigationTarget;
+    view: string;
+    page: WorkbookViewQueryAccepted | null;
+    outcome: "pending" | "ready" | "failed" | "cancelled";
+  } | null>(null);
+  const destination = completion.current;
+  const navigationReady =
+    !!destination &&
+    destination.outcome === "ready" &&
+    destination.attempt === navigation.attemptId &&
+    sheetRefsEqual(
+      options.runtime.snapshot.startupSheetRef,
+      destination.target.sheetRef,
+    ) &&
+    (destination.target.sheetRef.kind === "extension_workspace" ||
+      (options.runtime.snapshot.surface === destination.view &&
+        registry.navigationPresentationReady(
+          destination.view,
+          destination.page,
+        ) &&
+        options.runtime.snapshot.gridEntryFocusRequest.kind === "idle"));
+  useLayoutEffect(() => {
+    if (navigationReady) session.completePresentation(navigation.attemptId);
+    else if (
+      destination?.attempt === navigation.attemptId &&
+      (destination.outcome === "failed" || destination.outcome === "cancelled")
+    )
+      session.completePresentation(navigation.attemptId, destination.outcome);
+  });
   const [inspectValue, setInspectValue] = useState<WorkbookInspectValue | null>(
     null,
   );
@@ -217,6 +254,13 @@ export function useWorkbookWorkbench(options: {
             return fail("This workspace is unavailable.");
           if (!admitted()) return "failed";
           registry.detachPresentation(runtime.snapshot.surface);
+          completion.current = {
+            attempt: session.getSnapshot().attemptId,
+            target,
+            view: runtime.snapshot.surface,
+            page: null,
+            outcome: "ready",
+          };
           if (sheetRefsEqual(from.sheetRef, target.sheetRef)) return "same";
           registry.grid(runtime.snapshot.surface)?.detachEdit?.();
           commands.selectExtensionWorkspace(target.sheetRef);
@@ -235,6 +279,13 @@ export function useWorkbookWorkbench(options: {
           if (!admitted()) return "failed";
           registry.detachPresentation(runtime.snapshot.surface);
           registry.grid(runtime.snapshot.surface)?.detachEdit?.();
+          completion.current = {
+            attempt: session.getSnapshot().attemptId,
+            target,
+            view: target.sheetRef.id,
+            page: null,
+            outcome: "ready",
+          };
           commands.selectWorkbookSurface(target.sheetRef.id, {
             focusFirstGridTarget: true,
           });
@@ -377,6 +428,17 @@ export function useWorkbookWorkbench(options: {
         registry.detachPresentation(runtime.snapshot.surface);
         registry.grid(runtime.snapshot.surface)?.detachEdit?.();
         commands.cancelGridEntryFocus();
+        const presentation: NonNullable<typeof completion.current> = {
+          attempt: session.getSnapshot().attemptId,
+          target: baseFallback
+            ? { sheetRef: { kind: "view_schema", id: view } }
+            : target,
+          view,
+          page,
+          outcome:
+            anchor || returning ? ("pending" as const) : ("ready" as const),
+        };
+        completion.current = presentation;
         registry.stageNavigation(
           page,
           query.query,
@@ -402,6 +464,9 @@ export function useWorkbookWorkbench(options: {
           {
             signal,
             navigationOnly: !!returning,
+            onSettled: (outcome) => {
+              presentation.outcome = outcome;
+            },
             onUnavailable: () => {
               if (admitted())
                 setNotice({
@@ -444,6 +509,7 @@ export function useWorkbookWorkbench(options: {
     );
   };
   return {
+    navigationReady,
     inspectValue,
     acknowledgeInspectValue: (revision) =>
       setInspectValue((current) =>

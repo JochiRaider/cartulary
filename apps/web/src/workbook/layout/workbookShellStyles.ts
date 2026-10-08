@@ -195,7 +195,6 @@ export const systemViewSlotStyle = {
   gap: "0.35rem",
   flex: "0 1 auto",
   minWidth: 0,
-  order: 4,
 };
 
 export const activeSystemViewTitleStyle = {

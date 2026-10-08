@@ -50,3 +50,5 @@ export {
   semanticJSONDigest,
   semanticJSONSHA256,
 } from "./semantic-json.mjs";
+
+export { browserFixtureDiagnostic } from "./browser-fixture-diagnostic.mjs";

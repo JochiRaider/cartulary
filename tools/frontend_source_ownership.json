@@ -978,6 +978,7 @@
         "apps/web/src/workbook/mutations/workbookMutationAuthority.ts",
         "apps/web/src/workbook/mutations/workbookMutationCommandPorts.ts",
         "apps/web/src/workbook/mutations/workbookOperationOutcome.ts",
+        "apps/web/src/workbook/navigation/WorkbookNavigationStatus.test.tsx",
         "apps/web/src/workbook/navigation/WorkbookSessionNavigation.test.ts",
         "apps/web/src/workbook/navigation/WorkbookSessionNavigation.ts",
         "apps/web/src/workbook/navigation/WorkbookWorkPanel.tsx",

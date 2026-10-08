@@ -1,3 +1,4 @@
+import { browserFixtureDiagnostic } from "../../contract/index.mjs";
 import {
   primaryPublicFailure,
   publicExitCodeForFailure,
@@ -41,6 +42,8 @@ function selectorObservation(spec) {
     0,
   );
   const status = resultStatus(test);
+  const fixture = browserFixtureDiagnostic(test.results?.at(-1));
+  if (fixture?.failures.length) return { status: "fixture_failed", durationMs, ...fixture };
   const firstError = test.results?.at(-1)?.errors?.[0];
   if (status === "failed" && /^Cartulary(?:FrontendArtifact|VisualCapture)Error:/u.test(firstError?.message ?? "")) {
     return { status: "artifact_failed", durationMs };
@@ -141,7 +144,7 @@ export function adaptPlaywrightReport(
     ? processFailure(processStatus, processSignal)
     : null;
   return selected.map(({ observations, row }) => {
-      const failures = observations.map(observationFailure).filter(Boolean);
+      const failures = observations.flatMap((entry) => entry.failures ?? [observationFailure(entry)]).filter(Boolean);
       if (childFailure) failures.push(childFailure);
       const primaryFailure = primaryPublicFailure(failures);
       const terminalState = terminalStateForFailure(primaryFailure);
@@ -157,7 +160,7 @@ export function adaptPlaywrightReport(
           : 0,
         failure_class: primaryFailure?.failure_class ?? null,
         failure_reason: primaryFailure?.failure_reason ?? null,
-        failure_diagnostic: null,
+        failure_diagnostic: observations.find((entry) => entry.diagnostic && entry.failures.some((failure) => failure.failure_class === primaryFailure?.failure_class && failure.failure_reason === primaryFailure?.failure_reason))?.diagnostic ?? null,
       };
     });
 }

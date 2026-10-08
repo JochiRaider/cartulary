@@ -50,6 +50,9 @@ class WorkbookQueryBrowsingRegistry {
     focused: boolean;
     onFocused?: (() => boolean) | undefined;
     onUnavailable?: (() => void) | undefined;
+    onSettled?:
+      | ((outcome: "ready" | "failed" | "cancelled") => void)
+      | undefined;
   } | null = null;
   private focusController: AbortController | null = null;
   private removeNavigationAbort: (() => void) | undefined;
@@ -86,12 +89,30 @@ class WorkbookQueryBrowsingRegistry {
   presentationReady(view: string) {
     return this.presentations.get(view)?.ready ?? false;
   }
-  cancelNavigationFocus() {
+  navigationPresentationReady(
+    view: string,
+    page: WorkbookViewQueryAccepted | null,
+  ) {
+    return (
+      this.presentationReady(view) &&
+      this.navigationFocus === null &&
+      (!page ||
+        this.find(view)?.getSnapshot().accepted?.producingRequest ===
+          page.producingRequest)
+    );
+  }
+  cancelNavigationFocus(
+    outcome: "ready" | "failed" | "cancelled" = "cancelled",
+  ) {
+    const intent = this.navigationFocus;
+    const changed = intent !== null;
     this.navigationFocus = null;
     this.focusController?.abort();
     this.focusController = null;
     this.removeNavigationAbort?.();
     this.removeNavigationAbort = undefined;
+    intent?.onSettled?.(outcome);
+    if (changed) this.publish();
   }
   // Read acceptance, portal/layout commit and semantic registration are separate signals.
   resumeNavigation = () => {
@@ -115,7 +136,7 @@ class WorkbookQueryBrowsingRegistry {
     }
     if (intent.focused) {
       if (intent.onFocused?.() !== false && this.navigationFocus === intent)
-        this.cancelNavigationFocus();
+        this.cancelNavigationFocus("ready");
       return;
     }
     if (this.focusController || !this.presentationReady(intent.view)) return;
@@ -138,7 +159,7 @@ class WorkbookQueryBrowsingRegistry {
           ?.getSnapshot()
           .accepted?.rows.some((row) => row.record_id === intent.recordId)
       ) {
-        this.cancelNavigationFocus();
+        this.cancelNavigationFocus("failed");
         intent.onUnavailable?.();
       }
       return;
@@ -195,7 +216,7 @@ class WorkbookQueryBrowsingRegistry {
         }
       }
       if (this.navigationFocus === intent && !controller.signal.aborted) {
-        this.cancelNavigationFocus();
+        this.cancelNavigationFocus("failed");
         intent.onUnavailable?.();
       }
     })();
@@ -302,6 +323,7 @@ class WorkbookQueryBrowsingRegistry {
       readonly signal: AbortSignal;
       readonly navigationOnly: boolean;
       readonly onUnavailable: () => void;
+      readonly onSettled?: (outcome: "ready" | "failed" | "cancelled") => void;
     },
   ) {
     this.cancelNavigationFocus();
@@ -315,6 +337,7 @@ class WorkbookQueryBrowsingRegistry {
         focused: false,
         onFocused,
         onUnavailable: handoff?.onUnavailable,
+        onSettled: handoff?.onSettled,
       };
     if (handoff) {
       const abort = () => this.cancelNavigationFocus();

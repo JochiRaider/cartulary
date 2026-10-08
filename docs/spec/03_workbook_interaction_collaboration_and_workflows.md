@@ -807,7 +807,15 @@ visible field, then the grid container. Navigation selects a committed cell in
 navigation mode; it MUST NOT reopen an editor. Only an explicit Inspect
 destination additionally opens Record. New deliberate interaction, unmount or
 authority loss invalidates pending attachment and focus intent. A scroll or
-mount request is not focus completion.
+mount request is not focus completion. Each admitted navigation intent MUST have
+an instance-local attempt identity and distinguish pending admission, accepted
+destination, completed presentation, failure and cancellation. Selecting an
+already selected saved view MUST observe and apply its current authorized
+persisted configuration; matching the prior identity alone is not completion.
+Newer attempts MUST fence late outcomes. Presentation completion MUST be observed
+from its current owner, independently of read acceptance, and MUST NOT create
+another row, draft or operation store. Cancellation by newer deliberate
+interaction MUST preserve delivery of that interaction to its intended control.
 Profiles: base
 Verified by: AC-577, AC-578, AC-579, AC-581, AC-584, AC-589, AC-597
 

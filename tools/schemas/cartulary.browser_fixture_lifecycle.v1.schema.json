@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_fixture_lifecycle.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "attempt_id",
+    "duration_ms",
+    "process",
+    "events",
+    "stderr",
+    "failures"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.browser_fixture_lifecycle.v1"
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exit_code",
+        "signal",
+        "closed",
+        "forced"
+      ],
+      "properties": {
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "signal": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "forced": {
+          "type": "boolean"
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "cartulary.browser_fixture_event.v1"
+      }
+    },
+    "stderr": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "failure_class",
+          "failure_reason",
+          "message"
+        ],
+        "properties": {
+          "phase": {
+            "enum": [
+              "startup",
+              "body",
+              "cleanup"
+            ]
+          },
+          "failure_class": {
+            "enum": [
+              "harness",
+              "product",
+              "artifact",
+              "interrupted",
+              "infra"
+            ]
+          },
+          "failure_reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

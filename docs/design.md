@@ -845,6 +845,15 @@ save/access/conflict state; active query/surface; deliberate record detail;
 chosen working list; optional explanation, in that order. Lower-priority content
 collapses to its labeled path before higher-priority content clips.
 
+Design contract. Navigation progress and recovery MUST use a dedicated control in
+existing footer chrome, separate from save status. Its footprint MUST remain
+stable across idle, pending and terminal outcomes within each width band. Full
+feedback and Cancel, Retry and Open base actions MUST remain available through
+an explicitly opened, bounded, keyboard-accessible details surface; meaningful
+state changes MUST receive polite announcements. Passive navigation feedback MUST NOT
+be inserted as an additional active-surface grid child, displace an interaction
+target during a pointer gesture, obscure the grid, or introduce document scrolling.
+
 Design contract. Footer navigation MUST yield space before primary save status.
 The primary save label MUST NOT truncate, move into a menu or be replaced by
 presence. Lifecycle/read-only state remains separate from save state.

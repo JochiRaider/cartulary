@@ -79,6 +79,8 @@ import { createContractTestContext } from "./contract-test-context.mjs";
 import { assertLazyCaseContext, assertImportAndFailureIsolation } from "./contract-initialization-cases.mjs";
 import { assertPostgresCatalogClosure, assertPostgresPolicyFixtures, assertFixtureBuilderClosure } from "./contract-catalog-cases.mjs";
 
+import { assertHarnessTierRouting, assertRawTierValidation, assertIndependentRawTierSelection } from "./contract-tier-cases.mjs";
+
 import { assertPrivateChildCaptureBoundary } from "./private-child-capture-cases.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
@@ -420,7 +422,7 @@ const generalCases = [
     acceptance_ids: ["TH-HARNESS-AC-082"],
     run(context) {
       assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v2");
-      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v8");
+      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v9");
     },
   },
   {
@@ -1753,7 +1755,7 @@ async function assertDependencyClosureContract(context) {
     const rowOutput = path.join(runRoot, `rows/${goRow.row_id}.json`);
     mkdirSync(path.dirname(rowOutput), { recursive: true, mode: 0o700 });
     const sourceResult = {
-      schema_id: "cartulary.harness_row_result.v2",
+      schema_id: "cartulary.harness_row_result.v3",
       row_id: goRow.row_id,
       terminal_state: "passed",
       duration_ms: 12,
@@ -2112,6 +2114,9 @@ const suiteCases = {
     semanticCase("active_owner_row_coverage", "every active owner retains current row coverage", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "active_owner_coverage")),
   ],
   graph: [
+    semanticCase("harness_self_test_tier_routing", "full-tier self-tests preserve direct selection and product coverage", ["TH-HARNESS-AC-082"], assertHarnessTierRouting),
+    semanticCase("raw_go_tier_input_validation", "raw Go tiers fail closed in schema, normalization, and compilation", ["TH-HARNESS-AC-082"], assertRawTierValidation),
+    semanticCase("raw_go_independent_tier_selection", "raw Go groups select by tier before readiness without catalog coupling", ["TH-HARNESS-AC-082"], assertIndependentRawTierSelection),
     semanticCase("visual_semantic_partition", "visual groups bound complete catalog claims without duplicate or missing execution", ["TH-HARNESS-AC-011", "TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "visual_semantic_partition")),
     semanticCase("measurement_semantic_identity", "measurement groups preserve complete semantic identities independently of private storage", ["TH-HARNESS-AC-011", "TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "measurement_semantic_identity")),
     semanticCase("aggregate_graph_determinism", "aggregate work graphs are deterministic", ["TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "aggregate_determinism")),

@@ -89,3 +89,23 @@ describe("session working set and return trail", () => {
     expect(owner.getSnapshot().trail).toEqual([]);
   });
 });
+
+it("navigation completion requires current presentation and cancellation fences accepted destinations", async () => {
+  const owner = session();
+  await owner.navigate("same", origin, async () => "same");
+  const first = owner.getSnapshot().attemptId;
+  expect(owner.getSnapshot().outcome).toBe("admitted");
+  owner.cancel();
+  owner.completePresentation(first);
+  expect(owner.getSnapshot().outcome).toBe("cancelled");
+  await owner.navigate("same", origin, async () => "same");
+  expect(owner.getSnapshot().attemptId).toBeGreaterThan(first);
+  owner.completePresentation(first);
+  expect(owner.getSnapshot().outcome).toBe("admitted");
+  owner.completePresentation(owner.getSnapshot().attemptId);
+  expect(owner.getSnapshot().outcome).toBe("succeeded");
+  expect(owner.getSnapshot().trail).toEqual([]);
+  await owner.navigate("failure", origin, async () => "failed");
+  owner.completePresentation(owner.getSnapshot().attemptId);
+  expect(owner.getSnapshot().outcome).toBe("failed");
+});

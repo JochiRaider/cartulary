@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.browser_group_result.v6",
+  "$id": "cartulary.browser_group_result.v7",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -26,7 +26,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.browser_group_result.v6"
+      "const": "cartulary.browser_group_result.v7"
     },
     "target_id": {
       "type": "string",
@@ -166,6 +166,9 @@
               },
               {
                 "$ref": "cartulary.harness_test_failure.v1"
+              },
+              {
+                "$ref": "cartulary.browser_fixture_lifecycle.v1"
               }
             ]
           }

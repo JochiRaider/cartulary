@@ -58,7 +58,7 @@ test("Playwright row adapter distinguishes primary asset failure from secondary 
   const assetResult = adapt(row("harness.browser.boundary_support.asset_probe", "assets"), report(broken));
   assert.equal(assetResult.failure_class, "artifact");
   const group = {
-    schema_id: "cartulary.browser_group_result.v6", target_id: "browser-e2e-visual",
+    schema_id: "cartulary.browser_group_result.v7", target_id: "browser-e2e-visual",
     stage_id: "visual", group_id: "asset-probe", browser_session_id: "session",
     runtime_profile_id: "default", service_requirement: "test-services",
     fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
@@ -226,4 +226,126 @@ test("scheduler watchdog timeout remains a timing failure with exit 13", async (
   assert.equal(result.failure_class, "timing");
   assert.equal(result.failure_reason, "timeout_failure");
   assert.equal(publicExitCodeForFailure(result, { signal: result.signal }), 13);
+});
+
+test("browser fixture process retains redacted late diagnostics and preserves cleanup classification", async () => {
+  const { createBrowserFixtureProcess, fixtureLifecycleAttachment } = await import("../index.mjs");
+  const fixture = createBrowserFixtureProcess({
+    command: process.execPath,
+    args: ["-e", `
+      const attempt = process.argv.at(-1);
+      process.stdout.write(JSON.stringify({ user_password: 'private-fixture-value' }) + '\\n');
+      process.stdin.resume();
+      process.stdin.on('end', () => {
+        process.stderr.write('late private-fixture-');
+        process.stderr.write('value postgres://user:secret@localhost/db\\n');
+        process.stderr.write(JSON.stringify({ schema_id: 'cartulary.browser_fixture_event.v1', attempt_id: attempt,
+          stage: 'target.database', phase: 'cleanup', outcome: 'failed', elapsed_ms: 1, deadline_ms: 100,
+          message: 'private-fixture-value: catalog retirement failed' }) + '\\n');
+        process.exitCode = 1;
+      });
+    `, "--"],
+  });
+  await fixture.ready;
+  const stopped = fixture.stop();
+  assert.equal(fixture.stop(), stopped);
+  let cleanup;
+  try { await stopped; } catch (error) { cleanup = error; }
+  assert.match(cleanup.message, /target.database/);
+  assert.match(cleanup.message, /late/);
+  assert.doesNotMatch(cleanup.message, /private-fixture-value|user:secret/);
+  const failures = [{ phase: "cleanup", failure_class: "harness", failure_reason: "cleanup_error", error: cleanup }];
+  const attach = () => ({ name: fixtureLifecycleAttachment, contentType: "application/json", body: Buffer.from(JSON.stringify(fixture.report(failures))).toString("base64") });
+  const broken = spec("cleanup", "failed");
+  broken.tests[0].results[0].attachments = [attach()];
+  let rowResult = adapt(row("harness.browser.unit.fixture_cleanup", "cleanup"), report(broken), 1);
+  assert.equal(rowResult.failure_class, "harness");
+  assert.equal(rowResult.failure_reason, "cleanup_error");
+  assert.equal(rowResult.exit_code, 12);
+  assert.equal(rowResult.failure_diagnostic.process.closed, true);
+  failures.unshift({ phase: "body", failure_class: "product", failure_reason: "test_assertion_failure", error: new Error("original assertion") });
+  broken.tests[0].results[0].attachments = [attach()];
+  rowResult = adapt(row("harness.browser.unit.fixture_cleanup", "cleanup"), report(broken), 1);
+  assert.equal(rowResult.failure_diagnostic.failures.length, 2);
+  assert.equal(rowResult.failure_diagnostic.failures[0].message, "original assertion");
+  assert.equal(rowResult.exit_code, 10);
+  failures[0] = { phase: "body", failure_class: "interrupted", failure_reason: "cancelled_or_interrupted", error: new Error("test interrupted") };
+  broken.tests[0].results[0].status = "interrupted";
+  broken.tests[0].results[0].attachments = [attach()];
+  rowResult = adapt(row("harness.browser.unit.fixture_cleanup", "cleanup"), report(broken), 130);
+  assert.equal(rowResult.failure_diagnostic.failures[0].failure_class, "interrupted");
+  assert.equal(rowResult.failure_diagnostic.failures[1].failure_reason, "cleanup_error");
+  const invalid = attach(); invalid.body = Buffer.from('{}').toString('base64');
+  broken.tests[0].results[0].attachments = [invalid];
+  assert.equal(adapt(row("harness.browser.unit.fixture_cleanup", "cleanup"), report(broken)).failure_class, "artifact");
+});
+
+test("browser fixture forced retirement remains a failure even when SIGTERM exits successfully", async () => {
+  const { createBrowserFixtureProcess } = await import("../index.mjs");
+  const fixture = createBrowserFixtureProcess({
+    command: process.execPath,
+    args: ["-e", `process.on('SIGTERM', () => process.exit(0)); process.stdout.write('{}\\n'); setInterval(() => {}, 1000);`, "--"],
+    cleanupMs: 20, signalMs: 1000,
+  });
+  await fixture.ready;
+  await assert.rejects(fixture.stop(), /forced=true/);
+  assert.equal(fixture.report().process.forced, true);
+  assert.equal(fixture.report().process.closed, true);
+});
+
+test("browser fixture stderr truncation cannot expose a multiline credential suffix", async () => {
+  const { createBrowserFixtureProcess } = await import("../index.mjs");
+  const fixture = createBrowserFixtureProcess({ command: process.execPath,
+    env: { ...process.env, FIXTURE_PASSWORD: `${"private-head-".repeat(900)}\nprivate-tail-value` },
+    args: ["-e", `
+      process.stdout.write('{}\\n'); process.stdin.resume();
+      process.stdin.on('end', () => {
+        process.stderr.write(process.env.FIXTURE_PASSWORD + '\\n' + 'safe'.repeat(7000) + '\\n');
+        process.stderr.write(JSON.stringify({ schema_id: 'cartulary.browser_fixture_event.v1', attempt_id: process.argv.at(-1),
+          stage: 'fixture', phase: 'terminal', outcome: 'succeeded', elapsed_ms: 1, deadline_ms: 0, message: '' }) + '\\n');
+      });
+    `, "--"],
+  });
+  await fixture.ready;
+  await fixture.stop();
+  assert.equal(/private-head-|private-tail-value/u.test(fixture.report().stderr), false);
+  assert.match(fixture.report().stderr, /safe/);
+});
+
+test("browser fixture startup failure and absent terminal evidence fail with redacted diagnostics", async () => {
+  const { createBrowserFixtureProcess } = await import("../index.mjs");
+  const startup = createBrowserFixtureProcess({
+    command: process.execPath,
+    args: ["-e", `process.stderr.write(process.env.FIXTURE_PASSWORD + ': startup failed\\n'); process.exitCode = 1;`, "--"],
+    env: { ...process.env, FIXTURE_PASSWORD: "startup-private-value" },
+  });
+  await assert.rejects(startup.ready, (error) => {
+    assert.match(error.message, /startup failed/);
+    assert.doesNotMatch(error.message, /startup-private-value/);
+    return true;
+  });
+  await assert.rejects(startup.stop(), /startup failed/);
+  const incomplete = createBrowserFixtureProcess({ command: process.execPath,
+    args: ["-e", `process.stdout.write('{}\\n'); process.stdin.resume();`, "--"] });
+  await incomplete.ready;
+  await assert.rejects(incomplete.stop(), /Missing terminal fixture evidence/);
+});
+
+test("browser fixture retirement waits for inherited streams and kills the owned process group", async () => {
+  const { createBrowserFixtureProcess } = await import("../index.mjs");
+  const descendant = "process.on('SIGTERM', () => {}); process.stdout.write(JSON.stringify({}) + String.fromCharCode(10)); setInterval(() => {}, 1000);";
+  const fixture = createBrowserFixtureProcess({ command: process.execPath,
+    args: ["-e", `
+      const { spawn } = require('node:child_process');
+      spawn(process.execPath, ['-e', ${JSON.stringify(descendant)}], { stdio: ['ignore', 'inherit', 'inherit'] });
+      process.stdin.resume(); process.stdin.on('end', () => process.exit(0));
+    `, "--"], startupMs: 5000, cleanupMs: 30, signalMs: 100,
+  });
+  try {
+    await fixture.ready;
+    await assert.rejects(fixture.stop(), /forced=true/);
+    assert.equal(fixture.report().process.closed, true);
+  } finally {
+    await fixture.stop().catch(() => {});
+  }
 });

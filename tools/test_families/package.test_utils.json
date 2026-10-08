@@ -63,7 +63,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard",
+      "minimum_tier": "full",
       "service_dependencies": []
     }
   ]
