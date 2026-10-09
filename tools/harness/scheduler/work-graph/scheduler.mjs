@@ -385,6 +385,7 @@ export async function runWorkGraph({
   cleanupResults = fixtureBroker?.cleanupResults ?? new CleanupResults(),
   finalize = async () => {},
   retainEvents = true,
+  observation = null,
 }) {
   validateWorkGraph(graph, { capacities });
   cache?.validateGraph(graph);
@@ -417,6 +418,54 @@ export async function runWorkGraph({
   const started = performance.now();
   let seq = 0;
   const elapsed = () => Math.max(0, Math.floor(performance.now() - started));
+  const activities = new Map();
+  const executionStarts = new Map();
+  const cacheDispositions = new Map();
+  let observationPhase = "executing";
+  let transitionSeq = 0;
+  let previousObservation = "";
+  const observe = (method, value) => {
+    // Availability of an optional diagnostic sink cannot change test outcomes.
+    try { observation?.[method]?.(value); } catch { /* Last publication remains observational. */ }
+  };
+  const notifyObservation = () => {
+    if (!observation) return;
+    const units = graph.units.map((unit) => {
+      const status = state.get(unit.unit_id);
+      const activity = activities.get(unit.unit_id);
+      const result = terminalResults.get(unit.unit_id);
+      const terminal = !["pending", "running"].includes(status);
+      let details = { wait_reason: null, blocking_resources: [], blocking_unit_ids: [] };
+      if (status === "pending") {
+        const dependencies = unit.needs.filter((id) => !["passed", "failed", "skipped", "cancelled"].includes(state.get(id)));
+        details = dependencies.length
+          ? { wait_reason: "dependencies", blocking_resources: [], blocking_unit_ids: dependencies.sort(compareASCII) }
+          : openWaits.has(unit.unit_id)
+            ? waitDetails(unit, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks, running, byID)
+            : details;
+      } else if (activity?.wait_reason && !terminal) {
+        details.wait_reason = activity.wait_reason;
+      }
+      return {
+        unit_id: unit.unit_id, status,
+        activity: terminal ? "terminal" : activity?.activity ?? (details.wait_reason ? "waiting" : "pending"),
+        started_elapsed_ms: executionStarts.get(unit.unit_id) ?? null,
+        ...details,
+        cache_disposition: cacheDispositions.get(unit.unit_id) ?? "not_observed",
+        failure_class: result?.failure_class ?? null,
+        failure_reason: result?.failure_class ? result.failure_reason ?? "unknown_failure" : null,
+      };
+    }).sort((a, b) => compareASCII(a.unit_id, b.unit_id));
+    const signature = JSON.stringify({ phase: observationPhase, units });
+    if (signature === previousObservation) return;
+    previousObservation = signature;
+    observe("update", { units, phase: observationPhase, last_transition_seq: ++transitionSeq, sampled_elapsed_ms: elapsed() });
+  };
+  const setActivity = (unit, activity, waitReason = null) => {
+    activities.set(unit.unit_id, { activity, wait_reason: waitReason });
+    if (activity === "executing") executionStarts.set(unit.unit_id, elapsed());
+    notifyObservation();
+  };
   let lastEventMonotonicMs = 0;
   let emissionTail = Promise.resolve();
   const emitBatchAt = (monotonicMs, emissions) => {
@@ -447,6 +496,7 @@ export async function runWorkGraph({
     if (eligible.has(unit.unit_id)) return;
     eligible.add(unit.unit_id);
     openWaits.set(unit.unit_id, details);
+    notifyObservation();
     await emitBatchAt(monotonicMs, [
       ["eligible", unit, "pending"],
       ["wait_started", unit, "pending", details],
@@ -465,6 +515,7 @@ export async function runWorkGraph({
     service_dependencies: [],
   };
   await emit("run_started", runLifecycleUnit, "running");
+  notifyObservation();
   for (const unit of graph.units) await emit("queued", unit, "pending");
 
   const settleSuccessors = async (completedUnitID) => {
@@ -486,6 +537,7 @@ export async function runWorkGraph({
             status: "skipped",
             failure_reason: "dependency_failure",
           });
+          notifyObservation();
           await emitBatchAt(boundary, [
             ["wait_ended", unit, "pending", wait],
             ["skipped", unit, "skipped", { failure_reason: "dependency_failure" }],
@@ -547,6 +599,7 @@ export async function runWorkGraph({
           const cacheResult = cache
             ? await cache.lookup(unit)
             : { outcome: "bypass", reason: "cache_unconfigured" };
+          cacheDispositions.set(unit.unit_id, cacheResult.outcome);
           await emit(
             `cache_${cacheResult.outcome}`,
             unit,
@@ -571,6 +624,7 @@ export async function runWorkGraph({
               status: "passed",
               cache: cacheResult,
             });
+            notifyObservation();
             await emitBatchAt(admissionBoundary, [
               ["wait_ended", unit, "pending", wait],
               ["completed", unit, "passed", { output_digest: cacheResult.output_digest }],
@@ -579,6 +633,7 @@ export async function runWorkGraph({
             continue;
           }
           state.set(unit.unit_id, "running");
+          activities.set(unit.unit_id, { activity: "admitted", wait_reason: null });
           if (unit.affinity_key) warmAffinities.delete(unit.affinity_key);
           addClaims(activeClaims, unit.resource_claims, 1);
           addLocks(activeSharedLocks, activeExclusiveLocks, unit, 1);
@@ -590,10 +645,15 @@ export async function runWorkGraph({
           ]);
           const promise = Promise.resolve()
             .then(async () => {
+              const quiet = (unit.exclusive_locks ?? []).includes("host_activity");
+              setActivity(unit, hostAdmission ? "waiting" : "admitted", hostAdmission ? "host_admission" : null);
+              if (quiet) observe("pause");
+              try {
               const hostLease = await hostAdmission?.(unit, controller.signal);
               let hostCleanup;
               const finishHost = () => hostCleanup ??= cleanupResults.attempt("host_release", () => hostLease.release(), { unitID: unit.unit_id });
               try {
+              setActivity(unit, "preparing", fixtureBroker && unit.fixture_lease !== "none" ? "fixture_acquisition" : null);
               const lease = fixtureBroker && unit.fixture_lease !== "none"
                 ? await fixtureBroker.acquire(unit.fixture_lease, {
                     affinityKey: unit.affinity_key ?? unit.owner_id,
@@ -619,6 +679,7 @@ export async function runWorkGraph({
               }
               let result;
               try {
+                setActivity(unit, "executing");
                 result = await executeUnit(unit, {
                   cwd,
                   environment: hostLease ? { ...environment, CARTULARY_HOST_ADMISSION_LEASE: hostLease.token } : environment,
@@ -628,6 +689,7 @@ export async function runWorkGraph({
               } catch (error) {
                 result = fixtureFailureResult(error);
               } finally {
+                setActivity(unit, "finalizing");
                 if (lease) {
                   const healthy =
                     !controller.signal.aborted &&
@@ -674,6 +736,9 @@ export async function runWorkGraph({
                 if (hostLease) await finishHost();
                 throw error;
               }
+              } finally {
+                if (quiet) observe("resume");
+              }
             })
             .then((result) => ({ unit_id: unit.unit_id, result }))
             .catch((error) => ({
@@ -681,10 +746,12 @@ export async function runWorkGraph({
               result: fixtureFailureResult(error),
             }));
           running.set(unit.unit_id, promise);
+          notifyObservation();
         }
       }
 
       if (controller.signal.aborted && pending.size > 0) {
+        observationPhase = "draining";
         for (const unitID of [...pending].sort(compareASCII)) {
           const unit = byID.get(unitID);
           const boundary = elapsed();
@@ -698,6 +765,7 @@ export async function runWorkGraph({
             failure_class: "interrupted",
             failure_reason: "cancelled_or_interrupted",
           });
+          notifyObservation();
           await emitBatchAt(boundary, [
             ["wait_ended", unit, "pending", wait],
             ["cancelled", unit, "cancelled", {
@@ -737,16 +805,20 @@ export async function runWorkGraph({
         });
       } else {
         state.set(unitID, "failed");
+        observationPhase = "draining";
         await emit("failed", unit, "failed", {
           failure_class: result.failure_class ?? "harness",
 			failure_reason: result.failure_reason ?? "unknown_failure",
         });
       }
+      notifyObservation();
       await settleSuccessors(unitID);
     }
   } finally {
     controller.abort();
     await Promise.allSettled(running.values());
+    observationPhase = "finalizing";
+    notifyObservation();
     await emit("cleanup_started", runLifecycleUnit, "running");
     const errors = [...releaseErrors];
     try { await fixtureBroker?.close(); } catch (error) { errors.push(error); }

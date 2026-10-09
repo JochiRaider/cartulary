@@ -125,10 +125,26 @@
       ]
     },
     {
+      "key": "harness_live_observation_contract",
+      "boundary_group": "evidence_accounting",
+      "paths": [
+        "tools/harness/contract/live-observation.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
       "key": "harness_observability",
       "boundary_group": "scheduler_diagnostics",
       "paths": [
         "tools/harness/observability/observability.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "harness_run_observation",
+      "boundary_group": "scheduler_diagnostics",
+      "paths": [
+        "tools/harness/diagnostics/run-observation.mjs"
       ],
       "allowed_consumers": []
     },
@@ -173,6 +189,14 @@
         "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
         "tools/harness/scheduler/fixture-broker/index.mjs",
         "tools/harness/scheduler/fixture-broker/providers.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "scheduler_live_status",
+      "boundary_group": "scheduler",
+      "paths": [
+        "tools/harness/scheduler/work-graph/live-status.mjs"
       ],
       "allowed_consumers": []
     },

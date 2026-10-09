@@ -10,6 +10,12 @@ ifneq ($(filter-out clean distclean,$(MAKECMDGOALS)),)
 $(error cleanup cannot be combined with managed work in one Make invocation)
 endif
 override workspace_admitted := yes
+else ifneq ($(filter test-run-status,$(MAKECMDGOALS)),)
+ifneq ($(words $(MAKECMDGOALS)),1)
+$(error test-run-status must be the sole Make goal)
+endif
+# This read-only observer must neither create a lock nor delay cleanup.
+override workspace_admitted := yes
 else
 override workspace_admitted := $(if $(filter shared,$(shell bash tools/harness/workspace/admission.sh verify 2>/dev/null)),yes,no)
 endif

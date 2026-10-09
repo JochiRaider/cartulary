@@ -118,6 +118,19 @@ function ownerDiagnosticTool(mode, target) {
 }
 
 const makeNodeTools = {
+  "test-run-status": {
+    inputs: ["RUN_ID", "TARGET", "AFTER_REVISION", "WAIT_SECONDS", "JSON"],
+    script: "./tools/harness/diagnostics/test-run-status-cli.mjs",
+    resultDir: { mode: "required", flag: "--results-dir" },
+    usage: "usage: make test-run-status RESULTS_DIR=<exact-run-dir> [RUN_ID=<id>] [TARGET=<target>] [AFTER_REVISION=<revision> WAIT_SECONDS=0..30] [JSON=1]",
+    buildArgs(env) {
+      const args = [];
+      for (const [name, flag] of [["RUN_ID", "--run-id"], ["TARGET", "--target"], ["AFTER_REVISION", "--after-revision"], ["WAIT_SECONDS", "--wait-seconds"]]) optionalFlag(args, env, name, flag);
+      if (value(env, "JSON") === "1") args.push("--json");
+      else if (value(env, "JSON") !== "") args.push("--json-value", value(env, "JSON"));
+      return args;
+    },
+  },
   "author-test-row-id": {
     inputs: ["FAMILY_ID", "CLAIM", "SELECTOR_KEY"],
     script: "./tools/harness/test-catalog/row-id-authoring-cli.mjs",

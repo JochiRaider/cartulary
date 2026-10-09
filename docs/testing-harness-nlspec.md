@@ -1936,6 +1936,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `target-plan-json` | `cartulary.harness.command.target_plan_json.v2` | `help_discovery` | `helper_only` | `machine_stdout_json` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
 | `fixture-report` | `cartulary.harness.command.fixture_report.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
 | `explain-run` | `cartulary.harness.command.explain_run.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
+| `test-run-status` | `cartulary.harness.command.test_run_status.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 8.9) | `none` | `public_active` | Exact-invocation live observation; target-local JSON and bounded waiting. |
 | `harness-observability-check` | `cartulary.harness.command.harness_observability_check.v2` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `none` | `public_active` | Read-only validation of deterministic harness diagnostic projection for one exact retained run. |
 | `harness-otel-export` | `cartulary.harness.command.harness_otel_export.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `external_network` | `public_active` | Explicit post-run OTLP export; ordinary harness commands never invoke it. |
 | `harness-performance-check` | `cartulary.harness.command.harness_performance_check.v5` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `failure_normalization` (Section 9) | `none` | `public_active` | Validates exact target/provider-scoped baseline and candidate evidence windows under Section 10.5. |
@@ -2434,7 +2435,7 @@ Each `inputs[]` row MUST contain `name`, `binding`, `allowed_sources`, `required
 | `summary_emission` | One of `none`, `value`, `redacted_value`, or `source_and_value`. |
 | `child_forwarding` | One of `none`, `argv`, `runtime_env`, or `argv_and_runtime_env`; undeclared public harness inputs MUST NOT reach child environments. |
 
-The closed target-local public input set in the current profile consists only of documented uses of `ROLE`, `OWNER`, `ROWS`, `TARGET`, `RESULTS_DIR`, explicit retained-evidence root selectors, `ALLOW_OLDER_RESULTS_DIR`, `RUN_ID`, `DETAIL`, `JSON`, worker controls, fixture report limits, duration-maintenance knobs, scheduler timing knobs, destructive-safety controls, the explicit Govulncheck database override, and the explicit `HARNESS_OTLP_ENDPOINT` and `HARNESS_OTLP_HEADERS_FILE` post-run export inputs. A public target accepts one of these names only when it appears in the normative input matrix below.
+The closed target-local public input set in the current profile consists only of documented uses of `ROLE`, `OWNER`, `ROWS`, `TARGET`, `RESULTS_DIR`, explicit retained-evidence root selectors, `ALLOW_OLDER_RESULTS_DIR`, `RUN_ID`, `DETAIL`, `JSON`, live-observation cursors and waits, worker controls, fixture report limits, duration-maintenance knobs, scheduler timing knobs, destructive-safety controls, the explicit Govulncheck database override, and the explicit `HARNESS_OTLP_ENDPOINT` and `HARNESS_OTLP_HEADERS_FILE` post-run export inputs. A public target accepts one of these names only when it appears in the normative input matrix below.
 
 `frontend-fallow-static` accepts no target-local Make variables in the current Fallow static profile. A future changed-code audit base such as `FALLOW_CHANGED_SINCE` MUST be added to this registry before it becomes public input.
 
@@ -2456,7 +2457,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `test-evidence-audit`, `harness-performance-check` | `EVIDENCE_ROOTS_FILE` | `path` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `argv` |
 | `task-surface-report` | `TASK_SURFACE_REPORT_ARGS` | `task_surface_report_args` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `task_surface_report_args` | `usage_error`, exit `2` | `value` | `argv` |
 | `task-guide` | `ROLE` | `enum` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `module-author` | `usage_error`, exit `2` | `value` | `argv` |
-| `task-guide`, `test-slice`, `service-backed-test-slice`, `fixture-report`, `explain-test-owner`, `explain-target` | `JSON` | `exact_1_bool` | no | make command line, environment, makefile default | `false` | use `false` | `false` | `trim` | `exact_1_bool` | `usage_error`, exit `2` | `value` | `argv` |
+| `task-guide`, `test-slice`, `service-backed-test-slice`, `fixture-report`, `explain-test-owner`, `explain-target`, `test-run-status` | `JSON` | `exact_1_bool` | no | make command line, environment, makefile default | `false` | use `false` | `false` | `trim` | `exact_1_bool` | `usage_error`, exit `2` | `value` | `argv` |
 | `author-test-row-id` | `FAMILY_ID` | `family_id` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `family_id` | `usage_error`, exit `2` | `value` | `argv` |
 | `author-test-row-id` | `CLAIM` | `semantic_text` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `semantic_text` | `usage_error`, exit `2` | `value` | `argv` |
 | `author-test-row-id` | `SELECTOR_KEY` | `semantic_text` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `semantic_text` | `usage_error`, exit `2` | `value` | `argv` |
@@ -2465,12 +2466,14 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `test-slice`, `service-backed-test-slice` | `PLAYWRIGHT_WORKERS` | `positive_integer` | no | make command line, environment, makefile default | `3` | use `3` | `invalid` | `trim` | `1..16` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `test-slice`, `service-backed-test-slice` | `ROWS` | `row_ids` | no | make command line, environment, makefile default | none | omitted | `invalid` | `trim` | `row_ids` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-slice`, `service-backed-test-slice`, `frontend-unit` | `VITEST_MAX_WORKERS` | `positive_integer` | no | make command line, environment, makefile default | `4` | use `4` | `invalid` | `trim` | `1..16` | `usage_error`, exit `2` | `value` | `runtime_env` |
-| `target-plan`, `target-plan-json`, `fixture-report`, `explain-run`, `scheduler-event-order-drift`, `scheduler-summary-timing-drift` | `TARGET` | `target_name` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `target_name` | `usage_error`, exit `2` | `value` | `argv` |
+| `target-plan`, `target-plan-json`, `fixture-report`, `explain-run`, `test-run-status`, `scheduler-event-order-drift`, `scheduler-summary-timing-drift` | `TARGET` | `target_name` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `target_name` | `usage_error`, exit `2` | `value` | `argv` |
 | `fixture-report` | `RESULTS_DIR` | `result_selector` | no | make command line, environment, makefile default | `.cartulary/test-results` | use `.cartulary/test-results` | `omitted` | `path_token` | `result_selector` | `usage_error`, exit `2` | `value` | `argv` |
-| `fixture-report`, `explain-run`, `harness-observability-check`, `harness-otel-export` | `RUN_ID` | `run_id` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `run_id` | `usage_error`, exit `2` | `value` | `argv` |
+| `fixture-report`, `explain-run`, `test-run-status`, `harness-observability-check`, `harness-otel-export` | `RUN_ID` | `run_id` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `run_id` | `usage_error`, exit `2` | `value` | `argv` |
 | `fixture-report` | `FIXTURE_THRESHOLD_MS` | `positive_integer` | no | make command line, environment, makefile default | `30000` | use `30000` | `omitted` | `trim` | `1..999999999` | `usage_error`, exit `2` | `value` | `argv` |
 | `fixture-report` | `FIXTURE_TOP` | `positive_integer` | no | make command line, environment, makefile default | `5` | use `5` | `omitted` | `trim` | `1..999999999` | `usage_error`, exit `2` | `value` | `argv` |
-| `explain-run`, `harness-observability-check`, `harness-otel-export`, `go-test-duration-baselines`, `browser-e2e-duration-baselines`, `service-backed-make-target-duration-baselines`, `harness-smoke-duration-baselines` | `RESULTS_DIR` | `result_selector` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `path_token` | `result_selector` | `usage_error`, exit `2` | `value` | `argv` |
+| `explain-run`, `test-run-status`, `harness-observability-check`, `harness-otel-export`, `go-test-duration-baselines`, `browser-e2e-duration-baselines`, `service-backed-make-target-duration-baselines`, `harness-smoke-duration-baselines` | `RESULTS_DIR` | `result_selector` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `path_token` | `result_selector` | `usage_error`, exit `2` | `value` | `argv` |
+| `test-run-status` | `AFTER_REVISION` | `positive_integer` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `0..9007199254740991` | `usage_error`, exit `2` | `value` | `argv` |
+| `test-run-status` | `WAIT_SECONDS` | `positive_integer` | no | make command line, environment, makefile default | `0` | use `0` | `omitted` | `trim` | `0..30`; positive requires `AFTER_REVISION` | `usage_error`, exit `2` | `value` | `argv` |
 | `explain-run` | `DETAIL` | `enum` | no | make command line, environment, makefile default | `summary` | use `summary` | `omitted` | `trim` | `summary`, `children`, `logs`, `progress`, `accounting`, `performance` | `usage_error`, exit `2` | `value` | `argv` |
 | `harness-otel-export` | `HARNESS_OTLP_ENDPOINT` | `url` | yes | make command line | none | missing required input | `invalid` | `trim` | `url` | `usage_error`, exit `2` | `redacted_value` | `argv` |
 | `harness-otel-export` | `HARNESS_OTLP_HEADERS_FILE` | `path` | no | make command line | none | omitted | `omitted` | `path_token` | `path` | `usage_error`, exit `2` | `redacted_value` | `argv` |
@@ -4201,6 +4204,125 @@ interpretations belong in the review conversation or a separately authored findi
 record; the harness does not present them as measured observations.
 
 Verified by: TH-HARNESS-AC-123, TH-HARNESS-AC-124
+
+### 8.9 Exact-invocation live observation
+
+**TH-HARNESS-REQ-289**
+`test-run-status` is a public `help_discovery`, `helper_only`, `human_summary`
+diagnostic with command ID `cartulary.harness.command.test_run_status.v1`.
+It has no retained output or recursive observability, launches no test or
+provisioning, and acquires no test, host, fixture, or service lease. Installed
+tooling is required; observation MUST NOT install or regenerate dependencies.
+The sole-goal observer bypasses workspace mutation admission: it MUST NOT
+create an admission lock or delay cleanup by holding a shared workspace lease.
+Combining it with another Make goal is invalid. Secure reads fail closed when
+concurrent cleanup changes an artifact; the observer does not prevent cleanup.
+This is an explicit diagnostic exception to the complete-canonical-run input
+boundary in TH-HARNESS-REQ-280 and TH-HARNESS-REQ-282. It does not change the
+private staging and terminal publication boundary in TH-HARNESS-REQ-281.
+
+| Input | Contract |
+| --- | --- |
+| `RESULTS_DIR` | Required exact run directory; a results parent only with `RUN_ID`. Never select a newest/sibling run or create a missing directory. |
+| `RUN_ID` | Optional exact child identity; without it the directory basename is the expected identity. |
+| `TARGET` | Optional exact projection within this invocation. An unknown target is a usage error once membership is available. |
+| `AFTER_REVISION` | Optional nonnegative safe integer; zero waits for the first publication. A cursor ahead of an available publication is invalid. |
+| `WAIT_SECONDS` | Integer 0–30, default zero. A positive wait requires a cursor. |
+| `JSON` | Omitted/empty selects human output; exact `1` selects one JSON object plus LF. Other values are invalid. Global machine mode remains unsupported. |
+
+Inherited selection, prepared-identity, private-staging and lifecycle inputs
+MUST NOT affect the selected invocation. A syntactically valid missing location
+returns `not_published`; unsafe existing paths and access failures are errors.
+Unknown schema versions, malformed terminal evidence, and identity mismatches
+fail closed without falling back to another source. A reader's successful exit
+does not mean the observed run passed. Observation expiry is successful
+`wait_expired`, never a test timeout. Reader interruption affects only the reader.
+
+The scheduler publishes `diagnostics/live-status.json` as
+`cartulary.harness_live_snapshot.v1`. This mutable diagnostic is excluded from
+canonical acceptance, cache receipts, timing authority and release composition.
+It contains run, public-command, source and graph identity copied from the
+immutable manifest; a strictly increasing publication revision; UTC millisecond
+sample time and monotonic elapsed time; and `last_transition_seq`, a diagnostic
+state-change cursor distinct from canonical event sequence. Heartbeats advance
+publication revision without fabricating progress.
+
+The available variant contains every unique unit and exact graph target
+membership, ASCII-sorted with unique identifiers and contained references.
+Canonical unit statuses are preserved. Activities are `pending`, `waiting`,
+`admitted`, `preparing`, `executing`, `finalizing`, and `terminal`. Execution
+starts only after host admission and fixture acquisition, immediately before
+the executor. Wait reasons, blockers, normalized known failures and cache
+dispositions come from scheduler-owned state; unknown holders are not invented.
+Lifecycle state is updated at coherent boundaries, not by replaying private
+events. Run phase is `executing`, `draining`, or `finalizing`.
+
+Publish after manifest admission, coalesce ordinary changes to at most once per
+second and heartbeat every five seconds while active. Initial, pause, resume and
+terminal boundary publications may be immediate. Publish mode is `active` or
+`paused_measurement`. Before requesting an explicitly graph-declared exclusive
+host-activity lease, settle publication and publish the pause. No publication
+occurs until preparation, execution, cleanup and lease release finish. A paused
+observation ends a reader wait immediately even with a matching cursor. Agents
+use native execution observation during the known pause rather than repeatedly
+starting observers. The reader remains read-only: qualification must measure
+concurrent readers of this and sibling runs; no zero-interference claim follows
+from read-only access.
+
+Use owner-only directories and mode-0600 files with secure atomic replacement.
+The serialized snapshot limit is 16 MiB, including LF. The secure writer and
+reader use that same bound; other callers retain their existing default limits.
+An oversized complete snapshot is replaced by the closed unavailable variant:
+identity, revision, timestamps, progress cursor, publication mode, phase,
+`availability="unavailable"`, and `unavailable_reason="snapshot_too_large"`,
+without unit/target rosters or counts. Available publications use
+`availability="available"` and null reason. A failed write cannot communicate
+its own cause: retain the last valid snapshot or missing publication, without
+inventing producer death. Diagnostic availability failures do not replace test
+outcomes; privacy and required-evidence failures retain their existing semantics.
+Stop publisher timers and settle writes on every exit path before the retained
+secret scan. No diagnostic publication may follow that scan.
+
+The reader returns `cartulary.harness_run_observation.v1`, a closed object
+separating `operation_status`, `operation_exit_code` and reader failure fields
+from the observed terminal result. It reports exact run identity, selected
+target, publication revision, monotonic wait duration, wait result, limitations,
+and one of `not_published`, `live`, `unavailable`, `unsupported_live`,
+`terminal_summary`, or `invalid`. The live projection exposes sample time,
+publication mode, phase, progress cursor, exact unique-unit/cache counts and
+bounded running, waiting and failure lists. Each list shows at most 16 entries;
+each blocker list shows at most eight, with exact omitted counts. JSON output is
+at most 64 KiB; deterministic list truncation never changes totals. Human output
+is at most 30 lines and 8192 bytes. No raw logs, commands, credentials, private
+paths, resource capabilities or per-test names are included.
+
+Terminal run or tool summaries take precedence. An exact requested projection
+is read only within that invocation. Terminal results report summary reference,
+reported status, normalized failure fields and nullable normalized exit code;
+`evidence_audit="not_run"`. `outer_exit_not_observed`,
+`process_not_observed` and `current_source_not_audited` remain explicit. Summary
+publication does not establish completion of the enclosing command or its later
+retained-secret scan. Tool-only runs without identifying published evidence
+remain `not_published`, not an inferred successful or unsupported run.
+`unsupported_live` is reserved for explicitly identified producers without a
+live interface; the current tool-only interface has no preterminal identity
+publication, so its missing files cannot establish that state.
+
+Long polling uses a monotonic deadline, at most one observation cycle per second,
+and no canonical-event replay. Revision change, terminal evidence, pause,
+unavailability, invalid evidence, interruption or expiry ends the wait.
+Atomically replaced diagnostics permit reading one validated complete version;
+immutable artifact read rules are unchanged. Unsafe/malformed evidence is
+`artifact/artifact_error` (11); invalid inputs are `config/usage_error` (2).
+After JSON admission, handled failures emit one schema-valid error object;
+earlier binding failures retain existing preflight output rules. No observer
+success establishes evidence completeness, cleanup proof or product acceptance.
+Public binding coverage remains with `harness.command_surface`; live reader,
+publication and lifecycle cases route through
+`harness.evidence_accounting.verification.live_invocation_observation` on the
+existing current-epoch evidence row. Skill evaluation is separate human-reviewed
+procedure evidence, never an executable Markdown input.
+Verified by: TH-HARNESS-AC-136
 
 ## 9. Failure Classes and Exit Codes
 
@@ -6589,7 +6711,8 @@ registered disposable root. `clean` preserves usable installations; `distclean`
 removes dependency roots, stores, and installation proofs together.
 
 **TH-HARNESS-REQ-506**
-Managed Make invocations MUST acquire shared worktree admission before any
+Except for the sole-goal read-only observer in Section 8.9, managed Make
+invocations MUST acquire shared worktree admission before any
 preparation, prerequisite, scheduler execution, or write. Admission is a kernel
 filesystem lock in that worktree's Git administrative storage, outside cleanup
 candidates and independent of host-capacity accounting. Real cleanup MUST acquire
@@ -7695,6 +7818,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-133 | TH-HARNESS-REQ-417, TH-HARNESS-REQ-552 | CLI same-page/authentication, hostile configuration, read-only state, malformed output, cancellation and daemon recovery | Snapshot is private text; epoch, API references, page/context and browser ownership are preserved. | No second browser, arbitrary CLI command, public private text, or success after incomplete cleanup. |
 | TH-HARNESS-AC-134 | TH-HARNESS-REQ-818 | Rich core, continuations, malformed recipes, owner transitions, both review profiles, and failed preparation | Both consumers validate before mutation and verify source/semantic parity, all 24 fields, actual owner outcomes and cleanup. | No direct derived writes, silent omissions, stale-version substitution, secret receipts or Markdown dependency. |
 | TH-HARNESS-AC-135 | TH-HARNESS-REQ-819 | Authored ISO/UUID text, scoped history metadata, wrong cardinality, source overlap, wrong focus/offsets, missing fonts and unstable geometry | Source/API values are unchanged; metadata is restored; declared framing holds across three frames before comparison. | Broad normalization, invisible focus, repaired observation or contaminated accessibility evidence fails. |
+| TH-HARNESS-AC-136 | TH-HARNESS-REQ-289 | Exact/sibling/missing runs; live and tool summaries; host/fixture waits; heartbeat-only changes; cleanup; paused matching cursor; interrupted reader; malformed and unsafe evidence; concurrent atomic replacement; repeated snapshots above 1 MiB and overflow above 16 MiB | Read-only bounded observation preserves run binding, progress, omission counts, normalization and native-command distinction; no staging reads, test signals, lease changes or post-scan writes. | Zero/one/four-reader measurement qualification includes sibling runs, existing thresholds and cleanup gates, plus observer CPU, memory and read volume; qualification failure blocks completion. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

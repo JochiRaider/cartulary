@@ -175,7 +175,8 @@
   credential-capacity-assessment \
   package-release \
   package-inspect \
-  syft-toolchain
+  syft-toolchain \
+  test-run-status
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -313,6 +314,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'                                      RESULTS_DIR=<root|run-dir> HARNESS_OTLP_ENDPOINT=<url> explicitly export retained harness diagnostics' \
 	'  make fixture-report' \
 	'                                      RESULTS_DIR=<root|run-dir> report fixture cost hotspots' \
+	'  make test-run-status                observe one exact invocation without controlling execution' \
 	'' \
 	'maintenance:' \
 	'  make generate-drift                 fail on generated artifact drift' \
@@ -1921,4 +1923,9 @@ syft-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 syft-toolchain: $(NODE_BIN)
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target syft-toolchain
 endif
+
+test-run-status:
+	$(Q)test -x "$(NODE_BIN)" || { echo "[CONFIG] test-run-status requires the installed Node runtime" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-run-status)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,test-run-status,RESULTS_DIR=$(call task_surface_shell_quote_raw,RESULTS_DIR) RUN_ID=$(call task_surface_shell_quote_raw,RUN_ID) TARGET=$(call task_surface_shell_quote_raw,TARGET) JSON=$(call task_surface_shell_quote_raw,JSON) AFTER_REVISION=$(call task_surface_shell_quote_raw,AFTER_REVISION) WAIT_SECONDS=$(call task_surface_shell_quote_raw,WAIT_SECONDS))
 

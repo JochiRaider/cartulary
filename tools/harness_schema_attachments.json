@@ -394,6 +394,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_live_snapshot.v1",
+      "path": "tools/schemas/cartulary.harness_live_snapshot.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness live observation",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_performance_evidence_roots.v3",
       "path": "tools/schemas/cartulary.harness_performance_evidence_roots.v3.schema.json",
       "classification": "owner_input",
@@ -426,6 +433,13 @@
       "path": "tools/schemas/cartulary.harness_run_manifest.v1.schema.json",
       "classification": "public_contract",
       "producer": "unified harness runner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_run_observation.v1",
+      "path": "tools/schemas/cartulary.harness_run_observation.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness live observation",
       "validation": "json-shape-check"
     },
     {

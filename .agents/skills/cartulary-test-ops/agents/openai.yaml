@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cartulary Test Operations"
+  short_description: "Run, observe, and diagnose the Cartulary harness"
+  default_prompt: "Use $cartulary-test-ops to select, run, observe, or diagnose Cartulary tests through the canonical Make harness. Preserve the exact run identity, distinguish live observations from terminal evidence, and do not rerun or repair anything outside this task's authorization."

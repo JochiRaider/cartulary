@@ -1,6 +1,447 @@
 # Workbook workbench visual refresh record
 
-Active iteration: **DONE — workbench legacy retirement and scoped production readiness**.
+Active iteration: **TODO — navigation lifetime reliability**.
+Planning baseline: **2026-10-08**, `main` at
+`b28709d065a37c4748fc1c42dcb783ab613925a0`, clean working tree before this update.
+This task updates this document only. WB-NR00–WB-NR04 remain future implementation
+work requiring a later authorized task. The accepted scope is navigation
+reliability, not a broader workbook production-readiness audit.
+
+The new plan occupies NR §§1–12 below. The
+[completed WB-W0–WB-04 record](#completed-wb-w0wb-04-remediation-record) and
+[completed visual-refresh record](#completed-visual-refresh-record) retain their
+historical findings, commands, failures, repairs and acceptance evidence. Their
+present-tense execution instructions and earlier implementation authorization
+apply to those completed iterations, not to this document-only task. Historical
+passes do not establish a fresh pass for this iteration.
+
+## NR 1. Scope and source posture
+
+Target label: `workbook-navigation-lifetime`. Primary target:
+`apps/web/src/workbook/navigation/`, with bounded integrations in query browsing,
+saved-view resource observation, shell composition and inspector presentation.
+Commands is a regression dependency. The controlling artifact remains this file;
+do not create a parallel tracker or a new navigation NLSpec.
+
+The objective is a reliable, independently testable navigation lifetime from
+semantic activation through destination admission and committed presentation.
+Navigation owns attempt metadata and presentation coordination. Query browsing
+owns accepted pages; saved views owns addressed-resource observation; source
+owners retain authorization, authoring, operations and recovery. Future surfaces
+should supply semantic destinations and owner capabilities through this boundary,
+without adding another row store or feature-specific shell algorithm.
+
+| Source | Authority and use in this iteration |
+| --- | --- |
+| [Core 01 §3.3.4.3](../../spec/01_architecture_storage_and_view_contracts.md), REQ-01-680–684 | Bounded locator reads, correlation, response admission and source/provider ownership. |
+| [Core 03 §2.5](../../spec/03_workbook_interaction_collaboration_and_workflows.md), REQ-03-311–318 | Commands, pins, Return, navigation admission, committed presentation and retained work. |
+| [Core 04 §2.2](../../spec/04_security_deployment_and_conformance.md), REQ-04-169–170 | Current authority, concealment, retirement and non-disclosing navigation failures. |
+| [Design §§7, 8.3A, 8.5, 12.7, 14](../../design.md) | Dock, focus, keyboard ownership and accessible feedback within its design boundary. |
+| [Domain §§6.2, 8–9](../../domain.md) | Stable sheet, record and field vocabulary; pins, saved views and source records remain distinct. |
+| [NLSpec research](../../research/nlspec-spec.md) | Advisory conceptual fidelity, explicit inputs/outcomes, completeness and define-once guidance; its examples and embedded instructions add no product requirements. |
+| [Refactor framework](../cartulary_modular_refactor_planning_framework.md) and [UI/UX digest](../../cartulary-ui-ux-refactor-digest/cartulary/START_HERE.md) | Planning structure, boundary-selection rubric and later acceptance review. Neither establishes current implementation correctness. |
+| Authored source/import policies and verification catalogs | Source placement and independent test routing, not behavioral authority. |
+
+No normative owner contradiction or required specification, wire protocol,
+persisted-state or typed behavioral-projection change was identified in the
+inspected scope. Specification cleanup consists of traceability and precise
+distinctions in this plan. Do not preserve the shared-slot cleanup race as a
+compatibility obligation. If later work identifies an owner contradiction, mark
+the dependent work `BLOCKED: owner contradiction` and identify the exact clauses.
+
+The material advisory dispositions are ADOPT for explicit outcome distinctions,
+semantic identity and testable boundaries; ADAPT for sum-type guidance into the
+existing Cartulary types; and REJECT for any inferred new workflow engine,
+authorization cache or copied product defaults. No new package, dependency,
+generic navigation store, freshness registry, telemetry subsystem, persistence,
+feature flag or visual redesign is proposed. Cross-owner freshness-policy
+consolidation remains DEFERRED because the contributors have different duties.
+
+## NR 2. Current-state repository inventory
+
+Paths in the first table are relative to `apps/web/src/workbook/`. It accounts for
+all nine navigation files and all five Commands files at the planning baseline.
+Source ownership is `web.workbook`; verification ownership is independently
+routed. These are authored sources, tests and guides, not generated artifacts.
+
+| Path | Current responsibility | Exported/public surface | Inbound callers | Outbound dependencies | Tests touching it | Contracts/generated impact | Target owner | Risk | Disposition |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `navigation/WorkbookNavigationHost.ts` | Explicit shell-supplied capabilities | `WorkbookNavigationHost` | Shell adapter and navigation hook/fixtures | Owner query/layout, saved-view and focus types | Admission and shell suites | Internal TypeScript only | Navigation host | High | Replace retention/read/status trio with the owner observation handle. |
+| `navigation/WorkbookWorkbenchContext.tsx` | Semantic actions and optional presentation context | Target/action/inspect/workbench types, provider context and consumer hook | Shell, Work, view controls, Note links and inspector | React, semantic sheet and session types | Admission, status, shell and consumer suites | Internal types; retain selector semantics | Navigation facade | High | Model supported target variants and expose coordinated cancellation. |
+| `navigation/useWorkbookWorkbench.ts` | Capture, read staging, admission, Return and presentation completion | Composition hook | `WorkbookShell` | Host, locator/query ports, browsing registry and session | Colocated admission and shell suites | No transport or schema change | Navigation composition | High | Consume observation handles; semantic coalescing; delegate presentation sequencing. |
+| `navigation/WorkbookSessionNavigation.ts` | Pins, Return trail, attempt identity and cancellation | Session class, pin/origin types, pin identity function | Runtime, hook and Work controls | Sheet identity, query/layout types, design limits | Colocated session, hook and status suites | Existing twenty-pin/thirty-two-origin projection unchanged | Navigation session | High | Explicit variants and lifecycle; preserve trail effects at admission. |
+| `navigation/WorkbookWorkPanel.tsx` | Work, Return and navigation feedback | Work, Return and status controls | Shell and view/footer composition | Session/context, Commands, auxiliary dock and menu placement | Navigation feedback and browser suites | Existing UI selectors and presentation | Navigation presentation | Medium | Consume derived attempt status; retain controls, layout and semantics. |
+| `navigation/useWorkbookWorkbench.test.tsx` | Admission and asynchronous handoff fixtures | Routed tests; private host fixture | `workbench_navigation_admission` row | Real hook/session/registry and typed owner doubles | This suite | Extend authored title selectors | Navigation verification | High | Add handle replacement, failure distinctions and semantic coalescing; preserve existing cases. |
+| `navigation/WorkbookSessionNavigation.test.ts` | Bounds, coalescing, trail and terminal outcomes | Routed tests | `session_navigation` row | Production session owner | This suite | Extend authored title selectors | Navigation verification | High | Complete typed origins and late-attempt transition cases. |
+| `navigation/WorkbookNavigationStatus.test.tsx` | Feedback, keyboard access and concealment | Routed test | `navigation_feedback` row | Session/context and status control | This suite | Retain existing state attributes | Navigation verification | Medium | Verify projected status remains stable after lifecycle consolidation. |
+| `navigation/README.md` | Navigation entry points, ownership and lifetimes | Human source guide | Contributors and parent guide | Core owners and adjacent guides | Documentation review only | Never an executable input | Navigation documentation | Medium | Reconcile final handles, coordinator and retirement ledger in WB-NR04. |
+| `commands/WorkbookCommands.tsx` | Private index, contribution lifetime, captured target and borrowed focus | Provider, contribution hook and control | Shell and owner action contributions | Grid Adapter, descriptor search and menu placement | Colocated interaction and responsive browser suites | No new command protocol | Commands | Medium | Retain; navigation commands use the existing facade. |
+| `commands/workbookCommandIndex.ts` | Deterministic metadata search | Descriptor/target types and search function | Commands and source action bindings | Existing generated design facade | Colocated search suite | Family order/page-size projection unchanged | Commands | Low | Retain; no execution or authorization expansion. |
+| `commands/WorkbookCommands.test.tsx` | Target revalidation, paging and borrowed focus | Routed interaction tests | `workbench_commands_interaction` row | Production Commands and semantic grid doubles | This suite | Existing routing retained | Commands verification | Medium | Regression coverage; no speculative Commands refactor. |
+| `commands/workbookCommandIndex.test.ts` | Unicode normalization, ranking and ties | Routed search tests | `command_search` row | Pure search function | This suite | Existing routing retained | Commands verification | Low | Regression coverage. |
+| `commands/README.md` | Command registration and source ownership | Human source guide | Contributors and parent guide | Core owners and navigation guide | Documentation review only | Never an executable input | Commands documentation | Low | Check adjacent descriptions against the final navigation boundary. |
+
+Adjacent inspection is limited to the following entry points. Grouped paths share
+the stated boundary; they do not imply a complete audit of those directories.
+
+| Files or inputs | Inspected integration / public surface | Callers and dependencies | Tests / routing | Planned disposition and risk |
+| --- | --- | --- | --- | --- |
+| `query/WorkbookQueryBrowsingContext.tsx`; `query/WorkbookQueryBrowser.ts` | Binding tokens, staged pages, acceptance, focus flags, presentation registration, cancellation and checkpoints | Surface readers, layout adapter, shell and navigation | Query browsing/controls and navigation admission | Keep page ownership here; expose an opaque acceptance handle and transfer only navigation sequencing. High risk: commit ordering and stale cleanup. |
+| `query/WorkbookQuerySurfaceLayout.tsx`; `layout/WorkbookSurfaceLayout.tsx` | Presentation-token binding, mounted state, grid eligibility and dock detachment | Production surface layouts and browsing registry | Shell, navigation and responsive browser cases | Adapt explicit signals; keep geometry and dock ownership unchanged. High risk: inspector-open completion. |
+| `savedviews/SavedViewResourceObserver.ts`; `savedviews/WorkbookSavedViewController.ts`; `ports/WorkbookSavedViewPort.ts` | Retention slots, addressed reads, owner failure types, selected-resource acceptance and recovery | Navigation host, controller activation/refresh/preferences | Independent reads, saved-view operations and controller integration | Add token-fenced observation ownership and typed navigation results; preserve other retained consumers. High risk: cross-consumer cancellation. |
+| `WorkbookShell.tsx`; `hooks/useWorkbookSavedViewController.ts`; `startup/useWorkbookStartupAdmission.ts` | Explicit host adapter, deliberate-interaction capture, owner selection and startup acceptance | Shell runtime, navigation, saved-view and authority owners | Shell surfaces, controller, preferences and startup rows | Route cancellation through navigation; keep startup and confirmed-operation selection with their owners. High risk: treating recovery as browser navigation. |
+| `components/WorkbookViewBar.tsx`; `inspector/presentation/WorkbookInspectorShell.tsx`; `inspector/useWorkbookInspectorCoordinator.ts` | Inspector open registration and committed subject/focus attachment | Surface owners and navigation context | Hook, inspector and shell suites | Bind current owner open/focus capabilities by identity. Existing open behavior is idempotent; the `onInspectorToggle` name alone is not evidence of a toggle defect. |
+| `components/GenericWorkbookSurface.tsx`; `components/AssessmentWorkbookSurface.tsx`; `components/EntityWorkbookSurface.tsx`; `timeline/presentation/useTimelineWorkbookPresentation.tsx`; `timeline/presentation/TimelineWorkbookViewBarRegion.tsx` | Current inspector-open callbacks and semantic surface bindings | Existing inspector coordinators and view bar | Existing surface/inspector suites; full workbook gate | Change only bindings required by the coordinator; retain source semantics and owner work. Medium risk. |
+| `features/generic/useGenericWorkbookInspectorComposition.tsx`; `components/SavedViewBrowser.tsx`; `components/ActiveSurfaceSavedViewSelector.tsx` | Required Note/saved-view navigation actions and optional presentation | Navigation facade and source/resource owners | Note associations, selector, shell composition | Preserve the completed single-path cutover. Keep retained Note receipt observation. Medium risk. |
+| `runtime/WorkbookMutationRuntime.ts` | Session lifetime, concealment and retirement | Shell authorization and source operation owners | Session, shell authority and retained-operation cases | Preserve runtime ownership; no generic clear-all or authoring-store change. High security risk. |
+| `query/WorkbookRecordLocatorPort.ts`; `adapters/createWorkbookRecordLocatorAdapter.ts`; `ports/WorkbookPortResult.ts`; `adapters/workbookOperationErrorPolicy.ts` | Bounded outcomes, correlation, authority scope and safe errors | Navigation and existing query/transport owners | Admission and existing adapter/error-policy coverage | Freeze transport behavior; preserve unsupported/no-scan posture. No backend or public-error redesign. |
+| `WorkbookShell.surfaces.test.tsx`; `query/WorkbookQueryBrowsingControls.test.tsx`; `query/WorkbookQueryBrowser.test.ts`; `savedviews/savedViewReads.test.ts`; `savedviews/WorkbookSavedViewController.test.ts` | Real composition and owner lifecycle characterization | Production owners plus bounded fixture ports | NR §8 row map | Extend interleavings; do not replace production composition with callback-only assertions. |
+| `hooks/useWorkbookSavedViewController.test.tsx`; `startup/useWorkbookStartupAdmission.test.tsx`; `preferences/workbookPreferenceCharacterization.test.tsx`; `components/ActiveSurfaceSavedViewSelector.test.tsx`; `features/notes/noteAssociations.test.tsx` | Preserved startup, owner operations, preference and consumer behavior | Existing owner fixtures | NR §8 row map | Migrate affected typed fixtures while preserving assertions. |
+| `apps/web/e2e/note-associations.spec.ts`; `apps/web/e2e/workbook.support.spec.ts`; `apps/web/e2e/workbook.a11y.spec.ts` | Existing Note, pending-navigation/Columns and responsive Commands scenarios | Production shell and semantic browser helpers | Three selected `module.workbook` rows in NR §8 | Extend relevant timing/focus assertions; keep golden and selector contracts unchanged. |
+| `tools/frontend_source_ownership.json`; `tools/frontend_import_boundaries.json`; `contracts/verification/owners/web.workbook.json`; `contracts/verification/owners/module.workbook.json`; `tools/test_families/web.workbook.json`; `tools/test_families/module.workbook.json`; `tools/generated_artifact_policy.json` | Independent source, import, verification and generated boundaries | Public Make harness and authored catalogs | Ownership/import/catalog checks | Later implementation updates authored ownership/routing first; generated output changes only through Make. No edits in this task. |
+
+New implementation source is proposed, not present: a small navigation-owned
+`WorkbookNavigationPresentation` coordinator and its direct tests. Add a separate
+intent-type file only if shared consumers require it; do not scatter one-use
+helpers. Any new files need authored source ownership and test routing. Backend,
+SQL, source authoring internals, extension-specific record navigation and broad
+freshness consolidation are explicitly excluded. Adjacent navigation/query/
+saved-view guides and the workbook parent guide are documentation integrations
+for WB-NR04, not additional files authorized by this document-update task.
+
+## NR 3. Module boundary diagnosis
+
+| Responsibility | Current location | Correct owner | Keep / move / split / defer | Evidence and decision |
+| --- | --- | --- | --- | --- |
+| Addressed saved-view observation lifetime | Hook sets/clears a named resource slot; observer owns reads | Saved-view resource owner | Move | The hook's unconditional `finally` can clear a successor's slot. Owner-issued handles hide token matching, cancellation and retention release. |
+| Resource failure classification | Observer retains `SavedViewProblem`; navigation receives resource/null plus a status probe | Saved-view owner, with navigation presentation mapping | Split | Return structured outcomes through the host; do not recreate resource or authority policy in navigation. |
+| Attempt identity, coalescing and terminal outcome | Session class plus hook readiness ref | Navigation session | Keep / simplify | Session remains the canonical attempt owner; derive pending status from phase and accept only current-attempt presentation events. |
+| Selection/focus/inspector sequence | Query registry focus state and hook registration/completion refs | Navigation presentation coordinator | Move | This is one common navigation decision. Query storage and accepted-page lifetime remain independent. |
+| Page staging, acceptance and bounded checkpoints | Query browser and registry | Query browsing | Keep | Supply an opaque acceptance handle; no second page, row or checkpoint store in the coordinator. |
+| Semantic destinations and Return origins | Broad optional-field types and serialized input key | Navigation types/session | Simplify | Represent extension roots and supported workbook destinations distinctly; compare meaningful fields rather than object encoding. |
+| Deliberate-interaction cancellation | Shell calls session and registry separately | Navigation facade, invoked by shell | Move | One cancellation entry cancels obsolete work without consuming the user's event or clearing source work. |
+| Commands discovery and owner dispatch | Private Commands index and source bindings | Commands and source owners | Keep | No new registry or execution engine; required action homes and borrowed focus remain useful. |
+| Freshness contributions | Existing query/source owners and shell admission predicate | Existing source owners | Defer | Different contributor responsibilities do not justify a universal registry in this iteration. |
+
+### Intended handle and presentation contracts
+
+The host's saved-view observation capability returns a handle with a typed result
+promise and an idempotent release operation. Its signal belongs to the current
+navigation attempt. The saved-view owner fences cancellation and release by
+handle identity, including same-resource replacement. A stale handle must not
+cancel a newer read or remove its retained observation. On admission, establish
+selected-resource retention before releasing navigation retention. Cancellation
+releases the abandoned observation without removing selected, operation, home or
+default retention. Do not merely guard the hook's `finally` with a resource ID:
+that cannot distinguish two attempts for the same resource.
+
+| Observation result | Navigation effect | Recovery / disclosure |
+| --- | --- | --- |
+| Accepted authorized resource | Stage its current query/layout and continue existing admission | Apply even when reselecting the same saved-view ID; accept the resource as comparison baseline on commit. |
+| Rejected unavailable target | Preserve the eligible origin; conceal an unavailable pin label | Generic unavailable feedback; explicit authorized base fallback for Return where its owner permits. |
+| Rejected operational or contract failure | Preserve origin and leave selection/trail uncommitted | Safe local read retry; no unavailable inference or unavailable-only fallback. |
+| Rejected authority failure | Delegate to the existing source/authority recovery policy | Conceal/cancel when authority becomes uncertain; do not infer incident loss from generic resource unavailability. |
+| Aborted, superseded or retired observation | No new attachment, selection, failure notice or trail effect | Current attempt controls feedback; older cleanup is harmless. |
+
+Preserve existing `SavedViewProblem` distinctions rather than inventing a second
+error taxonomy. Remove the nullable navigation read and separate status probe;
+migrate affected internal callers in the same slice. Existing resource-operation
+and preference retention are legitimate source responsibilities, not compatibility
+aliases to remove.
+
+The session owns the attempt's pending-admission, admitted, succeeded, failed and
+cancelled phases. It projects the established outcome names to existing controls
+and selectors. Admission settles the existing Return push/pop effect exactly
+once; later presentation cancellation does not undo an admitted pivot. Pending
+admission and incomplete presentation remain distinguishable.
+
+The presentation coordinator sequences current query acceptance, committed
+selection, eligible Grid Adapter focus, and explicit inspector attachment/focus.
+It holds semantic identity and an opaque query-acceptance handle, never rows,
+drafts, receipts or an authorization cache. Mounted presentation, grid eligibility
+and inspector readiness are separate owner signals. Opening Record can make the
+grid ineligible without invalidating successfully completed inspector focus.
+Calling open, reveal or scroll does not itself complete presentation. Registration
+replacement, unmount, authority withdrawal and deliberate interaction fence all
+pending callbacks. Known terminal failures settle once; waiting for an eligible
+mount does not introduce an invented timeout or polling loop.
+
+Model extension-root origins without workbook query/record anchors. Preserve
+record-bearing saved-view Return origins with their captured compatible query,
+layout and comparison version. Pin records retain their canonical base schema.
+Coalescing compares semantic destination, anchor, entry mode, inspect intent and
+applicable captured Return configuration; property insertion order and labels
+must not create a different intent. Ordered query/layout arrays retain their
+owner meaning. Same-ID saved-view activation after a prior attempt completes
+still performs a fresh observation.
+
+## NR 4. Public contract and behavior freeze map
+
+| Contract | Behavioral owner | Evidence / current boundary | Existing tests | Required characterization | Risk / intended change |
+| --- | --- | --- | --- | --- | --- |
+| Bounded locator and query envelopes | Core 01 REQ-01-680–684 | Locator port/adapter and query owner | Admission and adapter cases | Retain unsupported/no-scan, malformed, outside-query and unavailable distinctions | No HTTP, cursor, schema or backend change. |
+| Saved-view observation and recovery | Core 03 saved-view owner requirements and REQ-03-314–315 | Resource observer/controller, host adapter | Independent reads, operations, controller, startup | Old release after successor starts; same-ID replacement; failure-to-recovery mapping | Internal handle cutover; do not change current-resource unavailable recovery or confirmed-operation opening. |
+| Navigation/Return/pins | Core 03 REQ-03-313–315 | Session and navigation hook | Session/admission suites | Semantic coalescing; typed extension/workbook origins; stale terminal events | Keep twenty pins, thirty-two origins, admission trail effects and explicit fallback. |
+| Presentation and semantic focus | Core 03 REQ-03-314/317; Design §§7, 8.5, 14 | Registry, Grid Adapter, layout and inspector bindings | Admission, shell and selected browser cases | Acceptance → committed selection → focus → optional inspector; replaced registrations | Move coordination, not grid/vendor semantics or visual geometry. |
+| Authority and safe disclosure | Core 04 REQ-04-169–170 | Runtime lifetime, source/authority recovery and readable state | Shell authority and Commands cases | Abort/release across uncertainty, replacement, retirement and late replies | Retain same-account source work; no permission from cached labels. Closed incidents remain readable. |
+| Retained authoring, writes and receipts | Core 03 REQ-03-311/318 and existing source owners | Source operation owners outside navigation | Note and saved-view owner suites; full workbook gate | Navigation causes no submit/discard/replay; acknowledged-write recovery remains reads only | No mutation, revision, WebSocket or operation-lifetime redesign. |
+| Commands | Core 03 REQ-03-312/317 | Private metadata index and owner bindings | Search, interaction and responsive accessibility | Regression only | No new shortcut, search scope or command registry. |
+| Generated contracts, selectors and test accounting | Adopted owners; authored source/verification policies | Existing design/view/protocol/UI facades and catalogs | Import, type and catalog gates | New coordinator ownership and executed test selectors | No generated hand edits; no runtime/test dependency on Markdown. |
+
+## NR 5. Coupling and boundary findings
+
+Source inspection establishes the code paths below. No new runtime reproduction
+or product suite was run for this document update. WB-NR00 must add reproducible
+characterization; it must not relabel these observations as historical test passes.
+
+| Finding | Evidence and classification | Areas / remediation | Rationale and long-term benefit | Compatibility / migration | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- |
+| NR-F01 | `must_fix`; source-confirmed cleanup race: hook releases `retainNavigation(null)` in `finally`; shell maps all attempts to the same observer slot; dropping an unretained ID cancels its read | Implementation, tests, docs: owner-issued token-fenced observation handles bound to attempt cancellation | Encapsulates lifetime ownership; older work cannot cancel a successor, including the same resource | Atomic private TypeScript cutover; keep other consumer slots; no persisted migration | A cancelled predecessor can abort the user's latest saved-view selection | Hold A, start B, settle/release A: B remains retained and completes; repeat with the same ID, abort and rejection. |
+| NR-F02 | `must_fix`; interface information loss: `read` returns resource/null and navigation separately reads unavailable status | Implementation, types, tests, docs: accepted/rejected/aborted owner result; remove the nullable navigation read/status probe | Failure presentation and recovery remain deterministic without a second resource/authority policy | Migrate affected owner callers and fixtures together; no legacy alias | Operational failures, cancellation and unavailability acquire ambiguous recovery paths as navigation grows | Distinct safe outcomes; retry only through a new read intent; unavailable fallback only where allowed; no protected disclosure. |
+| NR-F03 | `should_fix`; structural weakness: session outcome, hook completion ref, registry focus booleans and shell cancellation calls jointly settle presentation | Implementation, types, tests, docs: one navigation-owned coordinator; query-owned acceptance handle; session-owned terminal outcome | One independently testable sequencing decision supports future destinations without scattered feature branches | Preserve selectors/outcome names and owner boundaries; remove transferred state and forwarding in the cutover | Late focus, stale cleanup and indefinitely pending terminal outcomes become harder to diagnose | Current committed acceptance/selection/focus/inspector signals settle exactly once; stale registrations and callbacks have no effect. |
+| NR-F04 | `should_fix`; structural/semantic weakness: key serializes whole input objects; target/origin optional fields admit unsupported combinations | Implementation, types, tests, docs: explicit semantic equality and supported destination/origin variants | Removes encoding-dependent coalescing and makes valid future extension paths legible to the compiler | Internal constructor/fixture migration; preserve saved-view record origins and extension root entry; no data conversion | Equivalent activations can supersede instead of coalescing; new consumers can invent unsupported anchors | Reordered equivalent object members coalesce; materially different intent does not; complete typed fixtures compile and existing pin/Return semantics pass. |
+| NR-F05 | `must_fix`; verification gap: existing owner tests cover retention and generation fencing separately, while hook fixtures do not establish the shared-slot interleaving | Tests, authored routing, docs: adversarial owner tests plus real shell composition; dedicated coordinator tests | Proves integration and observable focus rather than only callback invocation | Extend owning rows/selectors; preserve old coverage; add a row only for the new owned suite | Isolated passes conceal production cancellation or late attachment defects | Public Make execution includes all added cases; assert selected resource, accepted record, focus, retention and no writes. |
+
+Commands metadata search, owner authorization, saved-view confirmed operations,
+startup selection, Note receipt subscriptions and source authoring are
+`intentional/no_action` except necessary interface adaptations. Direct vendor,
+storage or backend movement is not supported by the inspected scope. Broad
+freshness consolidation is `defer`, not a required exit for this iteration.
+
+## NR 6. Refactor workstreams
+
+Execution order is **WB-NR00 → WB-NR01 → WB-NR02 → WB-NR03 → WB-NR04**.
+Each slice is a separate workstream. After completing its required checks,
+update this controlling tracker and its handoff log before beginning its dependent.
+Record changed paths, findings, commands, run roots, failures, compatibility,
+risks and rollback. A failed required exit remains BLOCKED, not DONE.
+
+| Workflow ID | Name | Class | Previous | Subsequent | Goal / likely files | Validation | Handoff checkpoint |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| WB-NR00 | Contract alignment and characterization | root | None | WB-NR01 | Revalidate inventory, owners and baseline; characterize retention replacement and semantic coalescing in owning tests | NR §8 baseline and targeted reproductions | Separate expected pre-fix failures from passing baseline; all contracts and scenarios mapped. |
+| WB-NR01 | Saved-view observation ownership | chain | WB-NR00 | WB-NR02 | Observer/controller, host, hook, shell adapter and affected fixtures | Independent reads, operations, admission, controller, preferences/startup, typecheck | Successor-safe handles and typed recovery complete; NR-F01/02 evidence recorded. |
+| WB-NR02 | Semantic intent and attempt state | chain | WB-NR01 | WB-NR03 | Context/host/session types, hook capture/coalescing and constructors | Session/admission/status, shell and typecheck | Semantic equality, valid variants and admission trail effects complete; NR-F04 evidence recorded. |
+| WB-NR03 | Presentation coordination cutover | chain | WB-NR02 | WB-NR04 | New navigation coordinator, registry/browser acceptance bridge, hook, shell, layout/inspector bindings | Coordinator, query browsing/controls, admission, shell, selected browser/accessibility and static gates | NR-F03 and integrated NR-F05 cases complete; obsolete completion/focus plumbing removed. |
+| WB-NR04 | Validation and handoff completion | chain | WB-NR03 | None | Source guides, authored ownership/routing, affected generated projections and this tracker | NR §8 final gates and digest assessment | All applicable criteria PASS or justified N/A; removal, compatibility, limitations and restart handoff complete. |
+
+## NR 7. Proposed implementation slices
+
+All source/test slices below require later implementation authorization. NR-F01
+and NR-F02 are proposed owner-aligned behavior corrections; NR-F03 and NR-F04
+primarily restructure ownership/types while correcting incidental coalescing.
+Do not broaden these changes into new product features.
+
+| Slice | Depends on | Intended change | Files/packages likely involved | Contract risk | Tests to add/preserve | Validation command / selection | Rollback | Binary exit |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| WB-NR00 | None | Revalidate current HEAD/dirty state, requirements and callers; write deterministic reproductions before fixes | Existing admission/session/independent-read tests; authored selectors; tracker | Treating historical evidence as current or a failing reproduction as a completed correction | A→B retention release, same-ID replacement and equivalent intent with reordered members | Public owner guides and selected `make test-slice OWNER=web.workbook ROWS=...` from NR §8 | Characterization/routing changes are independently reversible; keep failure evidence in the log | Complete owner-to-gap map and repeatable pre-fix characterization; unrelated required baseline failures block dependent work. Expected defect failures remain explicitly open for their repair slices. |
+| WB-NR01 | WB-NR00 | Introduce handle identity, cancellation/release and typed outcomes; transfer selected retention before release; remove old navigation trio | Saved-view observer/controller/port, host, shell adapter, hook and fixtures | Cancelling another consumer's read or breaking selected-resource recovery | Old cleanup/rejection/abort cannot cancel B; startup, open-confirmed, preferences and deletion/unavailability recovery retained | Independent reads, owner operations, controller, startup, preferences and admission rows; `make frontend-typecheck` | Revert complete owner/host/caller/fixture cutover; no one-sided interface rollback | NR-F01/02 reproductions and all affected owner behavior pass; no nullable navigation read/status probe remains. |
+| WB-NR02 | WB-NR01 | Model target/origin variants, explicit semantic equality and session phase; derive status without another source store | Navigation/session/context and all changed constructors/tests | Rejecting legitimate saved-view Return anchors or altering trail effects | Equivalent coalescing, distinct intent, pin limits, bounded trail, extension roots and stale terminal events | Session/admission/feedback/shell rows; `make frontend-typecheck` | Revert types, constructors, equality and session state together | No object-order dependency; valid variants compile; current-attempt outcomes and existing admission push/pop rules pass. |
+| WB-NR03 | WB-NR02 | Introduce the coordinator and opaque acceptance handle; migrate explicit open/focus registration; route shell cancellation once; remove transferred state | Navigation, query registry/browser, shell, layout adapter, inspector/view-bar bindings and tests | Commit ordering, Strict Mode, source acceptance versus mount/focus, late cleanup | Delayed/replaced mounts, acceptance failure, committed selection, grid fallback, explicit inspect, interaction delivery and authority loss | Coordinator and query/navigation/shell rows; selected browser/accessibility invocation; type/import checks | Revert complete coordinator, bindings, acceptance bridge, routing and tests together | Accepted selection precedes focus; current explicit inspector attachment completes; terminal failure/cancel settles; old callbacks cannot attach or steal focus. |
+| WB-NR04 | WB-NR03 | Reconcile guides, account for files/tests, generate affected downstream artifacts, execute final verification and hand off | Navigation/query/saved-view/Commands guides, parent guide, authored policies/catalogs and this tracker | Incomplete routing or documentation lint mistaken for product readiness | Preserve original regression coverage plus all NR cases | Full final gate set in NR §8, after `make agent-finalize` | Retain evidence; roll back full implementation slices if needed, never only a facade or adapter | All workstreams DONE; every applicable acceptance row PASS or justified N/A; no required check deferred. |
+
+The cutover is private and atomic per slice: no HTTP/database migration, browser
+storage conversion, compatibility alias, deprecation window or dual implementation.
+Retain source-owned `activateResource`/`openConfirmed`, startup acceptance and
+automatic recovery of a currently selected unavailable resource. Remove the old
+navigation retention/read/status trio, hook completion ref, transferred registry
+focus flags and obsolete cancellation forwarding with their migrated consumers.
+Do not remove query binding tokens, Grid Adapter focus cancellation or source
+operation state merely because their names resemble the retired state.
+
+## NR 8. Validation plan
+
+Use public Make targets from the repository root. Source ownership and test
+routing remain independent; rerun the owner guides if the implementation baseline
+changes. Historical run roots below the completed-record boundary remain historical.
+No product test result is claimed by this plan.
+
+| Validation layer | Command / scope | Required before implementation? | Evidence / use |
+| --- | --- | --- | --- |
+| Owner discovery | `make task-guide ROLE=module-author OWNER=web.workbook`; repeat for `module.workbook` and `web.architecture` | Yes, in WB-NR00 | Current routing guidance; these commands completed during planning. |
+| Focused unit/composition | `make test-slice OWNER=web.workbook ROWS=<selected rows below>` | Baseline and characterization in WB-NR00 | Add title selectors with tests; record pre-fix failures separately from passing exits. |
+| Selected browser/accessibility | Exact invocation below | Required for WB-NR03 and final handoff | Real Note selection/inspector focus, Columns interaction delivery and responsive Commands. |
+| Authored/generated accounting | `make test-catalog-check`; `make generate` only for affected authored inputs; applicable generated-policy/drift targets | No generated edits for this document task | No manual edits to generated topology or contract artifacts. Record actual outputs and why they changed. |
+| Finalizer | `make agent-finalize` | After focused implementation checks, before broad final checks | Leave `RESULTS_DIR` unset unless eligible successful full warm-check evidence exists; record retained-run maintenance skip when unset. |
+| Full scoped frontend | `make test-slice OWNER=web.workbook`; `make test-slice OWNER=web.architecture` | Final implementation gates | Whole affected frontend ownership and architecture, not release-wide qualification. |
+| Static/build | `make frontend-typecheck`; `make frontend-import-boundary-check`; `make lint-biome`; `make test-catalog-check`; `make build-web` | Final implementation gates | New coordinator owns a real common decision; no vendor leakage, circular dependency or missing routed tests. |
+| Documentation | `make lint-markdown`; `git diff --check` | Required for this document update and WB-NR04 | Documentation/whitespace evidence only; never product certification. |
+| Backend, release-wide, broad visual | Select through public guides only if a changed boundary requires them | No default gate | Excluded for this frontend structural scope; unexpected visual changes require investigation, not automatic golden updates. |
+
+Focused frontend rows below use the prefix `web.workbook.regression.`. Preserve
+the original seven, and select additions by the listed workstream. These are
+verified active rows at the baseline, not proposed new identifiers.
+
+| Row suffix | Owning evidence | Required use |
+| --- | --- | --- |
+| `workbench_navigation_admission` | `navigation/useWorkbookWorkbench.test.tsx` | All changed navigation behavior and new interleavings. |
+| `session_navigation` | `navigation/WorkbookSessionNavigation.test.ts` | Intent equality, phases, pins and Return. |
+| `navigation_feedback` | `navigation/WorkbookNavigationStatus.test.tsx` | Stable outcomes, accessible feedback and concealment. |
+| `command_search` | `commands/workbookCommandIndex.test.ts` | Preserved deterministic matching. |
+| `workbench_commands_interaction` | `commands/WorkbookCommands.test.tsx` | Captured target, borrowed focus and revalidation. |
+| `note_associations` | `features/notes/noteAssociations.test.tsx` | Preserved source association/removal and retained-operation behavior. |
+| `activesurfacesavedviewselector_resource_action_focus_a103000001` | `components/ActiveSurfaceSavedViewSelector.test.tsx` | Browser actions retain the required navigation path and owner focus. |
+| `query_browsing` | `query/WorkbookQueryBrowser.test.ts` | Staged acceptance, bounded checkpoints and query-owner recovery. |
+| `query_browsing_controls` | `query/WorkbookQueryBrowsingControls.test.tsx` | Binding replacement, Strict Mode, committed read lifetime and control focus. |
+| `saved_view_independent_reads` | `savedviews/savedViewReads.test.ts` | Token-fenced retention, cancellation and distinct read outcomes. |
+| `saved_view_operation_owner` | `savedviews/WorkbookSavedViewController.test.ts` | Confirmed-operation opening and retained resource operations. |
+| `useworkbooksavedviewcontroller_suite_d3f1a57e5d` | `hooks/useWorkbookSavedViewController.test.tsx` | Controller binding and current-resource recovery. |
+| `use_workbook_startup_admission_suite_919ed32f45` | `startup/useWorkbookStartupAdmission.test.tsx` | Startup acceptance remains source-owned. |
+| `preference_characterization` | `preferences/workbookPreferenceCharacterization.test.tsx` | Home/default observation and selection behavior. |
+| `workbookshell_surfaces_suite_668e482b1e` | `WorkbookShell.surfaces.test.tsx` | Production composition, same-ID reselection, authority and committed focus. |
+
+Add a dedicated authored row when adding the coordinator's independent test file;
+choose its semantic name with that file in WB-NR03, then verify routing before
+claiming execution. Do not insert test-only machinery into product runtime.
+Existing shell tests must use the real resource observer and presentation wiring
+for the new integration cases; transport holding/delivery remains fixture-owned.
+
+The required selected browser/accessibility invocation is:
+
+```bash
+make test-slice OWNER=module.workbook ROWS=module.workbook.browser.note_associations,module.workbook.browser_support.pending_navigation_preserves_interaction,module.workbook.accessibility.workbench_commands
+```
+
+| Scenario | Observable pass/fail criterion | Primary evidence |
+| --- | --- | --- |
+| A superseded by B | A's cancel, rejected result, release and late cleanup cannot cancel B or remove B's retention; B selects once | Resource-owner tests and real shell composition. |
+| Same-resource replacement | Identical pending semantic activation coalesces; a distinct newer intent for the same ID has its own handle; old cleanup is harmless | Session, hook and owner tests. |
+| Semantic identity | Equivalent member ordering coalesces; different sheet/record/field/inspect/entry mode or relevant Return configuration does not | Navigation/session tests with complete typed fixtures. |
+| Admission-to-focus | Accepted owner page precedes committed selection; selection precedes focus; inspect waits for matching committed attachment and actual focus | Coordinator tests and production shell/Note browser case. |
+| Delayed and replaced attachment | Delayed mount, changed grid handle, changed inspector binding, unmount and Strict Mode reject predecessor callbacks and cleanup | Coordinator, query controls and composition. |
+| Deliberate interaction | Columns receives the user's pending-navigation click/key action; obsolete focus and inspector intent cannot resume afterward | Existing selected pending-navigation browser row with relevant assertions. |
+| Failure distinctions | Outside-query, unavailable, operational, malformed and unsupported results preserve eligible origin; cancellation does not manufacture failure; unsupported never scans pages | Admission/adapter and saved-view outcome cases. |
+| Saved-view reselection | Same selected ID freshly observes and applies authorized persisted configuration; pending failure preserves origin | Shell surfaces and controller integration. |
+| Return | Captured compatible query/layout and latest resource comparison remain distinct; failed/cancelled admission retains entry; successful fallback consumes it; admitted trail effects occur once | Session/admission and shell cases. |
+| Retained work | No navigation submits/discards drafts, dismisses receipts, replays writes or replaces source identity; acknowledged recovery dispatches reads only | Existing Note/saved-view owner cases and composition assertions. |
+| Authority | Uncertainty conceals and cancels; same-account recovery reauthorizes; account replacement/incident loss retires state; closed remains readable; late observations cannot disclose | Shell authority and Commands regression. |
+| Regression boundaries | Commands matching/pages/borrowed focus, duplicate-before-capacity pins, startup, confirmed operations and selected-resource recovery continue | Retained focused rows and full workbook gate. |
+
+Keep tokens, geometry, selectors and visual goldens unchanged. An unexpected
+pixel difference is a regression to investigate. Any intentional visual correction
+requires the repository UI-review and golden-maintenance procedure as a separately
+identified change. Required failures must be reported with target, run root or
+summary, relation to the change and blocked exit. Do not hide an unrelated failure
+or weaken an assertion to mark a workstream complete.
+
+## NR 9. Top-level work tracker
+
+| ID | Work item | Workstream | Status | Depends on | Evidence / artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| NR-DOC | Publish this accepted next-iteration plan | Document update only | DONE | Accepted navigation-reliability scope | NR §§1–12; current source/catalog inspection; documentation evidence in NR §10 | Only this tracker changed; Markdown and whitespace checks pass; completed historical body preserved. |
+| WB-NR00 | Contract alignment and reproducible characterization | WB-NR00 | TODO | Later implementation authorization | Planned NR §8 baseline/scenarios | Current inventory/owner mapping and diagnostic reproductions complete. |
+| WB-NR01 | Saved-view observation ownership | WB-NR01 | TODO | WB-NR00 | NR-F01/02 | Handles, failure mapping and affected owner behavior pass. |
+| WB-NR02 | Semantic intent and attempt state | WB-NR02 | TODO | WB-NR01 | NR-F04 | Semantic coalescing, valid origins and lifecycle checks pass. |
+| WB-NR03 | Presentation coordination cutover | WB-NR03 | TODO | WB-NR02 | NR-F03/05 | Committed selection/focus, cancellation and production integration pass; old plumbing removed. |
+| WB-NR04 | Final validation and handoff | WB-NR04 | TODO | WB-NR03 | NR §8 gates; digest assessment | All required validation complete and final tracker/handoff updated. |
+
+Do not mark a future workstream DONE because this planning document is complete.
+During execution, update each row and the appropriate log after its required exit
+and before beginning its dependent. Record limitations separately from required
+checks; deferring a required check does not satisfy the exit.
+
+## NR 10. Session handoff log
+
+### NR scope and authority
+
+| Time | Session | Current state | Files inspected / touched | Commands | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-08 | Planning and accepted document update | User selected navigation reliability; implementation remains future work | Root instructions, owner clauses, Design/Domain, NLSpec research, framework/digest and this tracker | Source reads; `git rev-parse HEAD`; `git branch --show-current`; `git status --short` | Baseline `b28709d065a37c4748fc1c42dcb783ab613925a0`, `main`, initially clean; only tracker write authorized | No owner contradiction identified | Publish and validate document; later implementation starts WB-NR00. |
+
+### NR backend boundary
+
+| Time | Session | Current state | Files inspected / touched | Commands | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-08 | Planning | Backend/protocol/storage frozen | Locator port/adapter and governing Core interface; no backend files changed | Targeted interface reads | No backend audit or product pass claimed; no new route/schema/store proposed | None for document scope | Expand verification only if later changes actually cross this boundary. |
+
+### NR frontend boundary
+
+| Time | Session | Current state | Files inspected / touched | Commands | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-08 | Planning/document update | Fourteen target files accounted for; adjacent integrations bounded in NR §2 | Navigation, Commands, registry/browser, saved-view observer/controller, shell, layout and inspector bindings | `rg --files`, caller searches, exact source reads | NR-F01 source-confirmed; NR-F02 information loss and NR-F03/04 structural weaknesses recorded; no production edit | Runtime reproductions not yet run | WB-NR00 creates deterministic characterization under later authorization. |
+
+### NR contract and codegen
+
+| Time | Session | Current state | Files inspected / touched | Commands | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-08 | Planning | Internal interfaces may change later; adopted contracts stay controlling | Source/import policies, generated policy and selected verification inputs | Targeted manifest/source reads | No owner, projection, generated output, dependency or catalog edited; tests/runtime remain independent of Markdown | None | Later slices register source/tests through authored owners and generate only affected outputs. |
+
+### NR tests and harness
+
+| Time | Session | Current state | Files inspected / touched | Commands | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-08 | Planning | Active rows and public owner guidance discovered | Navigation/query/saved-view/shell tests and authored row selectors | `make task-guide ROLE=module-author OWNER=web.workbook`; same for `module.workbook` and `web.architecture` | Guides passed; NR §8 records selected routing. No fresh product suite executed | New interleavings await WB-NR00 | Preserve baseline rows and extend owning selectors with each new case. |
+| 2026-10-08 local / 2026-10-09 UTC | Document update complete | NR-DOC DONE; all five implementation workstreams TODO | This tracker only | `make lint-markdown`; `git diff --check`; `git status --short`; manual comparison with `git show HEAD:<path>` | Markdown PASS at `.cartulary/test-results/20261009T002509Z-p10571`, summary `adhoc/lint-markdown/tool-run-summary.json`; whitespace PASS; one-file diff; completed body byte-identical from `Execution checkpoints` onward; nine navigation and five Commands files accounted for | None for document update; no product pass claimed | Recheck lint after recording evidence; later implementation starts WB-NR00. |
+
+Product tests, builds, generation, visual comparison and `make agent-finalize`
+are skipped for this document-only task: it changes no executable input and has
+no broader end-of-run product verification. `RESULTS_DIR` is unset; retained-run
+maintenance is not requested. These skips are not waivers for WB-NR04.
+
+### NR security and authorization
+
+| Time | Session | Current state | Files inspected / touched | Commands | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-08 | Planning | Authority and operation lifetime remain owner-held | Core 04 §2.2, session/readable behavior, resource-owner failure recovery and shell cancellation | Targeted reads and call-site review | Plan retains concealment, reauthorization and scoped retirement; no ACL/cache/persistence added | No contradiction identified | Validate cancellation/release across authority transitions with late results. |
+
+### NR open risks and next session
+
+| Time | Session | Current state | Files inspected / touched | Commands | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-08 | Document update | Future workstreams remain TODO | This tracker and source baseline | `git status --short`; inventory/reference review | Main risks are same-ID cleanup, cross-consumer cancellation, commit ordering and incomplete routing | Later implementation task required; not a defect in the document | Revalidate HEAD/dirty state, rerun owner guidance and start WB-NR00; update tracker before each dependent. |
+
+## NR 11. Open questions and blockers
+
+No unresolved product preference or owner contradiction blocks this plan. The
+user chose navigation reliability over a broader readiness audit. Reproduction
+and production validation are explicitly planned work, not evidence already earned.
+
+| ID | Question / gate | Why it matters | Required authority or evidence | Status |
+| --- | --- | --- | --- | --- |
+| NR-RB01 | Start future implementation | This task explicitly authorizes only the controlling-document update | A later task authorizing WB-NR00–WB-NR04 implementation | TODO |
+| NR-RB02 | Establish reproducible NR-F01/04 evidence | Source inspection is not an executed regression demonstration | WB-NR00 routed characterization and classified results | TODO |
+
+If a genuine owner contradiction appears, add its exact source clauses and mark
+only dependent work BLOCKED. If required verification fails, record the failure
+and blocked exit; do not relabel it as out-of-scope debt to finish the iteration.
+
+## NR 12. Binary completion criteria
+
+The document-update task is complete only when all of the following hold:
+
+- Every navigation/Commands file is inventoried; adjacent scope and exclusions
+  are explicit, with owners and test posture for each material contract risk.
+- NR-F01–NR-F05 contain evidence posture, remediation, change areas, rationale,
+  long-term benefit, compatibility/migration, unresolved risk and observable exit.
+- WB-NR00–WB-NR04 have ordered dependencies, risk, rollback and validation;
+  their statuses remain TODO and their implementation requires later authorization.
+- The historical WB-W0–WB-04 execution/acceptance body and visual-refresh record
+  are preserved; no historical pass is promoted into current evidence.
+- Only this tracker changed; `make lint-markdown` and `git diff --check` pass,
+  with evidence entered in NR §10 and NR-DOC marked DONE.
+
+The future implementation iteration is complete only when WB-NR04 establishes:
+
+- All five workstreams are DONE with each completed tracker update preceding
+  its dependent; all required reproductions and final gates pass.
+- No stale handle can cancel its successor; resource outcomes remain distinct;
+  semantic coalescing, current-attempt status and committed presentation are proven.
+- Old navigation retention/read/status calls, duplicated completion state and
+  transferred focus/cancellation forwarding have no remaining consumers or aliases.
+- Query pages, checkpoints, source work, authorization and recovery remain with
+  their owners; navigation adds no row, draft, receipt or authorization store.
+- Final source guides, ownership and authored verification routing match code;
+  generated changes have owner/generator evidence and no Markdown dependency.
+- Every applicable [digest acceptance row](../../cartulary-ui-ux-refactor-digest/cartulary/acceptance.tsv)
+  is PASS with fresh evidence or N/A with a specific scope/owner rationale.
+  Applicable BLOCKED criteria prevent completion. Prior assessments are historical.
+- The final handoff records removed paths, retained capabilities, commands/run
+  roots, failures/repairs, compatibility, justified skips, residual out-of-scope
+  debt, complete-slice rollback and restart instructions. Scoped navigation
+  readiness is distinguished from repository-wide production qualification.
+
+## Completed WB-W0–WB-04 remediation record
+
+Completed iteration: **DONE — workbench legacy retirement and scoped production readiness**.
 Date: **2026-10-08**. The user authorized implementation of WB-W0 through WB-04,
 including retirement of standalone navigation. The completed visual-refresh evidence begins at
 [Completed visual refresh record](#completed-visual-refresh-record).

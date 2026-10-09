@@ -116,6 +116,16 @@
     ],
     "excluded_targets": [
       {
+        "target": "browser-design-review",
+        "owner_section": "Section 4",
+        "reason": "Interactive design inspection is helper-only and does not execute product catalog rows."
+      },
+      {
+        "target": "browser-design-review-smoke",
+        "owner_section": "Section 4",
+        "reason": "Review setup smoke is helper-only lifecycle evidence, not product verification."
+      },
+      {
         "target": "harness-observability-check",
         "owner_section": "Section 15",
         "reason": "Post-run diagnostic validation cannot recursively observe itself."
@@ -136,22 +146,12 @@
         "reason": "Baseline maintenance consumes completed observation windows and cannot recursively observe itself."
       },
       {
-        "target": "browser-design-review",
-        "owner_section": "Section 4",
-        "reason": "Interactive design inspection is helper-only and does not execute product catalog rows."
+        "target": "test-run-status",
+        "owner_section": "Section 8.9",
+        "reason": "Read-only diagnostic observation; no retained output or recursive observability."
       },
       {
-        "target": "browser-design-review-smoke",
-        "owner_section": "Section 4",
-        "reason": "Review setup smoke is helper-only lifecycle evidence, not product verification."
-      },
-      {
-        "target": "ui-review",
-        "owner_section": "Section 15.1",
-        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
-      },
-      {
-        "target": "ui-review-status",
+        "target": "ui-analyze",
         "owner_section": "Section 15.1",
         "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
       },
@@ -166,12 +166,17 @@
         "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
       },
       {
-        "target": "ui-analyze",
+        "target": "ui-review",
         "owner_section": "Section 15.1",
         "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
       },
       {
         "target": "ui-review-report",
+        "owner_section": "Section 15.1",
+        "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "ui-review-status",
         "owner_section": "Section 15.1",
         "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
       },
@@ -1123,6 +1128,10 @@
           "target": "fixture-report",
           "usage": "RESULTS_DIR=<root|run-dir>",
           "description": "report fixture cost hotspots"
+        },
+        {
+          "target": "test-run-status",
+          "description": "observe one exact invocation without controlling execution"
         }
       ]
     },
@@ -3427,6 +3436,10 @@
       ],
       "type": "artifact_binding",
       "graph_entry": true
+    },
+    "test-run-status": {
+      "type": "node_tool",
+      "prerequisites": []
     }
   },
   "targets": [
@@ -16745,6 +16758,162 @@
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "test-run-status",
+      "backing_scripts": [
+        "tools/harness/diagnostics/test-run-status-cli.mjs",
+        "tools/harness/diagnostics/run-observation.mjs"
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 30,
+          "stdout_bytes": 8192,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": null
+      },
+      "command_id": "cartulary.harness.command.test_run_status.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "diagnostic_synthesis",
+          "owner_section": "Section 4"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "RUN_ID",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "run_id",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "TARGET",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "target_name",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "JSON",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "AFTER_REVISION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "min": 0,
+            "max": 9007199254740991
+          },
+          {
+            "name": "WAIT_SECONDS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 0,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "min": 0,
+            "max": 30
+          }
+        ]
+      }
     }
   ],
   "harness_tiers": {

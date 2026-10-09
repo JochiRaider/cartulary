@@ -45,6 +45,7 @@ import {
   withGraphNodeRuntime,
 } from "./executor.mjs";
 import { runWorkGraph } from "./scheduler.mjs";
+import { createLiveStatusPublisher } from "./live-status.mjs";
 import { resolveVulnerabilityDatabaseRevision } from "./vulnerability.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -800,6 +801,7 @@ async function main() {
   };
   validateSchemaSync(manifest.schema_id, manifest);
   writeJSON(path.join(runRoot, "run-manifest.json"), manifest);
+  let livePublisher;
 
   const runtimeEnvironment = resolvedRuntimeEnvironment(compiler);
   const suiteRuntime = createSuiteRuntime({ repoRoot: root, runRoot, runID });
@@ -829,6 +831,7 @@ async function main() {
   let retainedScanAttempted = false;
   let primaryError = null;
   const publishRetainedScan = async () => {
+    livePublisher?.stop();
     retainedScanAttempted = true;
     const retainedScan = await scanRetainedRoot(runRoot, {
       forbiddenValues: suiteRuntime.forbiddenValues(),
@@ -838,6 +841,7 @@ async function main() {
     writeJSON(path.join(runRoot, "retained-secret-scan.json"), retainedScan);
   };
   try {
+  livePublisher = createLiveStatusPublisher({ runRoot, manifest, graph, projections });
   broker = new FixtureBroker({
     cleanupResults,
     providers: productionFixtureProviders({
@@ -968,6 +972,7 @@ async function main() {
         if (errors.length) throw aggregateCleanup(errors);
       },
       onEvent: (event) => eventWriter.write(event),
+      observation: livePublisher,
       retainEvents: false,
     });
     await eventWriter.close();
@@ -1004,6 +1009,7 @@ async function main() {
     primaryError = error;
     throw error;
   } finally {
+    livePublisher?.stop();
     const boundaryErrors = [];
     if (!retainedScanAttempted) {
       try {

@@ -310,7 +310,9 @@ function renderMakeRecipe(recipe, manifest) {
       ...makeNodeToolResultDirMakeEnvVars(recipe.target),
       ...makeNodeToolRuntimeEnvVars(recipe.target),
     ])
-      .map((name) => `${name}="${makeVariableValue(name)}"`)
+      .map((name) => recipe.target === "test-run-status"
+        ? `${name}=$(call task_surface_shell_quote_raw,${name})`
+        : `${name}="${makeVariableValue(name)}"`)
       .join(" ");
     return [
       ...prefix,
@@ -347,6 +349,9 @@ function renderPreflightPrelude(recipe, entry = null, manifest = null) {
 }
 
 function renderNodeReadinessPrelude(recipe, entry = null) {
+  if (recipe.target === "test-run-status") {
+    return ['\t$(Q)test -x "$(NODE_BIN)" || { echo "[CONFIG] test-run-status requires the installed Node runtime" >&2; exit 2; }'];
+  }
   if (
     entry?.target_class !== "public" ||
     recipe.target === "bootstrap-node-runtime"

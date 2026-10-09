@@ -3,6 +3,16 @@
   "owner_id": "harness.evidence_accounting",
   "verifications": [
     {
+      "verification_id": "harness.evidence_accounting.verification.live_invocation_observation",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-evidence-contract"
+    },
+    {
       "verification_id": "harness.evidence_accounting.verification.semantic_evidence_identity",
       "behavior_class": "harness",
       "profile": "support",

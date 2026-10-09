@@ -59,13 +59,13 @@ export function removePrivateTree(directory) {
   } catch (error) { if (renamed) error.cleanupPath = cleanupPath; if (renamed || error.code !== "ENOENT") throw error; }
   finally { if (leaf !== undefined) closeSync(leaf); if (parent !== undefined) closeSync(parent); }
 }
-export function readLocalFile(file, { maximum = 65536, privateFile = true } = {}) {
+export function readLocalFile(file, { maximum = 65536, privateFile = true, allowReplacement = false } = {}) {
   const parent = openDirectory(path.dirname(file));
   let descriptor;
   try {
     descriptor = openSync(`/proc/self/fd/${parent}/${path.basename(file)}`, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const before = fstatSync(descriptor);
-    if (!before.isFile() || before.nlink !== 1 || before.uid !== process.getuid() || (before.mode & 0o022) !== 0 || (privateFile && (before.mode & 0o777) !== 0o600) || before.size > maximum) throw new Error("unsafe local file");
+    if (!before.isFile() || (before.nlink !== 1 && !(allowReplacement && before.nlink === 0)) || before.uid !== process.getuid() || (before.mode & 0o022) !== 0 || (privateFile && (before.mode & 0o777) !== 0o600) || before.size > maximum) throw new Error("unsafe local file");
     const bytes = Buffer.alloc(before.size + 1);
     let offset = 0;
     while (offset < bytes.length) {
@@ -74,7 +74,11 @@ export function readLocalFile(file, { maximum = 65536, privateFile = true } = {}
       offset += count;
     }
     const after = fstatSync(descriptor);
-    if (offset !== before.size || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || before.ino !== after.ino || after.nlink !== 1) throw new Error("changed local file");
+    // Atomic replacement unlinks the old inode but an already-open descriptor
+    // still identifies complete bytes. Only opt-in mutable diagnostics admit
+    // that case; immutable evidence keeps its link/ctime checks.
+    const replaced = allowReplacement && after.nlink === 0;
+    if (offset !== before.size || before.size !== after.size || before.mtimeMs !== after.mtimeMs || (!replaced && before.ctimeMs !== after.ctimeMs) || before.ino !== after.ino || before.dev !== after.dev || before.mode !== after.mode || before.uid !== after.uid || (!replaced && after.nlink !== 1)) throw new Error("changed local file");
     return bytes.subarray(0, offset);
   } finally { if (descriptor !== undefined) closeSync(descriptor); closeSync(parent); }
 }
@@ -97,7 +101,7 @@ export function* readLocalChunks(file, { maximum, privateFile = true, chunkBytes
     if (offset !== before.size || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || before.ino !== after.ino || after.nlink !== 1) throw new Error("changed local file");
   } finally { if (descriptor !== undefined) closeSync(descriptor); closeSync(parent); }
 }
-export function atomicLocalFile(file, bytes, { replace = false } = {}) {
+export function atomicLocalFile(file, bytes, { replace = false, maximumReplacementBytes = 1048576 } = {}) {
   const parent = openDirectory(path.dirname(file), { create: true, privateLeaf: true });
   const prefix = `/proc/self/fd/${parent}/`;
   const temporary = `${prefix}.publishing-${randomBytes(16).toString("hex")}`;
@@ -113,7 +117,7 @@ export function atomicLocalFile(file, bytes, { replace = false } = {}) {
     if (replace) {
       // Only this private directory's owner may replace a previously published
       // locator. Validate the old inode before replacement; never follow it.
-      try { readLocalFile(file, { maximum: 1048576 }); } catch (error) { if (error.code !== "ENOENT") throw error; }
+      try { readLocalFile(file, { maximum: maximumReplacementBytes }); } catch (error) { if (error.code !== "ENOENT") throw error; }
       renameSync(temporary, destination); exists = false;
     } else {
       linkSync(temporary, destination); unlinkSync(temporary); exists = false;
