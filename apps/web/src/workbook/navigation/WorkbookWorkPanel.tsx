@@ -1,6 +1,10 @@
 import { workbookNavigationStatusTestId } from "@cartulary/ui-contracts";
 import {
+  type CSSProperties,
+  type RefCallback,
+  type RefObject,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -11,6 +15,7 @@ import { useWorkbookCommand } from "../commands/WorkbookCommands";
 import {
   workbookFormHeadingStyle,
   workbookQuietCommandStyle,
+  workbookTypography,
 } from "../components/workbookFormStyles";
 import {
   fixedMenuFrameStyle,
@@ -21,11 +26,16 @@ import { WorkbookAuxiliaryDock } from "../layout/WorkbookAuxiliaryDock";
 import {
   decisionsViewSchemaId,
   handoffViewSchemaId,
+  listWorkbookSurfaceRegistryEntries,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
-import { workbookPinIdentity } from "./WorkbookSessionNavigation";
+import { useWorkPinRemovalFocus } from "./useWorkPinRemovalFocus";
+import {
+  type WorkbookSessionPin,
+  workbookPinIdentity,
+} from "./WorkbookSessionNavigation";
 import { useWorkbookWorkbench } from "./WorkbookWorkbenchContext";
 
 const subscribeEmpty = () => () => {};
@@ -38,6 +48,7 @@ export function WorkbookWorkControls() {
   );
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  const dock = useRef<HTMLElement>(null);
   const close = () => setOpen(false);
   const coordinated = useWorkbookSecondaryPanel(open, close);
   const before = useRef(false);
@@ -99,6 +110,7 @@ export function WorkbookWorkControls() {
       </button>
       {open && state.readable ? (
         <WorkbookAuxiliaryDock
+          ref={dock}
           label="Work"
           onClose={close}
           onNavigationClose={() => {
@@ -106,7 +118,11 @@ export function WorkbookWorkControls() {
             setOpen(false);
           }}
         >
-          <WorkContents onClose={close} focusedOpening={focusedOpening} />
+          <WorkContents
+            onClose={close}
+            focusedOpening={focusedOpening}
+            dockRef={dock}
+          />
         </WorkbookAuxiliaryDock>
       ) : null}
     </>
@@ -115,9 +131,11 @@ export function WorkbookWorkControls() {
 function WorkContents({
   onClose,
   focusedOpening,
+  dockRef,
 }: {
   readonly onClose: () => void;
   readonly focusedOpening: { current: boolean };
+  readonly dockRef: RefObject<HTMLElement | null>;
 }) {
   const workbench = useWorkbookWorkbench();
   const state = useSyncExternalStore(
@@ -125,6 +143,8 @@ function WorkContents({
     workbench?.session.getSnapshot ?? emptySnapshot,
   );
   const heading = useRef<HTMLHeadingElement>(null);
+  const pinView = useRef<HTMLButtonElement>(null);
+  const removal = useWorkPinRemovalFocus(workbench?.session, dockRef, pinView);
   useLayoutEffect(() => {
     if (!focusedOpening.current) {
       heading.current?.focus();
@@ -134,6 +154,12 @@ function WorkContents({
   if (!workbench || !state?.readable) return null;
   return (
     <div>
+      <style>{`
+        [data-work-pin-removal-focus]:focus {
+          outline: var(--ct-component-focus-ring-border);
+          outline-offset: var(--ct-component-focus-ring-offset);
+        }
+      `}</style>
       <header
         style={{
           display: "flex",
@@ -159,6 +185,7 @@ function WorkContents({
         investigative intent.
       </p>
       <button
+        ref={pinView}
         style={workbookQuietCommandStyle}
         type="button"
         onClick={workbench.pinCurrentView}
@@ -167,27 +194,19 @@ function WorkContents({
       </button>
       <p role="status">{state.message}</p>
       {state.pins.length ? (
-        <ol>
+        <ol
+          aria-label="Session pins"
+          style={{ paddingInlineStart: "var(--ct-spacing-xl)", minWidth: 0 }}
+        >
           {state.pins.map((pin) => (
-            <li key={workbookPinIdentity(pin)}>
-              <button
-                style={workbookQuietCommandStyle}
-                type="button"
-                disabled={state.pending}
-                data-workbook-navigation="true"
-                onClick={() => workbench.openPin(pin)}
-              >
-                {pin.label}
-              </button>{" "}
-              <button
-                style={workbookQuietCommandStyle}
-                type="button"
-                aria-label={`Remove ${pin.label} from working set`}
-                onClick={() => workbench.session.remove(pin)}
-              >
-                Remove
-              </button>
-            </li>
+            <WorkPinItem
+              key={workbookPinIdentity(pin)}
+              pin={pin}
+              pending={state.pending}
+              open={() => workbench.openPin(pin)}
+              remove={(source) => removal.remove(pin, source)}
+              removeRef={removal.buttonRef(workbookPinIdentity(pin))}
+            />
           ))}
         </ol>
       ) : (
@@ -218,6 +237,136 @@ function WorkContents({
         ))}
       </nav>
     </div>
+  );
+}
+
+const pinTextStyle = {
+  minWidth: 0,
+  maxWidth: "100%",
+  whiteSpace: "normal",
+  overflowWrap: "anywhere",
+} satisfies CSSProperties;
+
+function WorkPinItem({
+  pin,
+  pending,
+  open,
+  remove,
+  removeRef,
+}: {
+  readonly pin: WorkbookSessionPin;
+  readonly pending: boolean;
+  readonly open: () => void;
+  readonly remove: (source: HTMLButtonElement) => void;
+  readonly removeRef: RefCallback<HTMLButtonElement>;
+}) {
+  const labelId = useId();
+  const contextId = useId();
+  const label = pin.unavailable ? "Unavailable item" : pin.label;
+  const sheet = pin.sheetRef;
+  const surface =
+    sheet.kind === "view_schema"
+      ? listWorkbookSurfaceRegistryEntries().find(
+          (entry) => entry.viewSchemaId === sheet.id,
+        )?.title
+      : undefined;
+  const kind =
+    sheet.kind === "saved_view"
+      ? "Saved view"
+      : sheet.kind === "extension_workspace"
+        ? "Extension root"
+        : pin.recordId
+          ? "Record"
+          : "Base surface";
+  const context = surface ? `${surface} · ${kind}` : kind;
+  const identity: readonly (readonly [string, string])[] =
+    sheet.kind === "extension_workspace"
+      ? [
+          ["Extension profile", sheet.extension_profile_id],
+          ["Workspace", sheet.workspace_key],
+        ]
+      : sheet.kind === "saved_view"
+        ? [["Saved view ID", sheet.id]]
+        : [
+            ["View schema", sheet.id],
+            ...(pin.recordId ? [["Record ID", pin.recordId] as const] : []),
+          ];
+  return (
+    <li
+      aria-labelledby={labelId}
+      style={{ ...pinTextStyle, marginBlockEnd: "var(--ct-spacing-md)" }}
+    >
+      <button
+        id={labelId}
+        type="button"
+        style={{
+          ...workbookQuietCommandStyle,
+          ...pinTextStyle,
+          textAlign: "start",
+          justifyContent: "flex-start",
+        }}
+        aria-describedby={pin.unavailable ? undefined : contextId}
+        disabled={pending}
+        data-workbook-navigation="true"
+        onClick={open}
+      >
+        {label}
+      </button>
+      {!pin.unavailable ? (
+        <div
+          id={contextId}
+          style={{ ...workbookTypography("metadata"), ...pinTextStyle }}
+        >
+          {context}
+        </div>
+      ) : null}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "start",
+          gap: "var(--ct-spacing-xs)",
+          minWidth: 0,
+        }}
+      >
+        <button
+          ref={removeRef}
+          style={workbookQuietCommandStyle}
+          type="button"
+          aria-label={`Remove ${label} from working set`}
+          aria-describedby={pin.unavailable ? undefined : contextId}
+          onClick={(event) => remove(event.currentTarget)}
+        >
+          Remove
+        </button>
+        {!pin.unavailable ? (
+          <details style={{ ...pinTextStyle, flex: "1 1 auto" }}>
+            <summary
+              style={workbookQuietCommandStyle}
+              aria-label={`Identity for ${label}`}
+            >
+              Identity
+            </summary>
+            <dl
+              style={{
+                ...workbookTypography("metadata"),
+                ...pinTextStyle,
+                marginBlock: "var(--ct-spacing-xs)",
+              }}
+            >
+              {identity.map(([name, value]) => (
+                <div key={name}>
+                  <dt>{name}</dt>
+                  <dd style={{ ...pinTextStyle, marginInlineStart: 0 }}>
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        ) : null}
+      </div>
+    </li>
   );
 }
 /** Navigation owns feedback; footer placement never changes the active surface's tracks. */

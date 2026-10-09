@@ -114,7 +114,7 @@ export class WorkbookSessionNavigation {
   concealPin(pin: WorkbookSessionPin) {
     this.pins = this.pins.map((item) =>
       workbookPinIdentity(item) === workbookPinIdentity(pin)
-        ? { ...item, label: "Unavailable item" }
+        ? { ...item, label: "Unavailable item", unavailable: true }
         : item,
     );
     this.publish("This item is unavailable.");

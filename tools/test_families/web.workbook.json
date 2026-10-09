@@ -6760,6 +6760,36 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.work_pin_presentation_removal_27944912ba",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/navigation/WorkbookWorkPanel.test.tsx",
+        "titles": [
+          "Work conceals unavailable identity and labels while retaining generic removal",
+          "Work fences removal focus across authority loss navigation and unexpected pin changes",
+          "Work identifies equal labels from descriptors and removes exactly one pin without reads or writes",
+          "Work presents each supported descriptor kind without adding metadata observations",
+          "Work restores first middle last and sole removal focus and closes immediately with Escape",
+          "Work retires removal focus after deliberate interaction closure detachment and unmount",
+          "Work skips disabled removal controls without moving focus for an unfocused removal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.workbench_commands_interaction",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

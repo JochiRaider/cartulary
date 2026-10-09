@@ -21,7 +21,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page, Request } from "@playwright/test";
+import type { Locator, Page, Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { loginLocalSession } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
@@ -420,6 +420,277 @@ test("Viewer record handoff selects a committed cell without enabling writes.", 
   await navigationCell(page, recordId);
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-grid-editing="true"]')).toHaveCount(0);
+  await expect(page.getByTestId(draftCellTestId(dateField))).toHaveCount(0);
+  expect(writes).toEqual([]);
+});
+
+const pinProse =
+  "A collection script launched from a temporary directory; the parent process and command line were retained for review.";
+const pinToken = `WorkPin${"0123456789abcdef".repeat(12)}`;
+const workItem = (page: Page, id: string) =>
+  page
+    .getByRole("listitem")
+    .filter({ has: page.getByText(id, { exact: true }) });
+const removePin = (page: Page, id: string) =>
+  workItem(page, id).getByRole("button", { name: /^Remove / });
+
+async function expectRevealedControl(page: Page, control: Locator) {
+  await expect(control).toBeFocused();
+  const bounds = await page
+    .getByRole("region", { name: "Work", exact: true })
+    .boundingBox();
+  const button = await control.boundingBox();
+  if (!bounds || !button) throw new Error("Work focus geometry unavailable");
+  const ring = await control.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      width: Number.parseFloat(style.outlineWidth),
+      offset: Number.parseFloat(style.outlineOffset),
+      style: style.outlineStyle,
+      scale: (node as HTMLElement).offsetHeight
+        ? node.getBoundingClientRect().height /
+          (node as HTMLElement).offsetHeight
+        : 1,
+    };
+  });
+  expect(ring.width).toBeGreaterThan(0);
+  expect(ring.style).not.toBe("none");
+  const margin = (ring.width + ring.offset) * ring.scale;
+  expect(button.x - margin).toBeGreaterThanOrEqual(bounds.x);
+  expect(button.y - margin).toBeGreaterThanOrEqual(bounds.y);
+  expect(button.x + button.width + margin).toBeLessThanOrEqual(
+    bounds.x + bounds.width,
+  );
+  expect(button.y + button.height + margin).toBeLessThanOrEqual(
+    bounds.y + bounds.height,
+  );
+}
+
+async function exercisePinRemoval(
+  page: Page,
+  viewport: { width: number; height: number },
+) {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("PINS"),
+    "Work pin readability",
+  );
+  const ids: string[] = [];
+  for (let index = 0; index < 20; index++) {
+    const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("work-pin"),
+      [activityField]:
+        index < 2
+          ? pinProse
+          : index === 2
+            ? pinToken
+            : `Pinned record ${index}`,
+    });
+    ids.push(row.record_id);
+  }
+  const idAt = (index: number) => {
+    const id = ids[index];
+    if (!id) throw new Error(`Missing fixture pin ${index}`);
+    return id;
+  };
+  await page.setViewportSize(viewport);
+  await enter(page, incidentId);
+  for (const id of ids) await pin(page, id);
+  // Duplicate admission at capacity must preserve the original insertion position.
+  await pin(page, idAt(0));
+  await surface(page, notesViewSchemaId);
+  const draft = page.getByTestId(genericCreateFieldTestId("note.title"));
+  await draft.fill("Retained while managing Work pins");
+  const writes = observeWrites(page);
+  const reads: string[] = [];
+  const observe = (request: Request) => {
+    if (
+      new URL(request.url()).pathname.startsWith(
+        `/api/v1/incidents/${incidentId}/`,
+      )
+    )
+      reads.push(request.url());
+  };
+  page.on("request", observe);
+  await work(page);
+  const dock = page.getByRole("region", { name: "Work", exact: true });
+  await expect(dock).toContainText("Session only · 20/20 pins");
+  await dock
+    .getByRole("button", { name: "Pin view", exact: true })
+    .press("Enter");
+  await expect(dock.getByRole("status")).toHaveText(
+    "Working set is full; remove a pin first.",
+  );
+
+  const grid = page
+    .getByTestId(gridShellTestId(notesViewSchemaId))
+    .locator(gridScrollportSelector());
+  const stableGeometry = async () => ({
+    grid: await grid.evaluate((node) => ({
+      x: node.scrollLeft,
+      y: node.scrollTop,
+    })),
+    page: await page.evaluate(() => ({
+      x: window.scrollX,
+      y: window.scrollY,
+      width: document.documentElement.scrollWidth,
+      height: document.documentElement.scrollHeight,
+    })),
+    selected: await grid
+      .getByRole("gridcell", { selected: true })
+      .evaluateAll((nodes) =>
+        nodes.map(
+          (node) => node.getAttribute("data-testid") ?? node.textContent,
+        ),
+      ),
+    footer: await page
+      .getByRole("region", { name: "Status strip", exact: true })
+      .boundingBox(),
+  });
+  const before = await stableGeometry();
+  for (const id of ids.slice(0, 3)) {
+    const item = workItem(page, id);
+    await item.getByLabel(/^Identity for /).press("Enter");
+    await expect(item.getByText(id, { exact: true })).toBeVisible();
+    await expect(
+      item.getByText("Timeline · Record", { exact: true }),
+    ).toBeVisible();
+    const open = item.getByRole("button", {
+      name: id === idAt(2) ? pinToken : pinProse,
+      exact: true,
+    });
+    const text = await open.evaluate((node) => ({
+      width: node.clientWidth,
+      scrollWidth: node.scrollWidth,
+      height: node.clientHeight,
+      scrollHeight: node.scrollHeight,
+      whiteSpace: getComputedStyle(node).whiteSpace,
+    }));
+    expect(text.scrollWidth).toBeLessThanOrEqual(text.width + 1);
+    expect(text.scrollHeight).toBeLessThanOrEqual(text.height + 1);
+    expect(text.whiteSpace).toBe("normal");
+  }
+  const orderedIds = async () =>
+    dock.getByRole("listitem").evaluateAll((items) =>
+      items.map((item) => {
+        const terms = Array.from(item.querySelectorAll("dt"));
+        return terms.find((term) => term.textContent === "Record ID")
+          ?.nextElementSibling?.textContent;
+      }),
+    );
+  expect(await orderedIds()).toEqual(ids);
+
+  // Remove a middle item at the bottom of the scrollport, then its last item.
+  await removePin(page, idAt(18)).press("Enter");
+  await expectRevealedControl(page, removePin(page, idAt(19)));
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Work", exact: true }),
+  ).toBeFocused();
+  await expect(draft).toHaveValue("Retained while managing Work pins");
+  await work(page);
+  await removePin(page, idAt(19)).press("Enter");
+  await expectRevealedControl(page, removePin(page, idAt(17)));
+
+  // A pointer removal recovers visible focus too; equal labels retain exact identity.
+  await removePin(page, idAt(0)).click();
+  await expectRevealedControl(page, removePin(page, idAt(1)));
+  expect(await orderedIds()).toEqual(ids.slice(1, 18));
+  expect(await stableGeometry()).toEqual(before);
+  await expect(page.locator('[data-grid-editing="true"]')).toHaveCount(0);
+  expect(reads).toEqual([]);
+  page.off("request", observe);
+
+  // Open the surviving equal-label record through the unchanged navigation owner.
+  await workItem(page, idAt(1))
+    .getByRole("button", { name: pinProse, exact: true })
+    .press("Enter");
+  await navigationCell(page, idAt(1));
+  await returnToOrigin(page);
+  await expect(draft).toHaveValue("Retained while managing Work pins");
+  await work(page);
+
+  if (viewport.width === 768) {
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "125%";
+    });
+    const token = workItem(page, idAt(2)).getByRole("button", {
+      name: pinToken,
+      exact: true,
+    });
+    await token.focus();
+    expect(
+      await token.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+    ).toBe(true);
+  }
+  for (const id of ids.slice(1, 18)) {
+    await removePin(page, id).press("Enter");
+    const next = idAt(ids.indexOf(id) + 1);
+    await expectRevealedControl(
+      page,
+      id === idAt(17)
+        ? dock.getByRole("button", { name: "Pin view", exact: true })
+        : removePin(page, next),
+    );
+  }
+  await expect(dock).toContainText("Session only · 0/20 pins");
+  await expect(dock).toContainText("No pins yet.");
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Work", exact: true }),
+  ).toBeFocused();
+  await expect(draft).toHaveValue("Retained while managing Work pins");
+  expect(writes).toEqual([]);
+}
+
+test("Work pins remain readable identifiable and keyboard continuous at 1440 pixels.", async ({
+  page,
+}) => {
+  await exercisePinRemoval(page, { width: 1440, height: 900 });
+});
+test("Work pins remain readable identifiable and keyboard continuous at 1024 pixels.", async ({
+  page,
+}) => {
+  await exercisePinRemoval(page, { width: 1024, height: 768 });
+});
+test("Work pins remain readable identifiable and keyboard continuous at 768 pixels and zoom.", async ({
+  page,
+}) => {
+  await exercisePinRemoval(page, { width: 768, height: 640 });
+});
+test("Viewer Work pins disclose identity remove locally and close with Escape.", async ({
+  page,
+}) => {
+  const { incidentId, recordId } = await seed(page);
+  const viewer = await createIncidentMemberUser(page, incidentId, {
+    display_name: "Pin Viewer",
+    email: uniqueEmail("pin-viewer"),
+    initial_password: "WorkPinViewer1!",
+    role: "viewer",
+    is_deployment_admin: false,
+    mfa_required: false,
+  });
+  await loginLocalSession(page, viewer.email, viewer.initial_password);
+  await page.setViewportSize({ width: 768, height: 640 });
+  await enter(page, incidentId);
+  await pin(page, recordId);
+  const writes = observeWrites(page);
+  await work(page);
+  await workItem(page, recordId)
+    .getByLabel(`Identity for ${title}`)
+    .press("Enter");
+  await expect(
+    workItem(page, recordId).getByText(recordId, { exact: true }),
+  ).toBeVisible();
+  await removePin(page, recordId).press("Enter");
+  await expectRevealedControl(
+    page,
+    page.getByRole("button", { name: "Pin view", exact: true }),
+  );
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Work", exact: true }),
+  ).toBeFocused();
   await expect(page.getByTestId(draftCellTestId(dateField))).toHaveCount(0);
   expect(writes).toEqual([]);
 });

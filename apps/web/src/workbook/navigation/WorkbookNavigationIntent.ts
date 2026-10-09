@@ -37,6 +37,8 @@ export type WorkbookReturnOrigin = {
 export type WorkbookSessionPin = {
   readonly incidentId: string;
   readonly label: string;
+  /** Concealment already established by navigation; never an access grant. */
+  readonly unavailable?: true;
 } & (
   | ({ readonly sheetRef: Extract<SheetRef, { kind: "view_schema" }> } & Anchor)
   | ({ readonly sheetRef: SheetRef } & Root)
