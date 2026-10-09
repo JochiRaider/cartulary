@@ -546,7 +546,9 @@ describe("contextual Task and Decision authoring", () => {
         name: "Choose Linked Records",
       }),
     );
-    await screen.findByRole("option", { name: "Original source" });
+    await screen.findByRole("checkbox", {
+      name: `Original source (${sourceId})`,
+    });
     act(() => owner.observe(sourceId, 2));
     await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(2));
     const picker = screen.getByRole("region", {
@@ -782,7 +784,7 @@ describe("contextual Task and Decision authoring", () => {
     fireEvent.click(screen.getByRole("button", { name: `Choose ${label}` }));
     await waitFor(() =>
       expect(
-        screen.getByRole("listbox", { name: label }).hasAttribute("disabled"),
+        screen.getByRole("group", { name: label }).hasAttribute("disabled"),
       ).toBe(false),
     );
     expect(

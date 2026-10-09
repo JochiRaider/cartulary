@@ -1065,7 +1065,7 @@ describe("authoring candidate presentation", () => {
       expect(
         Array.from(
           screen
-            .getByTestId("candidates")
+            .getByRole("group", { name: "Parties" })
             .querySelectorAll('input[type="checkbox"]'),
         ),
       ).toHaveLength(100);

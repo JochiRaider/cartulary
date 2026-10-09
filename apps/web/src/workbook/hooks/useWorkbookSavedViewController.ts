@@ -198,12 +198,6 @@ export function useWorkbookSavedViewController({
   );
   return {
     commands: {
-      selectSavedView: (resource: SavedViewResource) => {
-        void controller.activateResource(
-          resource.saved_view_id,
-          resource.view_schema_id,
-        );
-      },
       upsertSavedView: controller.acceptResource,
     },
     snapshot: {

@@ -17,6 +17,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 | --- | --- |
 | [adapters/](adapters/README.md) | Private workbook protocol adapters, captured operation transport, response validation, and semantic outcome conversion. |
 | [collaboration/](collaboration/README.md) | Workbook interpretation of decoded collaboration events, presence, reset, and authorization recovery. |
+| [commands/](commands/README.md) | Deterministic command discovery, captured semantic targets and current source-owner dispatch. |
 | [composition/](composition/README.md) | Committed retained runtime construction and replacement-safe presentation attachment. |
 | [components/](components/README.md) | Shared workbook surface facades, shell chrome, query controls, field editors, and recovery presentation. |
 | [continuity/](continuity/README.md) | Semantic grid focus, selection, and viewport continuity through workbook-private adapter bindings. |
@@ -30,6 +31,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 | [lifecycle/](lifecycle/README.md) | Shared typed invalidation reasons for workbook, query, mutation, and extension lifetimes. |
 | [models/](models/README.md) | Pure workbook request, row, query, registry, startup, saved-view, and presentation models. |
 | [mutations/](mutations/README.md) | Semantic mutation command assembly, secure action identity, write coordination, and operation outcomes. |
+| [navigation/](navigation/README.md) | Semantic destination admission, session pins, Return and committed navigation presentation. |
 | [policies/](policies/README.md) | Contract-backed surface policy declarations, reference requirements, owner bindings, and application shortcuts. |
 | [ports/](ports/README.md) | Semantic workbook read/write capabilities and shared outcomes used across owner boundaries. |
 | [preferences/](preferences/README.md) | Current-user home and incident-default workbook preference reads, edits, announcements, and recovery. |

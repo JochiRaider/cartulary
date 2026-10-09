@@ -49,6 +49,11 @@ reads, explicit empty/loading/stale/access states, canonical action bindings and
 existing reference discovery. Incoming related Notes navigate to the referring
 record; only outgoing references can be removed from the inspected Note.
 
+Both directions use the required navigation action supplied by generic inspector
+composition. The workbench locates and admits the destination before replacing
+selection and opening Record. Association authoring still uses its owner reader;
+there is no providerless navigation scan or extra retained navigated row.
+
 Transport captures immutable POST bytes and original transaction identity.
 `NoteAssociationRecovery.tsx` remains reachable after inspector closure. Accepted
 receipts survive failed reads, and Retry refresh never writes. Current editor

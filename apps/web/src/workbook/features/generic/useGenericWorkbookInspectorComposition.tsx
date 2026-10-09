@@ -17,7 +17,6 @@ import {
 } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
-import { readWorkbookAuthoringRecord } from "../../adapters/readWorkbookAuthoringRecord";
 import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
@@ -47,7 +46,7 @@ import {
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
-import { useWorkbookWorkbench } from "../../navigation/WorkbookWorkbenchContext";
+import type { WorkbookNavigationActions } from "../../navigation/WorkbookWorkbenchContext";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type {
@@ -99,6 +98,7 @@ export function useGenericWorkbookInspectorComposition({
   interactionMode,
   mutation,
   mutationCommands,
+  navigation,
   onClearSurfaceSelection,
   onRefresh,
   onRestoreFocus,
@@ -125,6 +125,7 @@ export function useGenericWorkbookInspectorComposition({
   readonly interactionMode: GridInteractionMode;
   readonly mutation: GenericSurfaceMutationController;
   readonly mutationCommands: WorkbookMutationCommandPorts;
+  readonly navigation: WorkbookNavigationActions;
   readonly onClearSurfaceSelection: () => void;
   readonly onRefresh: (options?: {
     readonly requireAcceptance?: boolean;
@@ -173,20 +174,9 @@ export function useGenericWorkbookInspectorComposition({
     useState<WorkbookInspectorFeedback | null>(null);
   const [editFieldKey, setEditFieldKey] = useState("");
   const note = useContext(NoteCreateContext);
-  const [navigatedNote, setNavigatedNote] = useState<{
-    scope: string;
-    row: WorkbookQueryRow;
-  } | null>(null);
-  const [navigationError, setNavigationError] = useState<{
-    scope: string;
-    message: string;
-  } | null>(null);
-  const noteScope = JSON.stringify([
-    inspectorResetKey,
-    currentUserId,
-    currentIncidentRole,
-  ]);
-  const associationSnapshot = useSyncExternalStore(
+  // Retained association receipts can advance the inspector subject even when
+  // the query refresh fails. This observation belongs to authoring, not navigation.
+  useSyncExternalStore(
     mutation.noteAssociations.subscribe,
     mutation.noteAssociations.getSnapshot,
   );
@@ -200,10 +190,6 @@ export function useGenericWorkbookInspectorComposition({
       rows.find((row) => row.record_id === selectedRecordId),
       mutation.explicitPatches.latestRow(selectedRecordId),
       mutation.noteAssociations.latestRow(selectedRecordId),
-      navigatedNote?.scope === noteScope &&
-      navigatedNote.row.record_id === selectedRecordId
-        ? navigatedNote.row
-        : null,
       mutation.ordinaryCreate.latestRow(selectedRecordId),
       lifecycleOwner?.latestRow(selectedRecordId),
       decisionOwner?.latestRow(selectedRecordId),
@@ -447,61 +433,14 @@ export function useGenericWorkbookInspectorComposition({
     visible: isOpen,
   });
 
-  const navigationIdentity = JSON.stringify([
-    noteScope,
-    invalidationKey,
-    isOpen,
-    selectedRecordId,
-  ]);
-  const latestNavigationIdentity = useRef(navigationIdentity);
-  latestNavigationIdentity.current = navigationIdentity;
-  useEffect(
-    () => () => {
-      latestNavigationIdentity.current = "detached";
-    },
-    [],
-  );
-  const workbench = useWorkbookWorkbench();
-  const navigateNote = async (recordId: string) => {
-    if (workbench) {
-      workbench.open(
-        {
-          sheetRef: { kind: "view_schema", id: noteAssociationView },
-          recordId,
-        },
-        true,
-      );
-      return;
-    }
-    const captured = latestNavigationIdentity.current,
-      reader = mutation.noteAssociations.getReader();
-    if (!reader || !associationSnapshot.authority) return;
-    setNavigationError(null);
-    try {
-      const row = await readWorkbookAuthoringRecord(
-        reader,
-        noteAssociationView,
+  const navigateNote = (recordId: string) => {
+    navigation.open(
+      {
+        sheetRef: { kind: "view_schema", id: noteAssociationView },
         recordId,
-        new AbortController().signal,
-      );
-      if (
-        captured !== latestNavigationIdentity.current ||
-        !mutation.noteAssociations.getSnapshot().authority
-      )
-        return;
-      if (!row) throw new Error("That Note is no longer available.");
-      setNavigatedNote({ scope: noteScope, row });
-      onSelectRecord(recordId);
-    } catch (error) {
-      if (captured === latestNavigationIdentity.current)
-        setNavigationError({
-          scope: captured,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Could not open that Note.",
-        });
-    }
+      },
+      true,
+    );
   };
   const association = (kind: "source" | "related_note" | "evidence") =>
     ownedInspectorRegion(`note-${kind}`, (present) =>
@@ -514,20 +453,7 @@ export function useGenericWorkbookInspectorComposition({
           sheetRef={sheetRef}
           label={subject?.label ?? "Note"}
           onNavigateNote={navigateNote}
-          present={(model) =>
-            present(
-              model.access === "concealed"
-                ? model
-                : {
-                    ...model,
-                    authoring:
-                      kind === "related_note" &&
-                      navigationError?.scope === navigationIdentity ? (
-                        <p role="alert">{navigationError.message}</p>
-                      ) : null,
-                  },
-            )
-          }
+          present={present}
         />
       ) : (
         present({ access: "concealed" })

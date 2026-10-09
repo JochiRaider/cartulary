@@ -565,7 +565,38 @@ function WorkbookShellContent({
     incidentId,
     actorId: authorization.currentUserId,
     readable: navigationReadable,
-    runtime: infrastructure.workbookRuntime,
+    host: {
+      snapshot: {
+        surface: snapshot.surface,
+        startupSheetRef: snapshot.startupSheetRef,
+        activeContract: snapshot.activeContract,
+        selectedSavedView: snapshot.savedViewsResource.selectedSavedView,
+        gridEntryFocusRequest: snapshot.gridEntryFocusRequest,
+      },
+      commands: {
+        currentQueryStateForSurface: commands.currentQueryStateForSurface,
+        currentLayoutStateForSurface: commands.currentLayoutStateForSurface,
+        applyQueryStateForSurface: commands.applyQueryStateForSurface,
+        applyLayoutStateForSurface: commands.applyLayoutStateForSurface,
+        applyWorkbookIdentity: commands.applyWorkbookIdentity,
+        selectWorkbookSurface: commands.selectWorkbookSurface,
+        selectExtensionWorkspace: commands.selectExtensionWorkspace,
+        cancelGridEntryFocus: commands.cancelGridEntryFocus,
+      },
+      savedViews: {
+        retainNavigation: (id) =>
+          infrastructure.workbookRuntime.savedViewOwner.resources.retain(
+            "navigation",
+            id,
+          ),
+        read: infrastructure.workbookRuntime.savedViewOwner.resources.read,
+        isUnavailable: (id) =>
+          infrastructure.workbookRuntime.savedViewOwner.resources.get(id)
+            ?.status === "unavailable",
+        acceptResource:
+          infrastructure.workbookRuntime.savedViewOwner.acceptResource,
+      },
+    },
     query: infrastructure.viewQuery,
     locator: infrastructure.recordLocator,
     extensionAvailable: (ref) =>
@@ -645,6 +676,7 @@ function WorkbookShellContent({
     networkAnalysisActive,
   );
   const viewBarWorkingSet = workbookShellViewBarWorkingSet({
+    navigation: workbench,
     chromeMode: workbookLayout.shell.chromeMode,
     currentIncidentRole: authorization.currentIncidentRole,
     currentUserId: authorization.currentUserId,
@@ -659,6 +691,7 @@ function WorkbookShellContent({
       ),
   });
   const facadeProps: WorkbookSurfacesFacadeProps = {
+    navigation: workbench,
     collaboration: { projection: collaboration.projection },
     continuity: { resetKey: collaboration.continuityResetKey },
     gridEntryFocus: {

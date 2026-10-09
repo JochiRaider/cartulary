@@ -8,6 +8,7 @@ import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import { workbookQueryStateFromSavedViewQueryJson } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import type { WorkbookNavigationActions } from "../navigation/WorkbookWorkbenchContext";
 import type { WorkbookPreferenceController } from "../preferences/WorkbookPreferenceController";
 import type { WorkbookViewBarWorkingSetBinding } from "./WorkbookViewBar";
 
@@ -66,6 +67,7 @@ export function workbookShellViewBarWorkingSet({
   currentUserId,
   incidentId,
   networkAnalysisActive,
+  navigation,
   runtime,
   preferenceController,
   onInspectPreferences,
@@ -75,6 +77,7 @@ export function workbookShellViewBarWorkingSet({
   readonly currentUserId: string | null;
   readonly incidentId: string;
   readonly networkAnalysisActive: boolean;
+  readonly navigation: WorkbookNavigationActions;
   readonly runtime: WorkbookShellRuntime;
   readonly preferenceController?: WorkbookPreferenceController | undefined;
   readonly onInspectPreferences?:
@@ -120,7 +123,7 @@ export function workbookShellViewBarWorkingSet({
       currentUserId,
       isModified: snapshot.activeSavedViewModified,
       controller: runtime.savedViewOwner,
-      onSelectBaseSurface: commands.selectWorkbookSurface,
+      navigation,
       preferenceController,
       onInspectPreferences,
       savedViewsResource: snapshot.savedViewsResource,

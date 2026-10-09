@@ -57,7 +57,6 @@ export class WorkbookSessionNavigation {
   private intent: AbortController | null = null;
   private pending: {
     key: string;
-    controller: AbortController;
     promise: Promise<boolean>;
   } | null = null;
   private snapshot: Snapshot = {
@@ -173,7 +172,7 @@ export class WorkbookSessionNavigation {
     const captured = structuredClone(origin);
     const controller = new AbortController();
     this.intent = controller;
-    const request = { key, controller, promise: Promise.resolve(false) };
+    const request = { key, promise: Promise.resolve(false) };
     this.pending = request;
     this.snapshot = {
       ...this.snapshot,

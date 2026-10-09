@@ -7,7 +7,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import { sheetRefsEqual } from "../../shared/sheetRef";
-import type { useWorkbookShellRuntime } from "../hooks/useWorkbookShellRuntime";
 import {
   buildSavedViewLayoutJson,
   buildSavedViewQueryJson,
@@ -26,6 +25,7 @@ import type {
   WorkbookViewQueryAccepted,
   WorkbookViewQueryPort,
 } from "../query/WorkbookViewQueryPort";
+import type { WorkbookNavigationHost } from "./WorkbookNavigationHost";
 import type {
   WorkbookReturnOrigin,
   WorkbookSessionNavigation,
@@ -37,7 +37,6 @@ import type {
   WorkbookWorkbench,
 } from "./WorkbookWorkbenchContext";
 
-type Runtime = ReturnType<typeof useWorkbookShellRuntime>;
 type Notice = {
   message: string;
   retry: (() => void) | null;
@@ -49,7 +48,7 @@ export function useWorkbookWorkbench(options: {
   readonly incidentId: string;
   readonly actorId: string | null;
   readonly readable: boolean;
-  readonly runtime: Runtime;
+  readonly host: WorkbookNavigationHost;
   readonly query: WorkbookViewQueryPort;
   readonly locator: WorkbookRecordLocatorPort;
   readonly extensionAvailable: (
@@ -73,6 +72,7 @@ export function useWorkbookWorkbench(options: {
     target: WorkbookNavigationTarget;
     view: string;
     page: WorkbookViewQueryAccepted | null;
+    inspecting: boolean;
     outcome: "pending" | "ready" | "failed" | "cancelled";
   } | null>(null);
   const destination = completion.current;
@@ -81,16 +81,18 @@ export function useWorkbookWorkbench(options: {
     destination.outcome === "ready" &&
     destination.attempt === navigation.attemptId &&
     sheetRefsEqual(
-      options.runtime.snapshot.startupSheetRef,
+      options.host.snapshot.startupSheetRef,
       destination.target.sheetRef,
     ) &&
     (destination.target.sheetRef.kind === "extension_workspace" ||
-      (options.runtime.snapshot.surface === destination.view &&
+      (options.host.snapshot.surface === destination.view &&
         registry.navigationPresentationReady(
           destination.view,
           destination.page,
         ) &&
-        options.runtime.snapshot.gridEntryFocusRequest.kind === "idle"));
+        (destination.inspecting ||
+          registry.presentationReady(destination.view)) &&
+        options.host.snapshot.gridEntryFocusRequest.kind === "idle"));
   useLayoutEffect(() => {
     if (navigationReady) session.completePresentation(navigation.attemptId);
     else if (
@@ -152,7 +154,7 @@ export function useWorkbookWorkbench(options: {
   }, [session, registry, options.actorId, readable]);
   useEffect(() => () => session.setReadable(false), [session]);
   const origin = (): WorkbookReturnOrigin => {
-    const { snapshot, commands } = current.current.runtime;
+    const { snapshot, commands } = current.current.host;
     if (snapshot.startupSheetRef.kind === "extension_workspace")
       return {
         incidentId,
@@ -167,7 +169,7 @@ export function useWorkbookWorkbench(options: {
       commands.currentQueryStateForSurface(snapshot.surface);
     if (anchor?.rowIdentity.kind === "core_record")
       browser?.rememberAnchor(anchor.rowIdentity.recordId);
-    const selected = snapshot.savedViewsResource.selectedSavedView;
+    const selected = snapshot.selectedSavedView;
     return {
       incidentId,
       sheetRef: snapshot.startupSheetRef,
@@ -199,8 +201,8 @@ export function useWorkbookWorkbench(options: {
       key,
       from,
       async (signal) => {
-        const { runtime, extensionAvailable } = current.current;
-        const { commands } = runtime;
+        const { host, extensionAvailable } = current.current;
+        const { commands } = host;
         const admitted = () => !signal.aborted && current.current.readable;
         const fail = (
           message: string,
@@ -253,16 +255,17 @@ export function useWorkbookWorkbench(options: {
           if (!extensionAvailable(target.sheetRef))
             return fail("This workspace is unavailable.");
           if (!admitted()) return "failed";
-          registry.detachPresentation(runtime.snapshot.surface);
+          registry.detachPresentation(host.snapshot.surface);
           completion.current = {
             attempt: session.getSnapshot().attemptId,
             target,
-            view: runtime.snapshot.surface,
+            view: host.snapshot.surface,
             page: null,
+            inspecting: false,
             outcome: "ready",
           };
           if (sheetRefsEqual(from.sheetRef, target.sheetRef)) return "same";
-          registry.grid(runtime.snapshot.surface)?.detachEdit?.();
+          registry.grid(host.snapshot.surface)?.detachEdit?.();
           commands.selectExtensionWorkspace(target.sheetRef);
           return "changed";
         }
@@ -277,13 +280,14 @@ export function useWorkbookWorkbench(options: {
           !baseFallback
         ) {
           if (!admitted()) return "failed";
-          registry.detachPresentation(runtime.snapshot.surface);
-          registry.grid(runtime.snapshot.surface)?.detachEdit?.();
+          registry.detachPresentation(host.snapshot.surface);
+          registry.grid(host.snapshot.surface)?.detachEdit?.();
           completion.current = {
             attempt: session.getSnapshot().attemptId,
             target,
             view: target.sheetRef.id,
             page: null,
+            inspecting: false,
             outcome: "ready",
           };
           commands.selectWorkbookSurface(target.sheetRef.id, {
@@ -296,20 +300,13 @@ export function useWorkbookWorkbench(options: {
         let resource: SavedViewResource | null = null;
         let view = target.sheetRef.id;
         if (target.sheetRef.kind === "saved_view") {
-          runtime.savedViewOwner.resources.retain(
-            "navigation",
-            target.sheetRef.id,
-          );
+          host.savedViews.retainNavigation(target.sheetRef.id);
           let unavailable = false;
           try {
-            resource = await runtime.savedViewOwner.resources.read(
-              target.sheetRef.id,
-            );
-            unavailable =
-              runtime.savedViewOwner.resources.get(target.sheetRef.id)
-                ?.status === "unavailable";
+            resource = await host.savedViews.read(target.sheetRef.id);
+            unavailable = host.savedViews.isUnavailable(target.sheetRef.id);
           } finally {
-            runtime.savedViewOwner.resources.retain("navigation", null);
+            host.savedViews.retainNavigation(null);
           }
           if (!admitted()) return "failed";
           if (!resource) {
@@ -425,8 +422,8 @@ export function useWorkbookWorkbench(options: {
             from.layout,
             buildSavedViewLayoutJson(contract, layout),
           );
-        registry.detachPresentation(runtime.snapshot.surface);
-        registry.grid(runtime.snapshot.surface)?.detachEdit?.();
+        registry.detachPresentation(host.snapshot.surface);
+        registry.grid(host.snapshot.surface)?.detachEdit?.();
         commands.cancelGridEntryFocus();
         const presentation: NonNullable<typeof completion.current> = {
           attempt: session.getSnapshot().attemptId,
@@ -435,6 +432,7 @@ export function useWorkbookWorkbench(options: {
             : target,
           view,
           page,
+          inspecting: inspect && !!anchor,
           outcome:
             anchor || returning ? ("pending" as const) : ("ready" as const),
         };
@@ -477,7 +475,7 @@ export function useWorkbookWorkbench(options: {
             },
           },
         );
-        if (resource) runtime.savedViewOwner.acceptResource(resource);
+        if (resource) host.savedViews.acceptResource(resource);
         // Applying this authorized destination is a fresh requested intent.
         // Its read owner consumes the staged page; a sheet reload would reset
         // that accepted window and the inspector handoff a second time.
@@ -516,7 +514,7 @@ export function useWorkbookWorkbench(options: {
         current?.revision === revision ? null : current,
       ),
     requestInspectValue: () => {
-      const viewSchemaId = current.current.runtime.snapshot.surface;
+      const viewSchemaId = current.current.host.snapshot.surface;
       const anchor = registry.grid(viewSchemaId)?.getActiveCell?.();
       if (
         !current.current.readable ||
@@ -540,12 +538,12 @@ export function useWorkbookWorkbench(options: {
       navigate(target, undefined, undefined, false, inspect),
     openPin: (pin) => navigate(pin, undefined, pin),
     pinCurrentView: () => {
-      const { snapshot } = current.current.runtime;
+      const { snapshot } = current.current.host;
       session.pin({
         incidentId,
         sheetRef: snapshot.startupSheetRef,
         label:
-          snapshot.savedViewsResource.selectedSavedView?.display_name ??
+          snapshot.selectedSavedView?.display_name ??
           (snapshot.startupSheetRef.kind === "extension_workspace"
             ? "Network Analysis"
             : snapshot.activeContract.title),
@@ -562,10 +560,10 @@ export function useWorkbookWorkbench(options: {
     registerInspector,
     registerInspectorFocus,
     pinViewLabel:
-      current.current.runtime.snapshot.startupSheetRef.kind === "view_schema" &&
+      current.current.host.snapshot.startupSheetRef.kind === "view_schema" &&
       !savedViewJSONEqual(
-        current.current.runtime.commands.currentQueryStateForSurface(
-          current.current.runtime.snapshot.surface,
+        current.current.host.commands.currentQueryStateForSurface(
+          current.current.host.snapshot.surface,
         ),
         emptyWorkbookQueryState(),
       )

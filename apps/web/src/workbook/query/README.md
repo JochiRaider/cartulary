@@ -61,6 +61,13 @@ including after a failed restart. Live invalidations coalesce and re-read only
 the current window. Selection refers to loaded query members; drafts, inspectors
 and mutation receipts remain independent.
 
+For deliberate navigation, the registry stages a bounded locator/query page for
+its source reader to accept. Selection commit precedes semantic grid focus; an
+explicit inspector handoff then waits for its own focus binding. Mounted accepted
+presentation and grid eligibility are distinct: opening the destination inspector
+must not prevent the navigation owner from reporting completion. Deliberate
+interaction or authority withdrawal cancels obsolete attachment.
+
 The incident collaboration coordinator keeps a stable invalidation binding while
 sheet readers change. Initial authorization recovery has its own effect; neither
 reference-broker replacement nor a sheet query restarts that authority loop.

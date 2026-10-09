@@ -440,14 +440,14 @@ describe("Coordination authoring", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose audience parties" }),
     );
-    await screen.findByRole("option", { name: "First" });
+    await screen.findByRole("checkbox", { name: `First (${sourceId})` });
     expect(
       screen.getByRole("button", {
         name: "Remove selected Audience Parties Retained",
       }),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
-    await screen.findByRole("option", { name: "Second" });
+    await screen.findByRole("checkbox", { name: `Second (${memberId})` });
     fireEvent.keyDown(screen.getByLabelText("Audience Parties"), {
       key: "Escape",
     });

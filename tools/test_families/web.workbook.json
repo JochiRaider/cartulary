@@ -169,6 +169,7 @@
         "titles": [
           "ActiveSurfaceSavedViewSelector associates name validation and permits editing an invalid generated copy name",
           "ActiveSurfaceSavedViewSelector browses without applying configuration and restores trigger focus on Escape",
+          "ActiveSurfaceSavedViewSelector dispatches base and saved selections only through the required navigation capability",
           "ActiveSurfaceSavedViewSelector falls back only after an unavailable addressed resource and current access classification",
           "ActiveSurfaceSavedViewSelector keeps write confirmation local when resource refresh fails",
           "ActiveSurfaceSavedViewSelector preserves system immutability and rechecks permission changes",
@@ -6767,7 +6768,10 @@
           "workbench navigation admission keeps an outside-query origin until an explicit base locator succeeds",
           "workbench navigation admission keeps ordinary surface entry with its existing read and recovery owner",
           "workbench navigation admission opens record pins with defaults and preserves pins after operational failure",
+          "workbench navigation admission preserves the origin when the locator is unsupported without querying pages",
           "workbench navigation admission refuses observations older than owner evidence and conceals uncertain authority",
+          "workbench navigation admission restores captured Return configuration against a freshly authorized changed saved view",
+          "workbench navigation admission retains Return on failed or cancelled reads and uses an explicit base fallback",
           "workbench navigation admission retains origin while location is pending and rejects late cancelled attachment",
           "workbench navigation reconciles a superseded inspector request until committed attachment and fences cancellation"
         ]
@@ -8520,6 +8524,8 @@
         "titles": [
           "WorkbookShell surface selection Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
           "WorkbookShell surface selection Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
+          "WorkbookShell surface selection admits directional Note navigation through the shell locator before selection and inspection",
+          "WorkbookShell surface selection conceals session navigation during uncertainty and retires it on account replacement or incident departure",
           "WorkbookShell surface selection dispatches entity-origin paste through create targets while preserving exact-match reuse results",
           "WorkbookShell surface selection ignores superseded generic surface query responses after rapid filters",
           "WorkbookShell surface selection issues opaque evidence preview and download handles from the evidence surface",
@@ -8540,6 +8546,7 @@
           "WorkbookShell surface selection rechecks generic surface denial without exiting an authorized incident",
           "WorkbookShell surface selection rejects generic query envelopes from a different view_schema_id",
           "WorkbookShell surface selection renders saved views only in the active surface selector and preserves selected saved-view identity",
+          "WorkbookShell surface selection reobserves an already selected saved view and returns through required base navigation",
           "WorkbookShell surface selection replaces the loading incident heading with truthful identity failure",
           "WorkbookShell surface selection retains accepted generic rows and marks them stale when refresh fails",
           "WorkbookShell surface selection retains exact bulk-tag authoring across shell surface navigation without restoring targets",

@@ -59,6 +59,7 @@ import {
   workbookImportAssistantTestId,
   workbookIncidentIdentityTestId,
   workbookInspectorToggleTestId,
+  workbookNavigationStatusTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
   workbookSurfacesMenuOptionTestId,
@@ -596,7 +597,7 @@ function createSurfaceTestScenario(): SurfaceTestScenario {
 }
 
 describe("WorkbookShell surface selection", () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: ReturnType<typeof vi.fn<typeof fetch>>;
   let scenario: SurfaceTestScenario;
 
   beforeEach(() => {
@@ -2780,6 +2781,329 @@ describe("WorkbookShell surface selection", () => {
     });
     expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
     expect(window.location.search).not.toContain("view_schema_id=");
+  });
+
+  it("admits directional Note navigation through the shell locator before selection and inspection", async () => {
+    const incidentId = "10000000-0000-4000-8000-000000000001";
+    const originId = "00000000-0000-4000-8000-000000007001";
+    const targetId = "00000000-0000-4000-8000-000000007002";
+    const contract = requireViewContract(notesViewSchemaId);
+    const origin = fullWorkbookViewRow(contract, originId, 1, {
+      "note.title": "Origin Note",
+    });
+    const target = fullWorkbookViewRow(contract, targetId, 1, {
+      "note.title": "Destination Note",
+    });
+    scenario.genericRowsByView[notesViewSchemaId] = [origin];
+    scenario.startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: notesViewSchemaId },
+      selected_view_schema_id: notesViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    const originalFetch = fetchMock.getMockImplementation();
+    if (!originalFetch) throw new Error("Missing shell transport fixture");
+    let held = deferred<Response>();
+    fetchMock.mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input), "http://localhost");
+        const association = url.pathname.match(
+          /\/records\/([^/]+)\/note-associations$/,
+        );
+        if (association) {
+          const kind = url.searchParams.get("kind");
+          return new Response(
+            JSON.stringify({
+              data: {
+                note_record_id: association[1],
+                row_version: 1,
+                kind,
+                next_cursor_token: null,
+                items:
+                  association[1] === originId && kind === "related_note"
+                    ? ["incoming", "outgoing"].map((direction) => ({
+                        item_ref: direction,
+                        counterpart_record_id: targetId,
+                        view_schema_id: notesViewSchemaId,
+                        display_label: `${direction} Note`,
+                        direction,
+                      }))
+                    : [],
+              },
+              meta: {
+                request_id: "note-navigation",
+                paging: { limit: 100, has_more: false, next_cursor: null },
+              },
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.pathname.endsWith(`/views/${notesViewSchemaId}/locate`))
+          return held.promise;
+        return originalFetch(input, init);
+      },
+    );
+    render(<WorkbookShell incidentId={incidentId} />);
+    await expectRecordIds(notesViewSchemaId, [originId]);
+    const nav = screen.getByTestId(workbookNavigationStatusTestId());
+    const locations = () =>
+      fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/locate"));
+    for (const [index, direction] of ["incoming", "outgoing"].entries()) {
+      if (index > 0) held = deferred<Response>();
+      fireEvent.click(
+        screen.getByTestId(rowCellTestId(originId, "note.title")),
+      );
+      fireEvent.click(
+        screen.getByTestId(workbookInspectorToggleTestId(notesViewSchemaId)),
+      );
+      const link = await screen.findByRole("button", {
+        name: `${direction} Note`,
+      });
+      expect(
+        screen.queryByRole("button", { name: "Remove incoming Note" }),
+      ).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Remove outgoing Note" }),
+      ).toBeTruthy();
+      const queries = () =>
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).includes(`/views/${notesViewSchemaId}/query`),
+        ).length;
+      const before = queries();
+      fireEvent.click(link);
+      await waitFor(() => expect(locations()).toHaveLength(index + 1));
+      expect(JSON.parse(String(locations()[index]?.[1]?.body))).toMatchObject({
+        record_id: targetId,
+      });
+      expect(
+        screen.getByRole("complementary").getAttribute("data-record-id"),
+      ).toBe(originId);
+      expect(nav.getAttribute("data-navigation-outcome")).toBe("pending");
+      expect(queries()).toBe(before);
+      await act(async () =>
+        held.resolve(
+          successEnvelope({
+            outcome: "located",
+            target_record_id: targetId,
+            incident_id: incidentId,
+            view_schema_id: notesViewSchemaId,
+            rows: [target],
+            window_start_cursor: null,
+          }),
+        ),
+      );
+      await expectRecordIds(notesViewSchemaId, [targetId]);
+      await waitFor(() =>
+        expect(
+          screen.getByRole("complementary").getAttribute("data-record-id"),
+        ).toBe(targetId),
+      );
+      await waitFor(() =>
+        expect(nav.getAttribute("data-navigation-outcome")).toBe("succeeded"),
+      );
+      expect(
+        screen.getByRole("complementary").getAttribute("data-record-id"),
+      ).toBe(targetId);
+      expect(
+        screen.getByRole("complementary").contains(document.activeElement),
+      ).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: "Return" }));
+      await expectRecordIds(notesViewSchemaId, [originId]);
+      await waitFor(() =>
+        expect(nav.getAttribute("data-navigation-outcome")).toBe("succeeded"),
+      );
+      expect(screen.queryByRole("complementary")).toBeNull();
+    }
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          String(url).includes("/records/") &&
+          (init?.method ?? "GET") !== "GET",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("reobserves an already selected saved view and returns through required base navigation", async () => {
+    scenario.timelineRows = [
+      timelineRow("21000000-0000-4000-8000-000000000001", 1, "Selected row", 0),
+    ];
+    scenario.savedViews = [
+      testSavedViewResource({
+        saved_view_id: savedViewId,
+        view_schema_id: timelineViewSchemaId,
+      }),
+    ];
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
+    await screen.findByTestId(workbookShellReadyTestId());
+    await activateSavedView(timelineViewSchemaId, savedViewId);
+    const nav = screen.getByTestId(workbookNavigationStatusTestId());
+    await waitFor(() =>
+      expect(nav.getAttribute("data-navigation-outcome")).toBe("succeeded"),
+    );
+    const beforeAttempt = nav.getAttribute("data-navigation-attempt-id");
+    scenario.savedViews = [
+      testSavedViewResource({
+        saved_view_id: savedViewId,
+        view_schema_id: timelineViewSchemaId,
+        saved_view_version: 2,
+        display_name: "Changed persisted view",
+        query_json: {
+          sort: [{ field_key: "timeline.edited_at", direction: "desc" }],
+          filters: [],
+        },
+      }),
+    ];
+    const held = scenario.deferQuery(timelineViewSchemaId);
+    const before = fetchMock.mock.calls.length;
+    await activateSavedView(timelineViewSchemaId, savedViewId);
+    await waitFor(() => expect(scenario.pendingQueryCount).toBeGreaterThan(0));
+    expect(nav.getAttribute("data-navigation-outcome")).toBe("pending");
+    expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
+    expect(
+      fetchMock.mock.calls
+        .slice(before)
+        .some(
+          ([url, init]) =>
+            String(url).endsWith(`/saved-views/${savedViewId}`) &&
+            (init?.method ?? "GET") === "GET",
+        ),
+    ).toBe(true);
+    await act(async () =>
+      held.resolve(
+        successEnvelope({
+          incident_id: "10000000-0000-4000-8000-000000000001",
+          view_schema_id: timelineViewSchemaId,
+          rows: scenario.timelineRows,
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(nav.getAttribute("data-navigation-outcome")).toBe("succeeded"),
+    );
+    expect(nav.getAttribute("data-navigation-attempt-id")).not.toBe(
+      beforeAttempt,
+    );
+    expect(
+      screen.getByTestId(savedViewSelectorTestId(timelineViewSchemaId))
+        .textContent,
+    ).toContain("Changed persisted view");
+    expect(
+      fetchMock.mock.calls
+        .slice(before)
+        .filter(([url]) =>
+          String(url).endsWith(`/views/${timelineViewSchemaId}/query`),
+        )
+        .map(([, init]) => JSON.parse(String(init?.body))),
+    ).toContainEqual(
+      expect.objectContaining({
+        sort: [{ field_key: "timeline.edited_at", direction: "desc" }],
+      }),
+    );
+    fireEvent.click(
+      screen.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+    );
+    fireEvent.click(
+      await screen.findByRole("option", { name: "Unsaved view" }),
+    );
+    await waitFor(() =>
+      expect(nav.getAttribute("data-navigation-outcome")).toBe("succeeded"),
+    );
+    expect(window.location.search).toContain(
+      `view_schema_id=${timelineViewSchemaId}`,
+    );
+    expect(window.location.search).not.toContain("sheet_ref_id");
+    expect(
+      fetchMock.mock.calls
+        .slice(before)
+        .filter(
+          ([url, init]) =>
+            String(url).includes("/saved-views") &&
+            (init?.method ?? "GET") !== "GET",
+        ),
+    ).toHaveLength(0);
+  });
+
+  it("conceals session navigation during uncertainty and retires it on account replacement or incident departure", async () => {
+    const incidentId = "10000000-0000-4000-8000-000000000001";
+    scenario.incidentStatus = "closed";
+    for (const retirement of [
+      "account",
+      "incident_access_lost",
+      "incident_changed",
+    ] as const) {
+      const registry = new WorkbookMutationRuntimeRegistry();
+      const acquired = vi.spyOn(registry, "acquire");
+      const view = render(
+        <WorkbookShell
+          incidentId={incidentId}
+          mutationRuntimeRegistry={registry}
+        />,
+      );
+      await screen.findByTestId(workbookShellReadyTestId());
+      const runtime: WorkbookMutationRuntime = acquired.mock.results[0]?.value;
+      await waitFor(() =>
+        expect(runtime.sessionNavigation.getSnapshot().readable).toBe(true),
+      );
+      const authority = {
+        incidentId,
+        actorId: testUserId,
+        sessionIdentity: "workbook-test",
+        role: "admin" as const,
+        closed: true,
+      };
+      act(() =>
+        runtime.sessionNavigation.pin({
+          incidentId,
+          sheetRef: { kind: "view_schema", id: timelineViewSchemaId },
+          label: "Protected pin",
+        }),
+      );
+      const pending = deferred<"changed">();
+      const origin = {
+        incidentId,
+        sheetRef: { kind: "view_schema" as const, id: timelineViewSchemaId },
+        invoker: "view" as const,
+      };
+      let navigation!: Promise<boolean>;
+      act(() => {
+        navigation = runtime.sessionNavigation.navigate(
+          "held",
+          origin,
+          () => pending.promise,
+        );
+      });
+      await act(async () =>
+        runtime.invalidate({ kind: "session_unavailable" }),
+      );
+      expect(runtime.sessionNavigation.getSnapshot().pins).toEqual([]);
+      expect(screen.queryByTestId(workbookNavigationStatusTestId())).toBeNull();
+      await act(async () => pending.resolve("changed"));
+      expect(await navigation).toBe(false);
+      expect(runtime.sessionNavigation.getSnapshot().trail).toEqual([]);
+      await act(async () => runtime.setAuthority(authority));
+      await waitFor(() =>
+        expect(runtime.sessionNavigation.getSnapshot().pins).toHaveLength(1),
+      );
+      expect(runtime.sessionNavigation.getSnapshot().readable).toBe(true);
+      await act(async () => {
+        if (retirement === "account")
+          runtime.setAuthority({
+            ...authority,
+            actorId: "00000000-0000-4000-8000-000000009999",
+          });
+        else if (retirement === "incident_changed")
+          runtime.invalidate({
+            kind: retirement,
+            nextIncidentId: "next-incident",
+          });
+        else runtime.invalidate({ kind: retirement });
+      });
+      expect(runtime.sessionNavigation.getSnapshot().pins).toEqual([]);
+      act(() => runtime.sessionNavigation.setReadable(true));
+      expect(runtime.sessionNavigation.getSnapshot().pins).toEqual([]);
+      view.unmount();
+      registry.dispose();
+    }
   });
 
   it("renders saved views only in the active surface selector and preserves selected saved-view identity", async () => {

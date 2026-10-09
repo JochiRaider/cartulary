@@ -13,7 +13,10 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ActiveSurfaceSavedViewProjection } from "../models/workbookSavedViewControl";
-import { useWorkbookWorkbench } from "../navigation/WorkbookWorkbenchContext";
+import {
+  useWorkbookWorkbench,
+  type WorkbookNavigationActions,
+} from "../navigation/WorkbookWorkbenchContext";
 import type { SavedViewDiscoveryAction } from "../savedviews/SavedViewDiscovery";
 import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
@@ -27,7 +30,7 @@ export function SavedViewBrowser({
   projection,
   triggerRef,
   triggerStyle,
-  onBase,
+  navigation,
 }: {
   presets?: ReactNode;
   controller: WorkbookSavedViewController;
@@ -35,7 +38,7 @@ export function SavedViewBrowser({
   projection: ActiveSurfaceSavedViewProjection;
   triggerRef: RefObject<HTMLButtonElement | null>;
   triggerStyle: CSSProperties;
-  onBase: () => void;
+  navigation: WorkbookNavigationActions;
 }) {
   const workbench = useWorkbookWorkbench();
   const snapshot = useSyncExternalStore(
@@ -373,11 +376,9 @@ export function SavedViewBrowser({
                 focusedCandidateIndex.current = 0;
               }}
               onClick={() => {
-                if (workbench)
-                  workbench.open({
-                    sheetRef: { kind: "view_schema", id: schema },
-                  });
-                else onBase();
+                navigation.open({
+                  sheetRef: { kind: "view_schema", id: schema },
+                });
                 close(true);
               }}
             >
@@ -416,21 +417,13 @@ export function SavedViewBrowser({
                 data-saved-view-id={candidate.saved_view_id}
                 data-view-schema-id={schema}
                 onClick={() => {
-                  if (workbench) {
-                    workbench.open({
-                      sheetRef: {
-                        kind: "saved_view",
-                        id: candidate.saved_view_id,
-                      },
-                    });
-                    close(false);
-                    return;
-                  }
-                  void controller
-                    .activateResource(candidate.saved_view_id, schema)
-                    .then((applied) => {
-                      if (applied) close(true);
-                    });
+                  navigation.open({
+                    sheetRef: {
+                      kind: "saved_view",
+                      id: candidate.saved_view_id,
+                    },
+                  });
+                  close(false);
                 }}
               >
                 <span style={{ overflowWrap: "anywhere" }}>

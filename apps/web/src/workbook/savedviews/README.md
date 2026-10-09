@@ -13,7 +13,7 @@ Identity, draft, attempt, receipt, and refresh state remain explicit. The
 | File | Responsibility |
 | --- | --- |
 | [SavedViewDiscovery.ts](SavedViewDiscovery.ts) | Retains one schema-scoped page of 50 candidates and ten previous page-start cursors; no automatic traversal. |
-| [SavedViewResourceObserver.ts](SavedViewResourceObserver.ts) | Retains independently authorized resources only for selection, activation, operation and inspected preference pointers. |
+| [SavedViewResourceObserver.ts](SavedViewResourceObserver.ts) | Retains independently authorized resources only for selection, navigation, confirmed-operation activation, operations and inspected preference pointers. |
 | [savedViewOperationModel.ts](savedViewOperationModel.ts) | Saved-view authority, subjects, drafts, intents, immutable attempts, and operation snapshots. |
 | [WorkbookSavedViewController.ts](WorkbookSavedViewController.ts) | Selection admission and create/update/delete ownership with retained attempts and recovery. |
 
@@ -25,7 +25,15 @@ Identity, draft, attempt, receipt, and refresh state remain explicit. The
 
 Opening the browser revalidates its retained page. Previous refetches a retained
 checkpoint; First and Refresh start a fresh chain only after acceptance. Dismissal
-cancels browsing and activation. Schema/authority replacement retires discovery.
-Candidate focus and paging never apply query/layout; explicit activation validates
-the addressed resource and the captured working revision. Recovery observes its
-captured ID; uncertain creation is never resolved by catalog matching.
+cancels browsing and owner activation. Schema/authority replacement retires discovery.
+Candidate focus and paging never apply query/layout. Browser selection requires
+the [navigation capability](../navigation/README.md) for both base and saved views,
+including same-ID reselection. Closing discovery does not cancel that independent
+navigation intent.
+
+`activateResource` remains an owner operation used by `openConfirmed`; it validates
+the addressed resource and captured working revision. The hook's internal selection
+binding, current-resource deletion/unavailability recovery and startup acceptance
+remain live. No exported shell selection wrapper or browser fallback exposes this
+operation as another navigation path. Recovery observes its captured ID; uncertain
+creation is never resolved by catalog matching.

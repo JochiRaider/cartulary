@@ -6,6 +6,7 @@ import {
   workbookInspectorFeatureActionTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
+  workbookNavigationStatusTestId,
 } from "@cartulary/ui-contracts";
 import {
   evidenceViewSchemaId,
@@ -95,8 +96,17 @@ test("Notes manage existing sources evidence and directional references with ret
     incoming.getByRole("button", { name: "Inspected Note" }),
   ).toBeVisible();
   await expect(incoming.getByRole("button", { name: /Remove/ })).toHaveCount(0);
+  await expect(
+    page.getByTestId(workbookNavigationStatusTestId()),
+  ).toHaveAttribute("data-navigation-outcome", "succeeded");
+  await expect(
+    page.getByTestId(workbookInspectorCloseButtonTestId(notesViewSchemaId)),
+  ).toBeFocused();
   await incoming.getByRole("button", { name: "Inspected Note" }).click();
   await expect(sources).toContainText("Original host source");
+  await expect(
+    page.getByTestId(workbookNavigationStatusTestId()),
+  ).toHaveAttribute("data-navigation-outcome", "succeeded");
   const routePath = `**/api/v1/records/${note.record_id}/note-associations*`;
   const bodies: string[] = [];
   let failReads = false;

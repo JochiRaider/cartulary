@@ -116,7 +116,7 @@ function Surface({ refresh = 0 }: { refresh?: number }) {
           selectedSavedViewId: "",
           message: null,
         }}
-        onSelectBaseSurface={startup.commands.selectWorkbookSurface}
+        navigation={{ open: vi.fn() }}
         preferenceController={preferences}
       />
       <IncidentAdminPanel

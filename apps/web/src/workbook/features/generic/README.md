@@ -8,6 +8,11 @@ Generic presentation consumes declared surface policies and semantic commands.
 Source-specific workflows remain with their feature owners; this directory
 assembles their bindings into the generic inspector.
 
+The surface facade supplies required semantic navigation for Note links from
+shell composition. Inspector composition retains source-owner authoring and
+recovery bindings; destination admission, Return and focus belong to
+[navigation](../../navigation/README.md).
+
 ## Files
 
 | File | Responsibility |

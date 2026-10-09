@@ -50,7 +50,7 @@ export function NoteAssociationPanel({
   readonly kind: NoteAssociationKind;
   readonly sheetRef: SheetRef;
   readonly label: string;
-  readonly onNavigateNote: (recordId: string) => Promise<void>;
+  readonly onNavigateNote: (recordId: string) => void;
   readonly present?: PresentInspectorRegion;
 }) {
   const feature = requireViewContract(
@@ -135,7 +135,7 @@ export function NoteAssociationPanel({
           {item.view_schema_id === noteAssociationView ? (
             <Button
               tone="secondary"
-              onClick={() => void onNavigateNote(item.counterpart_record_id)}
+              onClick={() => onNavigateNote(item.counterpart_record_id)}
             >
               {item.display_label}
             </Button>

@@ -96,7 +96,7 @@ export function useWorkbookShellRuntime({
   });
   const { activeSavedViewModified, savedViewsResource } =
     savedViewController.snapshot;
-  const { selectSavedView, upsertSavedView } = savedViewController.commands;
+  const { upsertSavedView } = savedViewController.commands;
 
   const startupSelectionPort = useMemo(
     () => ({
@@ -156,7 +156,6 @@ export function useWorkbookShellRuntime({
       selectWorkbookSurface,
       selectExtensionWorkspace,
       setQueryStateForSurface,
-      selectSavedView,
     },
     snapshot: {
       activeContract,

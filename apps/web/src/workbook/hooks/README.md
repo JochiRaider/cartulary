@@ -11,6 +11,12 @@ These hooks bind React to workbook owners and compose shell-wide behavior.
 Timeline-specific controllers live under
 [Timeline hooks](../timeline/hooks/README.md).
 
+Shell composition adapts the consumed capabilities into
+`WorkbookNavigationHost`; navigation does not import this directory's aggregate
+runtime type. Saved-view selection callbacks inside the owner binding and startup
+resource acceptance remain live. Deliberate browser selection uses the required
+[navigation action](../navigation/README.md), with no forwarded selection wrapper.
+
 ## Queries, startup, and saved views
 
 | File | Responsibility |

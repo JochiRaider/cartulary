@@ -94,7 +94,10 @@ class WorkbookQueryBrowsingRegistry {
     page: WorkbookViewQueryAccepted | null,
   ) {
     return (
-      this.presentationReady(view) &&
+      // The handoff may have deliberately opened an inspector, making the grid
+      // inaccessible again. Completion requires a mounted accepted destination;
+      // grid eligibility is checked before focus and by grid-only callers.
+      this.presentations.has(view) &&
       this.navigationFocus === null &&
       (!page ||
         this.find(view)?.getSnapshot().accepted?.producingRequest ===

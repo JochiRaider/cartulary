@@ -26,6 +26,7 @@ import {
   type WorkbookSavedViewsResource,
 } from "../models/workbookSavedViewControl";
 import type { SavedViewResource } from "../models/workbookSavedViews";
+import type { WorkbookNavigationActions } from "../navigation/WorkbookWorkbenchContext";
 import type { WorkbookPreferenceController } from "../preferences/WorkbookPreferenceController";
 import { savedViewOutcome } from "../savedviews/savedViewOperationModel";
 import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
@@ -47,7 +48,7 @@ export type ActiveSurfaceSavedViewSelectorProps = {
   readonly savedViewsResource: WorkbookSavedViewsResource;
   readonly selectedSheetRef: SheetRef;
   readonly controller: WorkbookSavedViewController;
-  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
+  readonly navigation: WorkbookNavigationActions;
   readonly preferenceController?: WorkbookPreferenceController | undefined;
   readonly onInspectPreferences?:
     | ((target?: HTMLElement | null) => void)
@@ -64,7 +65,7 @@ export function ActiveSurfaceSavedViewSelector({
   isModified = false,
   savedViewsResource,
   selectedSheetRef,
-  onSelectBaseSurface,
+  navigation,
   preferenceController,
   onInspectPreferences,
 }: ActiveSurfaceSavedViewSelectorProps) {
@@ -156,7 +157,7 @@ export function ActiveSurfaceSavedViewSelector({
       currentUserId={currentUserId}
       dispatch={dispatch}
       isModified={isModified}
-      onSelectBaseSurface={onSelectBaseSurface}
+      navigation={navigation}
       projection={projection}
       runAction={runAction}
       preferenceController={preferenceController}
@@ -176,7 +177,7 @@ function SavedViewControlPresentation({
   currentUserId,
   dispatch,
   isModified,
-  onSelectBaseSurface,
+  navigation,
   projection,
   runAction,
   preferenceController,
@@ -192,7 +193,7 @@ function SavedViewControlPresentation({
   readonly currentUserId: string | null;
   readonly dispatch: Dispatch<SavedViewControlEvent>;
   readonly isModified: boolean;
-  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
+  readonly navigation: WorkbookNavigationActions;
   readonly projection: ActiveSurfaceSavedViewProjection;
   readonly runAction: (intent: SavedViewActionIntent) => void;
   readonly preferenceController?: WorkbookPreferenceController | undefined;
@@ -219,7 +220,7 @@ function SavedViewControlPresentation({
         activeViewSchemaId={activeViewSchemaId}
         condensedControls={condensedControls}
         dispatch={dispatch}
-        onSelectBaseSurface={onSelectBaseSurface}
+        navigation={navigation}
         projection={projection}
         selectorRef={selectorRef}
       />
@@ -258,7 +259,7 @@ function SavedViewSelectionField({
   presets,
   activeViewSchemaId,
   condensedControls,
-  onSelectBaseSurface,
+  navigation,
   projection,
   selectorRef,
   controller,
@@ -267,7 +268,7 @@ function SavedViewSelectionField({
   readonly activeViewSchemaId: string;
   readonly condensedControls: boolean;
   readonly dispatch: Dispatch<SavedViewControlEvent>;
-  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
+  readonly navigation: WorkbookNavigationActions;
   readonly projection: ActiveSurfaceSavedViewProjection;
   readonly selectorRef: RefObject<HTMLButtonElement | null>;
   readonly controller: WorkbookSavedViewController;
@@ -291,7 +292,7 @@ function SavedViewSelectionField({
         projection={projection}
         triggerRef={selectorRef}
         triggerStyle={savedViewSelectStyle}
-        onBase={() => onSelectBaseSurface(activeViewSchemaId)}
+        navigation={navigation}
       />
     </div>
   );

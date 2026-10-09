@@ -16,13 +16,15 @@ export type WorkbookInspectValue = {
   readonly recordId: string;
   readonly fieldKey: string;
 };
-export type WorkbookWorkbench = {
+export type WorkbookNavigationActions = {
+  readonly open: (target: WorkbookNavigationTarget, inspect?: boolean) => void;
+};
+export type WorkbookWorkbench = WorkbookNavigationActions & {
   readonly navigationReady: boolean;
   readonly inspectValue: WorkbookInspectValue | null;
   readonly requestInspectValue: () => boolean;
   readonly acknowledgeInspectValue: (revision: number) => void;
   readonly session: WorkbookSessionNavigation;
-  readonly open: (target: WorkbookNavigationTarget, inspect?: boolean) => void;
   readonly openPin: (pin: WorkbookSessionPin) => void;
   readonly pinCurrentView: () => void;
   readonly pinRecord: (

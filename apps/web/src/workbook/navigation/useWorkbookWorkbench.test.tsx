@@ -4,7 +4,13 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
-import { emptyWorkbookQueryState } from "../models/workbookQuery";
+import { savedViewTestResource } from "../../testing/workbookSavedViewTestSupport";
+import {
+  buildSavedViewLayoutJson,
+  emptyWorkbookQueryState,
+  type WorkbookQueryState,
+  workbookLayoutStateFromSavedViewLayoutJson,
+} from "../models/workbookQuery";
 import {
   notesViewSchemaId,
   timelineViewSchemaId,
@@ -19,7 +25,11 @@ import type {
   WorkbookViewQueryPort,
 } from "../query/WorkbookViewQueryPort";
 import { useWorkbookWorkbench } from "./useWorkbookWorkbench";
-import { WorkbookSessionNavigation } from "./WorkbookSessionNavigation";
+import type { WorkbookNavigationHost } from "./WorkbookNavigationHost";
+import {
+  type WorkbookReturnOrigin,
+  WorkbookSessionNavigation,
+} from "./WorkbookSessionNavigation";
 
 afterEach(cleanup);
 const contract = requireViewContract(notesViewSchemaId);
@@ -51,7 +61,7 @@ function fixture() {
     value: { outcome: "located", page: page() },
   }));
   const applyIdentity = vi.fn();
-  const currentQuery = {
+  const currentQuery: WorkbookQueryState = {
     ...emptyWorkbookQueryState(),
     filters: [
       {
@@ -62,31 +72,38 @@ function fixture() {
     ],
   };
   // The hook consumes only these owner ports; no source operation is available.
-  const runtime = {
+  const host: WorkbookNavigationHost = {
     snapshot: {
       gridEntryFocusRequest: { kind: "idle" },
       surface: timelineViewSchemaId,
       startupSheetRef: { kind: "view_schema", id: timelineViewSchemaId },
       activeContract: requireViewContract(timelineViewSchemaId),
-      savedViewsResource: { selectedSavedView: null },
+      selectedSavedView: null,
     },
     commands: {
       currentQueryStateForSurface: () => currentQuery,
       currentLayoutStateForSurface: () => ({}),
       cancelGridEntryFocus: vi.fn(),
       selectWorkbookSurface: vi.fn(),
+      selectExtensionWorkspace: vi.fn(),
       applyQueryStateForSurface: vi.fn(),
       applyLayoutStateForSurface: vi.fn(),
       applyWorkbookIdentity: applyIdentity,
     },
-  } as unknown as Parameters<typeof useWorkbookWorkbench>[0]["runtime"];
+    savedViews: {
+      retainNavigation: vi.fn(),
+      read: vi.fn(async () => null),
+      isUnavailable: vi.fn(() => false),
+      acceptResource: vi.fn(),
+    },
+  };
   const admitsPage = vi.fn(() => true);
   const options = {
     session,
     incidentId: "incident",
     actorId: "actor",
     readable: true,
-    runtime,
+    host,
     query: { query },
     locator: { locate },
     extensionAvailable: () => false,
@@ -130,6 +147,124 @@ function fixture() {
 }
 
 describe("workbench navigation admission", () => {
+  it("restores captured Return configuration against a freshly authorized changed saved view", async () => {
+    const f = fixture();
+    const capturedQuery: WorkbookQueryState = {
+      ...emptyWorkbookQueryState(),
+      sort: [{ fieldKey: "note.title", direction: "desc" }],
+    };
+    const capturedLayout = buildSavedViewLayoutJson(contract, {
+      hiddenFieldKeys: ["note.body"],
+    });
+    const resource = savedViewTestResource({
+      incident_id: "incident",
+      view_schema_id: notesViewSchemaId,
+      saved_view_version: 2,
+      query_json: { sort: [], filters: [] },
+      layout_json: buildSavedViewLayoutJson(contract),
+    });
+    const origin: WorkbookReturnOrigin = {
+      incidentId: "incident",
+      sheetRef: { kind: "saved_view", id: resource.saved_view_id },
+      viewSchemaId: notesViewSchemaId,
+      query: capturedQuery,
+      layout: capturedLayout,
+      savedViewVersion: 1,
+      invoker: "view",
+    };
+    await act(async () => {
+      await f.session.navigate("leave", origin, async () => "changed");
+    });
+    vi.mocked(f.options.host.savedViews.read).mockResolvedValue(resource);
+    f.query.mockResolvedValue({ kind: "accepted", value: page(capturedQuery) });
+    act(() => f.hook.result.current.returnToOrigin());
+    await waitFor(() => expect(f.applyIdentity).toHaveBeenCalledOnce());
+    expect(f.options.host.savedViews.read).toHaveBeenCalledWith(
+      resource.saved_view_id,
+    );
+    expect(f.options.host.savedViews.acceptResource).toHaveBeenCalledWith(
+      resource,
+    );
+    expect(
+      f.options.host.commands.applyQueryStateForSurface,
+    ).toHaveBeenCalledWith(notesViewSchemaId, capturedQuery);
+    expect(
+      f.options.host.commands.applyLayoutStateForSurface,
+    ).toHaveBeenCalledWith(
+      notesViewSchemaId,
+      workbookLayoutStateFromSavedViewLayoutJson(contract, capturedLayout),
+    );
+    expect(f.hook.result.current.message).toContain("saved view changed");
+    expect(f.session.getSnapshot().trail).toEqual([]);
+  });
+  it("retains Return on failed or cancelled reads and uses an explicit base fallback", async () => {
+    for (const outcome of ["failure", "cancel", "unavailable"] as const) {
+      const f = fixture();
+      const resource = savedViewTestResource({
+        incident_id: "incident",
+        view_schema_id: notesViewSchemaId,
+        layout_json: buildSavedViewLayoutJson(contract),
+      });
+      const origin: WorkbookReturnOrigin = {
+        incidentId: "incident",
+        sheetRef: { kind: "saved_view", id: resource.saved_view_id },
+        viewSchemaId: notesViewSchemaId,
+        query: emptyWorkbookQueryState(),
+        layout: buildSavedViewLayoutJson(contract),
+        invoker: "view",
+      };
+      await act(async () => {
+        await f.session.navigate("leave", origin, async () => "changed");
+      });
+      const pending = deferred<typeof resource | null>();
+      vi.mocked(f.options.host.savedViews.read).mockImplementation(
+        () => pending.promise,
+      );
+      if (outcome === "failure")
+        f.query.mockResolvedValueOnce({
+          kind: "rejected",
+          failure: {
+            kind: "invalid_contract",
+            message: "Cannot verify restored page",
+          },
+        });
+      act(() => f.hook.result.current.returnToOrigin());
+      await waitFor(() =>
+        expect(f.options.host.savedViews.read).toHaveBeenCalledOnce(),
+      );
+      expect(f.session.getSnapshot().trail).toEqual([origin]);
+      expect(f.applyIdentity).not.toHaveBeenCalled();
+      if (outcome === "cancel")
+        act(() => f.hook.result.current.cancelNavigation());
+      await act(async () =>
+        pending.resolve(outcome === "unavailable" ? null : resource),
+      );
+      expect(f.session.getSnapshot().trail).toEqual([origin]);
+      expect(f.applyIdentity).not.toHaveBeenCalled();
+      expect(f.detachPresentation).not.toHaveBeenCalled();
+      if (outcome === "unavailable") {
+        expect(f.hook.result.current.openBase).not.toBeNull();
+        act(() => f.hook.result.current.openBase?.());
+        await waitFor(() =>
+          expect(f.applyIdentity).toHaveBeenCalledWith(
+            {
+              sheetRef: { kind: "view_schema", id: notesViewSchemaId },
+              viewSchemaId: notesViewSchemaId,
+            },
+            { focusFirstGridTarget: false },
+          ),
+        );
+        expect(f.query).toHaveBeenCalledWith(
+          expect.objectContaining({ queryState: emptyWorkbookQueryState() }),
+        );
+        expect(f.session.getSnapshot().trail).toEqual([]);
+      } else
+        expect(f.session.getSnapshot().outcome).toBe(
+          outcome === "cancel" ? "cancelled" : "failed",
+        );
+      f.hook.unmount();
+    }
+  });
   it("retains origin while location is pending and rejects late cancelled attachment", async () => {
     for (const invalidation of [
       "interaction",
@@ -176,7 +311,7 @@ describe("workbench navigation admission", () => {
     act(() => f.hook.result.current.open({ sheetRef: f.target.sheetRef }));
     await waitFor(() =>
       expect(
-        f.options.runtime.commands.selectWorkbookSurface,
+        f.options.host.commands.selectWorkbookSurface,
       ).toHaveBeenCalledWith(notesViewSchemaId, { focusFirstGridTarget: true }),
     );
     expect(f.query).not.toHaveBeenCalled();
@@ -204,6 +339,20 @@ describe("workbench navigation admission", () => {
     );
     expect(f.query).not.toHaveBeenCalled();
     await waitFor(() => expect(f.session.getSnapshot().trail).toHaveLength(1));
+  });
+  it("preserves the origin when the locator is unsupported without querying pages", async () => {
+    const f = fixture();
+    f.locate.mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Location is unsupported." },
+    });
+    act(() => f.hook.result.current.open(f.target, true));
+    await waitFor(() => expect(f.hook.result.current.retry).not.toBeNull());
+    expect(f.locate).toHaveBeenCalledOnce();
+    expect(f.query).not.toHaveBeenCalled();
+    expect(f.applyIdentity).not.toHaveBeenCalled();
+    expect(f.detachPresentation).not.toHaveBeenCalled();
+    expect(f.session.getSnapshot().trail).toEqual([]);
   });
   it("opens record pins with defaults and preserves pins after operational failure", async () => {
     const f = fixture();

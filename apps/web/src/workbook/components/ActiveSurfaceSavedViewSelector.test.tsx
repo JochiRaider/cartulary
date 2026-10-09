@@ -23,6 +23,7 @@ import {
 import { buildSavedViewLayoutJson } from "../models/workbookQuery";
 import { workbookSavedViewsResource } from "../models/workbookSavedViewControl";
 import type { SavedViewResource } from "../models/workbookSavedViews";
+import type { WorkbookNavigationActions } from "../navigation/WorkbookWorkbenchContext";
 import type {
   SavedViewResult,
   WorkbookSavedViewPort,
@@ -38,12 +39,14 @@ function Harness({
   selectedId = saved.saved_view_id,
   onSelect = vi.fn(),
   onBase = vi.fn(),
+  navigation = { open: vi.fn() },
 }: {
   controller: WorkbookSavedViewController;
   schema?: string;
   selectedId?: string | null;
   onSelect?: (r: SavedViewResource) => void;
   onBase?: (id: string) => void;
+  navigation?: WorkbookNavigationActions;
 }) {
   const snapshot = useSyncExternalStore(
     controller.subscribe,
@@ -90,7 +93,7 @@ function Harness({
         sheetRef,
       )}
       selectedSheetRef={sheetRef}
-      onSelectBaseSurface={onBase}
+      navigation={navigation}
     />
   );
 }
@@ -132,13 +135,20 @@ async function setup(
   };
   const controller = createSavedViewTestController(port);
   const onSelect = vi.fn();
-  const view = render(<Harness controller={controller} onSelect={onSelect} />);
+  const navigation = { open: vi.fn<WorkbookNavigationActions["open"]>() };
+  const view = render(
+    <Harness
+      controller={controller}
+      onSelect={onSelect}
+      navigation={navigation}
+    />,
+  );
   await waitFor(() =>
     expect(
       controller.getSnapshot().observations.get(saved.saved_view_id)?.status,
     ).toBe("ready"),
   );
-  return { ...view, controller, port, onSelect };
+  return { ...view, controller, port, onSelect, navigation };
 }
 function open(schema = surface) {
   fireEvent.click(screen.getByTestId(savedViewActionMenuTriggerTestId(schema)));
@@ -455,6 +465,27 @@ describe("ActiveSurfaceSavedViewSelector", () => {
     expect(document.activeElement).toBe(trigger);
     expect(screen.getByRole("option", { name: "Unsaved view" })).toBeTruthy();
     expect(h.port.listPage).toHaveBeenCalledTimes(5);
+    h.controller.dispose();
+  });
+  it("dispatches base and saved selections only through the required navigation capability", async () => {
+    const h = await setup();
+    const activate = vi.spyOn(h.controller, "activateResource");
+    fireEvent.click(button("Saved view"));
+    fireEvent.click(
+      await screen.findByRole("option", { name: /Timeline view/ }),
+    );
+    expect(h.navigation.open).toHaveBeenLastCalledWith({
+      sheetRef: { kind: "saved_view", id: saved.saved_view_id },
+    });
+    fireEvent.click(button("Saved view"));
+    fireEvent.click(
+      await screen.findByRole("option", { name: "Unsaved view" }),
+    );
+    expect(h.navigation.open).toHaveBeenLastCalledWith({
+      sheetRef: { kind: "view_schema", id: surface },
+    });
+    expect(activate).not.toHaveBeenCalled();
+    expect(h.onSelect).not.toHaveBeenCalled();
     h.controller.dispose();
   });
   it("retains accepted choices through continuation failure with a local exact retry", async () => {

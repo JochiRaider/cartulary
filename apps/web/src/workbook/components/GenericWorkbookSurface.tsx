@@ -88,6 +88,7 @@ import {
 } from "../models/workbookQuery";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
+import type { WorkbookNavigationActions } from "../navigation/WorkbookWorkbenchContext";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
 import { useWorkbookQueryRestart } from "../query/WorkbookQueryBrowsingContext";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
@@ -112,6 +113,7 @@ import {
 } from "./WorkbookViewBar";
 
 export type ContractWorkbookSurfaceProps = {
+  readonly navigation: WorkbookNavigationActions;
   readonly contract: ViewContract;
   readonly continuityResetKey: string;
   readonly currentUserId: string | null;
@@ -138,6 +140,7 @@ export type ContractWorkbookSurfaceProps = {
 };
 
 export function ContractWorkbookSurface({
+  navigation,
   contract,
   continuityResetKey,
   currentIncidentRole,
@@ -352,6 +355,7 @@ export function ContractWorkbookSurface({
       : (continuityPortRef.current?.restore(token) ?? false);
   };
   const genericInspector = useGenericWorkbookInspectorComposition({
+    navigation,
     readScope:
       mutationRuntime.recordReadScope?.actorId === currentUserId
         ? mutationRuntime.recordReadScope

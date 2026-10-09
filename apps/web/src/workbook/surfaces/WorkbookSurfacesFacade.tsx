@@ -20,6 +20,7 @@ import {
 } from "../models/workbookQuery";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
+import type { WorkbookNavigationActions } from "../navigation/WorkbookWorkbenchContext";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
@@ -27,6 +28,7 @@ import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime
 import { TimelineWorkbook } from "../timeline/components/TimelineWorkbook";
 
 export type WorkbookSurfacesFacadeProps = {
+  readonly navigation: WorkbookNavigationActions;
   readonly collaboration: {
     readonly projection: WorkbookCollaborationCoordinator;
   };
@@ -100,6 +102,7 @@ export type WorkbookSurfacesFacadeProps = {
 };
 
 export function WorkbookSurfacesFacade({
+  navigation,
   collaboration,
   continuity,
   gridEntryFocus,
@@ -280,6 +283,7 @@ export function WorkbookSurfacesFacade({
 
   return (
     <ContractWorkbookSurface
+      navigation={navigation}
       key={activeContract.viewSchemaId}
       contract={activeContract}
       continuityResetKey={continuityResetKey}
