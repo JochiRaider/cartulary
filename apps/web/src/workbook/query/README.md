@@ -62,11 +62,15 @@ the current window. Selection refers to loaded query members; drafts, inspectors
 and mutation receipts remain independent.
 
 For deliberate navigation, the registry stages a bounded locator/query page for
-its source reader to accept. Selection commit precedes semantic grid focus; an
-explicit inspector handoff then waits for its own focus binding. Mounted accepted
-presentation and grid eligibility are distinct: opening the destination inspector
-must not prevent the navigation owner from reporting completion. Deliberate
-interaction or authority withdrawal cancels obsolete attachment.
+its source reader to accept. It returns an opaque acceptance handle with current
+state and membership checks; release discards only that handle's unaccepted
+request, leaving an accepted page under query ownership. Replaced requests cannot
+cancel their successors. The [navigation coordinator](../navigation/README.md)
+sequences committed selection, semantic grid focus and explicit inspector focus.
+The registry publishes presentation bindings on a separate subscription channel
+so grid-handle refresh does not produce a React query-state render loop. Mounted
+presentation, grid eligibility and inspector readiness remain distinct. Ordinary
+entry-focus behavior stays with its existing surface owner.
 
 The incident collaboration coordinator keeps a stable invalidation binding while
 sheet readers change. Initial authorization recovery has its own effect; neither

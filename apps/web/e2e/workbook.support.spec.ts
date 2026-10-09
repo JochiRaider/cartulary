@@ -409,9 +409,14 @@ test("Pending saved-view navigation preserves a Columns click and rejects late a
       release = resolve;
     });
     const route = `**/api/v1/incidents/${incidentId}/saved-views/${view.saved_view_id}`;
+    let delivered!: () => void;
+    const delivery = new Promise<void>((resolve) => {
+      delivered = resolve;
+    });
     await page.route(route, async (request) => {
       await held;
       await request.continue().catch(() => {});
+      delivered();
     });
     try {
       await page
@@ -450,6 +455,14 @@ test("Pending saved-view navigation preserves a Columns click and rejects late a
         "data-navigation-outcome",
         "pending",
       );
+      const cancelledRead = page.waitForEvent("requestfailed", {
+        predicate: (request) =>
+          request
+            .url()
+            .endsWith(
+              `/api/v1/incidents/${incidentId}/saved-views/${view.saved_view_id}`,
+            ) && request.method() === "GET",
+      });
       await trigger.click();
       await expect(navigation).toHaveAttribute(
         "data-navigation-outcome",
@@ -463,16 +476,11 @@ test("Pending saved-view navigation preserves a Columns click and rejects late a
         columns.getByRole("checkbox", { name: "Analyst", exact: true }),
       ).toBeVisible();
       expect(await trigger.boundingBox()).toEqual(original);
-      const arrived = page.waitForResponse(
-        (response) =>
-          response
-            .url()
-            .endsWith(
-              `/api/v1/incidents/${incidentId}/saved-views/${view.saved_view_id}`,
-            ) && response.request().method() === "GET",
-      );
       release();
-      await (await arrived).finished();
+      // Navigation now releases its own observation immediately. Drain the late
+      // route continuation without waiting for a response to an aborted fetch.
+      await delivery;
+      expect((await cancelledRead).failure()).not.toBeNull();
       await expect(navigation).toHaveAttribute(
         "data-navigation-outcome",
         "cancelled",

@@ -1,29 +1,18 @@
 import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
-import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
-import type {
-  WorkbookQueryState,
-  WorkbookSavedViewLayoutJson,
-} from "../models/workbookQuery";
+import { sheetRefKey } from "../../shared/sheetRef";
+import {
+  type WorkbookNavigationIntent,
+  type WorkbookReturnOrigin,
+  type WorkbookSessionPin,
+  workbookNavigationIntentsEqual,
+} from "./WorkbookNavigationIntent";
+
+export type {
+  WorkbookReturnOrigin,
+  WorkbookSessionPin,
+} from "./WorkbookNavigationIntent";
 
 const limits = cartularyDesignPresentation.workbookWorkbench;
-export type WorkbookSessionPin = {
-  readonly incidentId: string;
-  readonly sheetRef: SheetRef;
-  readonly recordId?: string;
-  readonly fieldKey?: string;
-  readonly label: string;
-};
-export type WorkbookReturnOrigin = {
-  readonly viewSchemaId?: string;
-  readonly incidentId: string;
-  readonly sheetRef: SheetRef;
-  readonly query?: WorkbookQueryState;
-  readonly layout?: WorkbookSavedViewLayoutJson;
-  readonly recordId?: string;
-  readonly fieldKey?: string;
-  readonly savedViewVersion?: number;
-  readonly invoker: "grid" | "view" | "work";
-};
 export function workbookPinIdentity(pin: WorkbookSessionPin) {
   return JSON.stringify([
     pin.incidentId,
@@ -56,7 +45,7 @@ export class WorkbookSessionNavigation {
   // Admission settles the trail; its presentation may still be mounting/focusing.
   private intent: AbortController | null = null;
   private pending: {
-    key: string;
+    intent: WorkbookNavigationIntent;
     promise: Promise<boolean>;
   } | null = null;
   private snapshot: Snapshot = {
@@ -81,7 +70,9 @@ export class WorkbookSessionNavigation {
       ...this.snapshot,
       pins: this.snapshot.readable ? this.pins : [],
       trail: this.snapshot.readable ? this.trail : [],
-      pending: this.pending !== null,
+      pending:
+        this.snapshot.outcome === "pending" ||
+        this.snapshot.outcome === "admitted",
       message: this.snapshot.readable ? message : null,
     };
     for (const listener of this.listeners) listener();
@@ -139,6 +130,7 @@ export class WorkbookSessionNavigation {
     )
       return;
     this.snapshot = { ...this.snapshot, outcome };
+    this.pending = null;
     this.publish();
   }
   cancel() {
@@ -160,19 +152,26 @@ export class WorkbookSessionNavigation {
   }
   /** prepare/commit is one owner-admitted navigation, never an optimistic pivot. */
   navigate(
-    key: string,
+    intent: WorkbookNavigationIntent,
     origin: WorkbookReturnOrigin,
     commit: (signal: AbortSignal) => Promise<"changed" | "same" | "failed">,
     returning = false,
   ): Promise<boolean> {
     if (!this.snapshot.readable || origin.incidentId !== this.incidentId)
       return Promise.resolve(false);
-    if (this.pending?.key === key) return this.pending.promise;
+    if (
+      this.pending &&
+      workbookNavigationIntentsEqual(this.pending.intent, intent)
+    )
+      return this.pending.promise;
     this.cancel();
     const captured = structuredClone(origin);
     const controller = new AbortController();
     this.intent = controller;
-    const request = { key, promise: Promise.resolve(false) };
+    const request = {
+      intent: structuredClone(intent),
+      promise: Promise.resolve(false),
+    };
     this.pending = request;
     this.snapshot = {
       ...this.snapshot,
@@ -205,7 +204,7 @@ export class WorkbookSessionNavigation {
       })
       .finally(() => {
         if (this.pending === request) {
-          this.pending = null;
+          if (this.snapshot.outcome !== "admitted") this.pending = null;
           this.publish(null);
         }
       });

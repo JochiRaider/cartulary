@@ -2923,6 +2923,83 @@ describe("WorkbookShell surface selection", () => {
     ).toHaveLength(0);
   });
 
+  it("keeps the successor saved-view observation through late predecessor cleanup in the production shell", async () => {
+    const incidentId = "10000000-0000-4000-8000-000000000001";
+    const firstId = savedViewId;
+    const secondId = "20000000-0000-4000-8000-000000000099";
+    const rowId = "21000000-0000-4000-8000-000000000001";
+    scenario.timelineRows = [timelineRow(rowId, 1, "Retained source", 0)];
+    scenario.savedViews = [firstId, secondId].map((id) =>
+      testSavedViewResource({
+        saved_view_id: id,
+        view_schema_id: timelineViewSchemaId,
+        display_name: id === firstId ? "First view" : "Successor view",
+      }),
+    );
+    const originalFetch = fetchMock.getMockImplementation();
+    if (!originalFetch) throw new Error("Missing shell transport fixture");
+    const pending: {
+      id: string;
+      signal: AbortSignal | null | undefined;
+      response: ReturnType<typeof deferred<Response>>;
+    }[] = [];
+    fetchMock.mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input), "http://localhost");
+        const match = url.pathname.match(/\/saved-views\/([^/]+)$/);
+        if (match && (init?.method ?? "GET") === "GET") {
+          const response = deferred<Response>();
+          pending.push({ id: match[1] ?? "", signal: init?.signal, response });
+          return response.promise;
+        }
+        return originalFetch(input, init);
+      },
+    );
+    render(<WorkbookShell incidentId={incidentId} />);
+    await expectRecordIds(timelineViewSchemaId, [rowId]);
+    const select = async (id: string) => {
+      const trigger = screen.getByTestId(
+        savedViewSelectorTestId(timelineViewSchemaId),
+      );
+      fireEvent.click(trigger);
+      fireEvent.click(
+        await screen.findByTestId(
+          savedViewOptionTestId(timelineViewSchemaId, id),
+        ),
+      );
+    };
+    await select(firstId);
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await select(secondId);
+    await waitFor(() => expect(pending).toHaveLength(2));
+    expect(pending[0]?.signal?.aborted).toBe(true);
+    await act(async () =>
+      pending[0]?.response.resolve(successEnvelope(scenario.savedViews[0])),
+    );
+    expect(pending[1]?.signal?.aborted).toBe(false);
+    expect(window.location.search).not.toContain(`sheet_ref_id=${firstId}`);
+    await act(async () =>
+      pending[1]?.response.resolve(successEnvelope(scenario.savedViews[1])),
+    );
+    const nav = screen.getByTestId(workbookNavigationStatusTestId());
+    await waitFor(() =>
+      expect(nav.getAttribute("data-navigation-outcome")).toBe("succeeded"),
+    );
+    expect(window.location.search).toContain(`sheet_ref_id=${secondId}`);
+    expect(
+      screen.getByTestId(savedViewSelectorTestId(timelineViewSchemaId))
+        .textContent,
+    ).toContain("Successor view");
+    await expectRecordIds(timelineViewSchemaId, [rowId]);
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          String(url).includes("/saved-views") &&
+          (init?.method ?? "GET") !== "GET",
+      ),
+    ).toHaveLength(0);
+  });
+
   it("reobserves an already selected saved view and returns through required base navigation", async () => {
     scenario.timelineRows = [
       timelineRow("21000000-0000-4000-8000-000000000001", 1, "Selected row", 0),
@@ -3062,12 +3139,21 @@ describe("WorkbookShell surface selection", () => {
       const origin = {
         incidentId,
         sheetRef: { kind: "view_schema" as const, id: timelineViewSchemaId },
+        viewSchemaId: timelineViewSchemaId,
+        query: { sort: [], filters: [], groupBy: null },
+        layout: buildSavedViewLayoutJson(
+          requireViewContract(timelineViewSchemaId),
+        ),
         invoker: "view" as const,
       };
       let navigation!: Promise<boolean>;
       act(() => {
         navigation = runtime.sessionNavigation.navigate(
-          "held",
+          {
+            target: { sheetRef: origin.sheetRef },
+            entry: "open",
+            inspect: false,
+          },
           origin,
           () => pending.promise,
         );

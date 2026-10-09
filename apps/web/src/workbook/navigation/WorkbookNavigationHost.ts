@@ -6,6 +6,7 @@ import type {
   WorkbookQueryState,
 } from "../models/workbookQuery";
 import type { SavedViewResource } from "../models/workbookSavedViews";
+import type { SavedViewObservationHandle } from "../savedviews/SavedViewResourceObserver";
 
 /** Navigation consumes owner capabilities; shell composition adapts its runtime. */
 export type WorkbookNavigationHost = {
@@ -41,9 +42,10 @@ export type WorkbookNavigationHost = {
     readonly cancelGridEntryFocus: () => void;
   };
   readonly savedViews: {
-    readonly retainNavigation: (id: string | null) => void;
-    readonly read: (id: string) => Promise<SavedViewResource | null>;
-    readonly isUnavailable: (id: string) => boolean;
+    readonly observe: (
+      id: string,
+      signal: AbortSignal,
+    ) => SavedViewObservationHandle;
     readonly acceptResource: (resource: SavedViewResource) => void;
   };
 };

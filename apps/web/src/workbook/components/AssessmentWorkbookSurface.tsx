@@ -466,7 +466,7 @@ export function AssessmentWorkbookSurface({
           onAddRow={() => {
             openStandaloneDraft();
           }}
-          onInspectorToggle={() => {
+          onInspectorOpen={() => {
             inspectorContinuityTokenRef.current =
               assessmentFocus.port.capture();
             assessmentInspector.open();

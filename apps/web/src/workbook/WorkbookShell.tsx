@@ -584,15 +584,8 @@ function WorkbookShellContent({
         cancelGridEntryFocus: commands.cancelGridEntryFocus,
       },
       savedViews: {
-        retainNavigation: (id) =>
-          infrastructure.workbookRuntime.savedViewOwner.resources.retain(
-            "navigation",
-            id,
-          ),
-        read: infrastructure.workbookRuntime.savedViewOwner.resources.read,
-        isUnavailable: (id) =>
-          infrastructure.workbookRuntime.savedViewOwner.resources.get(id)
-            ?.status === "unavailable",
+        observe:
+          infrastructure.workbookRuntime.savedViewOwner.resources.observe,
         acceptResource:
           infrastructure.workbookRuntime.savedViewOwner.acceptResource,
       },
@@ -864,8 +857,7 @@ function WorkbookShellContent({
                                             "[data-workbook-navigation]",
                                           )
                                         ) {
-                                          workbench.session.cancel();
-                                          browsingRegistry.cancelNavigationFocus();
+                                          workbench.cancelNavigation();
                                         }
                                       }}
                                       onKeyDownCapture={(event) => {
@@ -908,8 +900,7 @@ function WorkbookShellContent({
                                             "Meta",
                                           ].includes(event.key)
                                         ) {
-                                          workbench.session.cancel();
-                                          browsingRegistry.cancelNavigationFocus();
+                                          workbench.cancelNavigation();
                                         }
                                       }}
                                       style={panelStyle}

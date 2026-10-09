@@ -512,3 +512,38 @@ describe("Workbook query browsing", () => {
     expect(short.browser.getSnapshot().accepted?.paging.hasMore).toBe(false);
   });
 });
+
+it("navigation acceptance distinguishes rejection replacement and committed release", async () => {
+  const { browser, query, read } = fixture(3);
+  await read();
+  const prior = browser.getSnapshot().accepted;
+  const first = await query(input());
+  const second = await query(input());
+  if (first.kind !== "accepted" || second.kind !== "accepted")
+    throw new Error("Missing fixture pages");
+  browser.adoptNavigation(first.value);
+  expect(browser.navigationState(first.value)).toBe("pending");
+  browser.adoptNavigation(second.value);
+  browser.discardNavigation(first.value);
+  expect(browser.navigationState(first.value)).toBe("cancelled");
+  expect(browser.navigationState(second.value)).toBe("pending");
+  const rejected = await browser.query(input());
+  if (rejected.kind !== "accepted") throw new Error("Missing staged proposal");
+  browser.reject(rejected.value, {
+    kind: "invalid_contract",
+    message: "Owner rejected destination",
+  });
+  expect(browser.navigationState(second.value)).toBe("failed");
+  expect(browser.getSnapshot().accepted).toBe(prior);
+  browser.discardNavigation(second.value);
+  expect(browser.navigationState(second.value)).toBe("cancelled");
+  browser.adoptNavigation(first.value);
+  await read();
+  expect(browser.navigationState(first.value)).toBe("accepted");
+  const accepted = browser.getSnapshot().accepted;
+  browser.discardNavigation(first.value);
+  expect(browser.getSnapshot().accepted).toBe(accepted);
+  expect(browser.navigationState(first.value)).toBe("accepted");
+  browser.detach();
+  expect(browser.navigationState(first.value)).toBe("cancelled");
+});

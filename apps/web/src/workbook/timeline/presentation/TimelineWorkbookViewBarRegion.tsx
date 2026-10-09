@@ -34,7 +34,7 @@ export function TimelineWorkbookViewBarRegion({
         </>
       }
       onAddRow={model.onAddRow}
-      onInspectorToggle={model.onInspectorToggle}
+      onInspectorOpen={model.onInspectorOpen}
       surface={model.surface}
       workingSet={model.workingSet ?? undefined}
     />

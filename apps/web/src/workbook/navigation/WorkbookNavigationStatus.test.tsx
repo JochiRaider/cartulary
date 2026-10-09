@@ -1,6 +1,8 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { buildSavedViewLayoutJson } from "../models/workbookQuery";
 import { WorkbookSessionNavigation } from "./WorkbookSessionNavigation";
 import {
   type WorkbookWorkbench,
@@ -43,10 +45,19 @@ it("navigation details retain keyboard access and stable status controls across 
   });
   await act(async () => {
     await session.navigate(
-      "view",
+      {
+        target: { sheetRef: { kind: "view_schema", id: "view" } },
+        entry: "open",
+        inspect: false,
+      },
       {
         incidentId: "incident",
         sheetRef: { kind: "view_schema", id: "view" },
+        viewSchemaId: "view",
+        query: { sort: [], filters: [], groupBy: null },
+        layout: buildSavedViewLayoutJson(
+          requireViewContract("cartulary.view.timeline.v2"),
+        ),
         invoker: "view",
       },
       async () => "same",

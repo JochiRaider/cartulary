@@ -591,7 +591,7 @@ export function useTimelineWorkbookPresentation({
       chromeMode,
       workingSet: viewBarWorkingSet,
       onAddRow: focusDraftRow,
-      onInspectorToggle: handleInspectorToggle,
+      onInspectorOpen: handleInspectorToggle,
       surface: timelineViewSchemaId,
     },
   };

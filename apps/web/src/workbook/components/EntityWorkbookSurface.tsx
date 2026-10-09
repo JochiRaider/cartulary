@@ -908,7 +908,7 @@ export function EntityWorkbookSurface({
           }
           workingSet={viewBarWorkingSet}
           onAddRow={focusEntityDraft}
-          onInspectorToggle={() => {
+          onInspectorOpen={() => {
             inspectorContinuityTokenRef.current = entityFocus.port.capture();
             entityInspector.open();
           }}

@@ -80,10 +80,18 @@ const contractFailure = (
 ): WorkbookOperationFailure => ({ kind: "invalid_contract", message });
 
 /** One surface's read lifetime. Domain projection acknowledges a staged result explicitly. */
+/** Query-owned observation of one staged destination, without exposing its rows. */
+export type WorkbookQueryAcceptance = {
+  readonly state: () => "pending" | "accepted" | "failed" | "cancelled";
+  readonly hasRecord: (recordId: string) => boolean;
+  readonly release: () => void;
+};
+
 export class WorkbookQueryBrowser {
   private snapshot = initialSnapshot();
   private pages: readonly Page[] = [];
   private navigationPage: Page | null = null;
+  private navigationRequest: Page["producingRequest"] | null = null;
   private checkpoints: readonly Checkpoint[] = [];
   private resume: Checkpoint | null = null;
   private resumeAuthored: WorkbookQueryState | null = null;
@@ -130,6 +138,7 @@ export class WorkbookQueryBrowser {
       return false;
     this.cancel();
     this.navigationPage = page;
+    this.navigationRequest = page.producingRequest;
     this.publish({
       pending: "replace",
       pendingAction: null,
@@ -137,6 +146,24 @@ export class WorkbookQueryBrowser {
       requested: page.producingRequest.queryState,
     });
     return true;
+  }
+  navigationState(
+    page: WorkbookViewQueryAccepted,
+  ): ReturnType<WorkbookQueryAcceptance["state"]> {
+    if (this.snapshot.accepted?.producingRequest === page.producingRequest)
+      return "accepted";
+    if (this.navigationRequest !== page.producingRequest) return "cancelled";
+    if (this.snapshot.failure && !this.snapshot.pending) return "failed";
+    return "pending";
+  }
+  discardNavigation(page: WorkbookViewQueryAccepted) {
+    if (this.navigationRequest !== page.producingRequest) return;
+    this.navigationRequest = null;
+    if (this.snapshot.accepted?.producingRequest === page.producingRequest)
+      return;
+    this.cancel();
+    this.navigationPage = null;
+    this.publish({ pending: null, pendingAction: null });
   }
   checkpointFor(query: WorkbookQueryState) {
     const page =
@@ -282,6 +309,7 @@ export class WorkbookQueryBrowser {
     this.cancel();
     this.pages = [];
     this.navigationPage = null;
+    this.navigationRequest = null;
     this.failedDestination = null;
     this.publish({
       accepted: null,
@@ -303,6 +331,7 @@ export class WorkbookQueryBrowser {
     this.authorityGeneration += 1;
     this.pages = [];
     this.navigationPage = null;
+    this.navigationRequest = null;
     this.checkpoints = [];
     this.resume = null;
     this.resumeAuthored = null;
@@ -393,6 +422,9 @@ export class WorkbookQueryBrowser {
         navigationPage.producingRequest.queryState,
         input.queryState,
       );
+    this.navigationRequest = navigation
+      ? navigationPage.producingRequest
+      : null;
     let destination: Destination = navigation
       ? {
           kind: "replace",

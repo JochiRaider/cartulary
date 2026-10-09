@@ -1,15 +1,13 @@
 import { createContext, useContext } from "react";
-import type { SheetRef } from "../../shared/sheetRef";
+import type { WorkbookNavigationTarget } from "./WorkbookNavigationIntent";
+
+export type { WorkbookNavigationTarget } from "./WorkbookNavigationIntent";
+
 import type {
   WorkbookSessionNavigation,
   WorkbookSessionPin,
 } from "./WorkbookSessionNavigation";
 
-export type WorkbookNavigationTarget = {
-  readonly sheetRef: SheetRef;
-  readonly recordId?: string;
-  readonly fieldKey?: string;
-};
 export type WorkbookInspectValue = {
   readonly revision: number;
   readonly viewSchemaId: string;

@@ -1,4 +1,4 @@
-import type { GridFocusTarget, GridHandle } from "@cartulary/grid-adapter";
+import type { GridHandle } from "@cartulary/grid-adapter";
 import {
   createContext,
   type ReactNode,
@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   emptyWorkbookBrowsingSnapshot,
+  type WorkbookQueryAcceptance,
   WorkbookQueryBrowser,
 } from "./WorkbookQueryBrowser";
 import type {
@@ -35,28 +36,15 @@ type BrowsingEntry = {
 class WorkbookQueryBrowsingRegistry {
   private entries = new Map<string, BrowsingEntry>();
   private listeners = new Set<() => void>();
+  private presentationListeners = new Set<() => void>();
   private revision = 0;
   private navigationPage: {
     page: WorkbookViewQueryAccepted;
     query: WorkbookViewQueryPort["query"];
+    adopted: WorkbookQueryBrowser | null;
+    rejected: boolean;
   } | null = null;
-  private navigationFocus: {
-    view: string;
-    page: WorkbookViewQueryAccepted;
-    recordId?: string;
-    fieldKey?: string;
-    selected: boolean;
-    selectionCommitted: boolean;
-    focused: boolean;
-    onFocused?: (() => boolean) | undefined;
-    onUnavailable?: (() => void) | undefined;
-    onSettled?:
-      | ((outcome: "ready" | "failed" | "cancelled") => void)
-      | undefined;
-  } | null = null;
-  private focusController: AbortController | null = null;
-  private removeNavigationAbort: (() => void) | undefined;
-  private focusScheduled = false;
+  private releaseNavigation: (() => void) | null = null;
   private gridSubscriptions = new Map<
     string,
     { handle: GridHandle; unsubscribe: () => void }
@@ -75,7 +63,6 @@ class WorkbookQueryBrowsingRegistry {
     const previous = this.presentations.get(view);
     this.presentations.set(view, { token, ready, detach });
     if (previous?.ready !== ready || previous.token !== token) this.publish();
-    this.resumeNavigation();
   }
   detachPresentation(view: string) {
     this.presentations.get(view)?.detach();
@@ -83,146 +70,16 @@ class WorkbookQueryBrowsingRegistry {
   unbindPresentation(view: string, token: symbol) {
     if (this.presentations.get(view)?.token !== token) return;
     this.presentations.delete(view);
-    if (this.navigationFocus?.view === view) this.cancelNavigationFocus();
     this.publish();
   }
   presentationReady(view: string) {
     return this.presentations.get(view)?.ready ?? false;
   }
-  navigationPresentationReady(
-    view: string,
-    page: WorkbookViewQueryAccepted | null,
-  ) {
-    return (
-      // The handoff may have deliberately opened an inspector, making the grid
-      // inaccessible again. Completion requires a mounted accepted destination;
-      // grid eligibility is checked before focus and by grid-only callers.
-      this.presentations.has(view) &&
-      this.navigationFocus === null &&
-      (!page ||
-        this.find(view)?.getSnapshot().accepted?.producingRequest ===
-          page.producingRequest)
-    );
+  presentationState(view: string) {
+    return this.presentations.get(view);
   }
-  cancelNavigationFocus(
-    outcome: "ready" | "failed" | "cancelled" = "cancelled",
-  ) {
-    const intent = this.navigationFocus;
-    const changed = intent !== null;
-    this.navigationFocus = null;
-    this.focusController?.abort();
-    this.focusController = null;
-    this.removeNavigationAbort?.();
-    this.removeNavigationAbort = undefined;
-    intent?.onSettled?.(outcome);
-    if (changed) this.publish();
-  }
-  // Read acceptance, portal/layout commit and semantic registration are separate signals.
-  resumeNavigation = () => {
-    if (this.focusScheduled || !this.navigationFocus) return;
-    this.focusScheduled = true;
-    queueMicrotask(() => {
-      this.focusScheduled = false;
-      this.attachNavigationFocus();
-    });
-  };
-  private attachNavigationFocus() {
-    const intent = this.navigationFocus;
-    if (!intent) return;
-    if (
-      this.find(intent.view)?.getSnapshot().accepted?.producingRequest !==
-      intent.page.producingRequest
-    ) {
-      if (intent.selected || intent.focused || this.focusController)
-        this.cancelNavigationFocus();
-      return;
-    }
-    if (intent.focused) {
-      if (intent.onFocused?.() !== false && this.navigationFocus === intent)
-        this.cancelNavigationFocus("ready");
-      return;
-    }
-    if (this.focusController || !this.presentationReady(intent.view)) return;
-    const grid = this.grid(intent.view);
-    if (!grid?.presentation) return;
-    if (intent.recordId) grid.revealRecord?.(intent.recordId);
-    const snapshot = grid.presentation.getSnapshot();
-    if (!snapshot) return;
-    const rowIdentity = intent.recordId
-      ? snapshot.rowIdentities.find(
-          (row) =>
-            row.kind === "core_record" && row.recordId === intent.recordId,
-        )
-      : snapshot.rowIdentities.find((row) => row.kind === "core_record");
-    if (intent.recordId && !rowIdentity) {
-      // Reveal can publish a new presentation on the next commit. A disappeared
-      // accepted record, however, is terminal rather than an unrelated-row success.
-      if (
-        !this.find(intent.view)
-          ?.getSnapshot()
-          .accepted?.rows.some((row) => row.record_id === intent.recordId)
-      ) {
-        this.cancelNavigationFocus("failed");
-        intent.onUnavailable?.();
-      }
-      return;
-    }
-    if (rowIdentity?.kind === "core_record" && !intent.selected) {
-      const select = this.navigationSelections.get(intent.view);
-      if (!select) return;
-      intent.selected = true;
-      select(rowIdentity.recordId, () => {
-        if (this.navigationFocus !== intent) return;
-        intent.selectionCommitted = true;
-        this.resumeNavigation();
-      });
-      return;
-    }
-    if (intent.selected && !intent.selectionCommitted) return;
-    const fields = [
-      ...new Set([
-        ...(intent.fieldKey && snapshot.fieldKeys.includes(intent.fieldKey)
-          ? [intent.fieldKey]
-          : []),
-        ...snapshot.fieldKeys,
-      ]),
-    ];
-    const targets: GridFocusTarget[] = [
-      ...(rowIdentity
-        ? fields.map((fieldKey) => ({
-            kind: "cell" as const,
-            anchor: { surface: snapshot.surface, rowIdentity, fieldKey },
-          }))
-        : []),
-      { kind: "root" },
-    ];
-    const controller = new AbortController();
-    this.focusController = controller;
-    void (async () => {
-      for (const target of targets) {
-        if (controller.signal.aborted || this.navigationFocus !== intent)
-          return;
-        const result = await grid.requestFocus(target, {
-          signal: controller.signal,
-        });
-        if (controller.signal.aborted || this.navigationFocus !== intent)
-          return;
-        if (result === "cancelled") {
-          this.cancelNavigationFocus();
-          return;
-        }
-        if (result === "focused") {
-          this.focusController = null;
-          intent.focused = true;
-          this.resumeNavigation();
-          return;
-        }
-      }
-      if (this.navigationFocus === intent && !controller.signal.aborted) {
-        this.cancelNavigationFocus("failed");
-        intent.onUnavailable?.();
-      }
-    })();
+  selectionBinding(view: string) {
+    return this.selections.get(view);
   }
   refreshGridBinding(view: string) {
     const grid = this.grid(view);
@@ -230,28 +87,24 @@ class WorkbookQueryBrowsingRegistry {
     if (previous?.handle !== grid) {
       previous?.unsubscribe();
       this.gridSubscriptions.delete(view);
-      if (this.navigationFocus?.view === view) {
-        this.focusController?.abort();
-        this.focusController = null;
-      }
       if (grid?.presentation)
         this.gridSubscriptions.set(view, {
           handle: grid,
-          unsubscribe: grid.presentation.subscribe(this.resumeNavigation),
+          unsubscribe: grid.presentation.subscribe(this.notifyPresentation),
         });
     }
-    this.resumeNavigation();
+    this.notifyPresentation();
   }
   private readers = new Map<
     string,
     { binding: QueryBinding; read: () => Promise<void> }
   >();
   private reverters = new Map<string, () => void>();
-  private navigationSelections = new Map<
+  private selections = new Map<
     string,
-    (recordId: string, committed: () => void) => void
+    { token: symbol; select: (recordId: string, committed: () => void) => void }
   >();
-  private grids = new Map<string, { current: GridHandle | null }>();
+  private grids = new Map<string, { ref: { current: GridHandle | null } }>();
 
   // Render prepares identity only. Ownership and browser construction start at commit.
   prepare(
@@ -291,8 +144,10 @@ class WorkbookQueryBrowsingRegistry {
       this.navigationPage?.page.viewSchemaId === binding.viewSchemaId &&
       this.navigationPage.query === binding.query
     ) {
-      browser.adoptNavigation(this.navigationPage.page);
-      this.navigationPage = null;
+      this.navigationPage.adopted = browser;
+      this.navigationPage.rejected = !browser.adoptNavigation(
+        this.navigationPage.page,
+      );
     }
     const entry: BrowsingEntry = {
       query: binding.query,
@@ -320,42 +175,49 @@ class WorkbookQueryBrowsingRegistry {
   stageNavigation(
     page: WorkbookViewQueryAccepted,
     query: WorkbookViewQueryPort["query"],
-    anchor: { recordId: string; fieldKey?: string } | null = null,
-    onFocused?: (() => boolean) | undefined,
-    handoff?: {
-      readonly signal: AbortSignal;
-      readonly navigationOnly: boolean;
-      readonly onUnavailable: () => void;
-      readonly onSettled?: (outcome: "ready" | "failed" | "cancelled") => void;
-    },
-  ) {
-    this.cancelNavigationFocus();
-    if (anchor || handoff?.navigationOnly)
-      this.navigationFocus = {
-        view: page.viewSchemaId,
-        page,
-        ...anchor,
-        selected: false,
-        selectionCommitted: false,
-        focused: false,
-        onFocused,
-        onUnavailable: handoff?.onUnavailable,
-        onSettled: handoff?.onSettled,
-      };
-    if (handoff) {
-      const abort = () => this.cancelNavigationFocus();
-      handoff.signal.addEventListener("abort", abort, { once: true });
-      this.removeNavigationAbort = () =>
-        handoff.signal.removeEventListener("abort", abort);
-      if (handoff.signal.aborted) abort();
-    }
-    this.navigationPage = { page, query };
+    signal: AbortSignal,
+  ): WorkbookQueryAcceptance {
+    this.releaseNavigation?.();
+    const staged = {
+      page,
+      query,
+      adopted: null as WorkbookQueryBrowser | null,
+      rejected: false,
+    };
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      signal.removeEventListener("abort", release);
+      if (this.navigationPage === staged) this.navigationPage = null;
+      if (this.releaseNavigation === release) this.releaseNavigation = null;
+      staged.adopted?.discardNavigation(page);
+      this.publish();
+    };
+    this.navigationPage = staged;
+    this.releaseNavigation = release;
+    signal.addEventListener("abort", release, { once: true });
     const entry = this.entries.get(page.viewSchemaId);
     if (entry?.token && entry.query === query) {
-      entry.browser.adoptNavigation(page);
-      this.navigationPage = null;
-      this.resumeNavigation();
+      staged.adopted = entry.browser;
+      staged.rejected = !entry.browser.adoptNavigation(page);
     }
+    if (signal.aborted) release();
+    return {
+      state: () => {
+        if (released || signal.aborted) return "cancelled";
+        if (staged.rejected) return "failed";
+        const browser = this.find(page.viewSchemaId);
+        if (!browser) return staged.adopted ? "cancelled" : "pending";
+        if (staged.adopted && staged.adopted !== browser) return "cancelled";
+        return browser.navigationState(page);
+      },
+      hasRecord: (id) =>
+        this.find(page.viewSchemaId)
+          ?.getSnapshot()
+          .accepted?.rows.some((row) => row.record_id === id) ?? false,
+      release,
+    };
   }
   checkpoint(
     view: string,
@@ -364,8 +226,7 @@ class WorkbookQueryBrowsingRegistry {
     return this.entries.get(view)?.browser.checkpointFor(query) ?? null;
   }
   clearNavigation() {
-    this.navigationPage = null;
-    this.cancelNavigationFocus();
+    this.releaseNavigation?.();
   }
   bindRead(binding: QueryBinding, read: () => Promise<void>) {
     if (!binding.currentBrowser()) return;
@@ -387,21 +248,23 @@ class WorkbookQueryBrowsingRegistry {
     grid: { current: GridHandle | null },
     selectRecord?: (recordId: string, committed: () => void) => void,
   ) {
-    this.grids.set(view, grid);
-    if (selectRecord) this.navigationSelections.set(view, selectRecord);
+    const binding = { ref: grid };
+    this.grids.set(view, binding);
+    if (selectRecord)
+      this.selections.set(view, { token: Symbol(view), select: selectRecord });
     this.refreshGridBinding(view);
     return () => {
-      if (this.grids.get(view) === grid) {
+      if (this.grids.get(view) === binding) {
         this.grids.delete(view);
-        this.navigationSelections.delete(view);
+        this.selections.delete(view);
         this.gridSubscriptions.get(view)?.unsubscribe();
         this.gridSubscriptions.delete(view);
-        if (this.navigationFocus?.view === view) this.cancelNavigationFocus();
+        this.notifyPresentation();
       }
     };
   }
   selectLoadedRecord(view: string, recordId: string) {
-    const select = this.navigationSelections.get(view);
+    const select = this.selections.get(view)?.select;
     if (
       !select ||
       !this.grid(view)
@@ -415,10 +278,10 @@ class WorkbookQueryBrowsingRegistry {
     return true;
   }
   grid(view: string) {
-    return this.grids.get(view)?.current ?? null;
+    return this.grids.get(view)?.ref.current ?? null;
   }
   prepareBrowse(view: string) {
-    const grid = this.grids.get(view)?.current;
+    const grid = this.grids.get(view)?.ref.current;
     const anchor = grid?.getActiveCell?.();
     if (anchor?.rowIdentity.kind === "core_record")
       this.find(view)?.rememberAnchor(anchor.rowIdentity.recordId);
@@ -449,9 +312,18 @@ class WorkbookQueryBrowsingRegistry {
       this.listeners.delete(listener);
     };
   };
+  subscribePresentation = (listener: () => void) => {
+    this.presentationListeners.add(listener);
+    return () => {
+      this.presentationListeners.delete(listener);
+    };
+  };
+  private notifyPresentation = () => {
+    for (const listener of this.presentationListeners) listener();
+  };
   getSnapshot = () => this.revision;
   private publish = () => {
-    this.resumeNavigation();
+    this.notifyPresentation();
     this.revision += 1;
     for (const listener of this.listeners) listener();
   };
@@ -474,7 +346,7 @@ class WorkbookQueryBrowsingRegistry {
       subscription.unsubscribe();
     this.gridSubscriptions.clear();
     this.presentations.clear();
-    this.navigationSelections.clear();
+    this.selections.clear();
     this.publish();
   }
 }

@@ -828,7 +828,7 @@ export function ContractWorkbookSurface({
           chromeMode={chromeMode}
           workingSet={viewBarWorkingSet}
           onAddRow={focusDraftRow}
-          onInspectorToggle={() => {
+          onInspectorOpen={() => {
             inspectorContinuityTokenRef.current = genericFocus.port.capture();
             genericInspector.open();
           }}

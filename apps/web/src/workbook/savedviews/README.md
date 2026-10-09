@@ -22,6 +22,7 @@ Identity, draft, attempt, receipt, and refresh state remain explicit. The
 | File | Responsibility |
 | --- | --- |
 | [WorkbookSavedViewController.test.ts](WorkbookSavedViewController.test.ts) | Tests exact saved-view write capture, synchronous admission, and receipts after presentation detaches. |
+| [savedViewReads.test.ts](savedViewReads.test.ts) | Tests observation identity, successor-safe cancellation, typed failures, authority fencing and cross-consumer retention. |
 
 Opening the browser revalidates its retained page. Previous refetches a retained
 checkpoint; First and Refresh start a fresh chain only after acceptance. Dismissal
@@ -37,3 +38,16 @@ binding, current-resource deletion/unavailability recovery and startup acceptanc
 remain live. No exported shell selection wrapper or browser fallback exposes this
 operation as another navigation path. Recovery observes its captured ID; uncertain
 creation is never resolved by catalog matching.
+
+`observe` issues an independently retained handle with an accepted resource,
+rejected `SavedViewProblem`, or aborted result, and an idempotent `release`.
+Cleanup cancels only the acquired observation, including same-ID replacement.
+Navigation and confirmed activation transfer retention to selection before
+releasing their handle. Discovery dismissal releases its own activation only.
+Selected, operation, home and default slots remain legitimate retained consumers.
+
+The owner's `read` convenience refreshes already retained resources and releases
+its observation automatically. It does not create another retention slot: losing
+the last concrete consumer cancels the refresh. Navigation consumes the typed
+handle directly and has no nullable read/status facade. Resource authorization,
+confirmed-operation opening, startup and current-selection recovery remain here.

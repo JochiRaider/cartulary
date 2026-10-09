@@ -8,6 +8,11 @@ The shell composes incident-scoped lifecycle and presentation owners. Runtime
 code consumes package facades for grid, protocol, UI, and view contracts.
 Source-owner features retain their own authoring and recovery logic.
 
+Navigation owns semantic attempts and committed presentation sequencing; saved
+views owns addressed observation lifetimes, and query browsing owns accepted
+pages. Shell adapters pass narrow capabilities between these owners. Presentation
+detachment never transfers authoring, operation or authorization ownership.
+
 Start with [WorkbookShell.tsx](WorkbookShell.tsx), then follow the relevant
 subdirectory. Root tests cover interactions spanning workbook owners.
 
@@ -37,7 +42,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 | [preferences/](preferences/README.md) | Current-user home and incident-default workbook preference reads, edits, announcements, and recovery. |
 | [query/](query/README.md) | Instance-owned surface queries, committed-record capabilities, latest-request admission, and live-row reconciliation. |
 | [runtime/](runtime/README.md) | Workbook mutation lifetime, pending replay, conflict recovery, write coordination, and status projection. |
-| [savedviews/](savedviews/README.md) | Saved-view listing and captured create/update/delete operations with retained acknowledgement and recovery. |
+| [savedviews/](savedviews/README.md) | Saved-view discovery, addressed observation handles and captured create/update/delete operations with retained acknowledgement and recovery. |
 | [services/](services/README.md) | Instance-scoped reference-query sharing, cancellation, invalidation, and disposal. |
 | [startup/](startup/README.md) | Workbook startup admission and commit planning across base surfaces, saved views, and extension availability. |
 | [surfaces/](surfaces/README.md) | Registration-driven composition of concrete workbook surface renderers. |

@@ -207,11 +207,11 @@ describe("Saved-view independent reads", () => {
       problem: { kind: "transport" },
     });
     for (let i = 0; i < 40; i++) {
-      owner.retain("activation", `candidate-${i}`);
-      await owner.read(`candidate-${i}`);
+      const handle = owner.observe(`candidate-${i}`);
+      await handle.result;
       expect(owner.getSnapshot().size).toBe(2);
+      handle.release();
     }
-    owner.retain("activation", null);
     expect(owner.getSnapshot().size).toBe(1);
     owner.clear();
   });
@@ -277,4 +277,113 @@ describe("Saved-view independent reads", () => {
     expect(p.create).not.toHaveBeenCalled();
     owner.clear();
   });
+});
+
+it("observation handles isolate same-resource release and preserve retained consumers", async () => {
+  const p = port();
+  const owner = new SavedViewResourceObserver({
+    port: () => p,
+    observe: observeAsyncOperation,
+    visible: () => true,
+    changed: () => {},
+    failed: vi.fn(),
+  });
+  owner.retain("selected", "saved-1");
+  owner.retain("home", "home");
+  owner.retain("default", "default");
+  owner.retain("operation", "operation");
+  const a =
+    deferred<Awaited<ReturnType<WorkbookSavedViewPort["getResource"]>>>();
+  const b =
+    deferred<Awaited<ReturnType<WorkbookSavedViewPort["getResource"]>>>();
+  vi.mocked(p.getResource)
+    .mockReturnValueOnce(a.promise)
+    .mockReturnValueOnce(b.promise);
+  const abandoned = owner.observe("saved-1");
+  const signal = new AbortController();
+  const successor = owner.observe("saved-1", signal.signal);
+  abandoned.release();
+  abandoned.release();
+  expect(await abandoned.result).toEqual({ kind: "aborted" });
+  expect(vi.mocked(p.getResource).mock.calls[1]?.[0].signal.aborted).toBe(
+    false,
+  );
+  b.resolve(accepted());
+  expect(await successor.result).toMatchObject({ kind: "accepted" });
+  signal.abort();
+  successor.release();
+  expect(owner.getSnapshot().size).toBe(4);
+  expect(owner.get("saved-1")?.resource?.saved_view_id).toBe("saved-1");
+  a.resolve(failure);
+  await settle();
+  expect(owner.get("saved-1")?.problem).toBeNull();
+  owner.clear();
+});
+
+it("observation handles preserve failure distinctions and abort on retirement", async () => {
+  const p = port();
+  const failed = vi.fn();
+  const owner = new SavedViewResourceObserver({
+    port: () => p,
+    observe: observeAsyncOperation,
+    visible: () => true,
+    changed: () => {},
+    failed,
+  });
+  for (const kind of [
+    "transport",
+    "invalid_contract",
+    "unavailable_target",
+    "authentication_required",
+    "authorization_denied",
+  ] as const) {
+    vi.mocked(p.getResource).mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind, message: "Safe failure" },
+    });
+    const handle = owner.observe("saved-1");
+    expect(await handle.result).toEqual({
+      kind: "rejected",
+      failure: { kind, message: "Safe failure" },
+    });
+    expect(owner.get("saved-1")?.status).toBe(
+      kind === "unavailable_target" ? "unavailable" : "unobserved",
+    );
+    handle.release();
+  }
+  const pending =
+    deferred<Awaited<ReturnType<WorkbookSavedViewPort["getResource"]>>>();
+  vi.mocked(p.getResource).mockReturnValueOnce(pending.promise);
+  const handle = owner.observe("saved-1");
+  owner.clear();
+  expect(await handle.result).toEqual({ kind: "aborted" });
+  handle.release();
+  pending.resolve(accepted());
+  await settle();
+  expect(owner.getSnapshot().size).toBe(0);
+  expect(failed).toHaveBeenCalledTimes(5);
+});
+
+it("retained resource refresh detaches when its last concrete consumer leaves", async () => {
+  const p = port();
+  const failed = vi.fn();
+  const owner = new SavedViewResourceObserver({
+    port: () => p,
+    observe: observeAsyncOperation,
+    visible: () => true,
+    changed: () => {},
+    failed,
+  });
+  const response =
+    deferred<Awaited<ReturnType<WorkbookSavedViewPort["getResource"]>>>();
+  vi.mocked(p.getResource).mockReturnValueOnce(response.promise);
+  owner.retain("selected", "saved-1");
+  const refresh = owner.read("saved-1");
+  owner.retain("selected", null);
+  expect(vi.mocked(p.getResource).mock.calls[0]?.[0].signal.aborted).toBe(true);
+  expect(await refresh).toBeNull();
+  response.resolve(accepted());
+  await settle();
+  expect(owner.getSnapshot().size).toBe(0);
+  expect(failed).not.toHaveBeenCalled();
 });

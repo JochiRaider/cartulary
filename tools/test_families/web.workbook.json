@@ -3987,6 +3987,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.navigation_presentation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/navigation/WorkbookNavigationPresentation.test.ts",
+        "titles": [
+          "navigation presentation fences replaced selection and grid bindings and never acknowledges their late focus",
+          "navigation presentation ignores stale inspector cleanup and reconnects after strict lifecycle cleanup",
+          "navigation presentation settles failure cancellation and unmount once without late attachment",
+          "navigation presentation waits for acceptance committed identity and selection before focusing the matching inspector",
+          "navigation presentation waits for delayed mounts and falls back through eligible fields to the grid root"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.note_associations",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -4584,7 +4612,8 @@
           "Workbook query browsing re-fetches a detached position and keeps canonical presentation separate from unapplied intent",
           "Workbook query browsing rejects a producing-request mismatch and follows authoritative continuation on short and empty pages",
           "Workbook query browsing replays a located window through its ordinary cursor and refreshes from the beginning",
-          "Workbook query browsing retains an accepted empty result after refresh failure and trusts short-page continuation"
+          "Workbook query browsing retains an accepted empty result after refresh failure and trusts short-page continuation",
+          "navigation acceptance distinguishes rejection replacement and committed release"
         ]
       },
       "evidence_class": "unit",
@@ -4841,7 +4870,10 @@
           "Saved-view independent reads preserves committed position on dismissal and fences schema replacement and invalidation",
           "Saved-view independent reads publishes the first page without traversal and retains it through delayed failed continuation and retry",
           "Saved-view independent reads rejects cyclic cursors and duplicate candidates without losing the accepted page",
-          "Saved-view independent reads retains selected resources independently and releases unused observations"
+          "Saved-view independent reads retains selected resources independently and releases unused observations",
+          "observation handles isolate same-resource release and preserve retained consumers",
+          "observation handles preserve failure distinctions and abort on retirement",
+          "retained resource refresh detaches when its last concrete consumer leaves"
         ]
       },
       "evidence_class": "unit",
@@ -4914,6 +4946,8 @@
       "selector": {
         "file": "apps/web/src/workbook/navigation/WorkbookSessionNavigation.test.ts",
         "titles": [
+          "coalesces admitted presentation until terminal completion then admits a fresh observation",
+          "distinguishes semantic entry anchor inspection and captured Return configuration",
           "navigation completion requires current presentation and cancellation fences accepted destinations",
           "session working set and return trail bounds semantic origins and consumes Return only after acceptance, without a bounce entry",
           "session working set and return trail coalesces identical pivots, cancels obsolete reads, and pushes only successful changed origins",
@@ -6765,6 +6799,8 @@
         "titles": [
           "cancels destination attachment before delayed mounting, selection commit and inspector activation",
           "navigation selects the accepted record through its owner before inspection, and ignores cancelled focus",
+          "operational saved-view Return failure offers retry without unavailable fallback",
+          "successor saved-view navigation survives predecessor cleanup",
           "workbench navigation admission keeps an outside-query origin until an explicit base locator succeeds",
           "workbench navigation admission keeps ordinary surface entry with its existing read and recovery owner",
           "workbench navigation admission opens record pins with defaults and preserves pins after operational failure",
@@ -6774,6 +6810,30 @@
           "workbench navigation admission retains Return on failed or cancelled reads and uses an explicit base fallback",
           "workbench navigation admission retains origin while location is pending and rejects late cancelled attachment",
           "workbench navigation reconciles a superseded inspector request until committed attachment and fences cancellation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbench_navigation_intent",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/navigation/useWorkbookWorkbench.test.tsx",
+        "titles": [
+          "equivalent semantic navigation coalesces independent of object member order"
         ]
       },
       "evidence_class": "unit",
@@ -8536,6 +8596,7 @@
           "WorkbookShell surface selection keeps late surface fixture requests bound to the originating test scenario",
           "WorkbookShell surface selection keeps one incident heading across built-in and System view navigation",
           "WorkbookShell surface selection keeps rejected generic party-link feedback local",
+          "WorkbookShell surface selection keeps the successor saved-view observation through late predecessor cleanup in the production shell",
           "WorkbookShell surface selection loads a direct Status Review URL with the active surface query result",
           "WorkbookShell surface selection mounts the matching entity inspector subject after deferred query hydration",
           "WorkbookShell surface selection opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger",

@@ -2,6 +2,7 @@ import type { GridHandle } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { observeAsyncOperation } from "../../services/asyncObservation";
 import { deferred } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import { savedViewTestResource } from "../../testing/workbookSavedViewTestSupport";
@@ -15,6 +16,7 @@ import {
   notesViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import type { WorkbookSavedViewPort } from "../ports/WorkbookSavedViewPort";
 import {
   useWorkbookBrowsingRegistry,
   WorkbookQueryBrowsingProvider,
@@ -24,8 +26,13 @@ import type {
   WorkbookViewQueryAccepted,
   WorkbookViewQueryPort,
 } from "../query/WorkbookViewQueryPort";
+import {
+  type SavedViewObservationResult,
+  SavedViewResourceObserver,
+} from "../savedviews/SavedViewResourceObserver";
 import { useWorkbookWorkbench } from "./useWorkbookWorkbench";
 import type { WorkbookNavigationHost } from "./WorkbookNavigationHost";
+import { WorkbookNavigationPresentation } from "./WorkbookNavigationPresentation";
 import {
   type WorkbookReturnOrigin,
   WorkbookSessionNavigation,
@@ -91,12 +98,23 @@ function fixture() {
       applyWorkbookIdentity: applyIdentity,
     },
     savedViews: {
-      retainNavigation: vi.fn(),
-      read: vi.fn(async () => null),
-      isUnavailable: vi.fn(() => false),
+      observe: vi.fn(() => ({
+        result: Promise.resolve<SavedViewObservationResult>({
+          kind: "rejected",
+          failure: { kind: "transport", message: "Read failed" },
+        }),
+        release: vi.fn(),
+      })),
       acceptResource: vi.fn(),
     },
   };
+  applyIdentity.mockImplementation((identity) => {
+    Object.assign(host.snapshot, {
+      startupSheetRef: identity.sheetRef,
+      surface: identity.viewSchemaId,
+      activeContract: requireViewContract(identity.viewSchemaId),
+    });
+  });
   const admitsPage = vi.fn(() => true);
   const options = {
     session,
@@ -173,14 +191,28 @@ describe("workbench navigation admission", () => {
       invoker: "view",
     };
     await act(async () => {
-      await f.session.navigate("leave", origin, async () => "changed");
+      await f.session.navigate(
+        {
+          target: {
+            sheetRef: { kind: "view_schema", id: timelineViewSchemaId },
+          },
+          entry: "open",
+          inspect: false,
+        },
+        origin,
+        async () => "changed",
+      );
     });
-    vi.mocked(f.options.host.savedViews.read).mockResolvedValue(resource);
+    vi.mocked(f.options.host.savedViews.observe).mockReturnValue({
+      result: Promise.resolve({ kind: "accepted", value: resource }),
+      release: vi.fn(),
+    });
     f.query.mockResolvedValue({ kind: "accepted", value: page(capturedQuery) });
     act(() => f.hook.result.current.returnToOrigin());
     await waitFor(() => expect(f.applyIdentity).toHaveBeenCalledOnce());
-    expect(f.options.host.savedViews.read).toHaveBeenCalledWith(
+    expect(f.options.host.savedViews.observe).toHaveBeenCalledWith(
       resource.saved_view_id,
+      expect.any(AbortSignal),
     );
     expect(f.options.host.savedViews.acceptResource).toHaveBeenCalledWith(
       resource,
@@ -214,12 +246,23 @@ describe("workbench navigation admission", () => {
         invoker: "view",
       };
       await act(async () => {
-        await f.session.navigate("leave", origin, async () => "changed");
+        await f.session.navigate(
+          {
+            target: {
+              sheetRef: { kind: "view_schema", id: timelineViewSchemaId },
+            },
+            entry: "open",
+            inspect: false,
+          },
+          origin,
+          async () => "changed",
+        );
       });
-      const pending = deferred<typeof resource | null>();
-      vi.mocked(f.options.host.savedViews.read).mockImplementation(
-        () => pending.promise,
-      );
+      const pending = deferred<SavedViewObservationResult>();
+      vi.mocked(f.options.host.savedViews.observe).mockImplementation(() => ({
+        result: pending.promise,
+        release: vi.fn(),
+      }));
       if (outcome === "failure")
         f.query.mockResolvedValueOnce({
           kind: "rejected",
@@ -230,14 +273,21 @@ describe("workbench navigation admission", () => {
         });
       act(() => f.hook.result.current.returnToOrigin());
       await waitFor(() =>
-        expect(f.options.host.savedViews.read).toHaveBeenCalledOnce(),
+        expect(f.options.host.savedViews.observe).toHaveBeenCalledOnce(),
       );
       expect(f.session.getSnapshot().trail).toEqual([origin]);
       expect(f.applyIdentity).not.toHaveBeenCalled();
       if (outcome === "cancel")
         act(() => f.hook.result.current.cancelNavigation());
       await act(async () =>
-        pending.resolve(outcome === "unavailable" ? null : resource),
+        pending.resolve(
+          outcome === "unavailable"
+            ? {
+                kind: "rejected",
+                failure: { kind: "unavailable_target", message: "Unavailable" },
+              }
+            : { kind: "accepted", value: resource },
+        ),
       );
       expect(f.session.getSnapshot().trail).toEqual([origin]);
       expect(f.applyIdentity).not.toHaveBeenCalled();
@@ -376,6 +426,10 @@ describe("workbench navigation admission", () => {
     expect(f.detachPresentation).not.toHaveBeenCalled();
     act(() => f.hook.result.current.retry?.());
     await waitFor(() => expect(f.applyIdentity).toHaveBeenCalledTimes(1));
+    // This bounded host fixture explicitly acknowledges the completed destination.
+    act(() =>
+      f.session.completePresentation(f.session.getSnapshot().attemptId),
+    );
     f.detachPresentation.mockClear();
     f.locate.mockResolvedValueOnce({
       kind: "accepted",
@@ -491,7 +545,7 @@ it("workbench navigation reconciles a superseded inspector request until committ
     );
     await act(async () => {});
     expect(focus).toHaveBeenCalledTimes(cancelled ? 0 : 1);
-    act(() => f.registry.resumeNavigation());
+    act(() => f.hook.rerender(f.options));
     await act(async () => {});
     expect(replacementOpen).toHaveBeenCalledTimes(cancelled ? 0 : 1);
     expect(focus).toHaveBeenCalledTimes(cancelled ? 0 : 1);
@@ -513,6 +567,8 @@ it("navigation selects the accepted record through its owner before inspection, 
       },
     );
     const registry = result.current;
+    const presentation = new WorkbookNavigationPresentation(registry);
+    const disconnect = presentation.connect();
     const read = vi.fn<WorkbookViewQueryPort["query"]>();
     const binding = registry.prepare(read, notesViewSchemaId, true);
     registry.commit(binding);
@@ -540,12 +596,24 @@ it("navigation selects the accepted record through its owner before inspection, 
     registry.bindGrid(notesViewSchemaId, { current: grid }, select);
     const token = Symbol();
     registry.updatePresentation(notesViewSchemaId, token, false, () => {});
-    registry.stageNavigation(
-      page(),
-      read,
-      { recordId, fieldKey: requested },
-      inspect,
-    );
+    const signal = new AbortController().signal;
+    presentation.registerInspectorFocus(notesViewSchemaId, recordId, () => {
+      inspect();
+      return true;
+    });
+    presentation.start({
+      view: notesViewSchemaId,
+      recordId,
+      fieldKey: requested,
+      mode: "record",
+      inspect: true,
+      acceptance: registry.stageNavigation(page(), read, signal),
+      signal,
+      admitted: () => true,
+      committed: () => true,
+      entryReady: () => true,
+      settled: vi.fn(),
+    });
     await act(async () => {});
     expect(select).not.toHaveBeenCalled();
     const staged = await browser.query({
@@ -581,6 +649,7 @@ it("navigation selects the accepted record through its owner before inspection, 
     expect(inspect).not.toHaveBeenCalled();
     await act(async () => focus.resolve("focused"));
     expect(inspect).toHaveBeenCalledOnce();
+    disconnect();
     unmount();
   }
 });
@@ -598,6 +667,8 @@ it("cancels destination attachment before delayed mounting, selection commit and
       { wrapper: WorkbookQueryBrowsingProvider },
     );
     const registry = result.current;
+    const presentation = new WorkbookNavigationPresentation(registry);
+    const disconnect = presentation.connect();
     const read = vi.fn<WorkbookViewQueryPort["query"]>();
     const binding = registry.prepare(read, notesViewSchemaId, true);
     registry.commit(binding);
@@ -626,10 +697,18 @@ it("cancels destination attachment before delayed mounting, selection commit and
     const token = Symbol();
     registry.updatePresentation(notesViewSchemaId, token, true, () => {});
     const intent = new AbortController();
-    registry.stageNavigation(page(), read, { recordId }, inspect, {
+    presentation.registerInspector(notesViewSchemaId, inspect);
+    presentation.start({
+      view: notesViewSchemaId,
+      recordId,
+      mode: "record",
+      inspect: true,
+      acceptance: registry.stageNavigation(page(), read, intent.signal),
       signal: intent.signal,
-      navigationOnly: true,
-      onUnavailable: vi.fn(),
+      admitted: () => true,
+      committed: () => true,
+      entryReady: () => true,
+      settled: vi.fn(),
     });
     const staged = await browser.query({
       contract,
@@ -655,6 +734,134 @@ it("cancels destination attachment before delayed mounting, selection commit and
     expect(grid.requestFocus).toHaveBeenCalledTimes(
       phase === "focus" || phase === "unmount" || phase === "inspector" ? 1 : 0,
     );
+    disconnect();
     if (phase !== "unmount") unmount();
   }
+});
+
+it("successor saved-view navigation survives predecessor cleanup", async () => {
+  for (const sameResource of [false, true]) {
+    const f = fixture();
+    const first =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["getResource"]>>>();
+    const second =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["getResource"]>>>();
+    const signals: AbortSignal[] = [];
+    const getResource = vi.fn<WorkbookSavedViewPort["getResource"]>(
+      ({ signal }) => {
+        signals.push(signal);
+        return signals.length === 1 ? first.promise : second.promise;
+      },
+    );
+    const port: WorkbookSavedViewPort = {
+      getResource,
+      listPage: vi.fn(),
+      create: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    };
+    const resources = new SavedViewResourceObserver({
+      port: () => port,
+      observe: observeAsyncOperation,
+      visible: () => true,
+      changed: () => {},
+      failed: () => {},
+    });
+    Object.assign(f.options.host.savedViews, {
+      observe: resources.observe,
+      acceptResource: (
+        resource: Parameters<
+          WorkbookNavigationHost["savedViews"]["acceptResource"]
+        >[0],
+      ) => {
+        resources.retain("selected", resource.saved_view_id);
+        resources.accept(resource);
+      },
+    });
+    const id = sameResource ? "first" : "second";
+    act(() =>
+      f.hook.result.current.open({
+        sheetRef: { kind: "saved_view", id: "first" },
+      }),
+    );
+    await waitFor(() => expect(getResource).toHaveBeenCalledTimes(1));
+    act(() =>
+      f.hook.result.current.open({
+        sheetRef: { kind: "saved_view", id },
+        recordId,
+      }),
+    );
+    await waitFor(() => expect(getResource).toHaveBeenCalledTimes(2));
+    await act(async () =>
+      first.resolve({
+        kind: "rejected",
+        failure: { kind: "transport", message: "Old failure" },
+      }),
+    );
+    expect(signals[1]?.aborted).toBe(false);
+    expect(resources.get(id)).toBeDefined();
+    await act(async () =>
+      second.resolve({
+        kind: "accepted",
+        value: savedViewTestResource({
+          saved_view_id: id,
+          incident_id: "incident",
+          view_schema_id: notesViewSchemaId,
+          layout_json: buildSavedViewLayoutJson(contract),
+        }),
+      }),
+    );
+    await waitFor(() => expect(f.applyIdentity).toHaveBeenCalledOnce());
+    expect(resources.get(id)?.resource?.saved_view_id).toBe(id);
+    expect(port.create).not.toHaveBeenCalled();
+    f.hook.unmount();
+    resources.clear();
+  }
+});
+
+it("equivalent semantic navigation coalesces independent of object member order", async () => {
+  const f = fixture();
+  const read =
+    deferred<Awaited<ReturnType<WorkbookRecordLocatorPort["locate"]>>>();
+  f.locate.mockReturnValue(read.promise);
+  act(() => f.hook.result.current.open(f.target));
+  await waitFor(() => expect(f.locate).toHaveBeenCalledOnce());
+  const signal = f.locate.mock.calls[0]?.[0].signal;
+  await act(async () =>
+    f.hook.result.current.open({
+      recordId,
+      sheetRef: { id: notesViewSchemaId, kind: "view_schema" },
+    }),
+  );
+  expect(f.locate).toHaveBeenCalledOnce();
+  expect(signal?.aborted).toBe(false);
+  f.hook.unmount();
+});
+
+it("operational saved-view Return failure offers retry without unavailable fallback", async () => {
+  const f = fixture();
+  const origin: WorkbookReturnOrigin = {
+    incidentId: "incident",
+    sheetRef: { kind: "saved_view", id: "saved" },
+    viewSchemaId: notesViewSchemaId,
+    query: emptyWorkbookQueryState(),
+    layout: buildSavedViewLayoutJson(contract),
+    invoker: "view",
+  };
+  await act(async () => {
+    await f.session.navigate(
+      {
+        target: { sheetRef: { kind: "view_schema", id: timelineViewSchemaId } },
+        entry: "open",
+        inspect: false,
+      },
+      origin,
+      async () => "changed",
+    );
+  });
+  act(() => f.hook.result.current.returnToOrigin());
+  await waitFor(() => expect(f.session.getSnapshot().outcome).toBe("failed"));
+  expect(f.hook.result.current.retry).not.toBeNull();
+  expect(f.hook.result.current.openBase).toBeNull();
+  expect(f.session.getSnapshot().trail).toEqual([origin]);
 });

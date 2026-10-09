@@ -79,6 +79,7 @@ export class WorkbookSavedViewController {
   private epoch = 0;
   private sequence = 0;
   private activationGeneration = 0;
+  private activation: { release: () => void } | null = null;
   private resourceReadGeneration = 0;
   private binding: SavedViewBinding | null = null;
   private write: { cancel: () => void } | null = null;
@@ -703,9 +704,8 @@ export class WorkbookSavedViewController {
   openDiscovery = () => this.discovery.open();
   closeDiscovery = () => {
     ++this.activationGeneration;
-    const id = this.state.activationId;
-    if (id) this.resources.cancel(id);
-    this.resources.retain("activation", null);
+    this.activation?.release();
+    this.activation = null;
     this.publish({ activationId: null });
     this.discovery.close();
   };
@@ -717,11 +717,16 @@ export class WorkbookSavedViewController {
     if (!binding || !this.current()) return false;
     const generation = ++this.activationGeneration;
     const epoch = this.epoch;
-    this.resources.retain("activation", id);
+    this.activation?.release();
+    const observation = this.resources.observe(id);
+    this.activation = observation;
     this.publish({ activationId: id, notice: null });
-    const resource = await this.resources.read(id);
-    if (generation !== this.activationGeneration || epoch !== this.epoch)
+    const result = await observation.result;
+    if (generation !== this.activationGeneration || epoch !== this.epoch) {
+      observation.release();
       return false;
+    }
+    const resource = result.kind === "accepted" ? result.value : null;
     const current = this.binding;
     const apply =
       resource &&
@@ -738,7 +743,8 @@ export class WorkbookSavedViewController {
         notice:
           "The working configuration changed while this view was loading. Select the view again to apply it.",
       });
-    this.resources.retain("activation", null);
+    this.activation?.release();
+    this.activation = null;
     this.publish({ activationId: null });
     return !!apply;
   };
@@ -835,7 +841,8 @@ export class WorkbookSavedViewController {
     this.resources.invalidate();
     this.discovery.invalidate();
     ++this.activationGeneration;
-    this.resources.retain("activation", null);
+    this.activation?.release();
+    this.activation = null;
     this.publish({ activationId: null, refreshing: false });
   }
   refresh = async () => {

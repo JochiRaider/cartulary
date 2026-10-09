@@ -48,7 +48,7 @@ type WorkbookViewBarProps = {
   readonly iconOnlyActions?: boolean | undefined;
   readonly inspectorButtonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onAddRow?: (() => void) | undefined;
-  readonly onInspectorToggle?: (() => void) | undefined;
+  readonly onInspectorOpen?: (() => void) | undefined;
   readonly findControls?: ReactNode | undefined;
   readonly surface: string;
   readonly workingSet?: WorkbookViewBarWorkingSetBinding | undefined;
@@ -61,7 +61,7 @@ export function WorkbookViewBar({
   iconOnlyActions = false,
   inspectorButtonRef,
   onAddRow,
-  onInspectorToggle,
+  onInspectorOpen,
   findControls,
   surface,
   workingSet,
@@ -73,10 +73,10 @@ export function WorkbookViewBar({
   const registerInspector = workbench?.registerInspector;
   useLayoutEffect(
     () =>
-      onInspectorToggle
-        ? registerInspector?.(surface, onInspectorToggle)
+      onInspectorOpen
+        ? registerInspector?.(surface, onInspectorOpen)
         : undefined,
-    [registerInspector, surface, onInspectorToggle],
+    [registerInspector, surface, onInspectorOpen],
   );
   useWorkbookCommand(
     onAddRow
@@ -106,7 +106,7 @@ export function WorkbookViewBar({
       : null,
   );
   useWorkbookCommand(
-    onInspectorToggle
+    onInspectorOpen
       ? {
           id: "inspect.record",
           family: "Inspect",
@@ -130,14 +130,14 @@ export function WorkbookViewBar({
               return false;
             if (!browsing.selectLoadedRecord(surface, target.recordId))
               return false;
-            onInspectorToggle();
+            onInspectorOpen();
             return true;
           },
         }
       : null,
   );
   useWorkbookCommand(
-    onInspectorToggle && workbench
+    onInspectorOpen && workbench
       ? {
           id: "inspect.value",
           family: "Inspect",
@@ -150,7 +150,7 @@ export function WorkbookViewBar({
               : "Select a committed cell.",
           invoke: () => {
             if (!workbench.requestInspectValue()) return false;
-            onInspectorToggle();
+            onInspectorOpen();
             return true;
           },
         }
@@ -227,14 +227,14 @@ export function WorkbookViewBar({
                     ) : null}
                     {chromeMode !== "base" ? <WorkbookReturnControl /> : null}
                     {columns}
-                    {chromeMode !== "base" && onInspectorToggle && workbench ? (
+                    {chromeMode !== "base" && onInspectorOpen && workbench ? (
                       <button
                         type="button"
                         style={toolbarButtonStyle}
                         data-grid-editor-external-action="true"
                         onClick={() => {
                           if (workbench.requestInspectValue())
-                            onInspectorToggle();
+                            onInspectorOpen();
                         }}
                       >
                         Inspect value
@@ -249,19 +249,19 @@ export function WorkbookViewBar({
       </div>
       <div style={rightRailStyle}>
         {findControls}
-        {chromeMode === "base" && onInspectorToggle && workbench ? (
+        {chromeMode === "base" && onInspectorOpen && workbench ? (
           <button
             type="button"
             style={toolbarButtonStyle}
             data-grid-editor-external-action="true"
             onClick={() => {
-              if (workbench.requestInspectValue()) onInspectorToggle();
+              if (workbench.requestInspectValue()) onInspectorOpen();
             }}
           >
             Inspect value
           </button>
         ) : null}
-        {onInspectorToggle ? (
+        {onInspectorOpen ? (
           <button
             aria-label="Open inspector"
             data-testid={workbookInspectorToggleTestId(surface)}
@@ -269,7 +269,7 @@ export function WorkbookViewBar({
             style={toolbarButtonStyle}
             title={compactActions ? "Open inspector" : undefined}
             type="button"
-            onClick={onInspectorToggle}
+            onClick={onInspectorOpen}
           >
             <SlidersHorizontal aria-hidden="true" size={16} />
             {compactActions ? null : "Inspect"}
