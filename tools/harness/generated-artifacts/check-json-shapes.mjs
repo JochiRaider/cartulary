@@ -63,6 +63,7 @@ import { validateTestCatalogImportBoundary } from "../test-catalog/index.mjs";
 import { validateExecutableInputPolicy } from "../test-catalog/index.mjs";
 import { loadHistoricalPerformanceSchemaRegistry } from "../diagnostics/historical-performance-evidence.mjs";
 import { validateTimelineRecipe } from "../fixtures/timeline-investigation/index.mjs";
+import { renderInstrumentationDefinitions } from "./instrumentation-definitions.mjs";
 import { validateFrontendVisualGoldenManifest } from "../browser/index.mjs";
 
 
@@ -3678,6 +3679,9 @@ function validateAll(root) {
   validateExecutionTopologyShape(
     repoFile(root, "tools/execution_topology_manifest.json"),
   );
+  const instrumentationDefinitions = readShapeFile(repoFile(root, "tools/harness_instrumentation_definitions.json"));
+  validateSchemaSync("cartulary.harness_instrumentation_definitions.v1", instrumentationDefinitions);
+  renderInstrumentationDefinitions(instrumentationDefinitions);
   validateTaskSurfaceOwnerShape(repoFile(root, "tools/task_surface_owner.json"));
   loadExecutionTopology({
     root,

@@ -1,20 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { Worker } from "node:worker_threads";
-import { actualCriticalPath, intervalUnion, unitIntervals, projectResourcePressure } from "../../evidence-accounting/index.mjs";
+import { actualCriticalPath, intervalUnion } from "../../evidence-accounting/index.mjs";
 import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mjs";
 import { buildWorkGraph } from "../../scheduler/work-graph/model.mjs";
 import { runWorkGraph } from "../../scheduler/work-graph/scheduler.mjs";
 import { parseProcessStat, linuxUnits, parsePSI, createLinuxResourceAdapter } from "../resource-linux.mjs";
 import { resourceProjection } from "../resource-projection.mjs";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
-import { otlpProjection } from "../observability.mjs";
+import { otlpProjection } from "../otlp-projection.mjs";
 import { validateCanonicalRun } from "../canonical-evidence.mjs";
-import { performanceExplanation } from "../observability.mjs";
+import { performanceExplanation, loadRetainedObservability } from "../observability.mjs";
+import { formatPerformanceExplanation } from "../performance-presentation.mjs";
+import { exportRetainedObservability } from "../otel-export-cli.mjs";
 import { hostClaims, processIdentity, transactAdmission } from "../../runtime/host-admission.mjs";
 import { createResourceCollector, instrumentationPolicy } from "../resource-collector.mjs";
 
@@ -31,12 +34,11 @@ const unit = (id, needs = []) => ({ unit_id: id, owner_id: "harness.evidence_acc
 
 test("queue time changes the dependency path; overlapping wall time is a union", () => {
   const graph = { units: [unit("long"), unit("a"), unit("b", ["a"])] };
-  const events = [
-    ["wait_started", "long", 0], ["started", "long", 0], ["completed", "long", 50],
-    ["wait_started", "a", 0], ["started", "a", 20], ["completed", "a", 30],
-    ["wait_started", "b", 30], ["started", "b", 50], ["completed", "b", 61],
-  ].map(([event, unit_id, monotonic_ms]) => ({ event, unit_id, monotonic_ms }));
-  const intervals = unitIntervals(events);
+  const intervals = new Map([
+    ["long", { start: 0, end: 50, queue_ms: 0 }],
+    ["a", { start: 20, end: 30, queue_ms: 20 }],
+    ["b", { start: 50, end: 61, queue_ms: 20 }],
+  ]);
   assert.deepEqual(actualCriticalPath(graph, intervals), ["a", "b"]);
   assert.equal(intervals.get("b").queue_ms, 20);
   assert.equal(intervalUnion([...intervals.values()]), 61);
@@ -151,23 +153,21 @@ test("OTLP has invocation parentage and closed safe metric dimensions", () => {
 test("terminating an observer thread cannot strand its measurement fence", async (t) => {
   const root = temporary(t);
   const worker = new Worker(`
-    const { readlinkSync, readFileSync } = require('node:fs');
-    const { parentPort } = require('node:worker_threads');
-    const pid = Number(readlinkSync('/proc/thread-self').split('/').at(-1));
-    const stat = readFileSync('/proc/' + pid + '/stat', 'utf8');
-    parentPort.postMessage({ pid, start: stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19],
-      boot: readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim() });
-    parentPort.on('message', () => {});
-  `, { eval: true });
+    const { parentPort, workerData } = require('node:worker_threads');
+    import(workerData.gate).then(async ({ createObservationGate }) => {
+      const gate = createObservationGate({ root: workerData.root, capacities: { cpu: 1, process: 1 } });
+      await gate.acquire({ signal: new AbortController().signal });
+      parentPort.postMessage('fenced');
+      parentPort.on('message', () => {});
+    });
+  `, { eval: true, workerData: { root, gate: new URL("../../runtime/observation-gate.mjs", import.meta.url).href } });
   t.after(() => worker.terminate());
-  const owner = await new Promise((resolve, reject) => { worker.once("message", resolve); worker.once("error", reject); });
-  assert.notEqual(owner.pid, process.pid);
-  const capacities = hostClaims({ cpu: 1, process: 1 });
-  const request = { root, operation: "admit", token: "a".repeat(32), owner,
-    mode: "shared", claims: hostClaims(), capacities, parent: null };
-  assert.equal(transactAdmission(request), true);
+  assert.equal(await new Promise((resolve, reject) => { worker.once("message", resolve); worker.once("error", reject); }), "fenced");
+  const request = { root, operation: "admit", token: "b".repeat(32), owner: processIdentity(),
+    mode: "exclusive", claims: hostClaims(), capacities: hostClaims({ cpu: 1, process: 1 }), parent: null };
+  assert.equal(transactAdmission(request), false);
   await worker.terminate();
-  assert.equal(transactAdmission({ ...request, token: "b".repeat(32), owner: processIdentity(), mode: "exclusive" }), true);
+  assert.equal(transactAdmission(request), true);
 });
 
 test("four sibling collectors remain quiet during exclusive measurement and resume with new segments", { timeout: 20000 }, async (t) => {
@@ -247,7 +247,11 @@ test("retained validation reconstructs path and target fields and rejects tamper
   const summary = { schema_id: "cartulary.harness_run_summary.v1", run_id: "synthetic", target: "test-slice", status: "pass",
     failure_class: null, failure_reason: null, unit_counts: { total: 1, passed: 1, failed: 0, skipped: 0, cancelled: 0 },
     wall_duration_ms: 10, critical_path: ["a"], actual_dependency_critical_path_ms: 9, timing_accounting: timing,
-    resource_pressure: projectResourcePressure(events, graph, capability), cache: {}, artifact_refs: ["target-summaries/test-slice.json"] };
+    resource_pressure: {
+      requested_capacity: { browser_stack: 0, cpu: 1, io: 0, memory_mb: 0, object_store: 0, port_lane: 0, postgres: 0, process: 1, service_stack: 0, volume: 0 },
+      resolved_capacity: { browser_stack: 1, cpu: 2, io: 1, memory_mb: 1, object_store: 1, port_lane: 1, postgres: 1, process: 2, service_stack: 1, volume: 1 },
+      peak_use: { cpu: 1, process: 1 }, saturation_ms: {}, wait_events: 1, blocked_units: ["a"], resource_holders: [],
+    }, cache: {}, artifact_refs: ["target-summaries/test-slice.json"] };
   const target = { schema_id: "cartulary.harness_target_summary.v1", target: "test-slice", command_id: manifest.command_id,
     status: "pass", failure_class: null, failure_reason: null, workload_digest: digest, unit_ids: ["a"],
     inclusive_wall_ms: 7, exclusive_wall_ms: 7, actual_dependency_critical_path_ms: 9,
@@ -260,9 +264,42 @@ test("retained validation reconstructs path and target fields and rejects tamper
   const explained = await performanceExplanation(dir);
   assert.equal(explained.dependency_path_ms, 9);
   assert.equal(explained.invocation_path_queue_ms, 2);
+  assert.deepEqual(JSON.parse(formatPerformanceExplanation(explained, { json: true })), explained);
+  const human = formatPerformanceExplanation(explained);
+  assert.ok(human.includes("[UNIT] a queue_ms=2 execution_ms=7 invocation_path=true"));
+  assert.ok(Buffer.byteLength(human) < 8192);
+  const retained = await loadRetainedObservability(dir);
+  assert.equal(Object.hasOwn(retained, "built"), false);
+  const payloads = [];
+  assert.deepEqual(await exportRetainedObservability({ retained, endpoint: new URL("https://example.com"), headers: {} }, {
+    fetchImpl: async (url, options) => { payloads.push([String(url), JSON.parse(options.body)]); return { ok: true, status: 200, redirected: false }; },
+  }), { invocations: 1, signals: 2 });
+  assert.ok(payloads[0][0].endsWith("/v1/traces")); assert.ok(payloads[1][0].endsWith("/v1/metrics"));
+  assert.equal(JSON.stringify(payloads).includes("resource-samples"), false);
+  const cli = new URL("../observability-check-cli.mjs", import.meta.url);
+  const check = (args) => spawnSync(process.execPath, [cli.pathname, ...args], { encoding: "utf8" });
+  assert.equal(check(["--results-dir", dir]).status, 0);
+  assert.equal(check(["--results-dir", path.join(dir, "missing")]).status, 2);
+  const isolated = new Worker(`
+    const { registerHooks } = require('node:module');
+    const { parentPort, workerData } = require('node:worker_threads');
+    registerHooks({ resolve(specifier, context, next) {
+      if (/otlp-projection|otel-export/.test(specifier)) throw new Error('ordinary reader imported export');
+      return next(specifier, context);
+    } });
+    import(workerData.facade).then(async (facade) => {
+      await facade.loadRetainedObservability(workerData.dir);
+      const value = await facade.performanceExplanation(workerData.dir);
+      parentPort.postMessage(value.dependency_path_ms);
+    });
+  `, { eval: true, workerData: { facade: new URL("../observability.mjs", import.meta.url).href, dir } });
+  t.after(() => isolated.terminate());
+  assert.equal(await new Promise((resolve, reject) => { isolated.once("message", resolve); isolated.once("error", reject); }), 9);
+
   summary.actual_dependency_critical_path_ms = 7;
   atomicLocalFile(path.join(dir, "run-summary.json"), JSON.stringify(summary), { replace: true });
   await assert.rejects(validateCanonicalRun(dir), /critical duration/u);
+  assert.equal(check(["--results-dir", dir]).status, 11);
 });
 
 
@@ -372,4 +409,17 @@ test("instrumentation schemas validate without loading the runtime AJV compiler"
   } });
   t.after(() => worker.terminate());
   assert.equal(await new Promise((resolve, reject) => { worker.once("message", resolve); worker.once("error", reject); }), "validated");
+});
+
+test("secure resource loading rejects malformed, oversized, mismatched and digest-tampered artifacts", (t) => {
+  for (const mutation of ["malformed", "oversized", "identity", "digest", "forbidden_field"]) {
+    const f = retainedSamples(t, [{ elapsed_ms: 0, metrics: { rss_bytes: metric(1) } }]);
+    const file = path.join(f.dir, "diagnostics/resource-samples.ndjson");
+    if (mutation === "malformed") writeFileSync(file, "{\n");
+    if (mutation === "oversized") writeFileSync(file, " ".repeat(65537));
+    if (mutation === "identity") f.run.manifest.run_id = "foreign";
+    if (mutation === "digest") writeFileSync(file, readFileSync(file, "utf8").replace('"value":1', '"value":2'));
+    if (mutation === "forbidden_field") writeFileSync(file, readFileSync(file, "utf8").replace('"metrics":{', '"secret":"forbidden","metrics":{'));
+    assert.throws(() => resourceProjection(f.dir, f.run), undefined, mutation);
+  }
 });

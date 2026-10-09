@@ -51,7 +51,7 @@ export function linuxUnits(auxv) {
   if (!(pageBytes > 0 && ticksPerSecond > 0)) throw new Error("unsupported Linux counter units");
   return { pageBytes, ticksPerSecond };
 }
-export function createLinuxResourceAdapter({ read = readFileSync, link = readlinkSync, proc = "/proc", cgroups = "/sys/fs/cgroup" } = {}) {
+export function createLinuxResourceAdapter({ read = readFileSync, link = readlinkSync, proc = "/proc", cgroups = "/sys/fs/cgroup", openDirectory = opendirSync, now = () => performance.now() } = {}) {
   let bytesRead = 0;
   const text = (file) => { const value = read(file, "utf8"); bytesRead += Buffer.byteLength(value); return value; };
   const boot = text(`${proc}/sys/kernel/random/boot_id`).trim();
@@ -121,11 +121,11 @@ export function createLinuxResourceAdapter({ read = readFileSync, link = readlin
     return records;
   }
   function discover(maximum, deadline) {
-    const found = [], directory = opendirSync(proc);
+    const found = [], directory = openDirectory(proc);
     let entries = 0, truncated = false;
     try {
       for (let entry; (entry = directory.readSync()) !== null;) {
-        if (++entries > maximum || performance.now() >= deadline) { truncated = true; break; }
+        if (++entries > maximum || now() >= deadline) { truncated = true; break; }
         if (!/^\d+$/u.test(entry.name)) continue;
         try { found.push(proof(Number(entry.name))); } catch { /* Vanishing processes are expected. */ }
       }

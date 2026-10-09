@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { otlpProjection } from "./otlp-projection.mjs";
 
 import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -146,25 +147,24 @@ export async function exportRetainedObservability(
   { deliveryTimeoutMs = exporterTimeoutMs, fetchImpl = globalThis.fetch } = {},
 ) {
   let signals = 0;
-  for (const { result: invocation } of input.retained.built) {
-    await deliver(
-      signalURL(input.endpoint, "traces"),
-      invocation.traceOTLP,
-      input.headers,
-      deliveryTimeoutMs,
-      fetchImpl,
-    );
-    signals += 1;
-    await deliver(
-      signalURL(input.endpoint, "metrics"),
-      invocation.metricsOTLP,
-      input.headers,
-      deliveryTimeoutMs,
-      fetchImpl,
-    );
-    signals += 1;
-  }
-  return { invocations: input.retained.built.length, signals };
+  const invocation = otlpProjection(input.retained.run);
+  await deliver(
+    signalURL(input.endpoint, "traces"),
+    invocation.traceOTLP,
+    input.headers,
+    deliveryTimeoutMs,
+    fetchImpl,
+  );
+  signals += 1;
+  await deliver(
+    signalURL(input.endpoint, "metrics"),
+    invocation.metricsOTLP,
+    input.headers,
+    deliveryTimeoutMs,
+    fetchImpl,
+  );
+  signals += 1;
+  return { invocations: 1, signals };
 }
 
 async function main() {

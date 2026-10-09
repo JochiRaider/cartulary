@@ -96,6 +96,20 @@
         ".mjs"
       ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/harness/contract/generated/instrumentation-definitions.mjs",
+      "allowed_extensions": [
+        ".mjs"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "Code generated .* DO NOT EDIT\\."
     }
   ],
   "lint_scope_checks": {

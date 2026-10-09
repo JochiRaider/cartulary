@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 
-import { intervalUnion, unitIntervals, actualCriticalPath, canonicalTimingAccounting, projectResourcePressure } from "../../evidence-accounting/index.mjs";
-import { createResourceCollector, instrumentationPolicy } from "../../observability/resource-collector.mjs";
-import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
+import { intervalUnion, actualCriticalPath, canonicalTimingAccounting, projectResourcePressure } from "../../evidence-accounting/index.mjs";
+import { createDiagnosticSession } from "../../observability/diagnostic-session.mjs";
+import { instrumentationPolicy } from "../../observability/resource-collector.mjs";
 import { createHash } from "node:crypto";
 import { execFileSync } from "../../workspace/child-process.mjs";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
@@ -398,15 +398,14 @@ async function writeCanonicalArtifacts({
 }) {
   const canonical = await reduceCanonicalUnitIntervals(
     path.join(runRoot, "unit-events.ndjson"),
-    { retainProjection: true },
   );
   if (canonical.finalMonotonicMs !== result.duration_ms) {
     throw new Error(
       `canonical event duration ${canonical.finalMonotonicMs} does not match scheduler duration ${result.duration_ms}`,
     );
   }
-  result = { ...result, events: canonical.projectedEvents };
-  const intervals = unitIntervals(result.events);
+  const terminals = [...canonical.terminals.values()];
+  const intervals = canonical.intervals;
   const taskSurface = readJSON("tools/task_surface_owner.json");
   const commandIDs = new Map(
     taskSurface.targets
@@ -433,8 +432,8 @@ async function writeCanonicalArtifacts({
       target: projection,
       command_id: commandID,
       status: statusForUnits(unitIDs, result.states),
-      failure_class: failureForUnits(unitIDs, result.events)?.failure_class ?? null,
-      failure_reason: failureForUnits(unitIDs, result.events)?.failure_reason ?? null,
+      failure_class: failureForUnits(unitIDs, terminals)?.failure_class ?? null,
+      failure_reason: failureForUnits(unitIDs, terminals)?.failure_reason ?? null,
       workload_digest: semanticJSONDigest({
         target: projection,
         evidence_outputs: graph.units
@@ -455,7 +454,7 @@ async function writeCanonicalArtifacts({
         }, 0);
       })(),
       timing_accounting: canonicalTimingAccounting(
-        result.events,
+        canonical,
         graph,
         intervalUnion(inclusiveIntervals),
         { includeRunEnvelope: false, selectedUnitIDs: unitIDs },
@@ -489,7 +488,7 @@ async function writeCanonicalArtifacts({
     0,
   );
   const timingAccounting = canonicalTimingAccounting(
-    result.events,
+    canonical,
     graph,
     result.duration_ms,
   );
@@ -506,12 +505,7 @@ async function writeCanonicalArtifacts({
       `canonical timing buckets do not close: accounted=${accounted} wall=${result.duration_ms}`,
     );
   }
-  const cache = { hit: 0, miss: 0, bypass: 0 };
-  for (const event of result.events) {
-    if (event.event === "cache_hit") cache.hit += 1;
-    if (event.event === "cache_miss") cache.miss += 1;
-    if (event.event === "cache_bypass") cache.bypass += 1;
-  }
+  const cache = canonical.cache;
   const failedEvent = primaryPublicFailure(Object.values(result.unit_results)
     .filter((terminal) => terminal.failure_class).concat(result.cleanup_error ? [result.cleanup_error] : []));
   const runSummary = {
@@ -526,7 +520,7 @@ async function writeCanonicalArtifacts({
     critical_path: criticalPath,
     actual_dependency_critical_path_ms: criticalPathDurationMs,
     timing_accounting: timingAccounting,
-    resource_pressure: projectResourcePressure(result.events, graph, snapshot),
+    resource_pressure: projectResourcePressure(canonical, graph, Object.fromEntries(resourceCapacities(snapshot))),
     cache,
     artifact_refs: [
       "run-manifest.json",
@@ -548,13 +542,8 @@ async function main() {
   const mode = process.env.HARNESS_DIAGNOSTICS || "off";
   if (!["off", "basic"].includes(mode)) throw new Error("invalid HARNESS_DIAGNOSTICS");
   const instrumentation = instrumentationPolicy();
-  const envelope = [];
-  let previousBoundary = 0;
-  const mark = (phase) => {
-    const end = Number((process.hrtime.bigint() - graphEpoch) / 1_000_000n);
-    if (mode === "basic") envelope.push({ phase, start_ms: previousBoundary, end_ms: end });
-    previousBoundary = end;
-  };
+  const diagnostics = createDiagnosticSession({ mode, epoch: graphEpoch });
+  const mark = diagnostics.mark;
   const options = parseArgs(process.argv.slice(2));
   const serviceSession = resolveServiceSessionMode({
     target: options.target,
@@ -637,20 +626,7 @@ async function main() {
   let retainedScanAttempted = false;
   let primaryError = null;
   const publishRetainedScan = async () => {
-    await resources?.stop();
-    livePublisher?.stop();
-    mark("collector_shutdown");
-    if (mode === "basic") {
-      try {
-        const receipt = { schema_id: "cartulary.harness_invocation_envelope.v1",
-          run_id: runID, source_digest: manifest.source_digest, graph_digest: manifest.graph_digest,
-          boundary: "graph_main_entry_to_pre_scan", clock: "graph_process_monotonic",
-          canonical_ref: "unit-events.ndjson", intervals: envelope,
-          exclusions: ["make_and_preflight", "module_imports", "retained_secret_scan", "command_return", "receipt_publication"] };
-        validateSchemaSync(receipt.schema_id, receipt);
-        atomicLocalFile(path.join(runRoot, "diagnostics/invocation-envelope.json"), `${JSON.stringify(receipt)}\n`);
-      } catch { /* Optional envelope does not replace required evidence outcomes. */ }
-    }
+    await diagnostics.close(() => livePublisher?.stop());
     retainedScanAttempted = true;
     const retainedScan = await scanRetainedRoot(runRoot, {
       forbiddenValues: suiteRuntime.forbiddenValues(),
@@ -660,7 +636,7 @@ async function main() {
     writeJSON(path.join(runRoot, "retained-secret-scan.json"), retainedScan);
   };
   try {
-  resources = createResourceCollector({ runRoot, manifest, capacities: Object.fromEntries(resourceCapacities(snapshot)), epoch: graphEpoch });
+  resources = diagnostics.start({ runRoot, manifest, capacities: Object.fromEntries(resourceCapacities(snapshot)), epoch: graphEpoch });
   livePublisher = createLiveStatusPublisher({ runRoot, manifest, graph, projections, resources: () => resources?.snapshot() });
   broker = new FixtureBroker({
     cleanupResults,

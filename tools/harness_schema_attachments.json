@@ -394,6 +394,20 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_instrumentation_definitions.v1",
+      "path": "tools/schemas/cartulary.harness_instrumentation_definitions.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness instrumentation definitions",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_instrumentation_defs.v1",
+      "path": "tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "harness instrumentation definitions",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_instrumentation_policy.v1",
       "path": "tools/schemas/cartulary.harness_instrumentation_policy.v1.schema.json",
       "classification": "owner_input",

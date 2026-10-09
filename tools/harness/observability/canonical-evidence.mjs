@@ -1,3 +1,4 @@
+import { resourceCapacities } from "../scheduler/work-graph/index.mjs";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
@@ -5,7 +6,7 @@ import { validateSchemaSync } from "../contract/index.mjs";
 import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
 
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
-import { actualCriticalPath, unitIntervals, canonicalTimingAccounting, projectResourcePressure } from "../evidence-accounting/index.mjs";
+import { actualCriticalPath, intervalUnion, canonicalTimingAccounting, projectResourcePressure } from "../evidence-accounting/index.mjs";
 
 function readJSON(file) {
   return JSON.parse(readLocalFile(file, { maximum: 16 * 1024 * 1024 }));
@@ -20,20 +21,6 @@ function containedArtifact(runRoot, relative) {
     throw new Error(`${relative} escapes the canonical run root`);
   }
   return resolved;
-}
-
-function intervalUnion(intervals) {
-  const sorted = intervals.sort((left, right) => left.start - right.start || left.end - right.end);
-  let active = null;
-  let total = 0;
-  for (const interval of sorted) {
-    if (!active || interval.start > active.end) {
-      if (active) total += active.end - active.start;
-      active = { ...interval };
-    } else active.end = Math.max(active.end, interval.end);
-  }
-  if (active) total += active.end - active.start;
-  return total;
 }
 
 export async function validateCanonicalRun(runRoot, expectedTarget = "") {
@@ -55,15 +42,14 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
   if (expectedTarget && manifest.target !== expectedTarget) {
     throw new Error(`${runRoot} target ${manifest.target} does not match ${expectedTarget}`);
   }
-  const eventState = await reduceCanonicalUnitIntervals(files.events, { retainProjection: true });
+  const eventState = await reduceCanonicalUnitIntervals(files.events);
   const terminal = eventState.terminals;
   const started = eventState.starts;
   const runStarted = eventState.runStarted;
   const runCompleted = eventState.runCompleted;
-  const events = eventState.projectedEvents;
   const graph = { units: [...eventState.registrations.values()] };
   if (graph.units.length !== terminal.size) throw new Error("canonical registration roster does not close");
-  const intervals = unitIntervals(events);
+  const intervals = eventState.intervals;
   const criticalPath = actualCriticalPath(graph, intervals);
   const pathDuration = (ids) => ids.reduce((total, id) => {
     const interval = intervals.get(id);
@@ -75,8 +61,8 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
   };
   same(summary.critical_path, criticalPath, "critical path");
   same(summary.actual_dependency_critical_path_ms, pathDuration(criticalPath), "critical duration");
-  same(summary.timing_accounting, canonicalTimingAccounting(events, graph, summary.wall_duration_ms), "timing accounting");
-  same(summary.resource_pressure, projectResourcePressure(events, graph, manifest.capability_snapshot), "reservation pressure");
+  same(summary.timing_accounting, canonicalTimingAccounting(eventState, graph, summary.wall_duration_ms), "timing accounting");
+  same(summary.resource_pressure, projectResourcePressure(eventState, graph, Object.fromEntries(resourceCapacities(manifest.capability_snapshot))), "reservation pressure");
   if ([...eventState.phases.values()].some((phase) => phase.end_ms === null)) throw new Error("incomplete phase in finalized run");
   const counts = summary.unit_counts;
   const terminalCounts = { passed: 0, failed: 0, skipped: 0, cancelled: 0 };
@@ -119,7 +105,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
       throw new Error(`${artifact} inclusive interval union does not close`);
     }
     same(targetSummary.actual_dependency_critical_path_ms, pathDuration(actualCriticalPath(graph, intervals, targetSummary.unit_ids)), "target critical duration");
-    same(targetSummary.timing_accounting, canonicalTimingAccounting(events, graph, targetSummary.inclusive_wall_ms, { includeRunEnvelope: false, selectedUnitIDs: targetSummary.unit_ids }), "target accounting");
+    same(targetSummary.timing_accounting, canonicalTimingAccounting(eventState, graph, targetSummary.inclusive_wall_ms, { includeRunEnvelope: false, selectedUnitIDs: targetSummary.unit_ids }), "target accounting");
     targetSummaries.set(targetSummary.target, targetSummary);
   }
   for (const target of targetSummaries.values()) {

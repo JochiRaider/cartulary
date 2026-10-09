@@ -61,6 +61,7 @@ export function publishGeneratedTransaction({
   generatedPaths,
   transactionRoot,
   afterMove = () => {},
+  rename = renameSync,
 }) {
   const changed = changedGeneratedPaths(repoRoot, renderedRoot, generatedPaths);
   if (changed.length === 0) return { status: "unchanged", changed: [] };
@@ -85,10 +86,11 @@ export function publishGeneratedTransaction({
       mkdirSync(path.dirname(destination), { recursive: true });
       if (existsSync(destination)) {
         mkdirSync(path.dirname(prior), { recursive: true });
-        renameSync(destination, prior);
+        rename(destination, prior);
       }
-      renameSync(staged, destination);
+      // Record the backup before installation, so an install failure restores it.
       moved.push(relative);
+      rename(staged, destination);
       afterMove(relative, moved.length);
     }
     rmSync(transaction, { recursive: true, force: true });
@@ -100,7 +102,7 @@ export function publishGeneratedTransaction({
       rmSync(destination, { recursive: true, force: true });
       if (existsSync(prior)) {
         mkdirSync(path.dirname(destination), { recursive: true });
-        renameSync(prior, destination);
+        rename(prior, destination);
       }
     }
     rmSync(transaction, { recursive: true, force: true });

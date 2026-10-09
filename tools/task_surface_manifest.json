@@ -2450,7 +2450,10 @@
         "./tools/harness/tests/test-harness-evidence-contracts.mjs",
         "./tools/harness/tests/test-harness-graph-contracts.mjs",
         "./tools/harness/tests/test-harness-scheduler-contracts.mjs",
-        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs"
+        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs",
+        "./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
+        "./tools/harness/observability/tests/test-canonical-performance.mjs",
+        "./tools/harness/tests/test-agent-finalize.mjs"
       ],
       "test_target": "self"
     },
@@ -2482,7 +2485,10 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
-        "./tools/harness/tests/test-harness-evidence-contracts.mjs"
+        "./tools/harness/tests/test-harness-evidence-contracts.mjs",
+        "./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
+        "./tools/harness/observability/tests/test-canonical-performance.mjs",
+        "./tools/harness/tests/test-agent-finalize.mjs"
       ],
       "test_target": "self"
     },
@@ -2506,7 +2512,9 @@
         "./tools/harness/tests/test-harness-scheduler-contracts.mjs",
         "./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
         "./tools/harness/observability/tests/test-observability.mjs",
-        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs"
+        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs",
+        "./tools/harness/observability/tests/test-canonical-performance.mjs",
+        "./tools/harness/tests/test-agent-finalize.mjs"
       ],
       "test_target": "self",
       "success_summary": true,
@@ -5239,9 +5247,12 @@
         "tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs",
         "tools/harness/generated-artifacts/generate-artifacts.sh",
         "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs",
+        "tools/harness/generated-artifacts/instrumentation-definitions.mjs",
+        "tools/harness/generated-artifacts/instrumentation-shapes.mjs",
         "tools/harness/generated-artifacts/performance/performance-contracts-cli.mjs",
         "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
         "tools/harness/workspace/layout.mjs",
+        "tools/harness_instrumentation_definitions.json",
         "tools/protocol-ts/generate-protocol-types.mjs"
       ],
       "target_class": "internal_helper",
@@ -11557,7 +11568,10 @@
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
+        "tools/harness/observability/tests/test-canonical-performance.mjs",
+        "tools/harness/tests/test-agent-finalize.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_test_catalog_tests.v2",
       "target_class": "check_internal",
@@ -11605,7 +11619,10 @@
         "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/contract-tier-cases.mjs",
         "tools/harness/tests/private-child-capture-cases.mjs",
-        "tools/harness/tests/test-harness-evidence-contracts.mjs"
+        "tools/harness/tests/test-harness-evidence-contracts.mjs",
+        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
+        "tools/harness/observability/tests/test-canonical-performance.mjs",
+        "tools/harness/tests/test-agent-finalize.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_evidence_contract.v2",
       "target_class": "check_internal",
@@ -11645,7 +11662,10 @@
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
+        "tools/harness/observability/tests/test-canonical-performance.mjs",
+        "tools/harness/tests/test-agent-finalize.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",

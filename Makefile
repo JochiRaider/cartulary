@@ -176,7 +176,7 @@ $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &: go-toolchain-readiness $(NODE_BIN
 $(NODE_BIN): FORCE tools/harness/readiness/bootstrap-node-runtime.sh $(BOOTSTRAP_NODE_RUNTIME_IMPL) Makefile
 	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then test -x "$(NODE_BIN)"; else NODE_VERSION="$(NODE_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" ./tools/harness/readiness/bootstrap-node-runtime.sh; fi
 
-$(FOUNDATION_SCHEMA_VALIDATORS): $(NODE_BIN) tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs tools/harness_schema_attachments.json $(wildcard tools/schemas/*.schema.json)
+$(FOUNDATION_SCHEMA_VALIDATORS): $(NODE_BIN) tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs tools/harness/generated-artifacts/generated-transaction.mjs tools/harness/generated-artifacts/instrumentation-definitions.mjs tools/harness/generated-artifacts/instrumentation-shapes.mjs tools/harness_instrumentation_definitions.json tools/harness_schema_attachments.json $(wildcard tools/schemas/*.schema.json)
 	$(Q)$(NODE_BIN) ./tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs
 
 $(FRONTEND_TOOLCHAIN_STAMP): FORCE $(NODE_BIN) Makefile tools/harness/readiness/frontend-toolchain.sh $(FRONTEND_TOOLCHAIN_IMPL) $(CACHE_ARTIFACT_SCRIPT)

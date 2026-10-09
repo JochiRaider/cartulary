@@ -136,7 +136,9 @@
       "key": "harness_observability",
       "boundary_group": "scheduler_diagnostics",
       "paths": [
-        "tools/harness/observability/observability.mjs"
+        "tools/harness/observability/observability.mjs",
+        "tools/harness/observability/diagnostic-session.mjs",
+        "tools/harness/observability/resource-collector.mjs"
       ],
       "allowed_consumers": []
     },
@@ -153,6 +155,14 @@
       "boundary_group": "scheduler_diagnostics",
       "paths": [
         "tools/harness/diagnostics/owner-diagnostics.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "runtime_observation_gate",
+      "boundary_group": "execution_runtime",
+      "paths": [
+        "tools/harness/runtime/observation-gate.mjs"
       ],
       "allowed_consumers": []
     },

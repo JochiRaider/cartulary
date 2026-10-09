@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_instrumentation_definitions.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "maximum_phases_per_unit",
+    "phases",
+    "availability",
+    "signals"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_instrumentation_definitions.v1"
+    },
+    "maximum_phases_per_unit": {
+      "const": 128
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "availability": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "signals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind",
+          "unit",
+          "producer_scope",
+          "aggregation"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "kind": {
+            "enum": [
+              "counter",
+              "gauge"
+            ]
+          },
+          "unit": {
+            "enum": [
+              "us",
+              "bytes",
+              "cores",
+              "count"
+            ]
+          },
+          "producer_scope": {
+            "enum": [
+              "process",
+              "guest_context",
+              "cgroup_context"
+            ]
+          },
+          "aggregation": {
+            "enum": [
+              "segmented_delta",
+              "sampled_maximum"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

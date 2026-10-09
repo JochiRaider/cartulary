@@ -4,3 +4,6 @@ runContractSuite("evidence");
 registerRunObservationTests();
 
 import "../observability/tests/test-instrumentation.mjs";
+import "../observability/tests/test-foundation-characterization.mjs";
+
+import "../observability/tests/test-collection-engine.mjs";

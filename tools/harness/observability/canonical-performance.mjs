@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { canonicalJSONString, validateSchemaSync } from "../contract/index.mjs";
-import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
+import { intervalUnion, reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
 
 const evidenceSchemaID = "cartulary.harness_performance_evidence_roots.v3";
 export const baselineSchemaID = "cartulary.harness_public_target_duration_baselines.v3";
@@ -42,24 +42,6 @@ export function nearestRankP90(values) {
   if (values.length === 0) throw new Error("p90 requires at least one value");
   const sorted = [...values].sort((left, right) => left - right);
   return sorted[Math.ceil(sorted.length * 0.9) - 1];
-}
-
-function intervalUnionMs(intervals) {
-  const sorted = intervals
-    .filter(({ start, end }) => Number.isFinite(start) && Number.isFinite(end) && end >= start)
-    .sort((left, right) => left.start - right.start || left.end - right.end);
-  let total = 0;
-  let active = null;
-  for (const interval of sorted) {
-    if (!active || interval.start > active.end) {
-      if (active) total += active.end - active.start;
-      active = { ...interval };
-    } else {
-      active.end = Math.max(active.end, interval.end);
-    }
-  }
-  if (active) total += active.end - active.start;
-  return total;
 }
 
 export function performanceRoster(surface) {
@@ -165,7 +147,7 @@ async function readCanonicalRoot(repositoryRoot, baseDirectory, reference, targe
     }
     intervals.push({ start, end: terminal.monotonic_ms });
   }
-  const inclusiveWallMs = intervalUnionMs(intervals);
+  const inclusiveWallMs = intervalUnion(intervals);
   if (inclusiveWallMs !== targetSummary.inclusive_wall_ms) {
     throw new Error(`${reference} ${target} interval union does not close its projection`);
   }

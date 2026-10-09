@@ -5501,6 +5501,41 @@ become lifecycle authority. Container totals and borrowed-service consumption
 remain unavailable until an exact owner-scoped adapter supplies them.
 
 
+**TH-HARNESS-REQ-840 — Instrumentation foundation projections.**
+The closed owner input `tools/harness_instrumentation_definitions.json`, using
+`cartulary.harness_instrumentation_definitions.v1`, MUST project the phase names
+in REQ-831 and the existing resource signals, units, counter/gauge kinds,
+producer scopes, and fixed aggregation classifications. Collection cadence and
+resource limits remain in the instrumentation policy. Canonical reduction MUST
+accept at most 128 phase starts per unit, including unfinished intervals; a
+129th start or a repeated interval identity is invalid canonical evidence.
+Missing ends remain incomplete rather than becoming synthesized durations.
+
+Make-owned generation MUST derive
+`cartulary.harness_instrumentation_defs.v1` shared schema components and
+dependency-free runtime descriptors from this input before generating dependent
+validators. Shared sample-value, aggregate, observer, and lease components MUST
+preserve the current retained schemas' accepted payload sets and schema IDs.
+Producer-scope metadata does not introduce additional retained-schema rejection
+rules. The attachment registry's `shared_component` classification identifies
+support schemas; `foundation_runtime` alone selects standalone runtime validators.
+No second handwritten membership or signal registry is permitted.
+
+Canonical accounting MUST retain normalized bounded facts rather than a second
+raw event stream. Pure projections receive explicit target memberships and
+resolved capacities; the scheduler remains the event/time authority. Collection
+control MUST drain in-flight work and observation fences before acknowledging
+pause. Concurrent stop requests MUST await the same completion; stop prevents
+later resume or stale acknowledgements from restarting collection. Admission
+storage and worker-thread ownership proofs belong to the runtime observation
+gate. Optional diagnostic health remains independent of lifecycle state and
+primary outcome. All diagnostic producers MUST be quiescent before the retained
+secret scan begins, including after forced worker termination.
+
+Verified by: TH-HARNESS-AC-137. REQ-830–839 also use AC-137 for their foundation
+mechanics; this acceptance does not close deferred coverage or observer overhead
+qualification. No executable consumer may read these requirements from Markdown.
+
 ## 11. Service and Fixture Lifecycle
 
 **TH-HARNESS-REQ-400**
@@ -8030,6 +8065,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-134 | TH-HARNESS-REQ-818 | Rich core, continuations, malformed recipes, owner transitions, both review profiles, and failed preparation | Both consumers validate before mutation and verify source/semantic parity, all 24 fields, actual owner outcomes and cleanup. | No direct derived writes, silent omissions, stale-version substitution, secret receipts or Markdown dependency. |
 | TH-HARNESS-AC-135 | TH-HARNESS-REQ-819 | Authored ISO/UUID text, scoped history metadata, wrong cardinality, source overlap, wrong focus/offsets, missing fonts and unstable geometry | Source/API values are unchanged; metadata is restored; declared framing holds across three frames before comparison. | Broad normalization, invisible focus, repaired observation or contaminated accessibility evidence fails. |
 | TH-HARNESS-AC-136 | TH-HARNESS-REQ-289 | Exact/sibling/missing runs; live and tool summaries; host/fixture waits; heartbeat-only changes; cleanup; paused matching cursor; interrupted reader; malformed and unsafe evidence; concurrent atomic replacement; repeated snapshots above 1 MiB and overflow above 16 MiB | Read-only bounded observation preserves run binding, progress, omission counts, normalization and native-command distinction; no staging reads, test signals, lease changes or post-scan writes. | Zero/one/four-reader measurement qualification includes sibling runs, existing thresholds and cleanup gates, plus observer CPU, memory and read volume; qualification failure blocks completion. |
+
+| TH-HARNESS-AC-137 | TH-HARNESS-REQ-830–840 | Independent timing/resource fixtures, valid and invalid schema corpora, synthetic catalog extensions, controlled lifecycle interleavings, real worker death and sibling quietness, exact-run and export fixtures | One canonical facts model, generated definition closure, dependency-free validators, bounded collection and reading, shared stop completion, pre-scan quiescence, and public command/security parity | Canonical tampering, schema drift, counter-gap bridging, leaked fences, late writes, implicit export, or Markdown executable dependency fails; coverage and observer qualification remain separately incomplete. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

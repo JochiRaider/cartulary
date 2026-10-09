@@ -40,7 +40,6 @@ import {
   toolRunSummarySchemaID,
   toolSummaryPath,
 } from "../output/index.mjs";
-import { finalizeObservabilitySafely, observabilityRequiredTarget } from "../observability/observability.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
 import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 
@@ -271,24 +270,7 @@ async function runWrapped(target, invocation) {
   summary.exit_code = publicExitCodeForSummary(summary);
   await validateSchema(toolRunSummarySchemaID, summary);
   secureWriteFile(summaryFile, prettyJSONString(summary));
-  if (!suppressChildSuccess() && observabilityRequiredTarget(target)) {
-    const observability = await finalizeObservabilitySafely(runRootAbs, {
-      target,
-      status: summary.status === "pass" ? "passed" : "failed",
-    });
-    if (observability.status === "partial") {
-      summary.warnings = [
-        ...(summary.warnings ?? []),
-        {
-          kind: "harness_observability",
-          status: "partial",
-          diagnostic: observability.diagnostic,
-        },
-      ];
-      await validateSchema(toolRunSummarySchemaID, summary);
-      secureWriteFile(summaryFile, prettyJSONString(summary));
-    }
-  }
+
 
   if (machineOutput()) {
     process.stdout.write(compactJSONString(summary));

@@ -1,0 +1,188 @@
+{
+  "schema_id": "cartulary.harness_instrumentation_definitions.v1",
+  "maximum_phases_per_unit": 128,
+  "phases": [
+    "cache_lookup",
+    "host_admission",
+    "fixture_acquire",
+    "runner",
+    "report_parse",
+    "evidence_write",
+    "fixture_release",
+    "cache_publish"
+  ],
+  "availability": [
+    "available",
+    "unsupported",
+    "permission_denied",
+    "not_observed",
+    "process_gone",
+    "counter_reset",
+    "paused_measurement",
+    "truncated",
+    "collector_failed"
+  ],
+  "signals": [
+    {
+      "name": "cgroup_cpu_quota_cores",
+      "kind": "gauge",
+      "unit": "cores",
+      "producer_scope": "cgroup_context",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "cgroup_cpu_us",
+      "kind": "counter",
+      "unit": "us",
+      "producer_scope": "cgroup_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "cgroup_memory_bytes",
+      "kind": "gauge",
+      "unit": "bytes",
+      "producer_scope": "cgroup_context",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "cgroup_memory_high_events",
+      "kind": "counter",
+      "unit": "count",
+      "producer_scope": "cgroup_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "cgroup_memory_limit_bytes",
+      "kind": "gauge",
+      "unit": "bytes",
+      "producer_scope": "cgroup_context",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "cgroup_memory_max_events",
+      "kind": "counter",
+      "unit": "count",
+      "producer_scope": "cgroup_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "cgroup_oom_events",
+      "kind": "counter",
+      "unit": "count",
+      "producer_scope": "cgroup_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "cgroup_oom_kill_events",
+      "kind": "counter",
+      "unit": "count",
+      "producer_scope": "cgroup_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "cgroup_pids",
+      "kind": "gauge",
+      "unit": "count",
+      "producer_scope": "cgroup_context",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "cgroup_pids_limit",
+      "kind": "gauge",
+      "unit": "count",
+      "producer_scope": "cgroup_context",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "cgroup_throttled_periods",
+      "kind": "counter",
+      "unit": "count",
+      "producer_scope": "cgroup_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "cgroup_throttled_us",
+      "kind": "counter",
+      "unit": "us",
+      "producer_scope": "cgroup_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "cpu_system_us",
+      "kind": "counter",
+      "unit": "us",
+      "producer_scope": "process",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "cpu_user_us",
+      "kind": "counter",
+      "unit": "us",
+      "producer_scope": "process",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "io_read_bytes",
+      "kind": "counter",
+      "unit": "bytes",
+      "producer_scope": "process",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "io_read_chars",
+      "kind": "counter",
+      "unit": "bytes",
+      "producer_scope": "process",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "io_write_bytes",
+      "kind": "counter",
+      "unit": "bytes",
+      "producer_scope": "process",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "io_write_chars",
+      "kind": "counter",
+      "unit": "bytes",
+      "producer_scope": "process",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "psi_full_us",
+      "kind": "counter",
+      "unit": "us",
+      "producer_scope": "guest_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "psi_some_us",
+      "kind": "counter",
+      "unit": "us",
+      "producer_scope": "guest_context",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "rss_bytes",
+      "kind": "gauge",
+      "unit": "bytes",
+      "producer_scope": "process",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "rss_high_water_bytes",
+      "kind": "gauge",
+      "unit": "bytes",
+      "producer_scope": "process",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "threads",
+      "kind": "gauge",
+      "unit": "count",
+      "producer_scope": "process",
+      "aggregation": "sampled_maximum"
+    }
+  ]
+}

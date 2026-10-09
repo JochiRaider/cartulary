@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, lstatSync } from "node:fs";
 import { createInterface } from "node:readline";
 
-import { validateSchemaSync } from "../contract/index.mjs";
+import { maximumPhasesPerUnit, validateSchemaSync } from "../contract/index.mjs";
 
 const defaultCanonicalEventLineLimit = 1024 * 1024;
 const terminalEventNames = new Set(["completed", "failed", "skipped", "cancelled"]);
@@ -96,35 +96,15 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   let runCompleted = null;
   let eventCount = 0;
   let finalMonotonicMs = 0;
-  const projectedEvents = [];
-  const projectedEventNames = new Set([
-    "run_started",
-    "queued",
-    "phase_started",
-    "phase_finished",
-    "wait_started",
-    "wait_ended",
-    "admitted",
-    "started",
-    "cache_hit",
-    "cache_miss",
-    "cache_bypass",
-    "fixture_acquired",
-    "fixture_released",
-    "completed",
-    "failed",
-    "skipped",
-    "cancelled",
-    "cleanup_started",
-    "cleanup_completed",
-    "run_completed",
-  ]);
+  const waits = new Map();
+  const admissions = new Map();
+  const fixtureAcquired = new Map();
+  const cache = { hit: 0, miss: 0, bypass: 0 };
+  let cleanupStarted = null;
   for await (const event of readCanonicalUnitEvents(file, options)) {
     eventCount += 1;
     finalMonotonicMs = event.monotonic_ms;
-    if (options.retainProjection === true && projectedEventNames.has(event.event)) {
-      projectedEvents.push(event);
-    }
+    if (event.event === "cleanup_started") cleanupStarted = event.monotonic_ms;
     if (event.event === "run_started") {
       if (runStarted !== null) throw new Error(`${file} has duplicate run_started events`);
       runStarted = event;
@@ -142,7 +122,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
     }
     if (event.event === "phase_started") {
       const count = (phaseCounts.get(event.unit_id) ?? 0) + 1;
-      if (count > 128 || phaseIDs.has(event.interval_id) || !registrations.has(event.unit_id) || terminals.has(event.unit_id)) throw new Error("invalid phase start");
+      if (count > maximumPhasesPerUnit || phaseIDs.has(event.interval_id) || !registrations.has(event.unit_id) || terminals.has(event.unit_id)) throw new Error("invalid phase start");
       phaseCounts.set(event.unit_id, count);
       phaseIDs.add(event.interval_id);
       phases.set(event.interval_id, { unit_id: event.unit_id, phase: event.phase, start_ms: event.monotonic_ms, end_ms: null, outcome: null });
@@ -160,14 +140,17 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       eligible.add(event.unit_id);
     }
     if (event.event === "wait_started") {
-      if (!eligible.has(event.unit_id) || openWaits.has(event.unit_id)) {
+      if (!eligible.has(event.unit_id) || openWaits.has(event.unit_id) || closedWaits.has(event.unit_id)) {
         throw new Error(`${file} has invalid wait start for ${event.unit_id}`);
       }
-      openWaits.set(event.unit_id, {
+      const wait = {
+        start: event.monotonic_ms, end: null,
         wait_reason: event.wait_reason,
         blocking_resources: event.blocking_resources,
         blocking_unit_ids: event.blocking_unit_ids,
-      });
+      };
+      waits.set(event.unit_id, wait);
+      openWaits.set(event.unit_id, wait);
     }
     if (event.event === "wait_ended") {
       const opened = openWaits.get(event.unit_id);
@@ -179,6 +162,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       ) {
         throw new Error(`${file} has mismatched wait end for ${event.unit_id}`);
       }
+      opened.end = event.monotonic_ms;
       openWaits.delete(event.unit_id);
       closedWaits.set(event.unit_id, event.monotonic_ms);
     }
@@ -189,9 +173,14 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       if (closedWaits.get(event.unit_id) !== event.monotonic_ms) {
         throw new Error(`${file} admits ${event.unit_id} after its wait boundary`);
       }
+      if (admitted.has(event.unit_id)) throw new Error("duplicate unit admission");
       admitted.add(event.unit_id);
+      admissions.set(event.unit_id, { time: event.monotonic_ms, seq: event.seq });
     }
-    if (event.event === "cache_hit") cacheHits.add(event.unit_id);
+    if (event.event === "cache_hit") { cacheHits.add(event.unit_id); cache.hit += 1; }
+    if (event.event === "cache_miss") cache.miss += 1;
+    if (event.event === "cache_bypass") cache.bypass += 1;
+    if (event.event === "fixture_acquired") fixtureAcquired.set(event.unit_id, event.monotonic_ms);
     if (event.event === "started") {
       if (!admitted.has(event.unit_id)) {
         throw new Error(`${file} starts ${event.unit_id} before admission`);
@@ -219,20 +208,27 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       if (terminals.has(event.unit_id)) {
         throw new Error(`${file} has duplicate terminal event for ${event.unit_id}`);
       }
-      terminals.set(event.unit_id, event);
+      terminals.set(event.unit_id, Object.fromEntries([
+        "unit_id", "event", "status", "seq", "monotonic_ms", "failure_class", "failure_reason", "cache_status",
+      ].filter((key) => Object.hasOwn(event, key)).map((key) => [key, event[key]])));
     }
   }
   if (openWaits.size > 0) {
     throw new Error(`${file} has unmatched wait start for ${[...openWaits.keys()].sort().join(", ")}`);
   }
+  const intervals = new Map();
+  for (const [id, terminal] of terminals) {
+    const start = starts.get(id) ?? terminal.monotonic_ms;
+    intervals.set(id, { start, end: terminal.monotonic_ms, queue_ms: start - waits.get(id).start });
+  }
   return {
+    intervals, waits, admissions, fixtureAcquired, cache, cleanupStarted,
     eventCount,
     finalMonotonicMs,
     runStarted,
     runCompleted,
     starts,
     terminals,
-    projectedEvents,
     registrations,
     phases,
   };

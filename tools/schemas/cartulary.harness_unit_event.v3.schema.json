@@ -151,16 +151,7 @@
       "pattern": "^phase:[0-9]+$"
     },
     "phase": {
-      "enum": [
-        "cache_lookup",
-        "host_admission",
-        "fixture_acquire",
-        "runner",
-        "report_parse",
-        "evidence_write",
-        "fixture_release",
-        "cache_publish"
-      ]
+      "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/phase"
     },
     "phase_outcome": {
       "enum": [

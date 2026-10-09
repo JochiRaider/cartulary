@@ -4,10 +4,6 @@ import path from "node:path";
 import { validateSchemaSync } from "../contract/index.mjs";
 
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
-const supportSchemaIDs = new Set([
-  "cartulary.harness.defs.v1",
-  "cartulary.harness_artifact_ref.v1",
-]);
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
@@ -108,14 +104,10 @@ export function validateSchemaAttachmentPolicy(root) {
   const foundationSchemaIDs = registry.attachments
     .filter((entry) => entry.foundation_runtime === true)
     .map((entry) => entry.schema_id);
-  if (
-    JSON.stringify(foundationSchemaIDs) !==
-    JSON.stringify(["cartulary.harness_instrumentation_policy.v1", "cartulary.harness_invocation_envelope.v1", "cartulary.harness_performance_explanation.v1", "cartulary.harness_resource_index.v1", "cartulary.harness_resource_live.v1", "cartulary.harness_resource_sample.v1", "cartulary.tool_run_summary.v5"])
-  ) {
-    throw new Error(
-      `${registryFile}.attachments foundation runtime set must match bootstrap and instrumentation schemas`,
-    );
-  }
+  if (foundationSchemaIDs.length === 0) throw new Error("foundation runtime set is empty");
+  const supportSchemaIDs = new Set(registry.attachments
+    .filter((entry) => entry.classification === "shared_component")
+    .map((entry) => entry.schema_id));
 
   const schemaDir = path.join(root, "tools/schemas");
   const discoveredPaths = [];

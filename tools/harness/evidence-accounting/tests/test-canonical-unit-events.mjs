@@ -131,6 +131,10 @@ test("unit reducer retains bounded selected state while validating the full stre
     assert.equal(state.eventCount, 40_008);
     assert.deepEqual([...state.starts.keys()], ["selected"]);
     assert.deepEqual([...state.terminals.keys()], ["selected"]);
+    assert.equal(Object.hasOwn(state, "projectedEvents"), false);
+    assert.equal(state.waits.size, 1);
+    assert.equal(state.intervals.size, 1);
+    assert.equal(state.intervals.get("selected").end, 40_002);
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }
@@ -163,4 +167,38 @@ test("unit reducer rejects unmatched and mismatched wait boundaries", async () =
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }
+});
+
+test("one eligible interval cannot publish a second closed wait", async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-canonical-waits-"));
+  try {
+    const file = writeEvents(directory, "duplicate.ndjson", [
+      event(1, 0, "eligible", "a", "pending"),
+      event(2, 0, "wait_started", "a", "pending", wait),
+      event(3, 0, "wait_ended", "a", "pending", wait),
+      event(4, 1, "wait_started", "a", "pending", wait),
+    ]);
+    await assert.rejects(reduceCanonicalUnitIntervals(file), /invalid wait start/u);
+  } finally { rmSync(directory, { force: true, recursive: true }); }
+});
+
+test("normalized facts retain cache outcomes, zero-duration hits, cancellation and primary failure", async (t) => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-normalized-facts-"));
+  t.after(() => rmSync(directory, { force: true, recursive: true }));
+  const events = [];
+  const add = (time, kind, id, status, extra = {}) => events.push(event(events.length + 1, time, kind, id, status, extra));
+  for (const [id, cache, terminal, status] of [["hit", "hit", "completed", "passed"], ["failure", "miss", "failed", "failed"], ["cancel", "bypass", "cancelled", "cancelled"]]) {
+    const time = events.length;
+    add(time, "queued", id, "pending"); add(time, "eligible", id, "pending");
+    add(time, "wait_started", id, "pending", wait); add(time, "wait_ended", id, "pending", wait);
+    add(time, `cache_${cache}`, id, "pending", { cache_profile_id: "fixture", cache_reason: "fixture" });
+    if (cache !== "hit") { add(time, "admitted", id, "running"); add(time, "started", id, "running"); }
+    add(time, terminal, id, status, status === "failed" ? { failure_class: "test", failure_reason: "assertion_failure" } : {});
+  }
+  const facts = await reduceCanonicalUnitIntervals(writeEvents(directory, "facts.ndjson", events));
+  assert.deepEqual(facts.cache, { hit: 1, miss: 1, bypass: 1 });
+  assert.deepEqual(facts.intervals.get("hit"), { start: 0, end: 0, queue_ms: 0 });
+  assert.equal(facts.terminals.get("failure").failure_reason, "assertion_failure");
+  assert.equal(facts.terminals.get("failure").failure_class, "test");
+  assert.equal(facts.terminals.get("cancel").event, "cancelled");
 });
