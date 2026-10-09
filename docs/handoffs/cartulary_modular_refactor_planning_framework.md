@@ -6,18 +6,37 @@ This framework is a reusable local planning artifact for generating specific mod
 
 Use this file before creating a Codex `/goal` prompt or before asking a local agent to plan or implement a refactor slice. The current repository is the final source of code truth. This framework does not claim that any repository file, test, package, or import currently exists until the local agent has inspected it.
 
+The authorized task controls which actions may run. During a Refactor Tracker
+invocation, the skill controls permitted actions, its tracker format controls
+output structure, and this framework supplies planning doctrine within adopted
+owner constraints. Steps below that describe adding tests, refreshing generators,
+editing contracts, moving code, or cleanup are future planned work during a
+planning-only invocation. They do not authorize those actions. A public Make
+wrapper is not proof that a command respects the invocation's write boundary;
+inspect its side effects before execution and record incompatible checks as
+skipped. Never run a mutating check and restore its outputs to simulate read-only
+verification.
+
 ## 2. Source and authority posture
 
-The refactor plan must follow this authority order:
+Resolve authority by behavior family, adopted scope, and Core 00's primary-owner
+allocation, consulting applicable document-status and adoption records:
 
-1. Adopted subsystem NLSpecs for their named subsystem only.
-2. Core 00 through Core 04 for current implementation-conformance behavior.
-3. Core 05 only for claim-bearing timed or fixture-sensitive publication.
-4. Domain vocabulary and implementation-support guides for terminology, package boundaries, harness mechanics, and execution support.
-5. Current repository code and tests for current implementation state.
-6. Prior analysis files as evidence, not authority.
+- Adopted subsystem NLSpecs govern their named scopes. Core 00 through Core 04
+  govern implementation-conformance behavior within their allocated boundaries.
+- Core 05 governs only claim-bearing timed or fixture-sensitive publication.
+- `docs/design.md` is the normative design-direction owner for presentation work;
+  product behavior remains with its applicable primary owner.
+- `docs/domain.md` supplies vocabulary and owner navigation. Supporting guides,
+  frameworks, code, tests, typed projections, and prior plans do not supersede
+  adopted requirements.
 
-When owner documents conflict, mark `BLOCKED: owner contradiction` and do not pick a side. When repo state conflicts with the framework, record the conflict in the handoff and adapt the plan to the repo state without inventing behavior.
+Resolve overlapping restatements through their primary owner. Record supporting
+guide or framework drift as a finding, not an equal-authority contradiction.
+When applicable primary owners genuinely remain contradictory, mark
+`BLOCKED: owner contradiction`, identify affected decisions and slices, and
+continue independent analysis. Record framework/repository mismatches without
+inventing behavior. Proposed owner amendments remain unadopted.
 
 ## 3. Refactor doctrine
 
@@ -30,6 +49,13 @@ removing the old path. Observable behavior includes route shape, request and
 response envelopes, WebSocket paths and event semantics, workbook interaction
 behavior, storage semantics, authorization outcomes, generated contract surfaces,
 and harness accounting.
+
+Track observed behavior and owner-required behavior separately. An owner-required
+correction remains a separate future implementation task in a planning-only
+invocation, with its owner clause, migration impact, characterization, and
+authorization/adoption prerequisites. Report planning completeness, per-slice
+readiness, and implementation authorization independently. Evidence may support
+`no refactor warranted`; do not manufacture slices to fill a template.
 
 The implementation must move from phase-shaped or UI-shaped production code toward module-shaped production code. Test rows and visual fixtures use semantic owner/family identities; historical delivery phases are not an execution, accounting, or compatibility boundary.
 
@@ -80,7 +106,10 @@ facades retain their separately declared public boundary.
 
 ## 5. Top-level work tracker
 
-Copy this tracker into each concrete plan and update it at every checkpoint.
+Use these candidate work items when populating the concrete plan's required
+tracker format. Select applicable items and maintain their dependencies; a
+no-change recommendation does not need move or execution work items. Update the
+tracker at each checkpoint.
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -92,42 +121,55 @@ Copy this tracker into each concrete plan and update it at every checkpoint.
 | T-006 | Plan behavior-preserving moves | implementation | TODO | T-004,T-005 | TODO | slice plan | Smallest safe move sequence is defined. |
 | T-007 | Plan validation loop | validation | TODO | T-006 | TODO | command list | Cheapest sufficient validation targets are named. |
 | T-008 | Update docs/contracts if required | docs | TODO | T-003 | TODO | doc patch plan | Owner docs or derived contracts are planned before codegen. |
-| T-009 | Execute or hand off | handoff | TODO | T-006,T-007,T-008 | TODO | handoff log | Next actor can continue without rediscovery. |
+| T-009 | Execute if authorized, or hand off | handoff | TODO | T-006,T-007,T-008 | TODO | handoff log | Next actor can resume after baseline and affected-evidence revalidation. |
 
 Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, `DROPPED`.
 
 ## 6. Workflow dependency map
 
-Every concrete plan must include only workflows that are in scope. A workflow marked `root` has no prerequisite except repository access. A workflow marked `chain` must run after its listed prerequisites. A workflow marked `parallel` may run after prerequisites and does not require peer workflow completion.
+Every concrete plan includes only workflows in scope. `root` has no prerequisite
+except repository access; `chain` and `parallel` both require their listed
+prerequisites. `parallel` does not require completion of unrelated peers.
 
-| Workflow | Name | Class | Required previous workflows | Required subsequent workflows |
-| --- | --- | --- | --- | --- |
-| WF-00 | Session and source bootstrap | root | none | WF-01 |
-| WF-01 | Current-state repository scan | chain | WF-00 | WF-02, WF-03 |
-| WF-02 | Module ownership inventory | chain | WF-01 | WF-04, WF-05 |
-| WF-03 | Public contract freeze | chain | WF-01 | WF-04, WF-05 |
-| WF-04 | Refactor slice selection | chain | WF-02, WF-03 | WF-05, WF-06 |
-| WF-05 | Characterization test plan | chain | WF-03, WF-04 | WF-09 |
-| WF-06 | Boundary guardrail plan | chain | WF-02, WF-04 | WF-09 |
-| WF-07 | Backend module facade plan | parallel | WF-04, WF-05, WF-06 | WF-09 |
-| WF-08 | Frontend package seam plan | parallel | WF-04, WF-05, WF-06 | WF-09 |
-| WF-09 | Execution checkpoint plan | chain | WF-05 plus any of WF-07/WF-08 | WF-10 |
-| WF-10 | Validation and harness accounting plan | chain | WF-09 | WF-11 |
-| WF-11 | Documentation and generated-artifact plan | parallel | WF-03, WF-09 | WF-12 |
-| WF-12 | Cleanup and anti-drift plan | chain | WF-10, WF-11 | WF-13 |
-| WF-13 | Handoff and next-slice bootstrap | chain | WF-12 | none |
+The prerequisite column below is the sole dependency definition in this
+framework; derive successor relationships from it. Each concrete plan maintains
+one authoritative prerequisite list for its selected scope. Every prerequisite
+must resolve to an included workflow or explicitly satisfied prerequisite with
+evidence, and the graph must be acyclic. Conditional omission must not leave
+dangling dependencies. WF-09 requires every included WF-07/WF-08 workflow; when
+neither applies, WF-05 and WF-06 suffice. WF-10 and WF-11 can both follow WF-09;
+WF-11 does not wait for WF-10, and WF-12 joins both. Each included workflow needs
+a binary exit criterion in addition to a handoff checkpoint.
+
+| Workflow | Name | Class | Required previous workflows |
+| --- | --- | --- | --- |
+| WF-00 | Session and source bootstrap | root | none |
+| WF-01 | Current-state repository scan | chain | WF-00 |
+| WF-02 | Module ownership inventory | chain | WF-01 |
+| WF-03 | Public contract freeze | chain | WF-01 |
+| WF-04 | Refactor slice selection | chain | WF-02, WF-03 |
+| WF-05 | Characterization test plan | chain | WF-03, WF-04 |
+| WF-06 | Boundary guardrail plan | chain | WF-02, WF-04 |
+| WF-07 | Backend module facade plan | parallel | WF-04, WF-05, WF-06 |
+| WF-08 | Frontend package seam plan | parallel | WF-04, WF-05, WF-06 |
+| WF-09 | Execution checkpoint plan | chain | WF-05, WF-06; all included workflows from WF-07/WF-08, or neither when both are inapplicable |
+| WF-10 | Validation and harness accounting plan | chain | WF-09 |
+| WF-11 | Documentation and generated-artifact plan | parallel | WF-03, WF-09 |
+| WF-12 | Cleanup and anti-drift plan | chain | WF-10, WF-11 |
+| WF-13 | Handoff and next-slice bootstrap | chain | WF-12 |
+
+For an evidence-supported no-change recommendation, omit implementation planning
+workflows and explicitly bind handoff prerequisites to the completed discovery
+and diagnosis workflows. Document why checkpoint and cleanup plans do not apply.
 
 ## 7. Workflow details
 
 ### WF-00: Session and source bootstrap
 
-**Depends on:** none.  
-**Precedes:** WF-01.
-
 Objective: establish the exact local context for one refactor effort.
 
 Steps:
-1. Record branch, commit, dirty-tree state, target module, prior analysis path, framework path, and user constraints.
+1. Record repository root, branch, commit, staged/unstaged/untracked baseline, target identity, prior analysis path, framework path, and user constraints. Preserve content-level comparison evidence for pre-existing changes and the tracker, not just status-path lists.
 2. Read `AGENTS.md` when present before any edit.
 3. Identify owner docs likely to govern the target module.
 4. Record source limits and unknowns.
@@ -143,9 +185,6 @@ Acceptance:
 - Any missing context is marked `TODO:` rather than guessed.
 
 ### WF-01: Current-state repository scan
-
-**Depends on:** WF-00.  
-**Precedes:** WF-02 and WF-03.
 
 Objective: inspect actual code, tests, manifests, generated paths, and commands before planning movement.
 
@@ -167,9 +206,6 @@ Acceptance:
 
 ### WF-02: Module ownership inventory
 
-**Depends on:** WF-01.  
-**Precedes:** WF-04 and WF-05.
-
 Objective: assign every in-scope file and behavior to one target module or platform/package boundary.
 
 Inventory table:
@@ -183,9 +219,6 @@ Acceptance:
 - Shared helpers are justified by semantic ownership, not convenience.
 
 ### WF-03: Public contract freeze
-
-**Depends on:** WF-01.  
-**Precedes:** WF-04 and WF-05.
 
 Objective: identify behavior that must not drift during the refactor.
 
@@ -206,9 +239,6 @@ Acceptance:
 
 ### WF-04: Refactor slice selection
 
-**Depends on:** WF-02 and WF-03.  
-**Precedes:** WF-05 and WF-06.
-
 Objective: choose the smallest coherent slice that reduces risk without mixing unrelated behavior.
 
 Slice rule:
@@ -222,10 +252,8 @@ Acceptance:
 
 ### WF-05: Characterization test plan
 
-**Depends on:** WF-03 and WF-04.  
-**Precedes:** WF-09.
-
-Objective: preserve current external behavior before moving code.
+Objective: characterize owner-aligned external behavior before moving code and
+identify separate characterization for any planned normative correction.
 
 Steps:
 1. Reuse existing unit, integration, E2E, visual, and harness evidence when owner-aligned.
@@ -237,9 +265,6 @@ Acceptance:
 - Tests identify the observed behavior, not just implementation details.
 
 ### WF-06: Boundary guardrail plan
-
-**Depends on:** WF-02 and WF-04.  
-**Precedes:** WF-09.
 
 Objective: prevent the refactor from creating new dependency leaks.
 
@@ -261,8 +286,6 @@ Acceptance:
 
 ### WF-07: Backend module facade plan
 
-**Depends on:** WF-04, WF-05, and WF-06.  
-**Precedes:** WF-09.  
 **Use only when backend code is in scope.**
 
 Default facade shape:
@@ -278,8 +301,6 @@ Acceptance:
 
 ### WF-08: Frontend package seam plan
 
-**Depends on:** WF-04, WF-05, and WF-06.  
-**Precedes:** WF-09.  
 **Use only when frontend code is in scope.**
 
 Default package direction:
@@ -295,9 +316,6 @@ Acceptance:
 
 ### WF-09: Execution checkpoint plan
 
-**Depends on:** WF-05 plus any implementation workflow used.  
-**Precedes:** WF-10.
-
 Objective: convert the slice into ordered edits.
 
 Checkpoint format:
@@ -312,9 +330,6 @@ Acceptance:
 - The plan has a rollback point before high-risk movement.
 
 ### WF-10: Validation and harness accounting plan
-
-**Depends on:** WF-09.  
-**Precedes:** WF-11.
 
 Objective: identify the cheapest sufficient proof that behavior was preserved.
 
@@ -333,13 +348,10 @@ Acceptance:
 
 ### WF-11: Documentation and generated-artifact plan
 
-**Depends on:** WF-03 and WF-09.  
-**Precedes:** WF-12.
-
 Objective: align owner docs, derived contracts, generated code, and implementation support.
 
 Rules:
-- Behavior-affecting changes start in owner docs, then derived contracts, then generated code, then implementation.
+- Proposed requirements changes require owner adoption before downstream contracts, generated code, and implementation. Corrections to an existing adopted requirement cite that owner; they do not require inventing an owner amendment.
 - Pure behavior-preserving refactors usually update implementation-support docs or handoff notes only.
 - Generated files are refreshed through generators, not edited manually.
 
@@ -348,9 +360,6 @@ Acceptance:
 - Generated-artifact drift checks are included when generated outputs change.
 
 ### WF-12: Cleanup and anti-drift plan
-
-**Depends on:** WF-10 and WF-11.  
-**Precedes:** WF-13.
 
 Objective: remove obsolete paths without deleting useful evidence.
 
@@ -366,9 +375,6 @@ Acceptance:
 - Handoff names any residual debt.
 
 ### WF-13: Handoff and next-slice bootstrap
-
-**Depends on:** WF-12.  
-**Precedes:** none.
 
 Objective: preserve continuity across repeated refactor sessions.
 
@@ -449,11 +455,15 @@ Append one handoff record before ending a session.
 
 ### Handoff requirements
 
-- Do not claim validation passed unless the exact command ran in this session or the retained artifact is named.
+- Do not claim validation passed unless the exact command ran successfully in this session or a retained artifact is named with its command, environment, source baseline, and revalidated applicability. Historical success is not a current pass.
 - Do not claim a file was preserved, compared, or verified unless it was inspected.
 - Use `TODO:` for missing evidence.
 - Record whether dirty worktree changes are intentional.
 - Record any generated files that need regeneration or drift checks.
+- On resumption, compare source baselines and revalidate changed target files, governing documents, affected callers, and validation surfaces before reusing conclusions.
+- Recheck tracker identity and contents before updating; reconcile concurrent edits instead of replacing unseen work. Preserve stable IDs and historical rationale when conclusions are superseded.
+- Compare final content and index state with the starting baseline. Report unexpected changes without automatically reverting them; a planning-only tracker invocation must verify that it introduced no persistent repository changes outside the tracker.
+- State planning completeness, per-slice readiness, and implementation authorization separately. Missing evidence or owner contradictions block affected decisions; a complete no-change recommendation requires no implementation slice.
 
 ## 10. Top-level checklist
 
@@ -464,7 +474,7 @@ Append one handoff record before ending a session.
 - [ ] Public behavior to preserve is listed.
 - [ ] Characterization coverage is identified.
 - [ ] Boundary guardrails are planned.
-- [ ] Implementation slice is small and reviewable.
+- [ ] Each proposed implementation slice is small and reviewable, or a no-change recommendation is justified.
 - [ ] Docs/contracts/generation needs are classified.
 - [ ] Validation commands are named.
 - [ ] Handoff notes are current.
@@ -481,11 +491,11 @@ Append one handoff record before ending a session.
 | RF-AC-003 | The plan maps every public contract surface that could drift. |
 | RF-AC-004 | The plan separates behavior-preserving refactors from behavior changes. |
 | RF-AC-005 | The plan states required characterization tests or explains why existing evidence is sufficient. |
-| RF-AC-006 | The plan contains a checkpoint sequence with validation after each risky move. |
+| RF-AC-006 | Each proposed risky move has entry gates and a checkpoint sequence with validation; an evidence-supported no-change plan states why implementation checkpoints are not applicable. |
 | RF-AC-007 | The plan preserves module boundaries and package import boundaries. |
 | RF-AC-008 | The plan does not hand-edit generated files. |
 | RF-AC-009 | The plan does not make phase identity a runtime production dependency. |
-| RF-AC-010 | The handoff section is sufficient for another session to resume without rediscovery. |
+| RF-AC-010 | The handoff supports resumption without broad rediscovery, after baseline and affected-evidence revalidation. |
 
 ## Sources
 
