@@ -530,6 +530,17 @@ func TestRecordLifecycleEventTracksConcurrentChildrenAndIllegalTransitions(t *te
 	if len(records) != 7 {
 		t.Fatalf("expected seven lifecycle records, got %#v", records)
 	}
+	for index, record := range records {
+		if record.Clock != "linux_boottime_10ms" || record.ClockIdentity == nil || record.MonotonicMS == nil {
+			t.Fatalf("missing supported guest lifecycle clock: %#v", record)
+		}
+		if *record.MonotonicMS%10 != 0 {
+			t.Fatalf("boot clock must disclose hundredth-second resolution: %#v", record)
+		}
+		if index > 0 && (*record.ClockIdentity != *records[0].ClockIdentity || *record.MonotonicMS < *records[index-1].MonotonicMS) {
+			t.Fatalf("lifecycle clock changed or went backwards: %#v", records)
+		}
+	}
 	if records[2].Event != LifecycleEventChildStarted || records[2].ActiveChildCount != 1 {
 		t.Fatalf("unexpected first child count: %#v", records[2])
 	}

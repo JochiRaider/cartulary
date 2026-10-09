@@ -211,15 +211,18 @@ const makeNodeTools = {
     },
   },
   "explain-run": {
-    inputs: ["DETAIL", "RUN_ID", "TARGET"],
+    inputs: ["DETAIL", "RUN_ID", "TARGET", "JSON", "COMPARE_RESULTS_DIR", "COMPARISON"],
     script: "./tools/harness/diagnostics/explain-run-cli.mjs",
     resultDir: { mode: "required", flag: "--results-dir" },
     usage:
-      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting|performance]",
+      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting|performance|resources] [JSON=1] [COMPARE_RESULTS_DIR=<exact-run-dir> COMPARISON=equivalent|instrumentation]",
     buildArgs(env) {
       const args = ["--detail", value(env, "DETAIL") || "summary"];
+      if (value(env, "JSON") === "1") args.push("--json");
       optionalFlag(args, env, "RUN_ID", "--run-id");
       optionalFlag(args, env, "TARGET", "--target");
+      optionalFlag(args, env, "COMPARE_RESULTS_DIR", "--compare-results-dir");
+      optionalFlag(args, env, "COMPARISON", "--comparison");
       return args;
     },
   },

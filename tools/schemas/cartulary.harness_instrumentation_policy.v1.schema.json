@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_instrumentation_policy.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_instrumentation_policy.v1"
+    },
+    "process_cadence_ms": {
+      "const": 2000
+    },
+    "context_cadence_ms": {
+      "const": 5000
+    },
+    "sweep_budget_ms": {
+      "const": 50
+    },
+    "maximum_live_processes": {
+      "const": 512
+    },
+    "maximum_lifetime_processes": {
+      "const": 4096
+    },
+    "maximum_discovery_entries": {
+      "const": 8192
+    },
+    "maximum_record_bytes": {
+      "const": 65536
+    },
+    "maximum_pending_bytes": {
+      "const": 1048576
+    },
+    "maximum_sample_bytes": {
+      "const": 67108864
+    },
+    "maximum_metadata_bytes": {
+      "const": 4194304
+    },
+    "flush_bytes": {
+      "const": 262144
+    },
+    "flush_ms": {
+      "const": 5000
+    },
+    "stop_ms": {
+      "const": 2000
+    },
+    "stale_ms": {
+      "const": 6000
+    }
+  },
+  "required": [
+    "schema_id",
+    "process_cadence_ms",
+    "context_cadence_ms",
+    "sweep_budget_ms",
+    "maximum_live_processes",
+    "maximum_lifetime_processes",
+    "maximum_discovery_entries",
+    "maximum_record_bytes",
+    "maximum_pending_bytes",
+    "maximum_sample_bytes",
+    "maximum_metadata_bytes",
+    "flush_bytes",
+    "flush_ms",
+    "stop_ms",
+    "stale_ms"
+  ]
+}

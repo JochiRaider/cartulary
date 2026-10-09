@@ -1,7 +1,7 @@
 import { validateSchemaSync } from "./harness-contract.mjs";
 
-export const liveSnapshotSchema = "cartulary.harness_live_snapshot.v1";
-export const runObservationSchema = "cartulary.harness_run_observation.v1";
+export const liveSnapshotSchema = "cartulary.harness_live_snapshot.v2";
+export const runObservationSchema = "cartulary.harness_run_observation.v2";
 export const liveSnapshotBytes = 16 * 1024 * 1024;
 export const observationBytes = 64 * 1024;
 export const observationListLimit = 16;

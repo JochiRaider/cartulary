@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_run_observation.v1",
+  "$id": "cartulary.harness_run_observation.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -22,7 +22,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_run_observation.v1"
+      "const": "cartulary.harness_run_observation.v2"
     },
     "operation_status": {
       "enum": [
@@ -479,6 +479,9 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 9007199254740991
+            },
+            "resources": {
+              "$ref": "cartulary.harness_resource_live.v1"
             }
           }
         },

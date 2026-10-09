@@ -10,14 +10,14 @@ import {
   validateSchemaSync,
 } from "../contract/index.mjs";
 import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
-import { printObservabilityPerformance } from "../observability/observability.mjs";
+import { resolveExactRunDir, printObservabilityPerformance } from "../observability/observability.mjs";
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
 import { validateHistoricalPerformanceEvidence } from "./historical-performance-evidence.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
-const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "measurement"]);
+const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "resources", "measurement"]);
 const coverageBuckets = [
   "authoritative",
   "support",
@@ -30,7 +30,7 @@ const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 function usage() {
   process.stderr.write(
-    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|measurement]\n",
+    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|resources|measurement] [--json] [--compare-results-dir <exact-run-dir> --comparison equivalent|instrumentation]\n",
   );
   process.exit(2);
 }
@@ -44,6 +44,9 @@ function parseArgs(argv) {
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === "--compare-results-dir") { options.comparisonDir = argv[++index] ?? ""; continue; }
+    if (arg === "--comparison") { options.comparison = argv[++index] ?? ""; continue; }
+    if (arg === "--json") { options.json = true; continue; }
     if (arg === "--results-dir") {
       options.resultsDir = argv[index + 1] ?? "";
       index += 1;
@@ -72,6 +75,8 @@ function parseArgs(argv) {
   if ((options.detail === "logs" || options.detail === "progress") && !options.target) {
     throw new Error(`DETAIL=${options.detail} requires TARGET=<target>`);
   }
+  if (options.comparison && !["equivalent", "instrumentation"].includes(options.comparison)) usage();
+  if ((options.comparisonDir || options.comparison) && (!["performance", "resources"].includes(options.detail) || !options.comparisonDir)) usage();
   return options;
 }
 
@@ -1036,6 +1041,14 @@ function writeCanonicalDetail(runDir, options, runSummary, targetSummary) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (["performance", "resources"].includes(options.detail)) {
+    try { await printObservabilityPerformance(resolveExactRunDir(options.resultsDir, options.runId), options.target,
+      { json: options.json, resourcesOnly: options.detail === "resources",
+        comparisonDir: options.comparisonDir ? resolveExactRunDir(options.comparisonDir) : "", comparison: options.comparison }); }
+    catch (error) { error.exit_code = 11; throw error; }
+    return;
+  }
+  if (options.json) throw Object.assign(new Error("JSON=1 requires performance or resources detail"), { exit_code: 2 });
   const { runDir, targetFromPath } = resolveRunContext(options);
   const runSummary = loadRunSummary(runDir);
   const target = options.target || targetFromPath || (runSummary ? "" : defaultToolTarget(runDir));
@@ -1086,7 +1099,7 @@ async function main() {
     writeHelperLines(runSummary, target);
     return;
   }
-  if (runSummary?.schema_id === "cartulary.harness_run_summary.v1" && !["performance", "measurement"].includes(options.detail)) {
+  if (runSummary?.schema_id === "cartulary.harness_run_summary.v1" && !["performance", "resources", "measurement"].includes(options.detail)) {
     writeCanonicalDetail(runDir, { ...options, target }, runSummary, targetSummary);
     return;
   }

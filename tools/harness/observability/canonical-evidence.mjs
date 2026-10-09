@@ -1,11 +1,14 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
 import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
 
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
+import { actualCriticalPath, unitIntervals, canonicalTimingAccounting, projectResourcePressure } from "../evidence-accounting/index.mjs";
+
 function readJSON(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
+  return JSON.parse(readLocalFile(file, { maximum: 16 * 1024 * 1024 }));
 }
 
 function containedArtifact(runRoot, relative) {
@@ -44,7 +47,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
   }
   const manifest = readJSON(files.manifest);
   const summary = readJSON(files.summary);
-  validateSchemaSync("cartulary.harness_run_manifest.v1", manifest);
+  validateSchemaSync("cartulary.harness_run_manifest.v2", manifest);
   validateSchemaSync("cartulary.harness_run_summary.v1", summary);
   if (manifest.run_id !== summary.run_id || manifest.target !== summary.target) {
     throw new Error(`${runRoot} manifest and summary identity do not close`);
@@ -52,11 +55,29 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
   if (expectedTarget && manifest.target !== expectedTarget) {
     throw new Error(`${runRoot} target ${manifest.target} does not match ${expectedTarget}`);
   }
-  const eventState = await reduceCanonicalUnitIntervals(files.events);
+  const eventState = await reduceCanonicalUnitIntervals(files.events, { retainProjection: true });
   const terminal = eventState.terminals;
   const started = eventState.starts;
   const runStarted = eventState.runStarted;
   const runCompleted = eventState.runCompleted;
+  const events = eventState.projectedEvents;
+  const graph = { units: [...eventState.registrations.values()] };
+  if (graph.units.length !== terminal.size) throw new Error("canonical registration roster does not close");
+  const intervals = unitIntervals(events);
+  const criticalPath = actualCriticalPath(graph, intervals);
+  const pathDuration = (ids) => ids.reduce((total, id) => {
+    const interval = intervals.get(id);
+    return total + (interval ? interval.end - interval.start + interval.queue_ms : 0);
+  }, 0);
+  const same = (left, right, label) => {
+    const normalize = (v) => Array.isArray(v) ? v.map(normalize) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, normalize(v[k])])) : v;
+    if (JSON.stringify(normalize(left)) !== JSON.stringify(normalize(right))) throw new Error(`${label} does not reconstruct from canonical events`);
+  };
+  same(summary.critical_path, criticalPath, "critical path");
+  same(summary.actual_dependency_critical_path_ms, pathDuration(criticalPath), "critical duration");
+  same(summary.timing_accounting, canonicalTimingAccounting(events, graph, summary.wall_duration_ms), "timing accounting");
+  same(summary.resource_pressure, projectResourcePressure(events, graph, manifest.capability_snapshot), "reservation pressure");
+  if ([...eventState.phases.values()].some((phase) => phase.end_ms === null)) throw new Error("incomplete phase in finalized run");
   const counts = summary.unit_counts;
   const terminalCounts = { passed: 0, failed: 0, skipped: 0, cancelled: 0 };
   for (const event of terminal.values()) terminalCounts[event.status] += 1;
@@ -91,15 +112,27 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
         throw new Error(`${artifact} is missing declared unit evidence ${evidence}`);
       }
     }
-    const intervals = targetSummary.unit_ids
+    const selectedIntervals = targetSummary.unit_ids
       .filter((unitID) => started.has(unitID) && terminal.has(unitID))
       .map((unitID) => ({ start: started.get(unitID), end: terminal.get(unitID).monotonic_ms }));
-    if (targetSummary.inclusive_wall_ms !== intervalUnion(intervals)) {
+    if (targetSummary.inclusive_wall_ms !== intervalUnion(selectedIntervals)) {
       throw new Error(`${artifact} inclusive interval union does not close`);
     }
+    same(targetSummary.actual_dependency_critical_path_ms, pathDuration(actualCriticalPath(graph, intervals, targetSummary.unit_ids)), "target critical duration");
+    same(targetSummary.timing_accounting, canonicalTimingAccounting(events, graph, targetSummary.inclusive_wall_ms, { includeRunEnvelope: false, selectedUnitIDs: targetSummary.unit_ids }), "target accounting");
     targetSummaries.set(targetSummary.target, targetSummary);
   }
+  for (const target of targetSummaries.values()) {
+    const childUnits = new Set(target.children.flatMap((child) => {
+      if (!targetSummaries.has(child)) throw new Error("missing target child");
+      const ids = targetSummaries.get(child).unit_ids;
+      if (ids.some((id) => !target.unit_ids.includes(id))) throw new Error("invalid target child membership");
+      return ids;
+    }));
+    same(target.exclusive_wall_ms, intervalUnion(target.unit_ids.filter((id) => !childUnits.has(id)).map((id) => intervals.get(id)).filter(Boolean)), "exclusive interval union");
+  }
   return {
+    phases: eventState.phases, registrations: eventState.registrations, intervals,
     eventCount: eventState.eventCount,
     manifest,
     summary,

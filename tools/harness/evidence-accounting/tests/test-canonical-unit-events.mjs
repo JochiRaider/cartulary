@@ -11,7 +11,7 @@ import {
 
 function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
   return {
-    schema_id: "cartulary.harness_unit_event.v2",
+    schema_id: "cartulary.harness_unit_event.v3",
     seq,
     monotonic_ms: monotonicMs,
     event: kind,
@@ -20,6 +20,7 @@ function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
     needs: [],
     resource_claims: {},
     service_dependencies: [],
+    ...(kind === "queued" ? { unit_kind: "runner", row_ids: [] } : {}),
     ...extra,
   };
 }

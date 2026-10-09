@@ -30,7 +30,7 @@ try {
     throw new Error(`${runDir} is not a canonical harness run`);
   }
   const manifest = JSON.parse(readFileSync(manifestFile, "utf8"));
-  validateSchemaSync("cartulary.harness_run_manifest.v1", manifest);
+  validateSchemaSync("cartulary.harness_run_manifest.v2", manifest);
   if (options.target && manifest.target !== options.target) {
     throw new Error(`${manifestFile} target ${manifest.target} does not match ${options.target}`);
   }

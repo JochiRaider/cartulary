@@ -192,13 +192,14 @@ class FixtureLease {
 }
 
 export class FixtureBroker {
-  constructor({ providers = {}, clock = () => new Date(), idFactory, recordSink = () => {}, cleanupResults = new CleanupResults() } = {}) {
+  constructor({ providers = {}, clock = () => new Date(), idFactory, recordSink = () => {}, observeLease = () => {}, cleanupResults = new CleanupResults() } = {}) {
     this.providers = providers;
     this.clock = clock;
     this.nextID = 1;
     this.idFactory = idFactory ?? (() => `lease-${String(this.nextID++).padStart(6, "0")}`);
     if (typeof recordSink !== "function") throw new Error("fixture broker recordSink must be a function");
     this.recordSink = recordSink;
+    this.observeLease = observeLease;
     this.cleanupResults = cleanupResults;
     this.active = new Set();
     this.allocations = new Set();
@@ -270,6 +271,9 @@ export class FixtureBroker {
       entry.lastLease = lease;
       this.active.add(lease);
       await this.publish(lease);
+      try { this.observeLease({ allocation_ref: `allocation:${entry.leaseID}`, lease_ref: leaseID,
+        unit_id: unitID, capability, ownership: allocation.ownership }); }
+      catch { /* Optional correlation never changes fixture ownership or outcome. */ }
       if (this.closed) throw new Error("fixture broker closed during acquisition");
       return lease;
     } catch (error) {

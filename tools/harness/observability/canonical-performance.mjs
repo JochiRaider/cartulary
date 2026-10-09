@@ -121,7 +121,7 @@ async function readCanonicalRoot(repositoryRoot, baseDirectory, reference, targe
   const manifest = readJSON(files.manifest);
   const summary = readJSON(files.summary);
   const targetSummary = readJSON(files.target);
-  validateSchemaSync("cartulary.harness_run_manifest.v1", manifest);
+  validateSchemaSync("cartulary.harness_run_manifest.v2", manifest);
   validateSchemaSync("cartulary.harness_run_summary.v1", summary);
   validateSchemaSync("cartulary.harness_target_summary.v1", targetSummary);
   if (manifest.source_state !== "clean") throw new Error(`${reference} has dirty_source`);
@@ -182,6 +182,7 @@ async function readCanonicalRoot(repositoryRoot, baseDirectory, reference, targe
 
 function semanticDeclaredInputs(inputs) {
   const ignored = new Set([
+    "HARNESS_DIAGNOSTICS",
     "CARTULARY_HARNESS_CACHE_MODE",
     "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
     "CARTULARY_OUTPUT_MODE",
@@ -232,6 +233,7 @@ function assertSameWindow(target, records) {
         throw new Error(`${target} performance window mixes ${field}`);
       }
     }
+    if (!sameJSON(record.manifest.instrumentation, identity.manifest.instrumentation)) throw new Error(`${target} instrumentation policy differs within window`);
     if (!sameJSON(semanticDeclaredInputs(record.manifest.declared_inputs), semanticDeclaredInputs(identity.manifest.declared_inputs))) {
       throw new Error(`${target} performance window mixes canonical inputs`);
     }
@@ -356,6 +358,7 @@ async function buildQualifiedBaseline({
         graph_digest: cold.manifest.graph_digest,
         workload_digest: cold.targetSummary.workload_digest,
         unit_ids: cold.targetSummary.unit_ids,
+        instrumentation: cold.manifest.instrumentation,
       };
       return {
         target: binding.target,

@@ -654,7 +654,7 @@ export function productionFixtureProviders({
           const launchID = createAcquisitionLaunch(acquisitionFile, "producer");
           await acquireProcess(process.execPath, browserAcquisitionLaunchArguments(acquisitionFile, launchID, lifecycle,
             ["--session-start", "--env-file", envFile, "--lease-file", leaseFile]), { cwd: root, environment, signal,
-              onChildProcess: (pid) => { recordAcquisitionProcess(acquisitionFile, launchID, pid); return onChildProcess?.(pid) ?? (() => {}); },
+              onChildProcess: (pid) => { recordAcquisitionProcess(acquisitionFile, launchID, pid); return onChildProcess?.(pid, { allocationRef: `allocation:${leaseID}` }) ?? (() => {}); },
               onReaped: () => closeAcquisitionLaunch(acquisitionFile, launchID),
             });
           signal?.throwIfAborted();

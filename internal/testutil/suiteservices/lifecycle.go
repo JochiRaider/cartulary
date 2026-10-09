@@ -42,7 +42,9 @@ type LifecycleRecord struct {
 	FailureClass     *string             `json:"failure_class"`
 	FailureReason    *string             `json:"failure_reason"`
 	EmittedAt        string              `json:"emitted_at"`
-	MonotonicMS      int64               `json:"monotonic_ms"`
+	MonotonicMS      *int64              `json:"monotonic_ms"`
+	Clock            string              `json:"clock"`
+	ClockIdentity    *string             `json:"clock_identity"`
 	ArtifactRefs     []map[string]string `json:"artifact_refs"`
 	Extensions       map[string]any      `json:"extensions,omitempty"`
 }
@@ -102,8 +104,9 @@ func recordLifecycleEvent(env map[string]string, event string, childKey string, 
 		failureClass = &class
 		failureReason = &reason
 	}
+	clock, clockIdentity, monotonicMS := lifecycleClock()
 	record := LifecycleRecord{
-		SchemaID:         "cartulary.test_services.lifecycle.v2",
+		SchemaID:         "cartulary.test_services.lifecycle.v3",
 		Target:           firstNonEmpty(strings.TrimSpace(LookupEnvValue(env, TargetEnv)), "test-services"),
 		RunID:            ResolveRunID(env),
 		RunRoot:          lifecycleRunRoot(env),
@@ -120,7 +123,9 @@ func recordLifecycleEvent(env map[string]string, event string, childKey string, 
 		FailureClass:     failureClass,
 		FailureReason:    failureReason,
 		EmittedAt:        time.Now().UTC().Format(time.RFC3339Nano),
-		MonotonicMS:      time.Now().UnixNano() / int64(time.Millisecond),
+		MonotonicMS:      monotonicMS,
+		Clock:            clock,
+		ClockIdentity:    clockIdentity,
 		ArtifactRefs:     []map[string]string{},
 	}
 	payload, err := json.Marshal(record)

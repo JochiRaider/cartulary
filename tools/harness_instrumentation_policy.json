@@ -1,0 +1,17 @@
+{
+  "schema_id": "cartulary.harness_instrumentation_policy.v1",
+  "process_cadence_ms": 2000,
+  "context_cadence_ms": 5000,
+  "sweep_budget_ms": 50,
+  "maximum_live_processes": 512,
+  "maximum_lifetime_processes": 4096,
+  "maximum_discovery_entries": 8192,
+  "maximum_record_bytes": 65536,
+  "maximum_pending_bytes": 1048576,
+  "maximum_sample_bytes": 67108864,
+  "maximum_metadata_bytes": 4194304,
+  "flush_bytes": 262144,
+  "flush_ms": 5000,
+  "stop_ms": 2000,
+  "stale_ms": 6000
+}

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.ui_review_bundle.v1",
+  "$id": "cartulary.ui_review_bundle.v2",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schema_id": {
-      "const": "cartulary.ui_review_bundle.v1"
+      "const": "cartulary.ui_review_bundle.v2"
     },
     "bundle_id": {
       "type": "string",
@@ -239,7 +239,7 @@
                           "$ref": "cartulary.frontend_visual_reconciliation.v3#/$defs/capture_intent"
                         },
                         "source_identity": {
-                          "$ref": "cartulary.harness_run_manifest.v1"
+                          "$ref": "cartulary.harness_run_manifest.v2"
                         },
                         "fixture": {
                           "anyOf": [
@@ -315,7 +315,7 @@
                           "$ref": "cartulary.frontend_visual_reconciliation.v3#/$defs/capture_intent"
                         },
                         "source_identity": {
-                          "$ref": "cartulary.harness_run_manifest.v1"
+                          "$ref": "cartulary.harness_run_manifest.v2"
                         },
                         "fixture": {
                           "anyOf": [

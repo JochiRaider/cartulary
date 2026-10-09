@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { readBootClock } from "../runtime/boot-clock.mjs";
 import { createHash } from "node:crypto";
 import {
   closeSync,
@@ -176,13 +177,13 @@ function appendEvent(state, message, failureClass = "", failureReason = "") {
   const events = readEvents(file);
   validateStateTransition(events, state);
   const payload = {
-    schema_id: "cartulary.browser_startup_event.v1",
+    schema_id: "cartulary.browser_startup_event.v2",
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     runtime_profile_id: identityEnv("CARTULARY_BROWSER_RUNTIME_PROFILE_ID"),
     sequence: events.length + 1,
     emitted_at: new Date().toISOString(),
-    monotonic_ms: Math.floor(process.uptime() * 1000),
+    ...readBootClock(),
     state,
     ...(failureClass ? { failure_class: failureClass } : {}),
     ...(failureReason ? { failure_reason: failureReason } : {}),

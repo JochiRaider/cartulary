@@ -13,6 +13,17 @@
       "public_target": "harness-evidence-contract"
     },
     {
+      "verification_id": "harness.evidence_accounting.verification.performance_resource_diagnostics",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "artifact_audit",
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-evidence-contract"
+    },
+    {
       "verification_id": "harness.evidence_accounting.verification.semantic_evidence_identity",
       "behavior_class": "harness",
       "profile": "support",

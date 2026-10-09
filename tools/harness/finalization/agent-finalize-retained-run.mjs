@@ -66,7 +66,7 @@ export function createRetainedRunPreflight({
       const manifest = readJSON(files.manifest);
       const summary = readJSON(files.summary);
       const target = readJSON(files.target);
-      validateSchemaSync("cartulary.harness_run_manifest.v1", manifest);
+      validateSchemaSync("cartulary.harness_run_manifest.v2", manifest);
       validateSchemaSync("cartulary.harness_run_summary.v1", summary);
       validateSchemaSync("cartulary.harness_target_summary.v1", target);
       const eventState = await reduceCanonicalUnitIntervals(files.events);

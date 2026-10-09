@@ -136,6 +136,7 @@ function liveProjection(snapshot, target) {
   }
   return {
     sampled_at: snapshot.sampled_at, sampled_elapsed_ms: snapshot.sampled_elapsed_ms,
+    ...(snapshot.resources ? { resources: snapshot.resources } : {}),
     last_transition_seq: snapshot.last_transition_seq, publication_mode: snapshot.publication_mode,
     phase: snapshot.phase, unit_counts: unitCounts, cache_counts: cacheCounts,
     running, waiting, failures_observed: failures,
@@ -171,7 +172,7 @@ function sample(options) {
   result.run = { result_root: runRoot, run_id: runId, public_target: null, command_id: null, source_digest: null, graph_digest: null };
   result.selected_target = target || null;
   if (!existingRun(runRoot)) { addLimitation(result, "live_unavailable"); return result; }
-  const manifest = readJSON(path.join(runRoot, "run-manifest.json"), "cartulary.harness_run_manifest.v1", { optional: true });
+  const manifest = readJSON(path.join(runRoot, "run-manifest.json"), "cartulary.harness_run_manifest.v2", { optional: true });
   if (manifest) {
     if (manifest.run_id !== runId) throw artifactError();
     Object.assign(result.run, manifestObservationIdentity(manifest));

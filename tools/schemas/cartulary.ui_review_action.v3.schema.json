@@ -117,7 +117,7 @@
           "additionalProperties": false,
           "properties": {
             "target": {
-              "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+              "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
             }
           },
           "required": [
@@ -152,7 +152,7 @@
           "additionalProperties": false,
           "properties": {
             "target": {
-              "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+              "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
             },
             "text": {
               "type": "string",
@@ -195,7 +195,7 @@
             "target": {
               "anyOf": [
                 {
-                  "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+                  "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
                 },
                 {
                   "type": "null"
@@ -258,7 +258,7 @@
           "additionalProperties": false,
           "properties": {
             "target": {
-              "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+              "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
             },
             "values": {
               "type": "array",
@@ -307,7 +307,7 @@
             "target": {
               "anyOf": [
                 {
-                  "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+                  "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
                 },
                 {
                   "type": "null"
@@ -402,7 +402,7 @@
           "additionalProperties": false,
           "properties": {
             "target": {
-              "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+              "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
             }
           },
           "required": [

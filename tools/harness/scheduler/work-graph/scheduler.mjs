@@ -176,7 +176,7 @@ function ready(unit, state, byID) {
 
 function schedulerEvent(seq, monotonicMs, event, unit, status, extra = {}) {
   const record = {
-    schema_id: "cartulary.harness_unit_event.v2",
+    schema_id: "cartulary.harness_unit_event.v3",
     seq,
     monotonic_ms: monotonicMs,
     event,
@@ -185,6 +185,12 @@ function schedulerEvent(seq, monotonicMs, event, unit, status, extra = {}) {
     needs: unit.needs ?? [],
     resource_claims: unit.resource_claims,
     service_dependencies: unit.service_dependencies ?? [],
+    ...(event === "queued" ? {
+      unit_kind: unit.kind ?? "runner",
+      row_ids: (unit.current_run_evidence_outputs ?? [])
+        .filter((value) => /^rows\/[^/]+\.json$/u.test(value))
+        .map((value) => value.slice(5, -5)).sort(),
+    } : {}),
     ...extra,
   };
   validateSchemaSync(record.schema_id, record);
@@ -386,6 +392,7 @@ export async function runWorkGraph({
   finalize = async () => {},
   retainEvents = true,
   observation = null,
+  diagnostics = null,
 }) {
   validateWorkGraph(graph, { capacities });
   cache?.validateGraph(graph);
@@ -415,9 +422,9 @@ export async function runWorkGraph({
   const onAbort = () => controller.abort(signal?.reason);
   signal?.addEventListener("abort", onAbort, { once: true });
   if (signal?.aborted) onAbort();
-  const started = performance.now();
+  const started = process.hrtime.bigint();
   let seq = 0;
-  const elapsed = () => Math.max(0, Math.floor(performance.now() - started));
+  const elapsed = () => Math.max(0, Number((process.hrtime.bigint() - started) / 1_000_000n));
   const activities = new Map();
   const executionStarts = new Map();
   const cacheDispositions = new Map();
@@ -492,6 +499,15 @@ export async function runWorkGraph({
     emitBatchAt(monotonicMs, [[event, unit, status, extra]]);
   const emit = async (event, unit, status, extra) =>
     emitAt(elapsed(), event, unit, status, extra);
+  let phaseSequence = 0;
+  const phase = async (unit, name, operation) => {
+    const details = { interval_id: `phase:${++phaseSequence}`, phase: name };
+    await emit("phase_started", unit, state.get(unit.unit_id), details);
+    let outcome = "completed";
+    try { return await operation(); }
+    catch (error) { outcome = controller.signal.aborted ? "cancelled" : "failed"; throw error; }
+    finally { await emit("phase_finished", unit, state.get(unit.unit_id), { ...details, phase_outcome: outcome }); }
+  };
   const openWait = async (unit, details, monotonicMs = elapsed()) => {
     if (eligible.has(unit.unit_id)) return;
     eligible.add(unit.unit_id);
@@ -514,7 +530,7 @@ export async function runWorkGraph({
     resource_claims: {},
     service_dependencies: [],
   };
-  await emit("run_started", runLifecycleUnit, "running");
+  await emitAt(0, "run_started", runLifecycleUnit, "running");
   notifyObservation();
   for (const unit of graph.units) await emit("queued", unit, "pending");
 
@@ -597,7 +613,7 @@ export async function runWorkGraph({
             }
           }
           const cacheResult = cache
-            ? await cache.lookup(unit)
+            ? await phase(unit, "cache_lookup", () => cache.lookup(unit))
             : { outcome: "bypass", reason: "cache_unconfigured" };
           cacheDispositions.set(unit.unit_id, cacheResult.outcome);
           await emit(
@@ -647,15 +663,15 @@ export async function runWorkGraph({
             .then(async () => {
               const quiet = (unit.exclusive_locks ?? []).includes("host_activity");
               setActivity(unit, hostAdmission ? "waiting" : "admitted", hostAdmission ? "host_admission" : null);
-              if (quiet) observe("pause");
+              if (quiet) { observe("pause"); await diagnostics?.pause(); }
               try {
-              const hostLease = await hostAdmission?.(unit, controller.signal);
+              const hostLease = await phase(unit, "host_admission", () => hostAdmission?.(unit, controller.signal));
               let hostCleanup;
               const finishHost = () => hostCleanup ??= cleanupResults.attempt("host_release", () => hostLease.release(), { unitID: unit.unit_id });
               try {
               setActivity(unit, "preparing", fixtureBroker && unit.fixture_lease !== "none" ? "fixture_acquisition" : null);
               const lease = fixtureBroker && unit.fixture_lease !== "none"
-                ? await fixtureBroker.acquire(unit.fixture_lease, {
+                ? await phase(unit, "fixture_acquire", () => fixtureBroker.acquire(unit.fixture_lease, {
                     affinityKey: unit.affinity_key ?? unit.owner_id,
                     unitID: unit.unit_id,
                     browserStage: unit.command.environment.CARTULARY_BROWSER_STAGE,
@@ -670,7 +686,7 @@ export async function runWorkGraph({
                     rowID: unit.command.environment.CARTULARY_FIXTURE_ROW_ID,
                     predicateID:
                       unit.command.environment.CARTULARY_FIXTURE_PREDICATE_ID,
-                  })
+                  }))
                 : null;
               if (lease) {
                 await emit("fixture_acquired", unit, "running", {
@@ -680,12 +696,12 @@ export async function runWorkGraph({
               let result;
               try {
                 setActivity(unit, "executing");
-                result = await executeUnit(unit, {
+                result = await phase(unit, "runner", () => executeUnit(unit, {
                   cwd,
                   environment: hostLease ? { ...environment, CARTULARY_HOST_ADMISSION_LEASE: hostLease.token } : environment,
                   fixtureLease: lease,
                   signal: controller.signal,
-                });
+                }));
               } catch (error) {
                 result = fixtureFailureResult(error);
               } finally {
@@ -695,11 +711,11 @@ export async function runWorkGraph({
                     !controller.signal.aborted &&
                     (unit.fixture_lease !== "browser_stack" || result?.status === "passed");
                   try {
-                    const release = await lease.release({
+                    const release = await phase(unit, "fixture_release", () => lease.release({
                       healthy,
                       retainWarm:
                         unit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY !== "1",
-                    });
+                    }));
                     if (release.retained) result = { ...result, retained_fixture: true };
                     await emit("fixture_released", unit, "running", {
                       fixture_lease_id: lease.record.lease_id,
@@ -726,10 +742,10 @@ export async function runWorkGraph({
                 if (result?.status === "passed") result = fixtureFailureResult(Object.assign(hostFailure, { lifecycle_step: "cleanup_finalizers" }));
                 else (result.cleanup_errors ??= []).push(hostFailure);
               }
-              await onUnitTerminal(unit, result);
+              await phase(unit, "evidence_write", () => onUnitTerminal(unit, result));
               if (result.status === "passed") {
                 if (result.retained_fixture) retainedCacheUnits.push(unit);
-                else await cache?.store(unit);
+                else if (cache) await phase(unit, "cache_publish", () => cache.store(unit));
               }
               return result;
               } catch (error) {
@@ -737,7 +753,7 @@ export async function runWorkGraph({
                 throw error;
               }
               } finally {
-                if (quiet) observe("resume");
+                if (quiet) { diagnostics?.resume(); observe("resume"); }
               }
             })
             .then((result) => ({ unit_id: unit.unit_id, result }))

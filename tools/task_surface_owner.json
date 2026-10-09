@@ -5344,6 +5344,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -5440,6 +5459,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -5554,6 +5592,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -5654,6 +5711,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -5749,6 +5825,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -5872,7 +5967,27 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
       }
     },
     {
@@ -5980,6 +6095,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -6142,6 +6276,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -6310,6 +6463,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       },
@@ -6465,6 +6637,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -6625,6 +6816,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -6758,6 +6968,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "argv"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -6856,6 +7085,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -7353,6 +7601,25 @@
             "child_forwarding": "runtime_env",
             "min": 1,
             "max": 16
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -7607,6 +7874,25 @@
             "child_forwarding": "runtime_env",
             "min": 1,
             "max": 16
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -7710,6 +7996,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -7841,6 +8146,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -7966,6 +8290,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -8116,6 +8459,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -8239,6 +8601,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -8654,7 +9035,59 @@
               "progress",
               "accounting",
               "performance",
-              "measurement"
+              "measurement",
+              "resources"
+            ]
+          },
+          {
+            "name": "JSON",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "COMPARE_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "COMPARISON",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "values": [
+              "equivalent",
+              "instrumentation"
             ]
           }
         ]
@@ -9371,6 +9804,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -10226,6 +10678,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       },
@@ -10354,6 +10825,25 @@
             "child_forwarding": "runtime_env",
             "min": 1,
             "max": 16
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -10449,6 +10939,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -10583,6 +11092,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -10688,6 +11216,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -10786,6 +11333,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -10881,6 +11447,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -11151,6 +11736,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -11246,6 +11850,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -11354,6 +11977,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -11508,6 +12150,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -11681,6 +12342,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -11880,6 +12560,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -12034,6 +12733,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -12170,6 +12888,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -12303,6 +13040,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -12444,6 +13200,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -12570,6 +13345,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -12702,6 +13496,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -12803,6 +13616,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -12968,6 +13800,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -13068,6 +13919,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -13172,6 +14042,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -13299,6 +14188,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -13445,6 +14353,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -13572,6 +14499,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -13667,6 +14613,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -13831,6 +14796,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -13929,6 +14913,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -14032,6 +15035,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -14144,6 +15166,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -14211,7 +15252,27 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
       }
     },
     {
@@ -14294,6 +15355,25 @@
             "invalid_reason": "configuration_error",
             "summary_emission": "source_and_value",
             "child_forwarding": "none"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -14453,6 +15533,25 @@
             "invalid_reason": "configuration_error",
             "summary_emission": "source_and_value",
             "child_forwarding": "none"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -14518,7 +15617,27 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
       }
     },
     {
@@ -14582,7 +15701,27 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
       }
     },
     {
@@ -14826,6 +15965,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -16363,6 +17521,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -16521,6 +17698,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
           }
         ]
       }
@@ -16644,6 +17840,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
@@ -16773,6 +17988,25 @@
             "default": null,
             "empty_string": "omitted",
             "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"

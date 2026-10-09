@@ -49,3 +49,26 @@ export require applicable task authorization rather than a diagnostic hypothesis
 
 For an authorized reproduction, preserve both result roots and use fresh identity.
 A later pass alone neither establishes flakiness nor erases the earlier failure.
+
+## Timing and resource interpretation
+
+`DETAIL=performance` reconstructs the queue-inclusive dependency path and phase
+unions from canonical events. Unit execution still includes runner and harness
+work; phase unions can overlap. Target projections share units and are not
+additive. Resource reservations describe admission claims, not consumption.
+
+Basic diagnostics sample process counters every two seconds and guest/cgroup
+context every five seconds. CPU percent uses one core as 100%; null means no
+valid interval, not zero CPU. Unit lifetime CPU observations are lower bounds over
+identified processes. Short-lived descendants can be missed. Sampled RSS sums
+represent one sweep's observed subset; shared pages can repeat and reads are not
+simultaneous instants. Kernel high-water observations are separate from sampled
+maxima. No per-test or Windows-host attribution is implied.
+
+The graph-entry envelope includes preparation/publication beyond canonical timing.
+It excludes Make/preflight/imports, the retained-secret scan and command return.
+It is not a qualifying performance-gate timing source. Resource completeness,
+canonical validation, test status and the owning command's exit are distinct.
+Optional collector failure/truncation does not change assertions or primary failure.
+The initial implementation remains opt-in; overhead qualification and later
+service/container/wrapper coverage must be established separately.

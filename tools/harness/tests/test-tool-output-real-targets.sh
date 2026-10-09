@@ -131,7 +131,7 @@ if (target.output_policy.summary_schema === "cartulary.harness_run_summary.v1") 
     targetSummary.schema_id !== "cartulary.harness_target_summary.v1" ||
     targetSummary.target !== targetName ||
     targetSummary.status !== "pass" ||
-    runManifest.schema_id !== "cartulary.harness_run_manifest.v1" ||
+    runManifest.schema_id !== "cartulary.harness_run_manifest.v2" ||
     runManifest.target !== targetName
   ) {
     throw new Error(`${targetName}: invalid canonical graph summaries ${JSON.stringify({
@@ -141,7 +141,7 @@ if (target.output_policy.summary_schema === "cartulary.harness_run_summary.v1") 
     })}`);
   }
   const eventLines = fs.readFileSync(files.events, "utf8").trim().split(/\r?\n/).filter(Boolean);
-  if (eventLines.length === 0 || eventLines.some((line) => JSON.parse(line).schema_id !== "cartulary.harness_unit_event.v2")) {
+  if (eventLines.length === 0 || eventLines.some((line) => JSON.parse(line).schema_id !== "cartulary.harness_unit_event.v3")) {
     throw new Error(`${targetName}: invalid canonical unit event stream`);
   }
   process.exit(0);

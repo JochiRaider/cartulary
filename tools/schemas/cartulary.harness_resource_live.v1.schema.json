@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_resource_live.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "availability": {
+      "enum": [
+        "available",
+        "unsupported",
+        "permission_denied",
+        "not_observed",
+        "process_gone",
+        "counter_reset",
+        "paused_measurement",
+        "truncated",
+        "collector_failed"
+      ]
+    },
+    "sampled_elapsed_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "rss_bytes": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "process_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "age_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "stale": {
+      "type": "boolean"
+    },
+    "clock": {
+      "const": "graph_process_monotonic"
+    },
+    "schema_id": {
+      "const": "cartulary.harness_resource_live.v1"
+    },
+    "coverage": {
+      "const": "observed_partial"
+    },
+    "omitted_observations": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "discovery_truncations": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "failed_sweeps": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    }
+  },
+  "required": [
+    "availability",
+    "sampled_elapsed_ms",
+    "rss_bytes",
+    "process_count",
+    "clock",
+    "schema_id",
+    "coverage",
+    "omitted_observations",
+    "discovery_truncations",
+    "failed_sweeps"
+  ]
+}

@@ -1,0 +1,1434 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_performance_explanation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "target",
+    "status",
+    "canonical_wall_ms",
+    "inclusive_wall_ms",
+    "exclusive_wall_ms",
+    "dependency_path_ms",
+    "invocation_path_queue_ms",
+    "canonical_time_outside_selected_phases_ms",
+    "phase_overlap_ms",
+    "units_omitted",
+    "phase_union_ms",
+    "units",
+    "reservations",
+    "resources",
+    "envelope",
+    "limitations",
+    "comparison"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_performance_explanation.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "cancelled",
+        "skipped"
+      ]
+    },
+    "canonical_wall_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "inclusive_wall_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exclusive_wall_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dependency_path_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invocation_path_queue_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "canonical_time_outside_selected_phases_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "phase_overlap_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "units_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "phase_union_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "cache_lookup": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "host_admission": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fixture_acquire": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runner": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "report_parse": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_write": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fixture_release": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_publish": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "units": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "kind",
+          "queue_ms",
+          "execution_ms",
+          "on_invocation_dependency_path"
+        ],
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "kind": {
+            "enum": [
+              "runner",
+              "readiness",
+              "lifecycle",
+              "finalizer",
+              "policy",
+              "artifact",
+              "fixture_builder"
+            ]
+          },
+          "queue_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "execution_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "on_invocation_dependency_path": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "reservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_capacity",
+        "resolved_capacity",
+        "peak_use",
+        "saturation_ms",
+        "wait_events",
+        "blocked_units",
+        "resource_holders",
+        "blocked_units_omitted",
+        "resource_holders_omitted"
+      ],
+      "properties": {
+        "requested_capacity": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxProperties": 32
+        },
+        "resolved_capacity": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxProperties": 32
+        },
+        "peak_use": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxProperties": 32
+        },
+        "saturation_ms": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxProperties": 32
+        },
+        "wait_events": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_units": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "resource_holders": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "blocked_units_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resource_holders_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "mode"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "available",
+            "not_observed",
+            "collector_failed"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "basic"
+          ]
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "truncated",
+            "unsupported",
+            "collector_failed"
+          ]
+        },
+        "coverage": {
+          "const": "observed_partial"
+        },
+        "samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sample_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "discovery_truncations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sampled_simultaneous_rss_sum_bytes": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maximum_sample_sweep_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit_cpu_lower_bounds": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "unit_id",
+              "observed_lifetime_cpu_us"
+            ],
+            "properties": {
+              "unit_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "observed_lifetime_cpu_us": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "unit_cpu_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rss_sum_semantics": {
+          "const": "sweep_subset_shared_pages_may_repeat"
+        },
+        "scopes": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scope_ref",
+              "scope",
+              "unit_id",
+              "samples",
+              "unavailable",
+              "resets",
+              "metrics",
+              "cpu_percent_one_core",
+              "allocation_ref"
+            ],
+            "properties": {
+              "scope_ref": {
+                "type": "string",
+                "pattern": "^(process:[1-9][0-9]*|guest:(cpu|memory|io)|cgroup:[0-9]+)$"
+              },
+              "scope": {
+                "enum": [
+                  "process",
+                  "guest_context",
+                  "cgroup_context"
+                ]
+              },
+              "unit_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 255
+              },
+              "samples": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unavailable": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "resets": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "metrics": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "cpu_user_us": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cpu_system_us": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "rss_bytes": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "threads": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "io_read_bytes": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "io_write_bytes": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "io_read_chars": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "io_write_chars": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "rss_high_water_bytes": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "psi_some_us": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "psi_full_us": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_cpu_us": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_throttled_us": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_throttled_periods": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_memory_high_events": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_memory_max_events": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_oom_events": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_oom_kill_events": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_memory_bytes": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_memory_limit_bytes": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_pids": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_pids_limit": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "cgroup_cpu_quota_cores": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "maximum",
+                      "observed_delta",
+                      "observed_interval_ms",
+                      "unavailable"
+                    ],
+                    "properties": {
+                      "maximum": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_delta": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed_interval_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unavailable": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              },
+              "cpu_percent_one_core": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "allocation_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^allocation:[A-Za-z0-9_.:-]+$",
+                "maxLength": 255
+              }
+            }
+          }
+        },
+        "scopes_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu_user_us": {
+              "type": "number",
+              "minimum": 0
+            },
+            "cpu_system_us": {
+              "type": "number",
+              "minimum": 0
+            },
+            "heap_peak_bytes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "read_bytes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "write_bytes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "maximum_sweep_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "shutdown_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "gate_cpu": {
+              "const": "not_observed"
+            }
+          },
+          "required": [
+            "cpu_user_us",
+            "cpu_system_us",
+            "heap_peak_bytes",
+            "read_bytes",
+            "write_bytes",
+            "maximum_sweep_ms",
+            "shutdown_ms",
+            "gate_cpu"
+          ]
+        },
+        "leases": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "allocation_ref": {
+                "type": "string",
+                "pattern": "^allocation:[A-Za-z0-9_.:-]+$",
+                "maxLength": 255
+              },
+              "lease_ref": {
+                "type": "string",
+                "maxLength": 255,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              "unit_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "capability": {
+                "$ref": "cartulary.harness_fixture_lease.v4#/properties/capability"
+              },
+              "ownership": {
+                "enum": [
+                  "owned",
+                  "borrowed"
+                ]
+              }
+            },
+            "required": [
+              "allocation_ref",
+              "lease_ref",
+              "unit_id",
+              "capability",
+              "ownership"
+            ]
+          }
+        },
+        "leases_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "envelope": {
+      "anyOf": [
+        {
+          "$ref": "cartulary.harness_invocation_envelope.v1"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "unit_execution_includes_harness_work",
+          "phase_categories_may_overlap",
+          "reservations_are_not_consumption",
+          "resource_coverage_is_observed_partial",
+          "guest_is_not_windows_host"
+        ]
+      }
+    },
+    "comparison": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "equivalent",
+                "instrumentation"
+              ]
+            },
+            "reference_run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "compatible": {
+              "type": "boolean"
+            },
+            "reasons": {
+              "type": "array",
+              "maxItems": 20,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "command_id",
+                  "target",
+                  "source_commit",
+                  "source_state",
+                  "source_digest",
+                  "graph_digest",
+                  "toolchain_digest",
+                  "system_digest",
+                  "cache_mode",
+                  "declared_inputs",
+                  "capability_snapshot",
+                  "instrumentation_policy",
+                  "instrumentation_mode",
+                  "missing_treatment_difference",
+                  "observed_cache_counts",
+                  "unit_outcomes",
+                  "incomplete_or_failed_run"
+                ],
+                "type": "string"
+              }
+            },
+            "qualification": {
+              "const": "descriptive_only"
+            },
+            "current_mode": {
+              "enum": [
+                "off",
+                "basic"
+              ]
+            },
+            "reference_mode": {
+              "enum": [
+                "off",
+                "basic"
+              ]
+            },
+            "current_wall_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reference_wall_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wall_delta_ms": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "limitations": {
+              "type": "array",
+              "maxItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "one_pair_is_not_a_performance_gate",
+                  "unobserved_host_activity_and_service_history",
+                  "same_source_required",
+                  "canonical_phase_cost_is_present_in_both_modes"
+                ],
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "mode",
+            "reference_run_id",
+            "compatible",
+            "reasons",
+            "qualification",
+            "current_mode",
+            "reference_mode",
+            "current_wall_ms",
+            "reference_wall_ms",
+            "wall_delta_ms",
+            "limitations"
+          ]
+        }
+      ]
+    }
+  }
+}

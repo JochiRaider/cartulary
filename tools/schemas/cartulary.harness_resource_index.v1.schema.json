@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_resource_index.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_resource_index.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial",
+        "truncated",
+        "unsupported",
+        "collector_failed"
+      ]
+    },
+    "clock": {
+      "const": "graph_process_monotonic"
+    },
+    "coverage": {
+      "const": "observed_partial"
+    },
+    "samples": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sample_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sample_digest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "omitted_observations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "discovery_truncations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed_sweeps": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sweeps": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "processes": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "process_ref": {
+            "type": "string",
+            "pattern": "^process:[1-9][0-9]*$"
+          },
+          "identity_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "unit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 255
+          },
+          "attribution": {
+            "enum": [
+              "registered",
+              "observed_descendant"
+            ]
+          },
+          "allocation_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^allocation:[A-Za-z0-9_.:-]+$",
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "process_ref",
+          "identity_digest",
+          "unit_id",
+          "attribution",
+          "allocation_ref"
+        ]
+      }
+    },
+    "observer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpu_user_us": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cpu_system_us": {
+          "type": "number",
+          "minimum": 0
+        },
+        "heap_peak_bytes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "read_bytes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "write_bytes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maximum_sweep_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "shutdown_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gate_cpu": {
+          "const": "not_observed"
+        }
+      },
+      "required": [
+        "cpu_user_us",
+        "cpu_system_us",
+        "heap_peak_bytes",
+        "read_bytes",
+        "write_bytes",
+        "maximum_sweep_ms",
+        "shutdown_ms",
+        "gate_cpu"
+      ]
+    },
+    "leases": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "allocation_ref": {
+            "type": "string",
+            "pattern": "^allocation:[A-Za-z0-9_.:-]+$",
+            "maxLength": 255
+          },
+          "lease_ref": {
+            "type": "string",
+            "maxLength": 255,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "unit_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "capability": {
+            "$ref": "cartulary.harness_fixture_lease.v4#/properties/capability"
+          },
+          "ownership": {
+            "enum": [
+              "owned",
+              "borrowed"
+            ]
+          }
+        },
+        "required": [
+          "allocation_ref",
+          "lease_ref",
+          "unit_id",
+          "capability",
+          "ownership"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_id",
+    "run_id",
+    "source_digest",
+    "graph_digest",
+    "policy_digest",
+    "status",
+    "clock",
+    "coverage",
+    "samples",
+    "sample_bytes",
+    "sample_digest",
+    "omitted_observations",
+    "discovery_truncations",
+    "failed_sweeps",
+    "sweeps",
+    "processes",
+    "observer",
+    "leases"
+  ]
+}

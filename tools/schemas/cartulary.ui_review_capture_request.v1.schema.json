@@ -78,7 +78,7 @@
                   "const": "element"
                 },
                 "target": {
-                  "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+                  "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
                 }
               },
               "required": [
@@ -127,7 +127,7 @@
         "targets": {
           "type": "array",
           "items": {
-            "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+            "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
           },
           "maxItems": 64,
           "uniqueItems": true

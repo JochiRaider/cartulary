@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_invocation_envelope.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "source_digest",
+    "graph_digest",
+    "boundary",
+    "clock",
+    "canonical_ref",
+    "intervals",
+    "exclusions"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_invocation_envelope.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "boundary": {
+      "const": "graph_main_entry_to_pre_scan"
+    },
+    "clock": {
+      "const": "graph_process_monotonic"
+    },
+    "canonical_ref": {
+      "const": "unit-events.ndjson"
+    },
+    "intervals": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "start_ms",
+          "end_ms"
+        ],
+        "properties": {
+          "phase": {
+            "enum": [
+              "configuration_catalog",
+              "capability_capture",
+              "graph_construction",
+              "source_hashing",
+              "provenance",
+              "manifest_publication",
+              "runtime_prepare",
+              "canonical_execution_reference",
+              "evidence_publication",
+              "collector_shutdown"
+            ]
+          },
+          "start_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "make_and_preflight",
+          "module_imports",
+          "retained_secret_scan",
+          "command_return",
+          "receipt_publication"
+        ]
+      }
+    }
+  }
+}

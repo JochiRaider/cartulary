@@ -2,7 +2,7 @@ import { reviewPins } from "./policy.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../../contract/index.mjs";
 import { validateBundleSemantics } from "./bundle-semantics.mjs";
 
-export const schemaID = (name) => `cartulary.ui_review_${name}.v${name === "action" ? 3 : ["command_result", "receipt"].includes(name) ? 2 : 1}`;
+export const schemaID = (name) => `cartulary.ui_review_${name}.v${name === "action" ? 3 : ["command_result", "receipt", "bundle"].includes(name) ? 2 : 1}`;
 export const commandID = (name) => `cartulary.harness.command.${name.replaceAll("-", "_")}.v1`;
 export const commands = Object.freeze(["ui-review", "ui-review-status", "ui-browser", "ui-capture", "ui-analyze", "ui-review-report", "ui-review-stop"]);
 export const limits = Object.freeze({ request: 65536, png: 32 * 1024 ** 2, pixels: 16777216, dimension: 8192, files: 64, bundle: 128 * 1024 ** 2, storage: 512 * 1024 ** 2, bundles: 100, component: 8 * 1024 ** 2, producerReport: 32 * 1024 ** 2, trace: 32 * 1024 ** 2, report: 32 * 1024 ** 2, snapshot: 1048576, lock: 5000, action: 10000, operation: 30000, lifetime: 8 * 3600000 });

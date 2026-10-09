@@ -73,3 +73,33 @@ Only invoke these with an exact, identified published run. Their existing result
 parent discovery is not authority to attach to a newest run. Prefer bounded
 inspection of returned artifact references over broad `DETAIL=logs` output.
 Run evidence-audit gates only when the requested acceptance claim requires them.
+
+## Opt-in instrumentation
+
+Graph-backed Make targets accept command-line `HARNESS_DIAGNOSTICS=basic`;
+`off` is the default. Use the same narrow owner/row selection and fresh run-ID
+rules above. The setting does not enable application telemetry or network export.
+
+```sh
+make test-slice OWNER=<owner> ROWS=<exact-row-ids> HARNESS_DIAGNOSTICS=basic
+make explain-run RESULTS_DIR=<exact-run-dir> DETAIL=performance
+make explain-run RESULTS_DIR=<exact-run-dir> DETAIL=resources JSON=1
+make harness-observability-check RESULTS_DIR=<exact-run-dir>
+```
+
+Performance/resource detail requires an exact run (or parent plus RUN_ID).
+`JSON=1` on explain-run supports these two details only. These are current-epoch
+readers; older schemas are historical evidence, not silently translated inputs.
+Live status includes the last resource sample when available, its graph-process
+clock, age and staleness. Keep using the native session during measurement pause.
+
+Compare two exact runs without selecting newer directories implicitly:
+
+```sh
+make explain-run RESULTS_DIR=<current-run> DETAIL=performance JSON=1 \
+  COMPARE_RESULTS_DIR=<reference-run> COMPARISON=equivalent
+```
+
+Use `COMPARISON=instrumentation` only for matched same-source off/basic treatments.
+Incompatible inputs retain separate observations and reason codes, with a null
+delta. The comparison is descriptive and never a qualifying performance gate.

@@ -14,7 +14,7 @@
         "additionalProperties": false,
         "properties": {
           "target": {
-            "$ref": "cartulary.ui_review_bundle.v1#/$defs/target"
+            "$ref": "cartulary.ui_review_bundle.v2#/$defs/target"
           },
           "resolved_ref": {
             "type": "string",
@@ -295,14 +295,14 @@
         "violations": {
           "type": "array",
           "items": {
-            "$ref": "cartulary.ui_review_bundle.v1#/$defs/axe_finding"
+            "$ref": "cartulary.ui_review_bundle.v2#/$defs/axe_finding"
           },
           "maxItems": 1000
         },
         "incomplete": {
           "type": "array",
           "items": {
-            "$ref": "cartulary.ui_review_bundle.v1#/$defs/axe_finding"
+            "$ref": "cartulary.ui_review_bundle.v2#/$defs/axe_finding"
           },
           "maxItems": 1000
         },

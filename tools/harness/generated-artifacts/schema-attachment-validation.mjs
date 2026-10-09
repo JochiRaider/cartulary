@@ -110,10 +110,10 @@ export function validateSchemaAttachmentPolicy(root) {
     .map((entry) => entry.schema_id);
   if (
     JSON.stringify(foundationSchemaIDs) !==
-    JSON.stringify(["cartulary.tool_run_summary.v5"])
+    JSON.stringify(["cartulary.harness_instrumentation_policy.v1", "cartulary.harness_invocation_envelope.v1", "cartulary.harness_performance_explanation.v1", "cartulary.harness_resource_index.v1", "cartulary.harness_resource_live.v1", "cartulary.harness_resource_sample.v1", "cartulary.tool_run_summary.v5"])
   ) {
     throw new Error(
-      `${registryFile}.attachments foundation runtime set must be cartulary.tool_run_summary.v5`,
+      `${registryFile}.attachments foundation runtime set must match bootstrap and instrumentation schemas`,
     );
   }
 

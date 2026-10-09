@@ -525,13 +525,14 @@ try {
   const writeEvent = (event) => {
     seq += 1;
     writeSync(file, `${JSON.stringify({
-      schema_id: "cartulary.harness_unit_event.v2",
+      schema_id: "cartulary.harness_unit_event.v3",
       seq,
       monotonic_ms: seq,
       resource_claims: {},
       needs: [],
       service_dependencies: [],
       status: "running",
+      ...(event.event === "queued" ? { unit_kind: "runner", row_ids: [] } : {}),
       ...event,
     })}\n`);
   };
@@ -584,7 +585,7 @@ try {
     { event: "completed", status: "passed", unit_id: "row:ordinary" },
     { event: "completed", status: "passed", unit_id: measurementUnitID },
   ].map((entry, index) => ({
-    schema_id: "cartulary.harness_unit_event.v2",
+    schema_id: "cartulary.harness_unit_event.v3",
     seq: index + 1,
     monotonic_ms: index + 1,
     resource_claims: {},
@@ -615,7 +616,7 @@ try {
   writeFileSync(
     skippedFile,
     `${JSON.stringify({
-      schema_id: "cartulary.harness_unit_event.v2",
+      schema_id: "cartulary.harness_unit_event.v3",
       event: "skipped",
       failure_reason: "dependency_failure",
       monotonic_ms: 1,
@@ -640,7 +641,7 @@ try {
   writeFileSync(
     invalidSequenceFile,
     `${JSON.stringify({
-      schema_id: "cartulary.harness_unit_event.v2",
+      schema_id: "cartulary.harness_unit_event.v3",
       event: "started",
       monotonic_ms: 1,
       resource_claims: {},

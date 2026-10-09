@@ -72,7 +72,7 @@ try {
     const built = await buildFromManifest(root, path.resolve(options.evidence), surface);
     if (built.manifest.mode !== "comparison") throw new Error("performance check requires mode=comparison evidence");
     if (built.comparison.failures.length > 0) {
-      throw new Error(`performance acceptance failed ${built.comparison.failures.join(",")}`);
+      throw Object.assign(new Error(`performance acceptance failed ${built.comparison.failures.join(",")}`), { exit_code: 13 });
     }
     process.stdout.write(`[PERFORMANCE] status=pass targets=${built.comparison.rows.length}\n`);
   } else if (options.mode === "coverage") {
@@ -92,5 +92,5 @@ try {
   }
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
-  process.exitCode = 1;
+  process.exitCode = error.exit_code ?? 1;
 }

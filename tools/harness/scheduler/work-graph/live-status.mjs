@@ -15,6 +15,7 @@ export function createLiveStatusPublisher({
   now = () => performance.now(), utc = () => new Date().toISOString(),
   write = atomicLocalFile, timers = { setTimeout, clearTimeout },
   maximumBytes = liveSnapshotBytes,
+  resources = () => undefined,
 }) {
   const started = now();
   const identity = manifestObservationIdentity(manifest);
@@ -53,6 +54,7 @@ export function createLiveStatusPublisher({
         publication_mode: pauses ? "paused_measurement" : "active",
         phase: view.phase, availability: "available", unavailable_reason: null,
         targets, units: view.units,
+        ...(resources() ? { resources: resources() } : {}),
       };
       let bytes = `${JSON.stringify(snapshot)}\n`;
       if (Buffer.byteLength(bytes) > maximumBytes) {

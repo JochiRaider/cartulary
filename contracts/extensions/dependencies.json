@@ -95,7 +95,7 @@
       "imported_schema_ids": [
         "cartulary.harness_evidence_root_manifest.v1",
         "cartulary.harness_row_result.v3",
-        "cartulary.harness_run_manifest.v1",
+        "cartulary.harness_run_manifest.v2",
         "cartulary.harness_run_summary.v1",
         "cartulary.harness_target_summary.v1",
         "cartulary.test_family_manifest.v6",

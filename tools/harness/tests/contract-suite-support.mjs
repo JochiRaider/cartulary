@@ -668,8 +668,8 @@ async function assertBoundaryContract(context, kind) {
     case "current_schema_presence":
       for (const schema of [
         "cartulary.harness_work_graph.v5.schema.json",
-        "cartulary.harness_run_manifest.v1.schema.json",
-        "cartulary.harness_unit_event.v2.schema.json",
+        "cartulary.harness_run_manifest.v2.schema.json",
+        "cartulary.harness_unit_event.v3.schema.json",
         "cartulary.harness_run_summary.v1.schema.json",
       ]) assert.ok(existsSync(path.join(root, "tools/schemas", schema)));
       return;

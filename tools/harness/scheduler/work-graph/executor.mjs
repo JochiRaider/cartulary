@@ -155,6 +155,7 @@ export function executeUnitProcess(
     environment = {},
     nodeBinary,
     fixtureLease,
+    onProcess,
     inheritProcessEnvironment = true,
     outputLimitBytes = 1048576,
     timers = { setTimeout, clearTimeout },
@@ -208,6 +209,7 @@ export function executeUnitProcess(
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
+    try { onProcess?.(child.pid); } catch { /* Optional observation cannot change execution. */ }
     let stdout = "";
     let stderr = "";
     let cancelled = false;

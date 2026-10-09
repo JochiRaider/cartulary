@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_live_snapshot.v1",
+  "$id": "cartulary.harness_live_snapshot.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,7 +21,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_live_snapshot.v1"
+      "const": "cartulary.harness_live_snapshot.v2"
     },
     "run_id": {
       "type": "string",
@@ -248,6 +248,9 @@
           }
         }
       }
+    },
+    "resources": {
+      "$ref": "cartulary.harness_resource_live.v1"
     }
   },
   "allOf": [

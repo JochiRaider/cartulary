@@ -9,6 +9,7 @@
       "collaborator_ids": [],
       "verification_ids": [
         "harness.evidence_accounting.verification.live_invocation_observation",
+        "harness.evidence_accounting.verification.performance_resource_diagnostics",
         "harness.evidence_accounting.verification.semantic_evidence_identity"
       ],
       "runner": "shell",

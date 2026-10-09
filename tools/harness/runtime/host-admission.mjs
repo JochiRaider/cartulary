@@ -124,10 +124,10 @@ export function transactAdmission({ root, operation, token, owner, mode, claims,
  * Children inherit activity order but consume only unused parent claim credit.
  * Exact worker proof retains claims after controller death until reaping.
  */
-export async function acquireHostAdmission({ mode = "shared", claims: input = {}, capacities: available, parent = null, signal, timeoutMs = 5000, root = hostAdmissionRoot } = {}) {
+export async function acquireHostAdmission({ mode = "shared", claims: input = {}, capacities: available, parent = null, signal, timeoutMs = 5000, root = hostAdmissionRoot, ownerIdentity = processIdentity() } = {}) {
   const claims = hostClaims(input), capacities = hostClaims(available);
   if (!["shared", "exclusive"].includes(mode) || !quantities(claims) || !quantities(capacities) || resources.some((key) => claims[key] > capacities[key])) throw conflict();
-  const token = randomBytes(16).toString("hex"), owner = processIdentity(), started = performance.now();
+  const token = randomBytes(16).toString("hex"), owner = ownerIdentity, started = performance.now();
   let registered = false;
   const release = async () => { if (registered) { await transaction(root, { operation: "release", token }); registered = false; } };
   try {

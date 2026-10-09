@@ -1292,14 +1292,15 @@ const syncValidatorCache = new Map();
 let foundationValidatorRegistry = null;
 
 function foundationValidator(schemaID) {
-  if (schemaID !== "cartulary.tool_run_summary.v5") return null;
   if (foundationValidatorRegistry === null) {
     const generated = requireFromHarness(
       "./generated/foundation-schema-validators.cjs",
     );
     foundationValidatorRegistry = generated.foundationSchemaValidators ?? {};
   }
-  return foundationValidatorRegistry[schemaID] ?? null;
+  return Object.hasOwn(foundationValidatorRegistry, schemaID)
+    ? foundationValidatorRegistry[schemaID]
+    : null;
 }
 
 function standaloneErrorText(errors) {

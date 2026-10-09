@@ -53,7 +53,7 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
       } catch (error) {
         throw new Error(`${file} line ${lineNumber} is invalid JSON: ${error.message}`);
       }
-      validateSchemaSync("cartulary.harness_unit_event.v2", event);
+      validateSchemaSync("cartulary.harness_unit_event.v3", event);
       if (
         terminalEventNames.has(event.event) &&
         event.status !== terminalStatuses.get(event.event)
@@ -88,6 +88,10 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   const closedWaits = new Map();
   const admitted = new Set();
   const cacheHits = new Set();
+  const registrations = new Map();
+  const phases = new Map();
+  const phaseIDs = new Set();
+  const phaseCounts = new Map();
   let runStarted = null;
   let runCompleted = null;
   let eventCount = 0;
@@ -95,6 +99,9 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   const projectedEvents = [];
   const projectedEventNames = new Set([
     "run_started",
+    "queued",
+    "phase_started",
+    "phase_finished",
     "wait_started",
     "wait_ended",
     "admitted",
@@ -128,6 +135,24 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
     }
     if (selected !== null && !selected.has(event.unit_id)) continue;
     if (event.unit_id === "harness:run") continue;
+    if (event.event === "queued") {
+      if (registrations.has(event.unit_id)) throw new Error("duplicate unit registration");
+      registrations.set(event.unit_id, { unit_id: event.unit_id, kind: event.unit_kind,
+        row_ids: event.row_ids, needs: event.needs, resource_claims: event.resource_claims });
+    }
+    if (event.event === "phase_started") {
+      const count = (phaseCounts.get(event.unit_id) ?? 0) + 1;
+      if (count > 128 || phaseIDs.has(event.interval_id) || !registrations.has(event.unit_id) || terminals.has(event.unit_id)) throw new Error("invalid phase start");
+      phaseCounts.set(event.unit_id, count);
+      phaseIDs.add(event.interval_id);
+      phases.set(event.interval_id, { unit_id: event.unit_id, phase: event.phase, start_ms: event.monotonic_ms, end_ms: null, outcome: null });
+    }
+    if (event.event === "phase_finished") {
+      const phase = phases.get(event.interval_id);
+      if (!phase || phase.end_ms !== null || phase.unit_id !== event.unit_id || phase.phase !== event.phase || terminals.has(event.unit_id)) throw new Error("unmatched phase finish");
+      phase.end_ms = event.monotonic_ms;
+      phase.outcome = event.phase_outcome;
+    }
     if (event.event === "eligible") {
       if (eligible.has(event.unit_id)) {
         throw new Error(`${file} has duplicate eligible event for ${event.unit_id}`);
@@ -208,5 +233,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
     starts,
     terminals,
     projectedEvents,
+    registrations,
+    phases,
   };
 }

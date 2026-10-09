@@ -2938,8 +2938,8 @@ parity-checked with every harness-public row in this table.
 | `cartulary.harness_capability_snapshot.v1`      | `tools/schemas/cartulary.harness_capability_snapshot.v1.schema.json`      | present           | Capability capture       | Before scheduler admission.               |
 | `cartulary.harness_cache_record.v2`             | `tools/schemas/cartulary.harness_cache_record.v2.schema.json`             | present           | Graph cache              | Before reuse or retained publication.     |
 | `cartulary.harness_fixture_lease.v4`            | `tools/schemas/cartulary.harness_fixture_lease.v4.schema.json`            | present           | Fixture broker           | Before lease use or cleanup.              |
-| `cartulary.harness_run_manifest.v1`             | `tools/schemas/cartulary.harness_run_manifest.v1.schema.json`             | present           | Graph runner             | Before scheduler admission.               |
-| `cartulary.harness_unit_event.v2`               | `tools/schemas/cartulary.harness_unit_event.v2.schema.json`               | present           | Graph scheduler          | Before event-stream publication.          |
+| `cartulary.harness_run_manifest.v2`             | `tools/schemas/cartulary.harness_run_manifest.v2.schema.json`             | present           | Graph runner             | Before scheduler admission.               |
+| `cartulary.harness_unit_event.v3`               | `tools/schemas/cartulary.harness_unit_event.v3.schema.json`               | present           | Graph scheduler          | Before event-stream publication.          |
 | `cartulary.harness_unit_result.v1`              | `tools/schemas/cartulary.harness_unit_result.v1.schema.json`              | present           | Graph runner             | Before unit completion is accepted.       |
 | `cartulary.harness_row_result.v2`               | `tools/schemas/cartulary.harness_row_result.v2.schema.json`               | present           | Runner adapters          | Before selected-row closure.              |
 | `cartulary.harness_test_failure.v1`             | `tools/schemas/cartulary.harness_test_failure.v1.schema.json`             | present           | Go test-support helpers  | Before a setup failure marker is emitted or accepted. |
@@ -2966,7 +2966,7 @@ parity-checked with every harness-public row in this table.
 | `cartulary.executable_input_policy.v1`          | `tools/schemas/cartulary.executable_input_policy.v1.schema.json`          | present           | Executable input boundary owner | Before executable-input policy validation. |
 | `cartulary.govulncheck_findings.v1`             | `tools/schemas/cartulary.govulncheck_findings.v1.schema.json`             | present           | Govulncheck wrapper      | Before failure classification or target-summary security rollup consumes findings. |
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
-| `cartulary.test_services.lifecycle.v2`          | `tools/schemas/cartulary.test_services.lifecycle.v2.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
+| `cartulary.test_services.lifecycle.v3`          | `tools/schemas/cartulary.test_services.lifecycle.v3.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
 | `cartulary.test_services.local_session.v1`      | `tools/schemas/cartulary.test_services.local_session.v1.schema.json`      | present           | Local session manager    | Before status, attachment, or session cleanup. |
 | `cartulary.test_services.local_session_status.v1` | `tools/schemas/cartulary.test_services.local_session_status.v1.schema.json` | present         | Local session manager    | Before redacted status output. |
 | `cartulary.test_services.scope.v2`              | `tools/schemas/cartulary.test_services.scope.v2.schema.json`              | present           | Service suite            | Before scheduler failure propagation consumes bounded service-suite diagnostics. |
@@ -2980,7 +2980,7 @@ parity-checked with every harness-public row in this table.
 | `cartulary.frontend_visual_capture_intent.v2` | `tools/schemas/cartulary.frontend_visual_capture_intent.v2.schema.json` | present | Visual capture helper | Before reconciliation accepts a capture. |
 | `cartulary.web_e2e_stack.v8`                    | `tools/schemas/cartulary.web_e2e_stack.v8.schema.json`                    | present           | Browser session lifecycle | Before browser target starts Playwright. |
 | `cartulary.web_e2e_backend_generation.v2`       | `tools/schemas/cartulary.web_e2e_backend_generation.v2.schema.json`       | present           | Browser reset lifecycle  | Before a replacement backend is attached. |
-| `cartulary.browser_startup_event.v1`             | `tools/schemas/cartulary.browser_startup_event.v1.schema.json`             | present           | Browser session lifecycle | For each append-only startup transition. |
+| `cartulary.browser_startup_event.v2`             | `tools/schemas/cartulary.browser_startup_event.v2.schema.json`             | present           | Browser session lifecycle | For each append-only startup transition. |
 | `cartulary.browser_startup_diagnostics.v2`       | `tools/schemas/cartulary.browser_startup_diagnostics.v2.schema.json`       | present           | Browser session lifecycle | Once at terminal ready or failed state. |
 | `cartulary.browser_group_result.v6`              | `tools/schemas/cartulary.browser_group_result.v6.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
 | `cartulary.browser_target_result.v4`             | `tools/schemas/cartulary.browser_target_result.v4.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
@@ -3229,7 +3229,7 @@ The owner-first schema families are `cartulary.requirement_registry.v1`,
 `cartulary.harness_work_graph.v5`, `cartulary.harness_target_plan.v4`,
 `cartulary.harness_row_result.v2`, `cartulary.harness_test_failure.v1`,
 `cartulary.harness_unit_result.v1`,
-`cartulary.harness_run_manifest.v1`, `cartulary.harness_unit_event.v2`,
+`cartulary.harness_run_manifest.v2`, `cartulary.harness_unit_event.v3`,
 `cartulary.harness_run_summary.v1`, `cartulary.harness_target_summary.v1`,
 `cartulary.test_owner_explanation.v3`, `cartulary.task_guide_summary.v3`, and
 `cartulary.test_catalog_check_summary.v2`. Each required current attachment
@@ -3310,8 +3310,8 @@ The required current graph and evidence schema attachments are
 `cartulary.harness_capacity_override.v1`,
 `cartulary.harness_cache_record.v2`,
 `cartulary.harness_fixture_lease.v4`,
-`cartulary.harness_run_manifest.v1`,
-`cartulary.harness_unit_event.v2`,
+`cartulary.harness_run_manifest.v2`,
+`cartulary.harness_unit_event.v3`,
 `cartulary.harness_run_summary.v1`,
 `cartulary.harness_target_summary.v1`,
 `cartulary.harness_public_target_duration_baselines.v3`, and
@@ -3353,7 +3353,7 @@ Verified by: TH-HARNESS-AC-075, TH-HARNESS-AC-076
 
 **TH-HARNESS-REQ-281**
 `unit-events.ndjson` is the sole current execution event stream. Each record
-validates as `cartulary.harness_unit_event.v2`; run-local `seq` starts at one and
+validates as `cartulary.harness_unit_event.v3`; run-local `seq` starts at one and
 has no gaps. Events cover run start, eligibility and waits, unit start and
 terminal state, resource and fixture ownership, cache disposition, cancellation,
 and run completion. Aggregate target summaries are projections of these events;
@@ -3495,8 +3495,8 @@ Verified by: TH-HARNESS-AC-135
 | Tool-run summary                                     | Centralized wrappers                            | `<target>/tool-run-summary.json` or the summary directory closed by the target's Section 8.1 row | `cartulary.tool_run_summary.v5`                               | Required non-null timestamps, target, exit code, output mode, artifact refs, failures | Retained; removed by cleanup only under default result root. |
 | Fallow static reports                                | `frontend-fallow-static`                        | `frontend-fallow-static/fallow/*` and `frontend-fallow-static/fallow-static-summary.json` | `cartulary.fallow_static_summary.v2` for the normalized summary; raw JSON, SARIF, Markdown, stdout, stderr, and `resolved-fallowrc.json` files are diagnostic-only | Report names, statuses, issue counts, artifact refs, resolved-config refs, baseline state, and enforcement state in schema-defined order | Retained as run-root artifacts; generated/source roots and Fallow config or baseline inputs are not cleanup candidates. |
 | Vitest failure details                               | Vitest wrappers                                 | `<target>/raw/<row-id>/vitest-failure-details.json` or `unit-logs/<unit-log-id>/vitest-failure-details.json`             | `cartulary.vitest_failure_details.v2`                         | Current invocation identity, runner/log refs, project/file/full-title observations, original errors, kinds, deadlines, and durations | Required for completed Vitest invocations; no legacy fallback. |
-| Run manifest                                         | Graph runner                                    | `run-manifest.json`                                             | `cartulary.harness_run_manifest.v1`                            | Immutable command, source, system, graph, capacity, cache-mode, and target-projection identity | Retained. |
-| Unit event stream                                    | Graph scheduler                                 | `unit-events.ndjson`                                            | `cartulary.harness_unit_event.v2`                              | `seq` strictly increases with no gaps; stable unit and resource ordering | Retained; sole current timing authority. |
+| Run manifest                                         | Graph runner                                    | `run-manifest.json`                                             | `cartulary.harness_run_manifest.v2`                            | Immutable command, source, system, graph, capacity, cache-mode, and target-projection identity | Retained. |
+| Unit event stream                                    | Graph scheduler                                 | `unit-events.ndjson`                                            | `cartulary.harness_unit_event.v3`                              | `seq` strictly increases with no gaps; stable unit and resource ordering | Retained; sole current timing authority. |
 | Run summary                                          | Canonical evidence projector                    | `run-summary.json`                                              | `cartulary.harness_run_summary.v1`                             | Unit outcomes, interval unions, critical path, resources, cache, and row closure in stable order | Retained. |
 | Target summary                                       | Canonical evidence projector                    | `target-summaries/<target>.json`                                | `cartulary.harness_target_summary.v1`                          | One projection per selected public target; unit IDs and rows ordered deterministically | Retained. |
 | Unit result                                          | Unit runner                                     | `unit-results/<unit-id>.json`                                   | Schema declared by the unit evidence contract                 | Stable unit identity, terminal state, artifacts, and row references | Retained. |
@@ -3510,9 +3510,9 @@ Verified by: TH-HARNESS-AC-135
 | Service scope summary                                | Service suite                                   | `_shared/test-services/<suite-id>/service-scope.json`            | `cartulary.test_services.scope.v2`                         | Bounded suite identity, readiness, aggregate service, fixture, failure, and cleanup summaries closed by Section 11 | Retained; atomically replaced during lifecycle.              |
 | Service producer journals                            | Service suite                                   | `_shared/test-services/<suite-id>/journals/<producer-id>.ndjson` | `cartulary.test_services.journal_event.v1`                 | Stable producer identity and gap-free local sequence; deterministic collation by event time, producer, and sequence | Retained only through suite finalization.                    |
 | Private service resource ledger                      | Service suite                                   | Private suite runtime state                                     | `cartulary.test_services.resource_ledger.v1`               | Exact mode-0600 owned-resource identities and cleanup state | Deleted after successful cleanup; redacted contained recovery copy only on cleanup failure. |
-| Service lifecycle event stream                       | Service suite                                   | `_shared/test-services/<suite-id>/lifecycle-events.jsonl`        | `cartulary.test_services.lifecycle.v2`                        | `seq` strictly increases; transitions match Section 11.2                               | Retained; not cleanup proof.                                |
+| Service lifecycle event stream                       | Service suite                                   | `_shared/test-services/<suite-id>/lifecycle-events.jsonl`        | `cartulary.test_services.lifecycle.v3`                        | `seq` strictly increases; transitions match Section 11.2                               | Retained; not cleanup proof.                                |
 | Browser service admission                            | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/service-admission.json` | `cartulary.test_services.browser_admission.v1` | Suite/session identity, readiness generation, required services, container proof, source digest, and service-scope digest | Retained for the session; contains no exhaustive service inventory. |
-| Browser startup events                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-events.jsonl` | `cartulary.browser_startup_event.v1` | Exact suite/session/profile identity and validated append-only state transitions | Retained for the session; lifecycle adapter is sole writer. |
+| Browser startup events                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-events.jsonl` | `cartulary.browser_startup_event.v2` | Exact suite/session/profile identity and validated append-only state transitions | Retained for the session; lifecycle adapter is sole writer. |
 | Browser startup diagnostics                          | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-diagnostics.json` | `cartulary.browser_startup_diagnostics.v2` | Immutable terminal state, event reference/digest, classification, redaction-safe message, origins, and artifact references | Retained for the session; group and target evidence consume by reference. |
 | Browser stack metadata                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/stack-v7.json` | `cartulary.web_e2e_stack.v8` | Immutable suite/session/mode/profile identity, compact service admission, database, object-store namespace, backend/frontend process proofs, build digest, fixture, diagnostic, lease, and readiness bindings | Retained for current-run attach admission. |
 | Browser backend generation                           | Browser reset lifecycle                         | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/backend-generations/<reset-id>.json` | `cartulary.web_e2e_backend_generation.v2` | Reset ID, monotonic generation, unchanged runtime/config identity, base stack reference/digest, and replacement backend process proof | Immutable current-run attachment overlay. |
@@ -3781,7 +3781,7 @@ rules; schema files are projections.
 | `cartulary.ui_review_analysis_request.v1` | Private caller request from Section 8.6. |
 | `cartulary.ui_review_command_result.v2` | Transient finite-command stdout/result; contains local private references. |
 | `cartulary.ui_review_receipt.v2` | Immutable retained structural operation or terminal receipt. |
-| `cartulary.ui_review_bundle.v1` | Private immutable observations, analyses, and artifact references. |
+| `cartulary.ui_review_bundle.v2` | Private immutable observations, analyses, and artifact references. |
 | `cartulary.ui_review_observations.v1` | Private DOM, accessibility, axe, console, and network component. |
 
 The schema path for each is `tools/schemas/<schema_id>.schema.json` and the schema
@@ -4243,7 +4243,7 @@ does not mean the observed run passed. Observation expiry is successful
 `wait_expired`, never a test timeout. Reader interruption affects only the reader.
 
 The scheduler publishes `diagnostics/live-status.json` as
-`cartulary.harness_live_snapshot.v1`. This mutable diagnostic is excluded from
+`cartulary.harness_live_snapshot.v2`. This mutable diagnostic is excluded from
 canonical acceptance, cache receipts, timing authority and release composition.
 It contains run, public-command, source and graph identity copied from the
 immutable manifest; a strictly increasing publication revision; UTC millisecond
@@ -4287,7 +4287,7 @@ outcomes; privacy and required-evidence failures retain their existing semantics
 Stop publisher timers and settle writes on every exit path before the retained
 secret scan. No diagnostic publication may follow that scan.
 
-The reader returns `cartulary.harness_run_observation.v1`, a closed object
+The reader returns `cartulary.harness_run_observation.v2`, a closed object
 separating `operation_status`, `operation_exit_code` and reader failure fields
 from the observed terminal result. It reports exact run identity, selected
 target, publication revision, monotonic wait duration, wait result, limitations,
@@ -4958,7 +4958,7 @@ MUST NOT be closed by lease cleanup.
 Verified by: TH-HARNESS-AC-061
 
 **TH-HARNESS-REQ-370**
-Every graph execution MUST emit `cartulary.harness_unit_event.v2` evidence that
+Every graph execution MUST emit `cartulary.harness_unit_event.v3` evidence that
 represents each work unit with its stable ID, declared dependency edges,
 normalized resource claims, eligibility instant, start instant, and terminal
 instant and state.
@@ -5259,7 +5259,7 @@ Dependency skips are propagation records, not additional root failures.
 
 | Event field             | Rule                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------- |
-| `schema_id`             | `cartulary.harness_unit_event.v2`.                                           |
+| `schema_id`             | `cartulary.harness_unit_event.v3`.                                           |
 | `unit_id`               | Stable semantic work-unit identity.                                          |
 | `needs`                 | Stable ASCII-sorted declared dependency IDs.                                 |
 | `seq`                   | Starts at `1`, increments by `1`, no gaps.                                   |
@@ -5316,6 +5316,190 @@ it. Control handling remains independent of native work and large file processin
 
 
 Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-111
+
+### 10.7 Local performance diagnostics (instrumentation-1)
+
+**TH-HARNESS-REQ-830**
+Graph-backed public targets MUST accept command-line-only
+`HARNESS_DIAGNOSTICS=off|basic`, default `off`. The immutable manifest MUST record
+mode and the semantic digest of `cartulary.harness_instrumentation_policy.v1`, authored at
+`tools/harness_instrumentation_policy.json`. The harness
+MUST strip this input from application and browser environments. Instrumentation
+MUST NOT change selection, assertions, scheduling policy, claims, retries,
+timeouts, cache policy, fixture ownership, primary failure or cleanup obligations.
+The instrumentation policy, resource sample/index/live, surrounding envelope and
+performance explanation validators MUST be generated dependency-free validators,
+like the existing foundational tool-run summary validator; collection MUST NOT
+require a runtime AJV import or add dependencies.
+Optional collection failure MUST mark diagnostic completeness independently of
+run outcome. Required evidence and privacy failures retain their existing treatment.
+
+**TH-HARNESS-REQ-831**
+Canonical event v3 is the only execution timeline. Queued registration MUST retain
+unit kind and local row membership; needs and resource claims remain canonical.
+The scheduler MUST assign monotonic sequence and time to paired phase events,
+with unique interval ID, owner unit, closed phase name and completion outcome.
+Phases begin immediately before the owning operation and end on its resolution
+or rejection. Names are `cache_lookup`, `host_admission`, `fixture_acquire`,
+`runner`, `report_parse`, `evidence_write`, `fixture_release`, `cache_publish`.
+Existing started/terminal semantics MUST remain whole admitted-unit lifetimes.
+Missing ends MUST remain incomplete; no synthesized success or duration is allowed.
+Elapsed arithmetic MUST use monotonic time, interval unions and explicit ownership;
+shared work MUST count once per run. Dependency edges MUST NOT imply containment.
+Queue-inclusive dependency paths MUST include eligibility-to-start and execution
+weights with stable identity ties. Projections MUST disclose uncovered and
+simultaneously covered time, and distinguish reservations from consumption.
+
+**TH-HARNESS-REQ-832**
+Basic collection MUST use least-privilege local process counters with validated
+boot/start/namespace identity, not PID alone. Retained identities MUST be opaque
+run-local references/digests. No raw arguments, environment, paths, SQL, URLs,
+process names, test titles or fixture contents may enter resource diagnostics.
+CPU user/system counters exclude child-inclusive CPU fields. CPU percentage is
+100 times CPU seconds divided by monotonic elapsed seconds: 100% denotes one core.
+Capacity-normalized percentage MUST be omitted unless its denominator is known.
+Sampled RSS maxima MUST be labeled sampled; sums of independent lifetime peaks
+MUST NOT be presented as simultaneous peaks. RSS sums may duplicate shared pages.
+PID I/O counters MUST NOT be summed into tree totals. Guest, cgroup, process,
+container and shared-service scopes MUST remain separate. Borrowed-service totals
+are contextual, not per-test attribution. Unobserved short-lived or detached
+processes MUST make tree-accounting completeness partial.
+
+**TH-HARNESS-REQ-833**
+The authored instrumentation policy MUST bound process cadence (2,000 ms), context
+cadence (5,000 ms), sweep work (50 ms), live identities (512), lifetime identities
+(4,096), discovery entries (8,192), record bytes (65,536), pending bytes (1,048,576),
+sample bytes (67,108,864), metadata bytes (4,194,304), flush (262,144 bytes or 5,000 ms),
+and stop (2,000 ms). The sweep budget is a cooperative elapsed deadline checked
+between operations; an individual kernel read or pending write can overrun it.
+The maximum observed sweep and omitted observations MUST disclose such overruns.
+Sweeps MUST NOT overlap or catch up in bursts. Unavailable
+values MUST be null, never zero. Availability tokens are `available`,
+`unsupported`, `permission_denied`, `not_observed`, `process_gone`, `counter_reset`,
+`paused_measurement`, `truncated`, and `collector_failed`. A published index's
+completeness is `complete`, `partial`, `truncated`, `unsupported`, or
+`collector_failed`; even complete collection has `observed_partial` process-tree
+coverage. Resets invalidate deltas;
+no interpolation may cross identity changes, missing observations or quiet periods.
+The collector MUST report its CPU, heap, reads/writes, samples, omissions,
+artifact volume and shutdown cost. `observer.heap_peak_bytes` denotes the largest
+sampled worker heap value, not a runtime high-water mark. Worker CPU counters
+cover collection after module initialization; `gate_cpu=not_observed` explicitly
+excludes admission-helper subprocesses. Read/write byte counts cover sampled
+counter text and sample records. Internal shutdown time excludes final index
+publication; the surrounding envelope owns the parent-observed stop duration.
+These partial self-counters MUST NOT alone qualify the total observer CPU, I/O,
+steady-memory or finalization budget. Matched external measurements and their
+coverage limits remain necessary. Basic collection MUST obey host measurement
+quietness, including sibling exclusive activity; bounded observation fencing MUST
+NOT consume test resource claims or hold a continuous shared lease.
+
+**TH-HARNESS-REQ-834**
+Resource samples MUST be separately owned optional diagnostics, not canonical
+lifecycle events. `diagnostics/resource-samples.ndjson` and terminal
+`diagnostics/resource-index.json` MUST use versioned schemas, bounded streaming
+readers, run/source/graph/policy correlation, secure owner-only retention and atomic
+publication under `cartulary.harness_resource_sample.v1` and
+`cartulary.harness_resource_index.v1`. Live detail uses
+`cartulary.harness_resource_live.v1`; explanation uses
+`cartulary.harness_performance_explanation.v1`; the surrounding envelope uses
+`cartulary.harness_invocation_envelope.v1`. Private staging MUST NOT be a public
+read surface. Publication may
+be partial with exact known omissions; absent publication is unavailable.
+Collector/counter failure, cancellation, buffer limits or full disk MUST preserve
+primary outcome and required evidence. Malformed published diagnostics MUST fail
+resource explanation without changing the retained test result.
+
+**TH-HARNESS-REQ-835**
+`explain-run DETAIL=performance|resources JSON=1` MUST derive human and machine
+views from the same validated exact-run observations. Machine output is bounded
+at 262,144 bytes and displays at most 20 units/scopes with omission counts.
+`harness-observability-check` MUST validate published optional resource records
+when present and report their completeness separately; absent optional records
+MUST NOT invalidate otherwise complete canonical evidence.
+Performance views MUST identify queue/execution path contributions and coarse
+bucket/reservation limitations. Live resource detail MUST extend the existing
+status snapshot, not replay event/sample files. Age above 6,000 ms is stale;
+measurement pause is distinct. Silence or stale diagnostics MUST NOT establish
+a hang. Existing status byte/list/heartbeat and terminal-precedence rules remain.
+
+**TH-HARNESS-REQ-836**
+The canonical boundary in TH-HARNESS-REQ-283 is unchanged. An optional
+`diagnostics/invocation-envelope.json` MUST name its independently measured
+surrounding-work boundary and exclusions and MUST NOT feed canonical performance
+gates. Graph-entry preparation and publication may be measured before full wrapper
+coverage is available. UTC subtraction MUST NOT supply elapsed durations. A
+post-scan receipt is outside this amendment until independently adopted; collection
+MUST stop and publish before the retained-secret scan. Export remains explicit
+post-run only, under the existing metric/attribute registry; resource samples MUST
+remain local. No application telemetry SDK or inherited exporter configuration is
+permitted.
+
+Rationale: the small initial delivery establishes trustworthy Go/Vitest unit
+attribution without claiming full wrapper, container or Windows-host coverage.
+The handoff's later service, wrapper, comparison and qualification slices are
+separate implementation milestones, not permission to invent missing observations.
+
+**TH-HARNESS-REQ-837 — Helper lifecycle clock identity.** Service lifecycle v3
+and browser startup event v2 MUST carry `clock`, `clock_identity`, and nullable
+`monotonic_ms`. On the supported Linux guest, successful clock observation uses
+`clock=linux_boottime_10ms`, the first `/proc/uptime` field converted from
+hundredths of a second to integer milliseconds, and `clock_identity` equal to
+SHA-256 of the trimmed boot ID, a colon, and the time-namespace identity. This
+clock includes guest suspend; its resolution is 10 ms. Readers MAY subtract
+these values only within the same non-null clock identity with nondecreasing
+observations, and MUST disclose 10 ms quantization. UTC timestamps are not a
+duration source. Missing, inaccessible, malformed, or unsupported clock input
+MUST yield `clock=unavailable` and null identity/time without changing lifecycle
+transitions or test outcome. Helper time MUST NOT be joined to scheduler time
+without measured anchors and uncertainty; the first implementation supplies no
+such join. Prior schema versions are not accepted by current readers.
+
+
+**TH-HARNESS-REQ-838 — Descriptive exact-run comparison.** `explain-run`
+performance/resources detail MAY accept command-line-only `COMPARE_RESULTS_DIR`
+and `COMPARISON=equivalent|instrumentation`; omission of `COMPARISON` means
+`equivalent` when a comparison directory is present. A mode without a directory
+or comparison on another detail MUST fail as usage error. Both directories MUST
+resolve to exact current-schema runs and undergo canonical validation. The
+projection MUST retain each observed wall duration and all incompatibility
+reason codes (maximum 20); it MUST omit a numeric delta by emitting null when
+incompatible. Matching requires command, target, source commit/state/digest,
+graph, toolchain, system, capabilities, declared workload inputs, cache mode and
+observed cache counts, unit outcomes, and instrumentation policy. Both runs
+MUST pass to receive a comparison delta. `equivalent` additionally requires
+matching diagnostic mode; `instrumentation` requires differing off/basic modes
+and ignores only the `HARNESS_DIAGNOSTICS` selection field. A changed source
+revision is currently incompatible even for instrumentation comparison; a
+reviewed-successor waiver is not implemented. All comparisons MUST state
+`qualification=descriptive_only`, unobserved host/service-history limits, and
+that canonical phase instrumentation is active in both modes. One pair does not
+qualify a performance gate, establish an optimization, or update a baseline.
+
+
+Resource sample elapsed time denotes the sweep start; counters are read during
+the reported maximum sweep duration. Derived utilization is approximate at
+that resolution. Live resource snapshots MUST carry `coverage=observed_partial`, cumulative
+omitted-observation, discovery-truncation and failed-sweep counters, each null
+until observed. A sweep with no valid live process observation MUST publish
+null live process and RSS values, never zero utilization.
+
+**TH-HARNESS-REQ-839 — Allocation correlation.** The optional resource index
+MUST include at most 4,096 fixture-lease correlations supplied by the fixture
+broker after canonical lease publication. Each correlation contains opaque
+allocation and lease references, unit ID, capability, and ownership; it MUST
+NOT retain physical resource IDs or environment values. Multiple leases over
+one allocation share an allocation reference. Browser fixture process
+registrations and discovered descendants MUST reference that allocation, with
+null unit attribution, rather than charging a shared process lifetime to its
+first consumer. A process whose allocation failed before a lease was published
+MAY retain an unmatched allocation reference; no successful lease is inferred.
+Correlation is observational and MUST NOT alter publication, reuse, release,
+or cleanup ownership. The bounded explanation exposes the first 20 lease
+correlations and an omitted count. Neither these records nor process samples
+become lifecycle authority. Container totals and borrowed-service consumption
+remain unavailable until an exact owner-scoped adapter supplies them.
+
 
 ## 11. Service and Fixture Lifecycle
 
@@ -5467,7 +5651,7 @@ Normative lifecycle-machine state and event names MUST be ASCII `lower_snake_cas
 ### 11.2 Normative Service Suite Lifecycle Machine
 
 **TH-HARNESS-REQ-404**
-The service suite lifecycle machine is normative for every service-backed suite in `owned` or `attach` mode. The machine ID is `test_services_suite_lifecycle_v1`. The machine instance key is `suite_id`. The authoritative transition record is `_shared/test-services/<suite-id>/lifecycle-events.jsonl`, where every line MUST validate as `cartulary.test_services.lifecycle.v2`. The current state is `requested` before the first lifecycle event and otherwise the `to_state` of the last valid lifecycle event. A missing, malformed, non-sequential, or transition-invalid lifecycle event stream after a suite directory or lease exists MUST fail closed with `failure_class=artifact` and `failure_reason=artifact_error`. The service lease remains cleanup-proof evidence and MUST NOT be interpreted as a transition log.
+The service suite lifecycle machine is normative for every service-backed suite in `owned` or `attach` mode. The machine ID is `test_services_suite_lifecycle_v1`. The machine instance key is `suite_id`. The authoritative transition record is `_shared/test-services/<suite-id>/lifecycle-events.jsonl`, where every line MUST validate as `cartulary.test_services.lifecycle.v3`. The current state is `requested` before the first lifecycle event and otherwise the `to_state` of the last valid lifecycle event. A missing, malformed, non-sequential, or transition-invalid lifecycle event stream after a suite directory or lease exists MUST fail closed with `failure_class=artifact` and `failure_reason=artifact_error`. The service lease remains cleanup-proof evidence and MUST NOT be interpreted as a transition log.
 Verified by: TH-HARNESS-AC-007, TH-HARNESS-AC-017
 
 Lifecycle event `seq` starts at `1`, increments by `1`, and has no gaps. Events MUST be processed in emitted sequence order. When competing conditions are observed before the next event is emitted, guard precedence is:
@@ -7714,7 +7898,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-014 | Section 9          | Exit-code matrix                 | Controlled failure fixtures, including Playwright assertion failure, per-test timeout, interrupted test, selector-accounting failure, nonzero child/report contradiction, mixed product/accounting failure, and outer watchdog expiry | Exit matrix test target                                                                   | Exact Section 9 code for every class; runner-confirmed Vitest test/hook timeout exits `13`, Vitest assertion mismatch exits `10`, marker-only unknown remains unknown; Playwright assertion and per-test timeout exit `10`, selector accounting and child/report contradiction exit `11`, and outer watchdog expiry exits `13` | Per output mode                                        | Per output mode                                              | Failure summaries with primary failure selection preserve the exact row, group, scheduler, target, and aggregate class/reason | Cleanup failure overrides earlier product failure; a Playwright per-test timeout is classified as harness timeout; an outer watchdog is classified as product | cleanup failure recorded but primary exit preserved     |
 | TH-HARNESS-AC-015 | Sections 6, 8      | Retained artifact identity       | Explicit result root/run ID plus generated default identity fixtures for public node-tool and owner-slice targets | `CARTULARY_TEST_RESULTS_DIR=<dir> CARTULARY_TEST_RUN_ID=<id> make backend-unit`; direct generated-ID public targets | `0`                                                            | Summary names run root                                 | Empty                                                        | Artifacts under one `<dir>/<id>` with target, run ID, run root, invocation marker, terminal summary, and passing retained-secret scan; retained run roots and target dirs are owner-only on POSIX hosts; external suite runtime is absent after exit | Preflight marker and summary use sibling generated IDs, newest-run fallback is accepted as proof, retained directories are group/world-accessible, or a secret-capable runtime file exists below the run root | custom absolute result root not removed by `make clean`; owned external suite runtime removed |
 | TH-HARNESS-AC-016 | Sections 1, 2, 18, 19 | Editorial and boundary closure | Revised document                                                             | Human owner review; `make lint-markdown` checks Markdown quality only                      | Review complete; Markdown lint `0`                             | Existing Markdown-lint output                         | Existing Markdown-lint diagnostic                            | Human review records owner conflicts or open decisions; no executable artifact consumes this document | A specification conflict is silently resolved by a machine projection or Markdown lint is cited as product conformance | none                                                    |
-| TH-HARNESS-AC-017 | Section 11         | Lifecycle-machine conformance    | Service-suite fixtures for happy path, startup failure, interrupted child, cleanup failure, illegal transition, and crash/rerun | Lifecycle-machine conformance target or unit harness                                      | Happy path `0`; failure fixtures use exact Section 9 code      | Bounded summary or machine object                      | Empty on happy path; bounded diagnostic on failure fixture | `cartulary.test_services.lifecycle.v2` stream with sequential events, valid transitions, terminal state, Section 9 failure mapping, and cleanup proof behavior | Unlisted `(state,event)` mutates state, terminal state accepts later event, or lifecycle stream validates with a sequence gap | normal suite cleanup; unproven resources retained       |
+| TH-HARNESS-AC-017 | Section 11         | Lifecycle-machine conformance    | Service-suite fixtures for happy path, startup failure, interrupted child, cleanup failure, illegal transition, and crash/rerun | Lifecycle-machine conformance target or unit harness                                      | Happy path `0`; failure fixtures use exact Section 9 code      | Bounded summary or machine object                      | Empty on happy path; bounded diagnostic on failure fixture | `cartulary.test_services.lifecycle.v3` stream with sequential events, valid transitions, terminal state, Section 9 failure mapping, and cleanup proof behavior | Unlisted `(state,event)` mutates state, terminal state accepts later event, or lifecycle stream validates with a sequence gap | normal suite cleanup; unproven resources retained       |
 | TH-HARNESS-AC-018 | Sections 4, 10, 11 | Warm graph health | Retained warm-ready `check` fixture plus cold-provisioning, measurement-quietness, holder, contamination, cache, and event-closure fixtures | `make scheduler-summary-timing-drift RESULTS_DIR=<dir> TARGET=check` | Success only for warm-eligible canonical evidence with exact interval, holder, lease, cache, row, and target closure | Bounded summary | Bounded diagnostic on failure fixture | Run manifest, unit events, run summary, and `check` target summary identify readiness, queue, holders, leases, cache accounting, and projection closure | Hidden provisioning, measurement overlap, missing holder, contaminated lease, unexplained cache state, or incomplete event projection passes unnoticed | none |
 | TH-HARNESS-AC-019 | Section 8.2        | Agent finalizer                  | Fake Make fixture plus valid, missing, failed, incomplete, contaminated, non-warm retained run, action-cache hit/miss/disabled/corrupt/input-change/output-change fixtures | `make agent-finalize`; `RESULTS_DIR=<dir> make agent-finalize`; `CARTULARY_OUTPUT_MODE=machine make agent-finalize` | Success for coherent maintenance inputs; fail-fast for first failed action substep or invalid retained run; cache hits only for eligible closed-profile actions | One `[FINALIZE]` line then bounded result/artifact lines; machine emits one JSON object | Bounded failure diagnostic naming failed action/substep | `agent-finalize/finalize-summary.json`, per-action `execution_state` and cache state, child summaries/logs when executed, and `finalize_summary` artifact ref | Excluded targets run, mutation starts after invalid `RESULTS_DIR`, cache hit bypasses retained-run validation, corrupt cache produces success, machine output requires log parsing, semantic action IDs are absent, or skipped-after-failure work is absent | No cleanup or destructive command is run               |
 | TH-HARNESS-AC-020 | Section 4          | Public target semantic value     | Current target registry plus one synthetic shallow-wrapper fixture           | Registry semantic-value checker                                                           | Success only when every public target declares at least one semantic behavior and every declared behavior has an owner section | Bounded report                                         | Empty on success                                             | Semantic-value parity report                                                                    | Target with only child command aliases and no semantic behavior passes        | none                                                    |

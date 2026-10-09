@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 
+import { intervalUnion, unitIntervals, actualCriticalPath, canonicalTimingAccounting, projectResourcePressure } from "../../evidence-accounting/index.mjs";
+import { createResourceCollector, instrumentationPolicy } from "../../observability/resource-collector.mjs";
+import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { createHash } from "node:crypto";
 import { execFileSync } from "../../workspace/child-process.mjs";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
@@ -159,6 +162,7 @@ function graphChildEnvironment(options) {
     "CARTULARY_TEST_SERVICES_MODE",
     "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER",
     "CARTULARY_TEST_SERVICES_SESSION_FILE",
+    "HARNESS_DIAGNOSTICS",
     "MAKEFLAGS",
     "MAKEOVERRIDES",
     "MFLAGS",
@@ -250,39 +254,6 @@ function repositoryProvenance() {
   };
 }
 
-function intervalUnion(intervals) {
-  const sorted = intervals
-    .filter((interval) => interval.end >= interval.start)
-    .sort((left, right) => left.start - right.start || left.end - right.end);
-  let total = 0;
-  let active = null;
-  for (const interval of sorted) {
-    if (!active || interval.start > active.end) {
-      if (active) total += active.end - active.start;
-      active = { ...interval };
-    } else {
-      active.end = Math.max(active.end, interval.end);
-    }
-  }
-  if (active) total += active.end - active.start;
-  return total;
-}
-
-function unitIntervals(events) {
-  const starts = new Map();
-  const intervals = new Map();
-  for (const event of events) {
-    if (event.event === "started") starts.set(event.unit_id, event.monotonic_ms);
-    if (["completed", "failed", "cancelled"].includes(event.event) && starts.has(event.unit_id)) {
-      intervals.set(event.unit_id, {
-        start: starts.get(event.unit_id),
-        end: event.monotonic_ms,
-      });
-    }
-  }
-  return intervals;
-}
-
 function statusForUnits(unitIDs, states) {
   const values = unitIDs.map((unitID) => states[unitID]);
   if (values.some((value) => value === "cancelled")) return "cancelled";
@@ -297,190 +268,6 @@ function failureForUnits(unitIDs, events) {
   ) ?? null;
 }
 
-function actualCriticalPath(graph, intervals, selectedUnitIDs = null) {
-  const selected = selectedUnitIDs ? new Set(selectedUnitIDs) : null;
-  const units = selected
-    ? graph.units.filter((unit) => selected.has(unit.unit_id))
-    : graph.units;
-  const byID = new Map(units.map((unit) => [unit.unit_id, unit]));
-  const memo = new Map();
-  function pathTo(unitID) {
-    if (memo.has(unitID)) return memo.get(unitID);
-    const unit = byID.get(unitID);
-    const predecessors = unit.needs.filter((dependency) => byID.has(dependency)).map(pathTo);
-    const prior = predecessors.sort(
-      (left, right) => right.duration - left.duration || left.ids.join("\0").localeCompare(right.ids.join("\0")),
-    )[0] ?? { duration: 0, ids: [] };
-    const interval = intervals.get(unitID);
-    const result = {
-      duration: prior.duration + (interval ? interval.end - interval.start : 0),
-      ids: [...prior.ids, unitID],
-    };
-    memo.set(unitID, result);
-    return result;
-  }
-  return units
-    .map((unit) => pathTo(unit.unit_id))
-    .sort(
-      (left, right) => right.duration - left.duration || left.ids.join("\0").localeCompare(right.ids.join("\0")),
-    )[0]?.ids ?? [];
-}
-
-function canonicalTimingAccounting(
-  events,
-  graph,
-  durationMs,
-  { includeRunEnvelope = true, selectedUnitIDs = null } = {},
-) {
-  const selected = selectedUnitIDs ? new Set(selectedUnitIDs) : null;
-  const byID = new Map(
-    graph.units
-      .filter((unit) => !selected || selected.has(unit.unit_id))
-      .map((unit) => [unit.unit_id, unit]),
-  );
-  const started = new Map();
-  const fixtureAcquired = new Map();
-  const intervals = [];
-  const resourceWaitStarted = new Map();
-  const resourceWaitIntervals = [];
-  let cleanupStarted = null;
-  let firstUnitStarted = null;
-  let processCount = 0;
-  for (const event of events) {
-    if (event.event === "started" && byID.has(event.unit_id)) {
-      started.set(event.unit_id, event.monotonic_ms);
-      firstUnitStarted ??= event.monotonic_ms;
-      processCount += 1;
-    }
-    if (event.event === "fixture_acquired" && byID.has(event.unit_id)) {
-      fixtureAcquired.set(event.unit_id, event.monotonic_ms);
-    }
-    if (
-      event.event === "wait_started" &&
-      byID.has(event.unit_id) &&
-      !resourceWaitStarted.has(event.unit_id)
-    ) {
-      resourceWaitStarted.set(event.unit_id, event.monotonic_ms);
-    }
-    if (event.event === "wait_ended" && resourceWaitStarted.has(event.unit_id)) {
-      resourceWaitIntervals.push({
-        start: resourceWaitStarted.get(event.unit_id),
-        end: event.monotonic_ms,
-      });
-      resourceWaitStarted.delete(event.unit_id);
-    }
-    if (event.event === "cleanup_started") cleanupStarted = event.monotonic_ms;
-    if (
-      ["completed", "failed", "cancelled"].includes(event.event) &&
-      started.has(event.unit_id)
-    ) {
-      const unit = byID.get(event.unit_id);
-      const start = started.get(event.unit_id);
-      const acquired = fixtureAcquired.get(event.unit_id);
-      if (acquired !== undefined && acquired > start) {
-        intervals.push({ start, end: acquired, bucket: "fixture" });
-      }
-      const executionStart = acquired ?? start;
-      const bucket = ["finalizer", "projection"].includes(unit.kind)
-        ? "collation"
-        : ["artifact", "readiness"].includes(unit.kind)
-          ? "setup"
-          : "execution";
-      if (event.monotonic_ms > executionStart) {
-        intervals.push({ start: executionStart, end: event.monotonic_ms, bucket });
-      }
-    }
-  }
-  if (includeRunEnvelope && (firstUnitStarted ?? 0) > 0) {
-    intervals.push({ start: 0, end: firstUnitStarted, bucket: "setup" });
-  }
-  if (includeRunEnvelope && cleanupStarted !== null && durationMs > cleanupStarted) {
-    intervals.push({ start: cleanupStarted, end: durationMs, bucket: "wrapper" });
-  }
-  const boundaries = [...new Set([
-    ...(includeRunEnvelope ? [0, durationMs] : []),
-    ...intervals.flatMap((interval) => [interval.start, interval.end]),
-  ])].sort((left, right) => left - right);
-  const totals = {
-    setup_ms: 0,
-    fixture_ms: 0,
-    execution_ms: 0,
-    collation_ms: 0,
-    wrapper_ms: 0,
-    unattributed_ms: 0,
-  };
-  const precedence = ["collation", "fixture", "execution", "setup", "wrapper"];
-  for (let index = 1; index < boundaries.length; index += 1) {
-    const start = boundaries[index - 1];
-    const end = boundaries[index];
-    if (end <= start) continue;
-    const active = new Set(
-      intervals
-        .filter((interval) => interval.start < end && interval.end > start)
-        .map((interval) => interval.bucket),
-    );
-    const bucket = precedence.find((candidate) => active.has(candidate));
-    if (bucket) totals[`${bucket}_ms`] += end - start;
-    else if (includeRunEnvelope) totals.unattributed_ms += end - start;
-  }
-  return {
-    ...totals,
-    resource_blocking_ms: intervalUnion(resourceWaitIntervals),
-    process_count: processCount,
-  };
-}
-
-function projectResourcePressure(events, graph, snapshot) {
-  const byID = new Map(graph.units.map((unit) => [unit.unit_id, unit]));
-  const capacities = Object.fromEntries(resourceCapacities(snapshot));
-  const active = new Map();
-  const saturationStart = new Map();
-  const saturationMs = new Map();
-  const peak = new Map();
-  const admitted = new Set();
-  const add = (resource, amount, now) => {
-    const before = active.get(resource) ?? 0;
-    const after = before + amount;
-    active.set(resource, after);
-    peak.set(resource, Math.max(peak.get(resource) ?? 0, after));
-    const capacity = capacities[resource];
-    if (before < capacity && after >= capacity) saturationStart.set(resource, now);
-    if (before >= capacity && after < capacity && saturationStart.has(resource)) {
-      saturationMs.set(resource, (saturationMs.get(resource) ?? 0) + now - saturationStart.get(resource));
-      saturationStart.delete(resource);
-    }
-  };
-  for (const event of events) {
-    const unit = byID.get(event.unit_id);
-    if (!unit) continue;
-    if (event.event === "admitted") {
-      admitted.add(event.unit_id);
-      for (const [resource, amount] of Object.entries(unit.resource_claims)) add(resource, amount, event.monotonic_ms);
-    }
-    if (
-      ["completed", "failed", "cancelled"].includes(event.event) &&
-      admitted.delete(event.unit_id)
-    ) {
-      for (const [resource, amount] of Object.entries(unit.resource_claims)) add(resource, -amount, event.monotonic_ms);
-    }
-  }
-  const completedAt = events.at(-1)?.monotonic_ms ?? 0;
-  for (const [resource, startedAt] of saturationStart) {
-    saturationMs.set(resource, (saturationMs.get(resource) ?? 0) + completedAt - startedAt);
-  }
-  const waits = events.filter((event) => event.event === "wait_started");
-  return {
-    requested_capacity: Object.fromEntries(
-      Object.keys(capacities).sort().map((resource) => [resource, Math.max(...graph.units.map((unit) => unit.resource_claims[resource] ?? 0))]),
-    ),
-    resolved_capacity: capacities,
-    peak_use: Object.fromEntries([...peak.entries()].sort(([left], [right]) => left.localeCompare(right))),
-    saturation_ms: Object.fromEntries([...saturationMs.entries()].sort(([left], [right]) => left.localeCompare(right))),
-    wait_events: waits.length,
-    blocked_units: [...new Set(waits.map((event) => event.unit_id))].sort(),
-    resource_holders: [...new Set(waits.flatMap((event) => event.blocking_unit_ids ?? []))].sort(),
-  };
-}
 
 let atomicWriteCounter = 0;
 
@@ -664,7 +451,7 @@ async function writeCanonicalArtifacts({
         const pathUnits = actualCriticalPath(graph, intervals, unitIDs);
         return pathUnits.reduce((total, unitID) => {
           const interval = intervals.get(unitID);
-          return total + (interval ? interval.end - interval.start : 0);
+          return total + (interval ? interval.end - interval.start + interval.queue_ms : 0);
         }, 0);
       })(),
       timing_accounting: canonicalTimingAccounting(
@@ -697,7 +484,7 @@ async function writeCanonicalArtifacts({
   const criticalPathDurationMs = criticalPath.reduce(
     (total, unitID) => {
       const interval = intervals.get(unitID);
-      return total + (interval ? interval.end - interval.start : 0);
+      return total + (interval ? interval.end - interval.start + interval.queue_ms : 0);
     },
     0,
   );
@@ -757,6 +544,17 @@ async function writeCanonicalArtifacts({
 }
 
 async function main() {
+  const graphEpoch = process.hrtime.bigint();
+  const mode = process.env.HARNESS_DIAGNOSTICS || "off";
+  if (!["off", "basic"].includes(mode)) throw new Error("invalid HARNESS_DIAGNOSTICS");
+  const instrumentation = instrumentationPolicy();
+  const envelope = [];
+  let previousBoundary = 0;
+  const mark = (phase) => {
+    const end = Number((process.hrtime.bigint() - graphEpoch) / 1_000_000n);
+    if (mode === "basic") envelope.push({ phase, start_ms: previousBoundary, end_ms: end });
+    previousBoundary = end;
+  };
   const options = parseArgs(process.argv.slice(2));
   const serviceSession = resolveServiceSessionMode({
     target: options.target,
@@ -766,23 +564,28 @@ async function main() {
   const { resultsDir, runID, runRoot } = resolvedRunRoot();
   mkdirSync(runRoot, { recursive: true, mode: 0o700 });
   const compiler = new WorkGraphCompiler(root);
+  mark("configuration_catalog");
   const snapshot = captureCapabilitySnapshot({
     root,
     override: process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
     services: { browser: true, object_store: true, postgres: true, service_stack: true },
   });
+  mark("capability_capture");
   compiler.availableGoLanes = snapshot.cpu_tokens;
   compiler.availablePostgresLanes = snapshot.postgres_lanes;
   const { graph, projections } = selectionFor(options, compiler);
+  mark("graph_construction");
   const cacheMode = process.env.CARTULARY_HARNESS_CACHE_MODE || "normal";
   if (!cacheModes.has(cacheMode)) throw new Error(`invalid graph cache mode ${cacheMode}`);
   const source = buildSourceSnapshot(root);
+  mark("source_hashing");
   const provenance = repositoryProvenance();
   const toolchainDigest = sha256(readFileSync(path.join(root, "tools/toolchain_pins.json")));
   const helperDigest = sha256(readFileSync(path.join(root, "tools/harness_helper_ownership.json")));
+  mark("provenance");
   const startedAt = new Date().toISOString();
   const manifest = {
-    schema_id: "cartulary.harness_run_manifest.v1",
+    schema_id: "cartulary.harness_run_manifest.v2",
     run_id: runID,
     command_id: entry.command_id,
     target: options.target,
@@ -797,11 +600,14 @@ async function main() {
     capability_snapshot: snapshot,
     graph_digest: graph.graph_digest,
     cache_mode: cacheMode,
+    instrumentation: { mode, policy_digest: instrumentation.digest },
     started_at: startedAt,
   };
   validateSchemaSync(manifest.schema_id, manifest);
   writeJSON(path.join(runRoot, "run-manifest.json"), manifest);
+  mark("manifest_publication");
   let livePublisher;
+  let resources;
 
   const runtimeEnvironment = resolvedRuntimeEnvironment(compiler);
   const suiteRuntime = createSuiteRuntime({ repoRoot: root, runRoot, runID });
@@ -831,7 +637,20 @@ async function main() {
   let retainedScanAttempted = false;
   let primaryError = null;
   const publishRetainedScan = async () => {
+    await resources?.stop();
     livePublisher?.stop();
+    mark("collector_shutdown");
+    if (mode === "basic") {
+      try {
+        const receipt = { schema_id: "cartulary.harness_invocation_envelope.v1",
+          run_id: runID, source_digest: manifest.source_digest, graph_digest: manifest.graph_digest,
+          boundary: "graph_main_entry_to_pre_scan", clock: "graph_process_monotonic",
+          canonical_ref: "unit-events.ndjson", intervals: envelope,
+          exclusions: ["make_and_preflight", "module_imports", "retained_secret_scan", "command_return", "receipt_publication"] };
+        validateSchemaSync(receipt.schema_id, receipt);
+        atomicLocalFile(path.join(runRoot, "diagnostics/invocation-envelope.json"), `${JSON.stringify(receipt)}\n`);
+      } catch { /* Optional envelope does not replace required evidence outcomes. */ }
+    }
     retainedScanAttempted = true;
     const retainedScan = await scanRetainedRoot(runRoot, {
       forbiddenValues: suiteRuntime.forbiddenValues(),
@@ -841,18 +660,21 @@ async function main() {
     writeJSON(path.join(runRoot, "retained-secret-scan.json"), retainedScan);
   };
   try {
-  livePublisher = createLiveStatusPublisher({ runRoot, manifest, graph, projections });
+  resources = createResourceCollector({ runRoot, manifest, capacities: Object.fromEntries(resourceCapacities(snapshot)), epoch: graphEpoch });
+  livePublisher = createLiveStatusPublisher({ runRoot, manifest, graph, projections, resources: () => resources?.snapshot() });
   broker = new FixtureBroker({
     cleanupResults,
+    observeLease: (record) => resources?.lease(record),
     providers: productionFixtureProviders({
       root,
       selectionEnvironment: fixtureSelectionEnvironment(options),
       // Fixture launch receives a complete environment. Review composition can
       // supply its own sanitized environment without implicit ambient merging.
-      runtimeEnvironment: { ...process.env, ...runtimeEnvironment },
+      runtimeEnvironment: { ...graphChildEnvironment(options), ...runtimeEnvironment },
       suiteController,
       suiteRuntime,
       onOwnedResource,
+      onChildProcess: (pid, correlation) => { resources?.register(pid, null, correlation); return () => {}; },
     }),
     recordSink(record) {
       writeJSON(
@@ -886,6 +708,7 @@ async function main() {
     mkdirSync(unitArtifactRoot, { recursive: true, mode: 0o700 });
     let result = await executeUnitProcess(unit, {
       ...context,
+      onProcess: (pid) => resources?.register(pid, unit.unit_id),
       inheritProcessEnvironment: false,
       nodeBinary: runtimeEnvironment.NODE_BIN,
       environment: {
@@ -971,8 +794,13 @@ async function main() {
         finalizationComplete = true;
         if (errors.length) throw aggregateCleanup(errors);
       },
-      onEvent: (event) => eventWriter.write(event),
+      onEvent: (event) => {
+        if (event.event === "run_started") mark("runtime_prepare");
+        if (event.event === "run_completed") mark("canonical_execution_reference");
+        return eventWriter.write(event);
+      },
       observation: livePublisher,
+      diagnostics: resources,
       retainEvents: false,
     });
     await eventWriter.close();
@@ -994,6 +822,7 @@ async function main() {
     runID,
     snapshot,
   });
+  mark("evidence_publication");
   await publishRetainedScan();
   const line = `[GRAPH] target=${options.target} status=${summary.status} units=${summary.unit_counts.passed}/${summary.unit_counts.total} duration_ms=${summary.wall_duration_ms} run_root=${path.relative(root, runRoot)}\n`;
   const outputMode = process.env.CARTULARY_OUTPUT_MODE || "summary";
