@@ -127,7 +127,10 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
                 ? item.displayText || "Selected reference"
                 : "Selected reference"}{" "}
               {!props.multiple && authority.canRead ? (
-                <span style={workbookReferenceIdentityStyle}>
+                <span
+                  data-generated-metadata="selected-reference-id"
+                  style={workbookReferenceIdentityStyle}
+                >
                   {item.recordId}
                 </span>
               ) : null}

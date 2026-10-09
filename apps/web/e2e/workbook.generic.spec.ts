@@ -180,7 +180,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
     "decision.rationale",
     "Generic UI decision rationale.",
   );
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("decision.support_refs"),
     support.record_id,
@@ -222,7 +222,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await expectGenericCreateMinimum(page, taskRequestsViewSchemaId, "Title");
   await setGenericCreateField(page, "task.title", "Browser task");
   await setGenericCreateField(page, "task.task_kind", "collection");
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("task.decision_record_id"),
     decision.record_id,
@@ -232,7 +232,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
     "task.decision_record_id",
     decision.record_id,
   );
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("task.linked_record_ids"),
     support.record_id,
@@ -292,7 +292,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   );
   await setGenericCreateField(page, "evidence.title", "Browser evidence");
   await setGenericCreateField(page, "evidence.storage_ref", "slot/browser");
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("evidence.collector_party_id"),
     party.record_id,
@@ -327,7 +327,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await setGenericCreateField(page, "comm_log.audience", "leadership");
   await setGenericCreateField(page, "comm_log.channel_or_meeting", "Bridge");
   await setGenericCreateField(page, "comm_log.summary", "Browser comm log");
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("comm_log.audience_party_ids"),
     party.record_id,
@@ -370,13 +370,13 @@ test("creates and edits required workbook mutation surfaces through typed generi
     "handoff.incoming_owner_user_id",
     workerAdmin.user_id,
   );
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("handoff.open_task_ids"),
     task.record_id,
   );
   await setGenericCreateField(page, "handoff.open_task_ids", task.record_id);
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("handoff.open_decision_ids"),
     decision.record_id,
@@ -419,7 +419,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
     "status_review.current_state_summary",
     "Browser status review",
   );
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("status_review.pending_evidence_ids"),
     evidence.record_id,
@@ -456,7 +456,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await openGenericSurface(page, incidentId, lessonViewSchemaId, "Lesson");
   await expectGenericCreateMinimum(page, lessonViewSchemaId, "Summary");
   await setGenericCreateField(page, "lesson.summary", "Browser lesson");
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("lesson.evidence_refs"),
     evidence.record_id,
@@ -546,10 +546,10 @@ async function setGenericCreateField(
     if ((await trigger.getAttribute("aria-expanded")) !== "true")
       await trigger.click();
     const field = contract.fieldMap[fieldKey];
-    const reference = input.getByRole(
-      field?.writeKind === "action_payload" ? "group" : "combobox",
-      { name: field?.label ?? "", exact: true },
-    );
+    const reference = input.getByRole("group", {
+      name: field?.label ?? "",
+      exact: true,
+    });
     await activateCandidateIdentities(reference, value);
     await input
       .getByRole("button", { name: "Apply references", exact: true })
@@ -563,11 +563,13 @@ async function setGenericCreateField(
   await input.fill(Array.isArray(value) ? value.join("\n") : value);
 }
 
-async function waitForGenericOption(page: Page, testId: string, value: string) {
+async function waitForReferenceCandidate(
+  page: Page,
+  testId: string,
+  value: string,
+) {
   const { candidates } = await openReferenceCandidates(page, testId, undefined);
   await expect(
-    candidates.locator(
-      `option[value="${value}"], option[value$=":${value}"], input[type="checkbox"][value="${value}"], input[type="checkbox"][value$=":${value}"]`,
-    ),
+    candidates.locator(`[value="${value}"], [value$=":${value}"]`),
   ).toHaveCount(1);
 }

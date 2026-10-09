@@ -60,6 +60,13 @@ The canonical Go module path is `github.com/JochiRaider/cartulary`. The pnpm
 workspace owns `apps/web` and shared packages. Tool versions live in
 `tools/toolchain_pins.json`; mirrored version text must pass drift validation.
 
+Staticcheck and gosec build from the isolated `tools/go-analysis` module so their
+export-data reader can follow the reviewed Go compiler without adding analysis
+dependencies to the application. `make bootstrap` reconciles that module and its
+Go-managed checksums. Ordinary tool builds use its locked graph in read-only
+mode; installation caches include both module files. Review tool-module changes
+alongside the machine pins, then run toolchain drift and the analysis checks.
+
 ### Go launcher, effective toolchain, and cache recovery
 
 The installed `GO` executable is a launcher; it is not necessarily the Go
@@ -74,12 +81,13 @@ The machine-state root defaults to `$XDG_CACHE_HOME/cartulary` when
 module, and temporary work state live below `go/build`, `go/mod`, and `go/tmp`.
 `make doctor` prints the exact resolved paths, filesystem, and available bytes.
 
-For the current Linux x86_64 profile, a Go 1.27.1 automatic-toolchain cache is
-recognized as corrupt when the following installation marker below the
-reported `GO_MOD_CACHE_DIR` is missing while the extracted directory exists:
+An automatic-toolchain cache is recognized as corrupt when its `src/_go.mod`
+installation marker is missing while the extracted directory exists. Use the
+exact version/platform entry reported by `make doctor`; the reviewed version is
+owned by `tools/toolchain_pins.json`, not this guide:
 
 ```text
-<GO_MOD_CACHE_DIR>/golang.org/toolchain@v0.0.1-go1.27.1.linux-amd64/src/_go.mod
+<GO_MOD_CACHE_DIR>/golang.org/toolchain@<reported-version-platform>/src/_go.mod
 ```
 
 This is launcher/cache readiness failure, not a failure of SQLC or another Go
@@ -92,10 +100,11 @@ pgrep -af '(^|/)(go|make)([[:space:]]|$)' || true
 
 quarantine_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-go-toolchain-quarantine.XXXXXX")"
 go_mod_cache_dir="<copy GO_MOD_CACHE_DIR from make doctor>"
+toolchain_module_version="<copy the exact v0.0.1-goVERSION.PLATFORM entry from make doctor>"
 mkdir -p "$quarantine_dir/cache-download"
-mv -- "$go_mod_cache_dir/golang.org/toolchain@v0.0.1-go1.27.1.linux-amd64" \
+mv -- "$go_mod_cache_dir/golang.org/toolchain@$toolchain_module_version" \
   "$quarantine_dir/"
-mv -- "$go_mod_cache_dir/cache/download/golang.org/toolchain/@v/v0.0.1-go1.27.1.linux-amd64.ziphash" \
+mv -- "$go_mod_cache_dir/cache/download/golang.org/toolchain/@v/$toolchain_module_version.ziphash" \
   "$quarantine_dir/cache-download/"
 printf 'quarantine: %s\n' "$quarantine_dir"
 ```

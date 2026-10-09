@@ -257,17 +257,23 @@ describe("Timeline related Evidence authoring", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose Collector Party" }),
     );
-    await screen.findByRole("option", { name: "First page" });
+    expect(
+      await screen.findByRole("radio", {
+        name: `First page (${authority.actorId})`,
+      }),
+    ).toHaveProperty("checked", false);
     expect(
       screen.getByRole("button", {
         name: "Remove selected Collector Party Earlier selection",
       }),
     ).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
-    await screen.findByRole("option", { name: "Second page" });
-    fireEvent.change(screen.getByLabelText("Collector Party"), {
-      target: { value: sourceId },
+    const secondPage = await screen.findByRole("radio", {
+      name: `Second page (${sourceId})`,
     });
+    fireEvent.click(secondPage);
+    expect(secondPage).toHaveProperty("checked", true);
+    expect(draft().values["evidence.collector_party_id"]).toBe(partyId);
     fireEvent.click(
       screen.getByRole("button", { name: "Cancel Party selection" }),
     );
@@ -278,10 +284,11 @@ describe("Timeline related Evidence authoring", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose Collector Party" }),
     );
-    await screen.findByRole("option", { name: "First page" });
-    fireEvent.change(screen.getByLabelText("Collector Party"), {
-      target: { value: authority.actorId },
-    });
+    fireEvent.click(
+      await screen.findByRole("radio", {
+        name: `First page (${authority.actorId})`,
+      }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Apply Party" }));
     expect(draft().values["evidence.collector_party_id"]).toBe(
       authority.actorId,

@@ -152,16 +152,25 @@ describe("ordinary workbook reference controls", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose incoming owner" }),
     );
-    const select = await screen.findByRole("combobox", {
-      name: "Incoming Owner",
+    const firstMember = await screen.findByRole("radio", {
+      name: `First member (${id})`,
     });
-    await screen.findByRole("option", { name: "First member" });
-    fireEvent.change(select, { target: { value: id } });
+    fireEvent.click(firstMember);
+    expect(firstMember).toHaveProperty("checked", true);
     expect(
       owner.getSnapshot().schemas[contract.viewSchemaId]?.draft.values,
     ).toEqual({});
     fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
-    await screen.findByRole("option", { name: "Second member" });
+    expect(
+      await screen.findByRole("radio", {
+        name: `Second member (${second})`,
+      }),
+    ).toHaveProperty("checked", false);
+    expect(
+      screen.getByRole("button", {
+        name: "Remove selected Incoming Owner First member",
+      }),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Apply references" }));
     expect(
       owner.getSnapshot().schemas[contract.viewSchemaId]?.draft.values[
@@ -207,7 +216,9 @@ describe("ordinary workbook reference controls", () => {
     );
     await screen.findByRole("button", { name: "Retry candidates" });
     fireEvent.click(screen.getByRole("button", { name: "Retry candidates" }));
-    await screen.findByRole("option", { name: "First member" });
+    await screen.findByRole("radio", {
+      name: `First member (${id})`,
+    });
     act(() => owner.suspend());
     expect(
       screen.queryByRole("button", { name: "Choose incoming owner" }),

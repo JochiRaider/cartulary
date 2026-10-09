@@ -1013,6 +1013,7 @@ function WorkbookShellContent({
                                         fallbackRef={activeSurfaceFocusRef}
                                       />
                                       <WorkbookShellTopBar
+                                        navigationReadable={navigationReadable}
                                         work={<WorkbookWorkControls />}
                                         commandSearch={
                                           <WorkbookCommandsControl />

@@ -75,6 +75,8 @@ copy_minimal_repo() {
     ln -s "${ROOT_DIR}/node_modules" "${dest}/node_modules"
   fi
   cp "${ROOT_DIR}/go.mod" "${dest}/go.mod"
+  mkdir -p "${dest}/tools/go-analysis"
+  cp "${ROOT_DIR}/tools/go-analysis/go.mod" "${dest}/tools/go-analysis/go.mod"
   mkdir -p "${dest}/internal/platform/cryptography"
   cp "${ROOT_DIR}/internal/platform/cryptography/execution.go" "${dest}/internal/platform/cryptography/execution.go"
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
@@ -258,7 +260,16 @@ mutate_package_manager() {
 }
 
 mutate_go_toolchain() {
-  replace_text "$1/go.mod" "toolchain $go_toolchain" "toolchain $go_toolchain_alt"
+  set_go_toolchain "$1/go.mod" "$go_toolchain_alt"
+}
+
+set_go_toolchain() {
+  "$NODE_BIN" - "$1" "$2" <<'EOF'
+const fs = require("node:fs");
+const [file, version] = process.argv.slice(2);
+const source = fs.readFileSync(file, "utf8").replace(/^toolchain\s+\S+\s*$/m, "");
+fs.writeFileSync(file, version ? `${source}\ntoolchain ${version}\n` : source);
+EOF
 }
 
 mutate_make_go_toolchain() {
@@ -281,6 +292,10 @@ mutate_gosec_tool() {
   replace_text "$1/Makefile" "GOSEC_TOOL := $gosec_tool" "GOSEC_TOOL := $gosec_tool_alt"
 }
 
+mutate_analysis_tool() {
+  replace_text "$1/tools/go-analysis/go.mod" "honnef.co/go/tools ${staticcheck_tool##*@}" "honnef.co/go/tools ${staticcheck_tool_alt##*@}"
+}
+
 mutate_shellcheck_version() {
   replace_text "$1/Makefile" "SHELLCHECK_VERSION ?= $shellcheck_version" "SHELLCHECK_VERSION ?= $shellcheck_version_alt"
 }
@@ -291,6 +306,13 @@ mutate_bootstrap_shellcheck_version() {
 }
 
 "$NODE_BIN" "$SCRIPT" --root "${ROOT_DIR}" >/dev/null
+toolchain_fixture="$(cartulary_harness_mktemp_dir "toolchain-pins-module.XXXXXX")"
+cleanup_paths+=("$toolchain_fixture")
+copy_minimal_repo "$toolchain_fixture"
+set_go_toolchain "$toolchain_fixture/go.mod" "$go_toolchain"
+"$NODE_BIN" "$SCRIPT" --root "$toolchain_fixture" >/dev/null
+set_go_toolchain "$toolchain_fixture/go.mod" ""
+"$NODE_BIN" "$SCRIPT" --root "$toolchain_fixture" >/dev/null
 assert_harness_scratch_rejects_repo_tmp
 
 mutate_application_base() {
@@ -329,6 +351,10 @@ expect_drift "govulncheck-tool" \
 expect_drift "gosec-tool" \
   "Makefile: GOSEC_TOOL mismatch: expected $gosec_tool, got $gosec_tool_alt" \
   mutate_gosec_tool
+
+expect_drift "analysis-tool" \
+  "tools/go-analysis/go.mod: honnef.co/go/tools mismatch" \
+  mutate_analysis_tool
 
 expect_drift "shellcheck-version" \
   "Makefile: SHELLCHECK_VERSION mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \

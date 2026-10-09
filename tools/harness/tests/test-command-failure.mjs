@@ -6,6 +6,7 @@ import path from "node:path";
 import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 import { createCommandFailureContext, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
 import { executeUnitProcess } from "../scheduler/work-graph/executor.mjs";
+import { WorkGraphCompiler, buildWorkGraph, runWorkGraph } from "../scheduler/work-graph/index.mjs";
 import { adaptShellInvocation } from "../execution/runners/shell.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
@@ -102,6 +103,69 @@ export function registerCommandFailureTests() {
       assert.equal(outcome.failure_reason, expected, JSON.stringify(outcome)); assert.equal(outcome.exit_code, exit);
     });
   }
+  test("Govulncheck causes survive Make and aggregate scheduling without cache reuse", { timeout: 60000 }, async (t) => {
+    const { scratch, runtime, environment, execute } = setup(t);
+    const compiler = new WorkGraphCompiler(root);
+    const canonical = compiler.compile({ kind: "target", target: "go-vulncheck" }).units.find((unit) => unit.unit_id === "target:go-vulncheck");
+    assert.deepEqual(compiler.compile({ kind: "aggregate", target: "check" }).units.find((unit) => unit.unit_id === canonical.unit_id), canonical, "direct and aggregate selection use the same scanner unit");
+    const fakeGo = path.join(scratch, "go");
+    const scanner = path.join(scratch, "govulncheck");
+    const payload = path.join(scratch, "scanner-output");
+    const invoked = path.join(scratch, "scanner-invoked");
+    const makefile = path.join(scratch, "Makefile");
+    writeFileSync(fakeGo, '#!/bin/sh\nprintf "%s\\n" github.com/JochiRaider/cartulary/cmd/server\nexit "${FAKE_GO_EXIT:-0}"\n', { mode: 0o700 });
+    writeFileSync(scanner, '#!/bin/sh\nprintf invoked >"$FAKE_SCANNER_INVOKED"\nif [ "$FAKE_SCANNER_CONFLICT" = 1 ]; then "$NODE_BIN" "$FAKE_DIAGNOSTIC_FIXTURE" conflict >&2; fi\ncat "$FAKE_SCANNER_OUTPUT"\nexit "$FAKE_SCANNER_EXIT"\n', { mode: 0o700 });
+    writeFileSync(makefile, `go-vulncheck:\n\t@bash "${root}/tools/harness/static-analysis/go-govulncheck.sh"\n`);
+    const config = { config: { protocol_version: "v1.0.0", scanner_name: "govulncheck", scanner_version: "v1.3.0", scan_level: "symbol", scan_mode: "source" } };
+    const finding = (reachability) => ({ finding: { osv: "GO-2099-0001", fixed_version: "v1.2.3", trace: [{ module: "example.com/vulnerable", version: "v1.2.2", ...(reachability !== "module" ? { package: "example.com/vulnerable" } : {}), ...(reachability === "symbol" ? { function: "Explode" } : {}) }] } });
+    const events = (...values) => values.map((value) => JSON.stringify(value)).join("\n");
+    const scenarios = [
+      { name: "clean", output: events(config) },
+      { name: "diagnostic", output: events(config, finding("module"), finding("package")), diagnostic: true },
+      { name: "blocking", output: events(config, finding("symbol")), failure: ["security", "security_finding", 1] },
+      { name: "blocking-nonzero", output: events(config, finding("symbol")), scannerExit: 3, failure: ["security", "security_finding", 1] },
+      { name: "malformed", output: "not-json", failure: ["artifact", "artifact_error", 11] },
+      { name: "missing-findings", output: "", failure: ["artifact", "artifact_error", 11] },
+      { name: "scanner-failure", output: events(config), scannerExit: 9, failure: ["harness", "tool_diagnostic_failure", 1] },
+      { name: "scanner-failure-no-output", output: "", scannerExit: 9, failure: ["harness", "tool_diagnostic_failure", 1] },
+      { name: "missing-tool", output: "", missingTool: true, failure: ["config", "configuration_error", 2] },
+      { name: "package-discovery-failure", output: "", goExit: 9, failure: ["harness", "tool_diagnostic_failure", 1] },
+      { name: "conflicting-diagnostics", output: events(config, finding("symbol")), conflict: true, failure: ["harness", "scheduler_accounting_error", 11] },
+    ];
+    for (const scenario of scenarios) {
+      writeFileSync(payload, scenario.output);
+      rmSync(invoked, { force: true });
+      const artifacts = path.join(scratch, scenario.name);
+      const unit = {
+        ...canonical, needs: [], cache_policy: "none", resource_claims: { cpu: 1 }, timeout_ms: 10000,
+        command: { executable: "make", args: ["--silent", "--no-print-directory", "-f", makefile, "go-vulncheck"], environment: {
+          CARTULARY_TEST_TARGET: "go-vulncheck", CARTULARY_HARNESS_CACHE_MODE: "off", NODE_BIN: process.execPath,
+          GO: fakeGo, GOVULNCHECK_BIN: scenario.missingTool ? path.join(scratch, "absent") : scanner,
+          GO_CACHE_DIR: path.join(scratch, "cache"), GO_MOD_CACHE_DIR: path.join(scratch, "modules"), GO_TMP_DIR: scratch,
+          CARTULARY_STEP_ARTIFACT_DIR: artifacts, FAKE_SCANNER_OUTPUT: payload, FAKE_SCANNER_INVOKED: invoked,
+          FAKE_SCANNER_EXIT: String(scenario.scannerExit ?? 0), FAKE_GO_EXIT: String(scenario.goExit ?? 0),
+          FAKE_SCANNER_CONFLICT: scenario.conflict ? "1" : "0", FAKE_DIAGNOSTIC_FIXTURE: fixture,
+        } },
+      };
+      const independent = { ...unit, unit_id: "target:independent", command: { executable: "true", args: [], environment: {} }, current_run_evidence_outputs: ["unit-results/target-independent.json"] };
+      const result = await runWorkGraph({ graph: buildWorkGraph([unit, independent]), capacities: new Map([["cpu", 1]]), cwd: root, environment, executeUnit: execute });
+      const outcome = result.unit_results[unit.unit_id];
+      assert.equal(result.unit_results[independent.unit_id].status, "passed", "independent aggregate work completes");
+      if (scenario.failure) {
+        assert.deepEqual([outcome.failure_class, outcome.failure_reason, outcome.exit_code], scenario.failure, `${scenario.name}: ${JSON.stringify(outcome)}`);
+        const failed = result.events.find((event) => event.unit_id === unit.unit_id && event.event === "failed");
+        assert.deepEqual([failed.failure_class, failed.failure_reason], scenario.failure.slice(0, 2), "aggregate projection journal preserves the cause");
+        assert.match(outcome.stderr, /Error (1|2|11)/u, "GNU Make wrapped the underlying failure");
+      } else assert.equal(outcome.status, "passed", `${scenario.name}: ${JSON.stringify(outcome)}`);
+      assert.equal(Boolean(lstatSync(invoked, { throwIfNoEntry: false })), !scenario.missingTool && !scenario.goExit, "fixtures execute freshly; discovery failures stop before scanning");
+      if (scenario.diagnostic) {
+        const findings = JSON.parse(readFileSync(path.join(artifacts, "govulncheck-findings.json")));
+        assert.equal(findings.counts.blocking_count, 0);
+        assert.deepEqual(findings.counts.reachability, { module: 1, package: 1, symbol: 0 });
+      }
+      assert.equal(readdirSync(runtime.root).some((name) => name.startsWith("command-failure-")), false, "each scanner invocation releases its private diagnostic channel");
+    }
+  });
   test("artifact diagnostic survives canonical row execution and removes private captures", { timeout: 15000 }, async (t) => {
     const { scratch, runtime, runRoot, execute } = setup(t);
     const shim = path.join(scratch, "make-probe");

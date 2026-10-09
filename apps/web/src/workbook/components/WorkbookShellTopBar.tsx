@@ -38,6 +38,7 @@ import {
   surfaceTabStyle,
   systemViewSlotStyle,
   tabStripStyle,
+  unavailableNavigationControlStyle,
 } from "../layout/workbookShellStyles";
 import type { WorkbookIncidentIdentity } from "../models/workbookIncidentIdentity";
 import {
@@ -67,6 +68,7 @@ type WorkbookShellTopBarProps = {
   readonly incidentIdentity: WorkbookIncidentIdentity | null;
   readonly incidentIdentityError: string | null;
   readonly layout: WorkbookLayoutSnapshot;
+  readonly navigationReadable: boolean;
   readonly networkAnalysisActive: boolean;
   readonly networkAnalysisAvailable: boolean;
   readonly onSelectNetworkAnalysis: () => void;
@@ -89,6 +91,7 @@ export function WorkbookShellTopBar({
   incidentIdentity,
   incidentIdentityError,
   layout,
+  navigationReadable,
   networkAnalysisActive,
   networkAnalysisAvailable,
   onSelectNetworkAnalysis,
@@ -96,6 +99,12 @@ export function WorkbookShellTopBar({
   surface,
 }: WorkbookShellTopBarProps) {
   const [surfacesMenuOpen, setSurfacesMenuOpen] = useState(false);
+  useLayoutEffect(() => {
+    if (!navigationReadable) setSurfacesMenuOpen(false);
+  }, [navigationReadable]);
+  const unavailableStyle = navigationReadable
+    ? undefined
+    : unavailableNavigationControlStyle;
   const surfacesMenuTriggerRef = useRef<HTMLButtonElement>(null);
   // Presentation focus only: never a second owner of workbook selection.
   const entrySurface =
@@ -238,6 +247,12 @@ export function WorkbookShellTopBar({
                   !networkAnalysisActive && surface === viewSchemaId;
                 return (
                   <button
+                    disabled={!navigationReadable}
+                    title={
+                      navigationReadable
+                        ? undefined
+                        : "Incident access is being checked."
+                    }
                     aria-selected={selected}
                     aria-controls={builtInWorkbookSurfacePanelId(viewSchemaId)}
                     id={surfaceTabTestId(viewSchemaId)}
@@ -312,6 +327,7 @@ export function WorkbookShellTopBar({
                     style={{
                       ...surfaceTabStyle,
                       ...(selected ? surfaceTabActiveStyle : null),
+                      ...unavailableStyle,
                     }}
                     type="button"
                   >
@@ -343,10 +359,16 @@ export function WorkbookShellTopBar({
                   surfacesMenuOpen ? workbookSurfacesMenuTestId() : undefined
                 }
                 aria-expanded={surfacesMenuOpen}
+                disabled={!navigationReadable}
+                title={
+                  navigationReadable
+                    ? undefined
+                    : "Incident access is being checked."
+                }
                 aria-haspopup="menu"
                 data-testid={workbookSurfacesMenuTriggerTestId()}
                 ref={surfacesMenuTriggerRef}
-                style={surfaceMenuTriggerStyle}
+                style={{ ...surfaceMenuTriggerStyle, ...unavailableStyle }}
                 type="button"
                 onClick={() => {
                   if (surfacesMenuOpen) {
@@ -403,6 +425,7 @@ export function WorkbookShellTopBar({
                       !networkAnalysisActive && surface === viewSchemaId;
                     return (
                       <button
+                        disabled={!navigationReadable}
                         aria-checked={selected}
                         data-testid={workbookSurfacesMenuOptionTestId(
                           viewSchemaId,
@@ -426,6 +449,7 @@ export function WorkbookShellTopBar({
                         style={{
                           ...surfacesMenuItemStyle,
                           ...(selected ? surfacesMenuItemSelectedStyle : null),
+                          ...unavailableStyle,
                         }}
                         tabIndex={surfacesMenuNavigation.tabIndexFor(
                           viewSchemaId,
@@ -449,6 +473,7 @@ export function WorkbookShellTopBar({
             }}
           >
             <SystemViewSwitcher
+              disabled={!navigationReadable}
               extension={
                 networkAnalysisAvailable
                   ? {

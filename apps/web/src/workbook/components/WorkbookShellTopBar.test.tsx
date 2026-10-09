@@ -45,6 +45,7 @@ function setup(
       showStatusPresence: false,
     },
     networkAnalysisActive: false,
+    navigationReadable: true,
     networkAnalysisAvailable: false,
     onSelectNetworkAnalysis: vi.fn(),
     onSelectSurface: vi.fn(),
@@ -115,7 +116,21 @@ describe("Workbook desktop surface selector", () => {
   });
 
   it("activates Enter Space and pointer exactly once and follows actual focus", async () => {
-    const h = setup();
+    const h = setup({
+      navigationReadable: false,
+      networkAnalysisAvailable: true,
+    });
+    for (const id of requiredBuiltInWorkbookSurfaceIds)
+      expect(tab(id).matches(":disabled")).toBe(true);
+    const moreViews = screen.getByRole("button", { name: "More views" });
+    expect(moreViews.matches(":disabled")).toBe(true);
+    await h.user.click(tab(hostsViewSchemaId));
+    await h.user.click(moreViews);
+    expect(h.props.onSelectSurface).not.toHaveBeenCalled();
+    expect(screen.queryByRole("menu")).toBeNull();
+    h.update({ navigationReadable: true });
+    for (const id of requiredBuiltInWorkbookSurfaceIds)
+      expect(tab(id).matches(":disabled")).toBe(false);
     await enter(h.user);
     await h.user.keyboard("{ArrowRight}{Enter}");
     expect(h.props.onSelectSurface).toHaveBeenCalledTimes(1);
@@ -143,6 +158,19 @@ describe("Workbook desktop surface selector", () => {
     await h.user.tab();
     await h.user.tab({ shift: true });
     expect(document.activeElement).toBe(tab(timelineViewSchemaId));
+    await h.user.click(moreViews);
+    expect(screen.getByRole("menu")).toBeTruthy();
+    h.update({ navigationReadable: false });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(moreViews.matches(":disabled")).toBe(true);
+    h.update({ navigationReadable: true });
+    expect(screen.queryByRole("menu")).toBeNull();
+    await h.user.click(moreViews);
+    await h.user.click(
+      screen.getByRole("menuitemradio", { name: "Network Analysis" }),
+    );
+    expect(h.props.onSelectNetworkAnalysis).toHaveBeenCalledTimes(1);
+    expect(h.props.onSelectSurface).toHaveBeenCalledTimes(3);
   });
 
   async function enterWithoutSelection(
@@ -189,6 +217,7 @@ describe("Workbook desktop surface selector", () => {
 
   it("dismisses compact navigation to its trigger and explicitly selects once", async () => {
     const h = setup({
+      navigationReadable: false,
       layout: {
         blockMode: "compact_height",
         chromeMode: "narrow_desktop",
@@ -196,8 +225,13 @@ describe("Workbook desktop surface selector", () => {
         showStatusPresence: false,
       },
     });
-    await enter(h.user);
     const trigger = screen.getByTestId(workbookSurfacesMenuTriggerTestId());
+    expect(trigger.matches(":disabled")).toBe(true);
+    await h.user.click(trigger);
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(h.props.onSelectSurface).not.toHaveBeenCalled();
+    h.update({ navigationReadable: true });
+    await enter(h.user);
     await h.user.keyboard("{Enter}{ArrowDown}{Escape}");
     expect(document.activeElement).toBe(trigger);
     expect(h.props.onSelectSurface).not.toHaveBeenCalled();
@@ -206,5 +240,22 @@ describe("Workbook desktop surface selector", () => {
     expect(h.props.onSelectSurface).toHaveBeenCalledWith(notesViewSchemaId, {
       focusFirstGridTarget: true,
     });
+    await h.user.click(trigger);
+    expect(screen.getByRole("menu")).toBeTruthy();
+    h.update({ navigationReadable: false });
+    expect(screen.queryByRole("menu")).toBeNull();
+    h.update({ navigationReadable: true });
+    expect(screen.queryByRole("menu")).toBeNull();
+    await h.user.click(trigger);
+    await h.user.click(
+      screen.getByTestId(workbookSurfacesMenuOptionTestId(hostsViewSchemaId)),
+    );
+    expect(h.props.onSelectSurface).toHaveBeenCalledTimes(2);
+    expect(h.props.onSelectSurface).toHaveBeenLastCalledWith(
+      hostsViewSchemaId,
+      {
+        focusFirstGridTarget: true,
+      },
+    );
   });
 });

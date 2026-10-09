@@ -105,7 +105,12 @@ export function ContextualReferenceControl({
                     <span>{id}</span>
                   </details>
                 ) : (
-                  <span style={workbookReferenceIdentityStyle}>{id}</span>
+                  <span
+                    data-generated-metadata="selected-reference-id"
+                    style={workbookReferenceIdentityStyle}
+                  >
+                    {id}
+                  </span>
                 )
               ) : null}
             </li>

@@ -32,7 +32,7 @@ export function normalizeMetadataDocument(rules: MetadataRule[]) {
   if (state.__cartularyMetadataOriginals)
     throw new Error("Nested visual normalization");
   const protectedSource =
-    '[data-grid-field-key]:not([data-grid-field-key="evidence.edited_at"]), [data-history-value], input, textarea, [contenteditable="true"], [data-source-value]';
+    '[data-history-value], input, textarea, [contenteditable="true"], [data-source-value]';
   const selected: Original[] = [];
   const receipt: {
     id: string;
@@ -70,12 +70,20 @@ export function normalizeMetadataDocument(rules: MetadataRule[]) {
           "read_only" &&
         metadataSurface !== undefined &&
         rule.target === `[data-generated-metadata="${metadataSurface}"]`;
-      const gridField = element
-        .closest("[data-grid-field-key]")
-        ?.getAttribute("data-grid-field-key");
+      const gridCell = element.closest("[data-grid-field-key]");
+      const gridField = gridCell?.getAttribute("data-grid-field-key");
+      // A draft cell may host a native chooser whose identity labels are
+      // generated metadata. Its input values and source labels stay protected.
+      const draftCandidateMetadata =
+        rule.target === '[data-generated-metadata="candidate-reference-id"]' &&
+        gridCell?.closest('[data-cartulary-grid-draft-row="true"]') &&
+        element.closest(
+          "[data-workbook-single-candidates], [data-workbook-multi-candidates]",
+        );
       if (
         (inspectorField && !inspectorMetadata) ||
-        (gridField &&
+        (gridCell &&
+          !draftCandidateMetadata &&
           (gridField !== "evidence.edited_at" ||
             rule.target !==
               '[data-generated-metadata="evidence-edited-at"]')) ||

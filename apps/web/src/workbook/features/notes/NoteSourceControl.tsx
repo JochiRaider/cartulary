@@ -65,7 +65,12 @@ export function NoteSourceControl({
             : "Selected reference"
           : "None (unlinked Note)"}
         {source && authority.canRead ? (
-          <span style={workbookReferenceIdentityStyle}>{source.recordId}</span>
+          <span
+            data-generated-metadata="selected-reference-id"
+            style={workbookReferenceIdentityStyle}
+          >
+            {source.recordId}
+          </span>
         ) : null}
       </span>
       <Button

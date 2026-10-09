@@ -2333,7 +2333,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
   await page
     .locator(`[data-inspector-edit-field="${"decision.affected_record_ids"}"]`)
     .click();
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericEditValueTestId(decisionsViewSchemaId),
     support.record_id as string,
@@ -2389,7 +2389,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
   await setGenericCreateField(page, "task.workstream", "forensics");
   await setGenericCreateField(page, "task.due_at", dueAt);
   await setGenericCreateField(page, "task.external_ticket_ref", "SOC-E906");
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("task.decision_record_id"),
     supersedingDecision.record_id as string,
@@ -2399,7 +2399,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
     "task.decision_record_id",
     supersedingDecision.record_id as string,
   );
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("task.linked_record_ids"),
     support.record_id as string,
@@ -2723,7 +2723,7 @@ test("coordination workbook workflows stay native", async ({
     "comm_log.summary",
     "coordination-review log",
   );
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("comm_log.decision_ids"),
     decision.record_id as string,
@@ -2734,7 +2734,7 @@ test("coordination workbook workflows stay native", async ({
     "comm_log.decision_ids",
     decision.record_id as string,
   );
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("comm_log.action_task_ids"),
     task.record_id as string,
@@ -2745,7 +2745,7 @@ test("coordination workbook workflows stay native", async ({
     "comm_log.action_task_ids",
     task.record_id as string,
   );
-  await waitForGenericOption(
+  await waitForReferenceCandidate(
     page,
     genericCreateFieldTestId("comm_log.audience_party_ids"),
     party.record_id as string,
@@ -3709,9 +3709,10 @@ async function createFromTimelineWorkflow(
           exact: true,
         })
         .click();
-      await page
-        .getByTestId(genericCreateFieldTestId(fieldKey))
-        .selectOption(value);
+      await activateCandidateIdentities(
+        page.getByTestId(genericCreateFieldTestId(fieldKey)),
+        value,
+      );
       await page
         .getByRole("button", { name: "Apply references", exact: true })
         .click();
@@ -3811,10 +3812,10 @@ async function setGenericCreateField(
         .getByRole("button", { name: /^Choose /u })
         .first()
         .click();
-    const choices = input.locator("[data-workbook-multi-candidates]");
-    if (await choices.count())
-      await activateCandidateIdentities(choices, value);
-    else await input.locator("select").last().selectOption(value);
+    const choices = input.locator(
+      "[data-workbook-single-candidates], [data-workbook-multi-candidates]",
+    );
+    await activateCandidateIdentities(choices, value);
     await input
       .getByRole("button", { name: "Apply references", exact: true })
       .click();
@@ -3864,7 +3865,7 @@ async function editExtendedSurfaceCell(
   await submitGenericEditAndWait(page, viewSchemaId, recordId);
 }
 
-async function waitForGenericOption(
+async function waitForReferenceCandidate(
   page: Page,
   testId: string,
   value: string,
@@ -3876,7 +3877,7 @@ async function waitForGenericOption(
     referenceView,
   );
   await expect(
-    candidates.locator(`option[value="${value}"], option[value$=":${value}"]`),
+    candidates.locator(`[value="${value}"], [value$=":${value}"]`),
   ).toHaveCount(1);
 }
 

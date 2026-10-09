@@ -4,8 +4,9 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
 } from "@cartulary/ui-contracts";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
+import { unavailableNavigationControlStyle } from "../layout/workbookShellStyles";
 import { listSystemWorkbookSurfaceGroups } from "../models/workbookSurfaceRegistry";
 
 const systemWorkbookSurfaceGroups = listSystemWorkbookSurfaceGroups();
@@ -19,6 +20,7 @@ const systemViewSwitcherEntries = systemWorkbookSurfaceGroups.flatMap((group) =>
 
 export function SystemViewSwitcher({
   activeViewSchemaId,
+  disabled,
   onSelect,
   extension,
 }: {
@@ -32,9 +34,16 @@ export function SystemViewSwitcher({
       }
     | undefined;
   readonly activeViewSchemaId: string;
+  readonly disabled: boolean;
   readonly onSelect: (viewSchemaId: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  useLayoutEffect(() => {
+    if (disabled) setIsOpen(false);
+  }, [disabled]);
+  const unavailableStyle = disabled
+    ? unavailableNavigationControlStyle
+    : undefined;
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const activeSystemEntryIndex = systemViewSwitcherEntries.findIndex(
     (entry) => entry.viewSchemaId === activeViewSchemaId,
@@ -67,6 +76,7 @@ export function SystemViewSwitcher({
 
   return (
     <fieldset
+      disabled={disabled}
       aria-label="System view switcher"
       data-grid-editor-external-action="true"
       style={systemViewSwitcherStyle}
@@ -81,7 +91,8 @@ export function SystemViewSwitcher({
         data-active={activeSystemEntry === null ? "false" : "true"}
         data-testid={systemViewSwitcherTriggerTestId()}
         data-view-schema-id={activeSystemEntry?.viewSchemaId ?? ""}
-        style={systemViewSwitcherTriggerStyle}
+        style={{ ...systemViewSwitcherTriggerStyle, ...unavailableStyle }}
+        title={disabled ? "Incident access is being checked." : undefined}
         type="button"
         onClick={() => {
           if (isOpen) {
@@ -144,6 +155,7 @@ export function SystemViewSwitcher({
                       ...(isSelected
                         ? systemViewSwitcherOptionSelectedStyle
                         : null),
+                      ...unavailableStyle,
                     }}
                     tabIndex={navigation.tabIndexFor(entry.viewSchemaId)}
                     type="button"
@@ -178,7 +190,10 @@ export function SystemViewSwitcher({
                 data-testid={extension.testId}
                 ref={navigation.registerItem(extension.id)}
                 tabIndex={navigation.tabIndexFor(extension.id)}
-                style={systemViewSwitcherOptionStyle}
+                style={{
+                  ...systemViewSwitcherOptionStyle,
+                  ...unavailableStyle,
+                }}
                 onClick={() => {
                   navigation.close({ restoreTriggerFocus: false });
                   extension.open();

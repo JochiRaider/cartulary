@@ -21,18 +21,24 @@ fake_run_step="$TMP_DIR/run-step.sh"
 output="$TMP_DIR/server-harness"
 args_log="$TMP_DIR/go-args.log"
 # Use the real pinned archive for verification; fake only compilation and metadata.
-export FAKE_GO_ROOT
+pin_identity="$("${NODE_BIN:?}" --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  const pins = JSON.parse(readFileSync(process.argv[1], "utf8"));
+  console.log(pins.go_toolchain, pins.cryptographic_module.selector);
+' "$ROOT_DIR/tools/toolchain_pins.json")"
+read -r FAKE_GO_TOOLCHAIN FAKE_GO_MODULE_SELECTOR <<<"$pin_identity"
+export FAKE_GO_ROOT FAKE_GO_TOOLCHAIN FAKE_GO_MODULE_SELECTOR
 FAKE_GO_ROOT="$("${GO:-go}" env GOROOT)"
 
 cat >"$fake_go" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "${1:-}" == "env" ]]; then
-  printf '{"GOROOT":"%s","GOVERSION":"go1.27.1","GOFIPS140":"%s"}\n' "$FAKE_GO_ROOT" "${GOFIPS140:-}"
+  printf '{"GOROOT":"%s","GOVERSION":"%s","GOFIPS140":"%s"}\n' "$FAKE_GO_ROOT" "$FAKE_GO_TOOLCHAIN" "${GOFIPS140:-}"
   exit 0
 fi
 if [[ "${1:-}" == "version" ]]; then
-  printf '{"GoVersion":"go1.27.1","Settings":[{"Key":"GOFIPS140","Value":"v1.0.0-c2097c7c"}]}\n'
+  printf '{"GoVersion":"%s","Settings":[{"Key":"GOFIPS140","Value":"%s"}]}\n' "$FAKE_GO_TOOLCHAIN" "$FAKE_GO_MODULE_SELECTOR"
   exit 0
 fi
 printf '%s\n' "$@" >"${FAKE_GO_ARGS_LOG:?}"
@@ -64,7 +70,7 @@ chmod +x "$fake_go" "$fake_run_step"
 FAKE_GO_ARGS_LOG="$args_log" \
 FAKE_GO_ENV_LOG="$TMP_DIR/go-env.log" \
 GO="$fake_go" \
-GOFIPS140=v1.0.0-c2097c7c \
+GOFIPS140="$FAKE_GO_MODULE_SELECTOR" \
 GO_BUILD_TAGS="cartulary_harness" \
 BUILD_OUTPUT="$output" \
 BUILD_PACKAGE="./cmd/server" \
@@ -78,7 +84,7 @@ GO_TMP_DIR="$TMP_DIR/go-tmp" \
 
 [[ -f "$output" ]] || fail "build helper did not create the declared output"
 [[ -f "$output.crypto.json" ]] || fail "build helper did not create the build identity receipt"
-grep -Fq '"selector": "v1.0.0-c2097c7c"' "$output.crypto.json" || fail "pinned receipt omitted identity"
+grep -Fq "\"selector\": \"$FAKE_GO_MODULE_SELECTOR\"" "$output.crypto.json" || fail "pinned receipt omitted identity"
 if GO="$fake_go" GOFIPS140=off "${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs verify >"$TMP_DIR/rejected.log" 2>&1; then
   fail "ordinary build was admitted"
 fi

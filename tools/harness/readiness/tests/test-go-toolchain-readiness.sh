@@ -48,6 +48,12 @@ make_fake_go() {
   cat >"$dir/go" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "\${1:-}" == "-C" ]]; then
+  printf '%s\\n' "\$*" >"${dir}/module-install.log"
+  cd "\$2"
+  shift 2
+  [[ "\${1:-}" == install && "\${2:-}" == -mod=readonly && "\${3:-}" == example.invalid/fake-tool ]] || exit 98
+fi
 if [[ "\${1:-}" == "env" && "\${2:-}" == "GOOS" && "\${3:-}" == "GOARCH" ]]; then
   printf 'linux\namd64\n'
   exit 0
@@ -274,6 +280,22 @@ GO_MOD_CACHE_DIR="$bootstrap_success_dir/cache/mod" \
 RUN_STEP_SCRIPT="$run_step" \
   "$BOOTSTRAP_SCRIPT"
 assert_file_contents "$bootstrap_success_dir/toolbin/fake-tool-v1" "go1.27.1" "successful bootstrap replaces output"
+mkdir -p "$bootstrap_success_dir/analysis-module"
+GO="$bootstrap_success_dir/bin/go" \
+GO_TOOLCHAIN=go1.27.1 \
+TOOLBIN_DIR="$bootstrap_success_dir/toolbin" \
+TOOL_OUTPUT="$bootstrap_success_dir/toolbin/fake-tool-v1" \
+TOOL_MODULE=example.invalid/fake-tool@v1 \
+TOOL_BUILD_MODULE_DIR="$bootstrap_success_dir/analysis-module" \
+TOOL_BINARY_NAME=fake-tool \
+GO_CACHE_DIR="$bootstrap_success_dir/cache/build" \
+GO_MOD_CACHE_DIR="$bootstrap_success_dir/cache/mod" \
+GO_TMP_DIR="$bootstrap_success_dir/cache/tmp" \
+RUN_STEP_SCRIPT="$run_step" \
+  "$BOOTSTRAP_SCRIPT"
+assert_file_contents "$bootstrap_success_dir/bin/module-install.log" \
+  "-C $bootstrap_success_dir/analysis-module install -mod=readonly example.invalid/fake-tool" \
+  "module-backed installation uses the locked graph without changing it"
 if find "$bootstrap_success_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '.fake-tool.install.*' | grep -q .; then
   fail "successful bootstrap left a staging directory"
 fi

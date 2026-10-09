@@ -245,7 +245,7 @@ function checkGoMod(root, mismatches, expected) {
     file,
     "toolchain",
     expected.goToolchain,
-    matchLine(goMod, /^toolchain\s+(\S+)\s*$/m),
+    matchLine(goMod, /^toolchain\s+(\S+)\s*$/m) ?? `go${matchLine(goMod, /^go\s+(\S+)\s*$/m)}`,
   );
   checkEqual(
     mismatches,
@@ -301,6 +301,15 @@ function main() {
   checkMakefile(root, mismatches, expected);
   checkPackageJson(root, mismatches, expected);
   checkGoMod(root, mismatches, expected);
+  const analysisFile = "tools/go-analysis/go.mod";
+  const analysisModule = readRepoFile(root, analysisFile);
+  checkEqual(mismatches, analysisFile, "go", expected.goVersion, matchLine(analysisModule, /^go (\S+)$/m));
+  for (const tool of [expected.staticcheckTool, expected.gosecTool]) {
+    const [pkg, version] = tool.split("@");
+    const module = pkg.replace(/\/cmd\/[^/]+$/u, "");
+    const escaped = module.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    checkEqual(mismatches, analysisFile, module, version, matchLine(analysisModule, new RegExp(`^\\s*${escaped} (\\S+)`, "m")));
+  }
   const cryptoFile = "internal/platform/cryptography/execution.go";
   const cryptoSource = readRepoFile(root, cryptoFile);
   for (const [name, value] of Object.entries({ Toolchain: expected.goToolchain, ModuleVersion: expected.cryptographicModule.service_version, ModuleSelector: expected.cryptographicModule.selector, ModuleArchiveSHA256: expected.cryptographicModule.archive_sha256 })) {

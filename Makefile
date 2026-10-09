@@ -7,7 +7,7 @@ include tools/workspace_layout.generated.mk
 .SECONDEXPANSION:
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
-override GO_TOOLCHAIN := go1.27.1
+override GO_TOOLCHAIN := go1.27.2
 GOFIPS140 ?= v1.0.0-c2097c7c
 export GOFIPS140
 ifeq ($(CARTULARY_PREPARATION_POLICY),installed_only)
@@ -40,9 +40,9 @@ OPERATOR_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/operator
 TOOLBIN_DIR ?= $(CURDIR)/$(LAYOUT_TOOLBIN)
 SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
-STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.8.0-rc.1
+STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.8.1
 GOVULNCHECK_BIN ?= $(TOOLBIN_DIR)/govulncheck-v1.3.0
-GOSEC_BIN ?= $(TOOLBIN_DIR)/gosec-v2.26.1
+GOSEC_BIN ?= $(TOOLBIN_DIR)/gosec-v2.29.0
 CYCLONEDX_GOMOD_BIN ?= $(TOOLBIN_DIR)/cyclonedx-gomod-v1.10.0
 SYFT_BIN ?= $(TOOLBIN_DIR)/syft-v1.44.0
 SHELLCHECK_VERSION ?= 0.11.0
@@ -137,9 +137,9 @@ endif
 
 SQLC_TOOL := github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
 GOOSE_TOOL := github.com/pressly/goose/v3/cmd/goose@v3.27.0
-STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.8.0-rc.1
+STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.8.1
 GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.0
-GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.1
+GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.29.0
 CYCLONEDX_GOMOD_TOOL := github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
 SYFT_TOOL := github.com/anchore/syft/cmd/syft@v1.44.0
 TESTCONTAINERS_GO_VERSION := v0.42.0
@@ -192,13 +192,13 @@ $(GOOSE_BIN): FORCE go-toolchain-readiness Makefile tools/harness/readiness/boot
 	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-goose --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(GOOSE_BIN)" --key "tool=$(GOOSE_TOOL)" --key "binary=goose" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOOSE_BIN)" TOOL_MODULE="$(GOOSE_TOOL)" TOOL_BINARY_NAME="goose" TOOL_LABEL="bootstrap goose tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
 
 $(STATICCHECK_BIN): FORCE go-toolchain-readiness Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-staticcheck --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(STATICCHECK_BIN)" --key "tool=$(STATICCHECK_TOOL)" --key "binary=staticcheck" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(STATICCHECK_BIN)" TOOL_MODULE="$(STATICCHECK_TOOL)" TOOL_BINARY_NAME="staticcheck" TOOL_LABEL="bootstrap staticcheck tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-staticcheck --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input tools/go-analysis/go.mod --input tools/go-analysis/go.sum --output "$(STATICCHECK_BIN)" --key "tool=$(STATICCHECK_TOOL)" --key "binary=staticcheck" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(STATICCHECK_BIN)" TOOL_BUILD_MODULE_DIR="$(CURDIR)/tools/go-analysis" TOOL_MODULE="$(STATICCHECK_TOOL)" TOOL_BINARY_NAME="staticcheck" TOOL_LABEL="bootstrap staticcheck tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
 
 $(GOVULNCHECK_BIN): FORCE go-toolchain-readiness Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
 	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-govulncheck --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(GOVULNCHECK_BIN)" --key "tool=$(GOVULNCHECK_TOOL)" --key "binary=govulncheck" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOVULNCHECK_BIN)" TOOL_MODULE="$(GOVULNCHECK_TOOL)" TOOL_BINARY_NAME="govulncheck" TOOL_LABEL="bootstrap govulncheck tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
 
 $(GOSEC_BIN): FORCE go-toolchain-readiness Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
-	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-gosec --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(GOSEC_BIN)" --key "tool=$(GOSEC_TOOL)" --key "binary=gosec" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOSEC_BIN)" TOOL_MODULE="$(GOSEC_TOOL)" TOOL_BINARY_NAME="gosec" TOOL_LABEL="bootstrap gosec tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-gosec --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input tools/go-analysis/go.mod --input tools/go-analysis/go.sum --output "$(GOSEC_BIN)" --key "tool=$(GOSEC_TOOL)" --key "binary=gosec" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOSEC_BIN)" TOOL_BUILD_MODULE_DIR="$(CURDIR)/tools/go-analysis" TOOL_MODULE="$(GOSEC_TOOL)" TOOL_BINARY_NAME="gosec" TOOL_LABEL="bootstrap gosec tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh
 
 $(CYCLONEDX_GOMOD_BIN): FORCE go-toolchain-readiness Makefile tools/harness/readiness/bootstrap-go-tool.sh $(BOOTSTRAP_GO_TOOL_IMPL) $(GO_TOOLCHAIN_READINESS_IMPL) $(CACHE_ARTIFACT_SCRIPT)
 	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile go-tool-cyclonedx-gomod --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-go-tool.sh --input $(BOOTSTRAP_GO_TOOL_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --output "$(CYCLONEDX_GOMOD_BIN)" --key "tool=$(CYCLONEDX_GOMOD_TOOL)" --key "binary=cyclonedx-gomod" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(CYCLONEDX_GOMOD_BIN)" TOOL_MODULE="$(CYCLONEDX_GOMOD_TOOL)" TOOL_BINARY_NAME="cyclonedx-gomod" TOOL_LABEL="bootstrap cyclonedx-gomod tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/readiness/bootstrap-go-tool.sh

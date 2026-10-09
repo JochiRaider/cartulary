@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	Toolchain           = "go1.27.1"
+	Toolchain           = "go1.27.2"
 	ModuleVersion       = "v1.0.0"
 	ModuleSelector      = "v1.0.0-c2097c7c"
 	ModuleArchiveSHA256 = "daf3614e0406f67ae6323c902db3f953a1effb199142362a039e7526dfb9368b"

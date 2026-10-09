@@ -262,6 +262,96 @@ test("rich Timeline recipe preserves owner states and source text during capture
     page.evaluate(normalizeMetadataDocument, [rule]),
   ).rejects.toThrow("source overlap");
   await page.locator("#metadata-regression").evaluate((node) => node.remove());
+  const candidateRule = {
+    id: "candidate-reference-id",
+    target: '[data-generated-metadata="candidate-reference-id"]',
+    expected_count: 1,
+    replacement: "00000000-0000-0000-0000-000000000001",
+  };
+  for (const mode of [
+    "single",
+    "multi",
+    "committed",
+    "empty-committed",
+    "outside-chooser",
+    "source-value",
+    "input",
+  ]) {
+    await page.evaluate(
+      ({ mode, authored }) => {
+        const fixture = document.createElement("section");
+        fixture.id = "candidate-metadata-regression";
+        fixture.innerHTML = `<div data-cartulary-grid-draft-row="true">
+          <span data-grid-field-key="handoff.incoming_owner_user_id">
+            <fieldset data-workbook-single-candidates>
+              <label><input type="radio" checked>
+                <span data-source-value></span>
+                <span data-generated-metadata="candidate-reference-id">generated-identity</span>
+              </label>
+            </fieldset>
+          </span>
+        </div>`;
+        const chooser = fixture.querySelector("fieldset");
+        const identity = fixture.querySelector("[data-generated-metadata]");
+        const input = fixture.querySelector("input");
+        const source = fixture.querySelector("[data-source-value]");
+        const cell = fixture.querySelector("[data-grid-field-key]");
+        const row = fixture.firstElementChild;
+        if (!chooser || !identity || !input || !source || !cell || !row)
+          throw new Error("Missing candidate normalization fixture");
+        input.value = authored;
+        source.textContent = authored;
+        if (mode === "multi") {
+          chooser.removeAttribute("data-workbook-single-candidates");
+          chooser.setAttribute("data-workbook-multi-candidates", "");
+          input.type = "checkbox";
+        }
+        if (mode === "committed" || mode === "empty-committed")
+          row.removeAttribute("data-cartulary-grid-draft-row");
+        if (mode === "empty-committed")
+          cell.setAttribute("data-grid-field-key", "");
+        if (mode === "outside-chooser")
+          chooser.removeAttribute("data-workbook-single-candidates");
+        if (mode === "source-value")
+          identity.setAttribute("data-source-value", "");
+        if (mode === "input") {
+          identity.removeAttribute("data-generated-metadata");
+          input.setAttribute(
+            "data-generated-metadata",
+            "candidate-reference-id",
+          );
+        }
+        document.body.append(fixture);
+      },
+      { mode, authored },
+    );
+    const fixture = page.locator("#candidate-metadata-regression");
+    try {
+      if (mode === "single" || mode === "multi") {
+        await page.evaluate(normalizeMetadataDocument, [candidateRule]);
+        await expect(fixture.locator(candidateRule.target)).toHaveText(
+          candidateRule.replacement,
+        );
+        await expect(fixture.locator("[data-source-value]")).toHaveText(
+          authored,
+        );
+        await expect(fixture.locator("input")).toHaveValue(authored);
+        await expect(fixture.locator("input")).toBeChecked();
+        await page.evaluate(restoreMetadataDocument);
+        await expect(fixture.locator(candidateRule.target)).toHaveText(
+          "generated-identity",
+        );
+      } else {
+        await expect(
+          page.evaluate(normalizeMetadataDocument, [candidateRule]),
+        ).rejects.toThrow("source overlap");
+        await expect(fixture.locator("input")).toHaveValue(authored);
+      }
+    } finally {
+      await page.evaluate(restoreMetadataDocument);
+      await fixture.evaluate((node) => node.remove());
+    }
+  }
   await openTimelineInspector(page, first);
   const analyst = page.locator(
     '[data-inspector-saved-field="timeline.analyst_text"] [data-inspector-field-value] > div[id]',

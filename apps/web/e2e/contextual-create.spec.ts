@@ -461,14 +461,18 @@ async function choose(
     await picker
       .getByRole("combobox", { name: "Reference surface", exact: true })
       .selectOption(surface);
-  const select = picker.getByRole(
+  const candidates = picker.getByRole("group", {
+    name: fieldLabel(target, field),
+    exact: true,
+  });
+  const candidate = candidates.getByRole(
     requireViewContract(target).fieldMap[field]?.readKind === "collection"
-      ? "listbox"
-      : "combobox",
-    { name: fieldLabel(target, field), exact: true },
+      ? "checkbox"
+      : "radio",
+    { name: new RegExp(`\\(${id}\\)$`, "u") },
   );
-  await expect(select).toBeEnabled();
-  await select.selectOption(id);
+  await expect(candidate).toBeEnabled();
+  await candidate.check();
   await picker
     .getByRole("button", { name: "Cancel references", exact: true })
     .click();
@@ -482,8 +486,8 @@ async function choose(
     await picker
       .getByRole("combobox", { name: "Reference surface", exact: true })
       .selectOption(surface);
-  await expect(select).toBeEnabled();
-  await select.selectOption(id);
+  await expect(candidate).toBeEnabled();
+  await candidate.check();
   await picker
     .getByRole("button", { name: "Apply references", exact: true })
     .click();

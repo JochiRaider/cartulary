@@ -40,6 +40,26 @@ resolve_node_bin() {
   return 1
 }
 
+node_bin="$(resolve_node_bin || true)"
+
+# The scanner owner publishes the cause; Make's executor status is not a
+# security verdict. The graph parent owns the canonical result and cleanup.
+fail_with() {
+  local failure_class="$1" failure_reason="$2" exit_code="$3"
+  if [[ -n "$node_bin" ]] && ! "$node_bin" "$ROOT_DIR/tools/harness/runtime/command-failure-cli.mjs" "$failure_class" "$failure_reason"; then
+    failure_class=harness
+    failure_reason=scheduler_accounting_error
+    exit_code=11
+  fi
+  printf 'failure_class=%s failure_reason=%s exit_code=%s\n' "$failure_class" "$failure_reason" "$exit_code" >&2
+  exit "$exit_code"
+}
+
+if [[ -z "$node_bin" ]]; then
+  echo "go-vulncheck requires node to parse Govulncheck JSON findings" >&2
+  fail_with config configuration_error 2
+fi
+
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then
   GO_BIN="$(command -v "$GO_BIN")"
 elif [[ "$GO_BIN" != /* ]]; then
@@ -48,7 +68,7 @@ fi
 
 if [[ ! -x "$GO_BIN" ]]; then
   echo "go-vulncheck requires an executable GO at $GO_BIN" >&2
-  exit 1
+  fail_with config configuration_error 2
 fi
 
 if [[ "$GOVULNCHECK_BIN" != */* ]] && command -v "$GOVULNCHECK_BIN" >/dev/null 2>&1; then
@@ -60,7 +80,7 @@ fi
 if [[ ! -x "$GOVULNCHECK_BIN" ]]; then
   echo "go-vulncheck requires an executable GOVULNCHECK_BIN at $GOVULNCHECK_BIN" >&2
   echo "run make go-security-toolchain before go-vulncheck or set GOVULNCHECK_BIN to a ready govulncheck binary" >&2
-  exit 1
+  fail_with config configuration_error 2
 fi
 
 cd "$ROOT_DIR"
@@ -75,21 +95,24 @@ if [[ -n "$GOVULNCHECK_FLAGS" ]]; then
 fi
 if [[ -z "$GOVULNCHECK_PATTERNS" ]]; then
   echo "go-vulncheck requires at least one GOVULNCHECK_PATTERNS entry" >&2
-  exit 1
+  fail_with config configuration_error 2
 fi
 read -r -a patterns <<<"$GOVULNCHECK_PATTERNS"
 
-mapfile -t packages < <(
+if ! package_output="$(
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
   GOTMPDIR="$GO_TMP_DIR" \
-    "$GO_BIN" list "${patterns[@]}" |
-    cartulary_filter_authored_go_packages
-)
+    "$GO_BIN" list "${patterns[@]}"
+)"; then
+  echo "go-vulncheck package discovery failed" >&2
+  fail_with harness tool_diagnostic_failure 1
+fi
+mapfile -t packages < <(printf '%s\n' "$package_output" | cartulary_filter_authored_go_packages)
 
-if [[ "${#packages[@]}" -eq 0 ]]; then
+if [[ "${#packages[@]}" -eq 0 || -z "${packages[*]}" ]]; then
   echo "go-vulncheck package discovery returned no authored packages" >&2
-  exit 1
+  fail_with harness tool_diagnostic_failure 1
 fi
 
 tmp_dir=""
@@ -116,15 +139,6 @@ set -e
 
 cat "$raw_output"
 
-node_bin="$(resolve_node_bin || true)"
-if [[ -z "$node_bin" ]]; then
-  echo "go-vulncheck requires node to parse Govulncheck JSON findings" >&2
-  if [[ "$scan_status" -ne 0 ]]; then
-    exit "$scan_status"
-  fi
-  exit 1
-fi
-
 set +e
 "$node_bin" "$ROOT_DIR/tools/harness/static-analysis/govulncheck-findings.mjs" \
   --input "$raw_output" \
@@ -135,17 +149,17 @@ set -e
 case "$findings_status" in
   0)
     if [[ "$scan_status" -ne 0 ]]; then
-      exit "$scan_status"
+      fail_with harness tool_diagnostic_failure 1
     fi
     exit 0
     ;;
   1)
-    exit 1
+    fail_with security security_finding 1
     ;;
   *)
     if [[ "$scan_status" -ne 0 ]]; then
-      exit "$scan_status"
+      fail_with harness tool_diagnostic_failure 1
     fi
-    exit 1
+    fail_with artifact artifact_error 11
     ;;
 esac

@@ -189,6 +189,11 @@ export const surfaceTabActiveStyle = {
   borderBottomColor: "var(--ct-colors-accent)",
 };
 
+export const unavailableNavigationControlStyle = {
+  color: "var(--ct-component-button-quiet-disabledTextColor)",
+  cursor: "not-allowed",
+};
+
 export const systemViewSlotStyle = {
   display: "inline-flex",
   alignItems: "center",

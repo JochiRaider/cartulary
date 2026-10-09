@@ -3163,6 +3163,13 @@ describe("WorkbookShell surface selection", () => {
       );
       expect(runtime.sessionNavigation.getSnapshot().pins).toEqual([]);
       expect(screen.queryByTestId(workbookNavigationStatusTestId())).toBeNull();
+      const hostsTab = screen.getByTestId(surfaceTabTestId(hostsViewSchemaId));
+      const moreViews = screen.getByTestId(systemViewSwitcherTriggerTestId());
+      expect(hostsTab.matches(":disabled")).toBe(true);
+      expect(moreViews.matches(":disabled")).toBe(true);
+      const attempt = runtime.sessionNavigation.getSnapshot().attemptId;
+      fireEvent.click(hostsTab);
+      expect(runtime.sessionNavigation.getSnapshot().attemptId).toBe(attempt);
       await act(async () => pending.resolve("changed"));
       expect(await navigation).toBe(false);
       expect(runtime.sessionNavigation.getSnapshot().trail).toEqual([]);
@@ -3171,6 +3178,14 @@ describe("WorkbookShell surface selection", () => {
         expect(runtime.sessionNavigation.getSnapshot().pins).toHaveLength(1),
       );
       expect(runtime.sessionNavigation.getSnapshot().readable).toBe(true);
+      // Closure is read-only, not an access failure: recovered navigation works.
+      expect(hostsTab.matches(":disabled")).toBe(false);
+      expect(moreViews.matches(":disabled")).toBe(false);
+      fireEvent.click(hostsTab);
+      await screen.findByTestId(gridShellTestId(hostsViewSchemaId));
+      expect(runtime.sessionNavigation.getSnapshot().attemptId).toBe(
+        attempt + 1,
+      );
       await act(async () => {
         if (retirement === "account")
           runtime.setAuthority({

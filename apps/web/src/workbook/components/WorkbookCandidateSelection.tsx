@@ -144,7 +144,10 @@ export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
                 ? "Selected reference"
                 : item.displayText || item.recordId}{" "}
               {!multiple && !hidden ? (
-                <span style={workbookReferenceIdentityStyle}>
+                <span
+                  data-generated-metadata="selected-reference-id"
+                  style={workbookReferenceIdentityStyle}
+                >
                   {item.recordId}
                 </span>
               ) : null}

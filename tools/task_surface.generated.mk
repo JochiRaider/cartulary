@@ -176,7 +176,8 @@
   package-release \
   package-inspect \
   syft-toolchain \
-  test-run-status
+  test-run-status \
+  go-analysis-dependencies
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -411,7 +412,7 @@ bootstrap:
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-bootstrap}" $(RUN_STEP_SCRIPT) "bootstrap" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env GO=$(GO) GO_TOOLCHAIN=$(GO_TOOLCHAIN) bash ./tools/harness/readiness/install-go-dependencies.sh
 
 bootstrap-tool-installations: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-bootstrap-tool-installations: frontend-install
+bootstrap-tool-installations: frontend-install go-analysis-dependencies
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(MAKE) --no-print-directory $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) $(SHELLCHECK_BIN) playwright-install
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -1928,4 +1929,8 @@ test-run-status:
 	$(Q)test -x "$(NODE_BIN)" || { echo "[CONFIG] test-run-status requires the installed Node runtime" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-run-status)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,test-run-status,RESULTS_DIR=$(call task_surface_shell_quote_raw,RESULTS_DIR) RUN_ID=$(call task_surface_shell_quote_raw,RUN_ID) TARGET=$(call task_surface_shell_quote_raw,TARGET) JSON=$(call task_surface_shell_quote_raw,JSON) AFTER_REVISION=$(call task_surface_shell_quote_raw,AFTER_REVISION) WAIT_SECONDS=$(call task_surface_shell_quote_raw,WAIT_SECONDS))
+
+go-analysis-dependencies: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+go-analysis-dependencies: go-toolchain-readiness
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env GO=$(GO) GO_TOOLCHAIN=$(GO_TOOLCHAIN) bash ./tools/harness/readiness/install-go-dependencies.sh --analysis
 

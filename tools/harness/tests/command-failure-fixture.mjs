@@ -4,11 +4,15 @@ import path from "node:path";
 const [mode, readyFile] = process.argv.slice(2);
 const phase = (name) => process.stdout.write(`${JSON.stringify({ phase: name, at: performance.timeOrigin + performance.now() })}\n`);
 phase("started");
-if (mode === "diagnostic" || mode === "contradictory") {
+if (mode === "diagnostic" || mode === "contradictory" || mode === "conflict") {
   const { publishCommandFailure } = await import("../runtime/command-failure.mjs");
   publishCommandFailure(path.resolve(import.meta.dirname, "../../.."), { failure_class: "artifact", failure_reason: "artifact_error" });
+  if (mode === "conflict") {
+    try { publishCommandFailure(path.resolve(import.meta.dirname, "../../.."), { failure_class: "security", failure_reason: "security_finding" }); }
+    catch { process.exitCode = 11; }
+  }
   phase("published");
-  process.exitCode = mode === "diagnostic" ? 2 : 0;
+  process.exitCode ??= mode === "diagnostic" ? 2 : 0;
   phase("completed");
 } else if (mode === "assertion") {
   process.exitCode = 10;

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Negative wrapper fixtures must not publish into the enclosing smoke test.
+unset CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT
+
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 SCRIPT="$ROOT_DIR/tools/harness/static-analysis/go-govulncheck.sh"
 cleanup_paths=()
@@ -103,9 +106,8 @@ chmod +x "$fake_go"
 missing_govulncheck="$scratch/missing-govulncheck"
 status=0
 output="$(GO="$fake_go" GOVULNCHECK_BIN="$missing_govulncheck" "$SCRIPT" 2>&1)" || status=$?
-if [[ "$status" -eq 0 ]]; then
-  fail "missing GOVULNCHECK_BIN: expected wrapper failure"
-fi
+assert_equals "$status" "2" "missing GOVULNCHECK_BIN exit"
+assert_contains "$output" "failure_class=config failure_reason=configuration_error" "missing GOVULNCHECK_BIN classification"
 assert_contains "$output" "go-vulncheck requires an executable GOVULNCHECK_BIN at $missing_govulncheck" "missing GOVULNCHECK_BIN diagnostic"
 assert_contains "$output" "run make go-security-toolchain before go-vulncheck" "missing GOVULNCHECK_BIN setup guidance"
 
@@ -243,9 +245,8 @@ output="$(
     FAKE_GOVULNCHECK_MODE="blocking" \
     "$SCRIPT" 2>&1
 )" || status=$?
-if [[ "$status" -eq 0 ]]; then
-  fail "blocking Govulncheck finding: expected wrapper failure"
-fi
+assert_equals "$status" "1" "blocking Govulncheck exit"
+assert_contains "$output" "failure_class=security failure_reason=security_finding" "blocking Govulncheck classification"
 assert_contains "$output" "GO-2099-0001" "blocking Govulncheck raw output"
 findings_json="$(cat "$step_artifact_dir/govulncheck-findings.json")"
 assert_contains "$findings_json" '"schema_id": "cartulary.govulncheck_findings.v1"' "Govulncheck findings schema"
@@ -271,7 +272,6 @@ output="$(
     FAKE_GOVULNCHECK_MODE="malformed" \
     "$SCRIPT" 2>&1
 )" || status=$?
-if [[ "$status" -eq 0 ]]; then
-  fail "malformed Govulncheck JSON: expected wrapper failure"
-fi
+assert_equals "$status" "11" "malformed Govulncheck exit"
+assert_contains "$output" "failure_class=artifact failure_reason=artifact_error" "malformed Govulncheck classification"
 assert_contains "$output" "govulncheck JSON parse failed" "malformed Govulncheck diagnostic"
