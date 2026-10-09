@@ -531,12 +531,13 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
     .click();
   await expect(
     page
-      .getByRole("combobox", { name: "Note source", exact: true })
-      .locator(`option[value="${source.record_id}"]`),
+      .getByRole("group", { name: "Note source", exact: true })
+      .locator(`input[type="radio"][value="${source.record_id}"]`),
   ).toHaveCount(1, { timeout: 15_000 });
   await page
-    .getByRole("combobox", { name: "Note source", exact: true })
-    .selectOption(source.record_id as string);
+    .getByRole("group", { name: "Note source", exact: true })
+    .locator(`input[type="radio"][value="${source.record_id}"]`)
+    .check();
   await page.getByRole("button", { name: "Apply source", exact: true }).click();
 
   const responsePromise = page.waitForResponse(
@@ -734,7 +735,8 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     .selectOption("evidence.source_party_text:evidence.source_party_id");
   await page
     .getByTestId(coordinationWorkflowTestId("party-existing"))
-    .selectOption(existingParty.record_id as string);
+    .locator(`input[type="radio"][value="${existingParty.record_id}"]`)
+    .check();
   refreshedEvidence = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: evidenceViewSchemaId,
@@ -780,7 +782,8 @@ test("Party create and link preserve raw text on the workbook surface", async ({
 
   await page
     .getByTestId(coordinationWorkflowTestId("party-existing"))
-    .selectOption(existingParty.record_id as string);
+    .locator(`input[type="radio"][value="${existingParty.record_id}"]`)
+    .check();
   refreshedEvidence = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: evidenceViewSchemaId,
@@ -819,7 +822,8 @@ test("Party create and link preserve raw text on the workbook surface", async ({
 
   await page
     .getByTestId(coordinationWorkflowTestId("party-existing"))
-    .selectOption(existingParty.record_id as string);
+    .locator(`input[type="radio"][value="${existingParty.record_id}"]`)
+    .check();
   refreshedEvidence = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: evidenceViewSchemaId,
@@ -929,7 +933,8 @@ test("Party create and link preserve raw text on the workbook surface", async ({
 
   await page
     .getByTestId(coordinationWorkflowTestId("party-existing"))
-    .selectOption(existingParty.record_id as string);
+    .locator(`input[type="radio"][value="${existingParty.record_id}"]`)
+    .check();
   refreshedTask = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: taskRequestsViewSchemaId,
@@ -973,7 +978,8 @@ test("Party create and link preserve raw text on the workbook surface", async ({
 
   await page
     .getByTestId(coordinationWorkflowTestId("party-existing"))
-    .selectOption(existingParty.record_id as string);
+    .locator(`input[type="radio"][value="${existingParty.record_id}"]`)
+    .check();
   refreshedTask = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: taskRequestsViewSchemaId,
@@ -1010,7 +1016,8 @@ test("Party create and link preserve raw text on the workbook surface", async ({
 
   await page
     .getByTestId(coordinationWorkflowTestId("party-existing"))
-    .selectOption(existingParty.record_id as string);
+    .locator(`input[type="radio"][value="${existingParty.record_id}"]`)
+    .check();
   refreshedTask = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: taskRequestsViewSchemaId,
@@ -1154,11 +1161,14 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
     .click();
   await expect(page.getByTestId(assessmentCreatePanelTestId())).toBeVisible();
   await expect(
-    page.getByTestId(assessmentCreateControlTestId("subject")),
-  ).toHaveValue("");
+    page
+      .getByTestId(assessmentCreateControlTestId("subject"))
+      .getByRole("radio", { checked: true }),
+  ).toHaveCount(0);
   await page
     .getByTestId(assessmentCreateControlTestId("subject"))
-    .selectOption(subjectA.record_id);
+    .locator(`input[type="radio"][value="${subjectA.record_id}"]`)
+    .check();
 
   const invalidTimestamp = "2026-04-24 12:00:00";
   await page

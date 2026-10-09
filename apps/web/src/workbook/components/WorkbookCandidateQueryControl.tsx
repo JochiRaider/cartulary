@@ -33,7 +33,9 @@ export function WorkbookCandidateQueryControl({
   label,
   query,
   onApply,
+  disclosureRef,
 }: {
+  readonly disclosureRef?: import("react").Ref<HTMLElement>;
   readonly view: string;
   readonly label: string;
   readonly query: WorkbookQueryState;
@@ -62,7 +64,7 @@ export function WorkbookCandidateQueryControl({
       : {};
   return (
     <details>
-      <summary>{label} ordering and filters</summary>
+      <summary ref={disclosureRef}>{label} ordering and filters</summary>
       <div
         style={{ display: "grid", gap: "var(--ct-spacing-xs)", minWidth: 0 }}
       >

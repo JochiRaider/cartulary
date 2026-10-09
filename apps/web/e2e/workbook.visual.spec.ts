@@ -9333,7 +9333,10 @@ test("Capture ordinary grid reference authoring and retained recovery across wor
     .getByRole("button", { name: "Choose incoming owner", exact: true })
     .click();
   await expect(
-    reference.getByRole("combobox", { name: "Incoming Owner", exact: true }),
+    reference
+      .getByRole("group", { name: "Incoming Owner", exact: true })
+      .getByRole("radio")
+      .first(),
   ).toBeEnabled();
   await assertViewportVisualRegression(page, "ordinary-reference-authoring", {
     ready: () =>

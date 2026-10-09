@@ -437,10 +437,10 @@ describe("contextual Task and Decision authoring", () => {
       }),
     );
     const picker = screen.getByRole("region", { name: "Choose Owner" });
-    const selector = within(picker).getByRole("combobox", {
-      name: "Owner",
+    const selector = within(picker).getByRole("radio", {
+      name: `Review editor (${actor})`,
     });
-    expect(selector).toHaveProperty("value", actor);
+    expect(selector).toHaveProperty("checked", true);
     expect(within(picker).getByRole("list").textContent).toContain(
       "Review editor",
     );
@@ -470,7 +470,7 @@ describe("contextual Task and Decision authoring", () => {
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "Choose Owner" }));
-    await screen.findByRole("option", { name: "Review editor" });
+    await screen.findByRole("radio", { name: `Review editor (${actor})` });
     fireEvent.click(screen.getByRole("button", { name: "Apply references" }));
     expect(owner.getSnapshot().draft).toMatchObject({
       values: {
@@ -747,6 +747,68 @@ describe("contextual Task and Decision authoring", () => {
     expect(
       contextualCreateErrors(required(decision.getSnapshot().draft)),
     ).toHaveProperty("decision.rationale");
+  });
+
+  it("keeps equal-label requester choice separate from raw fields until Apply", async () => {
+    const { owner, reader } = fixture();
+    owner.update("task.title", "Retained raw title");
+    owner.update("task.requester_party_text", "Source wording");
+    vi.mocked(reader.availableViews).mockResolvedValue({
+      kind: "accepted",
+      value: ["cartulary.view.parties.v1"],
+    });
+    vi.mocked(reader.page).mockImplementation(async (input) => ({
+      kind: "accepted",
+      value: {
+        candidates: ["party-a", "party-b"].map((recordId) => ({
+          recordId,
+          displayText: "Response coordination team",
+          viewSchemaId: input.viewSchemaId,
+        })),
+        hasMore: false,
+        nextCursor: null,
+      },
+    }));
+    const submit = vi.fn();
+    render(
+      <ContextualCreateForm
+        owner={owner}
+        attachment={attachment}
+        onSubmit={submit}
+      />,
+    );
+    const before = owner.getSnapshot().draft;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose Requester Party" }),
+    );
+    await screen.findByRole("radio", {
+      name: "Response coordination team (party-b)",
+    });
+    fireEvent.click(
+      screen.getByRole("radio", {
+        name: "Response coordination team (party-b)",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel references" }));
+    expect(owner.getSnapshot().draft).toEqual(before);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose Requester Party" }),
+    );
+    await screen.findByRole("radio", {
+      name: "Response coordination team (party-b)",
+    });
+    fireEvent.click(
+      screen.getByRole("radio", {
+        name: "Response coordination team (party-b)",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Apply references" }));
+    expect(owner.getSnapshot().draft?.values).toMatchObject({
+      "task.title": "Retained raw title",
+      "task.requester_party_text": "Source wording",
+      "task.requester_party_id": "party-b",
+    });
+    expect(submit).not.toHaveBeenCalled();
   });
   it("stages reference changes, preserves off-page selections, pages and cancels without editing the draft", async () => {
     const { owner, reader } = fixture();

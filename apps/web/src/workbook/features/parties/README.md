@@ -33,3 +33,11 @@ paging; recovery can finish linking without repeating accepted creation.
 | File | Responsibility |
 | --- | --- |
 | [partyOrdinaryCreate.ts](partyOrdinaryCreate.ts) | Ordinary Party preparation and packaged timezone admission; matching stays with Parties. |
+
+Single-target discovery uses the shared bounded native radio presentation with
+wrapping labels and full IDs. The selected target and current link remain
+inspectable. Clear selected party changes only staged target state and restores
+focus to the first enabled candidate or loaded-Party filter; it does not clear a
+saved link or source wording. Link existing party remains the explicit mutation
+boundary. The accumulated-page reader and revision invalidation remain Party-owned.
+Authority concealment applies to both labels and IDs.

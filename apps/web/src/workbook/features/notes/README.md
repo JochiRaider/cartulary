@@ -66,3 +66,10 @@ Workbook; Links retains canonical identities, provenance and revisions. Notes
 fields are not extended with invented PATCH keys. `noteAssociations.test.tsx`
 and the owner-routed browser scenarios cover replay, refresh, directional
 navigation, authoring and authority lifetimes.
+
+Note source review uses the shared single-target radios with full wrapping labels
+and IDs. The accepted source summary also shows its full ID. Apply/Cancel stays
+inside the existing source owner: retained record ID, view identity, reviewed row
+version and label remain associated across paging, surface changes and cancellation.
+No detail read is added to display identity; authorization concealment covers the
+selected label and ID.

@@ -1,78 +1,118 @@
-import type { CSSProperties, Ref } from "react";
+import { cartularyDesignPresentation } from "@cartulary/ui-contracts";
+import { type Ref, useId } from "react";
+import {
+  workbookReferenceIdentityStyle,
+  workbookTypography,
+} from "./workbookFormStyles";
 
 type WorkbookRecordCandidate = {
   readonly displayText: string;
   readonly recordId: string;
 };
 
+/** Native single-choice presentation; the caller owns selection and acceptance. */
 export function WorkbookRecordCandidatePicker({
   candidates,
   disabled = false,
   disabledRecordIds = [],
   label,
-  onSelectedRecordIdsChange,
-  selectedRecordIds,
-  selectorRef,
+  onSelect,
+  selectedRecordId,
+  focusTargetRef,
   testId,
 }: {
   readonly candidates: readonly WorkbookRecordCandidate[];
   readonly disabled?: boolean | undefined;
   readonly disabledRecordIds?: readonly string[];
   readonly label: string;
-  readonly onSelectedRecordIdsChange: (recordIds: string[]) => void;
-  readonly selectedRecordIds: readonly string[];
-  readonly selectorRef?: Ref<HTMLSelectElement>;
+  readonly onSelect: (recordId: string) => void;
+  readonly selectedRecordId: string | null;
+  readonly focusTargetRef?: Ref<HTMLInputElement>;
   readonly testId: string;
 }) {
+  const name = useId();
+  const firstEnabled = disabled
+    ? undefined
+    : candidates.find(
+        (candidate) => !disabledRecordIds.includes(candidate.recordId),
+      )?.recordId;
   return (
-    <label style={labelStyle}>
-      {label}
-      <select
-        ref={selectorRef}
-        data-testid={testId}
-        disabled={disabled}
-        style={selectStyle}
-        value={selectedRecordIds[0] ?? ""}
-        onChange={(event) => {
-          onSelectedRecordIdsChange(
-            Array.from(event.currentTarget.selectedOptions)
-              .map((option) => option.value)
-              .filter(Boolean),
-          );
+    <fieldset
+      aria-label={label}
+      data-testid={testId}
+      data-workbook-single-candidates
+      disabled={disabled}
+      style={{ margin: 0, padding: 0, border: 0, minInlineSize: 0 }}
+    >
+      <legend style={{ ...workbookTypography("ui"), padding: 0 }}>
+        {label}
+      </legend>
+      <div
+        style={{
+          maxBlockSize: `${cartularyDesignPresentation.inspector.candidateChooserMaxBlockSizeRem}rem`,
+          overflow: "auto",
+          overscrollBehavior: "contain",
+          minInlineSize: 0,
+          border: "var(--ct-component-text-input-border)",
+          borderRadius: "var(--ct-component-text-input-rounded)",
+          background: "var(--ct-component-text-input-backgroundColor)",
+          color: "var(--ct-component-text-input-textColor)",
         }}
       >
-        <option value="">Choose a target</option>
         {candidates.map((candidate) => (
-          <option
+          <label
             key={candidate.recordId}
-            value={candidate.recordId}
-            disabled={disabledRecordIds.includes(candidate.recordId)}
+            style={{
+              display: "flex",
+              alignItems: "start",
+              gap: "var(--ct-spacing-xs)",
+              padding: "var(--ct-spacing-xs)",
+              minInlineSize: 0,
+              ...workbookTypography("ui"),
+            }}
           >
-            {candidate.displayText}
-          </option>
+            <input
+              ref={
+                candidate.recordId === firstEnabled ? focusTargetRef : undefined
+              }
+              type="radio"
+              name={name}
+              value={candidate.recordId}
+              checked={selectedRecordId === candidate.recordId}
+              disabled={
+                disabled || disabledRecordIds.includes(candidate.recordId)
+              }
+              aria-label={`${candidate.displayText || "Unnamed reference"} (${candidate.recordId})`}
+              onChange={(event) => {
+                if (event.currentTarget.checked) onSelect(candidate.recordId);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.preventDefault();
+              }}
+              style={{
+                flex: "0 0 auto",
+                accentColor: "var(--ct-colors-ink)",
+                margin: "var(--ct-spacing-xs)",
+              }}
+            />
+            <span
+              style={{
+                minInlineSize: 0,
+                overflowWrap: "anywhere",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              <span>{candidate.displayText || "Unnamed reference"}</span>
+              <span
+                data-generated-metadata="candidate-reference-id"
+                style={workbookReferenceIdentityStyle}
+              >
+                {candidate.recordId}
+              </span>
+            </span>
+          </label>
         ))}
-      </select>
-    </label>
+      </div>
+    </fieldset>
   );
 }
-
-const labelStyle = {
-  display: "grid",
-  gap: "0.4rem",
-  fontSize: "0.95rem",
-  color: "var(--ct-colors-ink-muted)",
-} satisfies CSSProperties;
-
-const selectStyle = {
-  boxSizing: "border-box",
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-  appearance: "auto",
-} satisfies CSSProperties;

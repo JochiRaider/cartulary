@@ -102,11 +102,14 @@ async function recovery(
     .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
     .click();
   await expect(
-    page.getByTestId(assessmentCreateControlTestId("subject")),
-  ).toHaveValue("");
+    page
+      .getByTestId(assessmentCreateControlTestId("subject"))
+      .getByRole("radio", { checked: true }),
+  ).toHaveCount(0);
   await page
     .getByTestId(assessmentCreateControlTestId("subject"))
-    .selectOption(subject.record_id);
+    .locator(`input[type="radio"][value="${subject.record_id}"]`)
+    .check();
   await page
     .getByTestId(assessmentCreateControlTestId("rationale"))
     .fill("Reviewed judgment with omitted defaults.");
@@ -115,7 +118,8 @@ async function recovery(
     .click();
   await page
     .getByTestId(assessmentCreateControlTestId("support-refs"))
-    .selectOption(support.record_id);
+    .locator(`input[type="checkbox"][value="${support.record_id}"]`)
+    .check();
   await page
     .getByRole("button", { name: "Apply support selection", exact: true })
     .click();
@@ -280,7 +284,8 @@ test("Assessment support rejection preserves the editable draft with no partial 
     .click();
   await page
     .getByTestId(assessmentCreateControlTestId("subject"))
-    .selectOption(subject.record_id);
+    .locator(`input[type="radio"][value="${subject.record_id}"]`)
+    .check();
   await page
     .getByTestId(assessmentCreateControlTestId("rationale"))
     .fill("Keep rejection draft.");
@@ -289,7 +294,8 @@ test("Assessment support rejection preserves the editable draft with no partial 
     .click();
   await page
     .getByTestId(assessmentCreateControlTestId("support-refs"))
-    .selectOption(support.record_id);
+    .locator(`input[type="checkbox"][value="${support.record_id}"]`)
+    .check();
   await page
     .getByRole("button", { name: "Apply support selection", exact: true })
     .click();

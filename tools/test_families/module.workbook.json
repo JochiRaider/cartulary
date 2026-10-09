@@ -1166,10 +1166,12 @@
           "scenario_authoring_candidates_party_keyboard_continuity",
           "scenario_authoring_candidates_retained_owner",
           "scenario_authoring_candidates_retained_party_labels",
-          "scenario_selected_reference_removal_timeline"
+          "scenario_selected_reference_removal_timeline",
+          "scenario_single_target_identity_acceptance"
         ],
         "titles": [
           "Authoring Party pages retain ordinary contextual and related Evidence selections through failed continuation",
+          "Single-target equal-label identities remain inspectable through contextual acceptance and explicit Party linking",
           "Timeline contextual Party candidate reads keep keyboard focus through pending retry and exhaustion",
           "Timeline contextual reference removal keeps keyboard focus in the reference field",
           "Timeline retained Owner reconciles accepted membership labels only on Apply and remains readable through Recovery",

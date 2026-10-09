@@ -17,6 +17,7 @@ import {
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey } from "../runtime/fixtureIdentity";
+import { activateCandidateIdentities } from "./references";
 
 export async function openOrdinaryFixture(
   page: Page,
@@ -84,12 +85,10 @@ export async function fillOrdinaryField(
       .getByRole("button", { name: /^Choose /u })
       .first()
       .click();
-    await input
-      .getByRole(
-        field.writeKind === "action_payload" ? "listbox" : "combobox",
-        { name: field.label, exact: true },
-      )
-      .selectOption(value);
+    await activateCandidateIdentities(
+      input.getByRole("group", { name: field.label, exact: true }),
+      value,
+    );
     await input
       .getByRole("button", { name: "Apply references", exact: true })
       .click();

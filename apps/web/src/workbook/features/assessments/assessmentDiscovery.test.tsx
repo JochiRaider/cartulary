@@ -13,6 +13,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAssessmentCandidateReader } from "../../adapters/createAssessmentCandidateReader";
 import { useWorkbookCandidateDiscovery } from "../../hooks/useWorkbookCandidateDiscovery";
@@ -54,6 +55,69 @@ function expectCandidatePageStatus(message: string) {
 }
 
 describe("Assessment discovery", () => {
+  it("updates only the exact equal-label subject draft and clears to query focus on an empty page", async () => {
+    const user = userEvent.setup();
+    const label = "Long subject label with complete authorized context ".repeat(
+      6,
+    );
+    const subjects = vi
+      .fn()
+      .mockResolvedValueOnce({
+        kind: "accepted",
+        value: {
+          candidates: ["a", "b"].map((recordId) => ({
+            recordId,
+            displayText: label,
+          })),
+          hasMore: true,
+          nextCursor: "next",
+        },
+      })
+      .mockResolvedValue(page([]));
+    const update = vi.fn();
+    const reader = { subjects, support: vi.fn() };
+    function Subject() {
+      const [draft, setDraft] = useState(
+        initialAssessmentDraft(requireViewContract(assessmentsViewSchemaId)),
+      );
+      return (
+        <AssessmentSubjectPicker
+          reader={reader}
+          draft={draft}
+          disabled={false}
+          revision={0}
+          update={(change) => {
+            update(change(draft));
+            setDraft(change);
+          }}
+        />
+      );
+    }
+    render(<Subject />);
+    const b = await screen.findByRole("radio", { name: `${label.trim()} (b)` });
+    await user.click(b);
+    expect(update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        subjectRecordId: "b",
+        subjectDisplayText: label,
+      }),
+    );
+    expect(subjects).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Next candidates" }));
+    await screen.findByText("No candidates match this query.");
+    expect(screen.getByText("b")).toBeTruthy();
+    const remove = screen.getByRole("button", {
+      name: /^Remove selected Subject/,
+    });
+    remove.focus();
+    await user.keyboard(" ");
+    expect(update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ subjectRecordId: "" }),
+    );
+    expect(document.activeElement).toBe(
+      screen.getByText("Subject ordering and filters"),
+    );
+  });
   it("stages typed boolean support filters without changing selected identities", async () => {
     const user = userEvent.setup();
     const support = vi
@@ -412,13 +476,7 @@ describe("Assessment discovery", () => {
       />,
     );
     await waitFor(() => expectCandidatePageStatus("end of this query"));
-    expect(
-      (
-        screen.getByTestId(
-          assessmentCreateControlTestId("subject"),
-        ) as HTMLSelectElement
-      ).value,
-    ).toBe("");
+    expect(screen.queryByRole("radio", { checked: true })).toBeNull();
     expect(
       screen.getByRole("button", {
         name: "Remove selected Subject Selected subject",
@@ -490,13 +548,7 @@ describe("Assessment discovery", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Refresh candidates" }));
     await waitFor(() => expect(subjects).toHaveBeenCalledTimes(5));
-    expect(
-      (
-        screen.getByTestId(
-          assessmentCreateControlTestId("subject"),
-        ) as HTMLSelectElement
-      ).value,
-    ).toBe("");
+    expect(screen.queryByRole("radio", { checked: true })).toBeNull();
     expect(
       screen.getByRole("button", {
         name: "Remove selected Subject Selected subject",

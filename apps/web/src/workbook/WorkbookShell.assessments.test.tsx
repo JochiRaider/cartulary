@@ -319,12 +319,13 @@ describe("Assessment workbook surface", () => {
     expect(assessmentControlValue("subject")).toBe("");
     await waitFor(() =>
       expect(
-        screen.getByRole("option", { name: "Assessment Host" }),
+        screen.getByRole("radio", { name: /^Assessment Host \(/ }),
       ).toBeTruthy(),
     );
-    fireEvent.change(
-      screen.getByTestId(assessmentCreateControlTestId("subject")),
-      { target: { value: "00000000-0000-4000-8000-000000000101" } },
+    fireEvent.click(
+      screen.getByRole("radio", {
+        name: "Assessment Host (00000000-0000-4000-8000-000000000101)",
+      }),
     );
 
     fireEvent.change(
@@ -382,13 +383,14 @@ describe("Assessment workbook surface", () => {
         (
           screen.getByTestId(
             assessmentCreateControlTestId("subject"),
-          ) as HTMLSelectElement
+          ) as HTMLFieldSetElement
         ).disabled,
       ).toBe(false),
     );
-    fireEvent.change(
-      screen.getByTestId(assessmentCreateControlTestId("subject")),
-      { target: { value: "00000000-0000-4000-8000-000000000101" } },
+    fireEvent.click(
+      screen.getByRole("radio", {
+        name: "Assessment Host (00000000-0000-4000-8000-000000000101)",
+      }),
     );
 
     fireEvent.click(
@@ -1320,6 +1322,12 @@ function currentRecordIds(surface: Parameters<typeof gridShellTestId>[0]) {
 function assessmentControlValue(
   control: Parameters<typeof assessmentCreateControlTestId>[0],
 ): string {
+  if (control === "subject")
+    return (
+      screen
+        .getByTestId(assessmentCreateControlTestId(control))
+        .querySelector<HTMLInputElement>("input:checked")?.value ?? ""
+    );
   return (
     screen.getByTestId(assessmentCreateControlTestId(control)) as
       | HTMLInputElement

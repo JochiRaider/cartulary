@@ -5,6 +5,7 @@ import type { WorkbookCandidate } from "../ports/WorkbookCandidateReadPort";
 import { useSelectedReferenceRemovalFocus } from "./useSelectedReferenceRemovalFocus";
 import { WorkbookMultiCandidatePicker } from "./WorkbookMultiCandidatePicker";
 import { WorkbookRecordCandidatePicker } from "./WorkbookRecordCandidatePicker";
+import { workbookReferenceIdentityStyle } from "./workbookFormStyles";
 
 /** Selection remains owner-controlled and independent of the accepted page. */
 export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
@@ -18,6 +19,7 @@ export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
   concealed = false,
   scopeKey = testId,
   onChange,
+  removalFallback,
 }: {
   readonly candidates: readonly T[];
   readonly selected: readonly T[];
@@ -28,17 +30,20 @@ export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
   readonly disabled: boolean;
   readonly concealed?: boolean;
   readonly scopeKey?: string;
+  readonly removalFallback?: () => HTMLElement | null;
   readonly onChange: (selected: readonly T[]) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const authority = useContext(WorkbookCandidateAuthorityContext);
+  const hidden = concealed || !authority.canRead;
   const selector = useRef<HTMLElement | null>(null);
   const group = useRef<HTMLFieldSetElement>(null);
   const removalFocus = useSelectedReferenceRemovalFocus({
     ids: selected.map((item) => item.recordId),
     scopeKey: `${scopeKey}:${authority.identity}`,
     disabled: disabled || concealed || !authority.canRead,
-    fallback: () => selector.current,
+    fallback: () =>
+      selector.current ?? (multiple ? null : removalFallback?.()) ?? null,
     groupRef: group,
   });
   return (
@@ -99,30 +104,23 @@ export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
         />
       ) : (
         <WorkbookRecordCandidatePicker
-          selectorRef={(element) => {
+          focusTargetRef={(element) => {
             selector.current = element;
           }}
-          candidates={concealed ? [] : candidates}
+          candidates={hidden ? [] : candidates}
           label={label}
           testId={testId}
           disabled={
             disabled || concealed || !authority.canRead || !candidates.length
           }
-          selectedRecordIds={selected
-            .filter((item) =>
-              candidates.some(
-                (candidate) => candidate.recordId === item.recordId,
-              ),
-            )
-            .map((item) => item.recordId)}
-          onSelectedRecordIdsChange={(ids) => {
-            if (disabled || concealed || !authority.canRead) return;
-            const next = ids.flatMap((id) => {
-              const item =
-                selected.find((value) => value.recordId === id) ??
-                candidates.find((value) => value.recordId === id);
-              return item ? [item] : [];
-            });
+          selectedRecordId={selected[0]?.recordId ?? null}
+          onSelect={(id) => {
+            if (disabled || hidden) return;
+            const item =
+              selected.find((value) => value.recordId === id) ??
+              candidates.find((value) => value.recordId === id);
+            if (!item) return;
+            const next = [item];
             if (next.length > maximum) {
               setError(
                 `Choose at most ${maximum} references. Existing selections are retained.`,
@@ -142,15 +140,20 @@ export function WorkbookCandidateSelection<T extends WorkbookCandidate>({
         <ul style={{ margin: 0, paddingInlineStart: "var(--ct-spacing-lg)" }}>
           {selected.map((item) => (
             <li key={item.recordId} style={{ overflowWrap: "anywhere" }}>
-              {concealed
+              {hidden
                 ? "Selected reference"
                 : item.displayText || item.recordId}{" "}
+              {!multiple && !hidden ? (
+                <span style={workbookReferenceIdentityStyle}>
+                  {item.recordId}
+                </span>
+              ) : null}
               <Button
                 ref={removalFocus.buttonRef(item.recordId)}
                 type="button"
                 tone="secondary"
                 disabled={disabled || concealed || !authority.canRead}
-                aria-label={`Remove selected ${label} ${concealed ? "reference" : item.displayText || item.recordId}${!concealed && selected.filter((value) => value.displayText === item.displayText).length > 1 ? ` (${item.recordId})` : ""}`}
+                aria-label={`Remove selected ${label} ${hidden ? "reference" : item.displayText || item.recordId}${!hidden && selected.filter((value) => value.displayText === item.displayText).length > 1 ? ` (${item.recordId})` : ""}`}
                 onClick={(event) =>
                   removalFocus.remove(
                     item.recordId,

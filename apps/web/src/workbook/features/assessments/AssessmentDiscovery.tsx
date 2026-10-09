@@ -231,6 +231,7 @@ function CandidateList({
     labels: Readonly<Record<string, string>>,
   ) => void;
 }) {
+  const queryDisclosure = useRef<HTMLElement>(null);
   const [query, setQuery] = useState<WorkbookQueryState>(
     emptyWorkbookQueryState,
   );
@@ -248,6 +249,7 @@ function CandidateList({
     <div style={{ display: "grid", gap: "var(--ct-spacing-xs)", minWidth: 0 }}>
       <WorkbookCandidateQueryControl
         key={view}
+        disclosureRef={queryDisclosure}
         view={view}
         label={label}
         query={query}
@@ -263,6 +265,7 @@ function CandidateList({
         testId={testId}
         scopeKey={`assessment:${view}:${multiple}`}
         multiple={multiple}
+        removalFallback={() => queryDisclosure.current}
         maximum={multiple ? 64 : 1}
         disabled={disabled}
         concealed={page.concealed || !page.canRead}

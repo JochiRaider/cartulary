@@ -1,7 +1,10 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { useSelectedReferenceRemovalFocus } from "../../components/useSelectedReferenceRemovalFocus";
 import { WorkbookAuthoringReferencePicker } from "../../components/WorkbookAuthoringReferencePicker";
-import { workbookFormFieldsStyle } from "../../components/workbookFormStyles";
+import {
+  workbookFormFieldsStyle,
+  workbookReferenceIdentityStyle,
+} from "../../components/workbookFormStyles";
 import { WorkbookCandidateAuthorityContext } from "../../hooks/useWorkbookCandidateDiscovery";
 import { WorkbookInspectorActionButton as Button } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
@@ -56,7 +59,14 @@ export function NoteSourceControl({
     >
       <span style={{ overflowWrap: "anywhere" }}>
         Source:{" "}
-        {source ? source.label || source.recordId : "None (unlinked Note)"}
+        {source
+          ? authority.canRead
+            ? source.label || "Selected reference"
+            : "Selected reference"
+          : "None (unlinked Note)"}
+        {source && authority.canRead ? (
+          <span style={workbookReferenceIdentityStyle}>{source.recordId}</span>
+        ) : null}
       </span>
       <Button
         type="button"

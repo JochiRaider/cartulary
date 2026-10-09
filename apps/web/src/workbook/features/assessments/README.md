@@ -34,3 +34,9 @@ selection stages at most 64 additions from Timeline and retains off-page identit
 existing non-Timeline support remains readable. Apply readiness is independent of
 page exhaustion, and stale presentation is concealed through authority/freshness
 signals. Assessment append attempts and refresh debt remain parent-owned.
+
+Subject radios expose full labels and stable IDs before choosing and in the
+retained summary. One deliberate choice updates the existing draft immediately;
+append remains explicit. Clearing a subject restores focus to the first enabled
+radio or the subject ordering/filter disclosure when the page is empty. Support
+checkbox behavior and the shared discovery page/checkpoint bounds are unchanged.

@@ -8875,8 +8875,12 @@ test("a11y.assessment deliberate subjects staged support and retained drafts rem
     assessmentCreateControlTestId("assessed-at"),
   );
   const submit = page.getByTestId(assessmentCreateControlTestId("submit"));
-  await expect(subjectPicker).toHaveValue("");
-  await subjectPicker.selectOption(subject.record_id);
+  await expect(subjectPicker.getByRole("radio", { checked: true })).toHaveCount(
+    0,
+  );
+  await subjectPicker
+    .locator(`input[type="radio"][value="${subject.record_id}"]`)
+    .check();
   await rationale.fill("Retained analyst judgment.");
   await timestamp.fill("unfinished");
   await submit.focus();
@@ -8921,7 +8925,12 @@ test("a11y.assessment deliberate subjects staged support and retained drafts rem
     { width: 390, height: 480 },
   ]) {
     await page.setViewportSize(viewport);
-    for (const control of [subjectPicker, rationale, choose, submit]) {
+    for (const control of [
+      subjectPicker.getByRole("radio", { checked: true }),
+      rationale,
+      choose,
+      submit,
+    ]) {
       await expectDecisionControlReachable(page, control);
       await expectVisibleFocus(control);
     }
@@ -8986,12 +8995,13 @@ test("a11y.contextual-create target fields reference cancellation and retained r
         name: "Choose Owner",
         exact: true,
       });
-      const ownerSelect = ownerPicker.getByRole("combobox", {
+      const ownerCandidates = ownerPicker.getByRole("group", {
         name: "Owner",
         exact: true,
       });
-      await expect(ownerSelect).toBeEnabled();
-      await expect(ownerSelect).toHaveValue(actor.user_id);
+      await expect(
+        ownerCandidates.getByRole("radio", { checked: true }),
+      ).toHaveValue(actor.user_id);
       await expect(ownerPicker.getByRole("list")).toContainText(
         actor.display_name,
       );
@@ -9214,18 +9224,20 @@ test("a11y.timeline-related-evidence metadata references and retained partial su
     name: "Choose Collector Party",
     exact: true,
   });
-  const candidates = picker.getByRole("combobox", {
+  const candidates = picker.getByRole("group", {
     name: "Collector Party",
     exact: true,
   });
   await expect(
     picker.getByRole("button", { name: "Apply Party", exact: true }),
   ).toBeEnabled();
-  await candidates.selectOption(party.record_id);
+  await candidates
+    .locator(`input[type="radio"][value="${party.record_id}"]`)
+    .check();
   await candidates.press("Escape");
   await expect(choose).toBeFocused();
   await choose.press("Enter");
-  await expect(candidates).toHaveValue("");
+  await expect(candidates.getByRole("radio", { checked: true })).toHaveCount(0);
   await candidates.press("Escape");
   await expect(collector).toHaveValue("Response team collection log");
   for (const viewport of [
@@ -9322,14 +9334,16 @@ test("a11y.linked-note authoring source selection and uncertain recovery remain 
     name: "Choose Note source",
     exact: true,
   });
-  const candidates = picker.getByRole("combobox", {
+  const candidates = picker.getByRole("group", {
     name: "Note source",
     exact: true,
   });
   await expect(
     picker.getByRole("button", { name: "Apply source", exact: true }),
   ).toBeEnabled();
-  await candidates.selectOption("");
+  await picker
+    .getByRole("button", { name: /^Remove selected Note source / })
+    .click();
   await candidates.press("Escape");
   await expect(choose).toBeFocused();
   await expect(f.form).toContainText("Reviewed investigation source");
@@ -9427,11 +9441,12 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
     });
     await expectDecisionControlReachable(page, choose);
     await choose.press("Enter");
-    const picker = reference.getByRole("combobox", {
+    const picker = reference.getByRole("group", {
       name: "Incoming Owner",
       exact: true,
     });
-    await expect(picker).toBeEnabled();
+    const candidate = picker.getByRole("radio").last();
+    await expect(candidate).toBeEnabled();
     await expect(
       reference.getByRole("button", { name: "Cancel references", exact: true }),
     ).toBeFocused();
@@ -9451,13 +9466,13 @@ test("a11y.ordinary grid references and retained recovery support keyboard focus
       reference.getByRole("button", { name: "First candidates", exact: true }),
     ).toBeFocused();
     await page.keyboard.press("Shift+Tab");
-    await expect(picker).toBeFocused();
-    await expectVisibleFocus(picker);
+    await expect(candidate).toBeFocused();
+    await expectVisibleFocus(candidate);
     const originalViewport = page.viewportSize();
     if (!originalViewport) throw new Error("Missing browser viewport");
     await page.setViewportSize({ width: originalViewport.width, height: 480 });
-    await expect(picker).toBeFocused();
-    await expect(picker).toBeInViewport({ ratio: 1 });
+    await expect(candidate).toBeFocused();
+    await expect(candidate).toBeInViewport({ ratio: 1 });
     await expect(
       reference.getByRole("button", { name: "Cancel references", exact: true }),
     ).toBeInViewport({ ratio: 1 });
@@ -9606,7 +9621,7 @@ test("a11y.coordination all target fields source review and uncertain recovery s
       picker.getByRole("button", { name: "Apply references", exact: true }),
     ).toBeEnabled();
     await picker
-      .getByRole("combobox", { name: "Source", exact: true })
+      .getByRole("group", { name: "Source", exact: true })
       .press("Escape");
     await expect(choose).toBeFocused();
     await expectAllInteractiveControlsNamed(page);

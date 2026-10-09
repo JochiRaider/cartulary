@@ -8,6 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { PartyLinkControls } from "./PartyLinkControls";
 import {
@@ -260,21 +261,80 @@ it("Party socket invalidation retains loaded candidates as stale until an author
   );
   const panel = render(controls(0));
   await waitFor(() =>
-    expect(screen.getByRole("combobox")).toHaveProperty("disabled", false),
+    expect(
+      screen.getByRole("group", { name: "Existing party" }),
+    ).toHaveProperty("disabled", false),
   );
-  fireEvent.change(screen.getByRole("combobox"), {
-    target: { value: "first" },
-  });
+  fireEvent.click(screen.getByRole("radio", { name: "first (first)" }));
   expect(
     screen.getByRole("button", { name: "Link existing party" }),
   ).toHaveProperty("disabled", false);
   panel.rerender(controls(1));
   await waitFor(() => expect(currentReader.page).toHaveBeenCalledTimes(2));
   await waitFor(() =>
-    expect(screen.getByRole("combobox")).toHaveProperty("disabled", false),
+    expect(
+      screen.getByRole("group", { name: "Existing party" }),
+    ).toHaveProperty("disabled", false),
   );
-  expect(screen.getByRole("combobox")).toHaveProperty("value", "");
+  expect(screen.queryByRole("radio", { checked: true })).toBeNull();
   expect(
     screen.getByRole("button", { name: "Link existing party" }),
   ).toHaveProperty("disabled", true);
+});
+
+it("equal-label Party target selection waits for explicit Link and preserves source wording", async () => {
+  const pair = partyPairs[0];
+  const patch = vi.fn(),
+    create = vi.fn();
+  const page = vi.fn(async () => ({
+    rows: ["a", "b"].map((record_id) => ({
+      record_id,
+      row_version: 1,
+      cells: { "party.display_name": { value: "Response coordination team" } },
+    })),
+    hasMore: false,
+    nextCursor: null,
+  }));
+  const row = {
+    record_id: "source",
+    row_version: 4,
+    cells: { [pair.textFieldKey]: { value: "Original source wording" } },
+  };
+  render(
+    <PartyLinkControls
+      pair={pair}
+      row={row}
+      reader={{ ...reader, page }}
+      scopeKey="source"
+      disabled={false}
+      onCreate={create}
+      onPatch={patch}
+    />,
+  );
+  await screen.findByRole("radio", { name: "Response coordination team (a)" });
+  const user = userEvent.setup();
+  const a = screen.getByRole("radio", {
+    name: "Response coordination team (a)",
+  });
+  a.focus();
+  await user.keyboard(" ");
+  await user.keyboard("{ArrowDown}");
+  expect(
+    screen.getByRole("radio", { name: "Response coordination team (b)" }),
+  ).toHaveProperty("checked", true);
+  const clear = screen.getByRole("button", { name: "Clear selected party" });
+  clear.focus();
+  await user.keyboard(" ");
+  expect(document.activeElement).toBe(a);
+  expect(patch).not.toHaveBeenCalled();
+  await user.click(
+    screen.getByRole("radio", { name: "Response coordination team (b)" }),
+  );
+  expect(screen.getAllByText("b")).toHaveLength(2);
+  expect(patch).not.toHaveBeenCalled();
+  expect(create).not.toHaveBeenCalled();
+  expect(page).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Link existing party" }));
+  expect(patch).toHaveBeenCalledWith("link", "b");
+  expect(row.cells[pair.textFieldKey]?.value).toBe("Original source wording");
 });

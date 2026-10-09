@@ -1799,7 +1799,7 @@ describe("WorkbookShell surface selection", () => {
     expect(noteSend).toHaveBeenCalledTimes(1);
     expect(batchSend).toHaveBeenCalledTimes(1);
     expect(intervalSend).toHaveBeenCalledTimes(1);
-    fireEvent.keyDown(screen.getByRole("combobox", { name: "Note source" }), {
+    fireEvent.keyDown(screen.getByRole("group", { name: "Note source" }), {
       key: "Escape",
     });
     expect(

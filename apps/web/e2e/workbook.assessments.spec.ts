@@ -62,8 +62,10 @@ test("creates append-only assessment history through the workbook UI", async ({
     .click();
   await expect(page.getByTestId(assessmentCreatePanelTestId())).toBeVisible();
   await expect(
-    page.getByTestId(assessmentCreateControlTestId("subject")),
-  ).toHaveValue("");
+    page
+      .getByTestId(assessmentCreateControlTestId("subject"))
+      .getByRole("radio", { checked: true }),
+  ).toHaveCount(0);
 
   type AssessmentState =
     | "cleared"
@@ -270,8 +272,10 @@ test("appends a subject-only follow-on while preserving keyboard selection", asy
   await inspectorToggle.click();
   await followOnAction.click();
   await expect(
-    page.getByTestId(assessmentCreateControlTestId("subject")),
-  ).toHaveValue(subject.record_id);
+    page
+      .getByTestId(assessmentCreateControlTestId("subject"))
+      .locator(`input[value="${subject.record_id}"]`),
+  ).toBeChecked();
   await expect(
     page.getByTestId(assessmentCreateControlTestId("subject-type")),
   ).toHaveValue("host");

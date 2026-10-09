@@ -3,9 +3,12 @@ import {
   genericCreateFieldTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useContext, useId, useLayoutEffect, useRef, useState } from "react";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
+import { useSelectedReferenceRemovalFocus } from "../../components/useSelectedReferenceRemovalFocus";
 import { WorkbookRecordCandidatePicker } from "../../components/WorkbookRecordCandidatePicker";
+import { workbookReferenceIdentityStyle } from "../../components/workbookFormStyles";
+import { WorkbookCandidateAuthorityContext } from "../../hooks/useWorkbookCandidateDiscovery";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import { extractEmailFromPartyText } from "../../models/genericWorkbookModel";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
@@ -57,6 +60,17 @@ export function PartyLinkControls({
     selection.revision === candidateRevision ? selection.recordId : "";
   const setTarget = (recordId: string) =>
     setSelection({ recordId, revision: candidateRevision });
+  const authority = useContext(WorkbookCandidateAuthorityContext);
+  const candidateFocus = useRef<HTMLInputElement>(null);
+  const filterFocus = useRef<HTMLInputElement>(null);
+  const group = useRef<HTMLElement>(null);
+  const removalFocus = useSelectedReferenceRemovalFocus({
+    ids: target ? [target] : [],
+    scopeKey: `${scopeKey}:${candidateRevision}:${authority.identity}`,
+    disabled: disabled || !authority.canRead || candidates.phase !== "ready",
+    fallback: () => candidateFocus.current ?? filterFocus.current,
+    groupRef: group,
+  });
   const [filter, setFilter] = useState("");
   const [creating, setCreating] = useState(false);
   useLayoutEffect(() => {
@@ -123,15 +137,24 @@ export function PartyLinkControls({
   const linked = candidates.rows.find(
     (candidate) => candidate.record_id === reference,
   );
+  const chosen = candidates.rows.find(
+    (candidate) => candidate.record_id === target,
+  );
+  if (!authority.canRead)
+    return (
+      <section aria-label={`${pair.label} Party`}>
+        <p>Party references are unavailable.</p>
+      </section>
+    );
   return (
-    <section aria-label={`${pair.label} Party`} style={stackStyle}>
+    <section ref={group} aria-label={`${pair.label} Party`} style={stackStyle}>
       <p style={{ margin: 0 }}>{partyState(row, pair)}</p>
       <p
         style={{ margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
       >
         Source wording: {text || "None"}
       </p>
-      <p style={{ margin: 0 }}>
+      <p style={{ margin: 0, overflowWrap: "anywhere" }}>
         Party link:{" "}
         {reference
           ? String(
@@ -139,6 +162,9 @@ export function PartyLinkControls({
                 "Linked Party; label not currently loaded",
             )
           : "None"}
+        {reference ? (
+          <span style={workbookReferenceIdentityStyle}>{reference}</span>
+        ) : null}
       </p>
       {button(
         "party-create-from-text",
@@ -233,6 +259,7 @@ export function PartyLinkControls({
       <label style={stackStyle}>
         Filter loaded Parties
         <input
+          ref={filterFocus}
           style={partyInputStyle}
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
@@ -257,9 +284,37 @@ export function PartyLinkControls({
                 .toLowerCase()
                 .includes(filter.toLowerCase()),
           )}
-        selectedRecordIds={target ? [target] : []}
-        onSelectedRecordIdsChange={(ids) => setTarget(ids[0] ?? "")}
+        selectedRecordId={target || null}
+        focusTargetRef={candidateFocus}
+        onSelect={setTarget}
       />
+      {target ? (
+        <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+          <span>
+            Selected party:{" "}
+            {String(
+              chosen?.cells["party.display_name"]?.value ??
+                "Selected reference",
+            )}
+          </span>
+          <span style={workbookReferenceIdentityStyle}>{target}</span>
+          <WorkbookInspectorActionButton
+            ref={removalFocus.buttonRef(target)}
+            type="button"
+            tone="secondary"
+            disabled={disabled || candidates.phase !== "ready"}
+            onClick={(event) =>
+              removalFocus.remove(target, event.currentTarget, () =>
+                setTarget(""),
+              )
+            }
+          >
+            Clear selected party
+          </WorkbookInspectorActionButton>
+        </div>
+      ) : (
+        <span>No party selected.</span>
+      )}
       <p role="status" style={{ margin: 0 }}>
         {candidates.phase === "loading"
           ? "Loading Parties…"

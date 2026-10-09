@@ -253,9 +253,9 @@ test("Party picker reaches the next authorized page and retains loaded candidate
   await expect(region).toContainText("Previously loaded Parties may be stale.");
   await expect(
     region
-      .getByRole("combobox", { name: "Existing party", exact: true })
-      .locator("option"),
-  ).toHaveCount(101);
+      .getByRole("group", { name: "Existing party", exact: true })
+      .getByRole("radio"),
+  ).toHaveCount(100);
   await region
     .getByRole("button", { name: "Retry Party read", exact: true })
     .click();
@@ -265,12 +265,14 @@ test("Party picker reaches the next authorized page and retains loaded candidate
   await region
     .getByRole("textbox", { name: "Filter loaded Parties", exact: true })
     .fill("Candidate 100");
-  const picker = region.getByRole("combobox", {
+  const picker = region.getByRole("group", {
     name: "Existing party",
     exact: true,
   });
-  await picker.selectOption({ label: "Candidate 100" });
-  const target = await picker.inputValue();
+  await picker.getByRole("radio", { name: /^Candidate 100 \(/ }).check();
+  const target = await picker
+    .getByRole("radio", { checked: true })
+    .inputValue();
   await region
     .getByRole("button", { name: "Link existing party", exact: true })
     .click();

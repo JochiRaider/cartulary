@@ -277,7 +277,9 @@ describe("Note authoring", () => {
         candidates: [
           {
             recordId: input.cursor ? "second" : "first",
-            displayText: input.cursor ? "Second" : "First",
+            displayText: input.cursor
+              ? "Second"
+              : "First long source label with complete retained investigation context and an unbroken_identifier_that_must_wrap_in_the_inspector",
             viewSchemaId: input.viewSchemaId,
             row: {
               record_id: input.cursor ? "second" : "first",
@@ -302,17 +304,17 @@ describe("Note authoring", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Choose source" }));
-    await screen.findByRole("option", { name: "First" });
+    await screen.findByRole("radio", {
+      name: "First long source label with complete retained investigation context and an unbroken_identifier_that_must_wrap_in_the_inspector (first)",
+    });
     expect(
       screen.getByRole("button", {
         name: "Remove selected Note source Original source",
       }),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Next candidates" }));
-    await screen.findByRole("option", { name: "Second" });
-    fireEvent.change(screen.getByLabelText("Note source"), {
-      target: { value: "second" },
-    });
+    await screen.findByRole("radio", { name: "Second (second)" });
+    fireEvent.click(screen.getByRole("radio", { name: /\(second\)$/ }));
     fireEvent.change(screen.getByLabelText("Source sheet"), {
       target: { value: noteSourceViews[1] },
     });
@@ -326,7 +328,9 @@ describe("Note authoring", () => {
         onChange={onChange}
       />,
     );
-    await screen.findByRole("option", { name: "First" });
+    await screen.findByRole("radio", {
+      name: "First long source label with complete retained investigation context and an unbroken_identifier_that_must_wrap_in_the_inspector (first)",
+    });
     expect(
       (screen.getByLabelText("Source sheet") as HTMLSelectElement).value,
     ).toBe(noteSourceViews[1]);
@@ -337,16 +341,17 @@ describe("Note authoring", () => {
       screen.getByRole("button", { name: "Choose source" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Choose source" }));
-    await screen.findByRole("option", { name: "First" });
-    fireEvent.change(screen.getByLabelText("Note source"), {
-      target: { value: "first" },
+    await screen.findByRole("radio", {
+      name: "First long source label with complete retained investigation context and an unbroken_identifier_that_must_wrap_in_the_inspector (first)",
     });
+    fireEvent.click(screen.getByRole("radio", { name: /\(first\)$/ }));
     fireEvent.click(screen.getByRole("button", { name: "Apply source" }));
     expect(onChange).toHaveBeenCalledWith({
       recordId: "first",
       viewSchemaId: noteSourceViews[0],
       rowVersion: 3,
-      label: "First",
+      label:
+        "First long source label with complete retained investigation context and an unbroken_identifier_that_must_wrap_in_the_inspector",
     });
   });
   it("distinguishes discovery failures from successful empty pages and supports retry", async () => {

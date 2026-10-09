@@ -199,11 +199,15 @@ test("Note source replacement and clearing preserve authoring across sheet navig
     exact: true,
   });
   await expect(
-    picker.getByRole("option", { name: "Chosen Host", exact: true }),
+    picker.getByRole("radio", {
+      name: `Chosen Host (${replacement.record_id})`,
+      exact: true,
+    }),
   ).toBeAttached();
   await picker
-    .getByRole("combobox", { name: "Note source", exact: true })
-    .selectOption(replacement.record_id);
+    .getByRole("group", { name: "Note source", exact: true })
+    .locator(`input[type="radio"][value="${replacement.record_id}"]`)
+    .check();
   await picker.press("Escape");
   await expect(choose).toBeFocused();
   await expect(f.form).toContainText("Reviewed investigation source");
@@ -212,11 +216,15 @@ test("Note source replacement and clearing preserve authoring across sheet navig
     .getByRole("combobox", { name: "Source sheet", exact: true })
     .selectOption(hostsViewSchemaId);
   await expect(
-    picker.getByRole("option", { name: "Chosen Host", exact: true }),
+    picker.getByRole("radio", {
+      name: `Chosen Host (${replacement.record_id})`,
+      exact: true,
+    }),
   ).toBeAttached();
   await picker
-    .getByRole("combobox", { name: "Note source", exact: true })
-    .selectOption(replacement.record_id);
+    .getByRole("group", { name: "Note source", exact: true })
+    .locator(`input[type="radio"][value="${replacement.record_id}"]`)
+    .check();
   await picker
     .getByRole("button", { name: "Apply source", exact: true })
     .click();
@@ -254,11 +262,15 @@ test("Note source replacement and clearing preserve authoring across sheet navig
     .getByRole("combobox", { name: "Source sheet", exact: true })
     .selectOption(hostsViewSchemaId);
   await expect(
-    page.getByRole("option", { name: "Chosen Host", exact: true }),
+    page.getByRole("radio", {
+      name: `Chosen Host (${replacement.record_id})`,
+      exact: true,
+    }),
   ).toBeAttached();
   await page
-    .getByRole("combobox", { name: "Note source", exact: true })
-    .selectOption(replacement.record_id);
+    .getByRole("group", { name: "Note source", exact: true })
+    .locator(`input[type="radio"][value="${replacement.record_id}"]`)
+    .check();
   await page.getByRole("button", { name: "Apply source", exact: true }).click();
   await page
     .getByTestId(genericCreateFieldTestId("note.body"))

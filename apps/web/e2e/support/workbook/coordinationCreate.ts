@@ -104,11 +104,15 @@ export async function fillCoordinationMinimum(
         })
         .click();
       await expect(
-        f.form.getByRole("option", { name: "Coordination owner", exact: true }),
+        f.form.getByRole("radio", {
+          name: `Coordination owner (${f.member.user_id})`,
+          exact: true,
+        }),
       ).toBeAttached();
       await f.form
         .getByTestId(genericCreateFieldTestId(key))
-        .selectOption(f.member.user_id);
+        .locator(`input[type="radio"][value="${f.member.user_id}"]`)
+        .check();
       await f.form
         .getByRole("button", { name: "Apply references", exact: true })
         .click();

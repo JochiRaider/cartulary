@@ -14,6 +14,7 @@ import type {
 } from "../ports/WorkbookAuthoringReadPort";
 import { useSelectedReferenceRemovalFocus } from "./useSelectedReferenceRemovalFocus";
 import { WorkbookAuthoringReferencePicker } from "./WorkbookAuthoringReferencePicker";
+import { workbookReferenceIdentityStyle } from "./workbookFormStyles";
 import { menuStyle } from "./workbookGridControlStyles";
 
 type Props = Readonly<{
@@ -122,13 +123,20 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
         <ul style={{ margin: 0, paddingInlineStart: "var(--ct-spacing-lg)" }}>
           {props.selected.map((item) => (
             <li key={item.recordId} style={{ overflowWrap: "anywhere" }}>
-              {item.displayText || "Selected reference"}{" "}
+              {authority.canRead
+                ? item.displayText || "Selected reference"
+                : "Selected reference"}{" "}
+              {!props.multiple && authority.canRead ? (
+                <span style={workbookReferenceIdentityStyle}>
+                  {item.recordId}
+                </span>
+              ) : null}
               <Button
                 ref={removalFocus.buttonRef(item.recordId)}
                 tone="secondary"
                 type="button"
                 disabled={props.disabled || !authority.canRead}
-                aria-label={`Remove ${props.label} ${item.displayText || "reference"}${props.selected.filter((value) => value.displayText === item.displayText).length > 1 ? ` (${item.recordId})` : ""}`}
+                aria-label={`Remove ${props.label} ${authority.canRead ? item.displayText || "reference" : "reference"}${authority.canRead && props.selected.filter((value) => value.displayText === item.displayText).length > 1 ? ` (${item.recordId})` : ""}`}
                 onClick={(event) =>
                   removalFocus.remove(item.recordId, event.currentTarget, () =>
                     props.onApply(
@@ -163,7 +171,7 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
             : undefined
         }
         title={
-          props.compact
+          props.compact && authority.canRead
             ? props.selected
                 .map((item) => item.displayText || item.recordId)
                 .join(", ")
@@ -179,7 +187,7 @@ export function WorkbookAuthoringReferenceControl(props: Props) {
         disabled={props.disabled || !authority.canRead}
         onClick={() => setOpen(true)}
       >
-        {props.compact && props.selected.length
+        {props.compact && authority.canRead && props.selected.length
           ? props.selected
               .map((item) => item.displayText || "Selected reference")
               .join(", ")

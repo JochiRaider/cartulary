@@ -199,6 +199,7 @@ export function WorkbookAuthoringReferencePicker(
         scopeKey={`${props.targetKey}:${view}`}
         disabled={props.disabled || concealed}
         concealed={concealed}
+        removalFallback={() => cancel.current}
         onChange={(items) => setStaged({ freshness, items })}
       />
       {available ? <WorkbookCandidateBrowsing discovery={page} /> : null}

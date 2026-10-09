@@ -7,6 +7,7 @@ import {
 import { useContext, useEffect, useRef, useState } from "react";
 import { useSelectedReferenceRemovalFocus } from "../../components/useSelectedReferenceRemovalFocus";
 import { WorkbookAuthoringReferencePicker } from "../../components/WorkbookAuthoringReferencePicker";
+import { workbookReferenceIdentityStyle } from "../../components/workbookFormStyles";
 import { WorkbookCandidateAuthorityContext } from "../../hooks/useWorkbookCandidateDiscovery";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
@@ -73,11 +74,13 @@ export function ContextualReferenceControl({
         <ul>
           {ids.map((id) => (
             <li key={id} style={{ overflowWrap: "anywhere" }}>
-              {draft.labels[id] ??
-                (contextualReferenceKind(field) === "members" &&
-                id === draft.actorId
-                  ? "Current actor"
-                  : id)}
+              {!authority.canRead
+                ? "Selected reference"
+                : (draft.labels[id] ??
+                  (contextualReferenceKind(field) === "members" &&
+                  id === draft.actorId
+                    ? "Current actor"
+                    : id))}
               {draft.seeds[field.fieldKey]?.split("\n").includes(id)
                 ? " (source context)"
                 : ""}{" "}
@@ -86,7 +89,7 @@ export function ContextualReferenceControl({
                 tone="secondary"
                 type="button"
                 disabled={disabled || !authority.canRead}
-                aria-label={`Remove ${field.label} ${draft.labels[id] ?? id}${ids.filter((item) => (draft.labels[item] ?? item) === (draft.labels[id] ?? id)).length > 1 ? ` (${id})` : ""}`}
+                aria-label={`Remove ${field.label} ${!authority.canRead ? "Selected reference" : (draft.labels[id] ?? id)}${authority.canRead && ids.filter((item) => (draft.labels[item] ?? item) === (draft.labels[id] ?? id)).length > 1 ? ` (${id})` : ""}`}
                 onClick={(event) =>
                   removalFocus.remove(id, event.currentTarget, () =>
                     onChange(ids.filter((item) => item !== id).join("\n"), {}),
@@ -95,10 +98,16 @@ export function ContextualReferenceControl({
               >
                 Remove
               </WorkbookInspectorActionButton>
-              <details>
-                <summary>Reference ID</summary>
-                <span>{id}</span>
-              </details>
+              {authority.canRead ? (
+                field.readKind === "collection" ? (
+                  <details>
+                    <summary>Reference ID</summary>
+                    <span>{id}</span>
+                  </details>
+                ) : (
+                  <span style={workbookReferenceIdentityStyle}>{id}</span>
+                )
+              ) : null}
             </li>
           ))}
         </ul>

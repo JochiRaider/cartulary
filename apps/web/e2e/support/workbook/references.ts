@@ -73,7 +73,7 @@ export async function selectReferenceCandidates(
     ? [recordIds]
     : recordIds) {
     const option = candidates.locator(
-      `option[value="${recordId}"], option[value$=":${recordId}"], input[type="checkbox"][value="${recordId}"], input[type="checkbox"][value$=":${recordId}"]`,
+      `option[value="${recordId}"], option[value$=":${recordId}"], input[type="checkbox"][value="${recordId}"], input[type="checkbox"][value$=":${recordId}"], input[type="radio"][value="${recordId}"]`,
     );
     await expect(option).toHaveCount(1);
     const value = await option.getAttribute("value");
@@ -96,6 +96,14 @@ export async function activateCandidateIdentities(
   const ids = typeof identities === "string" ? [identities] : identities;
   if (await candidates.evaluate((element) => element.tagName === "SELECT")) {
     await candidates.selectOption([...ids]);
+    return;
+  }
+  if (await candidates.getByRole("radio").count()) {
+    if (ids.length !== 1)
+      throw new Error(
+        "Single-target candidates require one explicit identity; clear through the owning selected summary.",
+      );
+    await candidates.locator(`input[type="radio"][value="${ids[0]}"]`).check();
     return;
   }
   if (!ids.length) {

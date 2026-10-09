@@ -1,6 +1,8 @@
 import {
   assessmentCreateControlTestId,
+  coordinationWorkflowTestId,
   genericCreateFieldTestId,
+  genericCreateSubmitTestId,
   gridShellTestId,
   workbookAddRowButtonTestId,
   workbookInspectorFeatureActionTestId,
@@ -21,6 +23,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { openContextualCreationFixture } from "./support/workbook/contextualCreate";
 import {
   authorLiteralMembers,
   literalSetFixture,
@@ -37,7 +40,10 @@ import {
 } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import { activateCandidateIdentities } from "./support/workbook/references";
-import { openTimelineInspector } from "./support/workbook/rowMutations";
+import {
+  openGenericInspectorForRecord,
+  openTimelineInspector,
+} from "./support/workbook/rowMutations";
 import { openTimelineEvidenceFixture } from "./support/workbook/timelineRelatedEvidence";
 
 test("Literal candidate filters stage exact members and retain contextual selected identities", async ({
@@ -254,7 +260,7 @@ async function seed(page: Page, incident: string, view: string, field: string) {
 async function chooseFirst(select: Locator, multiple = false) {
   const option = multiple
     ? select.getByRole("checkbox").first()
-    : select.getByRole("option").nth(1);
+    : select.getByRole("radio").first();
   await expect(option).toBeAttached();
   const id = await option.getAttribute("value");
   if (!id) throw new Error("Missing exact candidate identity");
@@ -292,14 +298,17 @@ test("Party timestamp candidate filters stage explicitly and preserve selected i
     name: "Choose Requester Party",
     exact: true,
   });
-  const select = picker.getByRole("combobox", {
+  const select = picker.getByRole("group", {
     name: "Requester Party",
     exact: true,
   });
   await expect(
-    select.getByRole("option", { name: "Timestamp Party", exact: true }),
+    select.getByRole("radio", {
+      name: `Timestamp Party (${party.record_id})`,
+      exact: true,
+    }),
   ).toBeAttached();
-  await select.selectOption(party.record_id);
+  await activateCandidateIdentities(select, party.record_id);
   const queries: { filters?: unknown }[] = [];
   await page.route(
     `**/incidents/${f.incident}/views/${partiesViewSchemaId}/query`,
@@ -334,7 +343,10 @@ test("Party timestamp candidate filters stage explicitly and preserve selected i
     },
   ]);
   await expect(
-    select.getByRole("option", { name: "Timestamp Party", exact: true }),
+    select.getByRole("radio", {
+      name: `Timestamp Party (${party.record_id})`,
+      exact: true,
+    }),
   ).toHaveCount(0);
   await expect(
     button(picker, "Remove selected Requester Party Timestamp Party"),
@@ -509,11 +521,13 @@ test("Ordinary reference boolean filtering preserves the selected source until e
     name: "Choose Note source",
     exact: true,
   });
-  const select = picker.getByRole("combobox", {
+  const select = picker.getByRole("group", {
     name: "Note source",
     exact: true,
   });
-  await expect(select).toHaveValue(f.source.record_id);
+  await expect(
+    select.locator(`input[value="${f.source.record_id}"]`),
+  ).toBeChecked();
   const selected = picker.getByRole("button", {
     name: /^Remove selected Note source /,
   });
@@ -563,7 +577,9 @@ test("Ordinary reference boolean filtering preserves the selected source until e
   await button(picker, "Cancel source").click();
   await expect(button(f.form, "Choose source")).toBeFocused();
   await button(f.form, "Choose source").click();
-  await expect(select).toHaveValue(f.source.record_id);
+  await expect(
+    select.locator(`input[value="${f.source.record_id}"]`),
+  ).toBeChecked();
   await button(picker, "Apply source").click();
   await expect(button(f.form, "Choose source")).toBeFocused();
   await expect(
@@ -792,12 +808,14 @@ test("Timeline retained Owner reconciles accepted membership labels only on Appl
       name: "Choose Owner",
       exact: true,
     });
-    const select = picker.getByRole("combobox", { name: "Owner", exact: true });
+    const select = picker.getByRole("group", { name: "Owner", exact: true });
     await expect(select).toBeEnabled();
-    await expect(select).toHaveValue(actor.user_id);
-    await expect(select.locator(`option[value="${actor.user_id}"]`)).toHaveText(
-      actor.display_name,
-    );
+    await expect(
+      select.locator(`input[value="${actor.user_id}"]`),
+    ).toBeChecked();
+    await expect(
+      select.locator(`input[value="${actor.user_id}"]`),
+    ).toHaveAccessibleName(`${actor.display_name} (${actor.user_id})`);
     await expect(picker.getByRole("list")).toContainText(actor.display_name);
     const remove = picker.getByRole("button", {
       name: /^Remove selected Owner /,
@@ -808,8 +826,8 @@ test("Timeline retained Owner reconciles accepted membership labels only on Appl
     await expect(owner.getByRole("list").first()).toContainText(
       "Current actor",
     );
-    await select.focus();
-    await select.press("Escape");
+    await select.getByRole("radio", { checked: true }).focus();
+    await page.keyboard.press("Escape");
     await expect(choose).toBeFocused();
     await expect(owner.getByRole("list")).toContainText("Current actor");
     await choose.press("Enter");
@@ -839,8 +857,10 @@ test("Timeline retained Owner reconciles accepted membership labels only on Appl
     );
     await button(resumedOwner, "Choose Owner").click();
     await expect(
-      recovery.getByRole("combobox", { name: "Owner", exact: true }),
-    ).toHaveValue(actor.user_id);
+      recovery
+        .getByRole("group", { name: "Owner", exact: true })
+        .locator(`input[value="${actor.user_id}"]`),
+    ).toBeChecked();
     await button(recovery, "Cancel references").click();
     await button(recovery, "Discard draft").click();
   }
@@ -871,13 +891,16 @@ test("Timeline retained Requester Party updates accepted presentation through re
     name: "Choose Requester Party",
     exact: true,
   });
-  const select = picker.getByRole("combobox", {
+  const select = picker.getByRole("group", {
     name: "Requester Party",
     exact: true,
   });
-  await expect(select.getByRole("option")).toHaveCount(101);
+  await expect(select.getByRole("radio")).toHaveCount(100);
   const id = await chooseFirst(select);
-  const original = await select.locator(`option[value="${id}"]`).innerText();
+  const original =
+    (
+      await select.locator(`input[value="${id}"]`).getAttribute("aria-label")
+    )?.replace(` (${id})`, "") ?? "";
   await button(picker, "Apply references").click();
   const retained = task.getByRole("group", {
     name: "Requester Party selected references",
@@ -895,7 +918,9 @@ test("Timeline retained Requester Party updates accepted presentation through re
     changes: [{ field_key: "party.display_name", value: renamed }],
   });
   await choose.click();
-  await expect(select.locator(`option[value="${id}"]`)).toHaveText(renamed);
+  await expect(select.locator(`input[value="${id}"]`)).toHaveAccessibleName(
+    `${renamed} (${id})`,
+  );
   const remove = picker.getByRole("button", {
     name: /^Remove selected Requester Party /,
   });
@@ -911,12 +936,12 @@ test("Timeline retained Requester Party updates accepted presentation through re
     `Remove selected Requester Party ${renamed}`,
   );
   await button(picker, "Next candidates").click();
-  await expect(select.locator(`option[value="${id}"]`)).toHaveCount(0);
+  await expect(select.locator(`input[value="${id}"]`)).toHaveCount(0);
   await expect(remove).toHaveAccessibleName(
     `Remove selected Requester Party ${renamed}`,
   );
   await button(picker, "Previous candidates").click();
-  await expect(select).toHaveValue(id);
+  await expect(select.locator(`input[value="${id}"]`)).toBeChecked();
   await button(picker, "Apply references").click();
   await expect(retained.getByRole("list")).toContainText(renamed);
   await expect(
@@ -954,11 +979,11 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
     name: "Choose Collector Party",
     exact: true,
   });
-  const select = picker.getByRole("combobox", {
+  const select = picker.getByRole("group", {
     name: "Collector Party",
     exact: true,
   });
-  await expect(select.getByRole("option")).toHaveCount(101);
+  await expect(select.getByRole("radio")).toHaveCount(100);
   const selected = await chooseFirst(select);
   expect(parties).toContain(selected);
   await button(picker, "Next candidates").click();
@@ -969,7 +994,7 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
   await expect(button(picker, "Apply Party")).toBeEnabled();
   const failedRead = reads.at(-1);
   await button(picker, "Retry candidates").click();
-  await expect(select.getByRole("option")).toHaveCount(7);
+  await expect(select.getByRole("radio")).toHaveCount(6);
   expect(reads.at(-1)).toEqual(failedRead);
   await expect(
     picker.getByRole("button", { name: /^Remove selected Collector Party / }),
@@ -996,7 +1021,7 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
     exact: true,
   });
   await expect(
-    source.getByRole("combobox", { name: "Source Party", exact: true }),
+    source.getByRole("group", { name: "Source Party", exact: true }),
   ).toBeEnabled();
   await button(source, "Cancel Party selection").click();
   await expect(button(f.form, "Choose Source Party")).toBeFocused();
@@ -1065,26 +1090,26 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
     name: "Choose collector party",
     exact: true,
   });
-  const ordinaryCandidates = ordinary.getByRole("combobox", {
+  const ordinaryCandidates = ordinary.getByRole("group", {
     name: "Collector Party",
     exact: true,
   });
-  await expect(ordinaryCandidates.getByRole("option")).toHaveCount(101);
+  await expect(ordinaryCandidates.getByRole("radio")).toHaveCount(100);
   const compactRemove = ordinary.getByRole("button", {
     name: /^Remove selected Collector Party /,
   });
   await expect(compactRemove).toHaveCount(1);
-  await ordinaryCandidates.focus();
+  await ordinaryCandidates.getByRole("radio").first().focus();
   await page.keyboard.press("Tab");
   await expect(compactRemove).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(ordinaryCandidates).toBeFocused();
+  await expect(ordinaryCandidates.getByRole("radio").first()).toBeFocused();
   await button(ordinary, "Cancel references").click();
   await expect(raw).toHaveValue(selected);
   await trigger.click();
-  await expect(ordinaryCandidates.getByRole("option")).toHaveCount(101);
+  await expect(ordinaryCandidates.getByRole("radio")).toHaveCount(100);
   await button(ordinary, "Next candidates").click();
-  await expect(ordinaryCandidates.getByRole("option")).toHaveCount(7);
+  await expect(ordinaryCandidates.getByRole("radio")).toHaveCount(6);
   await button(ordinary, "Apply references").click();
   await expect(raw).toHaveValue(selected);
   await expect(trigger).toBeFocused();
@@ -1122,11 +1147,11 @@ test("Timeline contextual Party candidate reads keep keyboard focus through pend
     name: "Choose Requester Party",
     exact: true,
   });
-  const candidates = picker.getByRole("combobox", {
+  const candidates = picker.getByRole("group", {
     name: "Requester Party",
     exact: true,
   });
-  await expect(candidates.getByRole("option")).toHaveCount(101);
+  await expect(candidates.getByRole("radio")).toHaveCount(100);
 
   type Gate = {
     readonly wait: Promise<void>;
@@ -1219,7 +1244,7 @@ test("Timeline contextual Party candidate reads keep keyboard focus through pend
 
   const successfulRetry = await admit("Retry candidates");
   successfulRetry.release();
-  await expect(candidates.getByRole("option")).toHaveCount(7);
+  await expect(candidates.getByRole("radio")).toHaveCount(6);
   await expect(successfulRetry.control).toBeFocused();
   await expect(successfulRetry.control).toHaveAttribute(
     "aria-disabled",
@@ -1235,7 +1260,7 @@ test("Timeline contextual Party candidate reads keep keyboard focus through pend
 
   const previous = await admit("Previous candidates");
   previous.release();
-  await expect(candidates.getByRole("option")).toHaveCount(101);
+  await expect(candidates.getByRole("radio")).toHaveCount(100);
   await expect(previous.control).toBeFocused();
   await expect(previous.control).toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Tab");
@@ -1459,11 +1484,11 @@ test("Note source browsing preserves reviewed identity and text across delayed r
     name: "Choose Note source",
     exact: true,
   });
-  const select = picker.getByRole("combobox", {
+  const select = picker.getByRole("group", {
     name: "Note source",
     exact: true,
   });
-  await expect(select.getByRole("option")).toHaveCount(101);
+  await expect(select.getByRole("radio")).toHaveCount(100);
   const heldNext = button(picker, "Next candidates");
   await heldNext.focus();
   await page.keyboard.press("Enter");
@@ -1475,7 +1500,7 @@ test("Note source browsing preserves reviewed identity and text across delayed r
   await picker
     .getByRole("combobox", { name: "Source sheet", exact: true })
     .selectOption(timelineViewSchemaId);
-  await expect(select.getByRole("option")).toHaveCount(2);
+  await expect(select.getByRole("radio")).toHaveCount(1);
   const externalFocus = button(picker, "Apply source");
   await externalFocus.focus();
   await expect(externalFocus).toBeFocused();
@@ -1493,7 +1518,7 @@ test("Note source browsing preserves reviewed identity and text across delayed r
   await expect(
     picker.getByRole("combobox", { name: "Source sheet", exact: true }),
   ).toHaveValue(hostsViewSchemaId);
-  await expect(select.getByRole("option")).toHaveCount(101);
+  await expect(select.getByRole("radio")).toHaveCount(100);
   await chooseFirst(select);
   let releaseClosedRead!: () => void;
   let requestedClosedRead!: () => void;
@@ -1575,7 +1600,7 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
     .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
     .click();
   const subject = page.getByTestId(assessmentCreateControlTestId("subject"));
-  await expect(subject.getByRole("option")).toHaveCount(101);
+  await expect(subject.getByRole("radio")).toHaveCount(100);
   const subjectId = await chooseFirst(subject);
   expect(hosts).toContain(subjectId);
   const rationale = page.getByTestId(
@@ -1583,17 +1608,17 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
   );
   await rationale.fill("Retained assessment rationale");
   await button(page, "Next candidates").click();
-  await expect(subject.getByRole("option")).toHaveCount(6);
+  await expect(subject.getByRole("radio")).toHaveCount(5);
   await expect(
     page.getByRole("button", { name: /^Remove selected Subject / }),
   ).toHaveCount(1);
-  await subject.focus();
+  await subject.getByRole("radio").last().focus();
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("button", { name: /^Remove selected Subject / }),
   ).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(subject).toBeFocused();
+  await expect(subject.getByRole("radio").first()).toBeFocused();
   await chooseFirst(subject);
   await expect(rationale).toHaveValue("Retained assessment rationale");
   await page.getByText("Subject ordering and filters", { exact: true }).click();
@@ -1607,9 +1632,9 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
     .getByRole("textbox", { name: "Subject filter value", exact: true })
     .fill("excluded");
   await button(page, "Add filter").click();
-  await expect(subject.getByRole("option")).toHaveCount(6);
+  await expect(subject.getByRole("radio")).toHaveCount(5);
   await button(page, "Apply candidate query").click();
-  await expect(subject.getByRole("option")).toHaveCount(1);
+  await expect(subject.getByRole("radio")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /^Remove selected Subject / }),
   ).toHaveCount(1);
@@ -1702,6 +1727,189 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
   await expect(rationale).toHaveValue("Retained assessment rationale");
   await info.attach("Assessment-retained-candidates-review", {
     body: await page.screenshot(),
+    contentType: "image/png",
+  });
+});
+
+test("Single-target equal-label identities remain inspectable through contextual acceptance and explicit Party linking", async ({
+  page,
+}, info) => {
+  const f = await openContextualCreationFixture(
+    page,
+    "task_request",
+    undefined,
+    {
+      viewSchemaId: timelineViewSchemaId,
+      label: "Identity-aware requester source",
+    },
+  );
+  const label =
+    "Response coordination team — " +
+    "long readable requester label ".repeat(4) +
+    "RequesterIdentityToken".repeat(4);
+  const parties = [];
+  for (let index = 0; index < 2; index++)
+    parties.push(
+      await createViewRow(page, f.incident, partiesViewSchemaId, {
+        client_txn_id: uniqueTxn(`same-label-${index}`),
+        "party.display_name": label,
+        "party.party_kind": "team",
+      }),
+    );
+  const [first, chosen] = parties;
+  if (!first || !chosen) throw new Error("Missing equal-label Parties");
+  const task = page.getByRole("region", {
+    name: "Create task request",
+    exact: true,
+  });
+  const wording = "  Requester wording remains independent  ";
+  const raw = task.getByTestId(
+    genericCreateFieldTestId("task.requester_party_text"),
+  );
+  await raw.fill(wording);
+  const choose = button(task, "Choose Requester Party");
+  const picker = task.getByRole("region", {
+    name: "Choose Requester Party",
+    exact: true,
+  });
+  const candidates = picker.getByRole("group", {
+    name: "Requester Party",
+    exact: true,
+  });
+  const selected = task.getByRole("group", {
+    name: "Requester Party selected references",
+    exact: true,
+  });
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" ||
+      (request.method() === "POST" &&
+        request.url().includes(`/views/${taskRequestsViewSchemaId}/rows`))
+    )
+      writes++;
+  });
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 640 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await choose.click();
+    const radio = candidates.getByRole("radio", {
+      name: `${label.trim()} (${chosen.record_id})`,
+      exact: true,
+    });
+    await expect(candidates.getByRole("radio")).toHaveCount(2);
+    await expect(candidates.getByRole("radio", { checked: true })).toHaveCount(
+      0,
+    );
+    for (const party of parties)
+      await expect(
+        candidates.getByText(party.record_id, { exact: true }),
+      ).toBeVisible();
+    await expect(candidates.getByText(label, { exact: true })).toHaveCount(2);
+    expect(
+      await candidates.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth + 1,
+      ),
+    ).toBe(true);
+    await radio.focus();
+    await expect(radio).not.toBeChecked();
+    await page.keyboard.press("Space");
+    await expect(radio).toBeChecked();
+    await page.keyboard.press("Enter");
+    expect(writes).toBe(0);
+    await button(picker, "Cancel references").click();
+    await expect(choose).toBeFocused();
+    await expect(raw).toHaveValue(wording);
+    await expect(selected).toContainText("No references selected");
+  }
+  await choose.click();
+  await candidates.locator(`input[value="${chosen.record_id}"]`).check();
+  await button(picker, "Apply references").click();
+  await expect(selected).toContainText(chosen.record_id);
+  await expect(selected).toContainText(label.trim());
+  await expect(raw).toHaveValue(wording);
+  expect(writes).toBe(0);
+  expect(
+    await queryViewRows(page, f.incident, taskRequestsViewSchemaId),
+  ).toHaveLength(0);
+  await task
+    .getByTestId(genericCreateSubmitTestId(taskRequestsViewSchemaId))
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await queryViewRows(page, f.incident, taskRequestsViewSchemaId))
+          .length,
+    )
+    .toBe(1);
+  const created = (
+    await queryViewRows(page, f.incident, taskRequestsViewSchemaId)
+  )[0];
+  if (!created) throw new Error("Missing created task");
+  expect(created.cells["task.requester_party_id"]?.value).toBe(
+    chosen.record_id,
+  );
+  expect(created.cells["task.requester_party_text"]?.value).toBe(
+    wording.trim(),
+  );
+  await switchOrdinarySheet(page, taskRequestsViewSchemaId);
+  await openGenericInspectorForRecord(
+    page,
+    taskRequestsViewSchemaId,
+    created.record_id,
+  );
+  await page
+    .getByTestId(coordinationWorkflowTestId("party-pair"))
+    .selectOption("task.requester_party_text:task.requester_party_id");
+  const existing = page.getByTestId(
+    coordinationWorkflowTestId("party-existing"),
+  );
+  const target = existing.locator(`input[value="${first.record_id}"]`);
+  await target.check();
+  const writesBeforeLink = writes;
+  await page
+    .getByRole("button", { name: "Clear selected party", exact: true })
+    .click();
+  await expect(existing.getByRole("radio").first()).toBeFocused();
+  await target.focus();
+  await page.keyboard.press("Space");
+  await expect(target).toBeChecked();
+  expect(writes).toBe(writesBeforeLink);
+  await page
+    .getByTestId(coordinationWorkflowTestId("party-link-existing"))
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await queryViewRows(page, f.incident, taskRequestsViewSchemaId))[0]
+          ?.cells["task.requester_party_id"]?.value,
+    )
+    .toBe(first.record_id);
+  expect(
+    (await queryViewRows(page, f.incident, taskRequestsViewSchemaId))[0]?.cells[
+      "task.requester_party_text"
+    ]?.value,
+  ).toBe(wording.trim());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const linked = page.getByRole("region", {
+    name: "Requester Party",
+    exact: true,
+  });
+  await expect(linked).toContainText(first.record_id);
+  expect(
+    await linked.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1,
+    ),
+  ).toBe(true);
+  await linked
+    .locator("p")
+    .filter({ hasText: "Party link:" })
+    .scrollIntoViewIfNeeded();
+  await info.attach("single-target-linked-long-identity", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
     contentType: "image/png",
   });
 });

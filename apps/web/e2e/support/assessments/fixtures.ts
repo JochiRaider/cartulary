@@ -29,7 +29,8 @@ export async function createAssessmentViaUI(
       .click();
   await page
     .getByTestId(assessmentCreateControlTestId("subject"))
-    .selectOption(options.subjectRecordId);
+    .locator(`input[type="radio"][value="${options.subjectRecordId}"]`)
+    .check();
   await page
     .getByTestId(assessmentCreateControlTestId("state"))
     .selectOption(options.state);
@@ -49,11 +50,13 @@ export async function createAssessmentViaUI(
     await expect(
       page
         .getByTestId(assessmentCreateControlTestId("support-refs"))
-        .locator("option"),
+        .getByRole("checkbox"),
     ).toHaveCount(options.supportRecordIds.length);
-    await page
-      .getByTestId(assessmentCreateControlTestId("support-refs"))
-      .selectOption(options.supportRecordIds);
+    for (const id of options.supportRecordIds)
+      await page
+        .getByTestId(assessmentCreateControlTestId("support-refs"))
+        .locator(`input[type="checkbox"][value="${id}"]`)
+        .check();
     await page
       .getByRole("button", { name: "Apply support selection", exact: true })
       .click();

@@ -73,7 +73,7 @@ confirmation remain in their existing controllers.
 | [WorkbookGridEditorControl.tsx](WorkbookGridEditorControl.tsx) | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. |
 | [WorkbookReferenceControl.tsx](WorkbookReferenceControl.tsx) | Existing-record exact-ID input, staged top-layer picker, and authorized selected presentation; no mutation owner. |
 | [WorkbookReferenceControl.test.tsx](WorkbookReferenceControl.test.tsx) | Inspector staging, explicit acceptance, read-only retry, exact collection payloads, and committed-label updates. |
-| [WorkbookRecordCandidatePicker.tsx](WorkbookRecordCandidatePicker.tsx) | Native single-target candidate control retained for Party linking and single authoring. |
+| [WorkbookRecordCandidatePicker.tsx](WorkbookRecordCandidatePicker.tsx) | Bounded native radios with wrapping labels and full IDs for shared single selection and Party linking. |
 | [WorkbookMultiCandidatePicker.tsx](WorkbookMultiCandidatePicker.tsx) | Bounded checkbox presentation with complete wrapped labels and stable identities; explicit identity toggles only. |
 | [WorkbookRelationshipChip.test.tsx](WorkbookRelationshipChip.test.tsx) | Tests relationship-chip state details, semantic selectors, and optional selection behavior. |
 | [WorkbookRelationshipChip.tsx](WorkbookRelationshipChip.tsx) | Shared relationship-chip presentation over an explicit label, state, detail, selector identity, selection, and command model. |
@@ -165,8 +165,19 @@ metadata, query/paging and acceptance remain with their existing owners. The fir
 enabled checkbox supplies selected-item removal focus fallback, revealed through
 nested owned scrollports. Settled ordinary collection Retry stays mounted and
 disabled after focus departs so the following pointer gesture keeps stable geometry.
-WorkbookRecordCandidatePicker retains native single-target presentation for Party
-linking, Assessment subjects, source review and single-reference authoring.
+WorkbookRecordCandidatePicker presents native single-target radios for Party
+linking and WorkbookCandidateSelection (Assessment subjects, source review and
+single-reference authoring). Its scalar selectedRecordId/onSelect interface owns
+no reads or writes. Every label and full stable ID wraps in the bounded chooser;
+independent group names preserve one deliberate selection per mounted picker.
+Enter does not submit an enclosing form. Single selected summaries retain full IDs
+outside the current page and after Apply, subject to the owner’s concealment.
+The input focusTargetRef exposes the first enabled radio. Removal keeps the existing
+focus-intent cancellation and scroll reveal; with no eligible input, authoring uses
+Cancel and Assessment uses its ordering/filter disclosure. Compact triggers retain
+their geometry and expose full identity inside the chooser. The previous select
+interface is retired; WorkbookReferenceControl’s independent ordinary single-select
+branch remains owned separately.
 
 `WorkbookBatchRecordChoices.tsx` presents up to twenty returned Timeline records
 with local search and explicit review activation. Its test verifies bounded

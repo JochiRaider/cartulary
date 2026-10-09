@@ -120,14 +120,15 @@ test("Coordination drafts survive navigation and source replacement or clear pre
     .getByRole("combobox", { name: "Reference surface", exact: true })
     .selectOption(timelineViewSchemaId);
   await expect(
-    picker.getByRole("option", {
-      name: "Chosen coordination source",
+    picker.getByRole("radio", {
+      name: `Chosen coordination source (${replacement.record_id})`,
       exact: true,
     }),
   ).toBeAttached();
   await picker
-    .getByRole("combobox", { name: "Source", exact: true })
-    .selectOption(replacement.record_id);
+    .getByRole("group", { name: "Source", exact: true })
+    .locator(`input[type="radio"][value="${replacement.record_id}"]`)
+    .check();
   await picker.press("Escape");
   await expect(
     f.form.getByRole("button", { name: "Choose source", exact: true }),
@@ -139,14 +140,15 @@ test("Coordination drafts survive navigation and source replacement or clear pre
     .getByRole("combobox", { name: "Reference surface", exact: true })
     .selectOption(timelineViewSchemaId);
   await expect(
-    picker.getByRole("option", {
-      name: "Chosen coordination source",
+    picker.getByRole("radio", {
+      name: `Chosen coordination source (${replacement.record_id})`,
       exact: true,
     }),
   ).toBeAttached();
   await picker
-    .getByRole("combobox", { name: "Source", exact: true })
-    .selectOption(replacement.record_id);
+    .getByRole("group", { name: "Source", exact: true })
+    .locator(`input[type="radio"][value="${replacement.record_id}"]`)
+    .check();
   await picker
     .getByRole("button", { name: "Apply references", exact: true })
     .click();

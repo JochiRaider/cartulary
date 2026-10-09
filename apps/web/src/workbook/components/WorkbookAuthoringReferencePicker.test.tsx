@@ -18,6 +18,7 @@ import type {
 import { WorkbookAuthoringReferenceControl } from "./WorkbookAuthoringReferenceControl";
 import { WorkbookAuthoringReferencePicker } from "./WorkbookAuthoringReferencePicker";
 import { WorkbookCandidateSelection } from "./WorkbookCandidateSelection";
+import { WorkbookRecordCandidatePicker } from "./WorkbookRecordCandidatePicker";
 
 afterEach(cleanup);
 const view = partiesViewSchemaId;
@@ -96,6 +97,210 @@ function readGate() {
   return { promise, resolve };
 }
 describe("authoring candidate presentation", () => {
+  it("exposes full single-candidate identities with native keyboard selection and independent disabled groups", async () => {
+    const user = userEvent.setup(),
+      submit = vi.fn();
+    const label =
+      "Complete long label ".repeat(12) + "unbroken_identifier_".repeat(8);
+    function Choices() {
+      const [selected, setSelected] = useState<string | null>(null);
+      return (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit();
+          }}
+        >
+          <WorkbookRecordCandidatePicker
+            label="Targets"
+            testId="targets"
+            candidates={["a", "disabled", "b"].map((recordId) => ({
+              recordId,
+              displayText: label,
+            }))}
+            disabledRecordIds={["disabled"]}
+            selectedRecordId={selected}
+            onSelect={setSelected}
+          />
+          <WorkbookRecordCandidatePicker
+            label="Other targets"
+            testId="other-targets"
+            candidates={[{ recordId: "a", displayText: "Other" }]}
+            selectedRecordId="a"
+            onSelect={vi.fn()}
+          />
+          <button type="submit">Submit parent</button>
+        </form>
+      );
+    }
+    const mounted = render(<Choices />);
+    const a = screen.getByRole("radio", { name: `${label.trim()} (a)` });
+    const b = screen.getByRole("radio", { name: `${label.trim()} (b)` });
+    expect(a).toHaveProperty("checked", false);
+    await user.tab();
+    expect(a).toBe(document.activeElement);
+    expect(a).toHaveProperty("checked", false);
+    await user.keyboard(" ");
+    expect(a).toHaveProperty("checked", true);
+    await user.keyboard("{ArrowDown}");
+    expect(b).toBe(document.activeElement);
+    expect(b).toHaveProperty("checked", true);
+    expect(a).toHaveProperty("checked", false);
+    expect(
+      screen.getByRole("radio", { name: `${label.trim()} (disabled)` }),
+    ).toHaveProperty("disabled", true);
+    expect(screen.getByRole("radio", { name: "Other (a)" })).toHaveProperty(
+      "checked",
+      true,
+    );
+    await user.keyboard("{Enter}");
+    expect(submit).not.toHaveBeenCalled();
+    expect(screen.getAllByText(label)).toHaveLength(3);
+    expect(screen.getByText("b")).toBeTruthy();
+    const unavailableSelect = vi.fn();
+    mounted.rerender(
+      <WorkbookRecordCandidatePicker
+        label="Unavailable targets"
+        testId="unavailable"
+        candidates={[{ recordId: "unavailable", displayText: "Unavailable" }]}
+        disabledRecordIds={["unavailable"]}
+        selectedRecordId={null}
+        onSelect={unavailableSelect}
+      />,
+    );
+    await user.click(screen.getByRole("radio"));
+    expect(screen.getByRole("radio")).toHaveProperty("checked", false);
+    expect(unavailableSelect).not.toHaveBeenCalled();
+  });
+  it("keeps single-choice empty removal local and conceals every retained identity on access loss", async () => {
+    const { props, reader } = setup();
+    vi.mocked(reader.page).mockResolvedValue({
+      kind: "accepted",
+      value: { candidates: [], hasMore: false, nextCursor: null },
+    });
+    const selected = [
+      {
+        recordId: "protected-id",
+        displayText: "Protected label",
+        viewSchemaId: view,
+      },
+    ];
+    const boundary = (canRead: boolean) => (
+      <WorkbookCandidateAuthorityContext.Provider
+        value={{ identity: "authority", canRead, onAuthorityFailure: vi.fn() }}
+      >
+        <WorkbookAuthoringReferencePicker
+          {...props}
+          multiple={false}
+          maximum={1}
+          selected={selected}
+        />
+      </WorkbookCandidateAuthorityContext.Provider>
+    );
+    const mounted = render(boundary(true));
+    await screen.findByText("No candidates match this query.");
+    const remove = screen.getByRole("button", {
+      name: "Remove selected Parties Protected label",
+    });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Cancel references" }),
+    );
+    mounted.unmount();
+    render(boundary(false));
+    expect(screen.queryByText("protected-id")).toBeNull();
+    expect(screen.queryByText("Protected label")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /protected-id|Protected label/ }),
+    ).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
+  });
+  it("keeps equal-label single choice staged with exact retained metadata across pages and cancellation", async () => {
+    const { props, reader, onApply } = setup();
+    const label = "Response coordination team";
+    vi.mocked(reader.page).mockImplementation(async ({ cursor }) => ({
+      kind: "accepted",
+      value: {
+        candidates: (cursor ? ["later"] : ["a", "b"]).map((id) => ({
+          ...candidate(id),
+          displayText: label,
+        })),
+        hasMore: !cursor,
+        nextCursor: cursor ? null : "next",
+      },
+    }));
+    const retained = {
+      recordId: "original",
+      displayText: "Reviewed source",
+      viewSchemaId: view,
+      rowVersion: 7,
+    };
+    render(
+      <WorkbookAuthoringReferenceControl
+        {...props}
+        multiple={false}
+        maximum={1}
+        captureRowVersion
+        selected={[retained]}
+      />,
+    );
+    click("Choose parties");
+    await screen.findAllByRole("radio", { name: candidateName(label) });
+    fireEvent.click(screen.getByRole("radio", { name: `${label} (b)` }));
+    expect(onApply).not.toHaveBeenCalled();
+    click("Cancel references");
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Choose parties" }),
+    );
+    click("Choose parties");
+    await screen.findAllByRole("radio", { name: candidateName(label) });
+    click("Apply references");
+    expect(onApply).toHaveBeenLastCalledWith([retained]);
+    click("Choose parties");
+    await screen.findAllByRole("radio", { name: candidateName(label) });
+    fireEvent.click(screen.getByRole("radio", { name: `${label} (b)` }));
+    click("Next candidates");
+    await waitFor(() =>
+      expect(reader.page).toHaveBeenCalledWith(
+        expect.objectContaining({ cursor: "next" }),
+      ),
+    );
+    click("Apply references");
+    expect(onApply).toHaveBeenLastCalledWith([
+      { recordId: "b", displayText: label, viewSchemaId: view, rowVersion: 3 },
+    ]);
+    expect(reader.verify).not.toHaveBeenCalled();
+  });
+  it("returns sole single-choice removal focus to its candidate control", async () => {
+    function Selection() {
+      const [selected, setSelected] = useState([
+        { recordId: "a", displayText: "Same label" },
+      ]);
+      return (
+        <WorkbookCandidateSelection
+          candidates={[{ recordId: "b", displayText: "Same label" }]}
+          selected={selected}
+          label="Records"
+          testId="single-records"
+          multiple={false}
+          maximum={1}
+          disabled={false}
+          onChange={(items) => setSelected([...items])}
+        />
+      );
+    }
+    render(<Selection />);
+    const remove = screen.getByRole("button", {
+      name: "Remove selected Records Same label",
+    });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(document.activeElement).toBe(
+      screen.getByRole("radio", { name: "Same label (b)" }),
+    );
+  });
+
   it("adds equal-label identities with plain clicks and Space while preserving editable context and metadata", async () => {
     const user = userEvent.setup();
     const { props, reader, onApply, onCancel } = setup();
@@ -307,7 +512,7 @@ describe("authoring candidate presentation", () => {
       />,
     );
     await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(1));
-    const selector = screen.getByRole("combobox", {
+    const selector = screen.getByRole("group", {
       name: "Owner",
     });
     const cancel = screen.getByRole("button", { name: "Cancel references" });
@@ -323,15 +528,14 @@ describe("authoring candidate presentation", () => {
         },
       }),
     );
-    expect(screen.getByRole("combobox", { name: "Owner" })).toBe(selector);
+    expect(screen.getByRole("group", { name: "Owner" })).toBe(selector);
     expect(document.activeElement).toBe(cancel);
-    expect(selector).toHaveProperty("value", member.recordId);
     expect(
-      screen.getByRole("option", { name: "Review editor" }),
-    ).toHaveProperty("selected", true);
+      screen.getByRole("radio", { name: `Review editor (${member.recordId})` }),
+    ).toHaveProperty("checked", true);
     const summary = screen.getByRole("list");
     expect(summary.textContent).toContain("Review editor");
-    expect(summary.textContent).not.toContain(member.recordId);
+    expect(summary.textContent).toContain(member.recordId);
     expect(
       screen
         .getByRole("button", { name: /^Remove selected Owner / })
@@ -524,83 +728,95 @@ describe("authoring candidate presentation", () => {
   });
 
   it("cannot restore labels from obsolete accepted revisions authorities targets or disposed reads", async () => {
-    const { props, reader, onApply } = setup();
-    const obsolete = readGate(),
-      concealed = readGate(),
-      disposed = readGate();
-    const accepted = (displayText: string) => ({
-      kind: "accepted" as const,
-      value: {
-        candidates: [{ ...candidate("one"), displayText }],
-        hasMore: false,
-        nextCursor: null,
-      },
-    });
-    vi.mocked(reader.page)
-      .mockImplementationOnce(() => obsolete.promise)
-      .mockResolvedValueOnce(accepted("Current label"))
-      .mockImplementationOnce(() => concealed.promise)
-      .mockResolvedValueOnce(accepted("Restored label"))
-      .mockImplementationOnce(() => disposed.promise)
-      .mockResolvedValueOnce(accepted("New target label"));
-    const failure = vi.fn();
-    const boundary = (
-      revision: number,
-      identity: string,
-      canRead = true,
-      target = "draft",
-    ) => (
-      <WorkbookCandidateAuthorityContext.Provider
-        value={{ identity, canRead, onAuthorityFailure: failure }}
-      >
-        <WorkbookAuthoringReferencePicker
-          key={target}
-          {...props}
-          targetKey={target}
-          revision={revision}
-          selected={[
-            {
-              recordId: "one",
-              displayText: "Protected initial",
-              viewSchemaId: view,
-            },
-          ]}
-        />
-      </WorkbookCandidateAuthorityContext.Provider>
-    );
-    const rendered = render(boundary(0, "a"));
-    await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(1));
-    rendered.rerender(boundary(1, "a"));
-    await screen.findByRole("checkbox", {
-      name: candidateName("Current label"),
-    });
-    await act(async () => obsolete.resolve(accepted("Obsolete label")));
-    expect(screen.getByRole("list").textContent).toContain("Current label");
-    expect(screen.queryByText("Obsolete label")).toBeNull();
-    click("Refresh candidates");
-    await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(3));
-    rendered.rerender(boundary(1, "b", false));
-    await act(async () => concealed.resolve(accepted("Protected late label")));
-    expect(screen.getByRole("list").textContent).toContain(
-      "Selected reference",
-    );
-    expect(screen.getByRole("list").textContent).not.toContain("label");
-    rendered.rerender(boundary(1, "b"));
-    await screen.findByRole("checkbox", {
-      name: candidateName("Restored label"),
-    });
-    click("Refresh candidates");
-    await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(5));
-    rendered.rerender(boundary(1, "b", true, "new-draft"));
-    await screen.findByRole("checkbox", {
-      name: candidateName("New target label"),
-    });
-    await act(async () => disposed.resolve(accepted("Disposed label")));
-    click("Apply references");
-    expect(onApply).toHaveBeenCalledWith([
-      { recordId: "one", displayText: "New target label", viewSchemaId: view },
-    ]);
-    expect(failure).not.toHaveBeenCalled();
+    for (const multiple of [false, true]) {
+      const { props, reader, onApply } = setup();
+      const obsolete = readGate(),
+        concealed = readGate(),
+        disposed = readGate();
+      const accepted = (displayText: string) => ({
+        kind: "accepted" as const,
+        value: {
+          candidates: [{ ...candidate("one"), displayText }],
+          hasMore: false,
+          nextCursor: null,
+        },
+      });
+      vi.mocked(reader.page)
+        .mockImplementationOnce(() => obsolete.promise)
+        .mockResolvedValueOnce(accepted("Current label"))
+        .mockImplementationOnce(() => concealed.promise)
+        .mockResolvedValueOnce(accepted("Restored label"))
+        .mockImplementationOnce(() => disposed.promise)
+        .mockResolvedValueOnce(accepted("New target label"));
+      const failure = vi.fn();
+      const boundary = (
+        revision: number,
+        identity: string,
+        canRead = true,
+        target = "draft",
+      ) => (
+        <WorkbookCandidateAuthorityContext.Provider
+          value={{ identity, canRead, onAuthorityFailure: failure }}
+        >
+          <WorkbookAuthoringReferencePicker
+            key={target}
+            {...props}
+            multiple={multiple}
+            targetKey={target}
+            revision={revision}
+            selected={[
+              {
+                recordId: "one",
+                displayText: "Protected initial",
+                viewSchemaId: view,
+              },
+            ]}
+          />
+        </WorkbookCandidateAuthorityContext.Provider>
+      );
+      const rendered = render(boundary(0, "a"));
+      await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(1));
+      rendered.rerender(boundary(1, "a"));
+      await screen.findByRole(multiple ? "checkbox" : "radio", {
+        name: candidateName("Current label"),
+      });
+      await act(async () => obsolete.resolve(accepted("Obsolete label")));
+      expect(screen.getByRole("list").textContent).toContain("Current label");
+      expect(screen.queryByText("Obsolete label")).toBeNull();
+      click("Refresh candidates");
+      await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(3));
+      rendered.rerender(boundary(1, "b", false));
+      await act(async () =>
+        concealed.resolve(accepted("Protected late label")),
+      );
+      expect(screen.getByRole("list").textContent).toContain(
+        "Selected reference",
+      );
+      expect(screen.getByRole("list").textContent).not.toContain("label");
+      expect(screen.getByRole("list").textContent).not.toContain("one");
+      expect(screen.queryByRole("radio")).toBeNull();
+      rendered.rerender(boundary(1, "b"));
+      await screen.findByRole(multiple ? "checkbox" : "radio", {
+        name: candidateName("Restored label"),
+      });
+      click("Refresh candidates");
+      await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(5));
+      rendered.rerender(boundary(1, "b", true, "new-draft"));
+      await screen.findByRole(multiple ? "checkbox" : "radio", {
+        name: candidateName("New target label"),
+      });
+      await act(async () => disposed.resolve(accepted("Disposed label")));
+      click("Apply references");
+      expect(onApply).toHaveBeenCalledWith([
+        {
+          recordId: "one",
+          displayText: "New target label",
+          viewSchemaId: view,
+        },
+      ]);
+      expect(failure).not.toHaveBeenCalled();
+      rendered.unmount();
+    }
   });
 
   it("keeps keyboard focus on held First Refresh Next and Previous reads and exhausted controls", async () => {
@@ -1348,20 +1564,20 @@ describe("authoring candidate presentation", () => {
         ]}
       />,
     );
-    await screen.findByRole("option", { name: "Party 1-0" });
+    await screen.findByRole("radio", { name: "Party 1-0 (1-0)" });
     expect(
       screen
         .getByRole("button", { name: /^Remove selected Parties / })
         .getAttribute("aria-label"),
     ).toBe("Remove selected Parties Reviewed source");
     expect(onApply).not.toHaveBeenCalled();
-    fireEvent.keyDown(screen.getByRole("combobox", { name: "Parties" }), {
+    fireEvent.keyDown(screen.getByRole("group", { name: "Parties" }), {
       key: "Escape",
     });
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onApply).not.toHaveBeenCalled();
     click("Next candidates");
-    await screen.findByRole("option", { name: "Party 2-0" });
+    await screen.findByRole("radio", { name: "Party 2-0 (2-0)" });
     click("Apply references");
     expect(onApply.mock.calls[0]?.[0]).toEqual([
       {
@@ -1371,9 +1587,7 @@ describe("authoring candidate presentation", () => {
         rowVersion: 2,
       },
     ]);
-    fireEvent.change(screen.getByRole("combobox", { name: "Parties" }), {
-      target: { value: "2-0" },
-    });
+    fireEvent.click(screen.getByRole("radio", { name: "Party 2-0 (2-0)" }));
     click("Apply references");
     expect(onApply.mock.calls[1]?.[0]).toEqual([
       {

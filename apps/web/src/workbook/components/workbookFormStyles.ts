@@ -19,6 +19,14 @@ export function workbookTypography(
   };
 }
 
+export const workbookReferenceIdentityStyle = {
+  display: "block",
+  ...workbookTypography("metadata"),
+  color: "var(--ct-colors-ink-muted)",
+  overflowWrap: "anywhere",
+  whiteSpace: "normal",
+} satisfies CSSProperties;
+
 export const workbookQuietCommandStyle = {
   ...workbookTypography("button"),
   display: "inline-flex",
@@ -57,7 +65,7 @@ export const workbookCommandStateStyles = `
   outline: var(--ct-component-focus-ring-border);
   outline-offset: var(--ct-component-focus-ring-offset);
 }
-.cartulary-shell [data-workbook-multi-candidates] input:focus-visible {
+.cartulary-shell :is([data-workbook-multi-candidates], [data-workbook-single-candidates]) input:focus-visible {
   outline: var(--ct-component-focus-ring-border);
   outline-offset: var(--ct-component-focus-ring-offset);
 }

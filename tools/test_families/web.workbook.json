@@ -274,7 +274,8 @@
           "Assessment discovery reads only the authorized selected view and reduces minimal Timeline rows with opaque paging",
           "Assessment discovery rejects cyclic paging and ignores an obsolete filter response",
           "Assessment discovery stages support selection and cancels with Escape without changing the draft",
-          "Assessment discovery stages typed boolean support filters without changing selected identities"
+          "Assessment discovery stages typed boolean support filters without changing selected identities",
+          "Assessment discovery updates only the exact equal-label subject draft and clears to query focus on an empty page"
         ]
       },
       "evidence_class": "unit",
@@ -440,10 +441,13 @@
           "authoring candidate presentation cannot restore labels from obsolete accepted revisions authorities targets or disposed reads",
           "authoring candidate presentation clears labels on revision invalidation and recovers selected presentation from a new authorized page",
           "authoring candidate presentation conceals typed authorization failures and fences obsolete authority callbacks on target replacement",
+          "authoring candidate presentation exposes full single-candidate identities with native keyboard selection and independent disabled groups",
           "authoring candidate presentation keeps Retry connected through failure success and restart while blocking duplicate activation",
+          "authoring candidate presentation keeps equal-label single choice staged with exact retained metadata across pages and cancellation",
           "authoring candidate presentation keeps keyboard focus on held First Refresh Next and Previous reads and exhausted controls",
           "authoring candidate presentation keeps member and record label contexts separate for equal opaque IDs",
           "authoring candidate presentation keeps parent-list removal local without opening discovery or changing survivor metadata",
+          "authoring candidate presentation keeps single-choice empty removal local and conceals every retained identity on access loss",
           "authoring candidate presentation permits accepted-page selection and Apply during delayed and failed continuation then retries exactly once",
           "authoring candidate presentation reconciles a retained member label locally and applies the exact identity without moving focus",
           "authoring candidate presentation refreshes only selected labels and preserves duplicate off-page identities and metadata",
@@ -451,6 +455,7 @@
           "authoring candidate presentation retains a reviewed source version and captures only source identity metadata for explicit replacement",
           "authoring candidate presentation retains selected identities across twelve evicted pages with bounded options and reduced payloads",
           "authoring candidate presentation retires held read focus after outside interaction scope replacement and authority loss",
+          "authoring candidate presentation returns sole single-choice removal focus to its candidate control",
           "authoring candidate presentation stages boolean reference filters before an explicit typed read",
           "authoring candidate presentation stages timestamp filters only after local correction and retains selected Party identity through discovery",
           "authoring candidate presentation starts and cleans up scoped reads under StrictMode without requesting record filters for membership",
@@ -922,6 +927,7 @@
           "contextual Task and Decision authoring conceals original source labels during suspension and requires a current read after same-account recovery",
           "contextual Task and Decision authoring hides protected state on suspension and retires it on account replacement",
           "contextual Task and Decision authoring ignores obsolete successful and failed source reviews after newer authoring or incident retirement",
+          "contextual Task and Decision authoring keeps equal-label requester choice separate from raw fields until Apply",
           "contextual Task and Decision authoring maps all 23 declared entry points across 15 public surfaces and excludes absent features",
           "contextual Task and Decision authoring reconciles the default Owner only in staging until Apply and retains its readable label on resume",
           "contextual Task and Decision authoring recovers original source presentation only through current source review independently of target labels and minima",
@@ -4396,7 +4402,8 @@
           "Party controls preserve all pair states and submit only the selected independent clear",
           "Party creation requires deliberate kind and opt-in editable email with optional details",
           "Party review Escape restores its trigger and cyclic paging remains stale until reload",
-          "Party socket invalidation retains loaded candidates as stale until an authorized reload"
+          "Party socket invalidation retains loaded candidates as stale until an authorized reload",
+          "equal-label Party target selection waits for explicit Link and preserves source wording"
         ]
       },
       "evidence_class": "unit",

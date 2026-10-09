@@ -100,3 +100,10 @@ projection. The existing authoritative source review recovers the current label
 only after its identity, version and lifetime checks. Operation entries retain
 safe presentation outside their immutable captured attempts; refresh can recover
 it from already-read matching source rows without additional traversal.
+
+Single contextual and coordination references expose full labels and IDs in the
+shared radio chooser and noncompact accepted summaries. Contextual single-reference
+IDs use a visible secondary line; collection identity disclosure remains unchanged.
+Apply updates only the retained draft, Cancel preserves raw fields and metadata,
+and Create remains explicit. Parent removal still returns to its Choose trigger;
+Escape cancels only the active picker and restores its invoker.
