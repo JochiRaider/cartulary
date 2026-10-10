@@ -59,8 +59,10 @@ additive. Resource reservations describe admission claims, not consumption.
 
 Basic diagnostics sample process counters every two seconds and guest/cgroup
 context every five seconds. CPU percent uses one core as 100%; null means no
-valid interval, not zero CPU. Unit lifetime CPU observations are lower bounds over
-identified processes. Short-lived descendants can be missed. Sampled RSS sums
+valid interval, not zero CPU. Unit CPU observations include only complete sampled intervals after explicit
+registration; conflicting ownership is excluded and shared allocations stay
+contextual. Late launch proof does not assign earlier CPU consumption. Short-lived
+descendants can be missed. Sampled RSS sums
 represent one sweep's observed subset; shared pages can repeat and reads are not
 simultaneous instants. Kernel high-water observations are separate from sampled
 maxima. No per-test or Windows-host attribution is implied.

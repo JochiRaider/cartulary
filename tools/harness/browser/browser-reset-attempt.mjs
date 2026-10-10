@@ -4,6 +4,9 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+import { readBootClock } from "../runtime/boot-clock.mjs";
+import { startActivity, finishActivity } from "../runtime/local-activity.mjs";
+
 import { validateSchemaSync } from "../contract/index.mjs";
 
 function parseArgs(argv) {
@@ -22,7 +25,7 @@ function parseArgs(argv) {
       "--backend-ready-marker-file",
       "--lease-file",
       "--generation-before",
-      "--duration-ms",
+      "--measurement",
     ]).has(flag)) throw new Error(`unsupported browser reset attempt flag ${flag}`);
     values[flag] = argv[index + 1];
   }
@@ -53,6 +56,12 @@ function classification(exitCode) {
 }
 
 function main(argv) {
+  const options = { repoRoot: path.resolve(import.meta.dirname, "../../.."), environment: process.env, activity: "fixture_reset" };
+  const clock = () => { const value = readBootClock(); return { ...value, resolution_ms: value.clock_identity ? 10 : null }; };
+  if (argv.length === 1 && argv[0] === "--begin") {
+    process.stdout.write(JSON.stringify(startActivity(options, clock)));
+    return;
+  }
   const args = parseArgs(argv);
   const label = String(args["--label"] ?? "");
   const status = args["--status"];
@@ -64,7 +73,7 @@ function main(argv) {
   const backendReadyMarkerFile = args["--backend-ready-marker-file"];
   const leaseFile = args["--lease-file"];
   const generationBefore = Number.parseInt(args["--generation-before"], 10);
-  const durationMS = Number.parseInt(args["--duration-ms"], 10);
+  const measurement = finishActivity(options, JSON.parse(args["--measurement"]), status === "pass" ? "passed" : [130, 143].includes(exitCode) ? "cancelled" : "failed", clock);
   if (!/^[A-Za-z0-9_.-]+$/u.test(label) || !["pass", "fail"].includes(status)) {
     throw new Error("browser reset attempt has invalid identity or status");
   }
@@ -121,11 +130,11 @@ function main(argv) {
               ? "replacement_backend"
               : "generation_publication";
   const payload = {
-    schema_id: "cartulary.browser_reset_attempt.v1",
+    schema_id: "cartulary.browser_reset_attempt.v2",
     reset_id: label,
     status,
     attempt: 1,
-    duration_ms: Math.max(durationMS, 0),
+    ...Object.fromEntries(["duration_ms", "clock", "clock_identity", "resolution_ms", "availability"].map((key) => [key, measurement[key]])),
     runtime_profile_id: String(process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID ?? ""),
 		stages,
     backend_generation_before: generationBefore,

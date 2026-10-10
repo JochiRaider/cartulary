@@ -1790,9 +1790,10 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 		_ = db.Close()
 		return fmt.Errorf("load migration source: %w", err)
 	}
-	if err := pgtest.InitializeFreshDatabase(ctx, db, templateDSN, source); err != nil {
+	_, migrationErr := suiteservices.MeasureMigration(ctx, func() error { return pgtest.InitializeFreshDatabase(ctx, db, templateDSN, source) })
+	if migrationErr != nil {
 		_ = db.Close()
-		return err
+		return migrationErr
 	}
 	if err := db.Close(); err != nil {
 		return fmt.Errorf("close template database handle: %w", err)

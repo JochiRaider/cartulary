@@ -11,6 +11,141 @@ import { renderInstrumentationDefinitions } from "../../generated-artifacts/inst
 import { readFileSync } from "node:fs";
 import { createResourceAccumulator } from "../resource-accumulator.mjs";
 import Ajv2020 from "ajv/dist/2020.js";
+import { FixtureBroker } from "../../scheduler/fixture-broker/index.mjs";
+import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
+import { createLaunchContext, readLaunchContext } from "../../runtime/launch-context.mjs";
+import { createExecutionSession } from "../../runtime/execution-observations.mjs";
+import { readExecutionIndex } from "../execution-reader.mjs";
+import { instrumentationPolicy } from "../resource-collector.mjs";
+import { activityTiming, beginActivity } from "../../runtime/local-activity.mjs";
+
+test("local activities retain independent overlapping durations, unavailable clocks and incomplete ends", () => {
+  const options = { repoRoot: ".", environment: {}, activity: "report_parse" };
+  const tick = (value, identity = "clock:a") => ({ clock: "node_monotonic", clock_identity: identity, resolution_ms: 0.000001, monotonic_ms: value });
+  let now = 10;
+  const read = () => tick(now);
+  const outer = beginActivity(options, read);
+  now = 12; const inner = beginActivity(options, read);
+  now = 15; assert.equal(inner.finish("failed").duration_ms, 3);
+  now = 20; assert.equal(outer.finish("passed").duration_ms, 10);
+  assert.equal(outer.finish("failed"), null);
+  for (const end of [tick(5), tick(20, "clock:b"), null]) {
+    assert.equal(activityTiming(tick(10), end).duration_ms, null);
+  }
+  const unavailable = beginActivity(options, () => { throw new Error("clock unavailable"); }).finish("cancelled");
+  assert.equal(unavailable.availability, "unavailable");
+  assert.equal(unavailable.duration_ms, null);
+});
+
+test("neutral launch records retain packed parentage, unlaunched failure and one terminal outcome", (t) => {
+  const repoRoot = path.resolve(import.meta.dirname, "../../../..");
+  const runRoot = temporary(t), runID = path.basename(runRoot);
+  const runtime = createSuiteRuntime({ repoRoot, runRoot, runID });
+  t.after(() => runtime.close());
+  const digest = `sha256:${"a".repeat(64)}`;
+  const { policy, digest: policyDigest } = instrumentationPolicy();
+  const manifest = { run_id: runID, source_digest: digest, graph_digest: digest, instrumentation: { mode: "basic", policy_digest: policyDigest } };
+  const session = createExecutionSession({ runtime, manifest, policy, runRoot });
+  const environment = { CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot), CARTULARY_TEST_RUN_ID: runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID, ...session.environment };
+  const parent = createLaunchContext({ repoRoot, environment, unitID: "u", rowIDs: ["a", "b"], producer: "unit" });
+  parent.spawned();
+  const child = createLaunchContext({ repoRoot, environment: { ...environment, ...parent.environment }, producer: "go" });
+  const activity = beginActivity({ repoRoot, environment, launch: child.identity, activity: "migration" });
+  activity.finish("failed");
+  beginActivity({ repoRoot, environment, launch: parent.identity, activity: "fixture_reset" });
+  child.settle("spawn_failed"); child.settle("passed"); parent.settle("passed");
+  session.capture();
+  createLaunchContext({ repoRoot, environment, unitID: "u" }).settle("passed");
+  session.publish();
+  const index = readExecutionIndex(runRoot, { manifest, registrations: new Map([["u", { row_ids: ["a", "b"] }]]) });
+  assert.equal(index.records.length, 4, "closed producers cannot publish late records");
+  assert.equal(index.status, "partial");
+  assert.equal(index.records.find((record) => record.activity === "migration").outcome, "failed");
+  assert.equal(index.records.find((record) => record.activity === "fixture_reset").outcome, "incomplete");
+  const recorded = index.records.find((record) => record.kind === "launch" && record.invocation_id === child.identity.invocation_id);
+  assert.deepEqual(recorded.row_ids, ["a", "b"]);
+  assert.equal(recorded.parent_invocation_id, parent.identity.invocation_id);
+  assert.equal(recorded.outcome, "spawn_failed");
+  assert.equal(recorded.launched, false);
+  const stale = { ...environment, ...parent.environment, CARTULARY_TEST_RUN_ID: "other" };
+  assert.throws(() => readLaunchContext(stale), /run mismatch/u);
+  const fresh = createLaunchContext({ repoRoot, environment: stale });
+  assert.equal(fresh.identity.parent_invocation_id, null);
+  assert.equal(fresh.identity.run_id, "other");
+  assert.notEqual(fresh.identity.invocation_id, parent.identity.invocation_id);
+});
+
+test("failed acquisition publishes no successful lease and preserves provider failure", async () => {
+  const published = [], observed = [], allocations = [];
+  const failure = new Error("injected acquisition failure");
+  const broker = new FixtureBroker({ providers: { browser_stack: { acquire: async () => { throw failure; } } },
+    recordSink: (value) => published.push(value), observeLease: (value) => observed.push(value), observeAllocation: (value) => allocations.push(value) });
+  await assert.rejects(broker.acquire("browser_stack", { unitID: "a" }), (error) => error === failure);
+  assert.deepEqual(published, []);
+  assert.deepEqual(observed, []);
+  assert.deepEqual(allocations.map((value) => value.outcome), ["incomplete", "failed"]);
+  assert.equal(allocations[0].allocation_ref, allocations[1].allocation_ref);
+  assert.equal(allocations[1].ownership, null);
+  await broker.close();
+});
+
+test("shared fixture observation preserves one acquisition, distinct leases and one cleanup", async () => {
+  let acquired = 0, released = 0;
+  const observed = [];
+  const broker = new FixtureBroker({ providers: { browser_stack: { acquire: async () => {
+    acquired += 1;
+    return { ownership: "owned", resource_ids: [], resource: {}, release: async () => { released += 1; } };
+  } } }, observeLease: (value) => observed.push(value) });
+  const first = await broker.acquire("browser_stack", { affinityKey: "shared", unitID: "a" });
+  const second = await broker.acquire("browser_stack", { affinityKey: "shared", unitID: "b" });
+  assert.equal(acquired, 1);
+  assert.equal(observed[0].allocation_ref, observed[1].allocation_ref);
+  assert.notEqual(observed[0].lease_ref, observed[1].lease_ref);
+  assert.notEqual(observed[0].allocation_ref, `allocation:${observed[0].lease_ref}`);
+  await first.release();
+  assert.equal(released, 0);
+  await second.release();
+  await broker.close();
+  assert.equal(released, 1);
+});
+
+test("late attribution counts only complete jointly observed CPU intervals after registration", () => {
+  const accumulator = createResourceAccumulator();
+  const roster = new Map([["process:1", { unit_id: "a", allocation_ref: null, attribution_start_ms: 500 }]]);
+  for (const [elapsed_ms, user, system] of [[0, 100, 20], [1000, 1000, 30], [2000, 1200, 40]]) {
+    accumulator.consume({ scope: "process", scope_ref: "process:1", identity_digest: "proof", elapsed_ms, segment: 0, availability: "available",
+      metrics: { cpu_user_us: { value: user, availability: "available" }, cpu_system_us: { value: system, availability: "available" } } }, roster);
+  }
+  assert.deepEqual([...accumulator.finish().unitCPU], [["a", 210]]);
+});
+
+test("lease publication failure keeps allocation evidence and releases ownership without a lease relationship", async () => {
+  const allocations = [], leases = [];
+  let cleaned = 0;
+  const broker = new FixtureBroker({ providers: { managed_process: { acquire: async () => ({ ownership: "owned", resource_ids: [], release: async () => { cleaned++; } }) } },
+    recordSink: () => { throw new Error("disk full"); }, observeAllocation: (value) => allocations.push(value), observeLease: (value) => leases.push(value) });
+  await assert.rejects(broker.acquire("managed_process"), /publication failed/u);
+  await broker.close().catch(() => {});
+  assert.equal(cleaned, 1);
+  assert.deepEqual(leases, []);
+  assert.deepEqual(allocations.map((value) => value.outcome), ["incomplete", "passed"]);
+});
+
+test("borrowed replacements receive independent identities and detach exactly once", async () => {
+  const observed = [];
+  let detached = 0;
+  const broker = new FixtureBroker({ providers: { browser_stack: { acquire: async () => ({ ownership: "borrowed", resource_ids: [], detach: async () => { detached++; } }) } },
+    observeLease: (value) => observed.push(value) });
+  const first = await broker.acquire("browser_stack", { unitID: "a" });
+  await first.release({ healthy: false });
+  const second = await broker.acquire("browser_stack", { unitID: "a" });
+  await second.release(); await broker.close();
+  assert.notEqual(observed[0].allocation_ref, observed[1].allocation_ref);
+  assert.equal(observed[0].ownership, "borrowed");
+  assert.equal(detached, 2);
+});
 
 const temporary = (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-foundation-"));

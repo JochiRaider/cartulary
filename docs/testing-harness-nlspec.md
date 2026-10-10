@@ -2990,7 +2990,7 @@ parity-checked with every harness-public row in this table.
 | `cartulary.test.runtime_identity.v1`             | `tools/schemas/cartulary.test.runtime_identity.v1.schema.json`             | present           | Browser stack            | During backend identity readiness probing. |
 | `cartulary.test.database_reset_diagnostic.v1`   | `tools/schemas/cartulary.test.database_reset_diagnostic.v1.schema.json`   | present           | Recovery reset controller | Before database reset success or failure is accepted. |
 | `cartulary.browser_acquisition.v1` | `tools/schemas/cartulary.browser_acquisition.v1.schema.json` | private | Browser acquisition owner | Before launch and every settlement/recovery read. |
-| `cartulary.browser_reset_attempt.v1`            | `tools/schemas/cartulary.browser_reset_attempt.v1.schema.json`            | present           | Browser reset lifecycle  | Before a browser reset unit reaches a terminal state. |
+| `cartulary.browser_reset_attempt.v2`            | `tools/schemas/cartulary.browser_reset_attempt.v2.schema.json`            | present           | Browser reset lifecycle  | Before a browser reset unit reaches a terminal state. |
 | `cartulary.test.clock_control.v1`               | `tools/schemas/cartulary.test.clock_control.v1.schema.json`               | present           | Test clock route         | Before a fixed, offset, reset, or state clock-control response is accepted. |
 | `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
 | `cartulary.test.network_flow_fault_control.v2`  | `tools/schemas/cartulary.test.network_flow_fault_control.v2.schema.json`  | present           | Network Flow fault-control route | Before an armed Network Flow commit or worker fault is accepted. |
@@ -3520,7 +3520,7 @@ Verified by: TH-HARNESS-AC-135
 | Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v4` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
 | Local object-store proxy attempt, lease, and health  | Local development proxy lifecycle               | owner-only `.cartulary/runtime/object-store-proxy/` state and loopback health endpoint | `cartulary.local_object_store_proxy_start_attempt.v2`, `cartulary.local_object_store_proxy_lease.v2`, `cartulary.local_object_store_proxy_health.v2` | Canonical nonsecret configuration, instance identity, boot-aware process proof, and readiness state | Development-only; never browser or product evidence. |
 | Database reset diagnostic                            | Recovery reset controller                       | `<target>/reset-boundary/<label>.database-reset.json`            | `cartulary.test.database_reset_diagnostic.v1`                 | Reset ID, attempt one, closed stage, nullable SQLSTATE, timeout flag, duration, sorted table/count proofs, and normalized failure | Retained; excludes raw SQL, DSNs, database names, credentials, backend IDs, and raw errors. |
-| Browser reset attempt                                | Browser reset lifecycle                         | `<target>/reset-boundary/<label>.attempt.json`                   | `cartulary.browser_reset_attempt.v1`                          | Ordered lifecycle outcome, old/new backend generations, database diagnostic reference, persistent/browser reset proof, taint, and terminal classification | Authoritative lifecycle-unit failure evidence. |
+| Browser reset attempt                                | Browser reset lifecycle                         | `<target>/reset-boundary/<label>.attempt.json`                   | `cartulary.browser_reset_attempt.v2`                          | Ordered lifecycle outcome, old/new backend generations, database diagnostic reference, persistent/browser reset proof, taint, and terminal classification | Authoritative lifecycle-unit failure evidence. |
 | Test clock-control response                          | Test clock route                               | clock-control transcript or target-owned clock-control dir       | `cartulary.test.clock_control.v1`                             | Clock mode, current RFC3339 timestamp, offset seconds, and fixed timestamp when mode is fixed | Retained only by the target or fixture transcript that controls the clock; never production API evidence. |
 | Network Flow fault-control response                  | Network Flow fault-control route                | Network Flow fixture transcript or target-owned fault-control dir | `cartulary.test.network_flow_fault_control.v2`                | Fault ID, exact boundary token, fault kind, optional safe error code, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms the fault; never production API evidence. |
 | Network Flow randomness-control response             | Network Flow randomness-control route           | Network Flow fixture transcript or target-owned randomness-control dir | `cartulary.test.network_flow_randomness_control.v3`           | Control ID, exact stream token, value kind, value count, remaining count, `consume_once=true`, and `exhaustion="fail_closed"` | Retained only by the target or fixture transcript that arms deterministic fixture randomness; never production API evidence. |
@@ -5322,7 +5322,7 @@ Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-111
 **TH-HARNESS-REQ-830**
 Graph-backed public targets MUST accept command-line-only
 `HARNESS_DIAGNOSTICS=off|basic`, default `off`. The immutable manifest MUST record
-mode and the semantic digest of `cartulary.harness_instrumentation_policy.v1`, authored at
+mode and the semantic digest of `cartulary.harness_instrumentation_policy.v2`, authored at
 `tools/harness_instrumentation_policy.json`. The harness
 MUST strip this input from application and browser environments. Instrumentation
 MUST NOT change selection, assertions, scheduling policy, claims, retries,
@@ -5400,9 +5400,9 @@ lifecycle events. `diagnostics/resource-samples.ndjson` and terminal
 `diagnostics/resource-index.json` MUST use versioned schemas, bounded streaming
 readers, run/source/graph/policy correlation, secure owner-only retention and atomic
 publication under `cartulary.harness_resource_sample.v1` and
-`cartulary.harness_resource_index.v1`. Live detail uses
+`cartulary.harness_resource_index.v2`. Live detail uses
 `cartulary.harness_resource_live.v1`; explanation uses
-`cartulary.harness_performance_explanation.v1`; the surrounding envelope uses
+`cartulary.harness_performance_explanation.v2`; the surrounding envelope uses
 `cartulary.harness_invocation_envelope.v1`. Private staging MUST NOT be a public
 read surface. Publication may
 be partial with exact known omissions; absent publication is unavailable.
@@ -5484,8 +5484,8 @@ omitted-observation, discovery-truncation and failed-sweep counters, each null
 until observed. A sweep with no valid live process observation MUST publish
 null live process and RSS values, never zero utilization.
 
-**TH-HARNESS-REQ-839 — Allocation correlation.** The optional resource index
-MUST include at most 4,096 fixture-lease correlations supplied by the fixture
+**TH-HARNESS-REQ-839 — Allocation correlation.** The optional execution index
+MUST include bounded fixture-lease correlations supplied by the fixture
 broker after canonical lease publication. Each correlation contains opaque
 allocation and lease references, unit ID, capability, and ownership; it MUST
 NOT retain physical resource IDs or environment values. Multiple leases over
@@ -5515,7 +5515,9 @@ Make-owned generation MUST derive
 `cartulary.harness_instrumentation_defs.v1` shared schema components and
 dependency-free runtime descriptors from this input before generating dependent
 validators. Shared sample-value, aggregate, observer, and lease components MUST
-preserve the current retained schemas' accepted payload sets and schema IDs.
+preserve unaffected retained schemas' accepted payload sets and schema IDs.
+REQ-841–844 explicitly adopt the execution-diagnostics cutover; incompatible
+resource-index, explanation, policy and reset shapes MUST use new versions.
 Producer-scope metadata does not introduce additional retained-schema rejection
 rules. The attachment registry's `shared_component` classification identifies
 support schemas; `foundation_runtime` alone selects standalone runtime validators.
@@ -5535,6 +5537,99 @@ secret scan begins, including after forced worker termination.
 Verified by: TH-HARNESS-AC-137. REQ-830–839 also use AC-137 for their foundation
 mechanics; this acceptance does not close deferred coverage or observer overhead
 qualification. No executable consumer may read these requirements from Markdown.
+
+### 10.8 Execution identity and owner-local activities
+
+**TH-HARNESS-REQ-841 — Neutral launch identity.** A launch attempt is distinct
+from a run invocation, semantic unit, process, allocation, lease and activity.
+Runtime MUST allocate a fresh opaque `invocation_id` before each selected
+harness-owned launch, including attempts rejected before spawn. Context contains
+`run_id`, nullable `parent_invocation_id`, nullable `unit_id`, nullable
+`command_id`, selected `row_ids`, and a closed producer kind. Context is not
+derived from a PID, executable, arguments or failure. Nested launchers validate
+run scope and replace inherited current identity with their own identity.
+Cache hits create no runner attempt. Packed membership does not authorize
+per-row consumption. Unit, row Go/Vitest/shell, Playwright, private capture,
+browser acquisition/review, wrapped-tool and snapshot-builder callers MUST use
+the neutral context. Framework-internal subprocesses remain inferred.
+
+Private command-failure v1 consumes the parent's allocated invocation identity;
+its exact field set, validation, removal, success-conflict handling and parent
+timeout/cancellation precedence remain unchanged. Launch outcome is one of
+`passed`, `failed`, `cancelled`, `timeout`, `spawn_failed`, or `incomplete`;
+`launched` distinguishes attempted dispatch from observed process creation.
+No terminal observation may synthesize success for an unobserved completion.
+Neutral identity exists independently of optional collection. Basic mode alone
+retains execution diagnostics; off mode creates no diagnostic journal.
+
+**TH-HARNESS-REQ-842 — Allocation and relationship facts.** The broker MUST
+allocate an independent opaque allocation reference before provider acquisition.
+Reuse retains it; physical replacement receives a new reference. Acquisition
+outcome and ownership are distinct: an unsuccessful attempt may have unknown
+ownership and MUST NOT imply a successful lease. Lease relationships are
+published only after successful canonical lease publication. Observation MUST
+NOT acquire, release, retry or change fixture ownership or cleanup.
+
+Physical identity remains boot/start/namespace proof. Execution relationships
+contain physical identity digest, nullable invocation/unit/allocation references,
+and `registered` or `observed_descendant` provenance. Identical relationships
+are idempotent. Conflicting explicit owners MUST remain visible and MUST NOT
+silently overwrite each other or contribute attributed CPU totals. Inferred
+ancestry and late registration do not prove ownership of earlier lifetime CPU.
+Shared and borrowed allocation consumption stays contextual. Resource index v2
+owns physical samples/roster; execution index v1 owns relationships and leases.
+No duplicated mutable relationship registry is retained.
+
+**TH-HARNESS-REQ-843 — Local activities.** The closed authored definitions
+catalog MUST declare `migration`, `fixture_reset`, and `report_parse` activities
+separately from canonical phases. Each observation carries an opaque activity
+reference, nullable invocation/allocation/unit linkage, outcome, clock kind,
+opaque clock identity, resolution and nullable duration. Node/Go monotonic
+measurements are process-local; the helper clock follows REQ-837. Unavailable
+clock identity or duration remains null, with explicit availability. UTC fallback,
+negative-duration clamping, cross-clock subtraction and additions to canonical
+phase/path cost are prohibited. Missing completion remains incomplete.
+
+Migration brackets initialization/apply, records failed/cancelled outcomes
+before return or fatal reporting, and records shared template work once. Reset
+uses its actual owner measurement; reset-attempt v2 makes duration nullable and
+declares its clock/availability. Parsing brackets actual reading and adaptation,
+including missing/malformed reports. One measured fact supplies downstream
+projections; no duplicate timer is introduced solely for diagnostics. Required
+reset evidence retains its existing failure consequences.
+
+**TH-HARNESS-REQ-844 — Secure execution projection.**
+`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v1`,
+is optional terminal evidence under basic mode. Its closed records are launch,
+allocation, lease, relationship and activity observations. The envelope binds
+run/source/graph/policy identity, records digest, completeness, omitted count
+(null when unknown) and explicitly omitted references. Records use opaque
+references, closed kinds/outcomes and catalog identities only; raw process IDs,
+names, arguments, environment, paths, URLs, SQL, test titles and errors are
+forbidden. The instrumentation policy owns a separate 4,096 execution-record
+limit. Record/pending/terminal-metadata bounds remain 64 KiB/1 MiB/4 MiB.
+Private staging is bounded by record count times record size, with exclusive
+slot reservation and one owner per record; it is never a public read surface.
+
+Parents retain launch beginnings before dispatch. Producer completion drains
+before publication and the retained-secret scan; failure to establish required
+quiescence remains cleanup failure. Optional observation/write/cap failure
+changes completeness only. Publication is atomic and owner-only. Readers MUST
+validate schema, digest, identity, unique references, causal acyclicity,
+canonical membership, physical proof linkage and explicit omissions before
+exposing any aggregate. Missing optional files are unavailable; malformed
+published files fail diagnostic inspection without rewriting retained results.
+
+Performance explanation v2 and observability-check consume the same validated
+execution model. Lists show at most 20 records per category and exact known
+omissions within existing output byte budgets. Resource relationships, shared
+work, inferred/conflicting provenance and unavailable activities remain explicit.
+No new public command, live replay, automatic export, application telemetry,
+cross-clock join, default-on decision or performance qualification is adopted.
+Producers and readers MUST migrate together without legacy translation readers.
+Executable projections and verification MUST NOT depend on Markdown.
+
+Verified by: TH-HARNESS-AC-138–141.
 
 ## 11. Service and Fixture Lifecycle
 
@@ -6813,7 +6908,7 @@ wrapped cause internally but exposes only the exact stage and normalized
 `pgconn.PgError.Code`. It MUST NOT retain raw SQL, DSNs, database names,
 credentials, raw errors, or backend IDs.
 
-`cartulary.browser_reset_attempt.v1` is retained at
+`cartulary.browser_reset_attempt.v2` is retained at
 `reset-boundary/<label>.attempt.json` and is the lifecycle unit's authoritative
 failure evidence. It records the ordered lifecycle stages, previous and
 replacement backend generations, database-diagnostic reference,
@@ -7950,7 +8045,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-031 | Section 8 | Canonical diagnostic artifact closure | Positive and negative run-manifest, unit-event, run-summary, target-summary, fixture-lease, and cache-record fixtures | Schema/artifact policy checker and canonical evidence validation | Success only when every canonical artifact validates, unit intervals and resource holders close, and all old scheduler/pressure schemas are rejected as current input | Bounded report | Empty on success; bounded diagnostic on mismatch | Artifact-policy and canonical-evidence closure report | Missing or open canonical fields, broken interval union, absent holder, invalid lease/cache record, or legacy artifact acceptance passes | none |
 | TH-HARNESS-AC-032 | Section 9         | Primary failure determinism | Simultaneous failure fixtures covering class, lifecycle, event, target, path, and reason ties | Exit matrix and primary-failure unit tests | Success only when selected primary failure and public exit follow Section 9.1 and TH-HARNESS-REQ-304 exactly | Bounded summary | Bounded diagnostic on mismatch | Failure summary with ordered candidate failures and selected primary | Cleanup overrides earlier non-cleanup failure, or tie order differs across runs | cleanup failure recorded when fixture creates one |
 | TH-HARNESS-AC-033 | Section 11        | Concurrent lifecycle | Service-suite lifecycle fixtures with overlapping child work, duplicate child start, unknown child finish, and interruption | Lifecycle-machine conformance target or unit harness | Success only when active-child counts transition legally and illegal duplicate/unknown events fail closed | Bounded summary or machine object | Empty on happy path; bounded diagnostic for illegal fixtures | Lifecycle stream with `active_child_count`, child keys, legal transitions, and terminal state | Concurrent child start is rejected, unknown finish mutates state, duplicate start passes, or active count becomes negative | normal suite cleanup; unproven resources retained |
-| TH-HARNESS-AC-034 | Sections 10, 12 | Browser reset lifecycle closure | Leading, middle, and incompatible-affinity selections; mutable tables; both migration metadata tables; bootstrap/idempotency/object/browser state; conflicting table lock; serving/exclusive admission; active request drain; backend-stop, pre/post-commit, object, restart, and cleanup faults; armed in-memory controls | Graph compiler, typed Recovery reset, broker quarantine, backend-replacement lifecycle, schema/redaction/classification tests, Network Flow owner slice, and bounded saturated probe | A first selected group has no reset; a selected predecessor/successor has exactly one derived reset; exclusive admission begins only after proven backend termination; one transaction resets persistent state; replacement generation is ready with the same fingerprint; every injected failure quarantines and prevents product work | `cartulary.test.database_reset_diagnostic.v1`, `cartulary.browser_reset_attempt.v1`, backend-generation evidence, and fixture lease v4 | Bounded redacted diagnostic; reset and product attempts remain one | Sorted table/count proofs preserve `goose_db_version` and `schema_migration_lineage`; stage and normalized SQLSTATE are exact; failed reset exits `3` as fixture/operational evidence; cleanup outcome is terminal | Leading reset, affinity crossover, mutation before stop, serving/exclusive overlap, blind retry, raw PostgreSQL detail leak, stale in-memory control, old backend generation, missing evidence, product assertion classification, or reusable tainted lease passes | Every failed reset ends quarantined/destroyed; ten saturated cycles have no reset failure, retry, unclassified failure, or leaked lease |
+| TH-HARNESS-AC-034 | Sections 10, 12 | Browser reset lifecycle closure | Leading, middle, and incompatible-affinity selections; mutable tables; both migration metadata tables; bootstrap/idempotency/object/browser state; conflicting table lock; serving/exclusive admission; active request drain; backend-stop, pre/post-commit, object, restart, and cleanup faults; armed in-memory controls | Graph compiler, typed Recovery reset, broker quarantine, backend-replacement lifecycle, schema/redaction/classification tests, Network Flow owner slice, and bounded saturated probe | A first selected group has no reset; a selected predecessor/successor has exactly one derived reset; exclusive admission begins only after proven backend termination; one transaction resets persistent state; replacement generation is ready with the same fingerprint; every injected failure quarantines and prevents product work | `cartulary.test.database_reset_diagnostic.v1`, `cartulary.browser_reset_attempt.v2`, backend-generation evidence, and fixture lease v4 | Bounded redacted diagnostic; reset and product attempts remain one | Sorted table/count proofs preserve `goose_db_version` and `schema_migration_lineage`; stage and normalized SQLSTATE are exact; failed reset exits `3` as fixture/operational evidence; cleanup outcome is terminal | Leading reset, affinity crossover, mutation before stop, serving/exclusive overlap, blind retry, raw PostgreSQL detail leak, stale in-memory control, old backend generation, missing evidence, product assertion classification, or reusable tainted lease passes | Every failed reset ends quarantined/destroyed; ten saturated cycles have no reset failure, retry, unclassified failure, or leaked lease |
 | TH-HARNESS-AC-035 | Section 12        | Test-route edge closure | Weak token, malformed token, missing/wrong header, pending-fault conflict, consumed-fault retry, and retired reset-route fixture | Test-only route unit/integration tests | Expected HTTP status or startup/config failure for every Section 12 token and fault edge case; the retired reset path is not found | HTTP JSON response where route starts | n/a | Route guard failures use `test_route_forbidden`; duplicate pending faults use `test_public_error_fault_already_armed`; startup configuration failures use `configuration_error` | Weak token starts, product auth bypasses token, second fault replaces pending fault, consumed fault remains armed, or runtime reset route exists | process replacement owns browser reset state |
 | TH-HARNESS-AC-036 | Sections 13, 15   | Cleanup and redaction closure | Protected-root cleanup fixtures, cleanup-owned child paths, structured secret keys, raw secret text, and structural field names | Cleanup guard and redaction tests | Success only when protected-root attempts fail, cleanup-owned paths succeed or no-op when missing, exact key/raw-text redaction applies, and schema-owned structures are preserved | Bounded summary | Empty on success; bounded diagnostic on mismatch | Cleanup guard report and redacted summary/log fixtures | Protected root deletion passes, missing cleanup-owned path fails, secret leaks, or structural fields are over-redacted | no deletion outside cleanup-owned fixtures |
 | TH-HARNESS-AC-037 | Sections 5, 8, 10 | Operator runtime binary injection | Current topology plus missing, non-executable, digest-mismatch, undeclared-input, and raw-Go fallback fixtures | `make build-operator`; scheduler-selected operator Go work; `make check OPERATOR_BIN=/tmp/x`; `make check CARTULARY_OPERATOR_BIN=/tmp/x` | Producer succeeds with declared output path; consumer fails before product assertions for invalid injection; undeclared public inputs exit `2`; digest mismatch exits `11` | Bounded summary | Empty on success; bounded config/artifact diagnostic on mismatch | `build-operator` tool summary and build-artifact cache artifact; operator aggregate `runtime-binaries.json`; Go runner logs contain no nested `make build-operator` for scheduler-selected operator work | Hidden nested operator builds, arbitrary child forwarding, missing producer dependency, missing runtime-binary provenance, or binary cache hit marked as scheduler `reused` passes | no extra cleanup beyond build output contract |
@@ -8067,6 +8162,10 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-136 | TH-HARNESS-REQ-289 | Exact/sibling/missing runs; live and tool summaries; host/fixture waits; heartbeat-only changes; cleanup; paused matching cursor; interrupted reader; malformed and unsafe evidence; concurrent atomic replacement; repeated snapshots above 1 MiB and overflow above 16 MiB | Read-only bounded observation preserves run binding, progress, omission counts, normalization and native-command distinction; no staging reads, test signals, lease changes or post-scan writes. | Zero/one/four-reader measurement qualification includes sibling runs, existing thresholds and cleanup gates, plus observer CPU, memory and read volume; qualification failure blocks completion. |
 
 | TH-HARNESS-AC-137 | TH-HARNESS-REQ-830–840 | Independent timing/resource fixtures, valid and invalid schema corpora, synthetic catalog extensions, controlled lifecycle interleavings, real worker death and sibling quietness, exact-run and export fixtures | One canonical facts model, generated definition closure, dependency-free validators, bounded collection and reading, shared stop completion, pre-scan quiescence, and public command/security parity | Canonical tampering, schema drift, counter-gap bridging, leaked fences, late writes, implicit export, or Markdown executable dependency fails; coverage and observer qualification remain separately incomplete. |
+| TH-HARNESS-AC-138 | REQ-841 | Nested, packed, repeated, cached, failed-spawn and cancelled launches | Fresh neutral identity, exact private failure scope, one outcome and cleanup | Stale context, duplicate settlement or per-row CPU attribution fails. |
+| TH-HARNESS-AC-139 | REQ-842 | Failed/shared/borrowed/reused allocations, replacement and conflicting process proof | Independent allocation identity and closed observational relationships | First-consumer ownership, fabricated leases or altered cleanup fails. |
+| TH-HARNESS-AC-140 | REQ-843 | Injected migration/reset/parsing clocks, errors, interruption, missing ends and overlap | Owner-local nullable durations with outcomes and provenance | UTC fallback, success-only facts or canonical timing changes fail. |
+| TH-HARNESS-AC-141 | REQ-844 | Exact-run, tampering, unsafe paths, cap, write failure and shutdown fixtures | Bounded validated execution projection and human/JSON parity | Partial aggregates, dangling unaccounted references, late writes or export leakage fail. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

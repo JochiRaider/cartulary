@@ -545,12 +545,11 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 	}
 	defer db.Close()
 
-	migrateStart := time.Now()
 	source, err := dbmigrations.Source()
 	if err != nil {
 		return nil, fmt.Errorf("load migration source: %w", err)
 	}
-	err = initializeDatabaseFn(ctx, db, testDB.DSN, source)
+	migrationDuration, err := suiteservices.MeasureMigration(ctx, func() error { return initializeDatabaseFn(ctx, db, testDB.DSN, source) })
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +557,7 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 		Type:    suiteservices.EventPostgresDBMigrated,
 		Name:    testDB.Name,
 		Kind:    "scratch",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", reuseScope, attribution, time.Since(migrateStart)),
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", reuseScope, attribution, migrationDuration),
 	})
 
 	return testDB, nil
@@ -589,14 +588,14 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
 		return fmt.Errorf("open local postgres template database: %w", err)
 	}
-	migrateStart := time.Now()
 	source, err := dbmigrations.Source()
 	if err != nil {
 		_ = db.Close()
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
 		return fmt.Errorf("load migration source: %w", err)
 	}
-	if err := initializeDatabaseFn(ctx, db, templateDSN, source); err != nil {
+	migrationDuration, err := suiteservices.MeasureMigration(ctx, func() error { return initializeDatabaseFn(ctx, db, templateDSN, source) })
+	if err != nil {
 		var appliedVersion int64
 		_ = db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version_id), 0) FROM public.goose_db_version WHERE is_applied`).Scan(&appliedVersion)
 		_ = db.Close()
@@ -623,7 +622,7 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 		Type:    suiteservices.EventPostgresDBMigrated,
 		Name:    name,
 		Kind:    "template",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplate, name, suiteservices.FixtureReuseSuiteTemplate, attribution, time.Since(migrateStart)),
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplate, name, suiteservices.FixtureReuseSuiteTemplate, attribution, migrationDuration),
 	})
 	h.templateDB = name
 	return nil
@@ -723,15 +722,15 @@ func (h *Harness) migrationDatabaseT(t testing.TB, apply func(context.Context, *
 	db = openedDB
 	migrationDB := &MigrationDatabase{db: db, identity: issuedMigrationDatabaseIdentity}
 
-	migrateStart := time.Now()
-	if err := apply(context.Background(), migrationDB); err != nil {
+	migrationDuration, err := suiteservices.MeasureMigration(context.Background(), func() error { return apply(context.Background(), migrationDB) })
+	if err != nil {
 		t.Fatalf("migrate scratch database: %v", err)
 	}
 	recordSuiteEvent(suiteservices.Event{
 		Type:    suiteservices.EventPostgresDBMigrated,
 		Name:    testDB.Name,
 		Kind:    "scratch",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", suiteservices.FixtureReuseMigrationScratch, fixtureAttributionFor(t, "pgtest"), time.Since(migrateStart)),
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", suiteservices.FixtureReuseMigrationScratch, fixtureAttributionFor(t, "pgtest"), migrationDuration),
 	})
 
 	return migrationDB

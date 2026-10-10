@@ -65,8 +65,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_reset_attempt.v1",
-      "path": "tools/schemas/cartulary.browser_reset_attempt.v1.schema.json",
+      "schema_id": "cartulary.browser_reset_attempt.v2",
+      "path": "tools/schemas/cartulary.browser_reset_attempt.v2.schema.json",
       "classification": "public_contract",
       "producer": "browser reset lifecycle",
       "validation": "json-shape-check"
@@ -366,6 +366,22 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_execution_index.v1",
+      "path": "tools/schemas/cartulary.harness_execution_index.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness execution diagnostics",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_execution_record.v1",
+      "path": "tools/schemas/cartulary.harness_execution_record.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "harness execution diagnostics",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_fixture_lease.v4",
       "path": "tools/schemas/cartulary.harness_fixture_lease.v4.schema.json",
       "classification": "public_contract",
@@ -408,8 +424,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_instrumentation_policy.v1",
-      "path": "tools/schemas/cartulary.harness_instrumentation_policy.v1.schema.json",
+      "schema_id": "cartulary.harness_instrumentation_policy.v2",
+      "path": "tools/schemas/cartulary.harness_instrumentation_policy.v2.schema.json",
       "classification": "owner_input",
       "producer": "harness local instrumentation",
       "validation": "json-shape-check",
@@ -420,6 +436,14 @@
       "path": "tools/schemas/cartulary.harness_invocation_envelope.v1.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_launch_context.v1",
+      "path": "tools/schemas/cartulary.harness_launch_context.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness execution diagnostics",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },
@@ -438,10 +462,18 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_performance_explanation.v1",
-      "path": "tools/schemas/cartulary.harness_performance_explanation.v1.schema.json",
+      "schema_id": "cartulary.harness_performance_explanation.v2",
+      "path": "tools/schemas/cartulary.harness_performance_explanation.v2.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_private_launch_observation.v1",
+      "path": "tools/schemas/cartulary.harness_private_launch_observation.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "harness execution diagnostics",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },
@@ -453,8 +485,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_resource_index.v1",
-      "path": "tools/schemas/cartulary.harness_resource_index.v1.schema.json",
+      "schema_id": "cartulary.harness_resource_index.v2",
+      "path": "tools/schemas/cartulary.harness_resource_index.v2.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
       "validation": "json-shape-check",

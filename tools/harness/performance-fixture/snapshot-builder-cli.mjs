@@ -108,6 +108,7 @@ export async function runSnapshotBuilder(argv) {
     "--builder-unit-id", builderUnitID,
     "--artifact-file", artifact,
   ], {
+    producer: "snapshot_builder",
     cwd: repoRoot,
     env: process.env,
     repoRoot,

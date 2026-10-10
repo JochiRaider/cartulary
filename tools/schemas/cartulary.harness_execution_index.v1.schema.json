@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_execution_index.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_execution_index.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9_.:/-]+$"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial",
+        "truncated"
+      ]
+    },
+    "omitted_records": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "omitted_refs": {
+      "type": "array",
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255,
+        "pattern": "^[A-Za-z0-9_.:/-]+$"
+      }
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "$ref": "cartulary.harness_execution_record.v1"
+      }
+    },
+    "records_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema_id",
+    "run_id",
+    "source_digest",
+    "graph_digest",
+    "policy_digest",
+    "status",
+    "omitted_records",
+    "omitted_refs",
+    "records",
+    "records_digest"
+  ]
+}

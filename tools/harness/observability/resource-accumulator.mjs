@@ -8,7 +8,7 @@ export function createResourceAccumulator({ signals = instrumentationSignals } =
       if (scopes.size >= 4120) throw new Error("resource scope limit exceeded");
       scopes.set(record.scope_ref, { scope_ref: record.scope_ref, scope: record.scope,
         unit_id: roster.get(record.scope_ref)?.unit_id ?? null, allocation_ref: roster.get(record.scope_ref)?.allocation_ref ?? null, samples: 0, unavailable: 0,
-        resets: 0, metrics: {}, previous: new Map(), previousCPU: null, cpuDelta: 0, cpuInterval: 0 });
+        resets: 0, metrics: {}, previous: new Map(), previousCPU: null, cpuDelta: 0, cpuInterval: 0, attributedCPU: null });
     }
     const aggregate = scopes.get(record.scope_ref);
     if (aggregate.scope !== record.scope) throw new Error("scope changed");
@@ -21,7 +21,9 @@ export function createResourceAccumulator({ signals = instrumentationSignals } =
     if (user?.availability === "available" && system?.availability === "available") {
       const prior = aggregate.previousCPU;
       if (prior && prior.segment === record.segment && prior.identity === record.identity_digest && record.elapsed_ms > prior.time && user.value >= prior.user && system.value >= prior.system) {
-        aggregate.cpuDelta += user.value - prior.user + system.value - prior.system;
+        const delta = user.value - prior.user + system.value - prior.system;
+        aggregate.cpuDelta += delta;
+        if (prior.time >= (roster.get(record.scope_ref)?.attribution_start_ms ?? Infinity)) aggregate.attributedCPU = (aggregate.attributedCPU ?? 0) + delta;
         aggregate.cpuInterval += record.elapsed_ms - prior.time;
       }
       aggregate.previousCPU = { user: user.value, system: system.value, segment: record.segment, identity: record.identity_digest, time: record.elapsed_ms };
@@ -58,9 +60,9 @@ export function createResourceAccumulator({ signals = instrumentationSignals } =
     const unitCPU = new Map();
     for (const scope of rows) {
       if (scope.scope !== "process" || scope.unit_id === null) continue;
-      const user = scope.metrics.cpu_user_us?.maximum, system = scope.metrics.cpu_system_us?.maximum;
-      if (user !== null && user !== undefined && system !== null && system !== undefined) unitCPU.set(scope.unit_id, (unitCPU.get(scope.unit_id) ?? 0) + user + system);
+      if (scope.attributedCPU !== null) unitCPU.set(scope.unit_id, (unitCPU.get(scope.unit_id) ?? 0) + scope.attributedCPU);
     }
+    for (const scope of rows) delete scope.attributedCPU;
     return { rows, unitCPU, sampledSimultaneousRSS: rssObserved ? maximumSimultaneousRSS : null };
   }
   return { consume, finish };

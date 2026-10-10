@@ -24,6 +24,35 @@
       "fixture_capability": "none",
       "minimum_tier": "full",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.evidence_accounting.behavior.local_migration_activities",
+      "owner_id": "harness.evidence_accounting",
+      "family_id": "harness.evidence_accounting.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.evidence_accounting.verification.performance_resource_diagnostics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/suiteservices",
+        "tests": [
+          "TestMigrationActivityFatalExitRetainsIncompleteBeginning",
+          "TestMigrationActivityMeasuresOnlyOperationAndRetainsFailure",
+          "TestMigrationActivityPrivatePublicationAndShutdown",
+          "TestResolveResultsRootCanonicalPaths",
+          "TestResolveRunIDAndTargetEnvironment",
+          "TestResolveSuiteRuntimeDirRejectsUnsafeRoots"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

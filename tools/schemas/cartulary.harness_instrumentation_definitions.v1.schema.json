@@ -8,7 +8,8 @@
     "maximum_phases_per_unit",
     "phases",
     "availability",
-    "signals"
+    "signals",
+    "activities"
   ],
   "properties": {
     "schema_id": {
@@ -82,6 +83,19 @@
           }
         }
       }
+    },
+    "activities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "migration",
+          "fixture_reset",
+          "report_parse"
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 3
     }
   }
 }

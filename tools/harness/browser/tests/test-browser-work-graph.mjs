@@ -68,11 +68,12 @@ try {
   writeFileSync(
     path.join(runRoot, "reset.attempt.json"),
     `${JSON.stringify({
-      schema_id: "cartulary.browser_reset_attempt.v1",
+      schema_id: "cartulary.browser_reset_attempt.v2",
       reset_id: "predecessor--before-successor",
       status: "fail",
       attempt: 1,
       duration_ms: 5,
+      clock: "linux_boottime_10ms", clock_identity: "clock:test", resolution_ms: 10, availability: "available",
       runtime_profile_id: "default",
       stages: [
         { stage: "allocation_validated", status: "pass" },

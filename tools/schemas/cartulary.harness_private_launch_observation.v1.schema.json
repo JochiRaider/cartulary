@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_private_launch_observation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record",
+    "process_proof"
+  ],
+  "properties": {
+    "record": {
+      "$ref": "cartulary.harness_execution_record.v1"
+    },
+    "process_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "start",
+        "identity",
+        "stat"
+      ],
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "start": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "stat": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "parent",
+            "user_ticks",
+            "system_ticks",
+            "threads",
+            "rss_pages",
+            "state",
+            "start"
+          ],
+          "properties": {
+            "parent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "user_ticks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "system_ticks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "threads": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rss_pages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "state": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1
+            },
+            "start": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

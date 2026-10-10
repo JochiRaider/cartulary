@@ -20,6 +20,7 @@ import { formatPerformanceExplanation } from "../performance-presentation.mjs";
 import { exportRetainedObservability } from "../otel-export-cli.mjs";
 import { hostClaims, processIdentity, transactAdmission } from "../../runtime/host-admission.mjs";
 import { createResourceCollector, instrumentationPolicy } from "../resource-collector.mjs";
+import { executionRecordsDigest } from "../../runtime/execution-observations.mjs";
 
 const digest = `sha256:${"a".repeat(64)}`;
 function temporary(t) {
@@ -95,16 +96,32 @@ function retainedSamples(t, records) {
     scope: "process", scope_ref: "process:1", identity_digest: digest, availability: "available", ...record,
   })).join("\n") + "\n";
   const identity = { run_id: "synthetic", source_digest: digest, graph_digest: digest, policy_digest: digest };
-  const index = { schema_id: "cartulary.harness_resource_index.v1", ...identity,
+  const index = { schema_id: "cartulary.harness_resource_index.v2", ...identity,
     status: "complete", clock: "graph_process_monotonic", coverage: "observed_partial",
     samples: records.length, sample_bytes: Buffer.byteLength(bytes), sample_digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
     omitted_observations: 0, discovery_truncations: 0, failed_sweeps: 0, sweeps: records.length,
-    leases: [], processes: [{ allocation_ref: null, process_ref: "process:1", identity_digest: digest, unit_id: "a", attribution: "registered" }],
+    processes: [{ process_ref: "process:1", identity_digest: digest }],
     observer: { cpu_user_us: 0, cpu_system_us: 0, heap_peak_bytes: 0, read_bytes: 0, write_bytes: 0, maximum_sweep_ms: 0, shutdown_ms: 0, gate_cpu: "not_observed" } };
   atomicLocalFile(path.join(dir, "diagnostics/resource-samples.ndjson"), bytes);
   atomicLocalFile(path.join(dir, "diagnostics/resource-index.json"), JSON.stringify(index));
   return { dir, run: { manifest: { ...identity, instrumentation: { mode: "basic", policy_digest: digest } }, registrations: new Map([["a", {}]]) } };
 }
+
+test("process relationship proof must resolve and conflicting registration excludes attributed totals", (t) => {
+  const f = retainedSamples(t, [{ elapsed_ms: 0, metrics: { cpu_user_us: metric(0), cpu_system_us: metric(0) } },
+    { elapsed_ms: 1000, metrics: { cpu_user_us: metric(100), cpu_system_us: metric(10) } }]);
+  f.run.registrations = new Map([["a", { row_ids: [] }], ["b", { row_ids: [] }]]);
+  const relationships = ["a", "b"].map((unit_id) => {
+    const fact = { kind: "relationship", identity_digest: digest, unit_id, allocation_ref: null, invocation_id: null, provenance: "registered" };
+    return { ...fact, ref: `relationship:${createHash("sha256").update(JSON.stringify(fact)).digest("hex")}`, observed_elapsed_ms: 0 };
+  });
+  const execution = { records: relationships };
+  assert.deepEqual(resourceProjection(f.dir, f.run, execution).unit_cpu_lower_bounds, []);
+  execution.records = [relationships[0]];
+  assert.deepEqual(resourceProjection(f.dir, f.run, execution).unit_cpu_lower_bounds, [{ unit_id: "a", observed_attributed_cpu_us: 110 }]);
+  execution.records[0] = { ...relationships[0], identity_digest: `sha256:${"b".repeat(64)}` };
+  assert.throws(() => resourceProjection(f.dir, f.run, execution), /physical proof/u);
+});
 const metric = (value) => ({ value, availability: "available" });
 test("streaming resource projection handles resets and measurement gaps deterministically", (t) => {
   const f = retainedSamples(t, [
@@ -242,7 +259,7 @@ test("retained validation reconstructs path and target fields and rejects tamper
   const manifest = { schema_id: "cartulary.harness_run_manifest.v2", run_id: "synthetic", target: "test-slice",
     command_id: "cartulary.harness.command.test_slice.v2", declared_inputs: {}, source_commit: "a".repeat(40), source_state: "dirty",
     source_digest: digest, toolchain_digest: digest, system_digest: digest, graph_digest: digest, capability_snapshot: capability,
-    cache_mode: "off", instrumentation: { mode: "off", policy_digest: digest }, started_at: "2026-10-09T00:00:00.000Z" };
+    cache_mode: "off", instrumentation: { mode: "basic", policy_digest: digest }, started_at: "2026-10-09T00:00:00.000Z" };
   const timing = { setup_ms: 2, fixture_ms: 0, execution_ms: 7, collation_ms: 0, wrapper_ms: 1, unattributed_ms: 0, resource_blocking_ms: 2, process_count: 1 };
   const summary = { schema_id: "cartulary.harness_run_summary.v1", run_id: "synthetic", target: "test-slice", status: "pass",
     failure_class: null, failure_reason: null, unit_counts: { total: 1, passed: 1, failed: 0, skipped: 0, cancelled: 0 },
@@ -260,6 +277,12 @@ test("retained validation reconstructs path and target fields and rejects tamper
   atomicLocalFile(path.join(dir, "unit-events.ndjson"), events.map((event) => JSON.stringify(event)).join("\n") + "\n");
   atomicLocalFile(path.join(dir, "run-summary.json"), JSON.stringify(summary));
   atomicLocalFile(path.join(dir, "target-summaries/test-slice.json"), JSON.stringify(target));
+  const records = [{ kind: "activity", ref: "activity:example", activity: "report_parse", unit_id: "a", invocation_id: null,
+    allocation_ref: null, clock: "node_monotonic", clock_identity: "clock:example", resolution_ms: 0.000001, duration_ms: 5,
+    availability: "available", outcome: "failed" }];
+  atomicLocalFile(path.join(dir, "diagnostics/execution-index.json"), JSON.stringify({ schema_id: "cartulary.harness_execution_index.v1",
+    run_id: manifest.run_id, source_digest: digest, graph_digest: digest, policy_digest: digest, status: "complete", omitted_records: 0,
+    omitted_refs: [], records, records_digest: executionRecordsDigest(records) }));
   await validateCanonicalRun(dir);
   const explained = await performanceExplanation(dir);
   assert.equal(explained.dependency_path_ms, 9);
@@ -267,6 +290,7 @@ test("retained validation reconstructs path and target fields and rejects tamper
   assert.deepEqual(JSON.parse(formatPerformanceExplanation(explained, { json: true })), explained);
   const human = formatPerformanceExplanation(explained);
   assert.ok(human.includes("[UNIT] a queue_ms=2 execution_ms=7 invocation_path=true"));
+  assert.ok(human.includes("activity=report_parse outcome=failed duration_ms=5"));
   assert.ok(Buffer.byteLength(human) < 8192);
   const retained = await loadRetainedObservability(dir);
   assert.equal(Object.hasOwn(retained, "built"), false);
@@ -276,6 +300,7 @@ test("retained validation reconstructs path and target fields and rejects tamper
   }), { invocations: 1, signals: 2 });
   assert.ok(payloads[0][0].endsWith("/v1/traces")); assert.ok(payloads[1][0].endsWith("/v1/metrics"));
   assert.equal(JSON.stringify(payloads).includes("resource-samples"), false);
+  assert.equal(JSON.stringify(payloads).includes("activity:example"), false);
   const cli = new URL("../observability-check-cli.mjs", import.meta.url);
   const check = (args) => spawnSync(process.execPath, [cli.pathname, ...args], { encoding: "utf8" });
   assert.equal(check(["--results-dir", dir]).status, 0);

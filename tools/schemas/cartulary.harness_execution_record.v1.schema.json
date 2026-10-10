@@ -1,0 +1,453 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_execution_record.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "launch"
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^launch:[0-9a-f-]{36}$"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "invocation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "parent_invocation_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9_.:/-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "command_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9_.:/-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "row_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 4096,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[A-Za-z0-9_.:/-]+$"
+          }
+        },
+        "producer": {
+          "enum": [
+            "unit",
+            "go",
+            "vitest",
+            "shell",
+            "playwright",
+            "private_capture",
+            "browser_acquisition",
+            "browser_review",
+            "wrapped_tool",
+            "snapshot_builder"
+          ]
+        },
+        "launched": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "enum": [
+            "passed",
+            "failed",
+            "cancelled",
+            "timeout",
+            "spawn_failed",
+            "incomplete"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "run_id",
+        "invocation_id",
+        "parent_invocation_id",
+        "unit_id",
+        "command_id",
+        "row_ids",
+        "producer",
+        "launched",
+        "outcome"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "allocation"
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "allocation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9_.:/-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capability": {
+          "enum": [
+            "none",
+            "postgres_transaction",
+            "postgres_dedicated",
+            "postgres_migration",
+            "object_store_namespace",
+            "managed_process",
+            "browser_stack"
+          ]
+        },
+        "ownership": {
+          "enum": [
+            "owned",
+            "borrowed",
+            null
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "incomplete",
+            "passed",
+            "failed",
+            "cancelled"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "allocation_ref",
+        "unit_id",
+        "capability",
+        "ownership",
+        "outcome"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "lease"
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "allocation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "lease_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "unit_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "capability": {
+          "enum": [
+            "none",
+            "postgres_transaction",
+            "postgres_dedicated",
+            "postgres_migration",
+            "object_store_namespace",
+            "managed_process",
+            "browser_stack"
+          ]
+        },
+        "ownership": {
+          "enum": [
+            "owned",
+            "borrowed"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "allocation_ref",
+        "lease_ref",
+        "unit_id",
+        "capability",
+        "ownership"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "relationship"
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "identity_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9_.:/-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allocation_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9_.:/-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "invocation_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "enum": [
+            "registered",
+            "observed_descendant"
+          ]
+        },
+        "observed_elapsed_ms": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "identity_digest",
+        "unit_id",
+        "allocation_ref",
+        "invocation_id",
+        "provenance",
+        "observed_elapsed_ms"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "activity"
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:/-]+$",
+          "maxLength": 255,
+          "minLength": 1
+        },
+        "activity": {
+          "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/activity"
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:/-]+$",
+              "maxLength": 255,
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "invocation_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allocation_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:/-]+$",
+              "maxLength": 255,
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "incomplete",
+            "passed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "clock": {
+          "enum": [
+            "node_monotonic",
+            "go_monotonic",
+            "linux_boottime_10ms",
+            "unavailable"
+          ]
+        },
+        "clock_identity": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:/-]+$",
+              "maxLength": 255,
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolution_ms": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "availability": {
+          "enum": [
+            "available",
+            "unavailable",
+            "not_observed"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "activity",
+        "unit_id",
+        "invocation_id",
+        "allocation_ref",
+        "outcome",
+        "clock",
+        "clock_identity",
+        "resolution_ms",
+        "duration_ms",
+        "availability"
+      ],
+      "allOf": [
+        {
+          "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/local_timing_consistency"
+        }
+      ]
+    }
+  ]
+}

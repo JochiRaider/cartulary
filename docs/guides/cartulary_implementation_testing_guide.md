@@ -516,3 +516,36 @@ rows to check database-visible reuse, revisions, attribution and atomic rejectio
 The frontend batch owner and production spreadsheet rows exercise response loss,
 complete receipt validation, conflict retention and reads-only recovery. Routing
 is in authored test families; these guide paragraphs are not executable inputs.
+
+## Reading Local Harness Execution Diagnostics
+
+Diagnostics remain opt-in through `HARNESS_DIAGNOSTICS=basic`. Select an exact
+retained run with the existing `explain-run` performance/resources views and
+`harness-observability-check`; use `make help` for the public command surface.
+A passing diagnostic inspection does not establish test acceptance or performance
+qualification.
+
+The terminal execution index distinguishes launch attempts, physical process
+proof, allocation attempts, successful leases, and owner-local activities. A
+launch can remain visible even when its process exited before sampling. Parent
+and packed-row membership describe causality, not per-row CPU ownership. Failed
+acquisition does not create a successful lease; shared or borrowed allocations
+remain contextual. Inferred ancestry and conflicting explicit registrations are
+labeled, and conflicting registrations contribute no attributed CPU. A late
+registration cannot claim the process's earlier lifetime consumption.
+
+Migration, reset and report-parsing activities carry their own clock identity,
+resolution, outcome and nullable duration. Their clocks are local; durations may
+overlap and are never added to canonical phase, path or reservation accounting.
+Unavailable timing is null, not zero. A missing end remains incomplete. Human
+output is bounded; the JSON view and terminal index provide additional retained
+facts with explicit omission counts. Execution details describe the whole
+invocation even when canonical timing selects one target projection.
+
+This iteration uses execution-index v1, resource-index v2, performance-explanation
+v2 and reset-attempt v2. Incompatible historical formats have no translation
+reader. Missing optional evidence is unavailable; malformed published evidence
+fails inspection without changing retained test results. Export remains an
+explicit separate operation and does not include these local execution or
+resource records. Container/full-wrapper coverage, cross-clock joins and total
+observer qualification remain deferred.

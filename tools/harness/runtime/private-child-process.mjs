@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+import { createLaunchContext } from "./launch-context.mjs";
 import { CommandFailure } from "./command-failure.mjs";
 import { borrowSuiteRuntime } from "./suite-runtime.mjs";
 import { ownedProcess, stopOwnedProcess } from "./owned-process.mjs";
@@ -44,6 +45,8 @@ function captureFailure(reason, cause) {
 }
 
 export async function runPrivateCapturedProcess(command, args, options) {
+  const launch = options.launch ?? createLaunchContext({ repoRoot: options.repoRoot, environment: options.env, producer: options.producer ?? "private_capture" });
+  let spawned = false;
   const descriptors = new Set();
   const files = new Set();
   let directory;
@@ -118,12 +121,16 @@ export async function runPrivateCapturedProcess(command, args, options) {
     const stderrPath = path.join(directory, "stderr");
     const stdoutFD = createStream(stdoutPath);
     const stderrFD = createStream(stderrPath);
+    const childEnvironment = { ...options.env, ...launch.environment };
+    const failureContext = childEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+    if (failureContext && JSON.parse(failureContext).invocation_id !== launch.identity.invocation_id) delete childEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: options.env,
+      env: childEnvironment,
       detached: options.detached ?? false,
       stdio: ["ignore", stdoutFD, stderrFD],
     });
+    if (child.pid) { spawned = true; launch.spawned(child.pid); }
     // Even a failed asynchronous spawn must reach close before releasing resources.
     const completion = new Promise((resolve, reject) => {
       let spawnError;
@@ -148,13 +155,15 @@ export async function runPrivateCapturedProcess(command, args, options) {
       }
     }
     const outcome = await completion;
+    if (!options.launch) launch.settle(outcome.signal ? "cancelled" : outcome.status === 0 ? "passed" : "failed");
     close(stdoutFD);
     close(stderrFD);
     const stdout = boundedTail(stdoutPath, tailBytes);
     const stderr = boundedTail(stderrPath, tailBytes);
     // Ownership transfers only after both validated reads have completed.
-    return { ...outcome, stderr, stderrPath, stdout, stdoutPath, cleanup };
+    return { ...outcome, launch: launch.identity, stderr, stderrPath, stdout, stdoutPath, cleanup };
   } catch (error) {
+    launch.settle(spawned ? "failed" : "spawn_failed");
     const failure = captureFailure("artifact_error", error);
     try { cleanup(); }
     catch (cleanupError) {

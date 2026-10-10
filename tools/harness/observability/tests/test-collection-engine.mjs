@@ -16,17 +16,28 @@ const identity = { run_id: "engine-fixture", source_digest: digest, graph_digest
 const proof = { identity: digest, pid: 1, start: "1", stat: { parent: 0 } };
 const sample = { availability: "available", metrics: { rss_bytes: { value: 12, availability: "available" } } };
 function fixture(overrides = {}) {
-  const timers = new Map(), records = [], statuses = [], calls = [];
+  const timers = new Map(), records = [], statuses = [], calls = [], relationships = [];
   let tick = 0, next = 0, index;
   const clock = { now: () => tick, elapsed: () => tick, setTimeout: (fn) => { timers.set(++next, fn); return next; }, clearTimeout: (id) => timers.delete(id) };
   const gate = { quiet: () => false, acquire: async () => ({ release: async () => calls.push("released") }), close: () => calls.push("gate_closed"), ...overrides.gate };
   const store = { samples: 0, bytes: 0, truncated: false, append: async (value) => { records.push(value); store.samples += 1; }, finish: async (value) => { index = value; calls.push("published"); }, ...overrides.store };
   const adapter = { discover: async () => ({ found: [], truncated: false }), processSample: async () => sample, context: async () => [], bytesRead: 0, ...overrides.adapter };
   const engine = createCollectionEngine({ policy: { ...instrumentationPolicy().policy, ...overrides.policy }, identity, gate, store, adapter, clock,
-    observer: { heap: () => 10, cpu: () => ({ user: 2, system: 3 }) }, onStatus: (status) => statuses.push(status) });
+    observer: { heap: () => 10, cpu: () => ({ user: 2, system: 3 }) }, onStatus: (status) => statuses.push(status), onRelationship: (value) => relationships.push(value) });
   engine.register(proof, "unit:a");
-  return { engine, gate, store, records, statuses, calls, timers, get index() { return index; }, async fire() { tick += 2000; const [id, fn] = timers.entries().next().value; timers.delete(id); fn(); await settle(); } };
+  return { engine, gate, store, records, statuses, calls, timers, relationships, get index() { return index; }, async fire() { tick += 2000; const [id, fn] = timers.entries().next().value; timers.delete(id); fn(); await settle(); } };
 }
+
+test("physical roster remains immutable while conflicting explicit relationships are retained", async () => {
+  const f = fixture();
+  f.engine.register(proof, "unit:a");
+  f.engine.register(proof, "unit:b");
+  f.engine.register(proof, "unit:b");
+  await f.engine.stop();
+  assert.deepEqual(f.relationships.map((record) => record.unit_id), ["unit:a", "unit:b"]);
+  assert.deepEqual(f.index.processes, [{ process_ref: "process:1", identity_digest: digest }]);
+  assert.equal(Object.hasOwn(f.index, "leases"), false);
+});
 
 test("pause cancels pending admission immediately; stop dominates resume and shares completion", async () => {
   const admission = deferred(), released = deferred(); let signal;

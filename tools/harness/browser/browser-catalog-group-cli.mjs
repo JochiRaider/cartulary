@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { beginActivity } from "../runtime/local-activity.mjs";
 import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 
 import { existsSync, lstatSync, readFileSync } from "node:fs";
@@ -285,6 +286,7 @@ async function main() {
     );
   }
     child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
+      producer: "playwright",
       cwd: root,
       detached: true,
       onSpawn: (process) => { captureProof = ownedProcess(process.pid); if (interruptedSignal) onSignal(interruptedSignal); },
@@ -329,18 +331,21 @@ async function main() {
   }
   if (interruptedSignal) child.signal ??= interruptedSignal;
   let report = null;
+  const parsing = beginActivity({ repoRoot: root, environment: process.env, launch: child.launch, activity: "report_parse" });
   try {
     report = readPlaywrightReport(reportPath);
     secureWriteFile(reportPath, `${JSON.stringify(redactValue(report), null, 2)}\n`);
   } catch {
     report = null;
   }
-  const rowResults = adaptPlaywrightReport(
+  let rowResults;
+  try { rowResults = adaptPlaywrightReport(
     rows,
     report,
     child.status,
     child.signal,
-  );
+  ); parsing.finish(!report || rowResults.some((row) => row.failure_class === "artifact" || row.failure_class === "harness") ? "failed" : "passed"); }
+  catch (error) { parsing.finish("failed"); throw error; }
   let measurementEvidenceError = null;
   const fixtureGroups = groupRowsByPerformanceFixture(root, rows);
   if (fixtureGroups.length > 0) {

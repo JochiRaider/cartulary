@@ -15,7 +15,7 @@ export function renderInstrumentationDefinitions(catalog) {
     $id: "cartulary.harness_instrumentation_defs.v1", $comment: marker,
     $defs: {
       ...structuredClone(shapes),
-      availability: { enum: catalog.availability }, phase: { enum: catalog.phases },
+      activity: { enum: catalog.activities }, availability: { enum: catalog.availability }, phase: { enum: catalog.phases },
       phase_union: { type: "object", additionalProperties: false, required: [],
         properties: Object.fromEntries(catalog.phases.map((phase) => [phase, { type: "integer", minimum: 0 }])) },
       sample_metrics: { type: "object", additionalProperties: false, properties: properties("sample_value") },
@@ -24,6 +24,7 @@ export function renderInstrumentationDefinitions(catalog) {
   };
   const runtime = `// ${marker}\n` +
     `export const maximumPhasesPerUnit = ${catalog.maximum_phases_per_unit};\n` +
+    `export const activities = Object.freeze(${JSON.stringify(catalog.activities)});\n` +
     `export const phases = Object.freeze(${JSON.stringify(catalog.phases)});\n` +
     `export const signals = Object.freeze(${JSON.stringify(Object.fromEntries(catalog.signals.map(({ name, ...signal }) => [name, signal])))});\n`;
   return { schema, runtime };

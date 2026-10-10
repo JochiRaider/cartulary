@@ -1,3 +1,5 @@
+import { processProof } from "../runtime/process-proof.mjs";
+export { parseProcessStat } from "../runtime/process-proof.mjs";
 import { createHash } from "node:crypto";
 import { readFileSync, readlinkSync, opendirSync } from "node:fs";
 import path from "node:path";
@@ -8,20 +10,6 @@ export const observed = (value) => Number.isFinite(value) && value >= 0
 export function availabilityFor(error) {
   return ["EACCES", "EPERM"].includes(error?.code) ? "permission_denied"
     : ["ENOENT", "ESRCH"].includes(error?.code) ? "process_gone" : "unsupported";
-}
-export function parseProcessStat(text) {
-  const end = text.lastIndexOf(") ");
-  if (end < 0) throw new Error("invalid process stat");
-  const f = text.slice(end + 2).trim().split(/\s+/u);
-  const number = (index) => {
-    if (!/^\d+$/u.test(f[index] ?? "")) throw new Error("invalid stat counter");
-    const result = Number(f[index]);
-    if (!Number.isSafeInteger(result)) throw new Error("stat counter overflow");
-    return result;
-  };
-  number(19);
-  return { state: f[0], parent: number(1), start: f[19], user_ticks: number(11),
-    system_ticks: number(12), threads: number(17), rss_pages: number(21) };
 }
 export function parseCounters(text) {
   const result = {};
@@ -57,11 +45,7 @@ export function createLinuxResourceAdapter({ read = readFileSync, link = readlin
   const boot = text(`${proc}/sys/kernel/random/boot_id`).trim();
   const units = linuxUnits(read(`${proc}/self/auxv`));
   const digest = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
-  const proof = (pid) => {
-    const stat = parseProcessStat(text(`${proc}/${pid}/stat`));
-    const namespace = link(`${proc}/${pid}/ns/pid`);
-    return { pid, start: stat.start, identity: digest(`${boot}:${namespace}:${pid}:${stat.start}`), stat };
-  };
+  const proof = (pid) => processProof(pid, { boot, read: text, link, proc });
   function processSample(identity) {
     const before = proof(identity.pid);
     if (before.identity !== identity.identity || ["Z", "X"].includes(before.stat.state)) return { availability: "process_gone", metrics: {} };

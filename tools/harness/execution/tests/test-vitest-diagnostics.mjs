@@ -1,3 +1,4 @@
+import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -141,8 +142,9 @@ if (mode !== 'missing') writeFileSync(process.env.CARTULARY_VITEST_CAPTURE_FILE,
 `);
   for (const mode of ["missing", "malformed", "contradictory", "interrupted"]) {
     const invalidLabel = `vitest-invalid-${randomUUID()}`;
-    const failureContext = createCommandFailureContext({ repoRoot: root, environment: fullEnvironment,
-      unitID: invalidLabel, commandID: "cartulary.harness.command.frontend_unit.v1" });
+    const failureContext = createCommandFailureContext({ ...{ repoRoot: root, environment: fullEnvironment,
+      unitID: invalidLabel, commandID: "cartulary.harness.command.frontend_unit.v1" }, launch: createLaunchContext({ repoRoot: root, environment: fullEnvironment,
+      unitID: invalidLabel, commandID: "cartulary.harness.command.frontend_unit.v1" }) });
     try {
       const invalid = spawnSync("bash", [path.join(root, "tools/harness/execution/run-vitest-step.sh"), invalidLabel,
         "--", process.execPath, fakeRunner], { cwd: root,

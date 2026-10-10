@@ -18,6 +18,7 @@
       "profile": "support",
       "evidence_kinds": [
         "artifact_audit",
+        "go_test",
         "shell",
         "static_check"
       ],

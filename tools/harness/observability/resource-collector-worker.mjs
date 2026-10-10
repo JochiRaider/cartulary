@@ -13,12 +13,12 @@ const engine = createCollectionEngine({ policy, identity, adapter, availabilityF
   store: createResourceStore({ policy, runRoot }),
   clock: { now: () => performance.now(), elapsed: () => Number((process.hrtime.bigint() - BigInt(epoch)) / 1_000_000n), setTimeout, clearTimeout },
   observer: { cpu: () => process.threadCpuUsage(cpuStart), heap: () => process.memoryUsage().heapUsed },
+  onRelationship: (record) => parentPort.postMessage({ type: "relationship", record }),
   onStatus: (value) => parentPort.postMessage({ type: "latest", value }),
 });
 parentPort.on("message", async (message) => {
   try {
-    if (message.type === "register") { engine.register(message.proof, message.unit_id, message.allocation_ref); parentPort.postMessage({ type: "registered", request: message.request }); }
-    if (message.type === "lease") { engine.lease(message.record); parentPort.postMessage({ type: "registered", request: message.request }); }
+    if (message.type === "register") { engine.register(message.proof, message.unit_id, message.allocation_ref, message.invocation_id); parentPort.postMessage({ type: "registered", request: message.request }); }
     if (message.type === "pause") { await engine.pause(); parentPort.postMessage({ type: "paused", request: message.request }); }
     if (message.type === "resume") await engine.resume();
     if (message.type === "stop") { await engine.stop(message.omitted_registrations); parentPort.postMessage({ type: "stopped" }); parentPort.close(); }

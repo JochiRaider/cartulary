@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 // Owns lifecycle and bounded collection facts. Adapters own I/O and transport.
-export function createCollectionEngine({ policy, identity, adapter, gate, store, clock, observer, availabilityFor = () => "unsupported", onStatus = () => {} }) {
-  const processes = new Map(), leases = new Map();
+export function createCollectionEngine({ policy, identity, adapter, gate, store, clock, observer, availabilityFor = () => "unsupported", onStatus = () => {}, onRelationship = () => {} }) {
+  const processes = new Map(), relationships = new Set();
   let quiescenceError;
   let intent = "active", busy = null, timer, watching, pendingAdmission, stopCompletion;
   let controls = Promise.resolve(), quietWaiting = false, truncated = false;
@@ -18,15 +19,29 @@ export function createCollectionEngine({ policy, identity, adapter, gate, store,
       publish({ ...latest, availability: "collector_failed", failed_sweeps: failures });
     });
   }
-  function register(proof, unitID, owner, allocationRef = null) {
-    if (processes.has(proof.identity)) {
-      // A direct lifecycle registration is more precise than discovery ancestry.
-      if (owner === "registered" || processes.get(proof.identity).attribution !== "registered") Object.assign(processes.get(proof.identity), { unit_id: unitID, attribution: owner, allocation_ref: allocationRef });
+  function register(proof, unitID, owner, allocationRef = null, invocationID = null) {
+    if (!processes.has(proof.identity) && processes.size >= policy.maximum_lifetime_processes) { omitted += 1; truncated = true; return; }
+    const relation = { kind: "relationship", identity_digest: proof.identity, unit_id: unitID,
+      allocation_ref: allocationRef, invocation_id: invocationID, provenance: owner };
+    const key = JSON.stringify(relation);
+    if (!relationships.has(key)) {
+      if (relationships.size >= policy.maximum_execution_records) { omitted += 1; truncated = true; return; }
+      relationships.add(key);
+      onRelationship({ ...relation, ref: `relationship:${createHash("sha256").update(key).digest("hex")}`, observed_elapsed_ms: clock.elapsed() });
+    }
+    const existing = processes.get(proof.identity);
+    if (existing) {
+      if (owner === "registered" && existing.attribution === "registered" &&
+          (existing.unit_id !== unitID || existing.allocation_ref !== allocationRef || existing.invocation_id !== invocationID)) {
+        existing.conflicted = true;
+        existing.unit_id = null; existing.allocation_ref = null; existing.invocation_id = null;
+      } else if (owner === "registered" && !existing.conflicted) {
+        Object.assign(existing, { unit_id: unitID, attribution: owner, allocation_ref: allocationRef, invocation_id: invocationID });
+      }
       return;
     }
-    if (processes.size >= policy.maximum_lifetime_processes) { omitted += 1; truncated = true; return; }
     processes.set(proof.identity, { proof, process_ref: `process:${processes.size + 1}`,
-      unit_id: unitID, attribution: owner, allocation_ref: allocationRef, gone: false });
+      unit_id: unitID, attribution: owner, allocation_ref: allocationRef, invocation_id: invocationID, gone: false });
   }
   async function sweep() {
     const sweepSegment = segment;
@@ -51,7 +66,7 @@ export function createCollectionEngine({ policy, identity, adapter, gate, store,
           const owned = ancestors.get(ancestor.stat.parent);
           const observedParent = byPID.get(ancestor.stat.parent);
           if (owned && observedParent?.identity === owned.proof.identity && BigInt(proof.start) >= BigInt(owned.proof.start)) {
-            register(proof, owned.unit_id, "observed_descendant", owned.allocation_ref); break;
+            register(proof, owned.unit_id, "observed_descendant", owned.allocation_ref, owned.invocation_id); break;
           }
           ancestor = observedParent;
         }
@@ -121,13 +136,12 @@ export function createCollectionEngine({ policy, identity, adapter, gate, store,
     const shutdownStart = clock.now();
     const cpu = observer.cpu();
     await store.finish({
-      schema_id: "cartulary.harness_resource_index.v1", ...identity,
+      schema_id: "cartulary.harness_resource_index.v2", ...identity,
       status: !adapter ? "unsupported" : truncated ? "truncated" : (failures || omitted || discoveryTruncations) ? "partial" : "complete",
       clock: "graph_process_monotonic", coverage: "observed_partial",
       omitted_observations: omitted, discovery_truncations: discoveryTruncations, failed_sweeps: failures, sweeps,
       processes: [...processes.values()].map((entry) => ({ process_ref: entry.process_ref,
-        identity_digest: entry.proof.identity, unit_id: entry.unit_id, attribution: entry.attribution, allocation_ref: entry.allocation_ref })),
-      leases: [...leases.values()],
+        identity_digest: entry.proof.identity })),
       observer: { cpu_user_us: cpu.user, cpu_system_us: cpu.system, heap_peak_bytes: collectorHeapPeak,
         read_bytes: adapter?.bytesRead ?? 0, write_bytes: store.bytes, maximum_sweep_ms: maximumSweepMs,
         shutdown_ms: clock.now() - shutdownStart, gate_cpu: "not_observed" },
@@ -135,12 +149,7 @@ export function createCollectionEngine({ policy, identity, adapter, gate, store,
   }
   schedule();
   return {
-    register(proof, unitID, allocationRef = null) { if (intent !== "stopped" && adapter) register(proof, unitID, "registered", allocationRef); },
-    lease(record) {
-      if (intent === "stopped") return;
-      if (leases.size < policy.maximum_lifetime_processes || leases.has(record.lease_ref)) leases.set(record.lease_ref, record);
-      else { omitted += 1; truncated = true; }
-    },
+    register(proof, unitID, allocationRef = null, invocationID = null) { if (intent !== "stopped" && adapter) register(proof, unitID, "registered", allocationRef, invocationID); },
     pause() {
       if (intent === "stopped") return stopCompletion;
       intent = "paused"; segment += 1; cancel();

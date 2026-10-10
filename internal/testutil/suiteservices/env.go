@@ -181,40 +181,8 @@ func ResolveSuiteRuntimeDir(env map[string]string) (string, bool, error) {
 	if suiteID == "" {
 		return "", false, nil
 	}
-	configured := strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeRootEnv))
-	if configured == "" || !filepath.IsAbs(configured) {
-		return "", false, fmt.Errorf("%s must name an absolute external directory", SuiteRuntimeRootEnv)
-	}
-	root := filepath.Clean(configured)
-	canonical, err := filepath.EvalSymlinks(root)
+	root, err := resolveSuiteRuntimeRoot(env)
 	if err != nil {
-		return "", false, fmt.Errorf("resolve suite runtime root: %w", err)
-	}
-	if canonical != root {
-		return "", false, fmt.Errorf("suite runtime root must not traverse symlinks")
-	}
-	info, err := os.Lstat(root)
-	if err != nil {
-		return "", false, fmt.Errorf("inspect suite runtime root: %w", err)
-	}
-	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o700 {
-		return "", false, fmt.Errorf("suite runtime root must be a non-symlink owner-only 0700 directory")
-	}
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Getuid() {
-		return "", false, fmt.Errorf("suite runtime root must be owned by the current user")
-	}
-	repoRoot, err := FindRepoRoot()
-	if err != nil {
-		return "", false, err
-	}
-	resultsRoot, err := ResolveResultsRoot(env)
-	if err != nil {
-		return "", false, err
-	}
-	if pathContained(repoRoot, root) || pathContained(resultsRoot, root) {
-		return "", false, fmt.Errorf("suite runtime root must be outside repository and retained result roots")
-	}
-	if err := validateSuiteRuntimeOwner(root, env); err != nil {
 		return "", false, err
 	}
 	privateDir := filepath.Join(root, "test-services")
@@ -233,6 +201,48 @@ func ResolveSuiteRuntimeDir(env map[string]string) (string, bool, error) {
 		return "", false, fmt.Errorf("private suite service directory must be owned by the current user")
 	}
 	return privateDir, true, nil
+}
+
+// Shared by service state and optional execution observations; neither channel
+// gains ownership of the borrowed suite runtime.
+func resolveSuiteRuntimeRoot(env map[string]string) (string, error) {
+	configured := strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeRootEnv))
+	if configured == "" || !filepath.IsAbs(configured) {
+		return "", fmt.Errorf("%s must name an absolute external directory", SuiteRuntimeRootEnv)
+	}
+	root := filepath.Clean(configured)
+	canonical, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve suite runtime root: %w", err)
+	}
+	if canonical != root {
+		return "", fmt.Errorf("suite runtime root must not traverse symlinks")
+	}
+	info, err := os.Lstat(root)
+	if err != nil {
+		return "", fmt.Errorf("inspect suite runtime root: %w", err)
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o700 {
+		return "", fmt.Errorf("suite runtime root must be a non-symlink owner-only 0700 directory")
+	}
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Getuid() {
+		return "", fmt.Errorf("suite runtime root must be owned by the current user")
+	}
+	repoRoot, err := FindRepoRoot()
+	if err != nil {
+		return "", err
+	}
+	resultsRoot, err := ResolveResultsRoot(env)
+	if err != nil {
+		return "", err
+	}
+	if pathContained(repoRoot, root) || pathContained(resultsRoot, root) {
+		return "", fmt.Errorf("suite runtime root must be outside repository and retained result roots")
+	}
+	if err := validateSuiteRuntimeOwner(root, env); err != nil {
+		return "", err
+	}
+	return root, nil
 }
 
 func validateSuiteRuntimeOwner(root string, env map[string]string) error {

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_instrumentation_policy.v1",
+  "$id": "cartulary.harness_instrumentation_policy.v2",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_instrumentation_policy.v1"
+      "const": "cartulary.harness_instrumentation_policy.v2"
     },
     "process_cadence_ms": {
       "const": 2000
@@ -48,6 +48,9 @@
     },
     "stale_ms": {
       "const": 6000
+    },
+    "maximum_execution_records": {
+      "const": 4096
     }
   },
   "required": [
@@ -65,6 +68,7 @@
     "flush_bytes",
     "flush_ms",
     "stop_ms",
-    "stale_ms"
+    "stale_ms",
+    "maximum_execution_records"
   ]
 }

@@ -1,3 +1,4 @@
+import { createLaunchContext } from "../runtime/launch-context.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
@@ -38,7 +39,7 @@ function setup(t) {
       pending.delete(result); t.diagnostic(`child ${unit.unit_id}: ${Math.round(performance.timeOrigin + performance.now() - start)}ms including launch, execution and settlement`); return value; });
   };
   const create = () => {
-    const context = createCommandFailureContext({ repoRoot: root, environment, unitID: "target:build-web", commandID: "cartulary.harness.command.build_web.v2" });
+    const context = createCommandFailureContext({ ...{ repoRoot: root, environment, unitID: "target:build-web", commandID: "cartulary.harness.command.build_web.v2" }, launch: createLaunchContext({ repoRoot: root, environment, unitID: "target:build-web", commandID: "cartulary.harness.command.build_web.v2" }) });
     contexts.push(context); return context;
   };
   return { scratch, runRoot, runtime, environment, execute, create };
@@ -62,6 +63,17 @@ async function ready(file) {
   return Number(readFileSync(file, "utf8"));
 }
 export function registerCommandFailureTests() {
+  test("repeated command failure contexts allocate independent invocation identities", (t) => {
+    const { create } = setup(t);
+    const first = create(), second = create();
+    const key = "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT";
+    const a = JSON.parse(first.environment[key]), b = JSON.parse(second.environment[key]);
+    assert.notEqual(a.invocation_id, b.invocation_id);
+    assert.equal(a.run_id, b.run_id);
+    assert.equal(a.unit_id, b.unit_id);
+    first.close();
+    assert.equal(second.read(), null);
+  });
   test("command failure envelopes bind identity and reject corruption", (t) => {
     const { scratch, runtime, environment, create } = setup(t);
     for (const mutation of ["valid", "identity", "malformed", "conflict", "permission", "symlink", "partial"]) {

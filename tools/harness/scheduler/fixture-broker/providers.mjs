@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
+import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { createCommandFailureContext, CommandFailure } from "../../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { atomicLocalFile, readLocalFile, removePrivateFile } from "../../runtime/secure-local-files.mjs";
@@ -55,6 +56,7 @@ function run(command, args, { cwd, environment, timeoutMS }) {
 }
 
 async function acquireProcess(command, args, { cwd, environment, signal, onChildProcess = () => () => {}, onReaped = () => {} }) {
+  const launch = createLaunchContext({ repoRoot: cwd, environment, unitID: environment.CARTULARY_WORK_UNIT_ID ?? "review:browser_stack", producer: "browser_acquisition", commandID: environment.CARTULARY_PREPARATION_POLICY === "installed_only" ? "cartulary.harness.command.ui_review.v1" : "cartulary.harness.command.browser_design_review.v1" });
   let child, proof, diagnostic, released = () => {}, primary, killDeadline;
   const abort = () => {
     try { if (child?.pid) process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") primary ??= error; }
@@ -62,16 +64,16 @@ async function acquireProcess(command, args, { cwd, environment, signal, onChild
   };
   try {
     signal?.throwIfAborted();
-    diagnostic = ["ensure", "installed_only"].includes(environment.CARTULARY_PREPARATION_POLICY) ? createCommandFailureContext({ repoRoot: cwd, environment, unitID: "review:browser_stack", commandID: environment.CARTULARY_PREPARATION_POLICY === "installed_only" ? "cartulary.harness.command.ui_review.v1" : "cartulary.harness.command.browser_design_review.v1" }) : null;
+    diagnostic = ["ensure", "installed_only"].includes(environment.CARTULARY_PREPARATION_POLICY) ? createCommandFailureContext({ repoRoot: cwd, environment, launch }) : null;
     // The caller owns the complete child environment, including intentional
     // removal of ambient parent-graph and browser bindings.
-    child = spawn(command, args, { cwd, env: { ...environment, ...diagnostic?.environment }, stdio: "ignore", detached: true });
+    child = spawn(command, args, { cwd, env: { ...environment, ...launch.environment, ...diagnostic?.environment }, stdio: "ignore", detached: true });
     const closed = new Promise((resolve) => {
       child.once("error", (error) => { primary ??= error; });
       child.once("close", resolve);
     });
     try {
-      if (child.pid) { proof = ownedProcess(child.pid); released = onChildProcess(child.pid); }
+      if (child.pid) { launch.spawned(child.pid); proof = ownedProcess(child.pid); released = onChildProcess(child.pid, launch.identity.invocation_id); }
     } catch (error) { primary = error; abort(); }
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
@@ -89,6 +91,7 @@ async function acquireProcess(command, args, { cwd, environment, signal, onChild
       try { await cleanup(); } catch (error) { primary ??= new CommandFailure("acquisition cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error" }); (primary.cleanupFailures ??= []).push(error); }
     }
   }
+  launch.settle(signal?.aborted ? "cancelled" : !child?.pid ? "spawn_failed" : primary ? "failed" : "passed");
   if (primary) throw primary;
 }
 
@@ -362,6 +365,9 @@ export function startManagedSuite({
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
   };
   onOwnedResource({ kind: "managed_suite", target: leaseFile, state: "pending" });
+  const launch = createLaunchContext({ repoRoot: root, environment: startEnvironment, producer: "private_capture" });
+  Object.assign(startEnvironment, launch.environment);
+  delete startEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
   const start = spawnSync(executable, [
     ...executableArgs,
     "start-suite",
@@ -375,6 +381,8 @@ export function startManagedSuite({
     encoding: "utf8",
     maxBuffer: 256 * 1024,
   });
+  if (start.pid) launch.spawned(start.pid);
+  launch.settle(start.signal ? "cancelled" : start.error ? "spawn_failed" : start.status === 0 ? "passed" : "failed");
   if (start.error) {
     const missing = start.error.code === "ENOENT";
     const failure = acquisitionError(
@@ -586,6 +594,7 @@ export function productionFixtureProviders({
     browser_stack: {
       async acquire({
         affinityKey,
+        unitID,
         browserStage,
         runtimeProfileID = "default",
         fixtureProfileID,
@@ -594,6 +603,7 @@ export function productionFixtureProviders({
         rowID,
         predicateID,
         leaseID,
+        allocationRef,
       }) {
         const suite = suiteController.ensure();
         const suiteEnvironment = suite.environment;
@@ -620,11 +630,13 @@ export function productionFixtureProviders({
           ...suiteEnvironment,
           ...runtimeEnvironment,
           ...selectionEnvironment,
+          CARTULARY_WORK_UNIT_ID: unitID,
           CARTULARY_BROWSER_STAGE: browserStage,
           CARTULARY_BROWSER_RUNTIME_PROFILE_ID: runtimeProfileID,
           CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
           CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
           CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT: sessionRoot,
+          CARTULARY_HARNESS_ALLOCATION_REF: allocationRef,
           CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
           CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
           CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
@@ -654,7 +666,7 @@ export function productionFixtureProviders({
           const launchID = createAcquisitionLaunch(acquisitionFile, "producer");
           await acquireProcess(process.execPath, browserAcquisitionLaunchArguments(acquisitionFile, launchID, lifecycle,
             ["--session-start", "--env-file", envFile, "--lease-file", leaseFile]), { cwd: root, environment, signal,
-              onChildProcess: (pid) => { recordAcquisitionProcess(acquisitionFile, launchID, pid); return onChildProcess?.(pid, { allocationRef: `allocation:${leaseID}` }) ?? (() => {}); },
+              onChildProcess: (pid, invocationID) => { recordAcquisitionProcess(acquisitionFile, launchID, pid); return onChildProcess?.(pid, { allocationRef, invocationID }) ?? (() => {}); },
               onReaped: () => closeAcquisitionLaunch(acquisitionFile, launchID),
             });
           signal?.throwIfAborted();

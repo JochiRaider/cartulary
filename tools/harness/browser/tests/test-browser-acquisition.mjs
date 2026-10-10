@@ -1,3 +1,4 @@
+import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawn, spawnSync } from "node:child_process";
@@ -204,8 +205,9 @@ test("acquisition CLI preserves classified startup proof failures and prior diag
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: f.runtime.leaseID };
   writeFileSync(f.file, "{}", { mode: 0o600 });
   for (const prior of [null, { failure_class: "infra", failure_reason: "service_start_error" }]) {
-    const context = createCommandFailureContext({ repoRoot: root, environment,
-      unitID: "review:browser_stack", commandID: "cartulary.harness.command.ui_review.v1" });
+    const context = createCommandFailureContext({ ...{ repoRoot: root, environment,
+      unitID: "review:browser_stack", commandID: "cartulary.harness.command.ui_review.v1" }, launch: createLaunchContext({ repoRoot: root, environment,
+      unitID: "review:browser_stack", commandID: "cartulary.harness.command.ui_review.v1" }) });
     try {
       const childEnvironment = { ...environment, ...context.environment };
       if (prior) publishCommandFailure(root, prior, childEnvironment);

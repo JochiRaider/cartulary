@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 import { loadTestCatalog, targetForCatalogRow } from "../../test-catalog/index.mjs";
 import { publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
-import { createCommandFailureContext, readCommandFailure, reportCommandFailure } from "../../runtime/command-failure.mjs";
+import { createLaunchContext } from "../../runtime/launch-context.mjs";
+import { beginActivity } from "../../runtime/local-activity.mjs";
+import { createCommandFailureContext, reportCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
 import { adaptGoInvocationFile, buildGoInvocations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
@@ -58,14 +60,16 @@ function writeResult(result) {
   writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600 });
 }
 
-async function execute(invocation) {
+async function execute(invocation, producer) {
   const commandID = [...readTaskCommandTargets()].find(([, target]) => target === process.env.CARTULARY_TEST_TARGET)?.[0];
-  const context = invocation.detailsFile && commandID ? createCommandFailureContext({
-    repoRoot: root, environment: process.env, unitID: process.env.CARTULARY_WORK_UNIT_ID || `row:${invocation.rows[0].row_id}`, commandID,
-  }) : null;
+  const launch = createLaunchContext({ repoRoot: root, environment: process.env,
+    unitID: process.env.CARTULARY_WORK_UNIT_ID || `row:${invocation.rows[0].row_id}`, commandID,
+    rowIDs: invocation.rows.map((row) => row.row_id), producer });
+  const context = commandID ? createCommandFailureContext({ repoRoot: root, environment: process.env, launch }) : null;
   let result;
   try {
     result = await runPrivateCapturedProcess(invocation.command, invocation.args, {
+      launch,
       cwd: root,
       env: { ...process.env, ...invocation.environment, ...context?.environment },
       repoRoot: root,
@@ -73,11 +77,14 @@ async function execute(invocation) {
       tailBytes: 1024 * 1024,
     });
   } catch (error) {
+    launch.settle("spawn_failed");
     try { context?.close(); }
     catch { process.stderr.write("row command context cleanup failed (cleanup_error)\n"); }
     throw error;
   }
-  return { ...result, commandFailure: context?.read() ?? null, cleanup() {
+  const commandFailure = context?.read() ?? null;
+  launch.settle(result.signal ? "cancelled" : result.status === 0 && !commandFailure ? "passed" : "failed");
+  return { ...result, commandFailure, cleanup() {
     let failure;
     for (const release of [() => result.cleanup(), () => context?.close()]) {
       try { release(); }
@@ -184,10 +191,14 @@ async function main() {
   const results = [];
   let cleanupFailed = false;
   for (const invocation of invocations) {
-    const execution = await execute(invocation);
+    const execution = await execute(invocation, rows[0].runner);
     try {
-      if (rows[0].runner === "shell") execution.commandFailure = readCommandFailure(root);
-      results.push(...await adapt(invocation, execution));
+      const parsing = beginActivity({ repoRoot: root, environment: process.env, launch: execution.launch, activity: "report_parse" });
+      try {
+        const adapted = await adapt(invocation, execution);
+        parsing.finish(adapted.some((row) => row.failure_class === "artifact" || row.failure_class === "harness") ? "failed" : "passed");
+        results.push(...adapted);
+      } catch (error) { parsing.finish(error.name === "AbortError" ? "cancelled" : "failed"); throw error; }
       if (execution.status !== 0) {
         if (execution.stdout) process.stderr.write(redactString(execution.stdout));
         if (execution.stderr) process.stderr.write(redactString(execution.stderr));

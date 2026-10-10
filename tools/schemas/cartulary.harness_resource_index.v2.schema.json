@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_resource_index.v1",
+  "$id": "cartulary.harness_resource_index.v2",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_resource_index.v1"
+      "const": "cartulary.harness_resource_index.v2"
     },
     "run_id": {
       "type": "string",
@@ -88,47 +88,16 @@
           "identity_digest": {
             "type": "string",
             "pattern": "^sha256:[a-f0-9]{64}$"
-          },
-          "unit_id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 255
-          },
-          "attribution": {
-            "enum": [
-              "registered",
-              "observed_descendant"
-            ]
-          },
-          "allocation_ref": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^allocation:[A-Za-z0-9_.:-]+$",
-            "maxLength": 255
           }
         },
         "required": [
           "process_ref",
-          "identity_digest",
-          "unit_id",
-          "attribution",
-          "allocation_ref"
+          "identity_digest"
         ]
       }
     },
     "observer": {
       "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/observer"
-    },
-    "leases": {
-      "type": "array",
-      "maxItems": 4096,
-      "items": {
-        "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/lease"
-      }
     }
   },
   "required": [
@@ -148,7 +117,6 @@
     "failed_sweeps",
     "sweeps",
     "processes",
-    "observer",
-    "leases"
+    "observer"
   ]
 }

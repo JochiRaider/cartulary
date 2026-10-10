@@ -159,6 +159,17 @@
       "allowed_consumers": []
     },
     {
+      "key": "runtime_execution_observation",
+      "boundary_group": "execution_runtime",
+      "paths": [
+        "tools/harness/runtime/execution-observations.mjs",
+        "tools/harness/runtime/launch-context.mjs",
+        "tools/harness/runtime/local-activity.mjs",
+        "tools/harness/runtime/process-proof.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
       "key": "runtime_observation_gate",
       "boundary_group": "execution_runtime",
       "paths": [

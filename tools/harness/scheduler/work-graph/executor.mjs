@@ -3,6 +3,7 @@ import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { publicExitCodeForFailure, validateSchemaSync } from "../../contract/index.mjs";
+import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { createCommandFailureContext } from "../../runtime/command-failure.mjs";
 
 function nodeRuntimeError(message) {
@@ -121,7 +122,7 @@ function retainedLifecycleFailure(unit, cwd, environment) {
     }
     const attempt = JSON.parse(readFileSync(artifact, "utf8"));
     validateSchemaSync(attempt.schema_id, attempt);
-    if (attempt.schema_id !== "cartulary.browser_reset_attempt.v1" || attempt.status !== "fail") {
+    if (attempt.schema_id !== "cartulary.browser_reset_attempt.v2" || attempt.status !== "fail") {
       throw new Error("lifecycle attempt is not a terminal failure");
     }
     return {
@@ -162,6 +163,17 @@ export function executeUnitProcess(
   } = {},
 ) {
   return new Promise((resolve) => {
+    const childEnvironment = {
+      ...(inheritProcessEnvironment ? process.env : {}),
+      ...environment,
+      ...(fixtureLease?.allocation?.environment ?? {}),
+      ...(fixtureLease?.resource?.environment ?? {}),
+      ...(fixtureLease?.entry?.allocationRef ? { CARTULARY_HARNESS_ALLOCATION_REF: fixtureLease.entry.allocationRef } : {}),
+      ...unit.command.environment,
+    };
+    const launch = createLaunchContext({ repoRoot: cwd, environment: childEnvironment,
+      unitID: unit.unit_id, commandID: unit.command.environment.CARTULARY_TEST_TARGET ? commandID(cwd, unit.command.environment.CARTULARY_TEST_TARGET) : null,
+      rowIDs: unit.row_ids ?? [], producer: "unit" });
     let selectedNodeBinary;
     try {
       const binding = nodeBinary ?? environment.NODE_BIN;
@@ -169,6 +181,7 @@ export function executeUnitProcess(
         selectedNodeBinary = resolveGraphNodeBinary({ cwd, nodeBin: binding });
       }
     } catch (error) {
+      launch.settle("spawn_failed");
       resolve({
         status: "failed",
         failure_class: "config",
@@ -179,13 +192,6 @@ export function executeUnitProcess(
       });
       return;
     }
-    const childEnvironment = {
-      ...(inheritProcessEnvironment ? process.env : {}),
-      ...environment,
-      ...(fixtureLease?.allocation?.environment ?? {}),
-      ...(fixtureLease?.resource?.environment ?? {}),
-      ...unit.command.environment,
-    };
     // Fresh identity belongs to this process invocation, never to the semantic
     // graph or a previous child. Unit results remain scheduler-owned.
     delete childEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
@@ -193,9 +199,9 @@ export function executeUnitProcess(
     const diagnosticCommand = diagnosticTarget && childEnvironment.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT
       ? commandID(cwd, diagnosticTarget) : null;
     const diagnostic = diagnosticCommand ? createCommandFailureContext({
-      repoRoot: cwd, environment: childEnvironment, unitID: unit.unit_id, commandID: diagnosticCommand,
+      repoRoot: cwd, environment: childEnvironment, launch,
     }) : null;
-    Object.assign(childEnvironment, diagnostic?.environment);
+    Object.assign(childEnvironment, launch.environment, diagnostic?.environment);
     if (selectedNodeBinary) {
       Object.assign(childEnvironment, withGraphNodeRuntime(childEnvironment, selectedNodeBinary));
     }
@@ -209,7 +215,8 @@ export function executeUnitProcess(
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
-    try { onProcess?.(child.pid); } catch { /* Optional observation cannot change execution. */ }
+    if (child.pid) launch.spawned(child.pid);
+    try { onProcess?.(child.pid, launch.identity); } catch { /* Optional observation cannot change execution. */ }
     let stdout = "";
     let stderr = "";
     let cancelled = false;
@@ -238,6 +245,7 @@ export function executeUnitProcess(
     timeout.unref?.();
     child.on("error", (error) => {
       spawnFailed = true;
+      launch.settle("spawn_failed");
       timers.clearTimeout(timeout);
       timers.clearTimeout(killDeadline);
       diagnostic?.close();
@@ -274,6 +282,7 @@ export function executeUnitProcess(
           ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" }
           : diagnosed;
       }
+      launch.settle(cancelled ? "cancelled" : timedOut ? "timeout" : code === 0 && !diagnosed ? "passed" : "failed");
       resolve({
         status: cancelled ? "cancelled" : code === 0 && !diagnosed && !timedOut ? "passed" : "failed",
         ...failure,

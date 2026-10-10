@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_performance_explanation.v1",
+  "$id": "cartulary.harness_performance_explanation.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -22,11 +22,12 @@
     "resources",
     "envelope",
     "limitations",
-    "comparison"
+    "comparison",
+    "execution"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_performance_explanation.v1"
+      "const": "cartulary.harness_performance_explanation.v2"
     },
     "run_id": {
       "type": "string",
@@ -284,7 +285,7 @@
             "additionalProperties": false,
             "required": [
               "unit_id",
-              "observed_lifetime_cpu_us"
+              "observed_attributed_cpu_us"
             ],
             "properties": {
               "unit_id": {
@@ -292,7 +293,7 @@
                 "minLength": 1,
                 "maxLength": 255
               },
-              "observed_lifetime_cpu_us": {
+              "observed_attributed_cpu_us": {
                 "type": "number",
                 "minimum": 0
               }
@@ -381,17 +382,6 @@
         },
         "observer": {
           "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/observer"
-        },
-        "leases": {
-          "type": "array",
-          "maxItems": 20,
-          "items": {
-            "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/lease"
-          }
-        },
-        "leases_omitted": {
-          "type": "integer",
-          "minimum": 0
         }
       }
     },
@@ -529,6 +519,158 @@
           ]
         }
       ]
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "available",
+            "not_observed"
+          ]
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "truncated"
+          ]
+        },
+        "omitted_records": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "launches": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "cartulary.harness_execution_record.v1"
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "allocations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "cartulary.harness_execution_record.v1"
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "leases": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "cartulary.harness_execution_record.v1"
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "activities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "cartulary.harness_execution_record.v1"
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "relationships": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fact",
+                  "attribution"
+                ],
+                "properties": {
+                  "fact": {
+                    "$ref": "cartulary.harness_execution_record.v1"
+                  },
+                  "attribution": {
+                    "enum": [
+                      "conflicted",
+                      "inferred",
+                      "allocation_context",
+                      "registered"
+                    ]
+                  }
+                }
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
     }
   }
 }

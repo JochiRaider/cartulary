@@ -174,6 +174,7 @@ async function runWrapped(target, invocation) {
         process.execPath,
         [invocation.script, ...invocation.args],
         {
+          producer: "wrapped_tool",
           cwd: process.cwd(),
           env: childEnvironment,
           repoRoot: process.cwd(),

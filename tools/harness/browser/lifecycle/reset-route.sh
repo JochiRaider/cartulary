@@ -67,9 +67,7 @@ web_e2e_reset_stack() {
   local lease_file="${CARTULARY_WEB_E2E_SESSION_LEASE_FILE:-}"
   local node_bin="${NODE_BIN:-${root_dir}/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}"
   local generation_before
-  local started_ms
-  local finished_ms
-  local duration_ms
+  local measurement
   local status=0
   local outcome="pass"
 
@@ -98,7 +96,7 @@ EOF
     return 11
   fi
 
-  started_ms="$(step_now_monotonic_ms)"
+  measurement="$("$node_bin" "$root_dir/tools/harness/browser/browser-reset-attempt.mjs" --begin)" || return 11
   if "$root_dir/tools/harness/browser/start-web-e2e.sh" \
     --session-reset-backend \
     --lease-file "$lease_file" \
@@ -113,8 +111,6 @@ EOF
     outcome="fail"
     web_e2e_reset_mark_tainted "$taint_marker_file" "${CARTULARY_WEB_E2E_RUNTIME_ROOT:-}"
   fi
-  finished_ms="$(step_now_monotonic_ms)"
-  duration_ms="$(step_elapsed_ms "$started_ms" "$finished_ms")"
 
   if ! "$node_bin" "$root_dir/tools/harness/browser/browser-reset-attempt.mjs" \
     --label "$label" \
@@ -127,7 +123,7 @@ EOF
     --backend-ready-marker-file "$backend_ready_marker_file" \
     --lease-file "$lease_file" \
     --generation-before "$generation_before" \
-    --duration-ms "$duration_ms"; then
+    --measurement "$measurement"; then
     echo "failure_class=artifact reason=artifact_error browser reset attempt evidence was not published" >&2
     return 11
   fi

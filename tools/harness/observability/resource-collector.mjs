@@ -9,7 +9,7 @@ export function instrumentationPolicy() {
   validateSchemaSync(policy.schema_id, policy);
   return { policy, digest: semanticJSONDigest(policy) };
 }
-export function createResourceCollector({ runRoot, manifest, capacities, epoch, admissionRoot = hostAdmissionRoot, workerFactory = (url, options) => new Worker(url, options), adapterFactory = createLinuxResourceAdapter, timers = { setTimeout, clearTimeout } }) {
+export function createResourceCollector({ runRoot, manifest, capacities, epoch, admissionRoot = hostAdmissionRoot, workerFactory = (url, options) => new Worker(url, options), adapterFactory = createLinuxResourceAdapter, timers = { setTimeout, clearTimeout }, onRelationship = () => {} }) {
   if (manifest.instrumentation.mode === "off") return null;
   const { policy } = instrumentationPolicy();
   let stopCompletion, controlVersion = 0;
@@ -26,6 +26,7 @@ export function createResourceCollector({ runRoot, manifest, capacities, epoch, 
       } },
     });
     worker.on("message", (message) => {
+      if (message.type === "relationship") { try { onRelationship(message.record); } catch { droppedRegistrations += 1; } }
       if (message.type === "registered") {
         pendingBytes -= pendingRegistrations.get(message.request) ?? 0;
         pendingRegistrations.delete(message.request);
@@ -66,12 +67,14 @@ export function createResourceCollector({ runRoot, manifest, capacities, epoch, 
     } catch { droppedRegistrations += 1; }
   }
   const result = {
-    register(pid, unitID, { allocationRef = null } = {}) {
+    register(pid, unitID, { allocationRef = null, invocationID = null } = {}) {
       if (stopped || failure || !worker || !Number.isSafeInteger(pid)) return;
-      try { sendCorrelation({ type: "register", proof: adapter.proof(pid), unit_id: unitID, allocation_ref: allocationRef }); }
+      try { sendCorrelation({ type: "register", proof: adapter.proof(pid), unit_id: unitID, allocation_ref: allocationRef, invocation_id: invocationID }); }
       catch { droppedRegistrations += 1; }
     },
-    lease(record) { sendCorrelation({ type: "lease", record }); },
+    registerProof(proof, unitID, { allocationRef = null, invocationID = null } = {}) {
+      sendCorrelation({ type: "register", proof, unit_id: unitID, allocation_ref: allocationRef, invocation_id: invocationID });
+    },
     async pause() {
       if (stopped) return stopCompletion;
       const version = ++controlVersion;

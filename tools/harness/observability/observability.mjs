@@ -7,6 +7,7 @@ import { analyzePerformance } from "./performance-analysis.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { validateCanonicalRun } from "./canonical-evidence.mjs";
 import { formatPerformanceExplanation } from "./performance-presentation.mjs";
+import { readExecutionIndex } from "./execution-reader.mjs";
 
 function isCanonicalRun(dir) {
   return ["run-manifest.json", "run-summary.json", "unit-events.ndjson"].every(
@@ -30,6 +31,8 @@ export function resolveExactRunDir(resultsDir, runID = "") {
 
 export async function loadRetainedObservability(runDir) {
   const run = await validateCanonicalRun(runDir);
+  const execution = readExecutionIndex(runDir, run);
+  resourceProjection(runDir, run, execution);
   const sourceDigests = [
     run.manifest.source_digest,
     run.manifest.toolchain_digest,
@@ -37,7 +40,7 @@ export async function loadRetainedObservability(runDir) {
     run.manifest.graph_digest,
   ];
   return {
-    run,
+    run, execution,
     index: {
       schema_id: "cartulary.harness_canonical_observability.v1",
       status: "complete",
@@ -54,6 +57,7 @@ export async function loadRetainedObservability(runDir) {
 
 export async function performanceExplanation(runDir, target = "", { comparisonDir = "", comparison = "equivalent" } = {}) {
   const run = await validateCanonicalRun(runDir);
+  const execution = readExecutionIndex(runDir, run);
   const comparisonResult = comparisonDir ? compareRunMetadata(run, await validateCanonicalRun(comparisonDir), comparison) : null;
   let envelope = null;
   try {
@@ -63,7 +67,7 @@ export async function performanceExplanation(runDir, target = "", { comparisonDi
     let end = 0;
     for (const interval of envelope.intervals) { if (interval.start_ms !== end || interval.end_ms < end) throw new Error("invalid envelope intervals"); end = interval.end_ms; }
   } catch (error) { if (error.code !== "ENOENT") throw error; }
-  return analyzePerformance(run, target, { comparison: comparisonResult, resources: resourceProjection(runDir, run), envelope });
+  return analyzePerformance(run, target, { comparison: comparisonResult, resources: resourceProjection(runDir, run, execution), envelope, execution });
 }
 
 export async function printObservabilityPerformance(runDir, target = "", options = {}) {

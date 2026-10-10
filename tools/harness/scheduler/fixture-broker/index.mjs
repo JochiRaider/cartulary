@@ -1,4 +1,5 @@
 import { validateSchemaSync } from "../../contract/index.mjs";
+import { randomUUID } from "node:crypto";
 import { CommandFailure } from "../../runtime/command-failure.mjs";
 import { aggregateCleanup, CleanupResults } from "./cleanup-lifecycle.mjs";
 export { aggregateCleanup, cleanupFailure, CleanupResults, createSuiteController } from "./cleanup-lifecycle.mjs";
@@ -192,7 +193,7 @@ class FixtureLease {
 }
 
 export class FixtureBroker {
-  constructor({ providers = {}, clock = () => new Date(), idFactory, recordSink = () => {}, observeLease = () => {}, cleanupResults = new CleanupResults() } = {}) {
+  constructor({ providers = {}, clock = () => new Date(), idFactory, recordSink = () => {}, observeLease = () => {}, observeAllocation = () => {}, cleanupResults = new CleanupResults() } = {}) {
     this.providers = providers;
     this.clock = clock;
     this.nextID = 1;
@@ -200,6 +201,7 @@ export class FixtureBroker {
     if (typeof recordSink !== "function") throw new Error("fixture broker recordSink must be a function");
     this.recordSink = recordSink;
     this.observeLease = observeLease;
+    this.observeAllocation = observeAllocation;
     this.cleanupResults = cleanupResults;
     this.active = new Set();
     this.allocations = new Set();
@@ -226,6 +228,14 @@ export class FixtureBroker {
       ? `${capability}:${affinityKey ?? unitID}:${fixtureProfileID ?? "none"}:${snapshotKey ?? "none"}` : "";
     const leaseID = this.idFactory();
     let entry = sharedKey ? this.shared.get(sharedKey) : null;
+    const allocationRef = entry?.allocationRef ?? `allocation:${randomUUID()}`;
+    const newAllocation = !entry;
+    const observe = (outcome, ownership = null) => {
+      if (!newAllocation) return;
+      try { this.observeAllocation({ kind: "allocation", ref: allocationRef, allocation_ref: allocationRef, unit_id: unitID, capability, ownership, outcome }); }
+      catch { /* Optional observation never owns acquisition. */ }
+    };
+    observe("incomplete");
     let lease;
     try {
       if (!entry) {
@@ -236,13 +246,13 @@ export class FixtureBroker {
         const allocation = capability === "none"
           ? { ownership: "borrowed", resource_ids: [], resource: null }
           : await provider.acquire({ affinityKey, unitID, digest, browserStage, runtimeProfileID,
-              fixtureProfileID, snapshotKey, builderUnitID, rowID, predicateID, leaseID });
+              fixtureProfileID, snapshotKey, builderUnitID, rowID, predicateID, leaseID, allocationRef });
         if (!allocation || !["owned", "borrowed"].includes(allocation.ownership)) {
           throw new Error(`${capability} provider returned invalid ownership`);
         }
         // Register ownership before validation or publication can throw.
         entry = { allocation, capability, sharedKey, references: 0, tainted: false,
-          cleanupPromise: null, cleanupOutcome: "not_required", releaseErrors: [], lastLease: null, leaseID, unitID };
+          cleanupPromise: null, cleanupOutcome: "not_required", releaseErrors: [], lastLease: null, leaseID, unitID, allocationRef };
         this.allocations.add(entry);
         if (capability !== "none") {
           const hook = allocation.ownership === "owned" ? "release" : "detach";
@@ -253,6 +263,7 @@ export class FixtureBroker {
           throw new Error(`${capability} provider returned duplicate resource IDs`);
         }
         if (sharedKey) this.shared.set(sharedKey, entry);
+        observe("passed", allocation.ownership);
       }
       entry.references += 1;
       const allocation = entry.allocation;
@@ -271,12 +282,14 @@ export class FixtureBroker {
       entry.lastLease = lease;
       this.active.add(lease);
       await this.publish(lease);
-      try { this.observeLease({ allocation_ref: `allocation:${entry.leaseID}`, lease_ref: leaseID,
+      try { this.observeLease({ allocation_ref: entry.allocationRef, lease_ref: leaseID,
         unit_id: unitID, capability, ownership: allocation.ownership }); }
       catch { /* Optional correlation never changes fixture ownership or outcome. */ }
       if (this.closed) throw new Error("fixture broker closed during acquisition");
       return lease;
     } catch (error) {
+      if (!entry) observe(error.name === "AbortError" ? "cancelled" : "failed");
+      else if (!entry.references) observe("failed", entry.allocation.ownership);
       if (entry) {
         try {
           if (lease) await lease.release({ healthy: false });

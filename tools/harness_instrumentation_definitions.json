@@ -184,5 +184,10 @@
       "producer_scope": "process",
       "aggregation": "sampled_maximum"
     }
+  ],
+  "activities": [
+    "migration",
+    "fixture_reset",
+    "report_parse"
   ]
 }

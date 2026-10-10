@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_instrumentation_policy.v1",
+  "schema_id": "cartulary.harness_instrumentation_policy.v2",
   "process_cadence_ms": 2000,
   "context_cadence_ms": 5000,
   "sweep_budget_ms": 50,
@@ -13,5 +13,6 @@
   "flush_bytes": 262144,
   "flush_ms": 5000,
   "stop_ms": 2000,
-  "stale_ms": 6000
+  "stale_ms": 6000,
+  "maximum_execution_records": 4096
 }

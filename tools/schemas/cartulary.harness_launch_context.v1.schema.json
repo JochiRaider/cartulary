@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_launch_context.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_launch_context.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9_.:/-]+$"
+    },
+    "invocation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "parent_invocation_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unit_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "command_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "row_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 4096,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255,
+        "pattern": "^[A-Za-z0-9_.:/-]+$"
+      }
+    },
+    "producer": {
+      "enum": [
+        "unit",
+        "go",
+        "vitest",
+        "shell",
+        "playwright",
+        "private_capture",
+        "browser_acquisition",
+        "browser_review",
+        "wrapped_tool",
+        "snapshot_builder"
+      ]
+    }
+  },
+  "required": [
+    "schema_id",
+    "run_id",
+    "invocation_id",
+    "parent_invocation_id",
+    "unit_id",
+    "command_id",
+    "row_ids",
+    "producer"
+  ]
+}

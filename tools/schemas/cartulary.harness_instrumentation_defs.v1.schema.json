@@ -130,41 +130,57 @@
         "gate_cpu"
       ]
     },
-    "lease": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "allocation_ref": {
-          "type": "string",
-          "pattern": "^allocation:[A-Za-z0-9_.:-]+$",
-          "maxLength": 255
+    "local_timing_consistency": {
+      "if": {
+        "properties": {
+          "availability": {
+            "const": "available"
+          }
         },
-        "lease_ref": {
-          "type": "string",
-          "maxLength": 255,
-          "pattern": "^[A-Za-z0-9_.:-]+$"
-        },
-        "unit_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 255
-        },
-        "capability": {
-          "$ref": "cartulary.harness_fixture_lease.v4#/properties/capability"
-        },
-        "ownership": {
-          "enum": [
-            "owned",
-            "borrowed"
-          ]
+        "required": [
+          "availability"
+        ]
+      },
+      "then": {
+        "properties": {
+          "duration_ms": {
+            "type": "number"
+          },
+          "clock_identity": {
+            "type": "string"
+          },
+          "resolution_ms": {
+            "type": "number"
+          },
+          "clock": {
+            "not": {
+              "const": "unavailable"
+            }
+          }
         }
       },
-      "required": [
-        "allocation_ref",
-        "lease_ref",
-        "unit_id",
-        "capability",
-        "ownership"
+      "else": {
+        "properties": {
+          "duration_ms": {
+            "type": "null"
+          },
+          "clock_identity": {
+            "type": "null"
+          },
+          "resolution_ms": {
+            "type": "null"
+          },
+          "clock": {
+            "const": "unavailable"
+          }
+        }
+      }
+    },
+    "activity": {
+      "enum": [
+        "migration",
+        "fixture_reset",
+        "report_parse"
       ]
     },
     "availability": {

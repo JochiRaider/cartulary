@@ -600,9 +600,11 @@ async function main() {
 
   const runtimeEnvironment = resolvedRuntimeEnvironment(compiler);
   const suiteRuntime = createSuiteRuntime({ repoRoot: root, runRoot, runID });
+  resources = diagnostics.start({ runRoot, manifest, runtime: suiteRuntime, capacities: Object.fromEntries(resourceCapacities(snapshot)), epoch: graphEpoch });
   const baseEnvironment = withGraphNodeRuntime({
     ...graphChildEnvironment(options),
     ...runtimeEnvironment,
+    ...diagnostics.executionEnvironment(),
     CARTULARY_HARNESS_GRAPH_CHILD: "1",
     CARTULARY_HARNESS_IDENTITY_PREPARED: "1",
     CARTULARY_HARNESS_SKIP_PREREQUISITES: "1",
@@ -636,17 +638,17 @@ async function main() {
     writeJSON(path.join(runRoot, "retained-secret-scan.json"), retainedScan);
   };
   try {
-  resources = diagnostics.start({ runRoot, manifest, capacities: Object.fromEntries(resourceCapacities(snapshot)), epoch: graphEpoch });
   livePublisher = createLiveStatusPublisher({ runRoot, manifest, graph, projections, resources: () => resources?.snapshot() });
   broker = new FixtureBroker({
     cleanupResults,
-    observeLease: (record) => resources?.lease(record),
+    observeAllocation: (record) => diagnostics.observeExecution(record),
+    observeLease: (record) => diagnostics.observeExecution({ kind: "lease", ref: `lease:${record.lease_ref}`, ...record }),
     providers: productionFixtureProviders({
       root,
       selectionEnvironment: fixtureSelectionEnvironment(options),
       // Fixture launch receives a complete environment. Review composition can
       // supply its own sanitized environment without implicit ambient merging.
-      runtimeEnvironment: { ...graphChildEnvironment(options), ...runtimeEnvironment },
+      runtimeEnvironment: { ...graphChildEnvironment(options), ...runtimeEnvironment, ...diagnostics.executionEnvironment(), CARTULARY_TEST_RUN_ID: runID, CARTULARY_TEST_RESULTS_DIR: resultsDir },
       suiteController,
       suiteRuntime,
       onOwnedResource,
@@ -684,7 +686,7 @@ async function main() {
     mkdirSync(unitArtifactRoot, { recursive: true, mode: 0o700 });
     let result = await executeUnitProcess(unit, {
       ...context,
-      onProcess: (pid) => resources?.register(pid, unit.unit_id),
+      onProcess: (pid, invocation) => resources?.register(pid, unit.unit_id, { invocationID: invocation.invocation_id }),
       inheritProcessEnvironment: false,
       nodeBinary: runtimeEnvironment.NODE_BIN,
       environment: {
@@ -763,6 +765,7 @@ async function main() {
       onUnitTerminal: (unit, result) => writeUnitResult(runRoot, unit, result, result.missing_outputs ?? []),
       finalize: async ({ unresolved }) => {
         resourcesUnresolved ||= unresolved;
+        diagnostics.captureExecution();
         const error = await cleanupResults.attempt(unresolved ? "recovery_preserve" : "runtime_close",
           () => resourcesUnresolved ? suiteRuntime.preserveRecovery() : suiteRuntime.close());
         const errors = error ? [error] : [];
@@ -816,13 +819,6 @@ async function main() {
   } finally {
     livePublisher?.stop();
     const boundaryErrors = [];
-    if (!retainedScanAttempted) {
-      try {
-        await publishRetainedScan();
-      } catch (error) {
-        boundaryErrors.push(error);
-      }
-    }
     if (!finalizationComplete) {
       try { await broker?.close(); } catch (error) { boundaryErrors.push(error); }
       resourcesUnresolved ||= broker?.hasUnresolvedCleanup() ?? false;
@@ -833,10 +829,15 @@ async function main() {
       if (error) { boundaryErrors.push(error); resourcesUnresolved = true; }
       try { resourcesUnresolved ||= runtimeRecoveryResources(suiteRuntime, { maximum: 4096 }).length > 0; }
       catch (error) { boundaryErrors.push(error); resourcesUnresolved = true; }
+      diagnostics.captureExecution();
       const runtimeError = await cleanupResults.attempt(resourcesUnresolved ? "recovery_preserve" : "runtime_close",
         () => resourcesUnresolved ? suiteRuntime.preserveRecovery() : suiteRuntime.close());
       if (runtimeError) boundaryErrors.push(runtimeError);
       try { cleanupResults.publish(runRoot, runID); } catch (error) { boundaryErrors.push(error); }
+    }
+    if (!retainedScanAttempted) {
+      try { await publishRetainedScan(); }
+      catch (error) { boundaryErrors.push(error); }
     }
     if (boundaryErrors.length) {
       if (primaryError) (primaryError.cleanupFailures ??= []).push(...boundaryErrors);

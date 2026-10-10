@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { normalizeFailureRecord, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
@@ -52,8 +51,10 @@ function readEnvelope(repoRoot, environment, expected) {
   return { failure_class: envelope.failure_class, failure_reason: envelope.failure_reason };
 }
 
-export function createCommandFailureContext({ repoRoot, environment, unitID, commandID }) {
-  const expected = Object.freeze({ schema_id: schemaID, run_id: environment.CARTULARY_TEST_RUN_ID, unit_id: unitID, command_id: commandID, invocation_id: randomUUID() });
+export function createCommandFailureContext({ repoRoot, environment, launch }) {
+  const identity = launch.identity;
+  if (identity.run_id !== environment.CARTULARY_TEST_RUN_ID) throw new Error("failure context run mismatch");
+  const expected = Object.freeze({ schema_id: schemaID, run_id: identity.run_id, unit_id: identity.unit_id, command_id: identity.command_id, invocation_id: identity.invocation_id });
   const { directory } = channel(repoRoot, environment, expected);
   mkdirSync(directory, { mode: 0o700 });
   return {
