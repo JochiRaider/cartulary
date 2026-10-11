@@ -187,4 +187,3 @@ export function selectionFor(options, compiler) {
   const graph = compiler.compile({ kind: "owner", owner_id: options.owner, row_ids: rowIDs });
   return { graph, projections: { [options.target]: graph.units.map((unit) => unit.unit_id) } };
 }
-

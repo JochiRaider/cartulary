@@ -1914,11 +1914,16 @@ selected-graph-38759/run-manifest.json`, source commit `ae39f79f0`, dirty,
 source digest `sha256:098c084d0472f59e2f7ec7dd79739ecc0530136c63be0878a5d0dcf585787ee2`,
 toolchain `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
 Native sessions 88745/21977/52588/47623/92504 all drained with exit 0; tool summaries
-and independent Node canonical validation agree. `git diff --check` passed.
+and independent Node canonical validation agree. The staged whitespace check then
+found one extra EOF blank line in new `preparation.mjs`; removed before C.
+The prior unstaged check did not inspect that untracked file.
 A read-only `remediate-s031b-status-01 make test-run-status
 RESULTS_DIR=.cartulary/test-results/remediate-s031b-command-01 JSON=1` returned
 usage_error/exit 2 because that direct contract run has no canonical graph status;
 its owning session and terminal tool summary establish the result instead.
+After the EOF correction, `remediate-s031b-runtime-02 make harness-runtime-contract`
+PASS/exit 0 (session 66366), source commit `4e37fdd3f`, dirty, digest
+`sha256:ef849d94dd176458584433c72ee90bdae25fabbd0ff9f270ca2aa1359a80426b`. Staged whitespace check now passes.
 An initial editor command selected a nonexistent JSON key and exited before any
 write; corrected the owner key. No runtime/test gate failed.
 
