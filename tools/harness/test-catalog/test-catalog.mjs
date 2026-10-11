@@ -15,7 +15,7 @@ import {
 } from "../contract/index.mjs";
 import { loadPerformanceFixtureSnapshotRegistry } from "../performance-fixture/index.mjs";
 import { loadVerificationContracts } from "./verification-contracts.mjs";
-import { assertSortedUnique, resolveRowSelector } from "./selector-resolution.mjs";
+import { assertSortedUnique, createRowSelectorResolver } from "./selector-resolution.mjs";
 import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
@@ -375,7 +375,9 @@ function validateRowSemantics({
   validateFixtureProfile({ row, fixtureProfiles, label });
 }
 
-export function loadTestCatalog(root) {
+// Metadata closure is shared by full preflight and private row execution. It
+// makes no claim about source-selector resolution or complete catalog success.
+function readCatalogDefinition(root) {
   const registryPath = path.join(root, "tools/test_catalog_owner.json");
   const registry = readStrictJSON(registryPath);
   validateSchemaSync(ownerRegistrySchemaID, registry);
@@ -393,9 +395,7 @@ export function loadTestCatalog(root) {
   const taskSurfaceCommandIDs = new Set(taskSurface.targets.map((entry) => entry.command_id));
   const manifests = [];
   const rows = [];
-  const familyIDs = new Set();
   const rowIDs = new Set();
-  const selectors = new Set();
 
   for (const owner of registry.owners) {
     if (owner.manifest_path !== `tools/test_families/${owner.owner_id}.json`) {
@@ -429,23 +429,10 @@ export function loadTestCatalog(root) {
         throw new Error(`duplicate row_id ${row.row_id}`);
       }
       rowIDs.add(row.row_id);
-      familyIDs.add(row.family_id);
       for (const collaboratorID of row.collaborator_ids) {
         if (!knownOwnerIDs.has(collaboratorID)) {
           throw new Error(`${label}.collaborator_ids references unknown ${collaboratorID}`);
         }
-      }
-      const resolvedSelectors = resolveRowSelector({
-        root,
-        row,
-        runner: runners.byID.get(row.runner),
-        taskSurfaceCommandIDs,
-      });
-      for (const selector of resolvedSelectors) {
-        if (selectors.has(selector)) {
-          throw new Error(`${label}.selector overlaps ${selector}`);
-        }
-        selectors.add(selector);
       }
       rows.push(row);
     }
@@ -485,12 +472,6 @@ export function loadTestCatalog(root) {
     }
   }
 
-  const runnerCounts = Object.fromEntries(
-    Object.keys(expectedRunners).sort(asciiCompare).map((runner) => [
-      runner,
-      rows.filter((row) => row.runner === runner).length,
-    ]),
-  );
   const postgresFixturePolicy = validatePostgresFixturePolicy(root, rows);
   for (const [verificationID, binding] of fixtureProfiles.verificationBindings) {
     const matchingRows = rows.filter((row) =>
@@ -522,19 +503,6 @@ export function loadTestCatalog(root) {
     postgres_fixture_policy: postgresFixturePolicy.registry,
     row_migrations: rowMigrations,
   });
-  const summary = {
-    schema_id: "cartulary.test_catalog_check_summary.v2",
-    evidence_epoch: evidenceEpoch,
-    status: "pass",
-    owner_count: ownerIDs.length,
-    family_count: familyIDs.size,
-    row_count: rows.length,
-    selector_count: selectors.size,
-    runner_counts: runnerCounts,
-    test_catalog_digest: catalogSemanticDigest,
-    verification_routing_digest: verification.routing_digest,
-  };
-  validateSchemaSync(summary.schema_id, summary);
   const coveredVerificationIDs = new Set(
     rows.flatMap((row) => row.verification_ids),
   );
@@ -548,7 +516,7 @@ export function loadTestCatalog(root) {
       );
     }
   }
-  return {
+  const catalog = {
     registry,
     manifests,
     rows,
@@ -559,9 +527,66 @@ export function loadTestCatalog(root) {
     fixtureProfiles,
     postgresFixturePolicy,
     rowMigrations,
-    summary,
     test_catalog_digest: catalogSemanticDigest,
   };
+  return { catalog, runners: runners.byID, taskSurfaceCommandIDs };
+}
+
+function resolveSelectors(root, rows, { runners, taskSurfaceCommandIDs }) {
+  const resolveSelector = createRowSelectorResolver(root);
+  const selectors = new Set();
+  for (const row of rows) {
+    for (const selector of resolveSelector({ row, runner: runners.get(row.runner), taskSurfaceCommandIDs })) {
+      if (selectors.has(selector)) throw new Error(`${row.row_id}.selector overlaps ${selector}`);
+      selectors.add(selector);
+    }
+  }
+  return selectors.size;
+}
+
+// Metadata consumers do not acquire source-selector state. This view has no
+// complete-catalog success summary; public preflight still uses loadTestCatalog.
+export function loadCatalogMetadata(root) {
+  return readCatalogDefinition(root).catalog;
+}
+
+export function loadTestCatalog(root) {
+  const definition = readCatalogDefinition(root);
+  const { catalog } = definition;
+  const selectorCount = resolveSelectors(root, catalog.rows, definition);
+  const summary = {
+    schema_id: "cartulary.test_catalog_check_summary.v2",
+    evidence_epoch: evidenceEpoch,
+    status: "pass",
+    owner_count: catalog.registry.owners.length,
+    family_count: new Set(catalog.rows.map((row) => row.family_id)).size,
+    row_count: catalog.rows.length,
+    selector_count: selectorCount,
+    runner_counts: Object.fromEntries(Object.keys(expectedRunners).sort(asciiCompare).map((runner) => [
+      runner, catalog.rows.filter((row) => row.runner === runner).length,
+    ])),
+    test_catalog_digest: catalog.test_catalog_digest,
+    verification_routing_digest: catalog.verification.routing_digest,
+  };
+  validateSchemaSync(summary.schema_id, summary);
+  return { ...catalog, summary };
+}
+
+// Public preflight owns full source closure before setup. A private row child
+// rechecks current metadata and its exact selected sources before adapter launch;
+// it never emits a partial catalog with a misleading complete-success summary.
+export function loadSelectedTestRows(root, rowIDs) {
+  if (!Array.isArray(rowIDs) || rowIDs.length === 0 ||
+      rowIDs.some((id) => typeof id !== "string" || id.length === 0) ||
+      new Set(rowIDs).size !== rowIDs.length) throw new Error("invalid exact row selection");
+  const definition = readCatalogDefinition(root);
+  const rows = [...rowIDs].sort(asciiCompare).map((id) => {
+    const row = definition.catalog.rowByID.get(id);
+    if (!row) throw new Error(`unknown active row ${id}`);
+    return row;
+  });
+  resolveSelectors(root, rows, definition);
+  return rows;
 }
 
 export function validateTestCatalog(root) {

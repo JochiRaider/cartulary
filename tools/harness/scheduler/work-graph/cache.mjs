@@ -531,7 +531,7 @@ export function loadCacheRegistry(root) {
 }
 
 export class WorkGraphCache {
-  constructor({ root, runRoot, cacheRoot, mode = "normal", registry, toolchainDigest, helperDigest, vulnerabilityDatabaseRevision = "", sourceEntries, clock = () => new Date() }) {
+  constructor({ root, runRoot, cacheRoot, mode = "normal", registry, toolchainDigest, helperDigest, vulnerabilityDatabaseRevision = "", sourceEntries, getCatalog, clock = () => new Date() }) {
     if (!modes.has(mode)) throw new Error(`unsupported graph cache mode ${mode}`);
     this.root = path.resolve(root);
     this.runRoot = path.resolve(runRoot);
@@ -541,6 +541,7 @@ export class WorkGraphCache {
     this.helperDigest = helperDigest;
     this.vulnerabilityDatabaseRevision = vulnerabilityDatabaseRevision;
     this.sourceEntries = sourceEntries;
+    this.getCatalog = getCatalog;
     this.clock = clock;
     const loaded = registry
       ? (() => {
@@ -571,6 +572,7 @@ export class WorkGraphCache {
               profile,
               unit,
               resolverCache: this.dependencyResolverCache,
+              getCatalog: this.getCatalog,
             })
           : { strategy: "filesystem_broad", digest: cacheInputRootDigest(this.root, profile.input_roots) },
       );
@@ -578,7 +580,7 @@ export class WorkGraphCache {
     return this.dependencyClosures.get(key);
   }
 
-  context(unit) {
+  eligibility(unit) {
     if (unit.cache_policy === "none") return { eligible: false, reason: "policy_none" };
     const hasSemanticRows = expectedRowIDs(unit).length > 0;
     if (unit.reusable_artifact_outputs.length === 0 && !hasSemanticRows) {
@@ -595,6 +597,16 @@ export class WorkGraphCache {
     if (profile.requires_vulnerability_database_revision && !this.vulnerabilityDatabaseRevision) {
       return { eligible: false, reason: "freshness_unknown", profile };
     }
+    return { eligible: true, profile };
+  }
+
+  context(unit) {
+    return this.#keyedContext(unit, this.eligibility(unit));
+  }
+
+  #keyedContext(unit, eligibility) {
+    if (!eligibility.eligible) return eligibility;
+    const { profile } = eligibility;
     const contextKey = `${profile.profile_id}:${unit.unit_id}:${unit.semantic_digest}`;
     if (this.contexts.has(contextKey)) return this.contexts.get(contextKey);
     const dependencyClosure = this.dependencyClosure(profile, unit);
@@ -718,10 +730,11 @@ export class WorkGraphCache {
   }
 
   async lookup(unit) {
-    const context = this.context(unit);
-    const profileID = context.profile?.profile_id;
-    if (!context.eligible) return { outcome: "bypass", reason: context.reason, profile_id: profileID };
+    const eligibility = this.eligibility(unit);
+    const profileID = eligibility.profile?.profile_id;
+    if (!eligibility.eligible) return { outcome: "bypass", reason: eligibility.reason, profile_id: profileID };
     if (this.mode === "off") return { outcome: "bypass", reason: "mode_off", profile_id: profileID };
+    const context = this.#keyedContext(unit, eligibility);
     if (this.mode === "cold") return { outcome: "miss", reason: "cold_read_bypass", profile_id: profileID, write_eligible: true };
     if (unit.cache_policy === "same_run") {
       const snapshot = this.sameRun.get(context.inputDigest);
@@ -801,8 +814,9 @@ export class WorkGraphCache {
   }
 
   async store(unit) {
-    const context = this.context(unit);
-    if (!context.eligible || this.mode === "off") return { stored: false, reason: context.reason ?? "mode_off" };
+    const eligibility = this.eligibility(unit);
+    if (!eligibility.eligible || this.mode === "off") return { stored: false, reason: eligibility.reason ?? "mode_off" };
+    const context = this.#keyedContext(unit, eligibility);
     let snapshots;
     let semanticResult;
     try {

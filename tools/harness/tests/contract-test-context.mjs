@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { loadCatalogMetadata } from "../test-support/owner-fixtures.mjs";
 import { WorkGraphCompiler, loadCacheRegistry } from "../scheduler/work-graph/index.mjs";
 import { loadPerformanceFixtureBuilderPolicy } from "../performance-fixture/index.mjs";
 
@@ -12,6 +13,7 @@ export function createContractTestContext(root, overrides = {}) {
     topology: () => readJSON("tools/execution_topology_manifest.json"),
     rowMigrations: () => readJSON("tools/test_catalog_row_migrations.json"),
     catalog: () => loadTestCatalog(root),
+    catalogMetadata: () => loadCatalogMetadata(root),
     compiler: () => new WorkGraphCompiler(root),
     cacheRegistry: () => loadCacheRegistry(root).registry,
     fixtureBuilderPolicy: () => loadPerformanceFixtureBuilderPolicy(root),

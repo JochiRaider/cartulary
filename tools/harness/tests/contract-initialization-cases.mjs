@@ -9,7 +9,7 @@ import { createContractTestContext } from "./contract-test-context.mjs";
 export function assertLazyCaseContext(context) {
   const loads = [];
   const overrides = Object.fromEntries([
-    "taskSurface", "topology", "rowMigrations", "catalog", "compiler",
+    "taskSurface", "topology", "rowMigrations", "catalog", "catalogMetadata", "compiler",
     "cacheRegistry", "fixtureBuilderPolicy",
   ].map((name) => [name, () => { loads.push(name); return { name }; }]));
   const first = createContractTestContext(context.root, overrides);
@@ -59,7 +59,7 @@ export function assertImportAndFailureIsolation(context) {
       const root = process.argv[1];
       const policyPath = process.argv[2];
       const options = { contextFactory: () => createContractTestContext(root, {
-        catalog: () => validatePostgresFixturePolicy(root, [], { policyPath }),
+        catalogMetadata: () => validatePostgresFixturePolicy(root, [], { policyPath }),
       }) };
       runContractSuite("evidence", options);
       runContractSuite("command_surface", options);

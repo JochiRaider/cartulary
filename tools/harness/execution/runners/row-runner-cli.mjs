@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadTestCatalog, targetForCatalogRow } from "../../test-catalog/index.mjs";
+import { loadSelectedTestRows, targetForCatalogRow } from "../../test-catalog/index.mjs";
 import { publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
 import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { beginActivity } from "../../runtime/local-activity.mjs";
@@ -176,12 +176,7 @@ function canonicalFailure(result) {
 
 async function main() {
   const rowIDs = parseArgs(process.argv.slice(2));
-  const catalog = loadTestCatalog(root);
-  const rows = rowIDs.map((rowID) => {
-    const row = catalog.rowByID.get(rowID);
-    if (!row) throw new Error(`unknown active row ${rowID}`);
-    return row;
-  });
+  const rows = loadSelectedTestRows(root, rowIDs);
   if (rows.some((row) => row.runner === "playwright")) {
     throw new Error("Playwright rows must execute through a browser group unit");
   }

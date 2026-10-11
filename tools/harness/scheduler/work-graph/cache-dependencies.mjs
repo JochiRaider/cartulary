@@ -341,7 +341,7 @@ function typescriptWorkspaceClosure(root, entries, rows, catalog, resolverCache)
   return closure;
 }
 
-export function resolveCacheDependencyClosure({ root, entries, profile, unit, resolverCache }) {
+export function resolveCacheDependencyClosure({ root, entries, profile, unit, resolverCache, getCatalog = () => loadTestCatalog(root) }) {
   if (!entries || profile.dependency_strategy !== "unit_aware") {
     return cached(
       resolverCache,
@@ -357,7 +357,7 @@ export function resolveCacheDependencyClosure({ root, entries, profile, unit, re
     if (rowIDs.length === 0 || new Set(rowIDs).size !== rowIDs.length) {
       throw new Error("unit has no exact selected row set");
     }
-    const catalog = cached(resolverCache, "test-catalog", () => loadTestCatalog(root));
+    const catalog = cached(resolverCache, "test-catalog", getCatalog);
     const rows = rowIDs.map((rowID) => {
       const row = catalog.rowByID.get(rowID);
       if (!row) throw new Error("selected row is unknown");

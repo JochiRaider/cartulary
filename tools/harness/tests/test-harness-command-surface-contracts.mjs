@@ -10,3 +10,5 @@ registerFrontendProducerLifecycleTests();
 registerCommandFailureTests();
 runContractSuite("command_surface");
 registerRunStatusCommandTests();
+
+import "./test-catalog-metadata-fixtures.mjs";

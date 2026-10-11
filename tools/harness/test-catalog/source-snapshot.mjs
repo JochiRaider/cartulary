@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { lstatSync, readFileSync, readlinkSync } from "node:fs";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, readlinkSync } from "node:fs";
 import path from "node:path";
 
 import { canonicalJSONString } from "../contract/index.mjs";
@@ -12,6 +12,35 @@ function asciiCompare(left, right) {
 
 function sha256(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+function sameFile(left, right) {
+  return ["dev", "ino", "mode", "size", "mtimeMs", "ctimeMs"].every((key) => left[key] === right[key]);
+}
+
+// Reuse one bounded buffer for the whole snapshot. A source digest must not
+// require a file-sized allocation or combine bytes from a changing inode.
+function fileDigest(file, expected, buffer) {
+  const descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    const before = fstatSync(descriptor);
+    if (!before.isFile() || !sameFile(expected, before)) throw new Error("source snapshot file changed before hashing");
+    const hash = createHash("sha256");
+    let offset = 0;
+    while (offset < before.size) {
+      const count = readSync(descriptor, buffer, 0, Math.min(buffer.length, before.size - offset), offset);
+      if (count === 0) throw new Error("source snapshot file truncated during hashing");
+      hash.update(buffer.subarray(0, count));
+      offset += count;
+    }
+    if (readSync(descriptor, buffer, 0, 1, offset) !== 0 ||
+        !sameFile(before, fstatSync(descriptor)) || !sameFile(before, lstatSync(file))) {
+      throw new Error("source snapshot file changed during hashing");
+    }
+    return `sha256:${hash.digest("hex")}`;
+  } finally {
+    closeSync(descriptor);
+  }
 }
 
 function validateRepositoryPath(relativePath) {
@@ -35,7 +64,8 @@ function isDocumentationOnlyPath(relativePath, restrictedRoots) {
         relativePath.startsWith(`${restrictedRoot}/`),
     ) ||
     extension === ".md" ||
-    extension === ".markdown"
+    extension === ".markdown" ||
+    /^readme(?:\.|$)/iu.test(path.posix.basename(relativePath))
   );
 }
 
@@ -69,6 +99,7 @@ export function buildSourceSnapshot(root, options = {}) {
   if (new Set(paths).size !== paths.length) {
     throw new Error("source snapshot contains duplicate repository paths");
   }
+  const buffer = Buffer.allocUnsafe(64 * 1024);
   const entries = paths.map((relativePath) => {
     const absolutePath = path.join(resolvedRoot, relativePath);
     const stat = lstatSync(absolutePath);
@@ -87,7 +118,7 @@ export function buildSourceSnapshot(root, options = {}) {
       path: relativePath,
       kind: "file",
       mode: (stat.mode & 0o7777).toString(8).padStart(4, "0"),
-      byte_digest: sha256(readFileSync(absolutePath)),
+      byte_digest: fileDigest(absolutePath, stat, buffer),
     };
   });
   const snapshot = { schema_id: "cartulary.source_snapshot_digest.v2", entries };
@@ -96,4 +127,15 @@ export function buildSourceSnapshot(root, options = {}) {
     entries,
     file_count: entries.length,
   };
+}
+
+
+// Provenance follows the same executable boundary as the source digest. Git's
+// pathspec excludes documentation before worktree status inspection.
+export function executableProvenance(root) {
+  const exclusions = restrictedExecutableInputRoots(root).map((entry) => `:(top,exclude)${entry}`);
+  for (const pattern of ["*.md", "*.markdown", "README", "README.*", "**/README", "**/README.*"]) exclusions.push(`:(exclude,icase)${pattern}`);
+  const source_commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const status = execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all", "--", ".", ...exclusions], { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+  return { source_commit, source_state: status === "" ? "clean" : "dirty" };
 }

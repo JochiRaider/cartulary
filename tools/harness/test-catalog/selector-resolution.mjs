@@ -2,9 +2,6 @@ import { createRequire } from "node:module";
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 
-const sourceTitleCache = new Map();
-const goBuildContextCache = new Map();
-
 const goOperatingSystems = new Set([
   "aix",
   "android",
@@ -57,7 +54,7 @@ function assertNoSymlinkComponents(root, relativePath, label) {
   }
 }
 
-function containedFile(root, relativePath, approvedRoots, label) {
+function containedFile(root, relativePath, approvedRoots, label, scope) {
   if (path.isAbsolute(relativePath) || relativePath.includes("\\")) {
     throw new Error(`${label} must be a normalized repository-relative path`);
   }
@@ -90,7 +87,9 @@ function containedFile(root, relativePath, approvedRoots, label) {
   ) {
     throw new Error(`${label} is outside approved runner roots`);
   }
-  return { lexical, source: readFileSync(lexical, "utf8") };
+  const source = scope?.sources.get(lexical) ?? readFileSync(lexical, "utf8");
+  scope?.sources.set(lexical, source);
+  return { lexical, source };
 }
 
 function staticString(node, ts, bindings = new Map(), seen = new Set()) {
@@ -234,7 +233,7 @@ function calleeName(expression, ts) {
   return "";
 }
 
-function registrationSuiteSources(root, file, sourceFile, ts) {
+function registrationSuiteSources(root, file, sourceFile, ts, scope) {
   const suiteSources = [];
   for (const statement of sourceFile.statements) {
     if (
@@ -273,6 +272,7 @@ function registrationSuiteSources(root, file, sourceFile, ts) {
       candidate,
       [importerDirectory],
       `${file}.registration_suite`,
+      scope,
     );
     suiteSources.push({ file: candidate, source: contained.source });
   }
@@ -287,7 +287,7 @@ export function registrationSuiteFiles(root, file, source) {
     file,
     source,
     ts.ScriptTarget.Latest,
-    true,
+    false,
     scriptKind,
   );
   return registrationSuiteSources(root, file, sourceFile, ts).map(
@@ -295,15 +295,16 @@ export function registrationSuiteFiles(root, file, source) {
   );
 }
 
-function testTitles(root, file, source) {
-  const cacheKey = `${root}\0${file}\0${source}`;
-  if (sourceTitleCache.has(cacheKey)) {
-    return sourceTitleCache.get(cacheKey);
+function testTitles(root, file, source, scope) {
+  if (scope.titles.has(file)) {
+    return scope.titles.get(file);
   }
   const requireFromWeb = createRequire(path.join(root, "apps", "web", "package.json"));
   const ts = requireFromWeb("typescript");
   const scriptKind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKind);
+  // Selector discovery walks children and explicit bindings; it never navigates
+  // parents. Avoid constructing the unused reverse links across each syntax tree.
+  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false, scriptKind);
   const bindings = new Map();
   function collectBindings(node) {
     if (
@@ -364,12 +365,12 @@ function testTitles(root, file, source) {
   const counts = new Map(
     [...matches].map(([candidate, identities]) => [candidate, identities.size]),
   );
-  for (const suite of registrationSuiteSources(root, file, sourceFile, ts)) {
-    for (const [title, count] of testTitles(root, suite.file, suite.source)) {
+  for (const suite of registrationSuiteSources(root, file, sourceFile, ts, scope)) {
+    for (const [title, count] of testTitles(root, suite.file, suite.source, scope)) {
       counts.set(title, (counts.get(title) ?? 0) + count);
     }
   }
-  sourceTitleCache.set(cacheKey, counts);
+  scope.titles.set(file, counts);
   return counts;
 }
 
@@ -407,8 +408,6 @@ function packageDirectory(root, packagePath, approvedRoots, label) {
 }
 
 function goRunnerBuildContext(root) {
-  const cacheKey = realpathSync(root);
-  if (goBuildContextCache.has(cacheKey)) return goBuildContextCache.get(cacheKey);
   const pins = JSON.parse(readFileSync(path.join(root, "tools/toolchain_pins.json"), "utf8"));
   const version = /^(\d+)\.(\d+)(?:\.(\d+))?$/u.exec(
     String(pins.go_version ?? ""),
@@ -427,7 +426,6 @@ function goRunnerBuildContext(root) {
     label: `linux/amd64 Go ${pins.go_version} with no custom build tags`,
     tags,
   });
-  goBuildContextCache.set(cacheKey, context);
   return context;
 }
 
@@ -529,8 +527,9 @@ function sourceMatchesGoBuildContext(source, context, label) {
   return true;
 }
 
-function goSymbols(root, directory) {
-  const context = goRunnerBuildContext(root);
+function goSymbols(root, directory, scope) {
+  if (scope.packages.has(directory)) return scope.packages.get(directory);
+  const context = scope.goContext ??= goRunnerBuildContext(root);
   const activeCounts = new Map();
   const excludedFiles = new Map();
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -549,14 +548,16 @@ function goSymbols(root, directory) {
       }
     }
   }
-  return { activeCounts, context, excludedFiles };
+  const symbols = { activeCounts, context, excludedFiles };
+  scope.packages.set(directory, symbols);
+  return symbols;
 }
 
-export function resolveRowSelector({ root, row, runner, taskSurfaceCommandIDs }) {
+function resolveScopedRowSelector({ root, row, runner, taskSurfaceCommandIDs }, scope) {
   const label = `${row.row_id}.selector`;
   if (row.runner === "go") {
     const directory = packageDirectory(root, row.selector.package, runner.approved_roots, `${label}.package`);
-    const symbols = goSymbols(root, directory);
+    const symbols = goSymbols(root, directory, scope);
     for (const symbol of row.selector.tests) {
       if ((symbols.activeCounts.get(symbol) ?? 0) === 0 && symbols.excludedFiles.has(symbol)) {
         throw new Error(
@@ -571,8 +572,8 @@ export function resolveRowSelector({ root, row, runner, taskSurfaceCommandIDs })
     return row.selector.tests.map((symbol) => `go:${row.selector.package}:${symbol}`);
   }
   if (row.runner === "vitest" || row.runner === "playwright") {
-    const { source } = containedFile(root, row.selector.file, runner.approved_roots, `${label}.file`);
-    const titles = testTitles(root, row.selector.file, source);
+    const { source } = containedFile(root, row.selector.file, runner.approved_roots, `${label}.file`, scope);
+    const titles = testTitles(root, row.selector.file, source, scope);
     for (const title of row.selector.titles) {
       if ((titles.get(title) ?? 0) !== 1) {
         throw new Error(`${label}.titles ${JSON.stringify(title)} must resolve exactly once`);
@@ -601,6 +602,19 @@ export function resolveRowSelector({ root, row, runner, taskSurfaceCommandIDs })
     return [`shell:${row.selector.command_id}`];
   }
   throw new Error(`${row.row_id}.runner is unsupported`);
+}
+
+// Facts belong to one synchronous catalog load. Sharing them across its rows
+// avoids rescanning packages and reparsing source; a fresh load observes edits,
+// imported registration suites and changed toolchain pins without invalidation
+// heuristics or process-global source retention. Path checks remain per selector.
+export function createRowSelectorResolver(root) {
+  const scope = { packages: new Map(), sources: new Map(), titles: new Map(), goContext: null };
+  return (options) => resolveScopedRowSelector({ ...options, root }, scope);
+}
+
+export function resolveRowSelector({ root, ...options }) {
+  return createRowSelectorResolver(root)(options);
 }
 
 export function assertSortedUnique(values, label) {

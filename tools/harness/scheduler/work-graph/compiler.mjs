@@ -462,6 +462,7 @@ export class WorkGraphCompiler {
             this.root,
             this.owner,
             playwrightRows.map((row) => row.row_id),
+            { catalog: this.catalog },
           );
     const browserRoots = new Set(
       browserGraph.units
@@ -545,6 +546,7 @@ export class WorkGraphCompiler {
         .sort(compareASCII);
       const browserGraph = compileBrowserStageGraph(this.root, this.owner, browser.stage, {
         mode: browser.mode,
+        catalog: this.catalog,
       });
       const roots = new Set(browserGraph.units.filter((unit) => unit.needs.length === 0).map((unit) => unit.unit_id));
       return buildWorkGraph([

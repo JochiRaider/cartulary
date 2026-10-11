@@ -77,7 +77,7 @@ import { resolveFrontendArtifact, sealFrontendArtifact } from "../readiness/fron
 import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
 import { createContractTestContext } from "./contract-test-context.mjs";
 import { assertLazyCaseContext, assertImportAndFailureIsolation } from "./contract-initialization-cases.mjs";
-import { assertPostgresCatalogClosure, assertPostgresPolicyFixtures, assertFixtureBuilderClosure } from "./contract-catalog-cases.mjs";
+import { assertPostgresCatalogClosure, assertPostgresPolicyFixtures, assertFixtureBuilderClosure, assertSelectorResolutionScope, assertPrivateRowSelection, assertSourceSnapshotIdentity } from "./contract-catalog-cases.mjs";
 
 import { assertHarnessTierRouting, assertRawTierValidation, assertIndependentRawTierSelection } from "./contract-tier-cases.mjs";
 
@@ -884,33 +884,33 @@ function assertEvidenceContract(context, kind) {
       assertGoSelectorBuildContextContract();
       return;
     case "tier_partition": {
-      const tierCounts = Object.fromEntries(tiers.map((tier) => [tier, context.catalog.rows.filter((row) => row.minimum_tier === tier).length]));
+      const tierCounts = Object.fromEntries(tiers.map((tier) => [tier, context.catalogMetadata.rows.filter((row) => row.minimum_tier === tier).length]));
       assert.deepEqual(Object.keys(tierCounts), tiers);
-      assert.equal(Object.values(tierCounts).reduce((sum, count) => sum + count, 0), context.catalog.rows.length);
+      assert.equal(Object.values(tierCounts).reduce((sum, count) => sum + count, 0), context.catalogMetadata.rows.length);
       return;
     }
     case "tier_monotonicity": {
       const reached = tiers.map((tier, rank) =>
-        context.catalog.rows.filter((row) => tiers.indexOf(row.minimum_tier) <= rank).length);
+        context.catalogMetadata.rows.filter((row) => tiers.indexOf(row.minimum_tier) <= rank).length);
       assert.ok(reached.every((count, rank) => rank === 0 || count >= reached[rank - 1]));
-      assert.equal(reached.at(-1), context.catalog.rows.length);
+      assert.equal(reached.at(-1), context.catalogMetadata.rows.length);
       return;
     }
     case "fixture_partition": {
       const fixtureCounts = new Map();
-      for (const row of context.catalog.rows) {
+      for (const row of context.catalogMetadata.rows) {
         fixtureCounts.set(row.fixture_capability, (fixtureCounts.get(row.fixture_capability) ?? 0) + 1);
       }
-      assert.equal([...fixtureCounts.values()].reduce((sum, count) => sum + count, 0), context.catalog.rows.length);
+      assert.equal([...fixtureCounts.values()].reduce((sum, count) => sum + count, 0), context.catalogMetadata.rows.length);
       assert.equal(
         fixtureCounts.get("browser_stack"),
-        context.catalog.rows.filter((row) => row.runner === "playwright").length,
+        context.catalogMetadata.rows.filter((row) => row.runner === "playwright").length,
       );
       return;
     }
     case "active_owner_coverage":
-      assert.ok(context.catalog.registry.owners.filter((owner) => owner.status === "active").every((owner) =>
-        context.catalog.rows.some((row) => row.owner_id === owner.owner_id)));
+      assert.ok(context.catalogMetadata.registry.owners.filter((owner) => owner.status === "active").every((owner) =>
+        context.catalogMetadata.rows.some((row) => row.owner_id === owner.owner_id)));
       return;
     default:
       throw new Error(`unknown evidence contract ${kind}`);
@@ -1348,6 +1348,17 @@ async function assertCacheModeContract() {
     assert.equal((await cache.lookup(fixture.unit)).outcome, "hit");
     assert.equal((await fixture.create({ mode: "cold" }).lookup(fixture.unit)).reason, "cold_read_bypass");
     assert.equal((await fixture.create({ mode: "off" }).lookup(fixture.unit)).reason, "mode_off");
+    // Disabled caching still classifies eligibility but must not read inputs,
+    // build a dependency closure or write an entry. An unsafe cache input makes
+    // an accidental fingerprint walk observable without timing assertions.
+    rmSync(fixture.input);
+    symlinkSync(fixture.output, fixture.input);
+    await assert.rejects(() => fixture.create().lookup(fixture.unit), /cache input must not be a symlink/u);
+    const disabled = fixture.create({ mode: "off" });
+    assert.deepEqual(await disabled.lookup(fixture.unit), { outcome: "bypass", reason: "mode_off", profile_id: "fixture_profile" });
+    assert.deepEqual(await disabled.store(fixture.unit), { stored: false, reason: "mode_off" });
+    assert.deepEqual(await disabled.lookup({ ...fixture.unit, cache_policy: "none" }), { outcome: "bypass", reason: "policy_none", profile_id: undefined });
+    assert.deepEqual(await disabled.store({ ...fixture.unit, cache_policy: "none" }), { stored: false, reason: "policy_none" });
   } finally {
     rmSync(fixture.fixtureRoot, { recursive: true, force: true });
   }
@@ -1770,6 +1781,7 @@ async function assertDependencyClosureContract(context) {
     };
     validateSchemaSync(sourceResult.schema_id, sourceResult);
     writeFileSync(rowOutput, `${JSON.stringify(sourceResult, null, 2)}\n`, { mode: 0o600 });
+    let catalogLoads = 0;
     const cache = new WorkGraphCache({
       root,
       runRoot,
@@ -1778,6 +1790,7 @@ async function assertDependencyClosureContract(context) {
       toolchainDigest: `sha256:${"8".repeat(64)}`,
       helperDigest: `sha256:${"9".repeat(64)}`,
       sourceEntries: source.entries,
+      getCatalog: () => { catalogLoads++; return context.catalog; },
       clock: () => new Date("2030-01-01T00:00:00.000Z"),
     });
     assert.equal(cache.context(goUnit).dependencyClosure.strategy, "go_packages");
@@ -1788,6 +1801,7 @@ async function assertDependencyClosureContract(context) {
     assert.equal(replay.started_at, "2030-01-01T00:00:00.000Z");
     assert.equal(replay.duration_ms, 0);
     assert.equal(replay.row_id, goRow.row_id);
+    assert.equal(catalogLoads, 1);
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });
   }
@@ -2099,6 +2113,8 @@ const suiteCases = {
     semanticCase("exact_boundary_file_sets", "exact boundary file sets reject stale, unsafe, and omitted paths", ["TH-HARNESS-AC-039"], (context) => assertBoundaryContract(context, "exact_file_sets")),
   ],
   command_surface: [
+    semanticCase("source_snapshot_identity", "source snapshots preserve byte identity and reject changes during hashing", ["TH-HARNESS-AC-066"], assertSourceSnapshotIdentity),
+    semanticCase("private_row_selection_boundary", "private row selection preserves metadata closure and exact source checks", ["TH-HARNESS-AC-063", "TH-HARNESS-AC-065"], assertPrivateRowSelection),
     semanticCase("graph_entrypoint_contract", "graph entrypoints use one work-graph command model", ["TH-HARNESS-AC-082"], (context) => assertCommandSurfaceContract(context, "graph_entrypoints")),
     semanticCase("public_command_identity_contract", "public command identities are closed and versioned", ["TH-HARNESS-AC-001"], (context) => assertCommandSurfaceContract(context, "command_identities")),
     semanticCase("graph_input_contract", "observable graph targets expose cache and capacity inputs", ["TH-HARNESS-AC-083"], (context) => assertCommandSurfaceContract(context, "graph_inputs")),
@@ -2108,6 +2124,7 @@ const suiteCases = {
     semanticCase("postgres_catalog_closure", "Postgres fixture counts reconcile with active policy partitions", ["TH-HARNESS-AC-086"], assertPostgresCatalogClosure),
     semanticCase("postgres_policy_growth_and_rejection", "Postgres policy admits growth and rejects invalid isolation approvals", ["TH-HARNESS-AC-086"], assertPostgresPolicyFixtures),
     semanticCase("go_selector_build_context", "Go selectors honor the canonical build context", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "selector_build_context")),
+    semanticCase("catalog_selector_scope", "selector facts refresh between loads and preserve path checks", ["TH-HARNESS-AC-063"], assertSelectorResolutionScope),
     semanticCase("tier_partition_closure", "catalog tier partitions close every row exactly once", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "tier_partition")),
     semanticCase("tier_monotonic_closure", "catalog tier reachability is monotonic", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "tier_monotonicity")),
     semanticCase("fixture_partition_closure", "fixture capabilities partition current rows", ["TH-HARNESS-AC-086"], (context) => assertEvidenceContract(context, "fixture_partition")),

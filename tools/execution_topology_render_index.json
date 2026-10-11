@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:d33a2bb053abbf747a9d866f562b3054b2bc075bd825181cf2371b03f6b4792b",
+  "input_digest": "sha256:1fed4db0cffac468efa49153eb5e90cf677c09f41699e05b6b3011f956e8f73b",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -792,7 +792,7 @@
     {
       "path": "tools/harness/execution/runners/row-runner-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7195daebd6d84a873d651573f3f975825bde8dc16b964f21eba2947b1d280903"
+      "hash": "sha256:fd66ff38f07cc281626382fabbb2618d7ec84acf63b3290fbd2bcafc71d378ab"
     },
     {
       "path": "tools/harness/execution/runners/shell.mjs",
@@ -1022,17 +1022,17 @@
     {
       "path": "tools/harness/scheduler/work-graph/browser.mjs",
       "role": "renderer_source",
-      "hash": "sha256:9c1b570c04ebc8c07c8704079cff14c5c97aeffa0501d63865bf038cee2f35d5"
+      "hash": "sha256:f8da62872530c1c048730dfdc2eaf5b20f071eff71d6b2041c447739512d71c5"
     },
     {
       "path": "tools/harness/scheduler/work-graph/cache-dependencies.mjs",
       "role": "renderer_source",
-      "hash": "sha256:926eb06d74bf0acea2d1d8376bbe0ab28b3fb6fc8856d327bd0560c35e80f463"
+      "hash": "sha256:0de64f71c9195b980f30e5b7ba8de3e0caeaa5f3bd518398357124b5f0c6b75c"
     },
     {
       "path": "tools/harness/scheduler/work-graph/cache.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bdca277c1752fc7d6c4ce7b40beed82b6d4a40ff1eb2e9506455afb386cf2ee3"
+      "hash": "sha256:64412997eedfdcda6927ddd81e29a90e66e8aa9733e6c155557c943eee328926"
     },
     {
       "path": "tools/harness/scheduler/work-graph/capability.mjs",
@@ -1042,7 +1042,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/compiler.mjs",
       "role": "renderer_source",
-      "hash": "sha256:e0948041cbce8b251a26738bfd292bdbc87328d645f0bf3a31f4d77f9fd1e0e2"
+      "hash": "sha256:2ee08edacce9a27547b39138246f8ed2114e2b1c9a00807f4d3c7b19e36d7765"
     },
     {
       "path": "tools/harness/scheduler/work-graph/executor.mjs",
@@ -1072,7 +1072,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/runner-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7d6eb9bddaacd341994f43847682d712f18a06de5084fc71e4a23833e4e13290"
+      "hash": "sha256:4e175155cce793c2a9cb6c46d25d23172c1721a8a82cc0b6afebcbea0c9465b5"
     },
     {
       "path": "tools/harness/scheduler/work-graph/scheduler.mjs",
@@ -1097,7 +1097,7 @@
     {
       "path": "tools/harness/test-catalog/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7494e166c8ddcb9343d5bd417778f17e32bc589411af3dc6f24750b5f16ff773"
+      "hash": "sha256:577ee68917584dc1997b0e133aef51f7c470ada92653f73773beca3c9b9a5624"
     },
     {
       "path": "tools/harness/test-catalog/postgres-fixture-policy.mjs",
@@ -1122,7 +1122,7 @@
     {
       "path": "tools/harness/test-catalog/selector-resolution.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b4115505021fa7fa9049cb6699bcbdb4f0d225d6a1b3635eeaa8f1c6a218152d"
+      "hash": "sha256:ef917b431e8820f640f109b6d96a6138436dd417978cecbc13bb88701ea86260"
     },
     {
       "path": "tools/harness/test-catalog/semantic-identity-check-cli.mjs",
@@ -1137,7 +1137,7 @@
     {
       "path": "tools/harness/test-catalog/source-snapshot.mjs",
       "role": "renderer_source",
-      "hash": "sha256:1c96d9595de28faebbf79ae4d8165902e329a01215da1093988b4b73ea038778"
+      "hash": "sha256:a5596549b5e8477e3f5e035583db0f4a8d8112301bc797ccab12b7d829cce4d3"
     },
     {
       "path": "tools/harness/test-catalog/target-routing.mjs",
@@ -1147,7 +1147,7 @@
     {
       "path": "tools/harness/test-catalog/test-catalog.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bb6254b0ca6ec79e0f92e4eb24b2dcd6a733086bc0390418ca99f18e14c4ca96"
+      "hash": "sha256:87b45660b778c3a990118699203ee69c849a12df133c7c5425580fd35467b864"
     },
     {
       "path": "tools/harness/test-catalog/verification-contracts.mjs",
@@ -1202,7 +1202,7 @@
     {
       "path": "tools/test_families/harness.browser.json",
       "role": "test_family_manifest",
-      "hash": "sha256:2be0b544ee2b73b699a9714e5e6fd01731330318f4eaf807a02075bf6a87fced"
+      "hash": "sha256:ec5f9cb0d4baaf3b170dcde11dbd413080e4eb0be1a9d951cf0fabffc2a332de"
     },
     {
       "path": "tools/test_families/harness.command_surface.json",

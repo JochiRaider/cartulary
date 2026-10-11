@@ -89,7 +89,7 @@ function command(executable, args, environment = {}) {
   return { executable, args, environment };
 }
 
-function resolvedFixtureProfile(root, group) {
+function resolvedFixtureProfile(root, group, catalog) {
   if (!group.fixtureProfileID) return null;
   const registry = loadPerformanceFixtureSnapshotRegistry(root);
   const profile = activePerformanceFixtureProfile(registry, group.fixtureProfileID);
@@ -104,7 +104,7 @@ function resolvedFixtureProfile(root, group) {
     throw new Error("profiled browser group " + group.name + " must select exactly one row");
   }
   const rowID = group.selectedRowIDs[0];
-  const row = loadTestCatalog(root).rowByID.get(rowID);
+  const row = catalog.rowByID.get(rowID);
   const bindings = row === undefined
     ? []
     : performanceFixtureBindingsForRows(root, [row], { registry });
@@ -484,7 +484,8 @@ export function browserTargetStage(root, target) {
   return stage ? { stage, mode: "validation" } : null;
 }
 
-export function compileBrowserStageGraph(root, owner, stage, { mode = "validation" } = {}) {
+export function compileBrowserStageGraph(root, owner, stage, { mode = "validation", catalog } = {}) {
+  const getCatalog = () => catalog ??= loadTestCatalog(root);
   const units = [];
   const previousByLifecycle = new Map();
   const previousGroupByLifecycle = new Map();
@@ -499,7 +500,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
       group.kind === "duration_balanced_specs" &&
       group.resourceProfileID === "browser_functional",
   )) {
-    const catalog = loadTestCatalog(root);
+    const catalog = getCatalog();
     const lanes = planBrowserFunctionalLanes(stage.groups, {
       lanePrefix: stage.name,
       maxLanes: 4,
@@ -529,7 +530,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
     );
   }
   for (const group of scheduledGroups) {
-    const fixture = resolvedFixtureProfile(root, group);
+    const fixture = resolvedFixtureProfile(root, group, group.fixtureProfileID ? getCatalog() : null);
     if (fixture && !snapshotBuilderIDs.has(fixture.builderUnitID)) {
       units.push(snapshotBuilderUnit(root, group, fixture, owner));
       snapshotBuilderIDs.add(fixture.builderUnitID);
@@ -631,8 +632,8 @@ export function selectBrowserRowStages(root, rowIDs) {
   return selectedStages;
 }
 
-export function compileBrowserRowSelectionGraph(root, owner, rowIDs) {
+export function compileBrowserRowSelectionGraph(root, owner, rowIDs, { catalog } = {}) {
   return buildWorkGraph(selectBrowserRowStages(root, rowIDs).flatMap((stage) =>
-    compileBrowserStageGraph(root, owner, stage, {mode:"validation"}).units,
+    compileBrowserStageGraph(root, owner, stage, { mode: "validation", catalog }).units,
   ));
 }

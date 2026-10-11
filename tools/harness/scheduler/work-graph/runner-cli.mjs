@@ -26,7 +26,7 @@ import {
   resolveServiceSessionMode,
 } from "../../services/local-session.mjs";
 import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mjs";
-import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
+import { buildSourceSnapshot, executableProvenance } from "../../test-catalog/index.mjs";
 import { FixtureBroker, createSuiteController, CleanupResults, aggregateCleanup } from "../fixture-broker/index.mjs";
 import {
   productionFixtureProviders,
@@ -236,22 +236,6 @@ function selectionFor(options, compiler) {
   }
   const graph = compiler.compile({ kind: "owner", owner_id: options.owner, row_ids: rowIDs });
   return { graph, projections: { [options.target]: graph.units.map((unit) => unit.unit_id) } };
-}
-
-function repositoryProvenance() {
-  const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], {
-    cwd: root,
-    encoding: "utf8",
-  }).trim();
-  const status = execFileSync(
-    "git",
-    ["status", "--porcelain=v1", "--untracked-files=all"],
-    { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
-  );
-  return {
-    source_commit: sourceCommit,
-    source_state: status === "" ? "clean" : "dirty",
-  };
 }
 
 function statusForUnits(unitIDs, states) {
@@ -568,7 +552,7 @@ async function main() {
   if (!cacheModes.has(cacheMode)) throw new Error(`invalid graph cache mode ${cacheMode}`);
   const source = buildSourceSnapshot(root);
   mark("source_hashing");
-  const provenance = repositoryProvenance();
+  const provenance = executableProvenance(root);
   const toolchainDigest = sha256(readFileSync(path.join(root, "tools/toolchain_pins.json")));
   const helperDigest = sha256(readFileSync(path.join(root, "tools/harness_helper_ownership.json")));
   mark("provenance");
@@ -674,6 +658,7 @@ async function main() {
     toolchainDigest,
     helperDigest,
     sourceEntries: source.entries,
+    getCatalog: () => compiler.catalog,
     vulnerabilityDatabaseRevision: vulnerability.revision,
   });
   const controller = new AbortController();
