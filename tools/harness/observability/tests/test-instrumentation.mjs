@@ -18,11 +18,13 @@ import { otlpProjection } from "../otlp-projection.mjs";
 import { validateCanonicalRun } from "../canonical-evidence.mjs";
 import { performanceExplanation, loadRetainedObservability } from "../observability.mjs";
 import { formatPerformanceExplanation } from "../performance-presentation.mjs";
+import { formatResourceScopes } from "../resource-presentation.mjs";
 import { exportRetainedObservability } from "../otel-export-cli.mjs";
 import { hostClaims, processIdentity, transactAdmission } from "../../runtime/host-admission.mjs";
 import { createResourceCollector, instrumentationPolicy } from "../resource-collector.mjs";
 import { executionRecordsDigest } from "../../runtime/execution-observations.mjs";
 import { parseStrictJSON } from "../../contract/index.mjs";
+import { createResourceAccumulator } from "../resource-accumulator.mjs";
 
 test("strict JSON retains prototype-named members for closed schema rejection", () => {
   for (const text of [
@@ -361,6 +363,17 @@ test("retained validation reconstructs path and target fields and rejects tamper
   assert.ok(human.includes("[UNIT] a queue_ms=2 execution_ms=7 invocation_path=true"));
   assert.ok(human.includes("activity=report_parse outcome=failed duration_ms=5"));
   assert.ok(Buffer.byteLength(human) < 8192);
+  const many = structuredClone(explained);
+  const aggregateMetric = { maximum: 4096, observed_delta: null, observed_interval_ms: 0, unavailable: 0 };
+  many.resources = { availability: "available", mode: "basic", scopes_omitted: 3, unit_cpu_omitted: 2,
+    scopes: Array.from({ length: 20 }, (_, i) => ({ scope: "container", scope_ref: `container:${i + 1}`, unit_id: null,
+      allocation_ref: null, samples: 1, unavailable: 0, resets: 0, cpu_percent_one_core: null,
+      metrics: Object.fromEntries(["container_memory_usage_bytes", "container_memory_limit_bytes", "container_pids", "container_cpu_us", "container_block_read_bytes", "container_block_write_bytes"].map((name) => [name, aggregateMetric])) })) };
+  assert.deepEqual(JSON.parse(formatPerformanceExplanation(many, { json: true })), many);
+  const bounded = formatPerformanceExplanation(many);
+  assert.ok(Buffer.byteLength(bounded) < 8192);
+  assert.match(bounded, /\[OMITTED\] lines=\d+/u);
+  assert.match(bounded, /\[OMITTED\] scopes=3/u);
   const retained = await loadRetainedObservability(dir);
   assert.equal(Object.hasOwn(retained, "built"), false);
   assert.ok(Object.isFrozen(retained.resources));
@@ -573,4 +586,44 @@ test("container counter resets stay contextual and do not contaminate the physic
   assert.equal(view.scopes[0].cpu_percent_one_core, 0.055);
   assert.equal(view.sampled_simultaneous_rss_sum_bytes, null); assert.deepEqual(view.unit_cpu_lower_bounds, []);
   assert.deepEqual(view.containers, index.containers);
+});
+
+test("resource reports expose sampled gauges and only valid counter intervals across every scope", () => {
+  const accumulate = createResourceAccumulator();
+  const record = (elapsed_ms, scope, scope_ref, metrics, extra = {}) => accumulate.consume({ elapsed_ms, scope, scope_ref,
+    identity_digest: digest, segment: 0, availability: "available", metrics, ...extra }, new Map());
+  const sample = (cpu, read, memory) => ({ container_cpu_us: metric(cpu), container_block_read_bytes: metric(read),
+    container_block_write_bytes: metric(0), container_memory_usage_bytes: metric(memory),
+    container_memory_limit_bytes: metric(8192), container_pids: metric(2) });
+  record(0, "container", "container:shared", sample(1000, 10, 4096));
+  const roster = { identities: [{ container_ref: "container:shared", ownership: "borrowed", allocation_ref: "allocation:shared" }] };
+  let lines = formatResourceScopes({ scopes: accumulate.finish().rows, containers: roster });
+  assert.match(lines[0], /cpu_percent_one_core=not_observed/u);
+  assert.match(lines[0], /observed_delta_container_cpu_us=not_observed/u);
+  assert.match(lines[0], /sampled_max_container_memory_usage_bytes=4096/u);
+  assert.match(lines[0], /sampled_max_container_memory_limit_bytes=8192/u);
+  assert.match(lines[0], /sampled_max_container_pids=2\(count\)/u);
+  assert.match(lines[0], /allocation=allocation:shared.*ownership=borrowed attribution=contextual/u);
+  assert.doesNotMatch(lines[0], /rss/u);
+  record(1000, "container", "container:shared", sample(101000, 110, 2048));
+  record(2000, "container", "container:shared", sample(10, 5, 1024));
+  record(3000, "container", "container:shared", {}, { availability: "container_gone" });
+  record(4000, "container", "container:shared", sample(1000000, 900, 4096));
+  record(5000, "container", "container:shared", sample(1000000, 900, 4096), { segment: 1 });
+  record(6000, "container", "container:shared", sample(1000000, 900, 4096), { segment: 1 });
+  record(6000, "process", "process:1", { rss_bytes: metric(0), io_read_bytes: { value: null, availability: "permission_denied" } });
+  record(6000, "cgroup_context", "cgroup:1", { cgroup_memory_bytes: metric(512), cgroup_pids: metric(3) });
+  record(6000, "guest_context", "guest:1", { psi_some_us: metric(500) }, { identity_digest: null });
+  lines = formatResourceScopes({ scopes: accumulate.finish().rows, containers: roster, scopes_omitted: 3, unit_cpu_omitted: 2 });
+  const container = lines.find((line) => line.startsWith("[SCOPE] container:"));
+  assert.match(container, /cpu_percent_one_core=5 /u);
+  assert.match(container, /observed_delta_container_block_read_bytes=100 container_block_read_bytes_interval_ms=2000/u);
+  assert.match(container, /observed_delta_container_block_write_bytes=0 /u);
+  assert.match(container, /unavailable=1 resets=2 /u);
+  const process = lines.find((line) => line.startsWith("[SCOPE] process:"));
+  assert.match(process, /sampled_max_rss_bytes=0/u);
+  assert.match(process, /observed_delta_io_read_bytes=not_observed/u);
+  assert.match(lines.find((line) => line.includes("scope=cgroup_context")), /sampled_max_cgroup_memory_bytes=512/u);
+  assert.match(lines.find((line) => line.includes("scope=guest_context")), /observed_delta_psi_some_us=not_observed/u);
+  assert.deepEqual(lines.slice(0, 2), ["[OMITTED] scopes=3", "[OMITTED] unit_cpu_lower_bounds=2"]);
 });

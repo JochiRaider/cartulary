@@ -26,7 +26,7 @@ At entry, Node still owns public graph execution and fixture coordination.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
 REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035 specification reconciliation is complete; S-034 is ready.
+completion. S-035 and S-034 are complete; S-031/A is ready.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -928,8 +928,8 @@ workstream with its own result and checkpoint.
 | --- | --- | --- | --- |
 | WF-33 | S-033; historical cleanup | DONE | V-034/E-031 |
 | WF-35 Specification | S-035 after S-033 | DONE | V-036: reviewed current owner, acceptance and lint |
-| WF-34 Reports | S-034 after saved S-035 | TODO | V-035: scope-correct fixtures and fresh exact-run parity |
-| WF-31A Characterization | S-031/A after saved S-034 | BLOCKED | Explicit test dispositions and executed baseline obligations |
+| WF-34 Reports | S-034 after saved S-035 | DONE | V-035: scope-correct fixtures and fresh exact-run parity |
+| WF-31A Characterization | S-031/A after saved S-034 | TODO | Explicit test dispositions and executed baseline obligations |
 | WF-31B Native core | S-031/B after saved S-031/A | BLOCKED | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
 | WF-31C Fixtures | S-031/C after saved S-031/B | BLOCKED | V-030: one fixture policy, real lifecycle/recovery and race gates |
 | WF-31D Observation | S-031/D after saved S-031/C | BLOCKED | V-031: collection/drain/scan/receipt and independent reader gates |
@@ -1790,8 +1790,8 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | --- | --- | --- |
 | T-039 / S-033 | Prior cleanup | DONE; E-031 |
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
-| T-040 / S-034 | Scope-aware resource report | TODO; saved S-035 permits entry; C-019/F-032/V-035 |
-| T-037 / S-031 | Native cutover, separately checkpointed A–F | BLOCKED on S-034; Section 6 is authoritative |
+| T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
+| T-037 / S-031 | Native cutover, separately checkpointed A–F | TODO; A ready, later gates in Section 6 |
 | T-038 / S-032 | Functional validation and handoff | BLOCKED on saved V-032 |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
 | T-007 | Original functional coverage | IN_PROGRESS until S-032 |
@@ -1856,6 +1856,45 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-033 — S-034 report completion
+
+Starting commit `6cb56a531`, Linux/WSL and pinned toolchain digest
+`sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
+Changed `performance-presentation.mjs`, `resource-presentation.mjs` and
+`tests/test-instrumentation.mjs` under observability. Human rendering now consumes
+catalog-owned scopes/aggregation/units and the validated physical roster. Selected
+containers precede verbose process detail within the existing human bound.
+Gauges, valid counter intervals, unavailable/zero, resets, borrowed/shared context
+and omissions remain explicit. JSON accepted shapes and selected facts are unchanged.
+No sampler, filesystem read, mutable cache or new schema was added.
+
+All following Make invocations use `env CARTULARY_TEST_RUN_ID=<root>`; result roots
+are `.cartulary/test-results/<root>` in primary. `remediate-s034-guide-01`:
+`task-guide ROLE=module-author OWNER=harness.evidence_accounting`, PASS/exit 0.
+`remediate-s034-evidence-01` and `-02`: `harness-evidence-contract`, FAIL/outer
+exit 2; newly authored fixtures respectively used forbidden container:0 and
+shadowed the metric helper. Both repaired; failures retained. `-03`: same target,
+PASS/exit 0 (native session 32133). Independent report arithmetic and truncation
+fixtures pass, including all four scopes and non-additive container accounting.
+
+`remediate-s034-service-01` and `-02`: `service-backed-test-slice
+OWNER=module.database_migrations ROWS=module.database_migrations.integration.schema_bootstrap
+HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off`, both PASS/exit 0,
+3/3 units. First run exposed human byte-budget starvation; compact metrics and
+container-first presentation repaired it. Final run duration 15,141 ms, native
+session 49761; source digest
+`sha256:cf230c92c59116c06faec49738627b9da6af9b2f65d77f5f95a7144b6528b943`.
+Earlier run retains its different source identity.
+
+Final exact service root passed `harness-observability-check` and `explain-run
+DETAIL=resources` human plus `DETAIL=resources|performance JSON=1` (exit 0).
+Both JSON facts are identical; human output shows both owned containers' sampled
+memory/limits/PIDs and valid CPU/block-I/O intervals. Full output remains bounded
+with explicit omissions. `git diff --check` passes. This is functional evidence;
+no external telemetry, qualification acquisition, baseline update or broad check.
+V-035/F-032 complete; S-031/A ready after this saved checkpoint. Rollback is the
+three-file presentation/test transaction; all retained evidence stays in place.
 
 ### E-032 — S-035 specification completion
 
@@ -2360,7 +2399,7 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035 DONE; S-034 ready; later work gated in Section 6 |
+| Implementation | S-035/S-034 DONE; S-031/A ready; later work gated in Section 6 |
 | Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
 | Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |

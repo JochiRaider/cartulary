@@ -1,4 +1,5 @@
 import { validateSchemaSync } from "../contract/index.mjs";
+import { formatResourceScopes } from "./resource-presentation.mjs";
 
 export function formatPerformanceExplanation(value, { json = false, resourcesOnly = false } = {}) {
   validateSchemaSync(value.schema_id, value);
@@ -19,7 +20,7 @@ export function formatPerformanceExplanation(value, { json = false, resourcesOnl
     const resources = value.resources;
     lines.push(`[RESOURCES] availability=${resources.availability} coverage=${resources.coverage ?? "not_observed"} completeness=${resources.completeness ?? "not_observed"} samples=${resources.samples ?? "not_observed"}`);
     for (const unit of resources.unit_cpu_lower_bounds ?? []) lines.push(`[UNIT-CPU] ${unit.unit_id} observed_attributed_cpu_us=${unit.observed_attributed_cpu_us} coverage=lower_bound`);
-    for (const scope of resources.scopes ?? []) lines.push(`[SCOPE] ${scope.scope_ref} scope=${scope.scope} unit=${scope.unit_id ?? "context_or_harness"} cpu_percent_one_core=${scope.cpu_percent_one_core ?? "not_observed"} sampled_rss_max_bytes=${scope.metrics.rss_bytes?.maximum ?? "not_observed"}`);
+    lines.push(...formatResourceScopes(resources));
     lines.push(`limits=${value.limitations.join(",")}`);
     const execution = value.execution;
     lines.push(`[EXECUTION] availability=${execution.availability} completeness=${execution.completeness ?? "not_observed"} omitted=${execution.omitted_records ?? "unknown"} scope=whole_invocation local_activities_are_not_additive=1`);
