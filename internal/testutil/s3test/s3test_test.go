@@ -178,12 +178,14 @@ func TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange(t *tes
 	}
 }
 
-func TestOwnedObjectStoreAppliesContainerLabels(t *testing.T) {
+func TestOwnedObjectStoreAppliesContainerConfiguration(t *testing.T) {
 	stubOwnedObjectStoreStartup(t)
 
 	var gotLabels map[string]string
+	var gotCommand []string
 	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
 		gotLabels = req.Labels
+		gotCommand = append([]string(nil), req.Cmd...)
 		return fakeObjectStoreContainer{
 			host: "127.0.0.1",
 			port: network.MustParsePort("8333/tcp"),
@@ -197,6 +199,15 @@ func TestOwnedObjectStoreAppliesContainerLabels(t *testing.T) {
 	}
 	if gotLabels["cartulary.test"] != "suite" {
 		t.Fatalf("container labels not applied: %#v", gotLabels)
+	}
+	var peers []string
+	for _, argument := range gotCommand {
+		if strings.HasPrefix(argument, "-master.peers=") {
+			peers = append(peers, argument)
+		}
+	}
+	if !reflect.DeepEqual(peers, []string{"-master.peers=none"}) {
+		t.Fatalf("disposable object store must declare exactly one standalone master: %v", gotCommand)
 	}
 }
 

@@ -1196,6 +1196,7 @@
           "TestObjectStoreMutationProbeRejectsCapabilitiesImmediately",
           "TestObjectStoreMutationProbeRejectsSizeMismatch",
           "TestObjectStoreMutationProbeRetriesTransientStagesOnSameLane",
+          "TestOwnedObjectStoreAppliesContainerConfiguration",
           "TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure",
           "TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane",
           "TestOwnedObjectStoreRetriesOnlyPreReadinessStartupAndUsesFreshReadinessContext",

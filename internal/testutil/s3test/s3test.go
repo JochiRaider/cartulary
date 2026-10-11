@@ -241,6 +241,8 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 		ExposedPorts: []string{seaweedFSS3Port},
 		Cmd: []string{
 			"server",
+			// This disposable fixture has one master; bootstrap it explicitly.
+			"-master.peers=none",
 			"-dir=/data",
 			"-s3",
 			"-s3.port=8333",
