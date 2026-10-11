@@ -26,7 +26,7 @@ At entry, Node still owns public graph execution and fixture coordination.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
 REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035 and S-034 are complete; S-031/A is ready.
+completion. S-035, S-034 and S-031/A are complete; S-031/B is ready.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -929,8 +929,8 @@ workstream with its own result and checkpoint.
 | WF-33 | S-033; historical cleanup | DONE | V-034/E-031 |
 | WF-35 Specification | S-035 after S-033 | DONE | V-036: reviewed current owner, acceptance and lint |
 | WF-34 Reports | S-034 after saved S-035 | DONE | V-035: scope-correct fixtures and fresh exact-run parity |
-| WF-31A Characterization | S-031/A after saved S-034 | TODO | Explicit test dispositions and executed baseline obligations |
-| WF-31B Native core | S-031/B after saved S-031/A | BLOCKED | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
+| WF-31A Characterization | S-031/A after saved S-034 | DONE | Explicit test dispositions and executed baseline obligations |
+| WF-31B Native core | S-031/B after saved S-031/A | TODO | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
 | WF-31C Fixtures | S-031/C after saved S-031/B | BLOCKED | V-030: one fixture policy, real lifecycle/recovery and race gates |
 | WF-31D Observation | S-031/D after saved S-031/C | BLOCKED | V-031: collection/drain/scan/receipt and independent reader gates |
 | WF-31E Cutover | S-031/E after saved S-031/D | BLOCKED | One public runtime/fixture owner, caller/generated/deletion closure |
@@ -1054,6 +1054,33 @@ oracles; replace required assertions with explicit inputs/expected events at the
 owning Go boundary. Entry: S-034 checkpoint. Exit: each moved responsibility and
 removed test group has one owner and a concrete acceptance obligation. Record any implementation defect as a failed gate; the selected ownership
 destination is fixed, not another architecture investigation.
+
+#### S-031/A test ownership disposition
+
+The following is human migration accounting, not a new executable registry.
+Existing typed owner/family routing remains authoritative. Retiring an API does
+not retire the observable assertion; E/F must close each row against final source.
+
+| Changed group | Disposition / durable assertion | Destination and route |
+| --- | --- | --- |
+| Graph compiler/model, browser groups, selectors, tiers and capability/cache input facts | KEEP Node; deterministic inputs, exact row/output closure and source validation | Existing graph/browser contracts and harness-contract-tests |
+| Scheduler simulation, graph cutover scheduling modes, contract-suite scheduling/cancel cases | MOVE expected admission/events/failure/cancel assertions; REMOVE duplicated JS algorithms | Go TestRuntimeScheduling/Lifecycle/FailurePrecedence; harness-runtime-contract and exact native_runtime row |
+| Browser product/reset failure simulations | KEEP compiled failure-policy assertions in Node; MOVE execution proof, no retry and later fresh allocation | Native engine/fixture integration with explicit product/reset failure fixtures |
+| Graph cache restore/write/security tests | MOVE transaction assertions; KEEP source dependency/digest/scanner/paired-output policy tests in Node | Native TestRuntimeCacheTransactions/PublicationRollback; Node compiler/evidence policy contracts |
+| JS broker/pool/cleanup and physical proof fixtures | MOVE policy/concurrency/idempotence/primary failure to one Go owner; KEEP physical adapter assertions | harness-fixture-contract plus native_fixtures row and real service boundaries |
+| Go/Vitest/Playwright/shell row producers and private failure channel | KEEP producer/report assertions; MOVE executor binding, wait/cancel and failure-scope ownership | Native producer interop, command-surface contracts and exact public rows |
+| Canonical reducer, strict retained loading, clocks, reports, schema and export isolation | KEEP independent Node expected facts and rejection fixtures; replace only runtime-driving setup | harness-evidence-contract; native canonical/observation/schema parity |
+| JS collection engine/Linux adapter/transport tests | MOVE actual collection/death/pause/stop/proof assertions to native owner; REMOVE dead JS mirrors | Native collection/admission/runtime contracts, physical boundary route |
+| Wrapper registration coordinator fixture | REMOVE copied coordinator; hand-author closed protocol data for reader/publisher tests; exercise real registration natively | Native observation/receipt tests, independent Node receipt validation, real wrapper signal/nesting cases |
+| UI-review acquisition/recovery/cleanup | KEEP user-facing lifecycle and exact proof failure/recovery; migrate client transport only | harness-ui-review-contract/lifecycle/seeded-default |
+| Work-graph smoke/matrix wrappers | REMOVE repeated whole native-suite launches and obsolete modes; preserve bounded compiler smoke and catalog routing | Authored task surface and owner routes, command-surface/public checks |
+| Generated native validators and failure policy | REGENERATE from shared authored owners; independent acceptance/arithmetic expected values | native schema parity, generation/drift/policy/shape gates |
+
+Candidate revisions inspected independently: `3528f4379` (preparation),
+`9fbcecdcd` (engine), `ba543bf69` (fixtures), `79aecc1ca` (observations).
+Dirty S-031 is a separate candidate: its simulation and wrapper copy are rejected,
+not automatically imported. No product assertion is removed because of language
+or internal API changes. B–D retain current public dispatch until E's transaction.
 
 **S-031/B — Integrate the native core in small source-coherent transactions.** Reuse
 reviewed code under `internal/testutil/harnessruntime` and the thin
@@ -1791,7 +1818,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-039 / S-033 | Prior cleanup | DONE; E-031 |
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
 | T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
-| T-037 / S-031 | Native cutover, separately checkpointed A–F | TODO; A ready, later gates in Section 6 |
+| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A DONE, B ready; later gates in Section 6 |
 | T-038 / S-032 | Functional validation and handoff | BLOCKED on saved V-032 |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
 | T-007 | Original functional coverage | IN_PROGRESS until S-032 |
@@ -1856,6 +1883,31 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-034 — S-031/A characterization checkpoint
+
+At `531fe6f92`, reviewed the committed native stages and dirty candidate separately.
+Section 7 records twelve concrete test groups and their durable behavior/owner/
+route disposition. Source/compiler and independent reader fixtures remain Node;
+scheduler, executor, cache transaction and fixture policy move to actual Go owners.
+Copied simulation/wrapper algorithms and repeated full-suite smoke are rejected.
+The inspected native tests use explicit expected ordering, arithmetic and outcomes;
+they are candidate fixtures, not current-main passes.
+
+Current-main baseline: `env CARTULARY_TEST_RUN_ID=remediate-s031a-guide-01 make
+task-guide ROLE=module-author OWNER=harness.command_surface` PASS/exit 0.
+`remediate-s031a-command-01 make harness-command-surface-contract` PASS/exit 0,
+52,560 ms, session 73279. `remediate-s031a-contracts-01 make harness-contract-tests`
+PASS/exit 0, 104,160 ms, session 93290. Exact roots are primary
+`.cartulary/test-results/<run-id>`; each has its own tool-run summary. S-034's
+evidence contract covers the unchanged retained-reader/observation baseline.
+No source changed while either baseline check was active. No service reset,
+qualification acquisition, or broad product gate ran. No failed A attempt.
+
+S-031/A is DONE. B may begin after this saved checkpoint. B's current-source
+native tests must pass before C; no historical candidate pass discharges that gate.
+The test disposition ledger remains open for E/F closure. Qualification and its
+failed evidence/44.952-minute ledger are unchanged.
 
 ### E-033 — S-034 report completion
 
@@ -2399,7 +2451,7 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035/S-034 DONE; S-031/A ready; later work gated in Section 6 |
+| Implementation | S-035/S-034/S-031A DONE; S-031/B ready; later work gated in Section 6 |
 | Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
 | Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |
