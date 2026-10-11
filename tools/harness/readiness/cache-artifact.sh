@@ -21,18 +21,51 @@ fail() {
   exit 2
 }
 
+# The supported Linux profile uses one hash process per bounded batch. Hashing
+# declared content remains mandatory; process creation must not scale per file.
 sha256_file() {
-  local file="$1"
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$file" | awk '{print $1}'
-    return 0
-  fi
-  if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$file" | awk '{print $1}'
-    return 0
-  fi
-  fail "sha256sum or shasum is required for cache hashing"
+  local record
+  record="$(sha256sum -- "$1")" || fail "cache hashing failed"
+  record="${record#\\}"
+  [[ "${record:0:64}" =~ ^[0-9a-f]{64}$ ]] || fail "invalid cache digest"
+  printf '%s\n' "${record:0:64}"
 }
+
+append_file_digests() (
+  local material="$1" label="$2"
+  shift 2
+  local file display record digest_file index
+  local -a batch=() present=()
+  digest_file="$(mktemp)"
+  trap 'rm -f -- "$digest_file"' EXIT
+  while [[ "$#" -gt 0 ]]; do
+    batch=("${@:1:128}")
+    shift "${#batch[@]}"
+    present=()
+    for file in "${batch[@]}"; do
+      if [[ -f "$file" ]]; then present+=("$file"); fi
+    done
+    : >"$digest_file"
+    if [[ "${#present[@]}" -gt 0 ]]; then
+      sha256sum --zero -- "${present[@]}" >"$digest_file" || fail "cache hashing failed"
+    fi
+    index=0
+    exec 3<"$digest_file"
+    for file in "${batch[@]}"; do
+      display="${file#"$ROOT_DIR"/}"
+      if [[ "${present[$index]:-}" == "$file" ]]; then
+        IFS= read -r -d '' record <&3 || fail "incomplete cache digest batch"
+        [[ "${record:64:2}" == '  ' && "${record:66}" == "$file" && "${record:0:64}" =~ ^[0-9a-f]{64}$ ]] || fail "invalid cache digest batch"
+        printf '%s\t%s\tsha256:%s\n' "$label" "$display" "${record:0:64}" >>"$material"
+        index=$((index + 1))
+      else
+        printf '%s\t%s\tmissing\n' "$label" "$display" >>"$material"
+      fi
+    done
+    if IFS= read -r -d '' record <&3 || [[ -n "$record" ]]; then fail "extra cache digest output"; fi
+    exec 3<&-
+  done
+)
 
 sha256_text_file() {
   local file="$1"
@@ -56,16 +89,7 @@ json_escape() {
 }
 
 append_file_digest() {
-  local material="$1"
-  local label="$2"
-  local file="$3"
-  local display
-  display="$(repo_rel "$file")"
-  if [[ -f "$file" ]]; then
-    printf '%s\t%s\tsha256:%s\n' "$label" "$display" "$(sha256_file "$file")" >>"$material"
-  else
-    printf '%s\t%s\tmissing\n' "$label" "$display" >>"$material"
-  fi
+  append_file_digests "$1" "$2" "$3"
 }
 
 append_dir_digest() {
@@ -74,15 +98,22 @@ append_dir_digest() {
   local dir="$3"
   local display
   local digest_file
-  display="$(repo_rel "$dir")"
+  display="${dir#"$ROOT_DIR"/}"
   if [[ ! -d "$dir" ]]; then
     printf '%s\t%s\tmissing\n' "$label" "$display" >>"$material"
     return
   fi
   digest_file="$(mktemp)"
-  while IFS= read -r -d '' file; do
-    printf 'file\t%s\tsha256:%s\n' "$(repo_rel "$file")" "$(sha256_file "$file")" >>"$digest_file"
-  done < <(find "$dir" -type f -print0 | LC_ALL=C sort -z)
+  local files_file
+  local -a files=()
+  files_file="$(mktemp)"
+  if ! find "$dir" -type f -print0 | LC_ALL=C sort -z >"$files_file"; then
+    rm -f -- "$files_file" "$digest_file"
+    fail "cache directory discovery failed"
+  fi
+  mapfile -d '' -t files <"$files_file"
+  rm -f -- "$files_file"
+  append_file_digests "$digest_file" "file" "${files[@]}"
   printf '%s\t%s\tsha256:%s\n' "$label" "$display" "$(sha256_text_file "$digest_file")" >>"$material"
   rm -f "$digest_file"
 }
@@ -240,9 +271,7 @@ printf 'helper\tsha256:%s\n' "$(sha256_file "$0")" >>"$key_material"
 for key in "${key_values[@]}"; do
   printf 'key\t%s\n' "$key" >>"$key_material"
 done
-for input in "${inputs[@]}"; do
-  append_file_digest "$key_material" "input" "$input"
-done
+append_file_digests "$key_material" "input" "${inputs[@]}"
 for input_dir in "${input_dirs[@]}"; do
   append_dir_digest "$key_material" "input-dir" "$input_dir"
 done

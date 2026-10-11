@@ -140,6 +140,84 @@ CARTULARY_READINESS_CHECK_ONLY=1 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "7" "inspect-only readiness accepts the exact warm cache"
 unset fixture_scope
 
+# Independent digest oracle and hash-process bound for a multi-batch input set.
+# NUL records must preserve spaces, backslashes, newlines and option-like names.
+batch_root="$TMP_DIR/batch"
+mkdir -p "$batch_root/bin" "$batch_root/dir/empty"
+real_sha256="$(command -v sha256sum)"
+export REAL_SHA256="$real_sha256" HASH_CALLS="$batch_root/hash-calls"
+cat >"$batch_root/bin/sha256sum" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "--zero" ]]; then
+  printf '%s\n' "$(($# - 2))" >>"$HASH_CALLS"
+  if [[ "${FAIL_HASH_BATCH:-0}" == "1" ]]; then exit 1; fi
+fi
+exec "$REAL_SHA256" "$@"
+SH
+chmod +x "$batch_root/bin/sha256sum"
+batch_inputs=()
+for ((i=0;i<260;i++)); do
+  file="$batch_root/input-$i"
+  printf 'content %s\n' "$i" >"$file"
+  batch_inputs+=(--input "$file")
+done
+for name in 'space name' 'back\slash' $'line\nbreak' '-option'; do
+  file="$batch_root/$name"
+  printf 'special\n' >"$file"
+  batch_inputs+=(--input "$file")
+done
+batch_inputs+=(--input "$batch_root/missing")
+printf 'directory member\n' >"$batch_root/dir/member"
+printf 'initial output\n' >"$batch_root/output"
+cat >"$batch_root/build" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'run\n' >>"$BATCH_LOG"
+printf 'output\n' >"$BATCH_OUTPUT"
+SH
+chmod +x "$batch_root/build"
+export BATCH_LOG="$batch_root/build.log" BATCH_OUTPUT="$batch_root/output"
+run_batch() {
+  PATH="$batch_root/bin:$PATH" "$SCRIPT" --scope build-artifact --profile batch \
+    --cache-dir "$batch_root/cache" "${batch_inputs[@]}" --input-dir "$batch_root/dir" \
+    --output "$batch_root/output" --key fixture=batch -- "$batch_root/build"
+}
+run_batch
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$SCRIPT" "$batch_root" <<'JS'
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import os from "node:os";
+const [root, script, dir] = process.argv.slice(2);
+const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+const relative = file => file.startsWith(`${root}/`) ? file.slice(root.length + 1) : file;
+const files = [...Array.from({length:260},(_,i)=>`${dir}/input-${i}`), ...["space name","back\\slash","line\nbreak","-option"].map(name=>`${dir}/${name}`)];
+let material = `schema_id\tcartulary.harness_cache_record.v2\nscope\tbuild-artifact\nprofile\tbatch\nplatform\t${os.type()}:${os.machine()}\nhelper\tsha256:${hash(readFileSync(script))}\nkey\tfixture=batch\n`;
+for (const file of files) material += `input\t${relative(file)}\tsha256:${hash(readFileSync(file))}\n`;
+material += `input\t${relative(`${dir}/missing`)}\tmissing\n`;
+const member = `file\t${relative(`${dir}/dir/member`)}\tsha256:${hash(readFileSync(`${dir}/dir/member`))}\n`;
+material += `input-dir\t${relative(`${dir}/dir`)}\tsha256:${hash(member)}\ncommand\t${dir}/build\n`;
+const records = readdirSync(`${dir}/cache/batch`);
+assert.equal(records.length,1);
+const record = JSON.parse(readFileSync(`${dir}/cache/batch/${records[0]}`));
+assert.equal(record.input_digest, `sha256:${hash(material)}`);
+assert.equal(record.unit_digest, record.input_digest);
+assert.equal(records[0],`${hash(material)}.json`);
+const calls = readFileSync(`${dir}/hash-calls`,"utf8").trim().split("\n").map(Number);
+assert.deepEqual(calls,[128,128,8,1,1,1]);
+JS
+run_batch
+assert_equals "$(grep -c '^run$' "$BATCH_LOG")" "1" "batched warm reuse"
+printf 'changed output\n' >"$batch_root/output"
+run_batch
+assert_equals "$(grep -c '^run$' "$BATCH_LOG")" "2" "changed output rejects reuse"
+if FAIL_HASH_BATCH=1 run_batch >"$batch_root/failure.log" 2>&1; then
+  fail "failed digest batch was accepted"
+fi
+assert_equals "$(grep -c '^run$' "$BATCH_LOG")" "2" "hash failure never runs producer"
+grep -Fq 'cache hashing failed' "$batch_root/failure.log" || fail "hash failure lost its cause"
+
 bash "$ROOT_DIR/tools/harness/backend/tests/test-build-go-artifact.sh"
 
 echo "cache artifact tests passed"
