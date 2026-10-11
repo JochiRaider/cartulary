@@ -17,6 +17,9 @@ import {
 import path from "node:path";
 
 import { semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
+import { processIdentity, processIdentityAlive } from "../runtime/host-admission.mjs";
+import { parseStrictJSON } from "../contract/index.mjs";
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { closeSuiteRuntimeRoot, createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 
 const descriptorSchemaID = "cartulary.test_services.local_session.v1";
@@ -32,20 +35,12 @@ const callerServiceInputs = new Set([
   "CARTULARY_TEST_SERVICES_MODE",
   "CARTULARY_TEST_SERVICES_SESSION_FILE",
 ]);
-const serviceEnvironmentNames = [
-  "CARTULARY_PGTEST_ADMIN_DSN",
-  "CARTULARY_PGTEST_DSN_TEMPLATE",
-  "CARTULARY_PGTEST_SCHEMA_HASH",
-  "CARTULARY_PGTEST_TEMPLATE_DB",
-  "CARTULARY_S3TEST_ACCESS_KEY_ID",
-  "CARTULARY_S3TEST_ENDPOINT",
-  "CARTULARY_S3TEST_PROBE_BUCKET",
-  "CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH",
-  "CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH",
-  "CARTULARY_S3TEST_SECRET_ACCESS_KEY",
-  "CARTULARY_S3TEST_SECURE",
-  "SSL_CERT_FILE",
-];
+// The private schema owns the closed attachment environment; selection is its
+// projection so physical TLS bindings cannot drift from descriptor acceptance.
+const serviceEnvironmentNames = Object.freeze(JSON.parse(readFileSync(
+  new URL("../../schemas/cartulary.test_services.local_session.v1.schema.json", import.meta.url), "utf8",
+)).properties.environment.propertyNames.enum);
+
 const configInputs = ["db/migrations", "go.mod", "go.sum", "tools/toolchain_pins.json"];
 const identityPattern = /^[A-Za-z0-9_.-]+$/u;
 
@@ -627,11 +622,13 @@ export function attachLocalSession({
   suiteRuntime,
   dependencies = {},
   onContainerProof = () => {},
+  borrowerOwner,
 }) {
   if (!allowedAttachedTargets.has(target)) {
     throw new Error(`${target} is owned-only and rejects local service attachment`);
   }
   if (!identityPattern.test(runID)) throw new Error("local service borrower requires a safe run ID");
+  if (borrowerOwner && (borrowerOwner.pid !== process.ppid || !processIdentityAlive(borrowerOwner) || JSON.stringify(processIdentity(borrowerOwner.pid)) !== JSON.stringify(borrowerOwner))) throw new Error("invalid native borrower owner");
   return withLifecycleLock(sessionFile, () => {
     const descriptor = readLocalSessionDescriptor(sessionFile);
     const assessment = inspectDescriptor(descriptor, {
@@ -652,8 +649,8 @@ export function attachLocalSession({
       session_id: descriptor.session_id,
       borrower_id: borrowerID,
       run_id: runID,
-      pid: process.pid,
-      process_start_proof: processStartProof(),
+      pid: borrowerOwner?.pid ?? process.pid,
+      process_start_proof: processStartProof(borrowerOwner?.pid),
       created_at: new Date().toISOString(),
     };
     writePrivateJSON(borrowerFile, borrower);
@@ -679,6 +676,8 @@ export function attachLocalSession({
       environment,
       session_id: descriptor.session_id,
       borrower_id: borrowerID,
+      borrower_file: borrowerFile,
+      borrower_proof: borrower,
       ownership: "borrowed",
       close() {
         if (closed) return;
@@ -696,6 +695,18 @@ export function attachLocalSession({
         });
       },
     };
+  });
+}
+
+export function detachLocalBorrower({ sessionFile, borrower }) {
+  return withLifecycleLock(sessionFile, () => {
+    const current = readLocalSessionDescriptor(sessionFile);
+    if (borrower.schema_id !== "cartulary.test_services.local_session_borrower.v1" || current.session_id !== borrower.session_id || !/^[a-f0-9]{32}$/u.test(borrower.borrower_id)) throw new Error("invalid borrower binding");
+    const file = path.join(borrowerDirectory(current), `${borrower.borrower_id}.json`);
+    if (!existsSync(file)) return;
+    const retained = parseStrictJSON(readLocalFile(file,{maximum:1048576}).toString());
+    if (JSON.stringify(retained) !== JSON.stringify(borrower)) throw new Error("borrower was replaced");
+    rmSync(file,{force:false});
   });
 }
 

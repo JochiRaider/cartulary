@@ -26,7 +26,7 @@ At entry, Node still owns public graph execution and fixture coordination.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
 REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035, S-034 and S-031/A–B are complete; S-031/C is ready.
+completion. S-035, S-034 and S-031/A–C are complete; S-031/D is ready.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -856,6 +856,7 @@ are not applicable because no product contract changes.
 | F-028 fragmented/resident coordination | Short-lived source preparation and one Go graph/lifecycle owner; specification, implementation, tests, generated inputs, docs | Explicit lifetimes, fewer process boundaries and clearer cancellation/publication ownership | Stable public commands/results; coordinated private plan interface; no runtime-selection flag | Resident broad state and duplicated glue continue complicating attribution and maintenance | S-031/V-028/V-029/V-032: compiler reaped before units, scheduler/cache/failure parity and deletion closure |
 | F-030 shared fixture policy across callers | One Go policy for graph and UI-review; retain physical service/browser adapters; multiple areas | One lease/reuse/recovery/cleanup implementation | Both callers migrate together before JS broker deletion; borrowed services remain borrowed | Duplicate cleanup authority, ownership leaks or hidden retained processes | S-031/V-030/V-032: ownership, partial acquisition, owner loss, recovery and real service/UI-review gates |
 | F-031 tests duplicate implementation structure | Retire copied scheduler/wrapper algorithms; independent owner fixtures plus public boundaries; tests, routing, implementation cleanup | Tests assert durable behavior and can survive language changes | No product assertions or lifecycle/security cases removed merely because old APIs disappear | False confidence from testing the same algorithm twice; test-only compatibility burden | S-031/V-032: each changed test group has a keep/move/remove reason and a behavioral replacement where required |
+| F-034 local-session TLS projection drift | Include existing TLS certificate/key/trust bindings in the private descriptor schema and derive environment selection from that schema; implementation/projections/tests/docs | One closed acceptance owner prevents physical attachment fields and descriptor selection diverging | Optional private fields accepted; existing descriptor payloads and schema version remain valid | Real persistent service creation fails before native borrowing; mocks conceal missing physical coverage | S-031/C/V-030: actual native borrowing, live-owner stop rejection, repeated native close, borrowed services still active, then exact owner cleanup |
 | F-022/RB-006 overhead and repeatability | Defer certification; preserve validator and all failures; any future acquisition requires a separately adopted, bounded plan | Prevents a new profiling system from becoming the objective | No numerical relaxation or relabeling; 44.952-minute history persists | Unjustified default-on use or an unsupported overhead claim | S-020–S-022 remain DEFERRED; only eligible, stable complete frozen evidence can close them |
 
 
@@ -931,8 +932,8 @@ workstream with its own result and checkpoint.
 | WF-34 Reports | S-034 after saved S-035 | DONE | V-035: scope-correct fixtures and fresh exact-run parity |
 | WF-31A Characterization | S-031/A after saved S-034 | DONE | Explicit test dispositions and executed baseline obligations |
 | WF-31B Native core | S-031/B after saved S-031/A | DONE | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
-| WF-31C Fixtures | S-031/C after saved S-031/B | TODO | V-030: one fixture policy, real lifecycle/recovery and race gates |
-| WF-31D Observation | S-031/D after saved S-031/C | BLOCKED | V-031: collection/drain/scan/receipt and independent reader gates |
+| WF-31C Fixtures | S-031/C after saved S-031/B | DONE | V-030: one fixture policy, real lifecycle/recovery and race gates |
+| WF-31D Observation | S-031/D after saved S-031/C | TODO | V-031: collection/drain/scan/receipt and independent reader gates |
 | WF-31E Cutover | S-031/E after saved S-031/D | BLOCKED | One public runtime/fixture owner, caller/generated/deletion closure |
 | WF-31F Public proof | S-031/F after saved S-031/E | BLOCKED | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
 | WF-32 Handoff | S-032 after saved S-031/F | BLOCKED | V-033: finalization, frozen-source broad checks, warm check and handoff |
@@ -1818,7 +1819,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-039 / S-033 | Prior cleanup | DONE; E-031 |
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
 | T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
-| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A–B DONE, C ready; later gates in Section 6 |
+| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A–C DONE, D ready; later gates in Section 6 |
 | T-038 / S-032 | Functional validation and handoff | BLOCKED on saved V-032 |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
 | T-007 | Original functional coverage | IN_PROGRESS until S-032 |
@@ -1883,6 +1884,72 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-036 — S-031/C shared fixture checkpoint
+
+Starting main `4ebcdacdd1ea96caaa8e3f34bc2a29ef20df6cff`, Linux/WSL and the same
+pinned toolchain as E-035. Reviewed authored `9fbcecdcd..ba543bf69` contributions:
+`harnessfixtures` owns lease/reuse/taint/partial-acquisition/cleanup/recovery and
+bounded private sessions; graph calls its library. Physical service/browser and
+local-session adapters remain their existing owners. The private UI client and
+`review-preparation-native.mjs` are staged for contract/lifecycle validation;
+public graph and review dispatch remain together on their old composition until E.
+This temporary staging module must replace the public module and disappear in E.
+Generated validators and routes were regenerated; both native routes use race
+checks. Existing private/public versions remain unchanged.
+
+Added a real persistent borrowed-suite case: actual native acquisition, owner-stop
+rejection while borrowed, repeated close, zero borrowers, same live services, then
+owner cleanup. It exposed F-034: private local-session schema rejected existing
+TLS certificate/key/trust bindings. Added those optional fields and derived closed
+environment selection from the schema instead of maintaining another allowlist.
+No secrets are added to retained diagnostics; the descriptor stays private.
+
+Every command used `env CARTULARY_TEST_RUN_ID=<id> make <target>` and fresh primary
+`.cartulary/test-results/<id>` roots. PASS means summary plus owning process exit 0:
+
+| Run ID suffix after `remediate-s031c-` | Target / inputs | Outcome |
+| --- | --- | --- |
+| generate-01 | generate, after rejected preflight patch; no candidate edit yet | PASS, 9,550 ms |
+| generate-02 / format-01 | generate / format-go | PASS, 9,680 ms / exit 0 |
+| fixture-01 | harness-fixture-contract | PASS, 4,690 ms, session 73724 |
+| runtime-01 | harness-runtime-contract | PASS, 12,270 ms, session 95502 |
+| ui-contract-01 | harness-ui-review-contract | PASS, 2,020 ms, session 97907 |
+| ui-lifecycle-01 | harness-ui-review-lifecycle | PASS, 65,450 ms, session 56158 |
+| ui-seeded-01 | harness-ui-review-seeded-default | PASS, 115,020 ms, session 61988 |
+| service-01 | service-backed-test-slice OWNER=module.database_migrations ROWS=module.database_migrations.integration.schema_bootstrap HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off | PASS, 3/3, 14,971 ms, session 31537 |
+| browser-guide-01 | task-guide ROLE=module-author OWNER=harness.browser | PASS |
+| https-01 | service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.https_trust CARTULARY_HARNESS_CACHE_MODE=off | PASS, 11/11, 26,951 ms, session 74202 |
+| object-01 | service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.integration.object_store_fixture_roundtrip CARTULARY_HARNESS_CACHE_MODE=off | PASS, 3/3, 9,543 ms, session 76428 |
+| drift-01 | generate-drift | FAIL, 3/4, outer exit 2; topology digest stale after EOF formatting |
+| drift-02 | generate-drift VERBOSE=1 | REJECTED config/configuration_error, outer exit 2; VERBOSE is not an accepted public input |
+| generate-03 / drift-03 | generate / generate-drift | PASS, 9,590 ms / 4/4 |
+| shapes-01 | json-shape-check | PASS, 3/3 |
+| generate-04 / drift-04 | generate / generate-drift after adding borrowed case | PASS, 9,620 ms / 4/4 |
+| ui-seeded-02 | harness-ui-review-seeded-default | FAIL, outer exit 2; F-034 schema rejection during real persistent creation |
+| generate-05 / drift-05 | generate / generate-drift after F-034 repair | PASS, 9,670 ms / 4/4 |
+| ui-seeded-03 | harness-ui-review-seeded-default, includes actual borrowed case | PASS, 118,990 ms, session 2343 |
+| contracts-01 | harness-contract-tests, includes local-session cases | PASS, 108,400 ms, session 12814 |
+
+Failed evidence remains retained. `drift-explain-01` summary and
+`drift-explain-03` logs diagnosed the drift; `drift-explain-02` used unsupported
+DETAIL=artifacts and was rejected with usage_error/exit 2. `seeded-explain-01`
+identified the exact failed seeded run; its referenced stdout identified F-034.
+Initial `git apply --check` rejected a generated render-index hunk before edits;
+removed derived outputs from the authored import and generated them instead.
+Removed one extra EOF blank line before execution. `git diff --check` passes.
+
+Pre-F-034 service manifest source digest was
+`sha256:2909c95ae47a841a0b02b199868af46d9f2389faa88ecfc8fde41ed35623d1ea`;
+final drift manifest is source `4ebcdacdd1`, dirty, digest
+`sha256:d7eaad72f7d000ad2e423327400c875e4b7abd13215029beb8dc2c559b38db3e`.
+Final seeded and contract checks ran on that repaired executable source. Source
+was unchanged during each final validation. Generation refreshed only owner
+projections; exact summaries/logs are within the named roots.
+
+S-031/C/V-030 and F-034 are DONE. Shared policy is validated; public activation
+and JS-policy deletion remain E obligations. D may begin after this saved
+checkpoint. No qualification acquisition, telemetry export or certification claim.
 
 ### E-035 — S-031/B native core checkpoint
 
@@ -2500,7 +2567,7 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035/S-034/S-031A–B DONE; S-031/C ready; later work gated in Section 6 |
+| Implementation | S-035/S-034/S-031A–C DONE; S-031/D ready; later work gated in Section 6 |
 | Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
 | Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |

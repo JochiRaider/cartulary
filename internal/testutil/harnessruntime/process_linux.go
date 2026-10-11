@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"golang.org/x/sys/unix"
@@ -415,29 +415,5 @@ func retainedLifecycleFailure(u unit, root string, environment map[string]string
 	return failed("artifact", "artifact_error")
 }
 func inheritWorkspaceAdmission(cmd *exec.Cmd) (func(), error) {
-	close := func() {}
-	bytes, err := os.ReadFile("/proc/self/fdinfo/9")
-	if err != nil || !strings.Contains(string(bytes), "FLOCK") || !strings.Contains(string(bytes), "READ") {
-		return close, nil
-	}
-	fd, err := unix.FcntlInt(9, unix.F_DUPFD_CLOEXEC, 0)
-	if err != nil {
-		return close, err
-	}
-	admission := os.NewFile(uintptr(fd), "workspace-admission")
-	null, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
-	if err != nil {
-		admission.Close()
-		return close, err
-	}
-	for len(cmd.ExtraFiles) < 6 {
-		cmd.ExtraFiles = append(cmd.ExtraFiles, null)
-	}
-	if len(cmd.ExtraFiles) != 6 {
-		admission.Close()
-		null.Close()
-		return close, errors.New("reserved workspace descriptor is occupied")
-	}
-	cmd.ExtraFiles = append(cmd.ExtraFiles, admission)
-	return func() { admission.Close(); null.Close() }, nil
+	return harnessadmission.InheritWorkspace(cmd)
 }

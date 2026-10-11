@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesscollect"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 )
 
@@ -19,6 +20,8 @@ func run() int {
 		return 2
 	}
 	switch os.Args[1] {
+	case "fixtures":
+		return harnessfixtures.Main(os.Args[2:])
 	case "admission":
 		return harnessadmission.Main(os.Args[2:], os.Stdout)
 	case "collect":

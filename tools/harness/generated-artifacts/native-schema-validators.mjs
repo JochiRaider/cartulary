@@ -2,7 +2,7 @@
 // is a closed projection, not a second authored schema registry. New vocabulary
 // must be implemented and tested explicitly; unsupported keywords stop generation.
 const annotations = new Set(["$schema", "$id", "$comment", "$defs", "title", "description", "default", "examples", "format"]);
-const assertions = new Set(["$ref", "type", "const", "enum", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "minProperties", "maxProperties", "pattern", "required", "properties", "additionalProperties", "propertyNames", "items", "prefixItems", "minItems", "maxItems", "uniqueItems", "allOf", "anyOf", "oneOf", "not", "if", "then", "else"]);
+const assertions = new Set(["$ref", "type", "const", "enum", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "minProperties", "maxProperties", "pattern", "required", "properties", "patternProperties", "additionalProperties", "propertyNames", "items", "prefixItems", "minItems", "maxItems", "uniqueItems", "allOf", "anyOf", "oneOf", "not", "if", "then", "else"]);
 const q = JSON.stringify;
 // Token patterns dominate the harness schemas. Project this deliberately small
 // anchored grammar to byte predicates, so every reader does not rebuild a large
@@ -94,18 +94,24 @@ export function renderNativeSchemaValidators(schemas, entries, { prefix = "schem
         if (schema.pattern) { validatePattern(schema.pattern); patterns.add(schema.pattern); reject(`!${tokenPredicate(schema.pattern) ?? `schemaPattern(${q(schema.pattern)}, s)`}`); }
         lines.push("}");
       }
-      if (schema.required || schema.properties || schema.propertyNames !== undefined || schema.additionalProperties !== undefined || schema.minProperties !== undefined || schema.maxProperties !== undefined) {
+      if (schema.required || schema.properties || schema.patternProperties || schema.propertyNames !== undefined || schema.additionalProperties !== undefined || schema.minProperties !== undefined || schema.maxProperties !== undefined) {
         lines.push("if o, ok := v.(map[string]any); ok {", "_ = o");
         if (schema.minProperties !== undefined) reject(`len(o) < ${schema.minProperties}`);
         if (schema.maxProperties !== undefined) reject(`len(o) > ${schema.maxProperties}`);
         for (const key of schema.required ?? []) lines.push(`if _, present := o[${q(key)}]; !present { return false }`);
         for (const [key, child] of Object.entries(schema.properties ?? {})) lines.push(`if x, present := o[${q(key)}]; present && !${compile(child, base)}(x) { return false }`);
+        for (const [pattern, child] of Object.entries(schema.patternProperties ?? {})) {
+          validatePattern(pattern); patterns.add(pattern);
+          lines.push(`for key, x := range o { if schemaPattern(${q(pattern)}, key) && !${compile(child, base)}(x) { return false } }`);
+        }
         if (schema.propertyNames !== undefined) lines.push(`for key := range o { if !${compile(schema.propertyNames, base)}(key) { return false } }`);
         if (schema.additionalProperties !== undefined && schema.additionalProperties !== true) {
           lines.push("for key, x := range o {", "_ = x", "switch key {");
           const keys = Object.keys(schema.properties ?? {});
           if (keys.length) lines.push(`case ${keys.map(q).join(",")}:`);
           lines.push("default:");
+          const propertyPatterns = Object.keys(schema.patternProperties ?? {});
+          if (propertyPatterns.length) lines.push(`if ${propertyPatterns.map((pattern) => `schemaPattern(${q(pattern)}, key)`).join(" || ")} { continue }`);
           if (schema.additionalProperties === false) lines.push("return false");
           else reject(`!${compile(schema.additionalProperties, base)}(x)`);
           lines.push("}", "}");

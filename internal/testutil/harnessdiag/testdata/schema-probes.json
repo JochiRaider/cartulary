@@ -533,5 +533,52 @@
       "\ud83d\ude00",
       "a\u2028b"
     ]
+  },
+  {
+    "schema": {
+      "$id": "probe.pattern_properties",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        }
+      },
+      "patternProperties": {
+        "^x": {
+          "minimum": 2
+        },
+        "x$": {
+          "maximum": 5
+        }
+      },
+      "additionalProperties": false
+    },
+    "values": [
+      {},
+      {
+        "x": 2
+      },
+      {
+        "x": 1
+      },
+      {
+        "x": 6
+      },
+      {
+        "xa": 2
+      },
+      {
+        "ax": 5
+      },
+      {
+        "ax": 6
+      },
+      {
+        "other": 0
+      },
+      {
+        "x": "text"
+      }
+    ]
   }
 ]

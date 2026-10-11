@@ -1,23 +1,68 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, chmodSync, mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { get } from "node:https";
 import { admittedBrowserTrust } from "../browser-trust.mjs";
-import { runPreparedReview, recoverReviewPreparation } from "../review-preparation.mjs";
+import { runPreparedReview, recoverReviewPreparation } from "../review-preparation-native.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
 import { buildWorkGraph, runWorkGraph } from "../../scheduler/work-graph/index.mjs";
+import { cleanupErrors } from "../../scheduler/fixture-broker/cleanup-lifecycle.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
+import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
+import { createFixtureSession } from "../../runtime/fixture-session.mjs";
+import { createLocalSession, localSessionStatus, stopLocalSession } from "../../services/local-session.mjs";
+
+async function realBorrowedSuiteCase() {
+  const scratch = mkdtempSync(path.join(tmpdir(), "cartulary-native-borrowed-"));
+  const sessionFile = path.join(scratch, "owner", "session.json");
+  const binary = path.join(repoRoot, workspaceLayout.toolbin, "cartulary-test-services");
+  const owner = { root: repoRoot, binary, sessionFile };
+  const runID = `borrowed-fixture-${Date.now()}`;
+  const runRoot = path.join(repoRoot, ".cartulary/test-results", runID);
+  mkdirSync(runRoot, { mode: 0o700 });
+  const runtime = createSuiteRuntime({ repoRoot, runRoot, runID });
+  const client = createFixtureSession({ root: repoRoot, runRoot, runtime,
+    target: "service-backed-test-slice", environment: { ...process.env,
+      NODE_BIN: process.execPath, CARTULARY_TEST_SERVICES_BIN: binary,
+      CARTULARY_TEST_SERVICES_MODE: "attach", CARTULARY_TEST_SERVICES_SESSION_FILE: sessionFile,
+    } });
+  try {
+    createLocalSession({ ...owner, environment: {} });
+    const before = localSessionStatus(owner);
+    assert.equal(before.state, "active");
+    const lease = await client.acquire("postgres_dedicated", { unitID: "fixture:borrowed" });
+    assert.equal(lease.record.ownership, "borrowed");
+    assert.equal(localSessionStatus(owner).borrower_count, 1);
+    assert.throws(() => stopLocalSession(owner), /live borrower/u);
+    await lease.release();
+    await client.closeSession();
+    await client.closeSession();
+    const after = localSessionStatus(owner);
+    assert.equal(after.state, "active", "native close preserves the physical borrowed suite");
+    assert.equal(after.borrower_count, 0);
+    assert.deepEqual(after.services, before.services);
+    assert.equal(runtimeRecoveryResources(runtime).length, 0);
+  } finally {
+    // The native borrower drains before the distinct physical owner may stop.
+    await client.closeSession();
+    stopLocalSession(owner);
+    runtime.close();
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
 
 // Exercise the production stack owner, not a duplicate teardown in a mock.
 // Inject only work outcome and an actual inability to release the live stack.
 export async function realStackCleanupCases() {
+  await realBorrowedSuiteCase();
   for (const cleanupFailed of [false, true]) {
     const runID = `fixture-cleanup-${Date.now()}-${cleanupFailed ? "unresolved" : "product"}`;
     const runRoot = path.join(repoRoot, ".cartulary/test-results", runID);
     mkdirSync(runRoot, { mode: 0o700 });
     const runtime = createSuiteRuntime({ repoRoot, runRoot, runID });
-    let result, origin, primary, probe;
+    let result, origin, primary, probe, blockedProof;
     try {
       const operation = runPreparedReview({ environment: { ...process.env, REVIEW_PROFILE: "default" },
         runID, runRoot, runtime, retainDetail: false, writeOutput: () => {}, hold: async () => {},
@@ -29,7 +74,14 @@ export async function realStackCleanupCases() {
             request.once("error", reject);
           });
           assert.equal(await probe(), 200);
-          if (cleanupFailed) fixtureLease.entry.allocation.release = () => { throw new Error("controlled live-stack cleanup failure"); };
+          if (cleanupFailed) {
+            const resource=runtimeRecoveryResources(runtime).find((value)=>value.kind==="browser_stack");
+            assert.ok(resource,"live stack has durable ownership proof");
+            blockedProof=resource.target;
+            // Withhold safe access to the exact ownership proof. Native cleanup
+            // must refuse it and preserve the live dependency for exact recovery.
+            chmodSync(blockedProof,0o644);
+          }
           const unit = { unit_id: "fixture:failed-work", owner_id: "harness.browser", kind: "runner",
             command: { executable: "true", args: [], environment: { CARTULARY_BROWSER_RELEASE_AFFINITY: "1" } },
             needs: [], resource_claims: { cpu: 1 }, fixture_lease: "browser_stack", service_dependencies: [],
@@ -43,7 +95,7 @@ export async function realStackCleanupCases() {
           });
         },
       });
-      if (cleanupFailed) await assert.rejects(operation, (error) => error.failure_reason === "cleanup_error");
+      if (cleanupFailed) await assert.rejects(operation, (error) => error.failure_reason === "artifact_error" && cleanupErrors(error).some((failure)=>failure.failure_reason==="artifact_error"));
       else await operation;
       assert.equal(result.unit_results["fixture:failed-work"].failure_reason, "test_assertion_failure");
       assert.equal(result.events.at(-1).failure_class, "product");
@@ -51,9 +103,10 @@ export async function realStackCleanupCases() {
       const releases = receipt.results.filter((step) => step.operation === "fixture_release");
       assert.equal(releases.length, 1);
       assert.equal(releases[0].outcome, cleanupFailed ? "failed" : "completed");
-      assert.equal(releases[0].failure_reason, cleanupFailed ? "cleanup_error" : null);
+      assert.equal(releases[0].failure_reason, cleanupFailed ? "artifact_error" : null);
       if (cleanupFailed) {
         assert.equal(await probe(), 200, "genuine failure leaves a live owned stack");
+        chmodSync(blockedProof,0o600); blockedProof=null;
         runtime.preserveRecovery();
         const resources = runtimeRecoveryResources(runtime);
         assert.deepEqual(resources.map((resource) => resource.kind).sort(), ["browser_stack", "managed_suite"]);
@@ -69,6 +122,7 @@ export async function realStackCleanupCases() {
     } catch (error) { primary = error; }
     finally {
       try {
+        if(blockedProof) chmodSync(blockedProof,0o600);
         const resources = runtimeRecoveryResources(runtime);
         if (resources.length) await recoverReviewPreparation({ runtime, resources,
           onReleased: (resource) => recordRuntimeResource(runtime, { ...resource, state: "released" }) });

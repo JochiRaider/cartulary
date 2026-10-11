@@ -1419,7 +1419,8 @@
         "playwright-install",
         "$(HARNESS_DIAG_BIN)",
         "$(HARNESS_COLLECT_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ]
     },
     "otel-conformance": {
@@ -1829,7 +1830,8 @@
     "migration-drift": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "rows",
@@ -1879,7 +1881,8 @@
     "migration-scratch-apply": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "rows",
@@ -2001,7 +2004,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "owner",
@@ -2011,7 +2015,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "owner",
@@ -2022,7 +2027,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2032,7 +2038,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2042,7 +2049,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2052,7 +2060,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2062,7 +2071,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2206,7 +2216,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "node",
       "env": {
@@ -2268,7 +2279,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "node",
       "env": {
@@ -2321,7 +2333,8 @@
     "frontend-unit": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2479,7 +2492,8 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_DIAG_BIN)",
         "$(HARNESS_COLLECT_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-command-surface-contract",
@@ -2499,7 +2513,8 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_DIAG_BIN)",
         "$(HARNESS_COLLECT_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-evidence-contract",
@@ -2518,7 +2533,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-contract",
@@ -2563,7 +2579,8 @@
     "format": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2599,7 +2616,8 @@
     "browser-e2e": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2608,7 +2626,8 @@
     "browser-e2e-webserver-backed": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2617,7 +2636,8 @@
     "browser-e2e-support": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2626,7 +2646,8 @@
     "browser-e2e-stateful": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2635,7 +2656,8 @@
     "browser-e2e-resettable": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2644,7 +2666,8 @@
     "browser-e2e-measurement": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2653,7 +2676,8 @@
     "browser-e2e-visual": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2662,7 +2686,8 @@
     "browser-e2e-visual-update": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2672,7 +2697,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -2682,7 +2708,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -2691,7 +2718,8 @@
     "lint": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2841,7 +2869,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -2868,7 +2897,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -2881,7 +2911,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -3049,7 +3080,8 @@
     "build": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -3119,7 +3151,8 @@
     "browser-e2e-a11y": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -3166,7 +3199,8 @@
     "frontend-artifact-consumer-check": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
       "selection": "rows",
@@ -3257,7 +3291,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-contract",
@@ -3273,7 +3308,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-lifecycle",
@@ -3290,7 +3326,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-artifacts",
@@ -3306,7 +3343,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-presentation",
@@ -3322,7 +3360,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-execution",
@@ -3338,7 +3377,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-workflow",
@@ -3354,7 +3394,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-seeded-default",
@@ -3372,7 +3413,8 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)"
+        "$(HARNESS_ADMISSION_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-seeded-network-flow-claimed",
@@ -3537,6 +3579,31 @@
         "-count=1",
         "./internal/testutil/harnessruntime",
         "./internal/testutil/harnessschema"
+      ],
+      "test_target": "self"
+    },
+    "harness-fixture-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-fixture-contract",
+      "env": {
+        "NODE_BIN": "$(NODE_BIN)",
+        "GOCACHE": "$(GO_CACHE_DIR)",
+        "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+        "GOTMPDIR": "$(GO_TMP_DIR)"
+      },
+      "command": [
+        "$(GO)",
+        "test",
+        "-race",
+        "-count=1",
+        "./internal/testutil/harnessfixtures"
       ],
       "test_target": "self"
     }
@@ -18303,6 +18370,14 @@
         "tools/harness/scheduler/work-graph/preparation.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_runtime_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-fixture-contract",
+      "backing_scripts": [],
+      "command_id": "cartulary.harness.command.harness_fixture_contract.v1",
       "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"

@@ -3,6 +3,15 @@
   "owner_id": "harness.browser",
   "verifications": [
     {
+      "verification_id": "harness.browser.verification.native_fixtures",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "harness-fixture-contract"
+    },
+    {
       "verification_id": "harness.browser.verification.support_contract",
       "behavior_class": "harness",
       "profile": "support",

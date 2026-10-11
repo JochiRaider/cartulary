@@ -30,6 +30,11 @@ func failureOf(err error) *failure {
 		copy := *f
 		return &copy
 	}
+	var typed interface{ HarnessFailure() (string, string) }
+	if errors.As(err, &typed) {
+		class, reason := typed.HarnessFailure()
+		return normalizedFailure(failed(class, reason))
+	}
 	if errors.Is(err, context.Canceled) {
 		return failed("interrupted", "cancelled_or_interrupted")
 	}

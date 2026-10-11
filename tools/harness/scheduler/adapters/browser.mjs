@@ -15,3 +15,5 @@ export {
   createAcquisitionLaunch, closeAcquisitionLaunch, recordAcquisitionProcess,
   createBrowserAcquisition, settleBrowserAcquisition, browserAcquisitionLaunchArguments,
 } from "../../browser/browser-acquisition.mjs";
+
+export { acquireProcess } from "../../browser/acquire-process.mjs";

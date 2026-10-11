@@ -123,7 +123,7 @@ RELEASE_ARTIFACT_DIR ?= $(CURDIR)/$(LAYOUT_RELEASE_ARTIFACTS)
 LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
 SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cyclonedx.json
 BENCHMARK_MANIFEST ?= $(CURDIR)/.cartulary/benchmark/benchmark_manifest.json
-export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CI CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR GOTOOLCHAIN GO_TOOLCHAIN GO_TOOLCHAIN_READY
+export GO CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CI CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR GOTOOLCHAIN GO_TOOLCHAIN GO_TOOLCHAIN_READY
 
 ifneq ($(strip $(CARTULARY_OUTPUT_MODE)),)
 EFFECTIVE_OUTPUT_MODE := $(strip $(CARTULARY_OUTPUT_MODE))
@@ -166,7 +166,7 @@ SERVER_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/server inte
 MIGRATE_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/migrate internal/app internal/platform db/migrations)
 OPERATOR_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/operator internal/app internal/modules internal/platform contracts db/migrations tools/migration_history_manifest.json)
 WEB_BUILD_INPUTS = package.json pnpm-lock.yaml pnpm-workspace.yaml $(call discover_build_inputs,apps/web packages)
-HARNESS_RUNTIME_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/harnessruntime internal/testutil/harnessruntime internal/testutil/harnessschema internal/testutil/harnessadmission internal/testutil/harnessdiag internal/testutil/harnesscollect internal/testutil/harnesslocal internal/testutil/suiteservices internal/platform/canonicaljson internal/platform/rootedfs)
+HARNESS_RUNTIME_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/harnessruntime internal/testutil/harnessruntime internal/testutil/harnessfixtures internal/testutil/harnessschema internal/testutil/harnessadmission internal/testutil/harnessdiag internal/testutil/harnesscollect internal/testutil/harnesslocal internal/testutil/suiteservices internal/platform/canonicaljson internal/platform/rootedfs)
 HARNESS_ADMISSION_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/harnessadmission internal/testutil/harnessadmission internal/testutil/harnesslocal internal/platform/canonicaljson)
 HARNESS_DIAG_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/harnessdiag internal/testutil/harnessdiag internal/testutil/harnessschema internal/testutil/harnesslocal internal/platform/canonicaljson)
 HARNESS_COLLECT_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/harnesscollect internal/testutil/harnessdiag internal/testutil/harnesscollect internal/testutil/harnessschema internal/testutil/harnessadmission internal/testutil/harnesslocal internal/testutil/suiteservices/leaseproof internal/platform/rootedfs internal/platform/canonicaljson)

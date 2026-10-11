@@ -5,6 +5,7 @@ package harnessruntime
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"golang.org/x/sys/unix"
 	"io"
 	"os"
@@ -51,25 +52,11 @@ func receiveCompiler(ctx context.Context, cmd *exec.Cmd) (*Plan, error) {
 	defer read.Close()
 	defer write.Close()
 	cmd.ExtraFiles = []*os.File{write}
-	// Workspace admission is inherited only when descriptor 9 is a shared flock.
-	// The outer wrapper owns its creation and release; preparation cannot unlock it.
-	if bytes, e := os.ReadFile("/proc/self/fdinfo/9"); e == nil && strings.Contains(string(bytes), "FLOCK") && strings.Contains(string(bytes), "READ") {
-		inherited, e := unix.FcntlInt(9, unix.F_DUPFD_CLOEXEC, 0)
-		if e != nil {
-			return nil, e
-		}
-		admission := os.NewFile(uintptr(inherited), "workspace-admission")
-		defer admission.Close()
-		null, e := os.OpenFile(os.DevNull, os.O_RDWR, 0)
-		if e != nil {
-			return nil, e
-		}
-		defer null.Close()
-		for len(cmd.ExtraFiles) < 6 {
-			cmd.ExtraFiles = append(cmd.ExtraFiles, null)
-		}
-		cmd.ExtraFiles = append(cmd.ExtraFiles, admission)
+	closeDescriptors, err := harnessadmission.InheritWorkspace(cmd)
+	if err != nil {
+		return nil, err
 	}
+	defer closeDescriptors()
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard

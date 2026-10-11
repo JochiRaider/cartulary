@@ -145,6 +145,7 @@ export function resolvedRuntimeEnvironment(compiler) {
       process.env.TEST_SERVICES_BIN ||
       `${workspaceLayout.toolbin}/cartulary-test-services`,
   );
+  environment.CARTULARY_HARNESS_RUNTIME_BIN = path.resolve(root,process.env.CARTULARY_HARNESS_RUNTIME_BIN || process.env.HARNESS_RUNTIME_BIN || `${workspaceLayout.toolbin}/cartulary-harness`);
   environment.NODE_RUNTIME_DIR = path.resolve(
     root,
     process.env.NODE_RUNTIME_DIR || workspaceLayout.node_runtime,

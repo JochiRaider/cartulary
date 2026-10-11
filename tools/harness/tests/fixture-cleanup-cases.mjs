@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { FixtureBroker, createSuiteController, CleanupResults, dedicatedPoolProvider, DedicatedResourcePool, productionFixtureProviders } from "../scheduler/fixture-broker/index.mjs";
+import { FixtureBroker, aggregateCleanup, createSuiteController, CleanupResults, dedicatedPoolProvider, DedicatedResourcePool, productionFixtureProviders } from "../scheduler/fixture-broker/index.mjs";
 import { readBrowserAcquisition, settleBrowserAcquisition } from "../test-support/owner-fixtures.mjs";
 import { buildWorkGraph, runWorkGraph } from "../scheduler/work-graph/index.mjs";
 import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
@@ -17,6 +17,12 @@ const brokerFor = (release, options = {}) => new FixtureBroker({ providers: {
 }, ...options });
 
 export async function assertFixtureCleanupCases() {
+  const firstFailure=Object.assign(new Error("first owner rejection"),{failure_class:"artifact",failure_reason:"artifact_error"});
+  const secondaryFailure=Object.assign(new Error("later blocked cleanup"),{failure_class:"harness",failure_reason:"cleanup_error"});
+  assert.equal(aggregateCleanup([firstFailure,secondaryFailure]).failure_reason,"artifact_error","earliest cleanup failure uses positive sequence identity");
+  const ordered=new CleanupResults(); ordered.record("fixture_release",{error:new AggregateError([firstFailure,secondaryFailure])});
+  assert.equal(ordered.results[0].failure_reason,"artifact_error");
+
   for (const thrown of [undefined, null, 0, ""]) {
     let calls = 0;
     const broker = brokerFor(() => { calls += 1; throw thrown; });

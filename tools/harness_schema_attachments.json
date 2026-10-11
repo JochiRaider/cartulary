@@ -392,7 +392,16 @@
       "path": "tools/schemas/cartulary.harness_fixture_lease.v4.schema.json",
       "classification": "public_contract",
       "producer": "harness fixture broker",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_fixture_session.v1",
+      "path": "tools/schemas/cartulary.harness_fixture_session.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native fixture session",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_go_lpt_plan.v2",
@@ -606,7 +615,8 @@
       "path": "tools/schemas/cartulary.harness_suite_runtime_owner.v1.schema.json",
       "classification": "public_contract",
       "producer": "private suite runtime allocator",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_target_plan.v4",
@@ -1184,7 +1194,8 @@
       "path": "tools/schemas/cartulary.test_services.lease.v1.schema.json",
       "classification": "public_contract",
       "producer": "service suite",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.test_services.lifecycle.v3",
@@ -1219,14 +1230,16 @@
       "path": "tools/schemas/cartulary.test_services.scope.v2.schema.json",
       "classification": "public_contract",
       "producer": "service suite",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.test_services.start_result.v1",
       "path": "tools/schemas/cartulary.test_services.start_result.v1.schema.json",
       "classification": "shared_component",
       "producer": "service suite broker",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.test_step_summary.v1",

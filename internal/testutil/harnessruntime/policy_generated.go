@@ -139,7 +139,8 @@ case "credential-capacity-assessment": return "cartulary.harness.command.credent
 case "package-release": return "cartulary.harness.command.package_release.v1"
 case "package-inspect": return "cartulary.harness.command.package_inspect.v1"
 case "test-run-status": return "cartulary.harness.command.test_run_status.v1"
-case "harness-runtime-contract": return "cartulary.harness.command.harness_runtime_contract.v1" }; return "" }
+case "harness-runtime-contract": return "cartulary.harness.command.harness_runtime_contract.v1"
+case "harness-fixture-contract": return "cartulary.harness.command.harness_fixture_contract.v1" }; return "" }
 const maximumPhasesPerUnit = 128
 var failureClasses = []string{"product","security","config","infra","harness","artifact","timing","interrupted","unknown"}
 var failureReasons = []string{"usage_error","configuration_error","preflight_error","service_start_error","service_readiness_timeout","fixture_error","resource_conflict","test_assertion_failure","security_finding","child_target_failure","tool_diagnostic_failure","scheduler_accounting_error","test_accounting_unmapped","artifact_error","cleanup_error","duration_baseline_drift","timeout_failure","cancelled_or_interrupted","unknown_failure"}

@@ -8,7 +8,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import os from "node:os";
 import path from "node:path";
 import { createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionPort, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
-import { preparationOwnership, recoverReviewPreparation, withReviewResources } from "../review-preparation.mjs";
+import { preparationOwnership, recoverReviewPreparation, withReviewResources } from "../review-preparation-native.mjs";
+import { createFixtureSession } from "../../runtime/fixture-session.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";
@@ -19,8 +20,9 @@ import { productionFixtureProviders } from "../../scheduler/fixture-broker/provi
 const root = path.resolve(import.meta.dirname, "../../../..");
 function fixture(t) {
   const scratch = mkdtempSync(path.join(os.tmpdir(), "browser-acquisition-"));
-  const runRoot = path.join(scratch, "run"); mkdirSync(runRoot, { mode: 0o700 });
-  const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID: "acquisition-test", scratchRoot: path.join(scratch, "private") });
+  const runRoot = path.join(scratch, "results", "acquisition-test"); mkdirSync(runRoot, { recursive:true, mode: 0o700 });
+  const privateRoot=mkdtempSync(path.join(os.tmpdir(),"browser-acquisition-private-"));
+  const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID: "acquisition-test", scratchRoot: privateRoot });
   const suiteLease = runtime.privatePath("test-services", "suite-lease.json");
   mkdirSync(path.dirname(suiteLease), { mode: 0o700 });
   const resultRoot = path.join(scratch, "results");
@@ -39,7 +41,7 @@ function fixture(t) {
     // These are synthetic service/controller records; real test processes are
     // reaped above before their fixture ownership can be retired.
     for (const record of runtimeRecoveryResources(runtime)) recordRuntimeResource(runtime, { ...record, state: "released" });
-    runtime.close(); rmSync(scratch, { recursive: true, force: true });
+    runtime.close(); rmSync(scratch, { recursive: true, force: true }); rmSync(privateRoot,{recursive:true,force:true});
   });
   return { scratch, runtime, suiteLease, sessionRoot, file, ownership, cleanup };
 }
@@ -182,19 +184,28 @@ test("wrong runtime or changed suite proof is rejected before destructive recove
   assert.equal(stopped, false);
 });
 
-test("missing and ambiguous browser dependencies fail closed without releasing a suite", async (t) => {
-  const f = fixture(t), resources = runtimeRecoveryResources(f.runtime);
-  const suite = resources.find((resource) => resource.kind === "managed_suite");
-  let released = false;
-  const recover = (selected) => recoverReviewPreparation({ runtime: f.runtime, resources: selected,
-    onReleased: () => { released = true; },
-  });
-  await assert.rejects(recover(resources.filter((resource) => resource !== suite)));
-  await assert.rejects(recover([...resources, suite]));
+test("missing and duplicate durable browser dependencies fail closed without releasing a suite", async (t) => {
+  const f=fixture(t),resources=runtimeRecoveryResources(f.runtime);
+  const unopened=createFixtureSession({root,runRoot:path.join(f.scratch,"results",f.runtime.runID),target:"ui-review",runtime:f.runtime,environment:process.env});
+  const closing=unopened.close();assert.equal(unopened.close(),closing);await closing;
+  await assert.rejects(unopened.acquire("browser_stack",{unitID:"late"}),error=>error.failure_reason==="artifact_error");
+
+  await assert.rejects(recoverReviewPreparation({runtime:{...f.runtime,runID:"foreign-recovery"},resources:[]}),error=>error.failure_reason==="artifact_error");
+  const suite=resources.find((resource)=>resource.kind==="managed_suite");
+  let released=false;
+  const recover=()=>recoverReviewPreparation({runtime:f.runtime,resources:runtimeRecoveryResources(f.runtime),onReleased:()=>{released=true;}});
+  recordRuntimeResource(f.runtime,{...suite,state:"released"});
+  await assert.rejects(recover());
+  recordRuntimeResource(f.runtime,suite);
+  const recovery=f.runtime.privatePath("recovery"),original=readdirSync(recovery).find((name)=>name.startsWith("managed_suite-"));
+  const duplicate=path.join(recovery,"managed_suite-forged.json");
+  writeFileSync(duplicate,readFileSync(path.join(recovery,original)),{mode:0o600});
+  try { await assert.rejects(recoverReviewPreparation({runtime:f.runtime,resources,onReleased:()=>{released=true;}})); }
+  finally { rmSync(duplicate); }
   rmSync(f.file);
-  await assert.rejects(recover(resources));
-  assert.equal(released, false);
-  assert.equal(existsSync(f.suiteLease), true);
+  await assert.rejects(recover());
+  assert.equal(released,false);
+  assert.equal(existsSync(f.suiteLease),true);
 });
 
 test("acquisition CLI preserves classified startup proof failures and prior diagnostics", (t) => {
@@ -294,7 +305,7 @@ for (const boundary of ["registration", "before-ready", "cancelled"]) test(`prod
   const provider = productionFixtureProviders({ root: f.scratch, suiteRuntime: f.runtime,
     signal: controller.signal,
     suiteController: { ensure: () => ({ environment: {}, leaseFile: f.suiteLease }) },
-    runtimeEnvironment: { NODE_BIN: process.execPath, CARTULARY_FIXTURE_TEST_ACQUISITION_FAILURE: boundary === "cancelled" ? "late-ready" : "before-ready" },
+    runtimeEnvironment: { CARTULARY_TEST_RUN_ID:f.runtime.runID,CARTULARY_TEST_RESULTS_DIR:path.join(f.scratch,"results"),NODE_BIN: process.execPath, CARTULARY_FIXTURE_TEST_ACQUISITION_FAILURE: boundary === "cancelled" ? "late-ready" : "before-ready" },
     onOwnedResource: (record) => {
       f.ownership.record(record);
       if (record.state === "acquired") published = true;
@@ -350,7 +361,7 @@ test("recovery reaps a producer paused before its module can publish ownership",
   const provider = productionFixtureProviders({ root: f.scratch, suiteRuntime: f.runtime,
     signal: controller.signal,
     suiteController: { ensure: () => ({ environment: {}, leaseFile: f.suiteLease }) },
-    runtimeEnvironment: { NODE_OPTIONS: `--import=${preload}` },
+    runtimeEnvironment: { CARTULARY_TEST_RUN_ID:f.runtime.runID,CARTULARY_TEST_RESULTS_DIR:path.join(f.scratch,"results"),NODE_OPTIONS: `--import=${preload}` },
     onOwnedResource: (record) => { f.ownership.record(record); if (record.state === "pending") allocation = record.target; },
     onChildProcess: (pid) => { proof = ownedProcess(pid); return () => stopOwnedProcess(proof); },
   }).browser_stack;

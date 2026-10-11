@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   attachLocalSession,
+  detachLocalBorrower,
   createLocalSession,
   localSessionStatus,
   readLocalSessionDescriptor,
@@ -13,6 +14,8 @@ import {
   resolveServiceSessionMode,
   stopLocalSession,
 } from "../local-session.mjs";
+
+import { processIdentity } from "../../runtime/host-admission.mjs";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const taskSurface = JSON.parse(
@@ -315,6 +318,16 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
       dependencies: fixture.dependencies,
     });
     assert.equal(status.borrower_count, 2);
+    const parent=processIdentity(process.ppid);
+    const nativeOptions={root:repositoryRoot,binary:fixture.binary,sessionFile:fixture.sessionFile,target:"service-backed-test-slice",runID:"borrower-native",suiteRuntime:runtime("3"),borrowerOwner:parent,dependencies:{...fixture.dependencies,borrowerID:()=>"f".repeat(32)}};
+    assert.throws(()=>attachLocalSession({...nativeOptions,borrowerOwner:{...parent,start:"0"}}),/invalid native borrower/u);
+    const native=attachLocalSession(nativeOptions);
+    assert.equal(native.borrower_proof.pid,process.ppid);
+    assert.throws(()=>detachLocalBorrower({sessionFile:fixture.sessionFile,borrower:{...native.borrower_proof,run_id:"forged"}}),/replaced/u);
+    detachLocalBorrower({sessionFile:fixture.sessionFile,borrower:native.borrower_proof});
+    detachLocalBorrower({sessionFile:fixture.sessionFile,borrower:native.borrower_proof});
+    assert.equal(fixture.terminateCount(),0);
+
     const output = JSON.stringify(status);
     for (const forbidden of ["session-password", "session-secret-key", postgresID, objectStoreID, descriptor.state_root]) {
       assert.equal(output.includes(forbidden), false);

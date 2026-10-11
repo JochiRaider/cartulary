@@ -1,0 +1,528 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "request_id",
+    "run_id",
+    "runtime_lease_id",
+    "operation"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_fixture_session.v1"
+    },
+    "kind": {
+      "enum": [
+        "request",
+        "response"
+      ]
+    },
+    "request_id": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65536
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "maxLength": 96
+    },
+    "runtime_lease_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "operation": {
+      "enum": [
+        "acquire",
+        "release",
+        "recover",
+        "close"
+      ]
+    },
+    "request": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "capability",
+            "unit_id"
+          ],
+          "properties": {
+            "capability": {
+              "enum": [
+                "postgres_transaction",
+                "postgres_dedicated",
+                "postgres_migration",
+                "managed_process",
+                "object_store_namespace",
+                "browser_stack"
+              ]
+            },
+            "unit_id": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1
+            },
+            "affinity_key": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "digest": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "browser_stage": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "runtime_profile_id": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "fixture_profile_id": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "snapshot_key": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "builder_unit_id": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "row_id": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "predicate_id": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lease_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^lease-[0-9]{6}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "healthy": {
+      "type": "boolean"
+    },
+    "retain": {
+      "type": "boolean"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease",
+            "environment",
+            "retained",
+            "unresolved",
+            "secrets",
+            "observations",
+            "container_proof",
+            "allocation_ref",
+            "observation_available",
+            "cleanup"
+          ],
+          "properties": {
+            "lease": {
+              "anyOf": [
+                {
+                  "$ref": "cartulary.harness_fixture_lease.v4"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "environment": {
+              "type": "object",
+              "maxProperties": 256,
+              "propertyNames": {
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 65536
+              }
+            },
+            "retained": {
+              "type": "boolean"
+            },
+            "unresolved": {
+              "type": "boolean"
+            },
+            "secrets": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "string",
+                "maxLength": 16384
+              }
+            },
+            "observations": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "ref",
+                  "allocation_ref",
+                  "lease_ref",
+                  "unit_id",
+                  "capability",
+                  "ownership",
+                  "outcome"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "ref": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "allocation_ref": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "lease_ref": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "unit_id": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "capability": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "ownership": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                }
+              }
+            },
+            "container_proof": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "lease",
+                    "ownership",
+                    "borrower_file",
+                    "borrower_id"
+                  ],
+                  "properties": {
+                    "lease": {
+                      "$ref": "cartulary.test_services.lease.v1"
+                    },
+                    "ownership": {
+                      "enum": [
+                        "owned",
+                        "borrowed"
+                      ]
+                    },
+                    "borrower_file": {
+                      "type": "string",
+                      "maxLength": 4096
+                    },
+                    "borrower_id": {
+                      "type": "string",
+                      "maxLength": 128
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "allocation_ref": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "observation_available": {
+              "type": "boolean"
+            },
+            "cleanup": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "unit_id",
+                  "lease_id",
+                  "failures",
+                  "published"
+                ],
+                "properties": {
+                  "operation": {
+                    "enum": [
+                      "fixture_release",
+                      "fixture_detach",
+                      "provider_close"
+                    ]
+                  },
+                  "unit_id": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "lease_id": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "published": {
+                    "type": "boolean"
+                  },
+                  "failures": {
+                    "type": "array",
+                    "maxItems": 64,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "failure_class",
+                        "failure_reason",
+                        "artifact_refs"
+                      ],
+                      "properties": {
+                        "failure_class": {
+                          "$ref": "cartulary.harness.defs.v1#/$defs/failure_class"
+                        },
+                        "failure_reason": {
+                          "$ref": "cartulary.harness.defs.v1#/$defs/failure_reason"
+                        },
+                        "artifact_refs": {
+                          "type": "array",
+                          "maxItems": 64,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 1024
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "failures": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "failure_class",
+          "failure_reason",
+          "artifact_refs"
+        ],
+        "properties": {
+          "failure_class": {
+            "$ref": "cartulary.harness.defs.v1#/$defs/failure_class"
+          },
+          "failure_reason": {
+            "$ref": "cartulary.harness.defs.v1#/$defs/failure_reason"
+          },
+          "artifact_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          }
+        }
+      }
+    },
+    "close_scope": {
+      "enum": [
+        null,
+        "allocations",
+        "session"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_fixture_session.v1",
+  "$defs": {
+    "acquire": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "unit_id"
+      ],
+      "properties": {
+        "capability": {
+          "enum": [
+            "postgres_transaction",
+            "postgres_dedicated",
+            "postgres_migration",
+            "managed_process",
+            "object_store_namespace",
+            "browser_stack"
+          ]
+        },
+        "unit_id": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "affinity_key": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "digest": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "browser_stage": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "runtime_profile_id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "fixture_profile_id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "snapshot_key": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "builder_unit_id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "row_id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "predicate_id": {
+          "type": "string",
+          "maxLength": 256
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "request"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "request",
+          "lease_id",
+          "healthy",
+          "retain",
+          "close_scope"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "ok"
+              ]
+            },
+            {
+              "required": [
+                "result"
+              ]
+            },
+            {
+              "required": [
+                "failures"
+              ]
+            }
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "ok",
+          "result",
+          "failures"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "request"
+              ]
+            },
+            {
+              "required": [
+                "lease_id"
+              ]
+            },
+            {
+              "required": [
+                "healthy"
+              ]
+            },
+            {
+              "required": [
+                "retain"
+              ]
+            },
+            {
+              "required": [
+                "close_scope"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

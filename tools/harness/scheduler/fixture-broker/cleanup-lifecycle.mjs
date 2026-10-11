@@ -22,7 +22,7 @@ export function cleanupFailure(error) {
 export function aggregateCleanup(errors) {
   const unique = [...new Set(errors.flatMap((error) => cleanupErrors(error)))];
   if (!unique.length) return null;
-  const selected = primaryPublicFailure(unique.map((error, index) => ({ ...cleanupFailure(error), lifecycle_step: "cleanup_finalizers", scheduler_event_sequence: index })));
+  const selected = primaryPublicFailure(unique.map((error, index) => ({ ...cleanupFailure(error), lifecycle_step: "cleanup_finalizers", scheduler_event_sequence: index + 1 })));
   const failure = { failure_class: selected.failure_class, failure_reason: selected.failure_reason,
     lifecycle_step: selected.lifecycle_step, scheduler_event_sequence: selected.scheduler_event_sequence };
   return Object.assign(new AggregateError(unique, "fixture finalization failed"), failure);
@@ -54,7 +54,7 @@ export class CleanupResults {
       failure_class: failure.failure_class, failure_reason: failure.failure_reason,
     })) : [];
     const primary = primaryPublicFailure(failures.map((failure, index) => ({
-      ...failure, lifecycle_step: "cleanup_finalizers", scheduler_event_sequence: index,
+      ...failure, lifecycle_step: "cleanup_finalizers", scheduler_event_sequence: index + 1,
     })));
     const record = {
       sequence: this.results.length + 1, operation, unit_id: unitID,

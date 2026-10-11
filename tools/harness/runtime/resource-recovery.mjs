@@ -5,7 +5,7 @@ import path from "node:path";
 import { atomicLocalFile, privateDirectory, readLocalFile, openDirectory } from "./secure-local-files.mjs";
 import { validateRendererProof } from "./owned-renderer.mjs";
 
-const kinds = ["browser_stack", "managed_suite", "object_store_proxy", "preparation_process", "browser_process", "browser_renderer", "helper_process", "diagnostic_scope"];
+const kinds = ["browser_stack", "managed_suite", "borrowed_suite", "object_store_proxy", "preparation_process", "browser_process", "browser_renderer", "helper_process", "diagnostic_scope"];
 const key = (kind, target) => `${kind}-${createHash("sha256").update(JSON.stringify(target)).digest("hex")}.json`;
 export function validateDiagnosticScope(scope) {
   if (!scope || Object.keys(scope).sort().join(",") !== "boot,start,token,uid" || typeof scope.boot !== "string" || !/^\d+$/u.test(scope.start) || !/^[a-f0-9]{64}$/u.test(scope.token) || scope.uid !== process.getuid()) throw new Error("unsafe runtime recovery proof");
@@ -14,7 +14,7 @@ export function validateDiagnosticScope(scope) {
 export function recordRuntimeResource(runtime, { kind, target, state = "acquired" }) {
   if (!kinds.includes(kind) || !["pending", "acquired", "released"].includes(state)) throw new Error("unsafe runtime recovery proof");
   if (kind === "browser_renderer") validateRendererProof(target);
-  if (["browser_stack", "managed_suite", "object_store_proxy"].includes(kind)) {
+  if (["browser_stack", "managed_suite", "borrowed_suite", "object_store_proxy"].includes(kind)) {
     const relative = typeof target === "string" ? path.relative(runtime.root, target) : "..";
     if (!relative || relative.startsWith("..") || path.isAbsolute(relative) || relative.split(path.sep).includes("recovery")) throw new Error("unsafe runtime recovery target");
   }

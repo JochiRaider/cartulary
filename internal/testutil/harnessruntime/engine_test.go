@@ -3,6 +3,7 @@ package harnessruntime
 import (
 	"context"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"slices"
 	"strings"
 	"sync"
@@ -135,6 +136,39 @@ func (f *testFixtures) Close(ctx context.Context) error {
 }
 func (f *testFixtures) Unresolved() bool { return f.unresolved }
 func TestRuntimeLifecycle(t *testing.T) {
+	t.Run("native_fixture_bridge_preserves_owner_facts_and_failure", func(t *testing.T) {
+		acquired := false
+		released := false
+		broker := harnessfixtures.New(harnessfixtures.Options{Providers: map[string]harnessfixtures.Provider{"browser_stack": &harnessfixtures.ProviderFuncs{AcquireFunc: func(_ context.Context, r harnessfixtures.Request) (*harnessfixtures.Allocation, error) {
+			if r.UnitID != "unit" || r.Affinity != "affinity" || r.RuntimeProfile != "default" || r.BrowserStage != "webserver-backed" {
+				t.Fatal(r)
+			}
+			acquired = true
+			return &harnessfixtures.Allocation{Ownership: "owned", ResourceIDs: []string{"browser:one"}, Environment: map[string]string{"PORT": "1234"}, Release: func(_ context.Context, healthy bool) error {
+				released = true
+				if healthy {
+					t.Fatal("failed work retained health")
+				}
+				return nil
+			}}, nil
+		}}}})
+		bridge := nativeFixtures{production: &harnessfixtures.Production{Broker: broker}}
+		lease, err := bridge.Acquire(context.Background(), fixtureRequest{UnitID: "unit", Capability: "browser_stack", Affinity: "affinity", Environment: map[string]string{"CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default", "CARTULARY_BROWSER_STAGE": "webserver-backed"}})
+		if err != nil || !acquired || lease.Environment["PORT"] != "1234" || lease.ID == "" {
+			t.Fatal(lease, err)
+		}
+		if _, err := lease.Release(context.Background(), false, false); err != nil || !released {
+			t.Fatal(err)
+		}
+		if err := bridge.Close(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		f := failureOf(&harnessfixtures.Failure{Class: "artifact", Reason: "artifact_error"})
+		if f.Class != "artifact" || f.Reason != "artifact_error" {
+			t.Fatal(f)
+		}
+	})
+
 	t.Run("optional_observation_cannot_mutate_or_fail_execution", func(t *testing.T) {
 		calls := 0
 		r := boundedGraph(t, enginePlan(engineUnit("a", 1)), enginePorts{Observe: func(s engineSnapshot) { calls++; panic("failed optional sink") }, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
