@@ -71,6 +71,7 @@
           "TestRuntimeFailurePrecedence",
           "TestRuntimeHostAdmission",
           "TestRuntimeLifecycle",
+          "TestRuntimeObservations",
           "TestRuntimePlanClosure",
           "TestRuntimePreparationParity",
           "TestRuntimePrivateFailureScope",

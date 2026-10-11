@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+// PublicFailure exposes only the closed public classification, never private
+// paths, credentials or arbitrary helper diagnostics from a boundary error.
+func PublicFailure(err error) (string, string) {
+	f := failureOf(err)
+	return f.Class, f.Reason
+}
+
 func normalizedFailure(f *failure) *failure {
 	if f == nil {
 		return nil

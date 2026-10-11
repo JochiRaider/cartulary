@@ -23,6 +23,10 @@ type Stream struct {
 	closed                     bool
 }
 
+// StagingPath is the exact current-epoch event stream consumed by graph units.
+// It is private until Close publishes the immutable terminal path.
+func (s *Stream) StagingPath() string { return filepath.Join(s.directory, s.temporary) }
+
 func NewStream(name string, bufferBytes int) (*Stream, error) {
 	parent, err := PrivateDirectory(filepath.Dir(name))
 	if err != nil {

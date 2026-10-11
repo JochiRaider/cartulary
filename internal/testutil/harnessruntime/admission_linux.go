@@ -22,7 +22,7 @@ func nativeAdmission(capacities map[string]int64, parent *string, root string) f
 	}
 	return func(ctx context.Context, u unit) (*hostLease, error) {
 		callerContext := ctx
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, time.Duration(u.TimeoutMS)*time.Millisecond)
 		defer cancel()
 		proof, err := harnessadmission.Identity(os.Getpid())
 		if err != nil {

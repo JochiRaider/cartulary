@@ -6,8 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,79 +47,85 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 	environment["CARTULARY_HARNESS_CACHE_MODE"] = "off"
 	environment["CARTULARY_TEST_RESULTS_DIR"] = results
 	environment["CARTULARY_TEST_RUN_ID"] = id
-	values := []string{}
-	for k, v := range environment {
-		values = append(values, k+"="+v)
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	plan, err := Prepare(ctx, root, []string{"--selection", "owner", "--target", "test-slice", "--owner", "harness.evidence_accounting", "--rows", "harness.evidence_accounting.behavior.local_migration_activities"}, values)
+	binary := filepath.Join(root, ".cache/cartulary/toolbin/cartulary-harness")
+	private := t.TempDir()
+	if err := os.Chmod(private, 0700); err != nil {
+		t.Fatal(err)
+	}
+	proof, err := harnessadmission.Identity(os.Getpid())
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, u := range plan.facts.Graph.Units {
-		if u.Fixture != "none" {
-			t.Fatal("fixture-free integration selection acquired a new fixture requirement")
+	ns, err := os.Readlink("/proc/self/ns/time")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, start, err := bootReading()
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := map[string]any{"version": 1, "invocation_id": uuid(), "pid": os.Getpid(), "start_ticks": proof.Start, "start_ms": start, "boot_id": proof.Boot, "namespace": ns}
+	b, _ := json.Marshal(owner)
+	if err := harnesslocal.PublishNew(filepath.Join(private, "owner.json"), b); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"off", "basic", "basic-second"} {
+		t.Run(mode, func(t *testing.T) {
+			diagnosticMode := mode
+			if diagnosticMode != "off" {
+				diagnosticMode = "basic"
+			}
+			environment["HARNESS_DIAGNOSTICS"] = diagnosticMode
+			environment["CARTULARY_TEST_RUN_ID"] = id + "-" + mode
+			environment["CARTULARY_HARNESS_INVOCATION_ROOT"] = private
+			input := []string{}
+			for k, v := range environment {
+				input = append(input, k+"="+v)
+			}
+			summary, code, err := Run(ctx, root, binary, []string{"--selection", "owner", "--target", "test-slice", "--owner", "harness.evidence_accounting", "--rows", "harness.evidence_accounting.behavior.local_migration_activities"}, input)
+			run := filepath.Join(results, id+"-"+mode)
+			if err != nil || code != 0 || summary["status"] != "pass" {
+				t.Fatalf("native graph: code=%d err=%v; retained %s", code, err, run)
+			}
+			if err := checkRegularEvidence(filepath.Join(run, "rows/harness.evidence_accounting.behavior.local_migration_activities.json")); err != nil {
+				t.Fatal(err)
+			}
+			node := environment["NODE_BIN"]
+			if !filepath.IsAbs(node) {
+				node = filepath.Join(root, node)
+			}
+			reader := exec.CommandContext(ctx, node, "--input-type=module", "-e", `import {readFileSync} from 'node:fs';import {validateLiveSnapshot} from './tools/harness/contract/live-observation.mjs';import {loadRetainedObservability} from './tools/harness/observability/observability.mjs';const r=await loadRetainedObservability(process.argv[1]);validateLiveSnapshot(JSON.parse(readFileSync(process.argv[1]+'/diagnostics/live-status.json')),r.run.manifest);if(process.argv[2]==='basic'&&(!r.execution||!r.envelope||!r.resourceIndex))throw Error('missing native observations');`, run, diagnosticMode)
+			reader.Dir = root
+			if out, err := reader.CombinedOutput(); err != nil {
+				t.Fatalf("independent Node retained reader: %v %s; retained %s", err, out, run)
+			}
+			t.Logf("native graph and independent reader passed: %s", run)
+		})
+	}
+	_, end, err := bootReading()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ = json.Marshal(map[string]any{"end_ms": end, "exit_code": 0, "signal": 0, "boot_id": proof.Boot, "namespace": ns})
+	if err := harnesslocal.PublishNew(filepath.Join(private, "completion.json"), b); err != nil {
+		t.Fatal(err)
+	}
+	if err := harnessdiag.PublishTerminalReceipts(private); err != nil {
+		t.Fatal("native wrapper receipt", err)
+	}
+	for _, mode := range []string{"basic", "basic-second"} {
+		run := filepath.Join(results, id+"-"+mode)
+		node := environment["NODE_BIN"]
+		if !filepath.IsAbs(node) {
+			node = filepath.Join(root, node)
+		}
+		reader := exec.CommandContext(ctx, node, "--input-type=module", "-e", `import {loadRetainedObservability} from './tools/harness/observability/observability.mjs';const r=await loadRetainedObservability(process.argv[1]);if(r.terminalReceipt?.outcome!=='passed'||r.terminalReceipt.graph_memberships.length!==2)throw Error('incorrect multiple-graph receipt');`, run)
+		reader.Dir = root
+		if out, err := reader.CombinedOutput(); err != nil {
+			t.Fatalf("receipt reader: %v %s", err, out)
 		}
 	}
-	run := filepath.Join(results, id)
-	publication, err := newGraphPublication(plan, run)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer publication.Abort()
-	// The existing secure runtime owner is test composition until S-029/S-030
-	// migrate shared fixture ownership and graph finalization. No public dispatch
-	// or native fallback is introduced by this integration test.
-	node := environment["NODE_BIN"]
-	if !filepath.IsAbs(node) {
-		node = filepath.Join(root, node)
-	}
-	setup := exec.CommandContext(ctx, node, "--input-type=module", "-e", `import {createSuiteRuntime} from './tools/harness/runtime/suite-runtime.mjs'; const r=createSuiteRuntime({repoRoot:process.cwd(),runRoot:process.argv[1],runID:process.argv[2]});console.log(JSON.stringify({root:r.root,leaseID:r.leaseID,runID:r.runID}));`, run, id)
-	setup.Dir = root
-	bytes, err := setup.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var runtimeOwner struct{ Root, LeaseID, RunID string }
-	if err := json.Unmarshal(bytes, &runtimeOwner); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		cleanup := exec.Command(node, "--input-type=module", "-e", `import {closeSuiteRuntimeRoot} from './tools/harness/runtime/suite-runtime.mjs';closeSuiteRuntimeRoot({root:process.argv[1],expectedLeaseID:process.argv[2]});`, runtimeOwner.Root, runtimeOwner.LeaseID)
-		cleanup.Dir = root
-		if output, err := cleanup.CombinedOutput(); err != nil {
-			t.Errorf("private runtime cleanup: %v %s", err, output)
-		}
-	}()
-	environment["CARTULARY_HARNESS_SUITE_RUNTIME_ROOT"] = runtimeOwner.Root
-	environment["CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID"] = runtimeOwner.LeaseID
-	environment["CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID"] = runtimeOwner.RunID
-	maps.Copy(environment, plan.facts.Bindings)
-	for k, v := range map[string]string{"CARTULARY_HARNESS_GRAPH_CHILD": "1", "CARTULARY_HARNESS_IDENTITY_PREPARED": "1", "CARTULARY_HARNESS_SKIP_PREREQUISITES": "1", "CARTULARY_SUPPRESS_CHILD_SUCCESS": "1"} {
-		environment[k] = v
-	}
-	private, err := harnesslocal.OpenDirectory(runtimeOwner.Root, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer private.Close()
-	processes := processRunner{Root: root, Environment: environment, FailureScope: func(identity map[string]any) (failureScope, error) { return createFailureScope(private, identity) }}
-	cache := newNativeCache(plan, root, run)
-	defer cache.Close()
-	result, err := executeGraph(ctx, plan, enginePorts{Execute: processes.Execute, Cache: cache, Event: publication.Event, Terminal: publication.Terminal})
-	if err != nil {
-		t.Fatalf("engine failed: %v; retained %s", err, run)
-	}
-	summary, err := publication.Finish(result)
-	if err != nil {
-		t.Fatalf("publication: %v; retained %s", err, run)
-	}
-	if summary["status"] != "pass" {
-		t.Fatalf("selected graph failed: %v; retained %s", result.Failure, run)
-	}
-	if err := checkRegularEvidence(filepath.Join(run, "rows/harness.evidence_accounting.behavior.local_migration_activities.json")); err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("native selected graph retained at %s", run)
+
 }

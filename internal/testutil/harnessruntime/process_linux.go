@@ -134,12 +134,12 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	delete(environment, failureContextKey)
 	var observation processObservation
 	if p.Observe != nil {
-		observation = p.Observe(identity)
+		optionalObservation(func() { observation = p.Observe(maps.Clone(identity)) })
 	}
 	outcome := "spawn_failed"
 	defer func() {
 		if observation != nil {
-			observation.Settled(outcome)
+			optionalObservation(func() { observation.Settled(outcome) })
 		}
 	}()
 	var scope failureScope
@@ -235,7 +235,7 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	}
 	outcome = "failed"
 	if observation != nil {
-		observation.Spawned(cmd.Process.Pid)
+		optionalObservation(func() { observation.Spawned(cmd.Process.Pid) })
 	}
 	signalGroup := func(signal syscall.Signal) { _ = syscall.Kill(-cmd.Process.Pid, signal) }
 	if request.Host != nil && request.Host.Bind != nil {

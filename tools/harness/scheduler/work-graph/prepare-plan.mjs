@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
+import { resolveServiceSessionMode } from "../../services/local-session.mjs";
 import { WorkGraphCompiler } from "./compiler.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "./capability.mjs";
 import { WorkGraphCache, workGraphCacheRootRelative } from "./cache.mjs";
@@ -25,6 +26,7 @@ export function prepareRuntimePlan(argv) {
     if (mode === "basic") intervals.push({ phase, start_ms: previous, end_ms });
     previous = end_ms;
   };
+  const serviceSession = resolveServiceSessionMode({ target: options.target, environment: process.env });
   const compiler = new WorkGraphCompiler(root), entry = commandEntry(options.target);
   const { runID, runRoot } = resolvedRunRoot();
   mark("configuration_catalog");
@@ -62,7 +64,8 @@ export function prepareRuntimePlan(argv) {
       vulnerability_database_revision: context.profile?.requires_vulnerability_database_revision ? vulnerability.revision || null : null };
   });
   mark("cache_preparation");
-  const bindings = resolvedRuntimeEnvironment(compiler);
+  const bindings = { ...resolvedRuntimeEnvironment(compiler), CARTULARY_TEST_SERVICES_MODE: serviceSession.mode,
+    ...(serviceSession.sessionFile ? { CARTULARY_TEST_SERVICES_SESSION_FILE: serviceSession.sessionFile } : {}) };
   mark("launch_bindings");
   const commandIDs = new Map(compiler.taskSurface.targets.map((target) => [target.name, target.command_id]));
   const value = { schema_id: "cartulary.harness_runtime_plan.v1", graph, manifest,

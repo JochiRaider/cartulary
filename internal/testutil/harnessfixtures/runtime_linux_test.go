@@ -19,6 +19,9 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if harnesslocal.CheckDirectory(runtime.Directory, runtime.Directory.Name()) != nil {
+		t.Fatal("runtime descriptor retained staging pathname")
+	}
 	t.Cleanup(func() {
 		if err := runtime.Close(); err != nil {
 			t.Error(err)
@@ -27,6 +30,7 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	return runtime, root, run
 }
 func TestFixtureRuntimeProof(t *testing.T) {
+	t.Run("preservation_and_janitor", testFixturePreservation)
 	t.Run("borrow_and_recovery_closure", func(t *testing.T) {
 		r, root, run := runtimeFixture(t)
 		borrowed, err := BorrowRuntime(root, run, r.Root, r.RunID, r.LeaseID)

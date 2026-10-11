@@ -104,6 +104,7 @@ type graphResult struct {
 	Cleanup           []cleanupRecord
 }
 type enginePorts struct {
+	Cleanup         func(cleanupRecord)
 	RetainEvents    bool
 	Now             func() time.Duration
 	Execute         func(context.Context, executionRequest) unitResult
@@ -618,7 +619,7 @@ func (e *graphEngine) receive(m engineMessage) {
 		return
 	}
 	if m.Cleanup != nil {
-		e.result.Cleanup = append(e.result.Cleanup, *m.Cleanup)
+		e.recordCleanup(*m.Cleanup)
 	}
 	if m.Activity != "" {
 		e.activities[m.ID] = m.Activity
@@ -728,7 +729,7 @@ func (e *graphEngine) finish() {
 			r.Outcome = "failed"
 			r.Failure = cleanupFailureOf(err)
 		}
-		e.result.Cleanup = append(e.result.Cleanup, r)
+		e.recordCleanup(r)
 	}
 	if e.ports.Fixtures != nil {
 		attempt("provider_close", func() error { return e.ports.Fixtures.Close(ctx) })
@@ -736,7 +737,7 @@ func (e *graphEngine) finish() {
 	}
 	if e.ports.CleanupServices != nil {
 		if unresolved {
-			e.result.Cleanup = append(e.result.Cleanup, cleanupRecord{Operation: "services_close", Outcome: "blocked"})
+			e.recordCleanup(cleanupRecord{Operation: "services_close", Outcome: "blocked"})
 		} else {
 			attempt("services_close", func() error { return e.ports.CleanupServices(ctx) })
 		}
@@ -816,4 +817,11 @@ func optionalObservation(call func()) (ok bool) {
 	}()
 	call()
 	return true
+}
+
+func (e *graphEngine) recordCleanup(r cleanupRecord) {
+	e.result.Cleanup = append(e.result.Cleanup, r)
+	if e.ports.Cleanup != nil {
+		e.ports.Cleanup(r)
+	}
 }

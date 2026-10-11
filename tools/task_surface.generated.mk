@@ -201,7 +201,8 @@ else
   test-run-status \
   go-analysis-dependencies \
   harness-runtime-contract \
-  harness-fixture-contract
+  harness-fixture-contract \
+  harness-runtime-boundary-contract
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -1977,5 +1978,10 @@ harness-fixture-contract: export CARTULARY_TEST_TARGET ?= harness-fixture-contra
 harness-fixture-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-fixture-contract: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
 	$(Q)$(RUN_STEP_SCRIPT) "harness-fixture-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" $(GO) test -race -count=1 ./internal/testutil/harnessfixtures
+
+harness-runtime-boundary-contract: export CARTULARY_TEST_TARGET ?= harness-runtime-boundary-contract
+harness-runtime-boundary-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-runtime-boundary-contract: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN) $(TEST_SERVICES_BIN)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-runtime-boundary-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" CARTULARY_HARNESS_RUNTIME_BIN="$(HARNESS_RUNTIME_BIN)" $(GO) test -count=1 ./internal/testutil/harnessruntime/boundary
 
 endif

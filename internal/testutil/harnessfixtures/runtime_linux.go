@@ -94,7 +94,11 @@ func NewRuntime(repository, runRoot, runID, scratch string) (result *Runtime, er
 	if err != nil {
 		return nil, err
 	}
-	name := "suite-" + runID + "-" + identifier()
+	if _, err := CleanupStaleRoots(base, time.Now()); err != nil {
+		parent.Close()
+		return nil, err
+	}
+	name := ".creating-suite-" + runID + "-" + identifier()
 	if err := unix.Mkdirat(int(parent.Fd()), name, 0700); err != nil {
 		parent.Close()
 		return nil, err
@@ -121,6 +125,22 @@ func NewRuntime(repository, runRoot, runID, scratch string) (result *Runtime, er
 	if err = privateJSON(filepath.Join(root, "runtime-owner.json"), "cartulary.harness_suite_runtime_owner.v1", owner, false); err != nil {
 		return nil, err
 	}
+	publishedName := strings.TrimPrefix(name, ".creating-")
+	if err = unix.Renameat2(int(parent.Fd()), name, int(parent.Fd()), publishedName, unix.RENAME_NOREPLACE); err != nil {
+		return nil, err
+	}
+	name = publishedName
+	root = filepath.Join(base, name)
+	result.Root = root
+	// Preserve the pinned inode while updating its diagnostic pathname after
+	// staging publication. Downstream private channels validate this exact path.
+	duplicate, e := unix.FcntlInt(directory.Fd(), unix.F_DUPFD_CLOEXEC, 0)
+	if e != nil {
+		return nil, e
+	}
+	directory.Close()
+	directory = os.NewFile(uintptr(duplicate), root)
+	result.Directory = directory
 	proof, e := harnessadmission.Identity(os.Getpid())
 	if e != nil {
 		return nil, e
@@ -372,4 +392,21 @@ func (r *Runtime) Close() error {
 	r.closed = true
 	r.secrets = nil
 	return errors.Join(r.Directory.Close(), r.parent.Close())
+}
+
+// ReleaseHandles ends a supervisor's access after either successful removal or
+// preserved recovery. It does not delete proof or assert resource cleanup.
+func (r *Runtime) ReleaseHandles() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return nil
+	}
+	r.closed = true
+	r.secrets = nil
+	var parentErr error
+	if r.parent != nil {
+		parentErr = r.parent.Close()
+	}
+	return errors.Join(r.Directory.Close(), parentErr)
 }

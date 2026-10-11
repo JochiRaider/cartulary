@@ -129,6 +129,9 @@ func receiveCompiler(ctx context.Context, cmd *exec.Cmd) (*Plan, error) {
 	}
 	settled.Store(true)
 	err = cmd.Wait()
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	if err != nil || terminalErr != nil || ctx.Err() != nil || received.err != nil || len(received.data) > maximumPlanBytes {
 		return nil, errors.New("graph preparation failed")
 	}

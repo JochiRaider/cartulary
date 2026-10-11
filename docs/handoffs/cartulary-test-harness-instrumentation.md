@@ -26,7 +26,7 @@ At entry, Node still owns public graph execution and fixture coordination.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
 REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035, S-034 and S-031/A–C are complete; S-031/D is ready.
+completion. S-035, S-034 and S-031/A–D are complete; S-031/E is ready.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -933,8 +933,8 @@ workstream with its own result and checkpoint.
 | WF-31A Characterization | S-031/A after saved S-034 | DONE | Explicit test dispositions and executed baseline obligations |
 | WF-31B Native core | S-031/B after saved S-031/A | DONE | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
 | WF-31C Fixtures | S-031/C after saved S-031/B | DONE | V-030: one fixture policy, real lifecycle/recovery and race gates |
-| WF-31D Observation | S-031/D after saved S-031/C | TODO | V-031: collection/drain/scan/receipt and independent reader gates |
-| WF-31E Cutover | S-031/E after saved S-031/D | BLOCKED | One public runtime/fixture owner, caller/generated/deletion closure |
+| WF-31D Observation | S-031/D after saved S-031/C | DONE | V-031: collection/drain/scan/receipt and independent reader gates |
+| WF-31E Cutover | S-031/E after saved S-031/D | TODO | One public runtime/fixture owner, caller/generated/deletion closure |
 | WF-31F Public proof | S-031/F after saved S-031/E | BLOCKED | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
 | WF-32 Handoff | S-032 after saved S-031/F | BLOCKED | V-033: finalization, frozen-source broad checks, warm check and handoff |
 | WF-20–22 Qualification | S-020–S-022 | DEFERRED | Separate adoption and complete eligible stable evidence |
@@ -1819,7 +1819,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-039 / S-033 | Prior cleanup | DONE; E-031 |
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
 | T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
-| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A–C DONE, D ready; later gates in Section 6 |
+| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A–D DONE, E ready; later gates in Section 6 |
 | T-038 / S-032 | Functional validation and handoff | BLOCKED on saved V-032 |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
 | T-007 | Original functional coverage | IN_PROGRESS until S-032 |
@@ -1884,6 +1884,54 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-037 — S-031/D observation and finalization checkpoint
+
+Starting main `60767f7b1`, Linux/WSL and E-035's pinned toolchain. Reviewed and
+integrated authored observation contributions from `ba543bf69..79aecc1ca`;
+retained C's stronger race routes, TLS repair and staged review client. Added
+native graph composition, live snapshots, bracketed clocks, execution observation,
+collector client/identity proof, exact container registration, final producer
+drain, retained scanning, recovery preservation and wrapper receipt registration.
+One runtime binary composes these libraries; public dispatch changes remain E.
+Current cadence, resource/execution/envelope/receipt versions and local-only,
+default-off posture are unchanged. No second collector or late ordinary writer.
+
+Commands used `env CARTULARY_TEST_RUN_ID=<id> make <target>`, distinct primary
+`.cartulary/test-results/<id>` roots. All summaries PASS and owning process exits 0:
+
+| Run ID suffix after `remediate-s031d-` | Target | Result |
+| --- | --- | --- |
+| format-01 | format-go | PASS |
+| generate-01 | generate | PASS, 9,650 ms |
+| runtime-01 | harness-runtime-contract | PASS, 18,220 ms; race, off/basic, two native graphs and independent receipt reader; session 98111 |
+| fixture-01 | harness-fixture-contract | PASS, 3,950 ms; race and new preservation cases; session 57500 |
+| evidence-01 | harness-evidence-contract | PASS, 16,620 ms; independent retained reader/hostile facts; session 36670 |
+| boundary-01 | harness-runtime-boundary-contract | PASS, 42,180 ms; session 38906 |
+| drift-01 | generate-drift | PASS, 4/4, 18,771 ms; session 21075 |
+
+The boundary route retained exact nested roots `boundary-01/native-boundary/
+postgres` (3/3, 15,597 ms) and `https` (11/11, 23,512 ms). Both report source
+commit `60767f7b1`, dirty, digest
+`sha256:7059c594b484de9b038ba2e81bba6cd114dd62b0553ee8e9eeabac6cd4c86806`.
+Independent Node readers accepted native canonical/live/resource/execution/envelope
+facts. Runtime integration separately exercised off/basic and multi-graph receipt
+binding; scan fixtures reject unsafe paths and secrets, collector death drains,
+clock closure and quiet-window assertions pass. No source changed during checks.
+
+Exact HTTPS root read-only checks: `audit-01 make harness-observability-check
+RESULTS_DIR=.cartulary/test-results/remediate-s031d-boundary-01/native-boundary/https`
+PASS (complete diagnostics/execution, 4 sources); `status-01 make test-run-status`
+with the same RESULTS_DIR and JSON=1 reports terminal pass; `resources-01 make
+explain-run` with the same RESULTS_DIR and DETAIL=resources exposes both owned
+containers' memory/limit, PID, CPU and block-I/O deltas. Human output saved at
+`/tmp/cartulary-s031d-resources.txt`; retained facts remain in the exact root.
+Reader success does not substitute for the separately observed native process exit.
+`git diff --check` passed. No failed D attempt.
+
+S-031/D/V-031 is DONE. E may begin after this saved checkpoint. Remaining risks
+are public wiring, producer interoperability and deletion closure, explicitly
+reserved for E/F. Qualification evidence and budgets remain unchanged.
 
 ### E-036 — S-031/C shared fixture checkpoint
 
@@ -2567,7 +2615,7 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035/S-034/S-031A–C DONE; S-031/D ready; later work gated in Section 6 |
+| Implementation | S-035/S-034/S-031A–D DONE; S-031/E ready; later work gated in Section 6 |
 | Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
 | Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |

@@ -190,6 +190,13 @@ func TestRuntimeHostAdmission(t *testing.T) {
 	if _, err := admit(ctx, u); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal("host wait lost cancellation or overbooked", err)
 	}
+	short := u
+	short.TimeoutMS = 30
+	if _, err := admit(context.Background(), short); err == nil {
+		t.Fatal("unit admission deadline ignored")
+	} else if class, reason := PublicFailure(err); class != "infra" || reason != "resource_conflict" {
+		t.Fatalf("admission timeout classification: %s/%s: %v", class, reason, err)
+	}
 	if err := lease.Release(context.Background()); err != nil {
 		t.Fatal(err)
 	}

@@ -967,6 +967,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.integration.native_graph_observations",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.native_graph_observations"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessruntime/boundary",
+        "tests": [
+          "TestNativeGraphServiceObservations"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.integration.object_store_fixture_roundtrip",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
