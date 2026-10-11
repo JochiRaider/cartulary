@@ -50,6 +50,45 @@
       "fixture_capability": "none",
       "minimum_tier": "fast",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.command_surface.unit.native_runtime",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.native_runtime"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessruntime",
+        "tests": [
+          "TestRuntimeCacheTransactions",
+          "TestRuntimeCanonicalAccounting",
+          "TestRuntimeCanonicalNodeParity",
+          "TestRuntimeCompilerLifetime",
+          "TestRuntimeCompilerProcessHelper",
+          "TestRuntimeFailurePrecedence",
+          "TestRuntimeHostAdmission",
+          "TestRuntimeLifecycle",
+          "TestRuntimePlanClosure",
+          "TestRuntimePreparationParity",
+          "TestRuntimePrivateFailureScope",
+          "TestRuntimeProcessLifecycle",
+          "TestRuntimePublicationRollback",
+          "TestRuntimeRequiredPublication",
+          "TestRuntimeScheduling",
+          "TestRuntimeSelectedGraphExecution"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

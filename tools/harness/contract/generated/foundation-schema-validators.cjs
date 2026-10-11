@@ -81,6 +81,7 @@ exports.foundationSchemaValidators = Object.freeze({
   get "cartulary.harness_run_manifest.v2"() { return require("./schema-validators/validateCartularyHarnessRunManifestV2.cjs"); },
   get "cartulary.harness_run_observation.v2"() { return require("./schema-validators/validateCartularyHarnessRunObservationV2.cjs"); },
   get "cartulary.harness_run_summary.v1"() { return require("./schema-validators/validateCartularyHarnessRunSummaryV1.cjs"); },
+  get "cartulary.harness_runtime_plan.v1"() { return require("./schema-validators/validateCartularyHarnessRuntimePlanV1.cjs"); },
   get "cartulary.harness_schema_attachments.v1"() { return require("./schema-validators/validateCartularyHarnessSchemaAttachmentsV1.cjs"); },
   get "cartulary.harness_suite_runtime_owner.v1"() { return require("./schema-validators/validateCartularyHarnessSuiteRuntimeOwnerV1.cjs"); },
   get "cartulary.harness_target_plan.v4"() { return require("./schema-validators/validateCartularyHarnessTargetPlanV4.cjs"); },

@@ -34,8 +34,8 @@
     "tools/execution_topology_render_index.json",
     "tools/frontend_visual_golden_manifest.json",
     "tools/harness/contract/generated/foundation-schema-validators.cjs",
-    "internal/testutil/harnessdiag/schema_generated.go",
-    "internal/testutil/harnessdiag/schema_parity_generated_test.go",
+    "internal/testutil/harnessschema/schema_generated.go",
+    "internal/testutil/harnessschema/schema_parity_generated_test.go",
     "internal/testutil/harnessdiag/testdata/schema-probes.json",
     "internal/testutil/harnessdiag/command_generated.go",
     "tools/harness/contract/generated/schema-validators",
@@ -49,7 +49,8 @@
     "tools/task_surface_manifest.json",
     "tools/workspace_layout.generated.mjs",
     "tools/workspace_layout.generated.mk",
-    "tools/workspace_layout.generated.sh"
+    "tools/workspace_layout.generated.sh",
+    "internal/testutil/harnessruntime/policy_generated.go"
   ],
   "copy_paths": [
     "apps/web/e2e/workbook.visual.spec.ts-snapshots",

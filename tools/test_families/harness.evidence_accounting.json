@@ -101,12 +101,36 @@
         "package": "./internal/testutil/harnessdiag",
         "tests": [
           "TestDiagnosticSchema",
-          "TestDiagnosticSchemaParity",
           "TestDiagnosticSecureFiles",
           "TestDiagnosticSelection",
           "TestDiagnosticStorageFaults",
           "TestDiagnosticTokens",
           "TestReceiptPublicationFailure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.evidence_accounting.behavior.native_schema",
+      "owner_id": "harness.evidence_accounting",
+      "family_id": "harness.evidence_accounting.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.evidence_accounting.verification.live_invocation_observation",
+        "harness.evidence_accounting.verification.performance_resource_diagnostics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessschema",
+        "tests": [
+          "TestSchemaParity"
         ]
       },
       "evidence_class": "unit",

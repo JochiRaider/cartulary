@@ -3513,6 +3513,32 @@
         "./tools/harness/readiness/install-go-dependencies.sh",
         "--analysis"
       ]
+    },
+    "harness-runtime-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-runtime-contract",
+      "env": {
+        "NODE_BIN": "$(NODE_BIN)",
+        "GOCACHE": "$(GO_CACHE_DIR)",
+        "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+        "GOTMPDIR": "$(GO_TMP_DIR)"
+      },
+      "command": [
+        "$(GO)",
+        "test",
+        "-race",
+        "-count=1",
+        "./internal/testutil/harnessruntime",
+        "./internal/testutil/harnessschema"
+      ],
+      "test_target": "self"
     }
   },
   "targets": [
@@ -18266,6 +18292,18 @@
         "tools/harness/readiness/install-go-dependencies.sh"
       ],
       "target_class": "internal_helper",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-runtime-contract",
+      "backing_scripts": [
+        "tools/harness/scheduler/work-graph/prepare-cli.mjs",
+        "tools/harness/scheduler/work-graph/prepare-plan.mjs",
+        "tools/harness/scheduler/work-graph/preparation.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_runtime_contract.v1",
+      "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
     }

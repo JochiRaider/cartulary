@@ -1,14 +1,537 @@
 [
-  {"schema":{"$id":"probe.types","type":["object","null"],"required":["id"],"properties":{"id":{"type":"integer","minimum":0,"maximum":2}},"additionalProperties":false,"minProperties":1,"maxProperties":1},"values":[null,{},[],{"id":0},{"id":2},{"id":3},{"id":-1},{"id":1.5},{"id":"1"},{"id":1,"extra":null}]},
-  {"schema":{"$id":"probe.const","const":{"a":[1,true,null]}},"values":[{"a":[1,true,null]},{"a":[1,true]},{"a":[1,true,null],"b":1},null]},
-  {"schema":{"$id":"probe.enum","enum":[{"a":1,"b":2},[true,false],"x",0]},"values":[{"b":2,"a":1},[true,false],[false,true],"x","y",0,1]},
-  {"schema":{"$id":"probe.array","type":"array","minItems":1,"maxItems":3,"uniqueItems":true,"items":{"type":"object","propertyNames":{"pattern":"^[a-z]+$"},"additionalProperties":{"type":"number","exclusiveMinimum":0,"exclusiveMaximum":2}}},"values":[[],[{}],[{},{}],[{"a":1}],[{"A":1}],[{"a":0}],[{"a":2}],[{"a":1,"b":1},{"b":1,"a":1}],[{},{"a":1},{"b":1},{"c":1}]]},
-  {"schema":{"$id":"probe.string","type":"string","minLength":1,"maxLength":2},"values":["","a","ab","abc","😀","😀😀","😀😀😀",1]},
-  {"schema":{"$id":"probe.all","allOf":[{"type":"number"},{"minimum":0}],"anyOf":[{"const":0},{"minimum":2}],"not":{"const":3}},"values":[null,"2",0,1,2,3,4]},
-  {"schema":{"$id":"probe.one","oneOf":[{"type":"number"},{"type":"integer"},{"const":"x"}]},"values":[null,"x","y",1,1.5]},
-  {"schema":{"$id":"probe.if","if":{"type":"object","required":["enabled"],"properties":{"enabled":{"const":true}}},"then":{"required":["value"],"properties":{"value":{"type":"number"}}},"else":{"not":{"required":["value"]}}},"values":[{},null,{"enabled":true},{"enabled":true,"value":1},{"enabled":true,"value":"x"},{"enabled":false},{"enabled":false,"value":1}]},
-  {"schema":{"$id":"probe.false","not":false,"if":false,"then":false,"else":true},"values":[null,true,false,{},[],1,"x"]},
-  {"schema":{"$id":"probe.noitems","type":"array","items":false},"values":[[],[null],{},null]},
-  {"schema":{"$id":"probe.noproperties","type":"object","properties":{},"additionalProperties":true,"propertyNames":false},"values":[{}, {"a":1}, [], null]},
-  {"schema":{"$id":"probe.reference","$defs":{"a/b~c":{"type":"boolean"}},"$ref":"#/$defs/a~1b~0c"},"values":[true,false,null,{},"true"]}
+  {
+    "schema": {
+      "$id": "probe.types",
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 1
+    },
+    "values": [
+      null,
+      {},
+      [],
+      {
+        "id": 0
+      },
+      {
+        "id": 2
+      },
+      {
+        "id": 3
+      },
+      {
+        "id": -1
+      },
+      {
+        "id": 1.5
+      },
+      {
+        "id": "1"
+      },
+      {
+        "id": 1,
+        "extra": null
+      }
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.const",
+      "const": {
+        "a": [
+          1,
+          true,
+          null
+        ]
+      }
+    },
+    "values": [
+      {
+        "a": [
+          1,
+          true,
+          null
+        ]
+      },
+      {
+        "a": [
+          1,
+          true
+        ]
+      },
+      {
+        "a": [
+          1,
+          true,
+          null
+        ],
+        "b": 1
+      },
+      null
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.enum",
+      "enum": [
+        {
+          "a": 1,
+          "b": 2
+        },
+        [
+          true,
+          false
+        ],
+        "x",
+        0
+      ]
+    },
+    "values": [
+      {
+        "b": 2,
+        "a": 1
+      },
+      [
+        true,
+        false
+      ],
+      [
+        false,
+        true
+      ],
+      "x",
+      "y",
+      0,
+      1
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.array",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^[a-z]+$"
+        },
+        "additionalProperties": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 2
+        }
+      }
+    },
+    "values": [
+      [],
+      [
+        {}
+      ],
+      [
+        {},
+        {}
+      ],
+      [
+        {
+          "a": 1
+        }
+      ],
+      [
+        {
+          "A": 1
+        }
+      ],
+      [
+        {
+          "a": 0
+        }
+      ],
+      [
+        {
+          "a": 2
+        }
+      ],
+      [
+        {
+          "a": 1,
+          "b": 1
+        },
+        {
+          "b": 1,
+          "a": 1
+        }
+      ],
+      [
+        {},
+        {
+          "a": 1
+        },
+        {
+          "b": 1
+        },
+        {
+          "c": 1
+        }
+      ]
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.string",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2
+    },
+    "values": [
+      "",
+      "a",
+      "ab",
+      "abc",
+      "\ud83d\ude00",
+      "\ud83d\ude00\ud83d\ude00",
+      "\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      1
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.all",
+      "allOf": [
+        {
+          "type": "number"
+        },
+        {
+          "minimum": 0
+        }
+      ],
+      "anyOf": [
+        {
+          "const": 0
+        },
+        {
+          "minimum": 2
+        }
+      ],
+      "not": {
+        "const": 3
+      }
+    },
+    "values": [
+      null,
+      "2",
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.one",
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "const": "x"
+        }
+      ]
+    },
+    "values": [
+      null,
+      "x",
+      "y",
+      1,
+      1.5
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.if",
+      "if": {
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "type": "number"
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "value"
+          ]
+        }
+      }
+    },
+    "values": [
+      {},
+      null,
+      {
+        "enabled": true
+      },
+      {
+        "enabled": true,
+        "value": 1
+      },
+      {
+        "enabled": true,
+        "value": "x"
+      },
+      {
+        "enabled": false
+      },
+      {
+        "enabled": false,
+        "value": 1
+      }
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.false",
+      "not": false,
+      "if": false,
+      "then": false,
+      "else": true
+    },
+    "values": [
+      null,
+      true,
+      false,
+      {},
+      [],
+      1,
+      "x"
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.noitems",
+      "type": "array",
+      "items": false
+    },
+    "values": [
+      [],
+      [
+        null
+      ],
+      {},
+      null
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.noproperties",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true,
+      "propertyNames": false
+    },
+    "values": [
+      {},
+      {
+        "a": 1
+      },
+      [],
+      null
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.reference",
+      "$defs": {
+        "a/b~c": {
+          "type": "boolean"
+        }
+      },
+      "$ref": "#/$defs/a~1b~0c"
+    },
+    "values": [
+      true,
+      false,
+      null,
+      {},
+      "true"
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.tuple",
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "items": false
+    },
+    "values": [
+      [],
+      [
+        1
+      ],
+      [
+        1,
+        "a"
+      ],
+      [
+        1,
+        "a",
+        true
+      ],
+      [
+        1,
+        "a",
+        0
+      ],
+      [
+        "a"
+      ],
+      [
+        1,
+        2
+      ],
+      null,
+      {}
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.tuple_rest",
+      "prefixItems": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "items": {
+        "type": "boolean"
+      }
+    },
+    "values": [
+      [],
+      [
+        1
+      ],
+      [
+        1,
+        "a"
+      ],
+      [
+        1,
+        "a",
+        true
+      ],
+      [
+        1,
+        "a",
+        0
+      ],
+      [
+        "a"
+      ],
+      [
+        1,
+        2
+      ],
+      null,
+      {}
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.catalog_row",
+      "type": "string",
+      "maxLength": 191,
+      "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$"
+    },
+    "values": [
+      "harness.command_surface.unit.example",
+      "harness.phase1.unit.example",
+      "harness.command_surface.fe_p2.example",
+      "harness.command_surface.unit.phase42",
+      "harness.command_surface.unit.fe_p3",
+      "harness.phase1a.unit.example",
+      "module.entities.unit.example",
+      "harness.a.b.c\n",
+      "a/b",
+      "a/",
+      "a//b",
+      "a/../b",
+      "a/./b",
+      "a\\b",
+      "../x",
+      "/absolute",
+      "\ud83d\ude00",
+      "a\u2028b"
+    ]
+  },
+  {
+    "schema": {
+      "$id": "probe.cache_path",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[A-Za-z0-9._@+/-]+$"
+    },
+    "values": [
+      "harness.command_surface.unit.example",
+      "harness.phase1.unit.example",
+      "harness.command_surface.fe_p2.example",
+      "harness.command_surface.unit.phase42",
+      "harness.command_surface.unit.fe_p3",
+      "harness.phase1a.unit.example",
+      "module.entities.unit.example",
+      "harness.a.b.c\n",
+      "a/b",
+      "a/",
+      "a//b",
+      "a/../b",
+      "a/./b",
+      "a\\b",
+      "../x",
+      "/absolute",
+      "\ud83d\ude00",
+      "a\u2028b"
+    ]
+  }
 ]

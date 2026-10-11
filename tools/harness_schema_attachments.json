@@ -69,7 +69,8 @@
       "path": "tools/schemas/cartulary.browser_reset_attempt.v2.schema.json",
       "classification": "public_contract",
       "producer": "browser reset lifecycle",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.browser_startup_diagnostics.v1",
@@ -314,7 +315,8 @@
       "path": "tools/schemas/cartulary.harness_cache_record.v2.schema.json",
       "classification": "public_contract",
       "producer": "unified harness cache",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_cache_registry.v1",
@@ -344,14 +346,16 @@
       "path": "tools/schemas/cartulary.harness_cleanup_results.v1.schema.json",
       "classification": "public_contract",
       "producer": "harness fixture finalization",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_command_failure.v1",
       "path": "tools/schemas/cartulary.harness_command_failure.v1.schema.json",
       "classification": "shared_component",
       "producer": "private command failure channel",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_evidence_root_manifest.v1",
@@ -555,7 +559,8 @@
       "path": "tools/schemas/cartulary.harness_row_result.v3.schema.json",
       "classification": "public_contract",
       "producer": "canonical row runner",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_run_manifest.v2",
@@ -578,6 +583,14 @@
       "path": "tools/schemas/cartulary.harness_run_summary.v1.schema.json",
       "classification": "public_contract",
       "producer": "unified harness projector",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_runtime_plan.v1",
+      "path": "tools/schemas/cartulary.harness_runtime_plan.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "private graph compiler",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },
@@ -630,14 +643,16 @@
       "path": "tools/schemas/cartulary.harness_unit_event.v3.schema.json",
       "classification": "public_contract",
       "producer": "unified harness scheduler",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_unit_result.v1",
       "path": "tools/schemas/cartulary.harness_unit_result.v1.schema.json",
       "classification": "public_contract",
       "producer": "unified harness runner",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_work_graph.v5",

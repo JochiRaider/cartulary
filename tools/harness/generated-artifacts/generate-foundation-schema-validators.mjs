@@ -7,6 +7,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { compileStandaloneValidators, validatorFilename } from "./schema-validator-compiler.mjs";
 import { publishGeneratedTransaction } from "./generated-transaction.mjs";
 import { renderNativeCommandPolicy } from "./native-command-policy.mjs";
+import { renderNativeRuntimePolicy } from "./native-runtime-policy.mjs";
 import { renderNativeSchemaValidators } from "./native-schema-validators.mjs";
 import { renderInstrumentationDefinitions } from "./instrumentation-definitions.mjs";
 
@@ -62,16 +63,12 @@ function generate(root, definitions) {
   for (const entry of registry.attachments) loadSchema(entry.schema_id);
   const validators = compileStandaloneValidators([...loaded.values()]);
   const artifacts = new Map(), mapEntries = [];
+  artifacts.set("internal/testutil/harnessruntime/policy_generated.go", renderNativeRuntimePolicy(readJSON(path.join(root,"tools/harness_instrumentation_definitions.json")),readJSON(path.join(root,"tools/task_surface_owner.json"))));
   artifacts.set("internal/testutil/harnessdiag/command_generated.go", renderNativeCommandPolicy(readJSON(path.join(root,"tools/task_surface_owner.json"))));
-  artifacts.set("internal/testutil/harnessdiag/schema_generated.go", renderNativeSchemaValidators(nativeSchemas, foundation));
-  const probes = readJSON(path.join(root, "internal/testutil/harnessdiag/testdata/schema-probes.json"));
   const patterns = new Set();
-  function collectPatterns(value) {
-    if (!value || typeof value !== "object") return;
-    if (typeof value.pattern === "string") patterns.add(value.pattern);
-    Object.values(value).forEach(collectPatterns);
-  }
-  nativeSchemas.forEach(collectPatterns);
+  artifacts.set("internal/testutil/harnessschema/schema_generated.go", renderNativeSchemaValidators(nativeSchemas, foundation, { patterns }));
+  const probes = readJSON(path.join(root, "internal/testutil/harnessdiag/testdata/schema-probes.json"));
+  // Probe the actual native reference closure, not unreachable definitions.
   for (const [index, pattern] of [...patterns].sort().entries()) probes.push({schema: {$id: `probe.pattern${index}`, type:"string", pattern}, values:["", "a", "a/b", "a/../b", "a/./b", "a//b", "/a", "a\n", "a\r", "a\r\n", "a\u2028", "a\u2029", "sha256:"+"a".repeat(64), "sha256:"+"a".repeat(64)+"\n", "2026-10-10T00:00:00.000Z", "command.v1", "😀", ...[0,1,2,63,64,65,95,96,97,127,128,129,254,255,256].flatMap((n) => ["a".repeat(n), "_"+"a".repeat(n), "sha256:"+"a".repeat(n)]), ...Array.from({length:128},(_,c)=>"a"+String.fromCharCode(c))]});
   const probeSchemas = new Map(probes.map(({schema}) => [schema.$id, schema]));
   const probeCompiler = new Ajv2020({strict:false,validateFormats:false});
@@ -80,8 +77,8 @@ function generate(root, definitions) {
     const validate = probeCompiler.compile(schema);
     for (const value of values) cases.push(`{${JSON.stringify(schema.$id)},${JSON.stringify(JSON.stringify(value))},${validate(value)}}`);
   }
-  const probePredicates = renderNativeSchemaValidators(probeSchemas, probes.map(({schema})=>({schema_id:schema.$id})), {prefix:"probeSchema",registry:"validProbeSchema"}).replace("package harnessdiag", 'package harnessdiag\nimport "testing"');
-  artifacts.set("internal/testutil/harnessdiag/schema_parity_generated_test.go", `${probePredicates}\nfunc TestDiagnosticSchemaParity(t *testing.T) {\nfor _, c := range []struct{id, text string; valid bool}{\n${cases.join(",\n")},\n} { value, err := Decode([]byte(c.text)); if err != nil {t.Fatal(err)}; if validProbeSchema(c.id,value) != c.valid { t.Errorf("%s input %s: expected %v",c.id,c.text,c.valid) } }\n}\n`);
+  const probePredicates = renderNativeSchemaValidators(probeSchemas, probes.map(({schema})=>({schema_id:schema.$id})), {prefix:"probeSchema",registry:"validProbeSchema"}).replace("package harnessschema", 'package harnessschema\nimport "testing"');
+  artifacts.set("internal/testutil/harnessschema/schema_parity_generated_test.go", `${probePredicates}\nfunc TestSchemaParity(t *testing.T) {\nfor _, c := range []struct{id, text string; valid bool}{\n${cases.join(",\n")},\n} { value, err := Decode([]byte(c.text)); if err != nil {t.Fatal(err)}; if validProbeSchema(c.id,value) != c.valid { t.Errorf("%s input %s: expected %v",c.id,c.text,c.valid) } }\n}\n`);
   for (const [reference, generated] of validators) {
     artifacts.set(`tools/harness/contract/generated/schema-validators/${validatorFilename(reference)}`, `${marker}\n${generated}\n`);
   }
@@ -117,6 +114,7 @@ export function generateFoundationArtifacts(root) {
     const result = publishGeneratedTransaction({ repoRoot: root, renderedRoot, generatedPaths: [...artifacts.keys()].filter((relative) => !relative.startsWith("tools/harness/contract/generated/schema-validators/" )).concat("tools/harness/contract/generated/schema-validators") });
     // Retire the superseded generated definition only after the new closure is installed.
     rmSync(path.join(root, "tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json"), { force: true });
+    for (const name of ["schema_generated.go", "schema_parity_generated_test.go"]) rmSync(path.join(root, "internal/testutil/harnessdiag", name), { force: true });
     return result;
   } finally { rmSync(renderedRoot, { recursive: true, force: true }); }
 }

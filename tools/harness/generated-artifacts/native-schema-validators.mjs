@@ -2,7 +2,7 @@
 // is a closed projection, not a second authored schema registry. New vocabulary
 // must be implemented and tested explicitly; unsupported keywords stop generation.
 const annotations = new Set(["$schema", "$id", "$comment", "$defs", "title", "description", "default", "examples", "format"]);
-const assertions = new Set(["$ref", "type", "const", "enum", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "minProperties", "maxProperties", "pattern", "required", "properties", "additionalProperties", "propertyNames", "items", "minItems", "maxItems", "uniqueItems", "allOf", "anyOf", "oneOf", "not", "if", "then", "else"]);
+const assertions = new Set(["$ref", "type", "const", "enum", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "minProperties", "maxProperties", "pattern", "required", "properties", "additionalProperties", "propertyNames", "items", "prefixItems", "minItems", "maxItems", "uniqueItems", "allOf", "anyOf", "oneOf", "not", "if", "then", "else"]);
 const q = JSON.stringify;
 // Token patterns dominate the harness schemas. Project this deliberately small
 // anchored grammar to byte predicates, so every reader does not rebuild a large
@@ -32,6 +32,10 @@ function tokenPredicate(pattern) {
 const relativePattern = "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$";
 function validatePattern(pattern) {
   if (pattern === relativePattern) return;
+  if (pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$") return;
+  if (pattern === "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[A-Za-z0-9._@+/-]+$") return;
+  // The catalog's exact reserved-segment assertions have a native predicate.
+  pattern = pattern.replaceAll("(?!phase[0-9]+\\.|fe_p[0-9]+\\.)", "").replaceAll("(?!phase[0-9]+$|fe_p[0-9]+$)", "");
   // Deliberately admit only the shared ECMAScript/RE2 vocabulary. A future
   // expression outside this subset needs an explicit projection and probes.
   let inClass = false;
@@ -45,7 +49,7 @@ function validatePattern(pattern) {
     }
     if (c === "[") inClass = true;
     if (c === "]") inClass = false;
-    if (!inClass && (c === "." || pattern.slice(index, index + 2) === "(?" && pattern[index + 2] !== ":")) throw Error("native projection: unsupported regex assertion or wildcard");
+    if (!inClass && (c === "." || pattern.slice(index, index + 2) === "(?" && pattern[index + 2] !== ":")) throw Error(`native projection: unsupported regex assertion or wildcard: ${pattern}`);
     if (!inClass && c === "{") {
       const repetition = /^\{(\d+)(?:,(\d*))?\}/u.exec(pattern.slice(index));
       if (!repetition || Number(repetition[1]) > 1000 || Number(repetition[2] ?? 0) > 1000) throw Error("native projection: unsupported regex repetition");
@@ -54,7 +58,7 @@ function validatePattern(pattern) {
 }
 const literal = (value) => value === null ? "nil" : typeof value === "number" ? `float64(${value})` : typeof value === "string" || typeof value === "boolean" ? q(value) : Array.isArray(value) ? `[]any{${value.map(literal).join(",")}}` : `map[string]any{${Object.entries(value).map(([k,v]) => `${q(k)}:${literal(v)}`).join(",")}}`;
 
-export function renderNativeSchemaValidators(schemas, entries, { prefix = "schema", registry = "validSchema" } = {}) {
+export function renderNativeSchemaValidators(schemas, entries, { prefix = "schema", registry = "validSchema", patterns = new Set() } = {}) {
   const functions = [], names = new Map();
   const reference = (ref, base) => {
     const [external, fragment = ""] = ref.split("#"), id = external || base;
@@ -87,7 +91,7 @@ export function renderNativeSchemaValidators(schemas, entries, { prefix = "schem
         lines.push("if s, ok := v.(string); ok {");
         if (schema.minLength !== undefined) reject(`schemaLength(s) < ${schema.minLength}`);
         if (schema.maxLength !== undefined) reject(`schemaLength(s) > ${schema.maxLength}`);
-        if (schema.pattern) { validatePattern(schema.pattern); reject(`!${tokenPredicate(schema.pattern) ?? `schemaPattern(${q(schema.pattern)}, s)`}`); }
+        if (schema.pattern) { validatePattern(schema.pattern); patterns.add(schema.pattern); reject(`!${tokenPredicate(schema.pattern) ?? `schemaPattern(${q(schema.pattern)}, s)`}`); }
         lines.push("}");
       }
       if (schema.required || schema.properties || schema.propertyNames !== undefined || schema.additionalProperties !== undefined || schema.minProperties !== undefined || schema.maxProperties !== undefined) {
@@ -108,12 +112,13 @@ export function renderNativeSchemaValidators(schemas, entries, { prefix = "schem
         }
         lines.push("}");
       }
-      if (schema.items !== undefined || schema.minItems !== undefined || schema.maxItems !== undefined || schema.uniqueItems) {
-        lines.push("if a, ok := v.([]any); ok {");
+      if (schema.items !== undefined || schema.prefixItems !== undefined || schema.minItems !== undefined || schema.maxItems !== undefined || schema.uniqueItems) {
+        lines.push("if a, ok := v.([]any); ok {", "_ = a");
         if (schema.minItems !== undefined) reject(`len(a) < ${schema.minItems}`);
         if (schema.maxItems !== undefined) reject(`len(a) > ${schema.maxItems}`);
         if (schema.uniqueItems) reject("!schemaUnique(a)");
-        if (schema.items !== undefined) lines.push(`for _, x := range a { if !${compile(schema.items, base)}(x) { return false } }`);
+        for (const [index, child] of (schema.prefixItems ?? []).entries()) reject(`len(a) > ${index} && !${compile(child,base)}(a[${index}])`);
+        if (schema.items !== undefined) lines.push(`for i := ${schema.prefixItems?.length ?? 0}; i < len(a); i++ { if !${compile(schema.items, base)}(a[i]) { return false } }`);
         lines.push("}");
       }
       for (const key of ["allOf", "anyOf"]) if (schema[key]) reject(`!(${schema[key].map((child) => `${compile(child, base)}(v)`).join(key === "allOf" ? " && " : " || ")})`);
@@ -132,5 +137,5 @@ export function renderNativeSchemaValidators(schemas, entries, { prefix = "schem
     return name;
   }
   const cases = entries.map((entry) => `case ${q(entry.schema_id)}: return ${reference(entry.schema_id, entry.schema_id)}(value)`);
-  return `// Code generated by tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs; DO NOT EDIT.\npackage harnessdiag\n\nfunc ${registry}(id string, value any) bool {\nswitch id {\n${cases.join("\n")}\ndefault: return false\n}\n}\n\n${functions.join("\n\n")}\n`;
+  return `// Code generated by tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs; DO NOT EDIT.\npackage harnessschema\n\nfunc ${registry}(id string, value any) bool {\nswitch id {\n${cases.join("\n")}\ndefault: return false\n}\n}\n\n${functions.join("\n\n")}\n`;
 }

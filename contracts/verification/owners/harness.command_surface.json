@@ -11,6 +11,15 @@
       ]
     },
     {
+      "verification_id": "harness.command_surface.verification.native_runtime",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "harness-runtime-contract"
+    },
+    {
       "verification_id": "harness.command_surface.verification.public_registry_parity",
       "behavior_class": "harness",
       "profile": "support",

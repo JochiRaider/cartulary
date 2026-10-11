@@ -199,7 +199,8 @@ else
   package-inspect \
   syft-toolchain \
   test-run-status \
-  go-analysis-dependencies
+  go-analysis-dependencies \
+  harness-runtime-contract
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -1965,5 +1966,10 @@ endif
 go-analysis-dependencies: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 go-analysis-dependencies: go-toolchain-readiness
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env GO=$(GO) GO_TOOLCHAIN=$(GO_TOOLCHAIN) bash ./tools/harness/readiness/install-go-dependencies.sh --analysis
+
+harness-runtime-contract: export CARTULARY_TEST_TARGET ?= harness-runtime-contract
+harness-runtime-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-runtime-contract: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-runtime-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" $(GO) test -race -count=1 ./internal/testutil/harnessruntime ./internal/testutil/harnessschema
 
 endif

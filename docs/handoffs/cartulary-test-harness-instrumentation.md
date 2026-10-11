@@ -26,7 +26,7 @@ At entry, Node still owns public graph execution and fixture coordination.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
 REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035, S-034 and S-031/A are complete; S-031/B is ready.
+completion. S-035, S-034 and S-031/A–B are complete; S-031/C is ready.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -930,8 +930,8 @@ workstream with its own result and checkpoint.
 | WF-35 Specification | S-035 after S-033 | DONE | V-036: reviewed current owner, acceptance and lint |
 | WF-34 Reports | S-034 after saved S-035 | DONE | V-035: scope-correct fixtures and fresh exact-run parity |
 | WF-31A Characterization | S-031/A after saved S-034 | DONE | Explicit test dispositions and executed baseline obligations |
-| WF-31B Native core | S-031/B after saved S-031/A | TODO | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
-| WF-31C Fixtures | S-031/C after saved S-031/B | BLOCKED | V-030: one fixture policy, real lifecycle/recovery and race gates |
+| WF-31B Native core | S-031/B after saved S-031/A | DONE | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
+| WF-31C Fixtures | S-031/C after saved S-031/B | TODO | V-030: one fixture policy, real lifecycle/recovery and race gates |
 | WF-31D Observation | S-031/D after saved S-031/C | BLOCKED | V-031: collection/drain/scan/receipt and independent reader gates |
 | WF-31E Cutover | S-031/E after saved S-031/D | BLOCKED | One public runtime/fixture owner, caller/generated/deletion closure |
 | WF-31F Public proof | S-031/F after saved S-031/E | BLOCKED | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
@@ -1818,7 +1818,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-039 / S-033 | Prior cleanup | DONE; E-031 |
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
 | T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
-| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A DONE, B ready; later gates in Section 6 |
+| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A–B DONE, C ready; later gates in Section 6 |
 | T-038 / S-032 | Functional validation and handoff | BLOCKED on saved V-032 |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
 | T-007 | Original functional coverage | IN_PROGRESS until S-032 |
@@ -1883,6 +1883,50 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-035 — S-031/B native core checkpoint
+
+Starting main `ae39f79f033792bf59f061d936ea936dcc4f38d1`, Linux/WSL, pinned
+Go effective 1.27.2. Reviewed and applied only authored native preparation/core
+changes from `c09e8ba87..9fbcecdcd`; regenerated projections from those owners.
+No salvage checkout content was modified. Added cohesive `harnessruntime` and
+shared `harnessschema` libraries, a thin binary composition root, bounded strict
+plan/compiler handoff, scheduling/admission/process drain, cache transactions,
+canonical accounting and independent contract fixtures. Public graph dispatch is
+still Node for this checkpoint. The restored runtime route uses `-race -count=1`.
+
+All commands below used `env CARTULARY_TEST_RUN_ID=<id> make <target>`, distinct
+primary `.cartulary/test-results/<id>` roots and owning process exit 0:
+
+| Run ID | Target | Result |
+| --- | --- | --- |
+| remediate-s031b-generate-01 | generate | PASS, 9,650 ms |
+| remediate-s031b-format-01 | format-go | PASS |
+| remediate-s031b-generate-02 | generate | PASS, 9,530 ms; includes race route |
+| remediate-s031b-runtime-01 | harness-runtime-contract | PASS, 12,220 ms; native core/race and schema parity |
+| remediate-s031b-projection-01 | generated-artifact-policy-check | PASS, 3/3 units |
+| remediate-s031b-shapes-01 | json-shape-check | PASS, 3/3 units |
+| remediate-s031b-command-01 | harness-command-surface-contract | PASS, 51,130 ms |
+| remediate-s031b-drift-01 | generate-drift | PASS, 4/4 units |
+
+Native execution manifest is `remediate-s031b-runtime-01/native-engine/
+selected-graph-38759/run-manifest.json`, source commit `ae39f79f0`, dirty,
+source digest `sha256:098c084d0472f59e2f7ec7dd79739ecc0530136c63be0878a5d0dcf585787ee2`,
+toolchain `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
+Native sessions 88745/21977/52588/47623/92504 all drained with exit 0; tool summaries
+and independent Node canonical validation agree. `git diff --check` passed.
+A read-only `remediate-s031b-status-01 make test-run-status
+RESULTS_DIR=.cartulary/test-results/remediate-s031b-command-01 JSON=1` returned
+usage_error/exit 2 because that direct contract run has no canonical graph status;
+its owning session and terminal tool summary establish the result instead.
+An initial editor command selected a nonexistent JSON key and exited before any
+write; corrected the owner key. No runtime/test gate failed.
+
+V-028/V-029 and S-031/B are DONE on current mainline source. Private plan/schema
+and generated build inputs migrate together; retained public formats are unchanged.
+Fixture and observation composition remain for C/D, public cutover/deletion for E.
+C may begin after this saved checkpoint. No qualification or broad product gate
+ran; remaining certification limits are unchanged.
 
 ### E-034 — S-031/A characterization checkpoint
 
@@ -2451,7 +2495,7 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035/S-034/S-031A DONE; S-031/B ready; later work gated in Section 6 |
+| Implementation | S-035/S-034/S-031A–B DONE; S-031/C ready; later work gated in Section 6 |
 | Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
 | Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |

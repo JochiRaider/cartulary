@@ -104,6 +104,14 @@ const reasonPublicExitCodeMap = new Map([
   ["unknown_failure", 1],
 ]);
 
+// The native runtime projection is generated from this existing taxonomy. It
+// carries data only; ordering and normalization remain independently tested.
+export function nativeFailurePolicy() {
+  return { classes: failureClassOrder, reasons: failureReasonOrder,
+    lifecycle: commandLifecycleOrder, reasonClasses: Object.fromEntries(reasonClassMap),
+    classReasons: Object.fromEntries(classDefaultReasonMap), exits: Object.fromEntries(reasonPublicExitCodeMap) };
+}
+
 export function createFailureClassCounts() {
   return Object.fromEntries(failureClassOrder.map((failureClass) => [failureClass, 0]));
 }

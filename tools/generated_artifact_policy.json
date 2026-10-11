@@ -119,14 +119,14 @@
       "required_marker": "Code generated .* DO NOT EDIT\\."
     },
     {
-      "path": "internal/testutil/harnessdiag/schema_generated.go",
+      "path": "internal/testutil/harnessschema/schema_generated.go",
       "allowed_extensions": [
         ".go"
       ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     },
     {
-      "path": "internal/testutil/harnessdiag/schema_parity_generated_test.go",
+      "path": "internal/testutil/harnessschema/schema_parity_generated_test.go",
       "allowed_extensions": [
         ".go"
       ],
@@ -134,6 +134,13 @@
     },
     {
       "path": "internal/testutil/harnessdiag/command_generated.go",
+      "allowed_extensions": [
+        ".go"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "internal/testutil/harnessruntime/policy_generated.go",
       "allowed_extensions": [
         ".go"
       ],
