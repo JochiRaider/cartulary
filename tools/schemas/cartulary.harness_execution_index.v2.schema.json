@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_execution_index.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_execution_index.v2"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9_.:/-]+$"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial",
+        "truncated"
+      ]
+    },
+    "omitted_records": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "omitted_refs": {
+      "type": "array",
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255,
+        "pattern": "^[A-Za-z0-9_.:/-]+$"
+      }
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "$ref": "cartulary.harness_execution_record.v2"
+      }
+    },
+    "records_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "graph_clock": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "clock_identity",
+            "epoch_ms",
+            "anchors"
+          ],
+          "properties": {
+            "clock_identity": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9_.:/-]+$"
+            },
+            "epoch_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "anchors": {
+              "type": "array",
+              "maxItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "clock_identity",
+                  "boot_identity",
+                  "local_before_ms",
+                  "local_after_ms",
+                  "boot_ms",
+                  "boot_resolution_ms"
+                ],
+                "properties": {
+                  "clock_identity": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[A-Za-z0-9_.:/-]+$"
+                  },
+                  "boot_identity": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  },
+                  "local_before_ms": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "local_after_ms": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "boot_ms": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "boot_resolution_ms": {
+                    "const": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_id",
+    "run_id",
+    "source_digest",
+    "graph_digest",
+    "policy_digest",
+    "status",
+    "omitted_records",
+    "omitted_refs",
+    "records",
+    "records_digest",
+    "graph_clock"
+  ]
+}

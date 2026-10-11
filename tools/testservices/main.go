@@ -35,6 +35,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/leaseproof"
+
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -58,15 +60,6 @@ const (
 
 	webE2ECleanupWorkersEnv = "CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS"
 
-	testServiceLabelManaged          = "cartulary.test-services.managed"
-	testServiceLabelSuiteID          = "cartulary.test-services.suite-id"
-	testServiceLabelRunID            = "cartulary.test-services.run-id"
-	testServiceLabelTarget           = "cartulary.test-services.target"
-	testServiceLabelService          = "cartulary.test-services.service"
-	testServiceLabelSessionID        = "cartulary.test-services.session-id"
-	testServiceLabelSessionExpiresAt = "cartulary.test-services.session-expires-at"
-
-	testServiceManagedValue          = "true"
 	testServicesPersistentSessionEnv = "CARTULARY_TEST_SERVICES_PERSISTENT_SESSION"
 	testServicesSessionExpiresAtEnv  = "CARTULARY_TEST_SERVICES_SESSION_EXPIRES_AT"
 
@@ -182,34 +175,6 @@ type suiteContainerClient interface {
 	ContainerList(context.Context, dockerclient.ContainerListOptions) (dockerclient.ContainerListResult, error)
 	ContainerRemove(context.Context, string, dockerclient.ContainerRemoveOptions) (dockerclient.ContainerRemoveResult, error)
 	ContainerInspect(context.Context, string, dockerclient.ContainerInspectOptions) (dockerclient.ContainerInspectResult, error)
-}
-
-type serviceLease struct {
-	SchemaID      string                 `json:"schema_id"`
-	LeaseID       string                 `json:"lease_id"`
-	SuiteID       string                 `json:"suite_id"`
-	RunID         string                 `json:"run_id"`
-	ResultRoot    string                 `json:"result_root"`
-	RunRoot       string                 `json:"run_root"`
-	Target        string                 `json:"target"`
-	Mode          string                 `json:"mode"`
-	OwnershipMode string                 `json:"ownership_mode"`
-	OwnerPID      int                    `json:"owner_pid"`
-	CreatedAt     string                 `json:"created_at"`
-	ExpiresAt     string                 `json:"expires_at,omitempty"`
-	Resources     []serviceLeaseResource `json:"resources"`
-	ProofLabels   map[string]string      `json:"proof_labels"`
-	ProofPrefixes map[string]string      `json:"proof_prefixes"`
-	CleanupState  string                 `json:"cleanup_state"`
-}
-
-type serviceLeaseResource struct {
-	Kind        string            `json:"kind"`
-	Service     string            `json:"service"`
-	ContainerID string            `json:"container_id"`
-	Name        string            `json:"name,omitempty"`
-	Image       string            `json:"image"`
-	Labels      map[string]string `json:"labels"`
 }
 
 type webE2EFixture struct {
@@ -1380,15 +1345,15 @@ func verifySuiteReaperArtifactPath(env map[string]string) error {
 
 func suiteServiceLabels(env map[string]string, service string) map[string]string {
 	labels := map[string]string{
-		testServiceLabelManaged: testServiceManagedValue,
-		testServiceLabelSuiteID: suiteservices.SuiteID(env),
-		testServiceLabelRunID:   suiteservices.ResolveRunID(env),
-		testServiceLabelTarget:  suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
-		testServiceLabelService: service,
+		leaseproof.LabelManaged: leaseproof.ManagedValue,
+		leaseproof.LabelSuiteID: suiteservices.SuiteID(env),
+		leaseproof.LabelRunID:   suiteservices.ResolveRunID(env),
+		leaseproof.LabelTarget:  suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+		leaseproof.LabelService: service,
 	}
 	if strings.TrimSpace(suiteservices.LookupEnvValue(env, testServicesPersistentSessionEnv)) == "1" {
-		labels[testServiceLabelSessionID] = suiteservices.SuiteID(env)
-		labels[testServiceLabelSessionExpiresAt] = strings.TrimSpace(
+		labels[leaseproof.LabelSessionID] = suiteservices.SuiteID(env)
+		labels[leaseproof.LabelSessionExpiresAt] = strings.TrimSpace(
 			suiteservices.LookupEnvValue(env, testServicesSessionExpiresAtEnv),
 		)
 	}
@@ -1439,9 +1404,9 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 		return "", err
 	}
 	proofLabels := suiteServiceLabels(env, "")
-	delete(proofLabels, testServiceLabelService)
+	delete(proofLabels, leaseproof.LabelService)
 	now := time.Now().UTC()
-	lease := serviceLease{
+	lease := leaseproof.Lease{
 		SchemaID:      "cartulary.test_services.lease.v1",
 		LeaseID:       leaseID,
 		SuiteID:       suiteservices.SuiteID(env),
@@ -1454,7 +1419,7 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 		OwnerPID:      os.Getpid(),
 		CreatedAt:     now.Format(time.RFC3339Nano),
 		ExpiresAt:     now.Add(24 * time.Hour).Format(time.RFC3339Nano),
-		Resources: []serviceLeaseResource{
+		Resources: []leaseproof.LeaseResource{
 			{
 				Kind:        "container",
 				Service:     suiteservices.ServicePostgres,
@@ -1493,32 +1458,32 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 	return leasePath, nil
 }
 
-func readServiceLease(path string) (serviceLease, error) {
+func readServiceLease(path string) (leaseproof.Lease, error) {
 	raw, err := os.ReadFile(path) // #nosec G304 -- lease paths are produced by ResolveSuiteArtifactDir or explicit terminate-suite CLI input.
 	if err != nil {
-		return serviceLease{}, err
+		return leaseproof.Lease{}, err
 	}
-	var lease serviceLease
+	var lease leaseproof.Lease
 	if err := json.Unmarshal(raw, &lease); err != nil {
-		return serviceLease{}, err
+		return leaseproof.Lease{}, err
 	}
 	if lease.SchemaID != "cartulary.test_services.lease.v1" {
-		return serviceLease{}, fmt.Errorf("unsupported suite service lease schema %q", lease.SchemaID)
+		return leaseproof.Lease{}, fmt.Errorf("unsupported suite service lease schema %q", lease.SchemaID)
 	}
 	if strings.TrimSpace(lease.SuiteID) == "" {
-		return serviceLease{}, errors.New("suite service lease missing suite_id")
+		return leaseproof.Lease{}, errors.New("suite service lease missing suite_id")
 	}
 	if strings.TrimSpace(lease.LeaseID) == "" {
-		return serviceLease{}, errors.New("suite service lease missing lease_id")
+		return leaseproof.Lease{}, errors.New("suite service lease missing lease_id")
 	}
 	if strings.TrimSpace(lease.OwnershipMode) == "" {
 		lease.OwnershipMode = lease.Mode
 	}
 	if strings.TrimSpace(lease.OwnershipMode) == "" {
-		return serviceLease{}, errors.New("suite service lease missing ownership_mode")
+		return leaseproof.Lease{}, errors.New("suite service lease missing ownership_mode")
 	}
 	if lease.OwnershipMode == "owned" && len(lease.Resources) == 0 {
-		return serviceLease{}, errors.New("owned suite service lease missing resources")
+		return leaseproof.Lease{}, errors.New("owned suite service lease missing resources")
 	}
 	return lease, nil
 }
@@ -2675,7 +2640,7 @@ func cleanupServices(ctx context.Context, postgresSvc postgresService, objectSto
 	return cleanups
 }
 
-func terminateSuiteServices(parent context.Context, lease serviceLease) []serviceCleanupResult {
+func terminateSuiteServices(parent context.Context, lease leaseproof.Lease) []serviceCleanupResult {
 	if lease.OwnershipMode == "attach" {
 		return nil
 	}
@@ -2718,7 +2683,7 @@ func terminateSuiteServices(parent context.Context, lease serviceLease) []servic
 	return results
 }
 
-func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease serviceLease, service serviceLeaseResource) error {
+func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease leaseproof.Lease, service leaseproof.LeaseResource) error {
 	containers, err := leasedServiceContainers(ctx, cli, lease, service)
 	if err != nil {
 		return err
@@ -2739,9 +2704,9 @@ func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease
 	return errors.Join(errs...)
 }
 
-func leasedServiceContainers(ctx context.Context, cli *dockerclient.Client, lease serviceLease, service serviceLeaseResource) ([]string, error) {
+func leasedServiceContainers(ctx context.Context, cli *dockerclient.Client, lease leaseproof.Lease, service leaseproof.LeaseResource) ([]string, error) {
 	filters := dockerclient.Filters{}
-	for key, value := range requiredLeaseLabels(lease, service) {
+	for key, value := range leaseproof.RequiredLeaseLabels(lease, service) {
 		if strings.TrimSpace(value) == "" {
 			continue
 		}
@@ -2772,7 +2737,7 @@ func leasedServiceContainers(ctx context.Context, cli *dockerclient.Client, leas
 
 func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli suiteContainerClient, env map[string]string, now time.Time) (staleSuiteContainerCleanupSummary, error) {
 	filters := dockerclient.Filters{}.
-		Add("label", fmt.Sprintf("%s=%s", testServiceLabelManaged, testServiceManagedValue))
+		Add("label", fmt.Sprintf("%s=%s", leaseproof.LabelManaged, leaseproof.ManagedValue))
 	result, err := cli.ContainerList(ctx, dockerclient.ContainerListOptions{
 		All:     true,
 		Filters: filters,
@@ -2788,7 +2753,7 @@ func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli suiteContain
 		}
 		if err := suiteservices.RecordEvent(env, suiteservices.Event{
 			Type: "completed-suite-container-cleanup", Status: "started",
-			Details: map[string]any{"container_id": item.ID, "owner_run_id": item.Labels[testServiceLabelRunID], "owner_suite_id": item.Labels[testServiceLabelSuiteID], "service": item.Labels[testServiceLabelService], "observed_at": now.UTC().Format(time.RFC3339Nano)},
+			Details: map[string]any{"container_id": item.ID, "owner_run_id": item.Labels[leaseproof.LabelRunID], "owner_suite_id": item.Labels[leaseproof.LabelSuiteID], "service": item.Labels[leaseproof.LabelService], "observed_at": now.UTC().Format(time.RFC3339Nano)},
 		}); err != nil {
 			return summary, fmt.Errorf("record completed-suite cleanup attribution: %w", err)
 		}
@@ -2867,17 +2832,17 @@ func inspectedContainerRemovingOrDead(container dockercontainer.InspectResponse)
 
 func previousSuiteContainerCleanupEligible(env map[string]string, item dockercontainer.Summary) bool {
 	labels := item.Labels
-	if labels[testServiceLabelManaged] != testServiceManagedValue {
+	if labels[leaseproof.LabelManaged] != leaseproof.ManagedValue {
 		return false
 	}
 	// Persistent local sessions have an explicit descriptor, borrower roster,
 	// expiry, and exact down operation. The ordinary suite janitor never owns
 	// them, including after expiry.
-	if strings.TrimSpace(labels[testServiceLabelSessionID]) != "" {
+	if strings.TrimSpace(labels[leaseproof.LabelSessionID]) != "" {
 		return false
 	}
-	suiteID := strings.TrimSpace(labels[testServiceLabelSuiteID])
-	runID := strings.TrimSpace(labels[testServiceLabelRunID])
+	suiteID := strings.TrimSpace(labels[leaseproof.LabelSuiteID])
+	runID := strings.TrimSpace(labels[leaseproof.LabelRunID])
 	if suiteID == "" || runID == "" {
 		return false
 	}
@@ -2919,21 +2884,6 @@ func safeArtifactComponent(value string) bool {
 		!strings.Contains(trimmed, "/") &&
 		!strings.Contains(trimmed, "\\") &&
 		!strings.Contains(trimmed, string(filepath.Separator))
-}
-
-func requiredLeaseLabels(lease serviceLease, service serviceLeaseResource) map[string]string {
-	labels := map[string]string{
-		testServiceLabelManaged: testServiceManagedValue,
-		testServiceLabelSuiteID: lease.SuiteID,
-		testServiceLabelRunID:   lease.RunID,
-		testServiceLabelService: service.Service,
-	}
-	for key, value := range service.Labels {
-		if _, required := labels[key]; required {
-			labels[key] = value
-		}
-	}
-	return labels
 }
 
 func cleanupStageForService(service string) string {

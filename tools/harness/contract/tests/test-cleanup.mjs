@@ -39,6 +39,29 @@ function snapshot(root) {
 function success(result) { assert.equal(result.status, 0, result.stderr || result.stdout); }
 function rejected(result, reason) { assert.notEqual(result.status, 0); assert.match(result.stderr, new RegExp(reason)); }
 
+test("default Make identity is stable across child environments and honors caller identity", (t) => {
+  const f = fixture(t);
+  f.write("Makefile", `${readFileSync(path.join(f.root, "Makefile"), "utf8")}
+ifeq ($(workspace_admitted),yes)
+.PHONY: identity-probe
+identity-probe:
+	@printf '%s\\n' '$(CARTULARY_TEST_RUN_ID)' "$$CARTULARY_TEST_RUN_ID"
+	@printf '%s\\n' '$(CARTULARY_TEST_RUN_ID)' "$$CARTULARY_TEST_RUN_ID"
+endif
+`);
+  for (const [args, environment, expected] of [
+    [[], {}, null], [[], { CARTULARY_TEST_RUN_ID: "inherited-identity" }, "inherited-identity"],
+    [["CARTULARY_TEST_RUN_ID=explicit-identity"], { CARTULARY_TEST_RUN_ID: "inherited-identity" }, "explicit-identity"],
+  ]) {
+    const result = f.run(["identity-probe", ...args], environment); success(result);
+    const identities = result.stdout.trim().split("\n");
+    assert.equal(identities.length, 4, result.stdout);
+    assert.equal(new Set(identities).size, 1, result.stdout);
+    if (expected) assert.equal(identities[0], expected);
+    else assert.match(identities[0], /^\d{8}T\d{6}Z-p\d+$/u);
+  }
+});
+
 test("cleanup input parity and inert preview without runtimes", (t) => {
   const f = fixture(t), utilities = path.join(f.root, "utilities"); mkdirSync(utilities);
   for (const command of ["bash", "env", "make", "git", "flock", "stat", "find", "sort", "sha256sum", "readlink", "rm", "chmod", "dirname"]) symlinkSync(`/usr/bin/${command}`, path.join(utilities, command));

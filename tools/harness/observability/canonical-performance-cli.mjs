@@ -2,6 +2,10 @@
 
 import { chmodSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { parseStrictJSON } from "../contract/strict-json.mjs";
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
+import { validateQualification } from "./qualification/validator.mjs";
+import { manifestSchema as qualificationSchema } from "./qualification/policy.mjs";
 
 import {
   prettyJSONString,
@@ -69,12 +73,24 @@ try {
     process.stdout.write(`[BASELINE] status=${disposition} targets=${built.reference.targets.length}\n`);
   } else if (options.mode === "check") {
     if (!options.evidence) throw new Error("check requires --evidence-roots-file");
+    const selected = parseStrictJSON(readLocalFile(path.resolve(options.evidence), { maximum: 1024 * 1024, privateFile: false }).toString("utf8"));
+    if (selected.schema_id === qualificationSchema) {
+      const result = await validateQualification(path.resolve(options.evidence));
+      for (const workload of result.workloads) for (const cell of workload.cells) {
+        const n = (value) => Number(value.toPrecision(5));
+        const stats = cell.stats ? ` cpu_mean=${n(cell.stats.cpu_mean_percent_one_core)}% cpu_mad=${n(cell.stats.cpu_mad_percent_one_core)}% cpu_error_bound=${n(cell.stats.cpu_error_bound_percent_one_core)}% cpu_upper_diagnostic=${n(cell.stats.cpu_upper_percent_one_core)}% rss_upper_mib=${n(cell.stats.rss_upper_bytes / 1048576)} final_ms=${n(cell.stats.finalization_upper_ms)}` : "";
+        process.stdout.write(`[QUALIFICATION-CELL] workload=${workload.workload} mode=${cell.mode} readers=${cell.readers} eligible=${cell.eligible} passed=${cell.passed}${stats}\n`);
+      }
+      if (!result.passed) throw Object.assign(Error(`instrumentation qualification failed ${result.failures.join(",")}`), { exit_code: 13 });
+      process.stdout.write(`[QUALIFICATION] status=pass workloads=${result.workloads.length}\n`);
+    } else {
     const built = await buildFromManifest(root, path.resolve(options.evidence), surface);
     if (built.manifest.mode !== "comparison") throw new Error("performance check requires mode=comparison evidence");
     if (built.comparison.failures.length > 0) {
       throw Object.assign(new Error(`performance acceptance failed ${built.comparison.failures.join(",")}`), { exit_code: 13 });
     }
     process.stdout.write(`[PERFORMANCE] status=pass targets=${built.comparison.rows.length}\n`);
+    }
   } else if (options.mode === "coverage") {
     const roster = performanceRoster(surface);
     if (!existsSync(baselineFile)) {

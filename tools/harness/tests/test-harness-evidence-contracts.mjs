@@ -9,3 +9,11 @@ import "../observability/tests/test-instrumentation.mjs";
 import "../observability/tests/test-foundation-characterization.mjs";
 
 import "../observability/tests/test-collection-engine.mjs";
+
+import "../observability/tests/test-clock-placement.mjs";
+
+import "../observability/tests/test-container-transport.mjs";
+
+import "../observability/tests/test-wrapper-receipt.mjs";
+
+import "../observability/tests/test-qualification.mjs";

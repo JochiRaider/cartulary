@@ -6,8 +6,17 @@ import { atomicLocalFile, privateDirectory, readLocalFile } from "./secure-local
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 
 export const executionEnabledKey = "CARTULARY_HARNESS_EXECUTION_ENABLED";
-const recordSchema = "cartulary.harness_execution_record.v1";
+const recordSchema = "cartulary.harness_execution_record.v2";
 const digest = (records) => `sha256:${createHash("sha256").update(JSON.stringify(records)).digest("hex")}`;
+
+function encodeObservation(record, maximumBytes, processProof) {
+  const observation = processProof ? { record, process_proof: processProof } : record;
+  // The private envelope validates the complete record reference as well.
+  validateSchemaSync(processProof ? "cartulary.harness_private_launch_observation.v2" : recordSchema, observation);
+  const value = `${JSON.stringify(observation)}\n`;
+  if (Buffer.byteLength(value) > maximumBytes) throw new Error("execution record exceeds bound");
+  return value;
+}
 
 function channel(repoRoot, environment) {
   const runRoot = path.resolve(repoRoot, environment.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results", environment.CARTULARY_TEST_RUN_ID);
@@ -24,12 +33,8 @@ export function executionObservation({ repoRoot, environment }, initial) {
     if (!file) return;
     try {
       if (!open()) return;
-      validateSchemaSync(recordSchema, record);
       processProof ??= proof;
-      const observation = processProof ? { record, process_proof: processProof } : record;
-      if (processProof) validateSchemaSync("cartulary.harness_private_launch_observation.v1", observation);
-      const value = `${JSON.stringify(observation)}\n`;
-      if (Buffer.byteLength(value) > limits.maximum_record_bytes) throw new Error("execution record exceeds bound");
+      const value = encodeObservation(record, limits.maximum_record_bytes, processProof);
       atomicLocalFile(file, value, { replace: true, maximumReplacementBytes: limits.maximum_record_bytes });
     } catch { /* Optional loss leaves the previously published incomplete fact. */ }
   };
@@ -39,14 +44,14 @@ export function executionObservation({ repoRoot, environment }, initial) {
     limits = parseStrictJSON(readLocalFile(path.join(root, "limits.json")).toString("utf8"));
     if (!Number.isInteger(limits.maximum_execution_records) || limits.maximum_execution_records < 1 || limits.maximum_execution_records > 4096 || limits.maximum_record_bytes !== 65536) throw new Error("invalid execution limits");
     if (!open()) return { update() {} };
+    const beginning = encodeObservation(initial, limits.maximum_record_bytes);
     const start = Number.parseInt(randomUUID().slice(0, 8), 16) % limits.maximum_execution_records;
     for (let i = 0; i < limits.maximum_execution_records; i++) {
       const slot = path.join(root, `slot-${(start + i) % limits.maximum_execution_records}`);
-      try { validateSchemaSync(recordSchema, initial); atomicLocalFile(slot, `${JSON.stringify(initial)}\n`); file = slot; break; }
+      try { atomicLocalFile(slot, beginning); file = slot; break; }
       catch (error) { if (error.code !== "EEXIST") throw error; }
     }
     if (!file) { atomicLocalFile(path.join(root, "truncated"), "1\n"); return { update() {} }; }
-    write(initial);
   } catch { /* Observation is independent of execution and required channels. */ }
   return { update: write, token: file ? { slot: path.basename(file), ref: initial.ref } : null };
 }
@@ -61,8 +66,7 @@ export function resumeExecutionObservation({ repoRoot, environment }, token) {
       if (readLocalFile(path.join(root, "open")).toString("utf8") !== "1\n") return;
       const previous = parseStrictJSON(readLocalFile(file).toString("utf8"));
       if (previous.ref !== token.ref || previous.outcome !== "incomplete") return;
-      validateSchemaSync(recordSchema, record);
-      atomicLocalFile(file, `${JSON.stringify(record)}\n`, { replace: true, maximumReplacementBytes: 65536 });
+      atomicLocalFile(file, encodeObservation(record, 65536), { replace: true, maximumReplacementBytes: 65536 });
     } catch { /* Preserve the incomplete beginning on optional publication loss. */ }
   } };
 }
@@ -116,7 +120,7 @@ export function createExecutionSession({ runtime, manifest, policy, runRoot, onP
           try {
             const value = parseStrictJSON(readLocalFile(path.join(root, entry), { maximum: policy.maximum_record_bytes }).toString("utf8"));
             if (value.process_proof) {
-              validateSchemaSync("cartulary.harness_private_launch_observation.v1", value);
+              validateSchemaSync("cartulary.harness_private_launch_observation.v2", value);
               if (value.record.kind !== "launch" || !value.record.launched || value.process_proof.start !== value.process_proof.stat.start) throw new Error("invalid private launch proof");
               record(value.record);
               onProcessProof(value.process_proof, value.record);
@@ -126,7 +130,7 @@ export function createExecutionSession({ runtime, manifest, policy, runRoot, onP
         }
       } catch { partial = true; }
     },
-    publish() {
+    publish(graphClock = null) {
       if (!enabled || published) return;
       this.capture();
       published = true;
@@ -153,10 +157,10 @@ export function createExecutionSession({ runtime, manifest, policy, runRoot, onP
         }
         if (missing.size) { partial = true; omissions = Math.max(omissions, missing.size); }
         if (missing.size > policy.maximum_execution_records) throw new Error("execution reference closure exceeds bound");
-        const index = { schema_id: "cartulary.harness_execution_index.v1", run_id: manifest.run_id,
+        const index = { schema_id: "cartulary.harness_execution_index.v2", run_id: manifest.run_id,
           source_digest: manifest.source_digest, graph_digest: manifest.graph_digest, policy_digest: manifest.instrumentation.policy_digest,
           status: truncated ? "truncated" : partial || retained.some((record) => record.outcome === "incomplete") ? "partial" : "complete", omitted_records: truncated ? null : omissions,
-          omitted_refs: [...missing].sort(), records: retained, records_digest: digest(retained) };
+          graph_clock: graphClock, omitted_refs: [...missing].sort(), records: retained, records_digest: digest(retained) };
         validateSchemaSync(index.schema_id, index);
         const value = `${JSON.stringify(index)}\n`;
         if (Buffer.byteLength(value) > policy.maximum_metadata_bytes) throw new Error("execution index exceeds bound");

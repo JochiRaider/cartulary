@@ -1,3 +1,4 @@
+import { parseStrictJSON } from "../contract/strict-json.mjs";
 import { createReadStream, existsSync, lstatSync } from "node:fs";
 import { createInterface } from "node:readline";
 
@@ -49,7 +50,7 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
       }
       let event;
       try {
-        event = JSON.parse(line);
+        event = parseStrictJSON(line, "canonical event");
       } catch (error) {
         throw new Error(`${file} line ${lineNumber} is invalid JSON: ${error.message}`);
       }

@@ -19,6 +19,31 @@ import { readExecutionIndex } from "../execution-reader.mjs";
 import { instrumentationPolicy } from "../resource-collector.mjs";
 import { activityTiming, beginActivity } from "../../runtime/local-activity.mjs";
 
+test("qualification roster resolves exact public owner rows without changing the frozen treatments", () => {
+  const root = path.resolve(import.meta.dirname, "../../../..");
+  const plan = JSON.parse(readFileSync(path.join(root, "tools/harness_instrumentation_qualification_plan.json"), "utf8"));
+  assert.deepEqual(plan.reader_counts, [0, 1, 4]);
+  assert.deepEqual(plan.modes, ["off", "basic"]);
+  assert.equal(plan.reader_cadence_ms, 30000);
+  assert.equal(plan.memory_cadence_ms, 100);
+  assert.equal(plan.seed, 20261009);
+  assert.deepEqual(plan.steady_fraction, [0.1, 0.9]);
+  assert.deepEqual(plan.budgets, { elapsed_median_percent: 2, elapsed_p90_percent: 3,
+    cpu_mean_percent_one_core: 2.5, steady_rss_bytes: 33554432, finalization_ms: 500 });
+  assert.deepEqual(plan.workloads.map((workload) => workload.id), ["go", "vitest", "shell", "service", "browser"]);
+  const runners = [];
+  for (const workload of plan.workloads) {
+    const family = JSON.parse(readFileSync(path.join(root, `tools/test_families/${workload.owner}.json`), "utf8"));
+    const selected = family.rows.filter((row) => workload.rows.includes(row.row_id));
+    assert.equal(selected.length, 1);
+    assert.equal(selected[0].status, "active");
+    assert.equal(selected[0].owner_id, workload.owner);
+    assert.equal(workload.target === "service-backed-test-slice", selected[0].service_dependencies.length > 0);
+    runners.push(selected[0].runner);
+  }
+  assert.deepEqual(runners, ["go", "vitest", "shell", "go", "playwright"]);
+});
+
 test("local activities retain independent overlapping durations, unavailable clocks and incomplete ends", () => {
   const options = { repoRoot: ".", environment: {}, activity: "report_parse" };
   const tick = (value, identity = "clock:a") => ({ clock: "node_monotonic", clock_identity: identity, resolution_ms: 0.000001, monotonic_ms: value });
@@ -199,7 +224,7 @@ test("canonical phases retain incomplete ends and reject the 129th start", async
 });
 
 test("sample acceptance preserves nullable availability and closed vocabulary", () => {
-  const sample = { schema_id: "cartulary.harness_resource_sample.v1", seq: 1, elapsed_ms: 0,
+  const sample = { schema_id: "cartulary.harness_resource_sample.v2", seq: 1, elapsed_ms: 0,
     segment: 0, scope: "process", scope_ref: "process:1", identity_digest: null,
     availability: "available", metrics: {} };
   for (const availability of ["available", "unsupported", "permission_denied", "not_observed", "process_gone", "counter_reset", "paused_measurement", "truncated", "collector_failed"]) {
@@ -279,17 +304,17 @@ test("foundation generation compiles before publication and rolls back partial i
   const { generateFoundationArtifacts } = await import("../../generated-artifacts/generate-foundation-schema-validators.mjs");
   const { publishGeneratedTransaction } = await import("../../generated-artifacts/generated-transaction.mjs");
   const root = temporary(t), repo = path.resolve(import.meta.dirname, "../../../..");
-  for (const relative of ["tools/schemas", "tools/harness_schema_attachments.json", "tools/harness_instrumentation_definitions.json"]) {
+  for (const relative of ["tools/schemas", "tools/harness_schema_attachments.json", "tools/harness_instrumentation_definitions.json", "tools/task_surface_owner.json", "internal/testutil/harnessdiag/testdata/schema-probes.json"]) {
     mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
     cpSync(path.join(repo, relative), path.join(root, relative), { recursive: true });
   }
   generateFoundationArtifacts(root);
-  const shared = path.join(root, "tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json");
+  const shared = path.join(root, "tools/schemas/cartulary.harness_instrumentation_defs.v2.schema.json");
   const before = readFileSync(shared);
   const catalogFile = path.join(root, "tools/harness_instrumentation_definitions.json");
   const catalog = JSON.parse(readFileSync(catalogFile)); catalog.phases.push("synthetic_phase"); writeFileSync(catalogFile, JSON.stringify(catalog));
   // Catalog is valid, but a dependent foundation schema cannot compile.
-  writeFileSync(path.join(root, "tools/schemas/cartulary.harness_resource_sample.v1.schema.json"), "{");
+  writeFileSync(path.join(root, "tools/schemas/cartulary.harness_resource_sample.v2.schema.json"), "{");
   assert.throws(() => generateFoundationArtifacts(root));
   assert.deepEqual(readFileSync(shared), before);
   const rendered = temporary(t), relative = "tools/transaction-fixture.json";

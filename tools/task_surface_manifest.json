@@ -1416,7 +1416,10 @@
         "$(CYCLONEDX_GOMOD_BIN)",
         "$(SYFT_BIN)",
         "$(SHELLCHECK_BIN)",
-        "playwright-install"
+        "playwright-install",
+        "$(HARNESS_DIAG_BIN)",
+        "$(HARNESS_COLLECT_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ]
     },
     "otel-conformance": {
@@ -1825,7 +1828,8 @@
     },
     "migration-drift": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "rows",
@@ -1874,7 +1878,8 @@
     },
     "migration-scratch-apply": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "rows",
@@ -1995,7 +2000,8 @@
     "test-slice": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "owner",
@@ -2004,7 +2010,8 @@
     "service-backed-test-slice": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "owner",
@@ -2014,7 +2021,8 @@
     "backend-unit": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2023,7 +2031,8 @@
     "backend-store": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2032,7 +2041,8 @@
     "backend-integration": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2041,7 +2051,8 @@
     "backend-integration-support": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2050,7 +2061,8 @@
     "backend-process": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2193,7 +2205,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "node",
       "env": {
@@ -2254,7 +2267,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "node",
       "env": {
@@ -2306,7 +2320,8 @@
     },
     "frontend-unit": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2461,7 +2476,10 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_DIAG_BIN)",
+        "$(HARNESS_COLLECT_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-command-surface-contract",
@@ -2478,7 +2496,10 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_DIAG_BIN)",
+        "$(HARNESS_COLLECT_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-evidence-contract",
@@ -2496,7 +2517,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-contract",
@@ -2540,7 +2562,8 @@
     },
     "format": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2575,7 +2598,8 @@
     },
     "browser-e2e": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2583,7 +2607,8 @@
     },
     "browser-e2e-webserver-backed": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2591,7 +2616,8 @@
     },
     "browser-e2e-support": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2599,7 +2625,8 @@
     },
     "browser-e2e-stateful": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2607,7 +2634,8 @@
     },
     "browser-e2e-resettable": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2615,7 +2643,8 @@
     },
     "browser-e2e-measurement": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2623,7 +2652,8 @@
     },
     "browser-e2e-visual": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2631,7 +2661,8 @@
     },
     "browser-e2e-visual-update": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2640,7 +2671,8 @@
     "test-fast": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -2649,7 +2681,8 @@
     "test": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -2657,7 +2690,8 @@
     },
     "lint": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -2806,7 +2840,8 @@
     "check": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -2832,7 +2867,8 @@
     "ci": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -2844,7 +2880,8 @@
     "release-check": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "aggregate",
@@ -3011,7 +3048,8 @@
     },
     "build": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -3080,7 +3118,8 @@
     },
     "browser-e2e-a11y": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "target",
@@ -3126,7 +3165,8 @@
     },
     "frontend-artifact-consumer-check": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "type": "work_graph",
       "selection": "rows",
@@ -3216,7 +3256,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-contract",
@@ -3231,7 +3272,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-lifecycle",
@@ -3247,7 +3289,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-artifacts",
@@ -3262,7 +3305,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-presentation",
@@ -3277,7 +3321,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-execution",
@@ -3292,7 +3337,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-workflow",
@@ -3307,7 +3353,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-seeded-default",
@@ -3324,7 +3371,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_ADMISSION_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-ui-review-seeded-network-flow-claimed",
@@ -3447,8 +3495,9 @@
       "graph_entry": true
     },
     "test-run-status": {
-      "type": "node_tool",
-      "prerequisites": []
+      "type": "native_tool",
+      "prerequisites": [],
+      "preflight_owner": "entrypoint"
     },
     "go-analysis-dependencies": {
       "prerequisites": [
@@ -11544,10 +11593,12 @@
         "tools/harness/browser/tests/test-ui-review-contract.mjs",
         "tools/harness/diagnostics/vitest-collector.mjs",
         "tools/harness/diagnostics/vitest-observations.mjs",
+        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
         "tools/harness/execution/tests/test-run-vitest-step.sh",
         "tools/harness/execution/tests/test-vitest-diagnostics.mjs",
         "tools/harness/execution/tests/vitest-diagnostic-fixture.mjs",
         "tools/harness/execution/vitest-invocation-cli.mjs",
+        "tools/harness/observability/tests/test-canonical-performance.mjs",
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/runtime/command-failure-cli.mjs",
@@ -11563,15 +11614,14 @@
         "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/contract-tier-cases.mjs",
         "tools/harness/tests/private-child-capture-cases.mjs",
+        "tools/harness/tests/test-agent-finalize.mjs",
+        "tools/harness/tests/test-catalog-metadata-fixtures.mjs",
         "tools/harness/tests/test-command-failure.mjs",
         "tools/harness/tests/test-harness-boundary-contracts.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
-        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
-        "tools/harness/observability/tests/test-canonical-performance.mjs",
-        "tools/harness/tests/test-agent-finalize.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_test_catalog_tests.v2",
       "target_class": "check_internal",
@@ -11613,16 +11663,17 @@
     {
       "name": "harness-evidence-contract",
       "backing_scripts": [
+        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
+        "tools/harness/observability/tests/test-canonical-performance.mjs",
         "tools/harness/tests/contract-catalog-cases.mjs",
         "tools/harness/tests/contract-initialization-cases.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/contract-tier-cases.mjs",
         "tools/harness/tests/private-child-capture-cases.mjs",
-        "tools/harness/tests/test-harness-evidence-contracts.mjs",
-        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
-        "tools/harness/observability/tests/test-canonical-performance.mjs",
-        "tools/harness/tests/test-agent-finalize.mjs"
+        "tools/harness/tests/test-agent-finalize.mjs",
+        "tools/harness/tests/test-catalog-metadata-fixtures.mjs",
+        "tools/harness/tests/test-harness-evidence-contracts.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_evidence_contract.v2",
       "target_class": "check_internal",
@@ -11632,14 +11683,20 @@
     {
       "name": "harness-contract",
       "backing_scripts": [
+        "tools/harness/backend/build-go-artifact.sh",
+        "tools/harness/backend/tests/test-build-go-artifact.sh",
         "tools/harness/browser/tests/test-ui-review-contract.mjs",
         "tools/harness/diagnostics/vitest-collector.mjs",
         "tools/harness/diagnostics/vitest-observations.mjs",
+        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
         "tools/harness/execution/tests/test-run-vitest-step.sh",
         "tools/harness/execution/tests/test-vitest-diagnostics.mjs",
         "tools/harness/execution/tests/vitest-diagnostic-fixture.mjs",
         "tools/harness/execution/vitest-invocation-cli.mjs",
+        "tools/harness/observability/tests/test-canonical-performance.mjs",
         "tools/harness/observability/tests/test-observability.mjs",
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/readiness/tests/test-cache-artifact.sh",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/command-failure.mjs",
@@ -11657,15 +11714,14 @@
         "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/contract-tier-cases.mjs",
         "tools/harness/tests/private-child-capture-cases.mjs",
+        "tools/harness/tests/test-agent-finalize.mjs",
+        "tools/harness/tests/test-catalog-metadata-fixtures.mjs",
         "tools/harness/tests/test-command-failure.mjs",
         "tools/harness/tests/test-harness-boundary-contracts.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
-        "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
-        "tools/harness/observability/tests/test-canonical-performance.mjs",
-        "tools/harness/tests/test-agent-finalize.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -16145,7 +16201,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16297,7 +16353,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16405,7 +16461,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16529,7 +16585,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16653,7 +16709,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16777,7 +16833,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16901,7 +16957,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17014,7 +17070,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17073,7 +17129,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/browser/tests/test-browser-acquisition.mjs",
@@ -17132,7 +17188,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17190,7 +17246,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17248,7 +17304,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17306,7 +17362,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17364,7 +17420,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
@@ -17424,7 +17480,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harness/runtime/lease-lock.mjs",
+        "tools/harnessadmission/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
@@ -18050,8 +18106,9 @@
     {
       "name": "test-run-status",
       "backing_scripts": [
-        "tools/harness/diagnostics/test-run-status-cli.mjs",
-        "tools/harness/diagnostics/run-observation.mjs"
+        "tools/harnessdiag/main.go",
+        "internal/testutil/harnessdiag/command.go",
+        "internal/testutil/harnessdiag/observation.go"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -18368,6 +18425,7 @@
         "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh",
         "tools/harness/readiness/tests/test-frontend-install-self-hosting.sh",
         "tools/harness/contract/tests/test-foundation-schema-validator.mjs",
+        "tools/harness/generated-artifacts/schema-validator-compiler.mjs",
         "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs"
       ]
     },

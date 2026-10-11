@@ -15,12 +15,11 @@ export {
   secureMkdir,
   secureWriteFile,
 } from "./artifact-writer.mjs";
-import { secureDirMode, secureMkdir, secureWriteFile } from "./artifact-writer.mjs";
+import { secureMkdir, secureWriteFile } from "./artifact-writer.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const requireFromHarness = createRequire(import.meta.url);
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-const schemasDir = path.join(repoRoot, "tools", "schemas");
 const redactionManifestPath = path.join(
   repoRoot,
   "tools",
@@ -281,11 +280,12 @@ function isProtectedRepoPath(resolved) {
 function assertNoSymlinkAncestor(resolved, name) {
   let current = path.resolve(resolved);
   while (current !== path.dirname(current)) {
-    if (existsSync(current)) {
-      const info = lstatSync(current);
-      if (info.isSymbolicLink()) {
-        throw new HarnessConfigError(`${name} must not resolve through a symlink`);
-      }
+    let info;
+    try { info = lstatSync(current); } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    if (info?.isSymbolicLink()) {
+      throw new HarnessConfigError(`${name} must not resolve through a symlink`);
     }
     current = path.dirname(current);
   }
@@ -473,6 +473,7 @@ function isWorldWritableWithoutSticky(stat) {
 }
 
 function validateResultRootSecurity(resolved, { custom = false } = {}) {
+  assertNoSymlinkAncestor(resolved, "CARTULARY_TEST_RESULTS_DIR");
   const parent = path.dirname(resolved);
   const existing = existsSync(resolved) ? resolved : parent;
   if (!existsSync(existing)) {
@@ -490,8 +491,8 @@ function validateResultRootSecurity(resolved, { custom = false } = {}) {
   if (custom) {
     return;
   }
-  if (existsSync(resolved) && statSync(resolved).isDirectory()) {
-    secureMkdir(resolved, secureDirMode);
+  if (existing === resolved && process.getuid && stat.uid !== process.getuid()) {
+    throw new HarnessConfigError(`CARTULARY_TEST_RESULTS_DIR ownership mismatch: ${resolved}`);
   }
 }
 
@@ -1288,10 +1289,9 @@ function loadRedactionManifest() {
 }
 
 let redactionRules = null;
-const syncValidatorCache = new Map();
 let foundationValidatorRegistry = null;
 
-function foundationValidator(schemaID) {
+function compiledValidator(schemaID) {
   if (foundationValidatorRegistry === null) {
     const generated = requireFromHarness(
       "./generated/foundation-schema-validators.cjs",
@@ -1458,83 +1458,16 @@ function timingSafeTokenEqual(left, right) {
   return timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+// Schema compilation is a generation responsibility. Both public validation
+// forms use the same lazy registry and reject unregistered schema identities.
 export async function validateSchema(schemaID, value) {
-  const { default: Ajv } = await import("ajv/dist/2020.js");
-  const schema = loadSchema(schemaID);
-  const ajv = new Ajv({
-    allErrors: true,
-    strict: false,
-    validateFormats: false,
-    validateSchema: true,
-  });
-  for (const supportSchema of supportSchemaFiles(schemaID)) {
-    const loaded = JSON.parse(readFileSync(supportSchema, "utf8"));
-    ajv.addSchema(loaded, loaded.$id);
-  }
-  const validate = ajv.compile(schema);
-  if (!validate(value)) {
-    const details = ajv.errorsText(validate.errors, { separator: "\n  " });
-    throw new Error(`${schemaID} validation failed:\n  ${details}`);
-  }
+  validateSchemaSync(schemaID, value);
 }
 
 export function validateSchemaSync(schemaID, value) {
-  const foundation = foundationValidator(schemaID);
-  if (foundation) {
-    if (!foundation(value)) {
-      throw new Error(
-        `${schemaID} validation failed:\n  ${standaloneErrorText(foundation.errors)}`,
-      );
-    }
-    return;
-  }
-  if (syncValidatorCache.has(schemaID)) {
-    const cached = syncValidatorCache.get(schemaID);
-    if (!cached(value)) {
-      const details = cached.ajv.errorsText(cached.errors, { separator: "\n  " });
-      throw new Error(`${schemaID} validation failed:\n  ${details}`);
-    }
-    return;
-  }
-  const Ajv = requireFromHarness("ajv/dist/2020");
-  const schema = loadSchema(schemaID);
-  const ajv = new Ajv({
-    allErrors: true,
-    strict: false,
-    validateFormats: false,
-    validateSchema: true,
-  });
-  for (const supportSchema of supportSchemaFiles(schemaID)) {
-    const loaded = JSON.parse(readFileSync(supportSchema, "utf8"));
-    ajv.addSchema(loaded, loaded.$id);
-  }
-  const validate = ajv.compile(schema);
-  validate.ajv = ajv;
-  syncValidatorCache.set(schemaID, validate);
+  const validate = compiledValidator(schemaID);
+  if (!validate) throw new Error(`unregistered schema attachment ${schemaID}`);
   if (!validate(value)) {
-    const details = ajv.errorsText(validate.errors, { separator: "\n  " });
-    throw new Error(`${schemaID} validation failed:\n  ${details}`);
+    throw new Error(`${schemaID} validation failed:\n  ${standaloneErrorText(validate.errors)}`);
   }
-}
-
-function schemaFileName(schemaID) {
-  return `${schemaID}.schema.json`;
-}
-
-function loadSchema(schemaID) {
-  const file = path.join(schemasDir, schemaFileName(schemaID));
-  if (!existsSync(file)) {
-    throw new Error(`missing schema attachment ${file}`);
-  }
-  return JSON.parse(readFileSync(file, "utf8"));
-}
-
-function supportSchemaFiles(schemaID) {
-  if (!existsSync(schemasDir)) {
-    return [];
-  }
-  return readdirSync(schemasDir)
-    .filter((name) => name.endsWith(".schema.json"))
-    .filter((name) => name !== schemaFileName(schemaID))
-    .map((name) => path.join(schemasDir, name));
 }

@@ -23,6 +23,6 @@ ifeq ($(workspace_admitted),no)
 .DEFAULT_GOAL := workspace-admission
 .PHONY: workspace-admission $(MAKECMDGOALS)
 workspace-admission:
-	+@bash tools/harness/workspace/admission.sh run -- $(MAKE) --no-print-directory $(foreach goal,$(MAKECMDGOALS),$(call workspace_shell_quote,$(goal)))
+	+@HARNESS_DIAGNOSTICS=$(call workspace_shell_quote,$(HARNESS_DIAGNOSTICS)) bash tools/harness/workspace/admission.sh run -- $(MAKE) --no-print-directory $(foreach goal,$(MAKECMDGOALS),$(call workspace_shell_quote,$(goal)))
 $(MAKECMDGOALS): workspace-admission ; @:
 endif

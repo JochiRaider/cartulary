@@ -1,3 +1,4 @@
+import { nativeTool } from "../../command-surface/native-tools.mjs";
 import { hasMakeNodeTool } from "../../command-surface/make-node-tools.mjs";
 import { resolveSummaryGroups } from "../../execution/summary-topology.mjs";
 import { readJSON, repoRoot } from "./model.mjs";
@@ -36,6 +37,7 @@ const makeRecipeValidators = Object.freeze({
   owner_command: validateOwnerCommandRecipe,
   summary_target: validateSummaryTargetRecipe,
   node_tool: validateNodeToolRecipe,
+  native_tool: validateNativeToolRecipe,
 });
 const validMakeRecipeTypes = new Set(Object.keys(makeRecipeValidators));
 function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
@@ -171,6 +173,9 @@ export function validateMakeRecipes(errors, targets, sequences, recipes) {
       if (recipe.type === "work_graph") {
         errors.push(`${label}.graph_entry is redundant for work_graph recipes`);
       }
+    }
+    if (recipe.preflight_owner !== undefined && (recipe.type !== "native_tool" || recipe.preflight_owner !== "entrypoint")) {
+      errors.push(`${label}.preflight_owner must select a native read-only entrypoint`);
     }
     validateMakeExports(errors, recipe.exports, `${label}.exports`);
     if (recipe.exports?.CARTULARY_TEST_TARGET !== undefined) {
@@ -408,7 +413,13 @@ function validateSummaryTargetRecipe({ errors, recipe, label, targets }) {
   }
 }
 
-function validateNodeToolRecipe({ errors, target, label, helpers }) {
+function validateNativeToolRecipe({ errors, target, label, recipe, targets }) {
+  const entry = targets.get(target);
+  if (!nativeTool(target) || recipe.preflight_owner !== "entrypoint" || recipe.prerequisites.length !== 0 || entry?.target_class !== "public" || entry.output_policy?.artifact_policy !== "none" || !entry.side_effects?.every((effect) => effect.class === "none")) errors.push(`${label} requires an explicitly capable public read-only entrypoint`);
+}
+
+function validateNodeToolRecipe({ errors, target, label, helpers, recipe, targets }) {
+  if (recipe?.preflight_owner !== undefined) errors.push(`${label} requires an explicitly capable public read-only entrypoint`);
   if (!helpers.hasMakeNodeTool(target)) {
     errors.push(`${label} has no tools/harness/command-surface/make-node-tools.mjs registry entry`);
   }

@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_resource_index.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_resource_index.v3"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial",
+        "truncated",
+        "unsupported",
+        "collector_failed"
+      ]
+    },
+    "clock": {
+      "const": "graph_process_monotonic"
+    },
+    "coverage": {
+      "const": "observed_partial"
+    },
+    "samples": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sample_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sample_digest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "omitted_observations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "discovery_truncations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed_sweeps": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sweeps": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "processes": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "process_ref": {
+            "type": "string",
+            "pattern": "^process:[1-9][0-9]*$"
+          },
+          "identity_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "process_ref",
+          "identity_digest"
+        ]
+      }
+    },
+    "observer": {
+      "$ref": "cartulary.harness_instrumentation_defs.v2#/$defs/observer"
+    },
+    "containers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "identities",
+        "omitted_observations",
+        "deadline_overruns"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "not_observed",
+            "available",
+            "unsupported",
+            "collector_failed"
+          ]
+        },
+        "identities": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "container_ref",
+              "identity_digest",
+              "allocation_ref",
+              "ownership"
+            ],
+            "properties": {
+              "container_ref": {
+                "type": "string",
+                "pattern": "^container:[1-9][0-9]*$"
+              },
+              "identity_digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "allocation_ref": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[A-Za-z0-9_.:/-]+$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "ownership": {
+                "enum": [
+                  "owned",
+                  "borrowed"
+                ]
+              }
+            }
+          }
+        },
+        "omitted_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deadline_overruns": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "required": [
+    "schema_id",
+    "run_id",
+    "source_digest",
+    "graph_digest",
+    "policy_digest",
+    "status",
+    "clock",
+    "coverage",
+    "samples",
+    "sample_bytes",
+    "sample_digest",
+    "omitted_observations",
+    "discovery_truncations",
+    "failed_sweeps",
+    "sweeps",
+    "processes",
+    "observer",
+    "containers"
+  ]
+}

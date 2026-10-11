@@ -5,7 +5,7 @@ export function createResourceAccumulator({ signals = instrumentationSignals } =
   let simultaneousTime = null, simultaneousRSS = 0, maximumSimultaneousRSS = 0, rssObserved = false;
   const consume = (record, roster) => {
     if (!scopes.has(record.scope_ref)) {
-      if (scopes.size >= 4120) throw new Error("resource scope limit exceeded");
+      if (scopes.size >= 4376) throw new Error("resource scope limit exceeded");
       scopes.set(record.scope_ref, { scope_ref: record.scope_ref, scope: record.scope,
         unit_id: roster.get(record.scope_ref)?.unit_id ?? null, allocation_ref: roster.get(record.scope_ref)?.allocation_ref ?? null, samples: 0, unavailable: 0,
         resets: 0, metrics: {}, previous: new Map(), previousCPU: null, cpuDelta: 0, cpuInterval: 0, attributedCPU: null });
@@ -55,7 +55,10 @@ export function createResourceAccumulator({ signals = instrumentationSignals } =
     const rows = [...scopes.values()].map(({ previous: _previous, previousCPU: _previousCPU, cpuDelta, cpuInterval, ...scope }) => {
       // Equal accumulated durations do not prove that user/system counters cover
       // the same windows. Derive utilization only from jointly observed pairs.
-      return { ...scope, cpu_percent_one_core: cpuInterval > 0 ? 100 * cpuDelta / (cpuInterval * 1000) : null };
+      const containerCPU = scope.metrics.container_cpu_us;
+      return { ...scope, cpu_percent_one_core: scope.scope === "container"
+        ? containerCPU?.observed_interval_ms > 0 ? 100 * containerCPU.observed_delta / (containerCPU.observed_interval_ms * 1000) : null
+        : cpuInterval > 0 ? 100 * cpuDelta / (cpuInterval * 1000) : null };
     }).sort((a, b) => (b.metrics.cpu_user_us?.observed_delta ?? 0) - (a.metrics.cpu_user_us?.observed_delta ?? 0) || a.scope_ref.localeCompare(b.scope_ref));
     const unitCPU = new Map();
     for (const scope of rows) {

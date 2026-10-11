@@ -35,7 +35,7 @@ func TestMigrationActivityPrivatePublicationAndShutdown(t *testing.T) {
 	write("execution-observations/open", "1\n")
 	write("execution-observations/limits.json", `{"maximum_execution_records":1,"maximum_record_bytes":65536}`)
 	finish := migrationObservation()
-	finish(7500*time.Microsecond, "failed")
+	finish(time.Now(), 7500*time.Microsecond, "failed")
 	bytes, err := os.ReadFile(filepath.Join(root, "execution-observations/slot-0"))
 	if err != nil {
 		t.Fatal(err)
@@ -44,12 +44,16 @@ func TestMigrationActivityPrivatePublicationAndShutdown(t *testing.T) {
 	if json.Unmarshal(bytes, &record) != nil || record["outcome"] != "failed" || record["duration_ms"] != 7.5 {
 		t.Fatalf("bad activity: %s", bytes)
 	}
-	migrationObservation()(time.Second, "passed")
+
+	if len(record["anchors"].([]any)) != 2 || record["local_start_ms"] == nil || record["local_end_ms"].(float64)-record["local_start_ms"].(float64) < 7.49999 {
+		t.Fatal("missing producer clock coordinates", record)
+	}
+	migrationObservation()(time.Now(), time.Second, "passed")
 	if _, err := os.Stat(filepath.Join(root, "execution-observations/truncated")); err != nil {
 		t.Fatal("missing cap exhaustion marker", err)
 	}
 	write("execution-observations/open", "0\n")
-	finish(time.Second, "passed")
+	finish(time.Now(), time.Second, "passed")
 	after, _ := os.ReadFile(filepath.Join(root, "execution-observations/slot-0"))
 	if string(after) != string(bytes) {
 		t.Fatal("late completion changed retained private fact")
@@ -68,9 +72,9 @@ func TestMigrationActivityMeasuresOnlyOperationAndRetainsFailure(t *testing.T) {
 				t.Fatal("operation started before incomplete publication")
 			}
 			return failure
-		}, now, func() func(time.Duration, string) {
+		}, now, func() func(time.Time, time.Duration, string) {
 			observed = true
-			return func(d time.Duration, status string) { duration, outcome = d, status }
+			return func(_ time.Time, d time.Duration, status string) { duration, outcome = d, status }
 		})
 		want := "passed"
 		if failure != nil {
@@ -91,9 +95,9 @@ func TestMigrationActivityFatalExitRetainsIncompleteBeginning(t *testing.T) {
 	go func() {
 		defer close(done)
 		_, _ = measureMigration(context.Background(), func() error { runtime.Goexit(); return nil }, time.Now,
-			func() func(time.Duration, string) {
+			func() func(time.Time, time.Duration, string) {
 				started = true
-				return func(time.Duration, string) { finished = true }
+				return func(time.Time, time.Duration, string) { finished = true }
 			})
 	}()
 	<-done

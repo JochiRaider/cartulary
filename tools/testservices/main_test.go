@@ -19,6 +19,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/leaseproof"
+
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -103,7 +105,7 @@ func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
 		deps := defaultTestDependencies(t)
 		env := cloneEnv(deps.env)
 		env[suiteservices.SuiteIDEnv] = "suite-redaction"
-		lease := serviceLease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", OwnershipMode: "attach"}
+		lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", OwnershipMode: "attach"}
 		payload, err := json.Marshal(lease)
 		if err != nil {
 			t.Fatal(err)
@@ -130,7 +132,7 @@ func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
 	}
 	// Attached services exercise terminal publication without owning a Docker
 	// resource. Real owned-service termination uses the same publication path.
-	lease := serviceLease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", OwnershipMode: "attach"}
+	lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", OwnershipMode: "attach"}
 	payload, err := json.Marshal(lease)
 	if err != nil {
 		t.Fatal(err)
@@ -178,10 +180,10 @@ func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T
 			containerID: "postgres-container",
 			image:       "postgres:test",
 			labels: map[string]string{
-				testServiceLabelManaged: testServiceManagedValue,
-				testServiceLabelSuiteID: "suite-redaction",
-				testServiceLabelRunID:   "wrapper-tests",
-				testServiceLabelService: suiteservices.ServicePostgres,
+				leaseproof.LabelManaged: leaseproof.ManagedValue,
+				leaseproof.LabelSuiteID: "suite-redaction",
+				leaseproof.LabelRunID:   "wrapper-tests",
+				leaseproof.LabelService: suiteservices.ServicePostgres,
 			},
 			close: func(context.Context) error {
 				postgresClosed++
@@ -197,10 +199,10 @@ func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T
 			containerID: "object-store-container",
 			image:       "object-store:test",
 			labels: map[string]string{
-				testServiceLabelManaged: testServiceManagedValue,
-				testServiceLabelSuiteID: "suite-redaction",
-				testServiceLabelRunID:   "wrapper-tests",
-				testServiceLabelService: suiteservices.ServiceObjectStore,
+				leaseproof.LabelManaged: leaseproof.ManagedValue,
+				leaseproof.LabelSuiteID: "suite-redaction",
+				leaseproof.LabelRunID:   "wrapper-tests",
+				leaseproof.LabelService: suiteservices.ServiceObjectStore,
 			},
 			close: func(context.Context) error {
 				objectStoreClosed++
@@ -1573,10 +1575,10 @@ func TestPreviousSuiteContainerCleanupRequiresTerminalOwnershipProofRegardlessOf
 		ID:      "completed-container",
 		Created: now.Add(-time.Minute).Unix(),
 		Labels: map[string]string{
-			testServiceLabelManaged: testServiceManagedValue,
-			testServiceLabelSuiteID: "completed-suite",
-			testServiceLabelRunID:   "completed-run",
-			testServiceLabelService: suiteservices.ServicePostgres,
+			leaseproof.LabelManaged: leaseproof.ManagedValue,
+			leaseproof.LabelSuiteID: "completed-suite",
+			leaseproof.LabelRunID:   "completed-run",
+			leaseproof.LabelService: suiteservices.ServicePostgres,
 		},
 	}
 	if !previousSuiteContainerCleanupEligible(activeEnv, completedContainer) {
@@ -1587,10 +1589,10 @@ func TestPreviousSuiteContainerCleanupRequiresTerminalOwnershipProofRegardlessOf
 		ID:      "active-container",
 		Created: now.Add(-time.Hour).Unix(),
 		Labels: map[string]string{
-			testServiceLabelManaged: testServiceManagedValue,
-			testServiceLabelSuiteID: "active-suite",
-			testServiceLabelRunID:   "wrapper-tests",
-			testServiceLabelService: suiteservices.ServicePostgres,
+			leaseproof.LabelManaged: leaseproof.ManagedValue,
+			leaseproof.LabelSuiteID: "active-suite",
+			leaseproof.LabelRunID:   "wrapper-tests",
+			leaseproof.LabelService: suiteservices.ServicePostgres,
 		},
 	}
 	if previousSuiteContainerCleanupEligible(activeEnv, activeContainer) {
@@ -1601,10 +1603,10 @@ func TestPreviousSuiteContainerCleanupRequiresTerminalOwnershipProofRegardlessOf
 		ID:      "stale-container",
 		Created: now.Add(-(10 * time.Minute) - time.Second).Unix(),
 		Labels: map[string]string{
-			testServiceLabelManaged: testServiceManagedValue,
-			testServiceLabelSuiteID: "stale-suite",
-			testServiceLabelRunID:   "stale-run",
-			testServiceLabelService: suiteservices.ServiceObjectStore,
+			leaseproof.LabelManaged: leaseproof.ManagedValue,
+			leaseproof.LabelSuiteID: "stale-suite",
+			leaseproof.LabelRunID:   "stale-run",
+			leaseproof.LabelService: suiteservices.ServiceObjectStore,
 		},
 	}
 	if previousSuiteContainerCleanupEligible(activeEnv, staleContainer) {
@@ -1621,8 +1623,8 @@ func TestPreviousSuiteContainerCleanupRequiresTerminalOwnershipProofRegardlessOf
 	persistentContainer := staleContainer
 	persistentContainer.ID = "persistent-container"
 	persistentContainer.Labels = cloneEnv(staleContainer.Labels)
-	persistentContainer.Labels[testServiceLabelSessionID] = "0123456789abcdef01234567"
-	persistentContainer.Labels[testServiceLabelSessionExpiresAt] = now.Add(-time.Hour).Format(time.RFC3339Nano)
+	persistentContainer.Labels[leaseproof.LabelSessionID] = "0123456789abcdef01234567"
+	persistentContainer.Labels[leaseproof.LabelSessionExpiresAt] = now.Add(-time.Hour).Format(time.RFC3339Nano)
 	if previousSuiteContainerCleanupEligible(activeEnv, persistentContainer) {
 		t.Fatal("ordinary stale-suite cleanup must not own persistent session containers")
 	}
@@ -1637,10 +1639,10 @@ func completedSuiteContainer(deps dependencies, env map[string]string, id string
 		ID:      id,
 		Created: now.Add(-(10 * time.Minute) - time.Second).Unix(),
 		Labels: map[string]string{
-			testServiceLabelManaged: testServiceManagedValue,
-			testServiceLabelSuiteID: "stale-suite",
-			testServiceLabelRunID:   "stale-run",
-			testServiceLabelService: suiteservices.ServicePostgres,
+			leaseproof.LabelManaged: leaseproof.ManagedValue,
+			leaseproof.LabelSuiteID: "stale-suite",
+			leaseproof.LabelRunID:   "stale-run",
+			leaseproof.LabelService: suiteservices.ServicePostgres,
 		},
 	}
 }
@@ -1702,10 +1704,10 @@ func TestCleanupPreviousSuiteServiceContainersAcceptsConcurrentRemoval(t *testin
 			ID:      "fc621a862739f3b8c8a8fe32207ce9e7c9e9543f677377d0eb10dcf4e806ffc3",
 			Created: now.Add(-(10 * time.Minute) - time.Second).Unix(),
 			Labels: map[string]string{
-				testServiceLabelManaged: testServiceManagedValue,
-				testServiceLabelSuiteID: "stale-suite",
-				testServiceLabelRunID:   "stale-run",
-				testServiceLabelService: suiteservices.ServicePostgres,
+				leaseproof.LabelManaged: leaseproof.ManagedValue,
+				leaseproof.LabelSuiteID: "stale-suite",
+				leaseproof.LabelRunID:   "stale-run",
+				leaseproof.LabelService: suiteservices.ServicePostgres,
 			},
 		}},
 		removeErrs: map[string]error{
@@ -1836,7 +1838,7 @@ func TestCleanupPreviousSuiteServiceContainersRequiresOwnershipProof(t *testing.
 	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	unproven := completedSuiteContainer(deps.dependencies, activeEnv, "unproven-container", now)
-	delete(unproven.Labels, testServiceLabelSuiteID)
+	delete(unproven.Labels, leaseproof.LabelSuiteID)
 	cli := &fakeSuiteContainerClient{
 		items: []dockercontainer.Summary{unproven},
 	}
@@ -1885,10 +1887,10 @@ func TestCleanupPreviousSuiteServiceContainersSkipsCurrentSuite(t *testing.T) {
 			ID:      "active-container",
 			Created: now.Add(-(10 * time.Minute) - time.Hour).Unix(),
 			Labels: map[string]string{
-				testServiceLabelManaged: testServiceManagedValue,
-				testServiceLabelSuiteID: "active-suite",
-				testServiceLabelRunID:   "wrapper-tests",
-				testServiceLabelService: suiteservices.ServicePostgres,
+				leaseproof.LabelManaged: leaseproof.ManagedValue,
+				leaseproof.LabelSuiteID: "active-suite",
+				leaseproof.LabelRunID:   "wrapper-tests",
+				leaseproof.LabelService: suiteservices.ServicePostgres,
 			},
 		}},
 	}
@@ -1918,10 +1920,10 @@ func TestCleanupPreviousSuiteServiceContainersReportsFatalRemove(t *testing.T) {
 			ID:      "fatal-container",
 			Created: now.Add(-(10 * time.Minute) - time.Second).Unix(),
 			Labels: map[string]string{
-				testServiceLabelManaged: testServiceManagedValue,
-				testServiceLabelSuiteID: "stale-suite",
-				testServiceLabelRunID:   "stale-run",
-				testServiceLabelService: suiteservices.ServicePostgres,
+				leaseproof.LabelManaged: leaseproof.ManagedValue,
+				leaseproof.LabelSuiteID: "stale-suite",
+				leaseproof.LabelRunID:   "stale-run",
+				leaseproof.LabelService: suiteservices.ServicePostgres,
 			},
 		}},
 		removeErrs: map[string]error{"fatal-container": errors.New("permission denied")},

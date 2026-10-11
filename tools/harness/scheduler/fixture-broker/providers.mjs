@@ -11,6 +11,7 @@ import { atomicLocalFile, readLocalFile, removePrivateFile } from "../../runtime
 import { createAcquisitionLaunch, closeAcquisitionLaunch, recordAcquisitionProcess, createBrowserAcquisition, settleBrowserAcquisition, browserAcquisitionLaunchArguments } from "../adapters/browser.mjs";
 
 import {
+  parseStrictJSON,
   normalizeFailureClass,
   normalizeFailureReason,
   validateSchemaSync,
@@ -344,6 +345,7 @@ export function startManagedSuite({
   environment = {},
   executable: configuredExecutable,
   executableArgs = [],
+  onContainerProof = () => {},
   onOwnedResource = () => {},
 }) {
   const suiteRoot = suiteRuntime.privatePath("test-services");
@@ -521,12 +523,15 @@ export function startManagedSuite({
     } catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
     throw error;
   }
+  try { onContainerProof({ lease: parseStrictJSON(readLocalFile(path.join(suiteRoot, "service-lease.json")).toString("utf8")),
+    ownership: "owned", borrower_file: "", borrower_id: "" }); } catch { /* Optional observation cannot change acquisition. */ }
   return {
     environment: suiteEnvironment,
     leaseFile,
     executable,
     close() {
       if (closed) return;
+      try { onContainerProof(null); } catch { /* Revocation is observational. */ }
       terminateManagedSuiteLease({ root, executable, leaseFile, environment: { ...environment, ...suiteEnvironment }, retainProof: true });
       acknowledgeRelease(onOwnedResource, "managed_suite", leaseFile);
       closed = true;

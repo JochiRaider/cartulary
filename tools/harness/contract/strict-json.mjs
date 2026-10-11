@@ -75,19 +75,18 @@ export function parseStrictJSON(source, label = "JSON") {
   }
 
   function parseArray() {
-    const result = [];
     offset += 1;
     skipWhitespace();
     if (source[offset] === "]") {
       offset += 1;
-      return result;
+      return;
     }
     while (offset < source.length) {
-      result.push(parseValue());
+      parseValue();
       skipWhitespace();
       if (source[offset] === "]") {
         offset += 1;
-        return result;
+        return;
       }
       if (source[offset] !== ",") {
         fail("array requires ',' or ']'");
@@ -99,13 +98,12 @@ export function parseStrictJSON(source, label = "JSON") {
   }
 
   function parseObject() {
-    const result = {};
     const keys = new Set();
     offset += 1;
     skipWhitespace();
     if (source[offset] === "}") {
       offset += 1;
-      return result;
+      return;
     }
     while (offset < source.length) {
       if (source[offset] !== '"') {
@@ -121,11 +119,11 @@ export function parseStrictJSON(source, label = "JSON") {
         fail("object key requires ':'");
       }
       offset += 1;
-      result[key] = parseValue();
+      parseValue();
       skipWhitespace();
       if (source[offset] === "}") {
         offset += 1;
-        return result;
+        return;
       }
       if (source[offset] !== ",") {
         fail("object requires ',' or '}'");
@@ -161,10 +159,13 @@ export function parseStrictJSON(source, label = "JSON") {
     return parseNumber();
   }
 
-  const value = parseValue();
+  // This pass enforces duplicate-member and I-JSON rules without building a
+  // second object graph. Native JSON construction defines every member as an
+  // own data property, including __proto__, without invoking prototype setters.
+  parseValue();
   skipWhitespace();
   if (offset !== source.length) {
     fail("unexpected trailing content");
   }
-  return value;
+  return JSON.parse(source);
 }

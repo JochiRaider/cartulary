@@ -1048,6 +1048,15 @@ NLSpec revision before a catalog or runner implementation may admit it.
 
 Playwright stage is exactly one of `webserver_backed`, `stateful`, `support`, `visual`, `accessibility`, or `measurement`. Before setup, selector validation MUST reject zero resolution, multiple resolution, overlap between active rows, globs, regular expressions, missing paths, symlink escape, paths outside approved roots, and shell command IDs absent from the task-surface registry.
 
+Public graph preflight and complete catalog checks MUST resolve the full catalog
+and reject overlapping selectors before setup. Private row-runner children MUST
+validate current typed catalog metadata and every requested row identity, then
+resolve the selected source selectors before launching their adapter. They need
+not repeat unrelated source discovery already owned by public preflight. This
+selected-row operation MUST retain all source/path checks, reject an invalid
+selection as a whole, return only selected rows, and MUST NOT publish a complete
+catalog validation report. No caller-controlled validation bypass is permitted.
+
 A later runner requires an adopted runner-registry and NLSpec revision, selector and result schemas, an allowlisted checked-in adapter, and positive and negative contract fixtures. Dynamic package, plugin, or executable loading is outside the current profile.
 Verified by: TH-HARNESS-AC-063, TH-HARNESS-AC-067
 
@@ -5322,7 +5331,7 @@ Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-111
 **TH-HARNESS-REQ-830**
 Graph-backed public targets MUST accept command-line-only
 `HARNESS_DIAGNOSTICS=off|basic`, default `off`. The immutable manifest MUST record
-mode and the semantic digest of `cartulary.harness_instrumentation_policy.v2`, authored at
+mode and the semantic digest of `cartulary.harness_instrumentation_policy.v3`, authored at
 `tools/harness_instrumentation_policy.json`. The harness
 MUST strip this input from application and browser environments. Instrumentation
 MUST NOT change selection, assertions, scheduling policy, claims, retries,
@@ -5381,13 +5390,19 @@ completeness is `complete`, `partial`, `truncated`, `unsupported`, or
 `collector_failed`; even complete collection has `observed_partial` process-tree
 coverage. Resets invalidate deltas;
 no interpolation may cross identity changes, missing observations or quiet periods.
-The collector MUST report its CPU, heap, reads/writes, samples, omissions,
-artifact volume and shutdown cost. `observer.heap_peak_bytes` denotes the largest
-sampled worker heap value, not a runtime high-water mark. Worker CPU counters
-cover collection after module initialization; `gate_cpu=not_observed` explicitly
-excludes admission-helper subprocesses. Read/write byte counts cover sampled
-counter text and sample records. Internal shutdown time excludes final index
-publication; the surrounding envelope owns the parent-observed stop duration.
+The collector MUST report component CPU, JavaScript heap, reads/writes, samples,
+omissions, artifact volume and shutdown cost. The v3 index's
+`collector_thread_cpu_user_us` and `collector_thread_cpu_system_us` cover its
+collection thread; other runtime threads and startup outside that thread remain
+outside component accounting. `collector_js_heap_peak_bytes` denotes the largest
+sampled collector JavaScript heap, not process RSS or a runtime high-water mark;
+a collector without a JavaScript runtime reports zero for this actual absent heap.
+Native heap memory MUST NOT be renamed JavaScript heap. Read/write byte counts
+cover sampled counter text and sample records. Internal shutdown time excludes
+final index publication; the surrounding envelope owns the parent-observed stop
+duration. `qualification=component_diagnostic_only` and
+`outside_component_accounting=startup_parent_helpers_readers_publication` preserve
+these limits; complete externally supervised CPU and memory remain authoritative.
 These partial self-counters MUST NOT alone qualify the total observer CPU, I/O,
 steady-memory or finalization budget. Matched external measurements and their
 coverage limits remain necessary. Basic collection MUST obey host measurement
@@ -5399,11 +5414,11 @@ Resource samples MUST be separately owned optional diagnostics, not canonical
 lifecycle events. `diagnostics/resource-samples.ndjson` and terminal
 `diagnostics/resource-index.json` MUST use versioned schemas, bounded streaming
 readers, run/source/graph/policy correlation, secure owner-only retention and atomic
-publication under `cartulary.harness_resource_sample.v1` and
-`cartulary.harness_resource_index.v2`. Live detail uses
+publication under `cartulary.harness_resource_sample.v2` and
+`cartulary.harness_resource_index.v3`. Live detail uses
 `cartulary.harness_resource_live.v1`; explanation uses
-`cartulary.harness_performance_explanation.v2`; the surrounding envelope uses
-`cartulary.harness_invocation_envelope.v1`. Private staging MUST NOT be a public
+`cartulary.harness_performance_explanation.v3`; the surrounding envelope uses
+`cartulary.harness_invocation_envelope.v2`. Private staging MUST NOT be a public
 read surface. Publication may
 be partial with exact known omissions; absent publication is unavailable.
 Collector/counter failure, cancellation, buffer limits or full disk MUST preserve
@@ -5428,9 +5443,10 @@ The canonical boundary in TH-HARNESS-REQ-283 is unchanged. An optional
 `diagnostics/invocation-envelope.json` MUST name its independently measured
 surrounding-work boundary and exclusions and MUST NOT feed canonical performance
 gates. Graph-entry preparation and publication may be measured before full wrapper
-coverage is available. UTC subtraction MUST NOT supply elapsed durations. A
-post-scan receipt is outside this amendment until independently adopted; collection
-MUST stop and publish before the retained-secret scan. Export remains explicit
+coverage is available. UTC subtraction MUST NOT supply elapsed durations.
+Collection MUST stop and publish before the retained-secret scan. REQ-847
+adopts the sole optional terminal-receipt exception; it does not reopen ordinary
+producer publication. Export remains explicit
 post-run only, under the existing metric/attribute registry; resource samples MUST
 remain local. No application telemetry SDK or inherited exporter configuration is
 permitted.
@@ -5452,8 +5468,8 @@ observations, and MUST disclose 10 ms quantization. UTC timestamps are not a
 duration source. Missing, inaccessible, malformed, or unsupported clock input
 MUST yield `clock=unavailable` and null identity/time without changing lifecycle
 transitions or test outcome. Helper time MUST NOT be joined to scheduler time
-without measured anchors and uncertainty; the first implementation supplies no
-such join. Prior schema versions are not accepted by current readers.
+without the measured anchors and uncertainty required by REQ-845.
+Prior schema versions are not accepted by current readers.
 
 
 **TH-HARNESS-REQ-838 — Descriptive exact-run comparison.** `explain-run`
@@ -5531,8 +5547,9 @@ pause. Concurrent stop requests MUST await the same completion; stop prevents
 later resume or stale acknowledgements from restarting collection. Admission
 storage and worker-thread ownership proofs belong to the runtime observation
 gate. Optional diagnostic health remains independent of lifecycle state and
-primary outcome. All diagnostic producers MUST be quiescent before the retained
-secret scan begins, including after forced worker termination.
+primary outcome. All ordinary diagnostic producers MUST be quiescent before the
+retained secret scan begins, including after forced worker termination. Only the
+REQ-847 wrapper-owned structural receipt may be published afterward.
 
 Verified by: TH-HARNESS-AC-137. REQ-830–839 also use AC-137 for their foundation
 mechanics; this acceptance does not close deferred coverage or observer overhead
@@ -5576,8 +5593,8 @@ and `registered` or `observed_descendant` provenance. Identical relationships
 are idempotent. Conflicting explicit owners MUST remain visible and MUST NOT
 silently overwrite each other or contribute attributed CPU totals. Inferred
 ancestry and late registration do not prove ownership of earlier lifetime CPU.
-Shared and borrowed allocation consumption stays contextual. Resource index v2
-owns physical samples/roster; execution index v1 owns relationships and leases.
+Shared and borrowed allocation consumption stays contextual. Resource index v3
+owns physical samples/roster; execution index v2 owns relationships and leases.
 No duplicated mutable relationship registry is retained.
 
 **TH-HARNESS-REQ-843 — Local activities.** The closed authored definitions
@@ -5587,8 +5604,9 @@ reference, nullable invocation/allocation/unit linkage, outcome, clock kind,
 opaque clock identity, resolution and nullable duration. Node/Go monotonic
 measurements are process-local; the helper clock follows REQ-837. Unavailable
 clock identity or duration remains null, with explicit availability. UTC fallback,
-negative-duration clamping, cross-clock subtraction and additions to canonical
-phase/path cost are prohibited. Missing completion remains incomplete.
+negative-duration clamping, unanchored cross-clock subtraction and additions to
+canonical phase/path cost are prohibited. Missing completion remains incomplete.
+REQ-845 permits bounded placement without changing these local durations.
 
 Migration brackets initialization/apply, records failed/cancelled outcomes
 before return or fatal reporting, and records shared template work once. Reset
@@ -5599,7 +5617,7 @@ projections; no duplicate timer is introduced solely for diagnostics. Required
 reset evidence retains its existing failure consequences.
 
 **TH-HARNESS-REQ-844 — Secure execution projection.**
-`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v1`,
+`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v2`,
 is optional terminal evidence under basic mode. Its closed records are launch,
 allocation, lease, relationship and activity observations. The envelope binds
 run/source/graph/policy identity, records digest, completeness, omitted count
@@ -5620,16 +5638,269 @@ canonical membership, physical proof linkage and explicit omissions before
 exposing any aggregate. Missing optional files are unavailable; malformed
 published files fail diagnostic inspection without rewriting retained results.
 
-Performance explanation v2 and observability-check consume the same validated
+Performance explanation v3 and observability-check consume the same validated
 execution model. Lists show at most 20 records per category and exact known
 omissions within existing output byte budgets. Resource relationships, shared
 work, inferred/conflicting provenance and unavailable activities remain explicit.
-No new public command, live replay, automatic export, application telemetry,
-cross-clock join, default-on decision or performance qualification is adopted.
+REQ-845–849 adopt clock placement, container observations, the wrapper receipt,
+qualification commands and uniform retained validation. Live replay, automatic
+export, application telemetry and a default-on decision remain outside scope.
 Producers and readers MUST migrate together without legacy translation readers.
 Executable projections and verification MUST NOT depend on Markdown.
 
 Verified by: TH-HARNESS-AC-138–141.
+
+### 10.9 Coverage and observer qualification (instrumentation-3)
+
+This amendment adopts requirements independently of implementation completion or
+engineering qualification. The current cutover uses execution record/index v2,
+resource sample v2/index v3, surrounding envelope v2, explanation v3 and
+instrumentation policy v3. Terminal receipt and measurement trace use v1;
+qualification plan uses v3 and qualification manifest/result use v2. Retired
+diagnostic-plan/manifest v2 and detail/lifetime v1 remain historical only. Producers, minimum readers, attachments
+and generated validators MUST migrate together; current readers MUST reject
+prior incompatible versions rather than translate them. Complete target shapes
+MUST be declared before publication. Later implemented capabilities use their
+predeclared nullable fields and explicit availability; they MUST NOT change a
+published version's acceptance set. All executable facts are typed projections,
+never extracted from Markdown.
+
+**TH-HARNESS-REQ-845 — Clock placement.** Runtime owns measured clock anchors;
+operation owners retain their own measurement boundaries. An anchor contains
+the local monotonic bracket, local clock identity, boot/time-namespace digest,
+boot-clock reading and its resolution. For boot value `b`, resolution `q`, and
+local bracket `[m0,m1]`, the boot-minus-local offset interval is
+`[b-m1,b+q-m0]`. The beginning/end offset intersections MUST be nonempty.
+Producer offset `[p0,p1]` and scheduler offset `[s0,s1]` place local point `t`
+inside `[t+p0-s1,t+p1-s0]`, relative to the scheduler epoch. Readers MUST reject
+placement on mismatched identities, reversed brackets, missing endpoints,
+discontinuity or composed interval width greater than 25 ms. They MUST retain
+an independently valid local duration when placement is unavailable. Clock
+joins MUST NOT use UTC, bridge suspend discontinuities, or change canonical
+timing/path/phase/reservation accounting. Each activity has at most two anchors;
+graph boundaries have one pair. Execution-record and metadata bounds also apply.
+Verified by: TH-HARNESS-AC-142
+
+**TH-HARNESS-REQ-846 — Exact-container diagnostics.** Only lifecycle-owner
+proof may select a container. The existing run-owned collector helper MUST host
+the read-only container adapter, reuse the existing Go Docker client, request
+non-streaming single samples, and close response bodies. Container observation
+MUST NOT introduce another observer process or an independent socket protocol.
+Shared private lease types and ownership labels belong to the suite-service
+lifecycle owner; the adapter consumes that proof without owning acquisition.
+Its observational client port MUST NOT expose list, create, remove or mutation
+operations. Before retaining an observation, validate the exact container,
+suite/run/allocation proof and lifecycle generation. Raw IDs, labels and Docker
+errors remain private. Restarts/replacements create new opaque sample identities
+and reset counter segments. Shared or borrowed observations remain contextual.
+Absent borrowed ownership proof makes container measurement unavailable.
+
+The existing collector drives one batch at the 5,000 ms context cadence, with
+at most one batch in flight, a 250 ms batch deadline, 32 live and 256 lifetime
+container identities. The cooperative 50 ms sweep limit still applies between
+operations; adapter overruns and omissions MUST be disclosed. Requests MUST
+cancel/drain before pause/stop acknowledgement and before required cleanup.
+The helper owns neither service lifecycle nor an independent polling schedule.
+CPU counters retain cumulative CPU-time units, memory is the daemon-reported
+usage gauge, block-I/O is storage bytes, and PID count is a gauge. Missing
+counters are unavailable, never zero. Container/process/cgroup/guest scopes
+MUST NOT be summed or converted into fabricated per-row cost.
+Verified by: TH-HARNESS-AC-143
+
+**TH-HARNESS-REQ-847 — Wrapper completion receipt.** The workspace wrapper
+MUST preserve descriptor-9 admission inheritance, nesting, managed child signal
+handling and primary-exit precedence while observing wrapper entry through
+child completion. Every graph registers against one opaque outer invocation.
+Each graph publishes its surrounding envelope before scanning; ordinary
+diagnostic producers MUST already be quiescent. The child supplies bounded
+private observations of scan start/end/outcome and graph completion. The
+wrapper's only optional post-scan output is
+`diagnostics/terminal-receipt.json`, using
+`cartulary.harness_terminal_receipt.v1`, at most 65,536 bytes and 64 graph
+memberships. Publication is atomic, owner-only and bound to the exact pre-scan
+envelope and retained-secret-scan digests. Ordinary scanned artifacts MUST NOT
+be rewritten and collection MUST NOT restart.
+
+Receipt fields are closed identities/digests, numeric monotonic measurements,
+nullable unavailable measurements and closed completion outcomes. No arbitrary
+strings, paths, environment, error messages or fixture content are permitted.
+Missing/failed scan or unobserved child completion MUST NOT imply complete
+success. Optional receipt loss preserves the primary result; required privacy,
+quiescence and cleanup failures retain their existing failure precedence.
+Readers independently validate secure paths, schema, binding, interval order,
+membership and outcomes. Shared outer elapsed time counts once per invocation,
+never once per graph or target. Initial shell/Make startup and receipt publication
+itself remain explicit envelope exclusions; external qualification separately
+measures publication cost. The receipt is not canonical timing or export input.
+Verified by: TH-HARNESS-AC-144
+
+**TH-HARNESS-REQ-848 — Complete observer qualification.**
+Qualification is a separate engineering claim, not a prerequisite for delivering
+functionally validated, default-off diagnostics. Functional runtime migration and
+its handoff MUST NOT claim qualification or close an unresolved qualification
+finding. The budgets, evidence eligibility and stability rules below are unchanged.
+
+The experimental collection command `harness-instrumentation-qualify` and semantic
+command `cartulary.harness.command.harness_instrumentation_qualify.v1` are retired.
+They MUST NOT remain active Make targets, aliases, ordinary prerequisites or generic
+command runners. Their implementations remain in existing Git history; attempts
+retain their original source revisions. No new code archive or acquisition
+implementation is required by this migration. A future collection operation requires separate adoption before use.
+
+`harness-performance-check EVIDENCE_ROOTS_FILE=<file>` MUST continue to dispatch a
+qualification-v2 manifest by schema identity and independently validate its frozen
+plan, all attempts, accounting, eligibility and gates. Canonical performance
+manifests, baseline publication and failure categories remain unchanged. The
+retained qualification workload roster is Go local migration activities, Vitest
+work-pin presentation, shell evidence contracts, service-backed migration
+bootstrap and browser HTTPS trust; deferral does not change that roster.
+
+For each workload, retain all six off/basic by 0/1/4-reader treatments at one
+clean frozen commit/source/graph/toolchain/capacity/policy/workload/cache/service
+posture. Each treatment retains one forced-cold observation, one discarded
+warm-up and five measured blocks; recorded randomized order uses seed 20261009.
+Exact-run public status readers launch after initial publication, then at
+30,000 ms cadence, one outstanding operation per reader, no catch-up. Readers
+and optional samplers honor exclusive measurement quietness, including siblings.
+Add one matched sixth block if elapsed-window MAD exceeds 10% of its median or
+leave-one-block-out changes any gate. Continued instability after six fails.
+Failed, interrupted, retried, mismatched and incomplete observations remain
+retained with rejection reasons and MUST NOT be silently replaced or discarded.
+
+The matched off/zero-reader block is the total-cost reference. Also report
+off/basic comparisons at equal reader counts. Independently validate canonical
+elapsed; external monotonic measurement covers the complete workload command.
+For both elapsed metrics, paired percentage-change median MUST be at most 2%
+and nearest-rank p90 at most 3%. Total incremental CPU includes full supervised
+workload CPU difference plus reader CPU, divided by reference outer seconds,
+with 100% equal to one core. In every workload/treatment cell, the arithmetic
+mean of these signed paired percentages MUST be strictly below 2.5%; equality
+fails. Each matched block has equal weight. Do not pool cells, clamp negative
+pairs, substitute the median or divide pooled CPU by pooled elapsed time.
+Report the CPU median, paired MAD, maximum paired measurement-error bound and
+median-plus-three-MADs-plus-error estimate as diagnostics, not extra CPU gates.
+Unbounded CPU uncertainty still makes the cell ineligible. The typed plan is
+`cartulary.harness_instrumentation_qualification_plan.v3`; obsolete plan versions
+MUST be rejected without translation or reinterpretation of historical evidence.
+
+Steady RSS is the time-weighted simultaneous sampled sum over the central 80%
+of command lifetime, sampled every 100 ms, including reader processes. Its
+incremental upper estimate, paired median plus three paired MADs plus the
+declared measurement-error bound, MUST be at most 33,554,432 bytes. Signed
+differences remain signed and imply no speedup.
+Diagnostic finalization is the union of drain/publication intervals, including
+externally observed receipt publication; its maximum upper bound is 500 ms.
+
+External measurement is identical in both treatments and MUST disclose its
+own CPU, memory, I/O, resolution, coverage and error bounds. Account waited
+descendants once, never add worker RSS to its containing process, never add
+overlapping physical scopes, and never substitute independent lifetime peaks
+for simultaneous memory. Missing lifecycle accounting, fewer than two valid
+steady samples, an uncovered steady interval greater than two sampling cadences,
+or unbounded uncertainty makes a cell ineligible. Missing values are not zero.
+Ordinary worker self-counters remain explicitly partial; they alone cannot pass
+qualification. Windows-host and Docker-daemon-internal costs are outside this
+WSL2 engineering scope; sampled memory is not an unsampled peak guarantee.
+
+Every required cell MUST pass every gate. Budget/eligibility/stability failure
+returns timing failure exit 13; malformed retained evidence returns artifact
+failure exit 11; invalid configuration returns exit 2. All ordinary cleanup and
+primary-failure precedence still apply. Source repairs require affected cohorts
+to be collected again at a new frozen source; no relabeling or source-successor
+waiver is permitted. After freezing a qualification plan, cadence, thresholds,
+selection and idle time MUST NOT be adjusted to obtain a pass. A subsequently
+adopted policy revision requires a versioned plan and fresh qualification; old
+attempts retain their original policy and disposition. Qualification does not
+change default-off, refresh
+canonical duration baselines, enable export, or make a Core 05 publication claim.
+Verified by: TH-HARNESS-AC-145
+
+**TH-HARNESS-REQ-850 — Reconstructible qualification measurements.**
+The following evidence and validation requirements remain applicable to a
+qualification claim. They do not require an active measurement supervisor,
+collection runner, process sampler or calibration experiment in ordinary harness
+execution. Existing acquisition implementations remain in Git history; their
+calibration evidence retains its original provenance. Independent retained
+validation MUST remain available; missing evidence still prevents qualification. Future acquisition must meet these requirements
+without reinterpreting archived attempts.
+
+Qualification manifest/result v2 MUST bind a measurement-trace v1 to each
+measured attempt by identity, digest, byte count and record count. The trace
+retains aggregate samples, sample spans and availability, aggregate workload and
+reader CPU accounting, accounting counts/coverage, external finalization
+observations, and support measurements with explicit uncertainty. Ordinary
+qualification MUST NOT retain process identities, commands or environment values.
+The external acquisition owner publishes this evidence after the measured command;
+its buffering/serialization/publication belong to disclosed measurement support.
+It is outside the workload's retained root and does not extend REQ-847.
+
+A trace is limited to 67,108,864 bytes, 360,000 memory samples and 65,536 bytes
+per record. Exhaustion, loss or incomplete publication MUST remain explicit and
+MUST NOT produce an eligible attempt. Strict secure loading MUST close every
+reference and reconstruct the reported sample integral, coverage, timing bounds
+and aggregate accounting before statistics. Analysis and presentation MUST use
+that immutable model without further filesystem reads. Old qualification formats
+are rejected without translation; archived evidence retains its original policy.
+
+Resident acquisition MUST verify process identity through one held proc-directory
+descriptor and read its kernel snapshot relative to that descriptor. A reused
+numeric PID MUST NOT retarget the read. A later exit does not invalidate an
+already-acquired snapshot; no post-acquisition liveness requirement is imposed.
+Disappearance before acquisition or replacement is not an observed zero.
+A same-identity kernel observation proving
+an empty address space is an observed zero; it MUST NOT be inferred solely from
+a failed page read, process disappearance or an ordinary approximate RSS counter.
+A successful page snapshot remains valid if the same identity subsequently exits.
+RSS coverage and error eligibility apply to the specified central 80% window;
+all prefix/suffix samples remain retained, and any missing observation whose held
+interval or uncertainty intersects that window makes the estimate unavailable.
+Sampled peak is the maximum of valid observations, with no unsampled-peak claim.
+Support-memory availability is separate from workload-memory eligibility.
+A page-quantization allowance alone does not
+establish a bound on sequential-sweep timing uncertainty. For the sampled
+hold-value estimand, retain the sum of absolute per-identity RSS transitions
+(including births/deaths), and bound update-time integral error by each transition
+sum times its sweep span intersecting the steady window. Opposite changes MUST
+NOT cancel before this bound. Add the normalized bound to page quantization;
+it does not bound allocations between samples or unsampled peaks. Unsupported bounds
+remain unavailable; missing evidence MUST NOT be replaced by zero or a peak.
+Calibration fixtures MUST use independent expected values and cover process
+replacement, waited/adopted descendants, overlap, missing samples and steady-window
+boundaries. Support estimates and conservative allowances MUST be distinguished;
+no learned support/noise estimate may be subtracted to manufacture qualification.
+Verified by: TH-HARNESS-AC-145
+
+**TH-HARNESS-REQ-851 — Retired instrumentation experiments.**
+The experimental `harness-instrumentation-diagnose` command, diagnostic plan and
+manifest v2, measurement-detail v1, memory-lifetime v1, their private measurement
+supervisor and lifetime/GC probes are retired from active execution. Existing Git
+history retains historical source and matching readers. Policies,
+observations, exclusions, failed hypotheses and original dispositions MUST remain
+preserved; this does not require a separate code archive. Current execution MUST NOT load
+or launch those experiments or translate their obsolete diagnostic formats.
+
+Their prior collection protocols and ninety-minute investigation ceiling remain
+historical constraints on any explicitly resumed investigation; deferring the
+investigation does not reset its recorded collection time. No automatic repeat or
+full-matrix retry is authorized. Independent qualification validation in REQ-848/850
+and useful structural repairs discovered by the experiments remain current.
+Verified by: TH-HARNESS-AC-149
+
+**TH-HARNESS-REQ-849 — One validated retained model.** Each exact selected run
+MUST undergo secure strict parsing, schema/digest/identity/reference closure
+and one bounded resource-stream traversal per reader command. Canonical,
+execution, resource, envelope and any published terminal-receipt facts validate
+before any aggregate is exposed. Missing optional evidence is unavailable;
+malformed published evidence fails inspection without altering retained results.
+Parsing MUST preserve every JSON object member as an own data property, including
+prototype-like names, without invoking language-level setters or inheriting
+fields. Closed schemas MUST reject those members when they are not declared.
+The checker, explanation, comparison and explicit exporter consume the same
+immutable normalized model. Analysis/presentation MUST NOT reread files; ordinary
+readers MUST NOT import or construct OTLP. Human/JSON views use the same facts
+within the existing 20-item/262,144-byte bounds. No global mutable read cache or
+compatibility forwarding interface is introduced.
+Verified by: TH-HARNESS-AC-146
 
 ## 11. Service and Fixture Lifecycle
 
@@ -5967,6 +6238,10 @@ A dynamically allocated browser backend or frontend port lease MUST remain exclu
 
 Object-store readiness MUST prove the smallest mutation lifecycle required by
 object-backed fixtures, not only port, authentication, or list availability.
+The disposable owned object-store fixture MUST explicitly declare its single-master
+topology. It MUST NOT wait for an implicit peer quorum when no peer fixtures exist.
+This startup configuration does not replace the mutation-readiness contract or
+change its deadlines, polling, same-lane retry, ownership, or cleanup requirements.
 The broker MUST create a uniquely named, run-owned probe namespace and perform
 one bounded small-object `put`, `head` with exact size verification, `delete`,
 and not-found verification sequence. The probe object and namespace MUST be
@@ -8166,6 +8441,12 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-139 | REQ-842 | Failed/shared/borrowed/reused allocations, replacement and conflicting process proof | Independent allocation identity and closed observational relationships | First-consumer ownership, fabricated leases or altered cleanup fails. |
 | TH-HARNESS-AC-140 | REQ-843 | Injected migration/reset/parsing clocks, errors, interruption, missing ends and overlap | Owner-local nullable durations with outcomes and provenance | UTC fallback, success-only facts or canonical timing changes fail. |
 | TH-HARNESS-AC-141 | REQ-844 | Exact-run, tampering, unsafe paths, cap, write failure and shutdown fixtures | Bounded validated execution projection and human/JSON parity | Partial aggregates, dangling unaccounted references, late writes or export leakage fail. |
+| TH-HARNESS-AC-142 | REQ-845 | Hand-calculated offset brackets, quantization, foreign namespace, reversal, suspend, incomplete and failed activities | Bounded placement with unchanged independent local and canonical timing | Fabricated placement, hidden uncertainty or bridging discontinuity fails. |
+| TH-HARNESS-AC-143 | REQ-846 | Exact owned containers, borrowed/shared scope, foreign proof, restart/replacement, missing counters, timeout/caps and sibling pause | Private least-privilege proof, bounded collection and unchanged lifecycle cleanup | Foreign discovery, duplicated physical cost, leaked helper or unacknowledged work fails. |
+| TH-HARNESS-AC-144 | REQ-847 | Wrapper startup, multiple/nested graphs, cancellation, scan failure, forged receipt, unsafe path and interrupted publication | Secure envelope/scan-bound structural receipt and preserved admission/signals/exits | Arbitrary post-scan data, rewritten evidence, false completion or multiplied outer duration fails. |
+| TH-HARNESS-AC-145 | REQ-848 | Independent process/thread CPU and memory arithmetic, all workload/reader treatments, instability, corrupt/mismatched evidence and lost measurements | Complete declared observer scope and every fixed budget pass at frozen clean source | Partial self-counters, peak substitution, missing coverage, altered thresholds or failed required cell cannot qualify. |
+| TH-HARNESS-AC-146 | REQ-849 | Duplicate JSON keys, prototype-named members, malformed envelope/receipt, secure paths, stream-count instrumentation and all public consumers | One immutable validated result, one resource traversal and consistent bounded human/JSON acceptance | Hidden members, inherited fields, partial aggregate exposure, repeated traversal, implicit export or divergent rejection fail. |
+| TH-HARNESS-AC-149 | REQ-851 | Command/import closure, retired attachments and completion reporting | Experimental collection retired; independent validation retained; no qualification claim | Active probes/collection commands, weakened budgets or historical relabelling fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

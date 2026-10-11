@@ -12,6 +12,7 @@ import { buildWorkGraph } from "../../scheduler/work-graph/model.mjs";
 import { runWorkGraph } from "../../scheduler/work-graph/scheduler.mjs";
 import { parseProcessStat, linuxUnits, parsePSI, createLinuxResourceAdapter } from "../resource-linux.mjs";
 import { resourceProjection } from "../resource-projection.mjs";
+import { readResourceObservations } from "../resource-reader.mjs";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { otlpProjection } from "../otlp-projection.mjs";
 import { validateCanonicalRun } from "../canonical-evidence.mjs";
@@ -21,6 +22,39 @@ import { exportRetainedObservability } from "../otel-export-cli.mjs";
 import { hostClaims, processIdentity, transactAdmission } from "../../runtime/host-admission.mjs";
 import { createResourceCollector, instrumentationPolicy } from "../resource-collector.mjs";
 import { executionRecordsDigest } from "../../runtime/execution-observations.mjs";
+import { parseStrictJSON } from "../../contract/index.mjs";
+
+test("strict JSON retains prototype-named members for closed schema rejection", () => {
+  for (const text of [
+    '{"__proto__":null,"constructor":1,"prototype":2}',
+    '{"__proto__":{"inherited":true},"nested":{"__proto__":{"value":3}}}',
+    '[{"__proto__":4},{"__proto__":[]}]',
+  ]) {
+    const value = parseStrictJSON(text);
+    assert.deepEqual(value, JSON.parse(text));
+    assert.equal(JSON.stringify(value), text);
+    for (const object of Array.isArray(value) ? value : [value, ...(value.nested ? [value.nested] : [])]) {
+      assert.equal(Object.getPrototypeOf(object), Object.prototype);
+      assert.equal(Object.hasOwn(object, "__proto__"), true);
+      assert.equal(Object.hasOwn(object, "inherited"), false);
+    }
+  }
+  assert.throws(() => parseStrictJSON('{"__proto__":1,"\\u005f_proto__":2}'), /duplicate object member/u);
+});
+
+test("strict JSON preserves native values while rejecting non-interoperable and ambiguous input", () => {
+  for (const text of [
+    'null', 'true', 'false', '[]', '{}', ' [ 0, -1, 1.25, 2e-3, 9007199254740991 ] \r\n',
+    '{"a":[],"b":{},"c":{"quote":"\\\"","slash":"\\\\","pair":"\\ud83d\\ude00","literal":"😀"}}',
+    '{"0":0,"01":1,"toString":null,"hasOwnProperty":false}',
+  ]) assert.deepEqual(parseStrictJSON(text), JSON.parse(text));
+  for (const text of [
+    '', ' ', 'undefined', 'NaN', 'Infinity', '1e400', '9007199254740992', '-0', '-0.0', '-1e-400',
+    '01', '+1', '1.', '.1', '1e', '[1,]', '{"x":1,}', '{"x" 1}', '{"x":1} null',
+    '{"x":1,"x":2}', '{"a":{"x":1,"\\u0078":2}}',
+    '"\\ud800"', '"\\udc00"', '"\\ud800x"', '"\ud800"', '"\u0000"', '\u00a0{}',
+  ]) assert.throws(() => parseStrictJSON(text), undefined, JSON.stringify(text));
+});
 
 const digest = `sha256:${"a".repeat(64)}`;
 function temporary(t) {
@@ -92,20 +126,30 @@ test("Linux counter adapter handles command parentheses, units, PID reuse and un
 
 function retainedSamples(t, records) {
   const dir = temporary(t), bytes = records.map((record, index) => JSON.stringify({
-    schema_id: "cartulary.harness_resource_sample.v1", seq: index + 1, segment: 0,
+    schema_id: "cartulary.harness_resource_sample.v2", seq: index + 1, segment: 0,
     scope: "process", scope_ref: "process:1", identity_digest: digest, availability: "available", ...record,
   })).join("\n") + "\n";
   const identity = { run_id: "synthetic", source_digest: digest, graph_digest: digest, policy_digest: digest };
-  const index = { schema_id: "cartulary.harness_resource_index.v2", ...identity,
+  const index = { schema_id: "cartulary.harness_resource_index.v3", ...identity,
     status: "complete", clock: "graph_process_monotonic", coverage: "observed_partial",
     samples: records.length, sample_bytes: Buffer.byteLength(bytes), sample_digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
     omitted_observations: 0, discovery_truncations: 0, failed_sweeps: 0, sweeps: records.length,
+    containers: { availability: "not_observed", identities: [], omitted_observations: 0, deadline_overruns: 0 },
     processes: [{ process_ref: "process:1", identity_digest: digest }],
-    observer: { cpu_user_us: 0, cpu_system_us: 0, heap_peak_bytes: 0, read_bytes: 0, write_bytes: 0, maximum_sweep_ms: 0, shutdown_ms: 0, gate_cpu: "not_observed" } };
+    observer: { qualification: "component_diagnostic_only", collector_thread_cpu_user_us: 0, collector_thread_cpu_system_us: 0, collector_js_heap_peak_bytes: 0, read_bytes: 0, write_bytes: 0, maximum_sweep_ms: 0, shutdown_ms: 0, outside_component_accounting: "startup_parent_helpers_readers_publication" } };
   atomicLocalFile(path.join(dir, "diagnostics/resource-samples.ndjson"), bytes);
   atomicLocalFile(path.join(dir, "diagnostics/resource-index.json"), JSON.stringify(index));
   return { dir, run: { manifest: { ...identity, instrumentation: { mode: "basic", policy_digest: digest } }, registrations: new Map([["a", {}]]) } };
 }
+
+test("published resource indexes cannot hide unknown keys through prototype assignment", (t) => {
+  const fixture = retainedSamples(t, [{ elapsed_ms: 0, metrics: { rss_bytes: { value: 1024, availability: "available" } } }]);
+  assert.equal(resourceProjection(fixture.dir, fixture.run).availability, "available");
+  const file = path.join(fixture.dir, "diagnostics/resource-index.json");
+  const original = readFileSync(file, "utf8");
+  writeFileSync(file, `${original.slice(0, -1)},"__proto__":null}`);
+  assert.throws(() => resourceProjection(fixture.dir, fixture.run), /validation failed/u);
+});
 
 test("process relationship proof must resolve and conflicting registration excludes attributed totals", (t) => {
   const f = retainedSamples(t, [{ elapsed_ms: 0, metrics: { cpu_user_us: metric(0), cpu_system_us: metric(0) } },
@@ -151,6 +195,23 @@ test("an omitted resource counter breaks its delta interval", (t) => {
   assert.equal(io.observed_delta, null);
   assert.equal(io.observed_interval_ms, 0);
   assert.equal(io.maximum, 900);
+});
+
+test("multiple samples within each segment retain CPU while excluding the pause", (t) => {
+  const f = retainedSamples(t, [
+    { elapsed_ms: 0, segment: 1, metrics: { cpu_user_us: metric(100000), cpu_system_us: metric(50000) } },
+    { elapsed_ms: 1000, segment: 1, metrics: { cpu_user_us: metric(300000), cpu_system_us: metric(150000) } },
+    { elapsed_ms: 4000, segment: 3, metrics: { cpu_user_us: metric(900000), cpu_system_us: metric(550000) } },
+    { elapsed_ms: 5000, segment: 3, metrics: { cpu_user_us: metric(1200000), cpu_system_us: metric(650000) } },
+  ]);
+  const scope = resourceProjection(f.dir, f.run).scopes[0];
+  // 300 ms before and 400 ms after the pause, over two observed seconds.
+  // The one second of CPU accumulated during the three-second gap is excluded.
+  assert.equal(scope.cpu_percent_one_core, 35);
+  assert.equal(scope.metrics.cpu_user_us.observed_delta, 500000);
+  assert.equal(scope.metrics.cpu_system_us.observed_delta, 200000);
+  assert.equal(scope.metrics.cpu_user_us.observed_interval_ms, 2000);
+  assert.equal(scope.metrics.cpu_system_us.observed_interval_ms, 2000);
 });
 
 test("OTLP has invocation parentage and closed safe metric dimensions", () => {
@@ -203,7 +264,7 @@ test("four sibling collectors remain quiet during exclusive measurement and resu
   const { digest: policyDigest } = instrumentationPolicy();
   const epoch = process.hrtime.bigint();
   for (let index = 0; index < 4; index++) collectors.push(createResourceCollector({
-    runRoot: path.join(root, `run-${index}`), capacities, epoch, admissionRoot,
+    runRoot: path.join(root, `run-${index}`), capacities: { ...capacities, postgres: 1, object_store: 1, service_stack: 1, port_lane: 1, volume: 1 }, epoch, admissionRoot,
     manifest: { run_id: `synthetic-${index}`, source_digest: digest, graph_digest: digest,
       instrumentation: { mode: "basic", policy_digest: policyDigest } },
   }));
@@ -231,13 +292,21 @@ test("four sibling collectors remain quiet during exclusive measurement and resu
   await waitUntil(() => collectors.every((collector, index) => collector.snapshot().sampled_elapsed_ms > paused[index].sampled_elapsed_ms));
   await Promise.all(collectors.map((collector) => collector.stop()));
   for (let index = 0; index < collectors.length; index++) {
-    const result = resourceProjection(path.join(root, `run-${index}`), { manifest: {
+    const samples = [];
+    const result = readResourceObservations(path.join(root, `run-${index}`), { manifest: {
       run_id: `synthetic-${index}`, source_digest: digest, graph_digest: digest,
       instrumentation: { mode: "basic", policy_digest: policyDigest },
-    }, registrations: new Map() });
-    assert.equal(result.availability, "available");
-    assert.ok(result.samples > 0);
-    for (const scope of result.scopes) if (scope.scope === "process") assert.equal(scope.cpu_percent_one_core, null, "no CPU delta crosses the measurement pause");
+    }, registrations: new Map() }, (record) => { if (record.scope === "process") samples.push(record); });
+    assert.ok(result.index?.samples > 0);
+    const before = samples.filter((record) => record.elapsed_ms <= paused[index].sampled_elapsed_ms);
+    const after = samples.filter((record) => record.elapsed_ms > paused[index].sampled_elapsed_ms);
+    assert.ok(before.length > 0 && after.length > 0, "both sides of the acknowledged pause are observed");
+    // Siblings resume independently. Some may produce multiple valid samples
+    // before the last sibling responds; their within-segment CPU remains valid.
+    assert.ok(Math.min(...after.map((record) => record.segment)) > Math.max(...before.map((record) => record.segment)),
+      "every post-pause sample belongs to a new segment");
+    const resumedIdentities = new Set(after.map((record) => record.identity_digest));
+    assert.ok(before.some((record) => resumedIdentities.has(record.identity_digest)), "a continuing process spans the segment boundary");
   }
 });
 
@@ -277,10 +346,10 @@ test("retained validation reconstructs path and target fields and rejects tamper
   atomicLocalFile(path.join(dir, "unit-events.ndjson"), events.map((event) => JSON.stringify(event)).join("\n") + "\n");
   atomicLocalFile(path.join(dir, "run-summary.json"), JSON.stringify(summary));
   atomicLocalFile(path.join(dir, "target-summaries/test-slice.json"), JSON.stringify(target));
-  const records = [{ kind: "activity", ref: "activity:example", activity: "report_parse", unit_id: "a", invocation_id: null,
+  const records = [{ kind: "activity", local_start_ms: null, local_end_ms: null, anchors: [], ref: "activity:example", activity: "report_parse", unit_id: "a", invocation_id: null,
     allocation_ref: null, clock: "node_monotonic", clock_identity: "clock:example", resolution_ms: 0.000001, duration_ms: 5,
     availability: "available", outcome: "failed" }];
-  atomicLocalFile(path.join(dir, "diagnostics/execution-index.json"), JSON.stringify({ schema_id: "cartulary.harness_execution_index.v1",
+  atomicLocalFile(path.join(dir, "diagnostics/execution-index.json"), JSON.stringify({ schema_id: "cartulary.harness_execution_index.v2", graph_clock: null,
     run_id: manifest.run_id, source_digest: digest, graph_digest: digest, policy_digest: digest, status: "complete", omitted_records: 0,
     omitted_refs: [], records, records_digest: executionRecordsDigest(records) }));
   await validateCanonicalRun(dir);
@@ -294,6 +363,10 @@ test("retained validation reconstructs path and target fields and rejects tamper
   assert.ok(Buffer.byteLength(human) < 8192);
   const retained = await loadRetainedObservability(dir);
   assert.equal(Object.hasOwn(retained, "built"), false);
+  assert.ok(Object.isFrozen(retained.resources));
+  assert.throws(() => { retained.run.manifest.run_id = "forged"; }, TypeError);
+  assert.equal(retained.run.terminal.set, undefined);
+  assert.throws(() => { retained.run.terminal.get("a").status = "forged"; }, TypeError);
   const payloads = [];
   assert.deepEqual(await exportRetainedObservability({ retained, endpoint: new URL("https://example.com"), headers: {} }, {
     fetchImpl: async (url, options) => { payloads.push([String(url), JSON.parse(options.body)]); return { ok: true, status: 200, redirected: false }; },
@@ -305,8 +378,20 @@ test("retained validation reconstructs path and target fields and rejects tamper
   const check = (args) => spawnSync(process.execPath, [cli.pathname, ...args], { encoding: "utf8" });
   assert.equal(check(["--results-dir", dir]).status, 0);
   assert.equal(check(["--results-dir", path.join(dir, "missing")]).status, 2);
+  const sampled = retainedSamples(t, [{ elapsed_ms: 0, metrics: { rss_bytes: metric(1024) } }]);
+  for (const name of ["resource-index.json", "resource-samples.ndjson"]) {
+    atomicLocalFile(path.join(dir, "diagnostics", name), readFileSync(path.join(sampled.dir, "diagnostics", name)));
+  }
   const isolated = new Worker(`
-    const { registerHooks } = require('node:module');
+    const { registerHooks, syncBuiltinESMExports } = require('node:module');
+    const fs = require('node:fs');
+    let traversals = 0;
+    const open = fs.openSync;
+    fs.openSync = (...args) => {
+      if (String(args[0]).endsWith('/resource-samples.ndjson')) traversals++;
+      return open(...args);
+    };
+    syncBuiltinESMExports();
     const { parentPort, workerData } = require('node:worker_threads');
     registerHooks({ resolve(specifier, context, next) {
       if (/otlp-projection|otel-export/.test(specifier)) throw new Error('ordinary reader imported export');
@@ -315,11 +400,37 @@ test("retained validation reconstructs path and target fields and rejects tamper
     import(workerData.facade).then(async (facade) => {
       await facade.loadRetainedObservability(workerData.dir);
       const value = await facade.performanceExplanation(workerData.dir);
-      parentPort.postMessage(value.dependency_path_ms);
+      await facade.performanceExplanation(workerData.dir, "", { comparisonDir: workerData.dir });
+      process.argv = [process.execPath, workerData.cli, '--results-dir', workerData.dir];
+      await import(workerData.cli);
+      parentPort.postMessage({ duration: value.dependency_path_ms, traversals });
     });
-  `, { eval: true, workerData: { facade: new URL("../observability.mjs", import.meta.url).href, dir } });
+  `, { eval: true, workerData: { facade: new URL("../observability.mjs", import.meta.url).href, cli: cli.href, dir } });
   t.after(() => isolated.terminate());
-  assert.equal(await new Promise((resolve, reject) => { isolated.once("message", resolve); isolated.once("error", reject); }), 9);
+  assert.deepEqual(await new Promise((resolve, reject) => { isolated.once("message", resolve); isolated.once("error", reject); }), { duration: 9, traversals: 4 });
+
+  const envelopeFile = path.join(dir, "diagnostics/invocation-envelope.json");
+  const envelope = { schema_id: "cartulary.harness_invocation_envelope.v2",
+    run_id: "synthetic", source_digest: digest, graph_digest: digest,
+    invocation_digest: null, boundary: "graph_main_entry_to_pre_scan", clock: "graph_process_monotonic", canonical_ref: "unit-events.ndjson",
+    intervals: [{ phase: "configuration_catalog", start_ms: 0, end_ms: 2 }],
+    exclusions: ["make_and_preflight", "module_imports", "retained_secret_scan", "command_return", "receipt_publication"] };
+  atomicLocalFile(envelopeFile, JSON.stringify(envelope));
+  assert.equal((await performanceExplanation(dir)).envelope.intervals[0].end_ms, 2);
+  atomicLocalFile(envelopeFile, JSON.stringify({ ...envelope, run_id: "foreign" }), { replace: true });
+  await assert.rejects(performanceExplanation(dir), /envelope identity/u);
+  await assert.rejects(performanceExplanation(dir, "", { comparisonDir: dir }), /envelope identity/u);
+  await t.test("published foreign envelope is also rejected by checker", async () => {
+    await assert.rejects(loadRetainedObservability(dir), /envelope identity/u);
+    assert.equal(check(["--results-dir", dir]).status, 11);
+  });
+  const duplicateEnvelope = JSON.stringify(envelope).replace('{"schema_id":', '{"run_id":"foreign","schema_id":');
+  atomicLocalFile(envelopeFile, duplicateEnvelope, { replace: true });
+  await t.test("duplicate envelope keys fail both retained readers", async () => {
+    await assert.rejects(performanceExplanation(dir));
+    await assert.rejects(loadRetainedObservability(dir));
+  });
+  rmSync(envelopeFile);
 
   summary.actual_dependency_critical_path_ms = 7;
   atomicLocalFile(path.join(dir, "run-summary.json"), JSON.stringify(summary), { replace: true });
@@ -416,8 +527,8 @@ test("instrumentation schemas validate without loading the runtime AJV compiler"
     import(workerData.contract).then(({ validateSchemaSync }) => {
       const policy = JSON.parse(require('node:fs').readFileSync(new URL(workerData.policy), 'utf8'));
       validateSchemaSync(policy.schema_id, policy);
-      validateSchemaSync('cartulary.harness_resource_sample.v1', {
-        schema_id: 'cartulary.harness_resource_sample.v1', seq: 1, elapsed_ms: 0, segment: 0,
+      validateSchemaSync('cartulary.harness_resource_sample.v2', {
+        schema_id: 'cartulary.harness_resource_sample.v2', seq: 1, elapsed_ms: 0, segment: 0,
         scope: 'guest_context', scope_ref: 'guest:cpu', identity_digest: null,
         availability: 'unsupported', metrics: {},
       });
@@ -447,4 +558,19 @@ test("secure resource loading rejects malformed, oversized, mismatched and diges
     if (mutation === "forbidden_field") writeFileSync(file, readFileSync(file, "utf8").replace('"metrics":{', '"secret":"forbidden","metrics":{'));
     assert.throws(() => resourceProjection(f.dir, f.run), undefined, mutation);
   }
+});
+
+
+test("container counter resets stay contextual and do not contaminate the physical roster", (t) => {
+  const f = retainedSamples(t, [0, 1000, 25, 125].map((cpu, i) => ({ elapsed_ms: i * 1000, scope: "container", scope_ref: "container:1",
+    metrics: { container_cpu_us: metric(cpu), container_memory_usage_bytes: metric(4096) } })));
+  const file = path.join(f.dir, "diagnostics/resource-index.json");
+  const index = JSON.parse(readFileSync(file)); index.processes = [];
+  index.containers = { availability: "available", identities: [{ container_ref: "container:1", identity_digest: digest, ownership: "borrowed", allocation_ref: null }], omitted_observations: 0, deadline_overruns: 0 };
+  atomicLocalFile(file, JSON.stringify(index), { replace: true });
+  const view = resourceProjection(f.dir, f.run);
+  assert.equal(view.scopes[0].resets, 1); assert.equal(view.scopes[0].metrics.container_cpu_us.observed_delta, 1100);
+  assert.equal(view.scopes[0].cpu_percent_one_core, 0.055);
+  assert.equal(view.sampled_simultaneous_rss_sum_bytes, null); assert.deepEqual(view.unit_cpu_lower_bounds, []);
+  assert.deepEqual(view.containers, index.containers);
 });

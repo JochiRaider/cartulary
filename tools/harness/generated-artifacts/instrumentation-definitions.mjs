@@ -12,7 +12,7 @@ export function renderInstrumentationDefinitions(catalog) {
   const properties = (name) => Object.fromEntries(catalog.signals.map((signal) => [signal.name, { $ref: `#/$defs/${name}` }]));
   const schema = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: "cartulary.harness_instrumentation_defs.v1", $comment: marker,
+    $id: "cartulary.harness_instrumentation_defs.v2", $comment: marker,
     $defs: {
       ...structuredClone(shapes),
       activity: { enum: catalog.activities }, availability: { enum: catalog.availability }, phase: { enum: catalog.phases },

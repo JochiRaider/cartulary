@@ -1,8 +1,17 @@
 SHELL := /bin/bash
 include tools/harness/workspace/admission.mk
 ifeq ($(workspace_admitted),yes)
-.DEFAULT_GOAL := help
 include tools/workspace_layout.generated.mk
+TOOLBIN_DIR ?= $(CURDIR)/$(LAYOUT_TOOLBIN)
+HARNESS_DIAG_BIN ?= $(TOOLBIN_DIR)/cartulary-harness-diag
+Q := @
+# A read-only invocation needs only the projected command surface. Do not
+# initialize writer identity, compiler discovery, caches, or build recipes.
+ifeq ($(MAKECMDGOALS),test-run-status)
+include tools/task_surface.runtime.generated.mk
+include tools/task_surface.generated.mk
+else
+.DEFAULT_GOAL := help
 
 .SECONDEXPANSION:
 
@@ -37,7 +46,6 @@ SERVER_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/server
 SERVER_HARNESS_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/server-harness
 MIGRATE_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/migrate
 OPERATOR_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/operator
-TOOLBIN_DIR ?= $(CURDIR)/$(LAYOUT_TOOLBIN)
 SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.8.1
@@ -63,6 +71,8 @@ GOSEC_AUDIT_RUNTIME_PATTERNS ?= ./cmd/... ./internal/...
 GOSEC_AUDIT_SUPPORT_RULES ?= G122,G301,G302,G303,G304,G305,G306,G307
 GOSEC_AUDIT_SUPPORT_FLAGS ?= -exclude-generated -no-fail -quiet
 GOSEC_AUDIT_SUPPORT_PATTERNS ?=
+HARNESS_COLLECT_BIN ?= $(TOOLBIN_DIR)/cartulary-harness-collect
+HARNESS_ADMISSION_BIN ?= $(TOOLBIN_DIR)/cartulary-harness-admission
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SCHEDULER_MANIFEST ?= $(CURDIR)/tools/scheduler_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
@@ -104,7 +114,10 @@ RUN_HARNESS_PREFLIGHT = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) preflight
 DEFAULT_CARTULARY_TEST_RESULTS_DIR := $(CURDIR)/$(LAYOUT_TEST_RESULTS)
 CARTULARY_OUTPUT_MODE ?=
 CARTULARY_TEST_RESULTS_DIR ?= $(DEFAULT_CARTULARY_TEST_RESULTS_DIR)
-CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
+# One invocation has one identity, including every exported child environment.
+ifeq ($(origin CARTULARY_TEST_RUN_ID),undefined)
+CARTULARY_TEST_RUN_ID := $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
+endif
 RELEASE_ARTIFACT_DIR ?= $(CURDIR)/$(LAYOUT_RELEASE_ARTIFACTS)
 LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
 SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cyclonedx.json
@@ -152,6 +165,9 @@ SERVER_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/server inte
 MIGRATE_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/migrate internal/app internal/platform db/migrations)
 OPERATOR_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/operator internal/app internal/modules internal/platform contracts db/migrations tools/migration_history_manifest.json)
 WEB_BUILD_INPUTS = package.json pnpm-lock.yaml pnpm-workspace.yaml $(call discover_build_inputs,apps/web packages)
+HARNESS_ADMISSION_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/harnessadmission internal/testutil/harnessadmission internal/testutil/harnesslocal internal/platform/canonicaljson)
+HARNESS_DIAG_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/harnessdiag internal/testutil/harnessdiag internal/testutil/harnesslocal internal/platform/canonicaljson)
+HARNESS_COLLECT_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/harnesscollect internal/testutil/harnessdiag internal/testutil/harnesscollect internal/testutil/harnessadmission internal/testutil/harnesslocal internal/testutil/suiteservices/leaseproof internal/platform/rootedfs internal/platform/canonicaljson)
 TEST_SERVICES_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/testservices internal db/migrations)
 WEB_DIST_INDEX := $(CURDIR)/$(LAYOUT_WEB_DIST)/index.html
 EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/$(LAYOUT_EMBEDDED_ASSETS)
@@ -176,7 +192,7 @@ $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &: go-toolchain-readiness $(NODE_BIN
 $(NODE_BIN): FORCE tools/harness/readiness/bootstrap-node-runtime.sh $(BOOTSTRAP_NODE_RUNTIME_IMPL) Makefile
 	$(Q)if [ "$${CARTULARY_PREPARATION_POLICY:-}" = "installed_only" ]; then test -x "$(NODE_BIN)"; else NODE_VERSION="$(NODE_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" ./tools/harness/readiness/bootstrap-node-runtime.sh; fi
 
-$(FOUNDATION_SCHEMA_VALIDATORS): $(NODE_BIN) tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs tools/harness/generated-artifacts/generated-transaction.mjs tools/harness/generated-artifacts/instrumentation-definitions.mjs tools/harness/generated-artifacts/instrumentation-shapes.mjs tools/harness_instrumentation_definitions.json tools/harness_schema_attachments.json $(wildcard tools/schemas/*.schema.json)
+$(FOUNDATION_SCHEMA_VALIDATORS): internal/testutil/harnessdiag/testdata/schema-probes.json tools/task_surface_owner.json tools/harness/generated-artifacts/native-command-policy.mjs tools/harness/generated-artifacts/native-schema-validators.mjs tools/harness/generated-artifacts/schema-validator-compiler.mjs $(NODE_BIN) tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs tools/harness/generated-artifacts/generated-transaction.mjs tools/harness/generated-artifacts/instrumentation-definitions.mjs tools/harness/generated-artifacts/instrumentation-shapes.mjs tools/harness_instrumentation_definitions.json tools/harness_schema_attachments.json $(wildcard tools/schemas/*.schema.json)
 	$(Q)$(NODE_BIN) ./tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs
 
 $(FRONTEND_TOOLCHAIN_STAMP): FORCE $(NODE_BIN) Makefile tools/harness/readiness/frontend-toolchain.sh $(FRONTEND_TOOLCHAIN_IMPL) $(CACHE_ARTIFACT_SCRIPT)
@@ -208,6 +224,19 @@ $(SYFT_BIN): FORCE go-toolchain-readiness Makefile tools/harness/readiness/boots
 
 $(SHELLCHECK_BIN): FORCE tools/harness/readiness/bootstrap-shellcheck.sh $(BOOTSTRAP_SHELLCHECK_IMPL) Makefile $(CACHE_ARTIFACT_SCRIPT)
 	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope readiness --profile shellcheck-tool --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input tools/harness/readiness/bootstrap-shellcheck.sh --input $(BOOTSTRAP_SHELLCHECK_IMPL) --input tools/harness/readiness/cache-artifact.sh --output "$(SHELLCHECK_BIN)" --key "shellcheck_version=$(SHELLCHECK_VERSION)" -- env SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" TOOLBIN_DIR="$(TOOLBIN_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" CARTULARY_SHELLCHECK_ARCHIVE_DIR="$(SHELLCHECK_ARCHIVE_DIR)" ./tools/harness/readiness/bootstrap-shellcheck.sh
+
+$(HARNESS_DIAG_BIN): FORCE $(FRONTEND_INSTALL_STAMP) go-toolchain-readiness $$(HARNESS_DIAG_BUILD_INPUTS) tools/harness/backend/build-go-artifact.sh $(BUILD_GO_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) $(NODE_BIN)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope build-artifact --profile harness-diag-build --key "go_toolchain=$(GO_TOOLCHAIN)" --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(HARNESS_DIAG_BUILD_INPUTS),--input "$(input)") --input tools/harness/readiness/list-build-inputs.sh --input $(LIST_BUILD_INPUTS_IMPL) --input tools/harness/backend/build-go-artifact.sh --input $(BUILD_GO_ARTIFACT_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input "$(NODE_BIN)" --output "$(HARNESS_DIAG_BIN)" --output "$(HARNESS_DIAG_BIN).crypto.json" --input tools/harness/readiness/cryptographic-module.mjs --input tools/harness/readiness/cryptographic-build-cli.mjs --key "go=$${GO:-$(GO)}" --input tools/toolchain_pins.json --key "GOFIPS140=$${GOFIPS140:-}" --key "GODEBUG=$${GODEBUG:-}" --key "GOTOOLCHAIN=$(GOTOOLCHAIN)" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env NODE_BIN="$(NODE_BIN)" GO="$(GO)" BUILD_OUTPUT="$(HARNESS_DIAG_BIN)" BUILD_PACKAGE="./tools/harnessdiag" BUILD_LABEL="build harness diagnostics" CARTULARY_TEST_TARGET="harness-diag-build" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/backend/build-go-artifact.sh
+	$(Q)GO="$(GO)" "$(NODE_BIN)" tools/harness/readiness/cryptographic-build-cli.mjs receipt "$(HARNESS_DIAG_BIN)"
+
+$(HARNESS_COLLECT_BIN): FORCE $(FRONTEND_INSTALL_STAMP) go-toolchain-readiness $$(HARNESS_COLLECT_BUILD_INPUTS) tools/harness/backend/build-go-artifact.sh $(BUILD_GO_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) $(NODE_BIN)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope build-artifact --profile harness-collect-build --key "go_toolchain=$(GO_TOOLCHAIN)" --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(HARNESS_COLLECT_BUILD_INPUTS),--input "$(input)") --input tools/harness/readiness/list-build-inputs.sh --input $(LIST_BUILD_INPUTS_IMPL) --input tools/harness/backend/build-go-artifact.sh --input $(BUILD_GO_ARTIFACT_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input "$(NODE_BIN)" --output "$(HARNESS_COLLECT_BIN)" --output "$(HARNESS_COLLECT_BIN).crypto.json" --input tools/harness/readiness/cryptographic-module.mjs --input tools/harness/readiness/cryptographic-build-cli.mjs --key "go=$${GO:-$(GO)}" --input tools/toolchain_pins.json --key "GOFIPS140=$${GOFIPS140:-}" --key "GODEBUG=$${GODEBUG:-}" --key "GOTOOLCHAIN=$(GOTOOLCHAIN)" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env NODE_BIN="$(NODE_BIN)" GO="$(GO)" BUILD_OUTPUT="$(HARNESS_COLLECT_BIN)" BUILD_PACKAGE="./tools/harnesscollect" BUILD_LABEL="build harness resource collector" CARTULARY_TEST_TARGET="harness-collect-build" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/backend/build-go-artifact.sh
+	$(Q)GO="$(GO)" "$(NODE_BIN)" tools/harness/readiness/cryptographic-build-cli.mjs receipt "$(HARNESS_COLLECT_BIN)"
+
+$(HARNESS_ADMISSION_BIN): FORCE $(FRONTEND_INSTALL_STAMP) go-toolchain-readiness $$(HARNESS_ADMISSION_BUILD_INPUTS) tools/harness/backend/build-go-artifact.sh $(BUILD_GO_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) $(NODE_BIN)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope build-artifact --profile harness-admission-build --key "go_toolchain=$(GO_TOOLCHAIN)" --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(HARNESS_ADMISSION_BUILD_INPUTS),--input "$(input)") --input tools/harness/readiness/list-build-inputs.sh --input $(LIST_BUILD_INPUTS_IMPL) --input tools/harness/backend/build-go-artifact.sh --input $(BUILD_GO_ARTIFACT_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input "$(NODE_BIN)" --output "$(HARNESS_ADMISSION_BIN)" --output "$(HARNESS_ADMISSION_BIN).crypto.json" --input tools/harness/readiness/cryptographic-module.mjs --input tools/harness/readiness/cryptographic-build-cli.mjs --key "go=$${GO:-$(GO)}" --input tools/toolchain_pins.json --key "GOFIPS140=$${GOFIPS140:-}" --key "GODEBUG=$${GODEBUG:-}" --key "GOTOOLCHAIN=$(GOTOOLCHAIN)" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env NODE_BIN="$(NODE_BIN)" GO="$(GO)" BUILD_OUTPUT="$(HARNESS_ADMISSION_BIN)" BUILD_PACKAGE="./tools/harnessadmission" BUILD_LABEL="build harness admission" CARTULARY_TEST_TARGET="harness-admission-build" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/backend/build-go-artifact.sh
+	$(Q)GO="$(GO)" "$(NODE_BIN)" tools/harness/readiness/cryptographic-build-cli.mjs receipt "$(HARNESS_ADMISSION_BIN)"
+
 
 $(TEST_SERVICES_BIN): FORCE go-toolchain-readiness $$(TEST_SERVICES_BUILD_INPUTS) tools/harness/backend/build-go-artifact.sh $(BUILD_GO_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) $(NODE_BIN)
 	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope build-artifact --profile testservices-build --key "go_toolchain=$(GO_TOOLCHAIN)" --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(TEST_SERVICES_BUILD_INPUTS),--input "$(input)") --input tools/harness/readiness/list-build-inputs.sh --input $(LIST_BUILD_INPUTS_IMPL) --input tools/harness/backend/build-go-artifact.sh --input $(BUILD_GO_ARTIFACT_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input "$(NODE_BIN)" --output "$(TEST_SERVICES_BIN)" --output "$(TEST_SERVICES_BIN).crypto.json" --input tools/harness/readiness/cryptographic-module.mjs --input tools/harness/readiness/cryptographic-build-cli.mjs --key "go=$${GO:-$(GO)}" --input tools/toolchain_pins.json --key "GOFIPS140=$${GOFIPS140:-}" --key "GODEBUG=$${GODEBUG:-}" --key "GOTOOLCHAIN=$(GOTOOLCHAIN)" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env NODE_BIN="$(NODE_BIN)" GO="$(GO)" BUILD_OUTPUT="$(TEST_SERVICES_BIN)" BUILD_PACKAGE="./tools/testservices" BUILD_LABEL="build testservices" CARTULARY_TEST_TARGET="testservices-build" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/backend/build-go-artifact.sh
@@ -252,3 +281,5 @@ $(CURDIR)/apps/web/dist-measurement/index.html: FORCE $$(WEB_BUILD_INPUTS) $(FRO
 	$(Q)env RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" VITE_BUILD_FLAGS="$(VITE_BUILD_FLAGS) --mode measurement" CARTULARY_TEST_TARGET="build-web-measurement" ./tools/harness/readiness/build-web-artifact.sh
 
 endif # workspace admission
+
+endif # managed writer configuration

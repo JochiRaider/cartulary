@@ -1,6 +1,6 @@
 export function presentResources(index, mode, { rows, unitCPU, sampledSimultaneousRSS }) {
   return { availability: "available", completeness: index.status, coverage: index.coverage,
-    mode, samples: index.samples, sample_bytes: index.sample_bytes,
+    mode, containers: index.containers, samples: index.samples, sample_bytes: index.sample_bytes,
     omitted_observations: index.omitted_observations, discovery_truncations: index.discovery_truncations,
     sampled_simultaneous_rss_sum_bytes: sampledSimultaneousRSS,
     maximum_sample_sweep_ms: index.observer.maximum_sweep_ms,

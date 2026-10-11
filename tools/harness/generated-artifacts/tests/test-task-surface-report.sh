@@ -212,9 +212,13 @@ assert.deepEqual(
 );
 assert.deepEqual(
   manifest.make_recipes["bootstrap-tool-installations"].prerequisites,
-  ["frontend-install"],
-  "bootstrap tool installation must depend structurally on frontend dependency readiness",
+  ["frontend-install", "go-analysis-dependencies"],
+  "bootstrap tool installation must depend structurally on frontend and Go analysis readiness",
 );
+for (const helper of ["$(HARNESS_DIAG_BIN)", "$(HARNESS_COLLECT_BIN)", "$(HARNESS_ADMISSION_BIN)"]) {
+  assert.ok(manifest.make_recipes["bootstrap-tool-installations"].command.includes(helper),
+    `${helper} must install through the admitted bootstrap stage`);
+}
 assert.deepEqual(
   manifest.make_recipes["migration-drift"].row_ids,
   ["harness.generated_artifacts.support.migration_input_integrity", "module.database_migrations.integration.schema_bootstrap"],
@@ -293,7 +297,7 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(TASK_SURFACE_NODE_READINESS\)\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0\}" = "1" \] \|\| \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(TASK_SURFACE_NODE_READINESS\)\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\+\$\(Q\)\$\(call RUN_MAKE_PREREQUISITES,\[ "\$\$\{CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0\}" = "1" \] \|\| \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \],\$\(FRONTEND_INSTALL_STAMP\)\)/,
   "test_target self must render Node readiness, target-specific export, and graph-owned artifact prerequisite admission",
 );
 assert.match(
@@ -303,8 +307,8 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /^bootstrap-tool-installations: frontend-install\n\t\$\(Q\)env[\s\S]*?\$\(MAKE\) --no-print-directory \$\(SQLC_BIN\)[^\n]*playwright-install$/m,
-  "bootstrap tool installation must run only after the frontend-install dependency edge",
+  /^bootstrap-tool-installations: frontend-install go-analysis-dependencies\n\t\$\(Q\)env[^\n]*\$\(MAKE\) --no-print-directory \$\(SQLC_BIN\)[^\n]*playwright-install \$\(HARNESS_DIAG_BIN\) \$\(HARNESS_COLLECT_BIN\) \$\(HARNESS_ADMISSION_BIN\)$/m,
+  "bootstrap tool installation must retain prerequisite readiness and install the native helpers",
 );
 assert.match(
   renderedMake,

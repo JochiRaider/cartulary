@@ -238,6 +238,7 @@ function selectionFor(options, compiler) {
   return { graph, projections: { [options.target]: graph.units.map((unit) => unit.unit_id) } };
 }
 
+
 function statusForUnits(unitIDs, states) {
   const values = unitIDs.map((unitID) => states[unitID]);
   if (values.some((value) => value === "cancelled")) return "cancelled";
@@ -604,8 +605,8 @@ async function main() {
   const onOwnedResource = (resource) => recordRuntimeResource(suiteRuntime, resource);
   const suiteController = createSuiteController(() => serviceSession.mode === "attach"
     ? attachLocalSession({ root, binary: runtimeEnvironment.CARTULARY_TEST_SERVICES_BIN,
-        sessionFile: serviceSession.sessionFile, target: options.target, runID, suiteRuntime })
-    : startManagedSuite({ root, target: options.target, suiteRuntime, environment: baseEnvironment, onOwnedResource }));
+        sessionFile: serviceSession.sessionFile, target: options.target, runID, suiteRuntime, onContainerProof: (proof) => resources?.registerContainers(proof) })
+    : startManagedSuite({ root, target: options.target, suiteRuntime, environment: baseEnvironment, onOwnedResource, onContainerProof: (proof) => resources?.registerContainers(proof) }));
   let broker;
   let finalizationComplete = false;
   let resourcesUnresolved = false;
@@ -614,12 +615,16 @@ async function main() {
   const publishRetainedScan = async () => {
     await diagnostics.close(() => livePublisher?.stop());
     retainedScanAttempted = true;
+    diagnostics.scanStarted();
+    try {
     const retainedScan = await scanRetainedRoot(runRoot, {
       forbiddenValues: suiteRuntime.forbiddenValues(),
       removeUnsafe: true,
     });
     validateSchemaSync(retainedScan.schema_id, retainedScan);
     writeJSON(path.join(runRoot, "retained-secret-scan.json"), retainedScan);
+    diagnostics.scanFinished(true);
+    } catch (error) { diagnostics.scanFinished(false); throw error; }
   };
   try {
   livePublisher = createLiveStatusPublisher({ runRoot, manifest, graph, projections, resources: () => resources?.snapshot() });
@@ -765,6 +770,7 @@ async function main() {
       },
       observation: livePublisher,
       diagnostics: resources,
+      onClockEpoch: diagnostics.schedulerEpoch,
       retainEvents: false,
     });
     await eventWriter.close();
@@ -824,6 +830,7 @@ async function main() {
       try { await publishRetainedScan(); }
       catch (error) { boundaryErrors.push(error); }
     }
+    diagnostics.invocationComplete();
     if (boundaryErrors.length) {
       if (primaryError) (primaryError.cleanupFailures ??= []).push(...boundaryErrors);
       else throw aggregateCleanup(boundaryErrors);

@@ -1,0 +1,349 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_measurement_trace.v1",
+  "$defs": {
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at_ms",
+        "rss",
+        "count",
+        "span_ms",
+        "transition_bytes",
+        "availability"
+      ],
+      "properties": {
+        "at_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "rss": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "span_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "transition_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "availability": {
+          "enum": [
+            "available",
+            "unavailable"
+          ]
+        }
+      }
+    },
+    "raw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reader_skips",
+        "reader_failures",
+        "exit_code",
+        "workload_cpu_us",
+        "reader_cpu_us",
+        "cpu_error_us",
+        "support_cpu_error_us",
+        "support_peak_rss_bytes",
+        "support_read_bytes",
+        "support_write_bytes",
+        "page_bytes",
+        "adopted_descendants",
+        "reaped_processes",
+        "outer_ms",
+        "outer_error_ms",
+        "envelope_previous_ms",
+        "envelope_seen_ms",
+        "support_cpu_us",
+        "waited_descendants",
+        "reader_lifecycle",
+        "rss_bounded",
+        "cancelled",
+        "reader_starts",
+        "losses"
+      ],
+      "properties": {
+        "reader_skips": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reader_failures": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "workload_cpu_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reader_cpu_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cpu_error_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "support_cpu_error_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "support_peak_rss_bytes": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "support_read_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "support_write_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "page_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "adopted_descendants": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reaped_processes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "outer_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "outer_error_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "envelope_previous_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "envelope_seen_ms": {
+          "type": "number",
+          "minimum": -1
+        },
+        "support_cpu_us": {
+          "type": "number"
+        },
+        "waited_descendants": {
+          "type": "boolean"
+        },
+        "reader_lifecycle": {
+          "type": "boolean"
+        },
+        "rss_bounded": {
+          "type": "boolean"
+        },
+        "cancelled": {
+          "type": "boolean"
+        },
+        "reader_starts": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "losses": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "enum": [
+              "cleanup_population",
+              "ownership_publication",
+              "drain_timeout",
+              "process_population",
+              "sample_limit",
+              "log_limit",
+              "wait4",
+              "detail_limit"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "kind",
+        "attempt_id",
+        "run_id",
+        "source_digest",
+        "plan_digest"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_measurement_trace.v1"
+        },
+        "kind": {
+          "const": "header"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,255}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,255}$"
+        },
+        "source_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "plan_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "kind",
+        "sequence",
+        "sample"
+      ],
+      "properties": {
+        "kind": {
+          "const": "memory"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 359999
+        },
+        "sample": {
+          "$ref": "#/$defs/sample"
+        },
+        "schema_id": {
+          "const": "cartulary.harness_measurement_trace.v1"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "kind",
+        "raw"
+      ],
+      "properties": {
+        "kind": {
+          "const": "terminal"
+        },
+        "raw": {
+          "$ref": "#/$defs/raw"
+        },
+        "schema_id": {
+          "const": "cartulary.harness_measurement_trace.v1"
+        }
+      }
+    }
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_measurement_trace.v1"
+    },
+    "kind": {
+      "enum": [
+        "header",
+        "memory",
+        "terminal"
+      ]
+    },
+    "attempt_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]{1,255}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]{1,255}$"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "plan_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 359999
+    },
+    "sample": {
+      "$ref": "#/$defs/sample"
+    },
+    "raw": {
+      "$ref": "#/$defs/raw"
+    }
+  }
+}

@@ -84,15 +84,15 @@ export const instrumentationShapes = {
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "cpu_user_us": {
+      "collector_thread_cpu_user_us": {
         "type": "number",
         "minimum": 0
       },
-      "cpu_system_us": {
+      "collector_thread_cpu_system_us": {
         "type": "number",
         "minimum": 0
       },
-      "heap_peak_bytes": {
+      "collector_js_heap_peak_bytes": {
         "type": "number",
         "minimum": 0
       },
@@ -112,19 +112,23 @@ export const instrumentationShapes = {
         "type": "number",
         "minimum": 0
       },
-      "gate_cpu": {
-        "const": "not_observed"
+      "outside_component_accounting": {
+        "const": "startup_parent_helpers_readers_publication"
+      },
+      "qualification": {
+        "const": "component_diagnostic_only"
       }
     },
     "required": [
-      "cpu_user_us",
-      "cpu_system_us",
-      "heap_peak_bytes",
+      "collector_thread_cpu_user_us",
+      "collector_thread_cpu_system_us",
+      "collector_js_heap_peak_bytes",
       "read_bytes",
       "write_bytes",
       "maximum_sweep_ms",
       "shutdown_ms",
-      "gate_cpu"
+      "outside_component_accounting",
+      "qualification"
     ]
   },
   "local_timing_consistency": {

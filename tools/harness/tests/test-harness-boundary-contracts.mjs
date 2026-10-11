@@ -80,6 +80,12 @@ test("browser adapter launches the owning acquisition dispatcher and rejects inv
   assert.match(child.stderr, /browser acquisition launch failed/);
 });
 
+
+test("foundation validators preserve bootstrap operation without installed dependencies", async () => {
+  await import("../contract/tests/test-foundation-schema-validator.mjs");
+});
+
+
 test("bootstrap artifact cache preserves content identity and failure handling", () => {
   const result = spawnSync("bash", ["tools/harness/readiness/tests/test-cache-artifact.sh"], {
     cwd: path.resolve(import.meta.dirname, "../../.."),

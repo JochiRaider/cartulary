@@ -1,0 +1,349 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_instrumentation_qualification_result.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "attempt_id",
+    "workload",
+    "mode",
+    "readers",
+    "phase",
+    "block",
+    "order",
+    "source_digest",
+    "plan_digest",
+    "run_id",
+    "exit_code",
+    "measurement",
+    "failure",
+    "measurement_trace",
+    "support_publication"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_instrumentation_qualification_result.v2"
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9_.:/-]+$"
+    },
+    "workload": {
+      "enum": [
+        "go",
+        "vitest",
+        "shell",
+        "service",
+        "browser"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "off",
+        "basic"
+      ]
+    },
+    "readers": {
+      "enum": [
+        0,
+        1,
+        4
+      ]
+    },
+    "phase": {
+      "enum": [
+        "cold",
+        "warmup",
+        "measured"
+      ]
+    },
+    "block": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "order": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "plan_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9_.:/-]+$"
+    },
+    "exit_code": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "measurement": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "outer_ms",
+            "canonical_ms",
+            "workload_cpu_us",
+            "reader_cpu_us",
+            "steady_rss_bytes",
+            "sampled_peak_rss_bytes",
+            "cpu_error_us",
+            "rss_error_bytes",
+            "outer_error_ms",
+            "memory_samples",
+            "maximum_memory_gap_ms",
+            "finalization_intervals",
+            "coverage",
+            "support_cpu_us",
+            "support_peak_rss_bytes",
+            "support_read_bytes",
+            "support_write_bytes",
+            "support_cpu_error_us"
+          ],
+          "properties": {
+            "outer_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "canonical_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "workload_cpu_us": {
+              "type": "number",
+              "minimum": 0
+            },
+            "reader_cpu_us": {
+              "type": "number",
+              "minimum": 0
+            },
+            "steady_rss_bytes": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sampled_peak_rss_bytes": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "cpu_error_us": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rss_error_bytes": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "outer_error_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "memory_samples": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximum_memory_gap_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "finalization_intervals": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "start_ms",
+                  "end_ms"
+                ],
+                "properties": {
+                  "start_ms": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "end_ms": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            },
+            "coverage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "waited_descendants",
+                "reader_lifecycle",
+                "memory_samples",
+                "bounded_error",
+                "exclusive_quietness",
+                "complete_finalization"
+              ],
+              "properties": {
+                "waited_descendants": {
+                  "type": "boolean"
+                },
+                "reader_lifecycle": {
+                  "type": "boolean"
+                },
+                "memory_samples": {
+                  "type": "boolean"
+                },
+                "bounded_error": {
+                  "type": "boolean"
+                },
+                "exclusive_quietness": {
+                  "type": "boolean"
+                },
+                "complete_finalization": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "support_cpu_us": {
+              "type": "number"
+            },
+            "support_peak_rss_bytes": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "support_read_bytes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "support_write_bytes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "support_cpu_error_us": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "failure": {
+      "enum": [
+        null,
+        "command_failed",
+        "measurement_lost",
+        "cancelled",
+        "insufficient_samples",
+        "unbounded_error"
+      ]
+    },
+    "measurement_trace": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "digest",
+            "bytes",
+            "records"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^measurements/[A-Za-z0-9_.-]+\\.ndjson$",
+              "maxLength": 255
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 67108864
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 360002
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "support_publication": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cpu_us",
+            "elapsed_ms"
+          ],
+          "properties": {
+            "cpu_us": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "elapsed_ms": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

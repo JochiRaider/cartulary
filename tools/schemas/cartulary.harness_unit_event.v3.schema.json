@@ -151,7 +151,7 @@
       "pattern": "^phase:[0-9]+$"
     },
     "phase": {
-      "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/phase"
+      "$ref": "cartulary.harness_instrumentation_defs.v2#/$defs/phase"
     },
     "phase_outcome": {
       "enum": [

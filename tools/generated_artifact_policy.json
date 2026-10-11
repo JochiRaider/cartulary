@@ -31,6 +31,13 @@
         ".ts"
       ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/harness/contract/generated/schema-validators",
+      "allowed_extensions": [
+        ".cjs"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "generated_files": [
@@ -105,11 +112,32 @@
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     },
     {
-      "path": "tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json",
+      "path": "tools/schemas/cartulary.harness_instrumentation_defs.v2.schema.json",
       "allowed_extensions": [
         ".json"
       ],
       "required_marker": "Code generated .* DO NOT EDIT\\."
+    },
+    {
+      "path": "internal/testutil/harnessdiag/schema_generated.go",
+      "allowed_extensions": [
+        ".go"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "internal/testutil/harnessdiag/schema_parity_generated_test.go",
+      "allowed_extensions": [
+        ".go"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "internal/testutil/harnessdiag/command_generated.go",
+      "allowed_extensions": [
+        ".go"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "lint_scope_checks": {

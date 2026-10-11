@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_instrumentation_definitions.v1",
+  "schema_id": "cartulary.harness_instrumentation_definitions.v2",
   "maximum_phases_per_unit": 128,
   "phases": [
     "cache_lookup",
@@ -20,7 +20,9 @@
     "counter_reset",
     "paused_measurement",
     "truncated",
-    "collector_failed"
+    "collector_failed",
+    "container_gone",
+    "deadline_exceeded"
   ],
   "signals": [
     {
@@ -106,6 +108,48 @@
       "unit": "us",
       "producer_scope": "cgroup_context",
       "aggregation": "segmented_delta"
+    },
+    {
+      "name": "container_block_read_bytes",
+      "kind": "counter",
+      "unit": "bytes",
+      "producer_scope": "container",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "container_block_write_bytes",
+      "kind": "counter",
+      "unit": "bytes",
+      "producer_scope": "container",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "container_cpu_us",
+      "kind": "counter",
+      "unit": "us",
+      "producer_scope": "container",
+      "aggregation": "segmented_delta"
+    },
+    {
+      "name": "container_memory_limit_bytes",
+      "kind": "gauge",
+      "unit": "bytes",
+      "producer_scope": "container",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "container_memory_usage_bytes",
+      "kind": "gauge",
+      "unit": "bytes",
+      "producer_scope": "container",
+      "aggregation": "sampled_maximum"
+    },
+    {
+      "name": "container_pids",
+      "kind": "gauge",
+      "unit": "count",
+      "producer_scope": "container",
+      "aggregation": "sampled_maximum"
     },
     {
       "name": "cpu_system_us",

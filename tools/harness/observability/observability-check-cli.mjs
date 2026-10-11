@@ -29,8 +29,6 @@ function configurationFailure() {
   process.exitCode = 2;
 }
 
-import { resourceProjection } from "./resource-projection.mjs";
-
 function artifactFailure() {
   process.stderr.write("harness-observability-check FAIL failure_class=artifact reason=artifact_error diagnostic=invalid-retained-diagnostics\n");
   process.exitCode = 11;
@@ -48,7 +46,7 @@ try {
 if (runDir) {
   try {
     const retained = await loadRetainedObservability(runDir);
-    const resources = resourceProjection(runDir, retained.run, retained.execution);
+    const resources = retained.resources;
     const invocations = retained.index.invocations.length;
     const sources = retained.index.invocations.reduce(
       (total, item) => total + item.source_digests.length,

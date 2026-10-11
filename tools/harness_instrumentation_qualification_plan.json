@@ -1,0 +1,81 @@
+{
+  "schema_id": "cartulary.harness_instrumentation_qualification_plan.v3",
+  "seed": 20261009,
+  "reader_counts": [
+    0,
+    1,
+    4
+  ],
+  "modes": [
+    "off",
+    "basic"
+  ],
+  "reader_cadence_ms": 30000,
+  "memory_cadence_ms": 100,
+  "steady_fraction": [
+    0.1,
+    0.9
+  ],
+  "cold_observations": 1,
+  "warmup_observations": 1,
+  "measured_blocks": 5,
+  "maximum_measured_blocks": 6,
+  "budgets": {
+    "elapsed_median_percent": 2,
+    "elapsed_p90_percent": 3,
+    "cpu_mean_percent_one_core": 2.5,
+    "steady_rss_bytes": 33554432,
+    "finalization_ms": 500
+  },
+  "workloads": [
+    {
+      "id": "go",
+      "target": "test-slice",
+      "owner": "harness.evidence_accounting",
+      "rows": [
+        "harness.evidence_accounting.behavior.local_migration_activities"
+      ]
+    },
+    {
+      "id": "vitest",
+      "target": "test-slice",
+      "owner": "web.workbook",
+      "rows": [
+        "web.workbook.regression.work_pin_presentation_removal_27944912ba"
+      ]
+    },
+    {
+      "id": "shell",
+      "target": "test-slice",
+      "owner": "harness.evidence_accounting",
+      "rows": [
+        "harness.evidence_accounting.behavior.current_epoch_evidence"
+      ]
+    },
+    {
+      "id": "service",
+      "target": "service-backed-test-slice",
+      "owner": "module.database_migrations",
+      "rows": [
+        "module.database_migrations.integration.schema_bootstrap"
+      ]
+    },
+    {
+      "id": "browser",
+      "target": "service-backed-test-slice",
+      "owner": "harness.browser",
+      "rows": [
+        "harness.browser.boundary_support.https_trust"
+      ]
+    }
+  ],
+  "preparation": {
+    "cold_cache_mode": "cold",
+    "measured_cache_mode": "off",
+    "build_cache": "warm_after_discarded_warmup",
+    "service_reuse": "fresh_managed_session_per_invocation",
+    "reader_start": "initial_publication",
+    "missed_reader_intervals": "skip",
+    "treatment_order": "seeded_shuffle_per_matched_block"
+  }
+}

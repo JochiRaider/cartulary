@@ -1,3 +1,4 @@
+import { parseStrictJSON } from "../contract/strict-json.mjs";
 import { resourceCapacities } from "../scheduler/work-graph/index.mjs";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -9,7 +10,7 @@ import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { actualCriticalPath, intervalUnion, canonicalTimingAccounting, projectResourcePressure } from "../evidence-accounting/index.mjs";
 
 function readJSON(file) {
-  return JSON.parse(readLocalFile(file, { maximum: 16 * 1024 * 1024 }));
+  return parseStrictJSON(readLocalFile(file, { maximum: 16 * 1024 * 1024 }).toString("utf8"), "canonical evidence");
 }
 
 function containedArtifact(runRoot, relative) {

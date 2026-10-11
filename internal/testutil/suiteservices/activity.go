@@ -22,7 +22,7 @@ func MeasureMigration(ctx context.Context, operation func() error) (time.Duratio
 	return measureMigration(ctx, operation, time.Now, migrationObservation)
 }
 
-func measureMigration(ctx context.Context, operation func() error, now func() time.Time, observe func() func(time.Duration, string)) (time.Duration, error) {
+func measureMigration(ctx context.Context, operation func() error, now func() time.Time, observe func() func(time.Time, time.Duration, string)) (time.Duration, error) {
 	finish := observe()
 	started := now()
 	err := operation()
@@ -34,7 +34,7 @@ func measureMigration(ctx context.Context, operation func() error, now func() ti
 			outcome = "cancelled"
 		}
 	}
-	finish(duration, outcome)
+	finish(started, duration, outcome)
 	return duration, err
 }
 
@@ -47,9 +47,10 @@ func activityID() string {
 }
 
 var activityClockID = activityID()
+var activityClockOrigin = time.Now()
 
-func migrationObservation() func(time.Duration, string) {
-	noop := func(time.Duration, string) {}
+func migrationObservation() func(time.Time, time.Duration, string) {
+	noop := func(time.Time, time.Duration, string) {}
 	if LookupEnvValue(nil, "CARTULARY_HARNESS_EXECUTION_ENABLED") != "1" {
 		return noop
 	}
@@ -97,9 +98,14 @@ func migrationObservation() func(time.Duration, string) {
 	if ref := LookupEnvValue(nil, "CARTULARY_HARNESS_ALLOCATION_REF"); ref != "" {
 		allocation = ref
 	}
+	anchors := []any{}
+	if anchor := activityAnchor(); anchor != nil {
+		anchors = append(anchors, anchor)
+	}
 	record := map[string]any{"kind": "activity", "ref": "activity:" + id, "activity": "migration", "unit_id": launch.Unit,
 		"invocation_id": launch.Invocation, "allocation_ref": allocation, "outcome": "incomplete", "clock": "unavailable",
-		"clock_identity": nil, "resolution_ms": nil, "duration_ms": nil, "availability": "not_observed"}
+		"clock_identity": nil, "resolution_ms": nil, "duration_ms": nil, "availability": "not_observed",
+		"local_start_ms": nil, "local_end_ms": nil, "anchors": anchors}
 	write := func(writer io.Writer) error { return json.NewEncoder(writer).Encode(record) }
 	var slot rootedfs.Reference
 	for index := 0; index < limits.Records; index++ {
@@ -116,8 +122,12 @@ func migrationObservation() func(time.Duration, string) {
 		return noop
 	}
 	var once sync.Once
-	return func(duration time.Duration, outcome string) {
+	return func(started time.Time, duration time.Duration, outcome string) {
 		once.Do(func() {
+			if anchor := activityAnchor(); anchor != nil {
+				anchors = append(anchors, anchor)
+			}
+			record["anchors"] = anchors
 			root, err = rootedfs.Open(filepath.Join(runtimeRoot, "execution-observations"))
 			if err != nil {
 				return
@@ -135,6 +145,10 @@ func migrationObservation() func(time.Duration, string) {
 			if duration >= 0 && activityClockID != "" {
 				record["clock"], record["clock_identity"], record["resolution_ms"] = "go_monotonic", "clock:"+activityClockID, 0.000001
 				record["duration_ms"], record["availability"] = float64(duration)/float64(time.Millisecond), "available"
+				localStart := float64(started.Sub(activityClockOrigin)) / float64(time.Millisecond)
+				if localStart >= 0 {
+					record["local_start_ms"], record["local_end_ms"] = localStart, localStart+float64(duration)/float64(time.Millisecond)
+				}
 			} else {
 				record["availability"] = "unavailable"
 			}

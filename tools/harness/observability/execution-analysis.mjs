@@ -1,3 +1,4 @@
+import { placeActivity } from "./clock-placement.mjs";
 // Local activities are observations, never additive canonical cost. This bounded
 // view keeps full facts in the terminal index and makes every omission explicit.
 export function analyzeExecution(index) {
@@ -22,5 +23,6 @@ export function analyzeExecution(index) {
     }
     view[name] = { records, omitted: all.length - records.length };
   }
+  view.placements = view.activities.records.map((record) => placeActivity(record, index.graph_clock));
   return view;
 }

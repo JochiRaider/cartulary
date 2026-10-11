@@ -331,7 +331,7 @@
       }
     },
     {
-      "$ref": "cartulary.harness_instrumentation_defs.v1#/$defs/local_timing_consistency"
+      "$ref": "cartulary.harness_instrumentation_defs.v2#/$defs/local_timing_consistency"
     }
   ]
 }

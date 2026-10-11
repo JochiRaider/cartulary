@@ -4,8 +4,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import Ajv2020 from "ajv/dist/2020.js";
-import standaloneCode from "ajv/dist/standalone/index.js";
+import { compileStandaloneValidators, validatorFilename } from "./schema-validator-compiler.mjs";
 import { publishGeneratedTransaction } from "./generated-transaction.mjs";
+import { renderNativeCommandPolicy } from "./native-command-policy.mjs";
+import { renderNativeSchemaValidators } from "./native-schema-validators.mjs";
 import { renderInstrumentationDefinitions } from "./instrumentation-definitions.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -15,14 +17,6 @@ const marker =
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
-}
-
-function exportName(schemaID) {
-  return `validate${schemaID
-    .split(/[^A-Za-z0-9]+/u)
-    .filter(Boolean)
-    .map((part) => `${part[0].toUpperCase()}${part.slice(1)}`)
-    .join("")}`;
 }
 
 function externalReferences(value, references = new Set()) {
@@ -41,31 +35,6 @@ function externalReferences(value, references = new Set()) {
   return references;
 }
 
-function inlineRuntimeHelpers(source) {
-  const helper = `
-function cartularyUcs2Length(value) {
-  let length = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    length += 1;
-    const code = value.charCodeAt(index);
-    if (code >= 0xd800 && code <= 0xdbff && index + 1 < value.length) {
-      const next = value.charCodeAt(index + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) index += 1;
-    }
-  }
-  return length;
-}
-`;
-  const rewritten = source.replace(
-    /const (func\d+) = require\("ajv\/dist\/runtime\/ucs2length"\)\.default;/gu,
-    "const $1 = cartularyUcs2Length;",
-  );
-  if (/\brequire\s*\(/u.test(rewritten) || /^\s*import\s/mu.test(rewritten)) {
-    throw new Error("foundation validator generation produced a runtime dependency");
-  }
-  return `${helper}\n${rewritten}`;
-}
-
 function generate(root, definitions) {
   const registry = readJSON(path.join(root, "tools/harness_schema_attachments.json"));
   const byID = new Map(registry.attachments.map((entry) => [entry.schema_id, entry]));
@@ -75,13 +44,6 @@ function generate(root, definitions) {
   if (foundation.length === 0) {
     throw new Error("harness schema registry declares no foundation runtime schemas");
   }
-  const ajv = new Ajv2020({
-    allErrors: true,
-    code: { esm: false, source: true },
-    strict: false,
-    validateFormats: false,
-    validateSchema: true,
-  });
   const loaded = new Map();
   const loadSchema = (schemaID) => {
     if (loaded.has(schemaID)) return loaded.get(schemaID);
@@ -93,27 +55,55 @@ function generate(root, definitions) {
     return schema;
   };
   for (const entry of foundation) loadSchema(entry.schema_id);
-  for (const schema of loaded.values()) ajv.addSchema(schema, schema.$id);
-  const exports = Object.fromEntries(
-    foundation.map((entry) => [exportName(entry.schema_id), entry.schema_id]),
-  );
-  const generated = inlineRuntimeHelpers(standaloneCode(ajv, exports));
-  const mapEntries = foundation
-    .map((entry) => `  ${JSON.stringify(entry.schema_id)}: exports.${exportName(entry.schema_id)},`)
-    .join("\n");
-  return `${marker}\n${generated}\nexports.foundationSchemaValidators = Object.freeze({\n${mapEntries}\n});\n`;
+  // Native readers use the bounded foundation closure. JavaScript consumers
+  // validate every registered owner/evidence schema from generated code; schema
+  // compilation and support-schema discovery belong to generation, not a run.
+  const nativeSchemas = new Map(loaded);
+  for (const entry of registry.attachments) loadSchema(entry.schema_id);
+  const validators = compileStandaloneValidators([...loaded.values()]);
+  const artifacts = new Map(), mapEntries = [];
+  artifacts.set("internal/testutil/harnessdiag/command_generated.go", renderNativeCommandPolicy(readJSON(path.join(root,"tools/task_surface_owner.json"))));
+  artifacts.set("internal/testutil/harnessdiag/schema_generated.go", renderNativeSchemaValidators(nativeSchemas, foundation));
+  const probes = readJSON(path.join(root, "internal/testutil/harnessdiag/testdata/schema-probes.json"));
+  const patterns = new Set();
+  function collectPatterns(value) {
+    if (!value || typeof value !== "object") return;
+    if (typeof value.pattern === "string") patterns.add(value.pattern);
+    Object.values(value).forEach(collectPatterns);
+  }
+  nativeSchemas.forEach(collectPatterns);
+  for (const [index, pattern] of [...patterns].sort().entries()) probes.push({schema: {$id: `probe.pattern${index}`, type:"string", pattern}, values:["", "a", "a/b", "a/../b", "a/./b", "a//b", "/a", "a\n", "a\r", "a\r\n", "a\u2028", "a\u2029", "sha256:"+"a".repeat(64), "sha256:"+"a".repeat(64)+"\n", "2026-10-10T00:00:00.000Z", "command.v1", "😀", ...[0,1,2,63,64,65,95,96,97,127,128,129,254,255,256].flatMap((n) => ["a".repeat(n), "_"+"a".repeat(n), "sha256:"+"a".repeat(n)]), ...Array.from({length:128},(_,c)=>"a"+String.fromCharCode(c))]});
+  const probeSchemas = new Map(probes.map(({schema}) => [schema.$id, schema]));
+  const probeCompiler = new Ajv2020({strict:false,validateFormats:false});
+  const cases = [];
+  for (const {schema,values} of probes) {
+    const validate = probeCompiler.compile(schema);
+    for (const value of values) cases.push(`{${JSON.stringify(schema.$id)},${JSON.stringify(JSON.stringify(value))},${validate(value)}}`);
+  }
+  const probePredicates = renderNativeSchemaValidators(probeSchemas, probes.map(({schema})=>({schema_id:schema.$id})), {prefix:"probeSchema",registry:"validProbeSchema"}).replace("package harnessdiag", 'package harnessdiag\nimport "testing"');
+  artifacts.set("internal/testutil/harnessdiag/schema_parity_generated_test.go", `${probePredicates}\nfunc TestDiagnosticSchemaParity(t *testing.T) {\nfor _, c := range []struct{id, text string; valid bool}{\n${cases.join(",\n")},\n} { value, err := Decode([]byte(c.text)); if err != nil {t.Fatal(err)}; if validProbeSchema(c.id,value) != c.valid { t.Errorf("%s input %s: expected %v",c.id,c.text,c.valid) } }\n}\n`);
+  for (const [reference, generated] of validators) {
+    artifacts.set(`tools/harness/contract/generated/schema-validators/${validatorFilename(reference)}`, `${marker}\n${generated}\n`);
+  }
+  for (const entry of registry.attachments) {
+    const basename = validatorFilename(entry.schema_id);
+    mapEntries.push(`  get ${JSON.stringify(entry.schema_id)}() { return require(${JSON.stringify(`./schema-validators/${basename}`)}); },`);
+  }
+  artifacts.set("tools/harness/contract/generated/foundation-schema-validators.cjs",
+    `${marker}\n// Complete registered JavaScript schema closure; roots and shared references load only when requested.\nexports.foundationSchemaValidators = Object.freeze({\n${mapEntries.join("\n")}\n});\n`);
+  return artifacts;
 }
 
 export function generateFoundationArtifacts(root) {
   const catalog = readJSON(path.join(root, "tools/harness_instrumentation_definitions.json"));
-  const catalogValidator = new Ajv2020({ strict: false }).compile(readJSON(path.join(root, "tools/schemas/cartulary.harness_instrumentation_definitions.v1.schema.json")));
+  const catalogValidator = new Ajv2020({ strict: false }).compile(readJSON(path.join(root, "tools/schemas/cartulary.harness_instrumentation_definitions.v2.schema.json")));
   if (!catalogValidator(catalog)) throw new Error("invalid instrumentation definitions catalog");
   const definitions = renderInstrumentationDefinitions(catalog);
   // Compile the entire closure in memory before exposing any generated file.
   const artifacts = new Map([
-    ["tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json", `${JSON.stringify(definitions.schema, null, 2)}\n`],
+    ["tools/schemas/cartulary.harness_instrumentation_defs.v2.schema.json", `${JSON.stringify(definitions.schema, null, 2)}\n`],
     ["tools/harness/contract/generated/instrumentation-definitions.mjs", definitions.runtime],
-    ["tools/harness/contract/generated/foundation-schema-validators.cjs", generate(root, definitions)],
+    ...generate(root, definitions),
   ]);
   const temporaryRoot = path.join(root, "tmp");
   mkdirSync(temporaryRoot, { recursive: true });
@@ -124,7 +114,10 @@ export function generateFoundationArtifacts(root) {
       mkdirSync(path.dirname(file), { recursive: true });
       writeFileSync(file, content, { flag: "wx", mode: 0o644 });
     }
-    return publishGeneratedTransaction({ repoRoot: root, renderedRoot, generatedPaths: [...artifacts.keys()] });
+    const result = publishGeneratedTransaction({ repoRoot: root, renderedRoot, generatedPaths: [...artifacts.keys()].filter((relative) => !relative.startsWith("tools/harness/contract/generated/schema-validators/" )).concat("tools/harness/contract/generated/schema-validators") });
+    // Retire the superseded generated definition only after the new closure is installed.
+    rmSync(path.join(root, "tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json"), { force: true });
+    return result;
   } finally { rmSync(renderedRoot, { recursive: true, force: true }); }
 }
 

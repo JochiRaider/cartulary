@@ -7,6 +7,10 @@ export function formatPerformanceExplanation(value, { json = false, resourcesOnl
   if (json) return serialized;
   else {
     const lines = [`target=${value.target} status=${value.status} canonical_wall_ms=${value.canonical_wall_ms} inclusive_wall_ms=${value.inclusive_wall_ms} exclusive_wall_ms=${value.exclusive_wall_ms} dependency_path_ms=${value.dependency_path_ms}`];
+    if (value.terminal_receipt) {
+      const receipt = value.terminal_receipt;
+      lines.push(`[INVOCATION] identity=${receipt.invocation_digest} outer_duration_ms=${receipt.outer_duration_ms} child_exit_code=${receipt.child_exit_code} outcome=${receipt.outcome} graphs=${receipt.graph_memberships.length} shared_outer_duration=1 publication_start_ms=${receipt.publication_start_ms}`);
+    } else lines.push("[INVOCATION] terminal_receipt=unavailable");
     if (!resourcesOnly) {
       lines.push(`phase_union_ms=${JSON.stringify(value.phase_union_ms)} uncovered_ms=${value.canonical_time_outside_selected_phases_ms} overlap_ms=${value.phase_overlap_ms}`);
       for (const unit of value.units) lines.push(`[UNIT] ${unit.unit_id} queue_ms=${unit.queue_ms} execution_ms=${unit.execution_ms} invocation_path=${unit.on_invocation_dependency_path}`);
@@ -29,6 +33,7 @@ export function formatPerformanceExplanation(value, { json = false, resourcesOnl
       }
       if (execution[name]?.omitted) lines.push(`[OMITTED] ${name}=${execution[name].omitted}`);
     }
+    for (const placement of execution.placements ?? []) lines.push(`[PLACEMENT] ${placement.activity_ref} availability=${placement.availability} start_bounds_ms=${JSON.stringify(placement.start_bounds_ms)} end_bounds_ms=${JSON.stringify(placement.end_bounds_ms)} uncertainty_ms=${placement.uncertainty_ms ?? "unavailable"}`);
     const selected = []; let bytes = 0;
     for (const line of lines) { if (selected.length >= 119 || bytes + Buffer.byteLength(line) + 1 > 7900) break; selected.push(line); bytes += Buffer.byteLength(line) + 1; }
     if (selected.length < lines.length) selected.push(`[OMITTED] lines=${lines.length - selected.length}`);

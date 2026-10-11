@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { Worker } from "node:worker_threads";
 import { pathToFileURL } from "node:url";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { observeRun, renderObservation } from "../run-observation.mjs";
+import { observeRun, renderObservation, nativeBinary } from "./native-observation.mjs";
 import { liveSnapshotBytes, validateLiveSnapshot } from "../../contract/live-observation.mjs";
-import { validateSchemaSync } from "../../contract/index.mjs";
+import { validateSchemaSync, validateResultRoot } from "../../contract/index.mjs";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { createLiveStatusPublisher } from "../../scheduler/work-graph/live-status.mjs";
 import { buildWorkGraph } from "../../scheduler/work-graph/model.mjs";
@@ -93,20 +93,17 @@ export function registerRunObservationTests() {
     publisher.update({ units: first.units, phase: "executing", sampled_elapsed_ms: 0, last_transition_seq: 1 });
     publisher.pause(); const paused = f.snapshot(); assert.equal(timer, null);
     assert.equal(paused.sampled_elapsed_ms, 5000, "late scheduler admission preserves publisher elapsed time");
-    const result = await observeRun({ resultsDir: f.runRoot, afterRevision: paused.revision, waitSeconds: 30 }, { sleep: () => { throw new Error("paused reader polled"); } });
-    assert.equal(result.wait_result, "unavailable"); assert.ok(result.limitations.includes("measurement_pause"));
+    const result = await observeRun({ resultsDir: f.runRoot, afterRevision: paused.revision, waitSeconds: 30 });
+    assert.equal(result.wait_result, "unavailable"); assert.ok(result.waited_ms < 1000); assert.ok(result.limitations.includes("measurement_pause"));
     publisher.resume(); assert.equal(f.snapshot().publication_mode, "active");
     publisher.stop(); const final = readFileSync(f.snapshotFile); assert.equal(timer, null);
     publisher.update({}); publisher.resume(); publisher.stop(); assert.deepEqual(readFileSync(f.snapshotFile), final);
   });
   test("observation expiry and cancellation preserve invocation bytes", async (t) => {
-    const f = fixture(t); f.publisher(); let clock = 0; let polls = 0;
+    const f = fixture(t); f.publisher();
     const before = readFileSync(f.snapshotFile);
-    const result = await observeRun({ resultsDir: f.runRoot, afterRevision: 1, waitSeconds: 3 }, { now: () => clock, sleep: async (ms) => { polls++; clock += ms; } });
-    assert.equal(result.wait_result, "wait_expired"); assert.equal(result.operation_exit_code, 0); assert.equal(polls, 3);
-    const controller = new AbortController();
-    const cancelled = await observeRun({ resultsDir: f.runRoot, afterRevision: 1, waitSeconds: 30 }, { signal: controller.signal, sleep: async () => { controller.abort(); } });
-    assert.equal(cancelled.failure_class, "interrupted"); assert.equal(cancelled.operation_exit_code, 15);
+    const result = await observeRun({ resultsDir: f.runRoot, afterRevision: 1, waitSeconds: 1 });
+    assert.equal(result.wait_result, "wait_expired"); assert.equal(result.operation_exit_code, 0); assert.ok(result.waited_ms >= 1000);
     assert.deepEqual(readFileSync(f.snapshotFile), before);
     assert.equal((await observeRun({ resultsDir: f.runRoot, afterRevision: 2 })).failure_reason, "usage_error");
     assert.equal((await observeRun({ resultsDir: f.runRoot, waitSeconds: 1 })).failure_reason, "usage_error");
@@ -193,7 +190,7 @@ export function registerRunObservationTests() {
       `, { eval: true, workerData: {
         role, root: f.runRoot, file: f.snapshotFile, snapshot: f.snapshot(),
         secure: pathToFileURL(path.join(root, "tools/harness/runtime/secure-local-files.mjs")).href,
-        reader: pathToFileURL(path.join(root, "tools/harness/diagnostics/run-observation.mjs")).href,
+        reader: pathToFileURL(path.join(root, "tools/harness/diagnostics/tests/native-observation.mjs")).href,
       } });
       t.after(() => child.terminate());
       child.once("error", reject); child.once("exit", (code) => code ? reject(new Error(`worker exit ${code}`)) : resolve());
@@ -204,7 +201,7 @@ export function registerRunObservationTests() {
     const f = fixture(t); const publisher = f.publisher(); publisher.stop();
     const before = readFileSync(f.snapshotFile);
     const lease = path.join(f.runRoot, "owned-lease"); writeFileSync(lease, "not owned by observer", { mode: 0o600 });
-    const child = spawn(process.execPath, [path.join(root, "tools/harness/diagnostics/test-run-status-cli.mjs"), "--results-dir", f.runRoot, "--after-revision", String(f.snapshot().revision), "--wait-seconds", "30", "--json"], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(nativeBinary, ["--results-dir", f.runRoot, "--after-revision", String(f.snapshot().revision), "--wait-seconds", "30", "--json"], { stdio: ["ignore", "pipe", "pipe"] });
     t.after(() => { if (child.exitCode === null) child.kill(); });
     let output = ""; child.stdout.on("data", (bytes) => { output += bytes; });
     const timer = setTimeout(() => child.kill("SIGTERM"), 1500);
@@ -242,16 +239,58 @@ export function registerRunObservationTests() {
 }
 
 export function registerRunStatusCommandTests() {
+  test("result-root inspection preserves metadata and rejects links without creating directories", (t) => {
+    const f = fixture(t);
+    chmodSync(f.runRoot, 0o750);
+    const before = statSync(f.runRoot, { bigint: true });
+    assert.equal(validateResultRoot("selected", { root: f.parent }), f.runRoot);
+    const after = statSync(f.runRoot, { bigint: true });
+    for (const key of ["mode", "ctimeNs", "mtimeNs", "ino", "uid", "gid"])
+      assert.equal(after[key], before[key], key);
+    validateResultRoot("absent/deep", { root: f.parent });
+    assert.deepEqual(readdirSync(f.parent), ["selected"]);
+    for (const [name, destination] of [["link", f.runRoot], ["dangling", path.join(f.parent, "absent")]]) {
+      symlinkSync(destination, path.join(f.parent, name));
+      for (const candidate of [name, `${name}/child`, path.join(f.parent, name)])
+        assert.throws(() => validateResultRoot(candidate, { root: f.parent }), /symlink/u);
+    }
+    validateResultRoot("selected", { root: f.parent, create: true });
+    assert.equal(statSync(f.runRoot).mode & 0o777, 0o700);
+    validateResultRoot("created", { root: f.parent, create: true });
+    assert.equal(statSync(path.join(f.parent, "created")).mode & 0o777, 0o700);
+  });
+  test("entrypoint preflight cannot be assigned to a writer or an unregistered reader", async () => {
+    const { validateMakeRecipes } = await import("../../generated-artifacts/task-surface/recipe-validation.mjs");
+    const owner = JSON.parse(readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"));
+    const reject = (target, mutate) => {
+      const targets = new Map(structuredClone(owner.targets).map((entry) => [entry.name, entry]));
+      const recipes = structuredClone(owner.make_recipes);
+      recipes[target].preflight_owner = "entrypoint";
+      mutate?.(targets.get(target));
+      const errors = [];
+      validateMakeRecipes(errors, targets, owner.sequences, recipes);
+      assert.ok(errors.some((error) => error.includes(`make_recipes.${target} requires an explicitly capable public read-only entrypoint`)), errors.join("\n"));
+    };
+    reject("test-run-status", (entry) => { entry.output_policy.artifact_policy = "tool_run_summary"; });
+    reject("test-run-status", (entry) => { entry.side_effects = [{ class: "filesystem" }]; });
+    reject("explain-run");
+  });
   test("public status JSON ignores inherited selection and never provisions tooling", (t) => {
     const f = fixture(t); f.publisher();
     const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(?:CARTULARY_|MAKE|MFLAGS$|RESULTS_DIR$|RUN_ID$|TARGET$|OWNER$|ROWS$|JSON$|AFTER_REVISION$|WAIT_SECONDS$)/u.test(key)));
     const run = (args, extra = {}) => spawnSync("make", ["--no-print-directory", "test-run-status", `RESULTS_DIR=${f.runRoot}`, ...args], { cwd: root, env: { ...environment, ...extra }, encoding: "utf8", timeout: 15000, maxBuffer: 131072 });
-    const result = run(["JSON=1"], { CARTULARY_TEST_RUN_ID: "sibling", OWNER: "invalid-owner", ROWS: "not-a-row", CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE: "/do-not-open" });
+    const result = run(["JSON=1"], { CARTULARY_TEST_RUN_ID: "sibling", TASK_SURFACE_MANIFEST: "/do-not-open", CARTULARY_TASK_SURFACE_MANIFEST: "/do-not-open", OWNER: "invalid-owner", ROWS: "not-a-row", CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE: "/do-not-open" });
     assert.equal(result.status, 0, result.stderr); assert.equal(JSON.parse(result.stdout).run.run_id, "selected");
     assert.equal(result.stdout.trim().split("\n").length, 1);
-    for (const args of [["JSON=2"], ["WAIT_SECONDS=31"], ["WAIT_SECONDS=1"], ["JSON=1", "CARTULARY_OUTPUT_MODE=machine"]]) assert.notEqual(run(args).status, 0);
-    const missing = run(["NODE_BIN=/does-not-exist", "JSON=1"]);
-    assert.notEqual(missing.status, 0); assert.match(missing.stderr, /installed Node runtime/u); assert.equal(missing.stdout, "");
+    for (const args of [["OWNER=invalid-owner"], ["UNDECLARED=1"], ["JSON=2"], ["WAIT_SECONDS=31"], ["WAIT_SECONDS=1"], ["JSON=1", "CARTULARY_OUTPUT_MODE=machine"], ["GO_CACHE_DIR=relative"], [`GO_CACHE_DIR=${root}/cache`], ["GO_CACHE_DIR=/tmp/same", "GO_MOD_CACHE_DIR=/tmp/same"]]) assert.notEqual(run(args).status, 0);
+    const missing = run(["HARNESS_DIAG_BIN=/does-not-exist", "JSON=1"]);
+    assert.notEqual(missing.status, 0); assert.match(missing.stderr, /installed diagnostic tool/u); assert.equal(missing.stdout, "");
+    const marker = path.join(f.runRoot, "unexpected-command");
+    for (const suffix of [`$(shell touch ${marker})`, `';touch ${marker};'`, `\`touch ${marker}\``]) {
+      const literal = run([`RESULTS_DIR=${f.runRoot}${suffix}`, "JSON=1"]);
+      assert.notEqual(literal.status, 0);
+      assert.equal(existsSync(marker), false, "native exports executed an input value");
+    }
     const mixed = run(["help", "JSON=1"]);
     assert.notEqual(mixed.status, 0); assert.match(mixed.stderr, /sole Make goal/u);
   });

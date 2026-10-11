@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // lifecycleClock uses the same Linux boot clock as the browser helper. Its
@@ -40,4 +41,17 @@ func lifecycleClock() (string, *string, *int64) {
 	milliseconds := seconds*1000 + fraction*10
 	digest := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(strings.TrimSpace(string(boot))+":"+namespace)))
 	return "linux_boottime_10ms", &digest, &milliseconds
+}
+
+// Bracket the shared boot-clock read in this producer's monotonic domain.
+func activityAnchor() map[string]any {
+	before := time.Since(activityClockOrigin)
+	_, identity, boot := lifecycleClock()
+	after := time.Since(activityClockOrigin)
+	if identity == nil || boot == nil || activityClockID == "" || after < before {
+		return nil
+	}
+	return map[string]any{"clock_identity": "clock:" + activityClockID, "boot_identity": *identity,
+		"local_before_ms": float64(before) / float64(time.Millisecond), "local_after_ms": float64(after) / float64(time.Millisecond),
+		"boot_ms": *boot, "boot_resolution_ms": 10}
 }

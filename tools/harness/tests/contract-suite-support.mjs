@@ -145,7 +145,7 @@ function assertPerformanceEvidenceGenerationBoundary() {
   );
   assert.throws(
     () => validateSchemaSync(historicalKey.schema_id, historicalKey),
-    /missing schema attachment/u,
+    /unregistered schema attachment cartulary\.performance_fixture_snapshot_key\.v1/u,
   );
   const reference = (role, name) => ({
     role,

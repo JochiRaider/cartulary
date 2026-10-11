@@ -143,14 +143,6 @@
       "allowed_consumers": []
     },
     {
-      "key": "harness_run_observation",
-      "boundary_group": "scheduler_diagnostics",
-      "paths": [
-        "tools/harness/diagnostics/run-observation.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
       "key": "owner_diagnostics",
       "boundary_group": "scheduler_diagnostics",
       "paths": [

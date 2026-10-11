@@ -11,11 +11,19 @@ export function openDirectory(directory, { create = false, privateLeaf = false }
     const parts = absolute.split(path.sep).filter(Boolean);
     for (const [index, part] of parts.entries()) {
       const anchored = `/proc/self/fd/${descriptor}/${part}`;
-      if (create) try { mkdirSync(anchored, { mode: 0o700 }); } catch (error) { if (error.code !== "EEXIST") throw error; }
-      const next = openSync(anchored, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      let next;
+      try { next = openSync(anchored, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW); }
+      catch (error) {
+        if (!create || error.code !== "ENOENT") throw error;
+        try { mkdirSync(anchored, { mode: 0o700 }); } catch (error) { if (error.code !== "EEXIST") throw error; }
+        // A concurrent creator must pass the same no-follow directory open.
+        next = openSync(anchored, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      }
       closeSync(descriptor); descriptor = next;
-      const info = fstatSync(descriptor);
-      if (index === parts.length - 1 && privateLeaf && (info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700)) throw new Error("unsafe local directory");
+      if (index === parts.length - 1 && privateLeaf) {
+        const info = fstatSync(descriptor);
+        if (info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) throw new Error("unsafe local directory");
+      }
     }
     return descriptor;
   } catch (error) { closeSync(descriptor); throw error; }

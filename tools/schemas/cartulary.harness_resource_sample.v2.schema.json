@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_resource_sample.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_resource_sample.v2"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "elapsed_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scope": {
+      "enum": [
+        "process",
+        "guest_context",
+        "cgroup_context",
+        "container"
+      ]
+    },
+    "scope_ref": {
+      "type": "string",
+      "pattern": "^(process:[1-9][0-9]*|container:[1-9][0-9]*|guest:(cpu|memory|io)|cgroup:[0-9]+)$"
+    },
+    "availability": {
+      "$ref": "cartulary.harness_instrumentation_defs.v2#/$defs/availability"
+    },
+    "metrics": {
+      "$ref": "cartulary.harness_instrumentation_defs.v2#/$defs/sample_metrics"
+    },
+    "segment": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "identity_digest": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema_id",
+    "seq",
+    "elapsed_ms",
+    "scope",
+    "scope_ref",
+    "availability",
+    "metrics",
+    "segment",
+    "identity_digest"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "process"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "scope_ref": {
+            "pattern": "^process:[1-9][0-9]*$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "container"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "scope_ref": {
+            "pattern": "^container:[1-9][0-9]*$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "guest_context"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "scope_ref": {
+            "pattern": "^guest:(cpu|memory|io)$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "cgroup_context"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "scope_ref": {
+            "pattern": "^cgroup:[0-9]+$"
+          }
+        }
+      }
+    }
+  ]
+}

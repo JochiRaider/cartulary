@@ -328,14 +328,16 @@
       "path": "tools/schemas/cartulary.harness_capability_snapshot.v1.schema.json",
       "classification": "public_contract",
       "producer": "unified harness scheduler",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_capacity_override.v1",
       "path": "tools/schemas/cartulary.harness_capacity_override.v1.schema.json",
       "classification": "public_contract",
       "producer": "unified harness capability resolver",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_cleanup_results.v1",
@@ -366,16 +368,16 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_execution_index.v1",
-      "path": "tools/schemas/cartulary.harness_execution_index.v1.schema.json",
+      "schema_id": "cartulary.harness_execution_index.v2",
+      "path": "tools/schemas/cartulary.harness_execution_index.v2.schema.json",
       "classification": "public_contract",
       "producer": "harness execution diagnostics",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_execution_record.v1",
-      "path": "tools/schemas/cartulary.harness_execution_record.v1.schema.json",
+      "schema_id": "cartulary.harness_execution_record.v2",
+      "path": "tools/schemas/cartulary.harness_execution_record.v2.schema.json",
       "classification": "shared_component",
       "producer": "harness execution diagnostics",
       "validation": "json-shape-check",
@@ -410,30 +412,54 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_instrumentation_definitions.v1",
-      "path": "tools/schemas/cartulary.harness_instrumentation_definitions.v1.schema.json",
+      "schema_id": "cartulary.harness_instrumentation_definitions.v2",
+      "path": "tools/schemas/cartulary.harness_instrumentation_definitions.v2.schema.json",
       "classification": "owner_input",
       "producer": "harness instrumentation definitions",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_instrumentation_defs.v1",
-      "path": "tools/schemas/cartulary.harness_instrumentation_defs.v1.schema.json",
+      "schema_id": "cartulary.harness_instrumentation_defs.v2",
+      "path": "tools/schemas/cartulary.harness_instrumentation_defs.v2.schema.json",
       "classification": "shared_component",
       "producer": "harness instrumentation definitions",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_instrumentation_policy.v2",
-      "path": "tools/schemas/cartulary.harness_instrumentation_policy.v2.schema.json",
+      "schema_id": "cartulary.harness_instrumentation_policy.v3",
+      "path": "tools/schemas/cartulary.harness_instrumentation_policy.v3.schema.json",
       "classification": "owner_input",
       "producer": "harness local instrumentation",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_invocation_envelope.v1",
-      "path": "tools/schemas/cartulary.harness_invocation_envelope.v1.schema.json",
+      "schema_id": "cartulary.harness_instrumentation_qualification.v2",
+      "path": "tools/schemas/cartulary.harness_instrumentation_qualification.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "instrumentation owner",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_instrumentation_qualification_plan.v3",
+      "path": "tools/schemas/cartulary.harness_instrumentation_qualification_plan.v3.schema.json",
+      "classification": "owner_input",
+      "producer": "instrumentation qualification plan owner",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_instrumentation_qualification_result.v2",
+      "path": "tools/schemas/cartulary.harness_instrumentation_qualification_result.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "instrumentation owner",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_invocation_envelope.v2",
+      "path": "tools/schemas/cartulary.harness_invocation_envelope.v2.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
       "validation": "json-shape-check",
@@ -452,6 +478,14 @@
       "path": "tools/schemas/cartulary.harness_live_snapshot.v2.schema.json",
       "classification": "public_contract",
       "producer": "harness live observation",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_measurement_trace.v1",
+      "path": "tools/schemas/cartulary.harness_measurement_trace.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "instrumentation measurement supervisor",
       "validation": "json-shape-check"
     },
     {
@@ -462,16 +496,16 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_performance_explanation.v2",
-      "path": "tools/schemas/cartulary.harness_performance_explanation.v2.schema.json",
+      "schema_id": "cartulary.harness_performance_explanation.v3",
+      "path": "tools/schemas/cartulary.harness_performance_explanation.v3.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_private_launch_observation.v1",
-      "path": "tools/schemas/cartulary.harness_private_launch_observation.v1.schema.json",
+      "schema_id": "cartulary.harness_private_launch_observation.v2",
+      "path": "tools/schemas/cartulary.harness_private_launch_observation.v2.schema.json",
       "classification": "shared_component",
       "producer": "harness execution diagnostics",
       "validation": "json-shape-check",
@@ -485,8 +519,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_resource_index.v2",
-      "path": "tools/schemas/cartulary.harness_resource_index.v2.schema.json",
+      "schema_id": "cartulary.harness_resource_index.v3",
+      "path": "tools/schemas/cartulary.harness_resource_index.v3.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
       "validation": "json-shape-check",
@@ -501,8 +535,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_resource_sample.v1",
-      "path": "tools/schemas/cartulary.harness_resource_sample.v1.schema.json",
+      "schema_id": "cartulary.harness_resource_sample.v2",
+      "path": "tools/schemas/cartulary.harness_resource_sample.v2.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
       "validation": "json-shape-check",
@@ -513,7 +547,8 @@
       "path": "tools/schemas/cartulary.harness_retained_secret_scan.v1.schema.json",
       "classification": "public_contract",
       "producer": "work graph retained-evidence boundary",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_row_result.v3",
@@ -527,21 +562,24 @@
       "path": "tools/schemas/cartulary.harness_run_manifest.v2.schema.json",
       "classification": "public_contract",
       "producer": "unified harness runner",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_run_observation.v2",
       "path": "tools/schemas/cartulary.harness_run_observation.v2.schema.json",
       "classification": "public_contract",
       "producer": "harness live observation",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_run_summary.v1",
       "path": "tools/schemas/cartulary.harness_run_summary.v1.schema.json",
       "classification": "public_contract",
       "producer": "unified harness projector",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_schema_attachments.v1",
@@ -569,7 +607,16 @@
       "path": "tools/schemas/cartulary.harness_target_summary.v1.schema.json",
       "classification": "public_contract",
       "producer": "unified harness projector",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_terminal_receipt.v1",
+      "path": "tools/schemas/cartulary.harness_terminal_receipt.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "instrumentation owner",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_test_failure.v1",

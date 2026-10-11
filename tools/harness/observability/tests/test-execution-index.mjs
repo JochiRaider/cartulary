@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, readdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { readExecutionIndex } from "../execution-reader.mjs";
 import { analyzeExecution } from "../execution-analysis.mjs";
-import { executionRecordsDigest, createExecutionSession, executionObservation } from "../../runtime/execution-observations.mjs";
-import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
+import { executionRecordsDigest, createExecutionSession, executionObservation, resumeExecutionObservation } from "../../runtime/execution-observations.mjs";
+import { atomicLocalFile, readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { instrumentationPolicy } from "../resource-collector.mjs";
@@ -20,7 +20,7 @@ function fixture(t) {
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const manifest = { run_id: "execution", source_digest: digest, graph_digest: digest, instrumentation: { mode: "basic", policy_digest: digest } };
   const run = { manifest, registrations: new Map([["u", { row_ids: ["r"] }]]) };
-  const index = { schema_id: "cartulary.harness_execution_index.v1", run_id: "execution", source_digest: digest, graph_digest: digest,
+  const index = { schema_id: "cartulary.harness_execution_index.v2", graph_clock: null, run_id: "execution", source_digest: digest, graph_digest: digest,
     policy_digest: digest, status: "complete", omitted_records: 0, omitted_refs: [], records: [structuredClone(launch)] };
   const file = path.join(root, "diagnostics/execution-index.json");
   const save = () => atomicLocalFile(file, JSON.stringify({ ...index, records_digest: executionRecordsDigest(index.records) }), { replace: true });
@@ -61,7 +61,7 @@ test("execution reader rejects digest corruption, unsafe files, duplicate JSON k
 
 test("failed acquisition cannot invent a successful lease or measured unavailable activity", (t) => {
   const f = fixture(t);
-  f.index.records.push({ kind: "activity", ref: "activity:a", activity: "migration", unit_id: "u", invocation_id: id, allocation_ref: null,
+  f.index.records.push({ kind: "activity", local_start_ms: null, local_end_ms: null, anchors: [], ref: "activity:a", activity: "migration", unit_id: "u", invocation_id: id, allocation_ref: null,
     outcome: "failed", clock: "unavailable", clock_identity: null, resolution_ms: null, duration_ms: 0, availability: "unavailable" });
   f.save(); assert.throws(() => readExecutionIndex(f.root, f.run));
   f.index.records.pop();
@@ -73,7 +73,7 @@ test("failed acquisition cannot invent a successful lease or measured unavailabl
 
 test("bounded presentation retains outcomes, unavailable durations and exact list omissions", (t) => {
   const f = fixture(t);
-  f.index.records = Array.from({ length: 25 }, (_, i) => ({ kind: "activity", ref: `activity:${i}`, activity: "migration", unit_id: "u", invocation_id: id,
+  f.index.records = Array.from({ length: 25 }, (_, i) => ({ kind: "activity", local_start_ms: null, local_end_ms: null, anchors: [], ref: `activity:${i}`, activity: "migration", unit_id: "u", invocation_id: id,
     allocation_ref: null, outcome: "incomplete", clock: "unavailable", clock_identity: null, resolution_ms: null, duration_ms: null, availability: "not_observed" }));
   f.index.status = "partial";
   const view = analyzeExecution(f.index);
@@ -96,6 +96,37 @@ test("slot cap exhaustion publish truthful truncation without changing execution
   session.capture(); session.publish();
   const index = readExecutionIndex(f.root, f.run);
   assert.equal(index.status, "truncated"); assert.equal(index.records.length, 1);
+});
+
+test("private beginnings obey the byte bound and survive invalid replacement", (t) => {
+  const f = fixture(t), repoRoot = path.resolve(import.meta.dirname, "../../../..");
+  rmSync(f.file);
+  const runtime = createSuiteRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
+  t.after(() => runtime.close());
+  const session = createExecutionSession({ runtime, runRoot: f.root, manifest: f.run.manifest, policy: instrumentationPolicy().policy });
+  const environment = { CARTULARY_TEST_RUN_ID: "execution", CARTULARY_TEST_RESULTS_DIR: path.dirname(f.root),
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "execution", ...session.environment };
+  const options = { repoRoot, environment }, root = runtime.privatePath("execution-observations");
+  const oversized = { ...launch, row_ids: Array.from({ length: 1000 }, (_, i) => `row-${i}-${"a".repeat(70)}`) };
+  assert.equal(executionObservation(options, oversized).token, null);
+  assert.equal(readdirSync(root).some((name) => name.startsWith("slot-")), false);
+  const initial = { ...launch, launched: false, outcome: "incomplete" };
+  const observation = executionObservation(options, initial);
+  const file = path.join(root, observation.token.slot);
+  assert.deepEqual(JSON.parse(readLocalFile(file)), initial);
+  observation.update({ ...initial, outcome: "unknown" });
+  assert.deepEqual(JSON.parse(readLocalFile(file)), initial);
+  observation.update(oversized);
+  assert.deepEqual(JSON.parse(readLocalFile(file)), initial);
+  const resumed = resumeExecutionObservation(options, observation.token);
+  resumed.update(oversized);
+  assert.deepEqual(JSON.parse(readLocalFile(file)), initial);
+  observation.update(launch, {});
+  assert.deepEqual(JSON.parse(readLocalFile(file)), initial);
+  session.capture(); session.publish();
+  const index = readExecutionIndex(f.root, f.run);
+  assert.equal(index.status, "partial"); assert.deepEqual(index.records, [initial]);
 });
 
 test("corrupt private beginnings become explicit omissions and shutdown rejects late writes", (t) => {

@@ -1,7 +1,8 @@
-import { Worker } from "node:worker_threads";
+import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
+import { nativeCollector } from "./native-collector.mjs";
 import { readFileSync } from "node:fs";
 import { createLinuxResourceAdapter } from "./resource-linux.mjs";
-import { semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
+import { semanticJSONDigest, validateSchemaSync, instrumentationSignals } from "../contract/index.mjs";
 import { hostAdmissionRoot } from "../runtime/host-admission.mjs";
 
 export function instrumentationPolicy() {
@@ -9,9 +10,10 @@ export function instrumentationPolicy() {
   validateSchemaSync(policy.schema_id, policy);
   return { policy, digest: semanticJSONDigest(policy) };
 }
-export function createResourceCollector({ runRoot, manifest, capacities, epoch, admissionRoot = hostAdmissionRoot, workerFactory = (url, options) => new Worker(url, options), adapterFactory = createLinuxResourceAdapter, timers = { setTimeout, clearTimeout }, onRelationship = () => {} }) {
+export function createResourceCollector({ runRoot, manifest, capacities, epoch, runtime, admissionRoot = hostAdmissionRoot, workerFactory = nativeCollector, adapterFactory = createLinuxResourceAdapter, timers = { setTimeout, clearTimeout }, onRelationship = () => {} }) {
   if (manifest.instrumentation.mode === "off") return null;
   const { policy } = instrumentationPolicy();
+  const containerProofFile = runtime?.privatePath("container-observation", "proof.json") ?? null;
   let stopCompletion, controlVersion = 0;
   let worker, adapter, stopped = false, failure = null, latest = null, sequence = 0;
   const acknowledgements = new Map();
@@ -19,8 +21,9 @@ export function createResourceCollector({ runRoot, manifest, capacities, epoch, 
   let pendingBytes = 0, droppedRegistrations = 0, terminalMessage = false;
   try {
     adapter = adapterFactory();
-    worker = workerFactory(new URL("./resource-collector-worker.mjs", import.meta.url), {
-      workerData: { policy, runRoot, capacities, admissionRoot, epoch: String(epoch), identity: {
+    worker = workerFactory(null, {
+      workerData: { policy, runRoot, capacities, admissionRoot, containerProofFile, runtimeLeaseID: runtime?.leaseID ?? null,
+        containerSignals: Object.entries(instrumentationSignals).filter(([, signal]) => signal.producer_scope === "container").map(([name]) => name), epoch: String(epoch), identity: {
         run_id: manifest.run_id, source_digest: manifest.source_digest,
         graph_digest: manifest.graph_digest, policy_digest: manifest.instrumentation.policy_digest,
       } },
@@ -67,6 +70,11 @@ export function createResourceCollector({ runRoot, manifest, capacities, epoch, 
     } catch { droppedRegistrations += 1; }
   }
   const result = {
+    registerContainers(proof) {
+      if (stopped || failure || !worker || !containerProofFile) return;
+      const value = proof === null ? null : { version: 1, run_id: manifest.run_id, runtime_lease_id: runtime.leaseID, ...proof };
+      atomicLocalFile(containerProofFile, JSON.stringify(value), { replace: true, maximumReplacementBytes: 1048576 });
+    },
     register(pid, unitID, { allocationRef = null, invocationID = null } = {}) {
       if (stopped || failure || !worker || !Number.isSafeInteger(pid)) return;
       try { sendCorrelation({ type: "register", proof: adapter.proof(pid), unit_id: unitID, allocation_ref: allocationRef, invocation_id: invocationID }); }

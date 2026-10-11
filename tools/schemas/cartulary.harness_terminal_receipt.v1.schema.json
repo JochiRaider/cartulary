@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_terminal_receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "invocation_digest",
+    "source_digest",
+    "outer_duration_ms",
+    "child_exit_code",
+    "outcome",
+    "graph_memberships",
+    "publication_start_ms"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_terminal_receipt.v1"
+    },
+    "invocation_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "outer_duration_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "child_exit_code": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "outcome": {
+      "enum": [
+        "passed",
+        "failed",
+        "cancelled",
+        "incomplete"
+      ]
+    },
+    "graph_memberships": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_digest",
+          "graph_digest",
+          "envelope_digest",
+          "scan_digest",
+          "scan_outcome",
+          "scan_interval"
+        ],
+        "properties": {
+          "run_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "graph_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "envelope_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "scan_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "scan_outcome": {
+            "enum": [
+              "passed",
+              "failed"
+            ]
+          },
+          "scan_interval": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "start_ms",
+              "end_ms"
+            ],
+            "properties": {
+              "start_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "end_ms": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "publication_start_ms": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

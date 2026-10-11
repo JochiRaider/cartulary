@@ -626,6 +626,7 @@ export function attachLocalSession({
   runID,
   suiteRuntime,
   dependencies = {},
+  onContainerProof = () => {},
 }) {
   if (!allowedAttachedTargets.has(target)) {
     throw new Error(`${target} is owned-only and rejects local service attachment`);
@@ -672,6 +673,7 @@ export function attachLocalSession({
       CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID,
     };
     suiteRuntime.registerEnvironment(environment);
+    try { onContainerProof({ lease: descriptor.service_lease, ownership: "borrowed", borrower_file: borrowerFile, borrower_id: borrowerID }); } catch { /* Optional observation cannot change attachment. */ }
     let closed = false;
     return {
       environment,
@@ -680,6 +682,7 @@ export function attachLocalSession({
       ownership: "borrowed",
       close() {
         if (closed) return;
+        try { onContainerProof(null); } catch { /* Observational revocation. */ }
         closed = true;
         withLifecycleLock(sessionFile, () => {
           const current = readLocalSessionDescriptor(sessionFile);

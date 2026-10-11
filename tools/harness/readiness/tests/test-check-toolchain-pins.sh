@@ -8,6 +8,8 @@ if command -v "${NODE_BIN}" >/dev/null 2>&1; then
 fi
 SCRIPT="${ROOT_DIR}/tools/harness/readiness/toolchain-pin-check-cli.mjs"
 source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
+# shellcheck source=tools/workspace_layout.generated.sh
+source "${ROOT_DIR}/tools/workspace_layout.generated.sh"
 cleanup_paths=()
 
 cleanup() {
@@ -381,6 +383,10 @@ copy_minimal_repo "${preflight_dir}"
       if [[ -f "$file" ]]; then printf '%s\0' "$file"; fi
     done | tar --null -T - -cf -
 ) | tar -xf - -C "${preflight_dir}"
+# This source-mutated graph intentionally skips preparation. Supply the real
+# admission executable so its negative input reaches the owning pin checker.
+mkdir -p "${preflight_dir}/${CARTULARY_LAYOUT_TOOLBIN}"
+cp "${ROOT_DIR}/${CARTULARY_LAYOUT_TOOLBIN}/cartulary-harness-admission"   "${preflight_dir}/${CARTULARY_LAYOUT_TOOLBIN}/cartulary-harness-admission"
 replace_text "${preflight_dir}/package.json" '"node": "'"$node_version"'"' '"node": "'"$node_version_alt"'"'
 "$NODE_BIN" - "${preflight_dir}/tools/harness_work_graph_owner.json" <<'EOF'
 const fs = require("node:fs");

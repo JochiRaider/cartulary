@@ -393,6 +393,7 @@ export async function runWorkGraph({
   retainEvents = true,
   observation = null,
   diagnostics = null,
+  onClockEpoch = () => {},
 }) {
   validateWorkGraph(graph, { capacities });
   cache?.validateGraph(graph);
@@ -423,6 +424,7 @@ export async function runWorkGraph({
   signal?.addEventListener("abort", onAbort, { once: true });
   if (signal?.aborted) onAbort();
   const started = process.hrtime.bigint();
+  try { onClockEpoch(started); } catch { /* Optional placement cannot change execution. */ }
   let seq = 0;
   const elapsed = () => Math.max(0, Number((process.hrtime.bigint() - started) / 1_000_000n));
   const activities = new Map();

@@ -3680,7 +3680,7 @@ function validateAll(root) {
     repoFile(root, "tools/execution_topology_manifest.json"),
   );
   const instrumentationDefinitions = readShapeFile(repoFile(root, "tools/harness_instrumentation_definitions.json"));
-  validateSchemaSync("cartulary.harness_instrumentation_definitions.v1", instrumentationDefinitions);
+  validateSchemaSync("cartulary.harness_instrumentation_definitions.v2", instrumentationDefinitions);
   renderInstrumentationDefinitions(instrumentationDefinitions);
   validateTaskSurfaceOwnerShape(repoFile(root, "tools/task_surface_owner.json"));
   loadExecutionTopology({

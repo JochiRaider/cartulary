@@ -6,7 +6,7 @@ export function ownedProcess(pid) {
   const fields = readFileSync(`/proc/${pid}/stat`, "utf8").split(") ").at(-1).split(" ");
   return { ...proof, group: Number(fields[2]) === pid };
 }
-export async function stopOwnedProcess(proof, { graceMS = 1000, killMS = 5000 } = {}) {
+export async function stopOwnedProcess(proof, { graceMS = 1000, killMS = 5000, exitNotification } = {}) {
   // A detached process group can outlive its leader. Linux reserves its group
   // identifier until the last member exits; reject a reused leader identity.
   const alive = () => {
@@ -28,9 +28,19 @@ export async function stopOwnedProcess(proof, { graceMS = 1000, killMS = 5000 } 
     if (!alive()) return;
     try { process.kill(proof.group ? -proof.pid : proof.pid, name); } catch (error) { if (error.code !== "ESRCH") throw error; }
   };
+  // Direct-child callers already receive an exit event. Use it as a wakeup,
+  // never as proof that a process group is empty or that an identity is gone.
+  let exitObserved = false;
+  const exitWake = exitNotification && Promise.resolve(exitNotification).then(
+    () => { exitObserved = true; }, () => { exitObserved = true; });
   const wait = async (duration) => {
     const end = performance.now() + duration;
-    while (alive() && performance.now() < end) await new Promise((resolve) => setTimeout(resolve, 20));
+    while (alive() && performance.now() < end) {
+      let timer;
+      const delay = new Promise((resolve) => { timer = setTimeout(resolve, Math.min(20, Math.max(0, end - performance.now()))); });
+      try { await (exitWake && !exitObserved ? Promise.race([delay, exitWake]) : delay); }
+      finally { clearTimeout(timer); }
+    }
     return !alive();
   };
   signal("SIGTERM"); if (await wait(graceMS)) return;
