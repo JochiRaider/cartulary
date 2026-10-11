@@ -4,6 +4,10 @@
 .cache/
 .vscode/
 tmp/
+# The deployment layout marker is authored; runtime contents remain ignored.
+!deploy/mvp/runtime-roots/tmp/
+deploy/mvp/runtime-roots/tmp/*
+!deploy/mvp/runtime-roots/tmp/.keep
 .cartulary/
 
 # Dependencies
