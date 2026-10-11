@@ -5385,7 +5385,9 @@ The maximum observed sweep and omitted observations MUST disclose such overruns.
 Sweeps MUST NOT overlap or catch up in bursts. Unavailable
 values MUST be null, never zero. Availability tokens are `available`,
 `unsupported`, `permission_denied`, `not_observed`, `process_gone`, `counter_reset`,
-`paused_measurement`, `truncated`, and `collector_failed`. A published index's
+`paused_measurement`, `truncated`, `collector_failed`, `container_gone`, and
+`deadline_exceeded`. The last two tokens describe exact-container disappearance
+and exhausted observation deadlines; they do not change lifecycle authority. A published index's
 completeness is `complete`, `partial`, `truncated`, `unsupported`, or
 `collector_failed`; even complete collection has `observed_partial` process-tree
 coverage. Resets invalidate deltas;
@@ -5433,7 +5435,15 @@ at 262,144 bytes and displays at most 20 units/scopes with omission counts.
 when present and report their completeness separately; absent optional records
 MUST NOT invalidate otherwise complete canonical evidence.
 Performance views MUST identify queue/execution path contributions and coarse
-bucket/reservation limitations. Live resource detail MUST extend the existing
+bucket/reservation limitations. Human resource views MUST expose the selected
+scope's validated signals with their units and aggregation semantics. Container
+memory usage and limits are daemon-reported sampled gauges, PID count is a sampled
+gauge, and block I/O uses observed deltas and valid intervals. A single cumulative
+CPU sample MUST NOT imply utilization. Missing observations remain unavailable,
+observed zero remains zero, and shared/borrowed allocation ownership remains
+contextual. Process RSS MUST NOT stand in for container or context memory.
+Human and JSON views MUST disclose omitted scopes/units and bounded-output
+truncation without rereading or recollecting evidence. Live resource detail MUST extend the existing
 status snapshot, not replay event/sample files. Age above 6,000 ms is stale;
 measurement pause is distinct. Silence or stale diagnostics MUST NOT establish
 a hang. Existing status byte/list/heartbeat and terminal-precedence rules remain.
@@ -5451,10 +5461,9 @@ post-run only, under the existing metric/attribute registry; resource samples MU
 remain local. No application telemetry SDK or inherited exporter configuration is
 permitted.
 
-Rationale: the small initial delivery establishes trustworthy Go/Vitest unit
-attribution without claiming full wrapper, container or Windows-host coverage.
-The handoff's later service, wrapper, comparison and qualification slices are
-separate implementation milestones, not permission to invent missing observations.
+Rationale: observation coverage is limited to validated evidence. Wrapper and
+container coverage follow REQ-846/847; unavailable observations remain explicit.
+Windows-host accounting and engineering qualification are separate claims.
 
 **TH-HARNESS-REQ-837 — Helper lifecycle clock identity.** Service lifecycle v3
 and browser startup event v2 MUST carry `clock`, `clock_identity`, and nullable
@@ -5513,13 +5522,13 @@ MAY retain an unmatched allocation reference; no successful lease is inferred.
 Correlation is observational and MUST NOT alter publication, reuse, release,
 or cleanup ownership. The bounded explanation exposes the first 20 lease
 correlations and an omitted count. Neither these records nor process samples
-become lifecycle authority. Container totals and borrowed-service consumption
-remain unavailable until an exact owner-scoped adapter supplies them.
+become lifecycle authority. Container observations and borrowed-service consumption require the exact
+owner-scoped adapter in REQ-846; absent proof remains unavailable.
 
 
 **TH-HARNESS-REQ-840 — Instrumentation foundation projections.**
 The closed owner input `tools/harness_instrumentation_definitions.json`, using
-`cartulary.harness_instrumentation_definitions.v1`, MUST project the phase names
+`cartulary.harness_instrumentation_definitions.v2`, MUST project the phase names
 in REQ-831 and the existing resource signals, units, counter/gauge kinds,
 producer scopes, and fixed aggregation classifications. Collection cadence and
 resource limits remain in the instrumentation policy. Canonical reduction MUST
@@ -5528,7 +5537,7 @@ accept at most 128 phase starts per unit, including unfinished intervals; a
 Missing ends remain incomplete rather than becoming synthesized durations.
 
 Make-owned generation MUST derive
-`cartulary.harness_instrumentation_defs.v1` shared schema components and
+`cartulary.harness_instrumentation_defs.v2` shared schema components and
 dependency-free runtime descriptors from this input before generating dependent
 validators. Shared sample-value, aggregate, observer, and lease components MUST
 preserve unaffected retained schemas' accepted payload sets and schema IDs.
@@ -5643,7 +5652,8 @@ execution model. Lists show at most 20 records per category and exact known
 omissions within existing output byte budgets. Resource relationships, shared
 work, inferred/conflicting provenance and unavailable activities remain explicit.
 REQ-845–849 adopt clock placement, container observations, the wrapper receipt,
-qualification commands and uniform retained validation. Live replay, automatic
+qualification evidence validation and uniform retained validation. Acquisition
+commands are retired under REQ-848/851. Live replay, automatic
 export, application telemetry and a default-on decision remain outside scope.
 Producers and readers MUST migrate together without legacy translation readers.
 Executable projections and verification MUST NOT depend on Markdown.
@@ -5901,6 +5911,82 @@ readers MUST NOT import or construct OTLP. Human/JSON views use the same facts
 within the existing 20-item/262,144-byte bounds. No global mutable read cache or
 compatibility forwarding interface is introduced.
 Verified by: TH-HARNESS-AC-146
+
+### 10.10 Graph runtime and fixture ownership
+
+**TH-HARNESS-REQ-852 — One graph execution owner.**
+The Go graph runtime owns DAG scheduling, capacity and lock accounting, aging,
+host admission, graph cache transactions, unit launch/wait/cancel, canonical events,
+live status, required graph publication and finalization ordering. Existing graph
+selection, scheduling, cache, failure precedence, timing, resource and cleanup
+semantics MUST be preserved. Runtime tests exercise the owning policy through injected ports and independently
+authored expected outcomes; a second scheduler implementation is not an oracle.
+No JavaScript scheduler fallback or permanent runtime-selection switch is admitted.
+Make remains the public entrypoint. The single installed `cartulary-harness`
+binary has a thin composition root and cohesive reusable runtime, fixture,
+admission, observation and secure-file libraries. Collection may remain an
+isolated run-owned child of that binary for fault isolation and quietness; it
+MUST NOT become a daemon or introduce an independent polling schedule. Read-only
+status MUST NOT build, install or initialize writer state.
+
+Node owns source-aware compilation, graph modeling and selector validation, row
+runners, runner-specific report adaptation and offline analysis. The compiler
+MUST exit and be reaped before any graph unit launches; its catalog, source ASTs,
+closures and caches MUST NOT remain in a resident graph coordinator. Node rows
+continue validating their current selected inputs. Full public source preflight
+MUST NOT be replaced by metadata-only fixture access.
+Verified by: TH-HARNESS-AC-147
+
+**TH-HARNESS-REQ-853 — Shared fixture coordination.**
+One Go fixture implementation owns allocation, lease/reuse decisions, coordination,
+recovery and ordered cleanup for graph and UI-review callers. Graph calls it
+directly; UI-review uses a narrow private client carrying requests and outcomes,
+not a second lifecycle policy. Existing service and browser lifecycle adapters
+retain physical acquisition/reset/termination responsibilities. Owned resources
+MUST drain before their dependencies close, borrowed resources MUST NOT be
+terminated, partial acquisitions MUST retain recovery proof, repeated release and
+close MUST be idempotent, and cleanup failures MUST preserve primary failure
+precedence. Client loss MUST initiate owned cleanup; failed cleanup remains
+explicit rather than inferring release from missing files or process names.
+Verified by: TH-HARNESS-AC-148
+
+**TH-HARNESS-REQ-854 — Private preparation and fixture interfaces.**
+`cartulary.harness_runtime_plan.v1` carries the existing graph, projections,
+provenance, capacity facts, validated launch bindings and cache inputs from the
+source-aware compiler over an inherited private descriptor. It is limited to
+33,554,432 bytes. The runtime MUST reject malformed/unknown versions, invalid
+identities, graph/digest/reference closure failures, incomplete publication and
+exhaustion before workload launch. No source object graph, callable behavior or
+credentials may be retained as plan facts. The public surface MUST NOT accept
+arbitrary executable plans or command strings. Runtime credentials remain under
+existing private ownership and redaction boundaries.
+
+`cartulary.harness_fixture_session.v1` carries only acquire, release, recover and
+close operations, bounded request IDs, existing run/lease proof and closed
+outcomes. A frame is limited to 1,048,576 bytes. Session transport is private and
+bound to the invoking owner; forged proof, unknown operations, duplicate settlement,
+oversized/incomplete frames and late writes MUST fail closed. EOF or owner loss
+initiates owned cleanup, with unresolved resources preserved for recovery.
+Neither interface is a public general-purpose command runner. Typed schemas and
+machine projections, not Markdown or a second authored validator registry, define
+its executable shape. Native and Node schema acceptance MUST agree on shared
+fixtures, including duplicate keys and prototype-like members.
+Verified by: TH-HARNESS-AC-147–148
+
+**TH-HARNESS-REQ-855 — Single-owner completion boundaries.**
+Graph execution and shared fixture coordination MUST each have one active policy
+owner across their callers. Superseded runtime/broker policy, alternate dispatch,
+and compatibility forwarding interfaces MUST NOT remain active. Required graph
+publication precedes ordinary diagnostic drain; retained scanning begins only
+after ordinary producers stop. The sole subsequent retained write remains
+REQ-847's bounded receipt. Clock placement, container proof, observation cadence,
+uncertainty, size/deadline limits and retained-format acceptance sets are unchanged.
+Functional completion and deferred qualification MUST be reported separately.
+Historical failures MUST NOT be relabelled, qualification budgets MUST NOT be
+relaxed, and diagnostics remain default-off. Implementation sequencing and rollback
+transactions belong to the human tracker, not executable conformance inputs.
+Verified by: TH-HARNESS-AC-147–149
+
 
 ## 11. Service and Fixture Lifecycle
 
@@ -8445,7 +8531,9 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-143 | REQ-846 | Exact owned containers, borrowed/shared scope, foreign proof, restart/replacement, missing counters, timeout/caps and sibling pause | Private least-privilege proof, bounded collection and unchanged lifecycle cleanup | Foreign discovery, duplicated physical cost, leaked helper or unacknowledged work fails. |
 | TH-HARNESS-AC-144 | REQ-847 | Wrapper startup, multiple/nested graphs, cancellation, scan failure, forged receipt, unsafe path and interrupted publication | Secure envelope/scan-bound structural receipt and preserved admission/signals/exits | Arbitrary post-scan data, rewritten evidence, false completion or multiplied outer duration fails. |
 | TH-HARNESS-AC-145 | REQ-848 | Independent process/thread CPU and memory arithmetic, all workload/reader treatments, instability, corrupt/mismatched evidence and lost measurements | Complete declared observer scope and every fixed budget pass at frozen clean source | Partial self-counters, peak substitution, missing coverage, altered thresholds or failed required cell cannot qualify. |
-| TH-HARNESS-AC-146 | REQ-849 | Duplicate JSON keys, prototype-named members, malformed envelope/receipt, secure paths, stream-count instrumentation and all public consumers | One immutable validated result, one resource traversal and consistent bounded human/JSON acceptance | Hidden members, inherited fields, partial aggregate exposure, repeated traversal, implicit export or divergent rejection fail. |
+| TH-HARNESS-AC-146 | REQ-835/849 | Strict JSON, malformed envelopes/receipts, secure paths, one/two samples, zero/unavailable, resets/gaps, shared/borrowed scopes, truncation and all public consumers | One immutable model and resource traversal; bounded human/JSON facts agree, with scope-correct metrics, units, intervals and omissions | Hidden members, partial aggregates, invented utilization/totals, RSS substituted for container memory, repeated reads, implicit export or divergent rejection fail. |
+| TH-HARNESS-AC-147 | REQ-852/854/855 | Independent scheduling/cache/plan fixtures, compiler lifetime, cancellation, publication and public dispatch | One native graph owner; compiler reaped before units; required selection/accounting preserved; status never provisions | Alternate engine, arbitrary plan execution, resident compiler, lost descendants or changed failure order fails. |
+| TH-HARNESS-AC-148 | REQ-853/854/855 | Graph/UI-review ownership, partial acquisition, concurrency, reset/recovery, owner loss, hostile frames and repeated close | One fixture policy, exact proof, ordered cleanup and unchanged physical owners | Duplicate policy, forged requests, borrowed-resource termination, leaked resources or hidden cleanup failure fails. |
 | TH-HARNESS-AC-149 | REQ-851 | Command/import closure, retired attachments and completion reporting | Experimental collection retired; independent validation retained; no qualification claim | Active probes/collection commands, weakened budgets or historical relabelling fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
@@ -8493,6 +8581,8 @@ and two fresh ordinary passes against the same final golden manifest.
 | `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056, TH-HARNESS-AC-067, TH-HARNESS-AC-075, TH-HARNESS-AC-076 |
 | `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-039, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055, TH-HARNESS-AC-056, TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-068, TH-HARNESS-AC-069, TH-HARNESS-AC-070, TH-HARNESS-AC-071, TH-HARNESS-AC-080, TH-HARNESS-AC-081, TH-HARNESS-AC-082 |
 | `TH-HARNESS-REQ-800..817` | V3 execution control               | TH-HARNESS-AC-082, TH-HARNESS-AC-083, TH-HARNESS-AC-084, TH-HARNESS-AC-085, TH-HARNESS-AC-086, TH-HARNESS-AC-087, TH-HARNESS-AC-088, TH-HARNESS-AC-089, TH-HARNESS-AC-090, TH-HARNESS-AC-091, TH-HARNESS-AC-094, TH-HARNESS-AC-095, TH-HARNESS-AC-096, TH-HARNESS-AC-097, TH-HARNESS-AC-098, TH-HARNESS-AC-099, TH-HARNESS-AC-100, TH-HARNESS-AC-101 |
+| `TH-HARNESS-REQ-830..851` | Instrumentation and independent qualification validation | TH-HARNESS-AC-137 through TH-HARNESS-AC-146, TH-HARNESS-AC-149; individual Verified by clauses give exact mapping. |
+| `TH-HARNESS-REQ-852..855` | Native graph and shared fixture ownership | TH-HARNESS-AC-147, TH-HARNESS-AC-148, TH-HARNESS-AC-149 |
 
 
 | UI review requirements: 022, 081, 104, 159, 203, 284–288, 311, 381, 415–417, 502, 552, 616, 679 | UI review amendment in Sections 1–16 | TH-HARNESS-AC-102 through TH-HARNESS-AC-129; individual Verified by clauses and Section 17.0 provide exact mapping. |

@@ -10,54 +10,32 @@ authority_boundary: Human implementation tracker and rationale; the Testing Harn
 
 ## Baseline and authorization
 
-The current request authorizes repository cleanup, coherent validated commits on
-`main`, and this implementation handoff. It explicitly stops before implementing
-the next phase. **Do not archive old code.** Existing Git history is sufficient
-for source recovery; preserve failed evidence and its original dispositions.
-Earlier archives are historical references, not prerequisites for new work.
+The current user request authorizes implementation of the complete functional
+remediation plan on main, with a saved checkpoint after every workstream and
+before its successor. Starting main is clean `3781d9a4549050e110d3a699781cd78562e204fc`.
+The authoritative sequence is Section 6; S-032 is the required final handoff.
+This supersedes earlier planning-only and stop-before-next-phase instructions.
 
-Main's executable baseline is `229936209c14120e4b8a16a53dea55164643c4c7`,
-primary-checkout source digest
-`sha256:4ad3142d6eb8e78cb6729390df615fc7570c832c3eda62df0a7ac332fd625d31`.
-Five scoped commits retain completed work and remove experimental collection from
-the active tree. The Git executable content equals the completed pre-cutover revision
-`c09e8ba87e33110de85da7b131e94801bc52af5b`; the owner specification deliberately
-omits that branch's not-yet-integrated Go runtime requirements. The final tracker
-commit changes documentation only and does not relabel test evidence.
+The salvage checkout remains at `79aecc1cae7a9474c92f4a9b8f77092bc4363662` with
+unfinished cutover changes. It is a source candidate only; historical passes do
+not establish current-source success. Its tracked/non-ignored content is
+fingerprinted in `/tmp/cartulary-remediation-salvage-baseline.json` (6,937 entries).
+No wholesale import, reset, source archive or evidence deletion is authorized.
 
-Current architecture: Node graph compilation **and scheduling**, Node row runners
-and offline analysis, native collection/status/admission helpers, and the existing
-JavaScript fixture broker. Clock placement, exact-container observation, invocation
-envelopes and bounded terminal receipts remain. Shared generated validators,
-secure retained loading, catalog/fixture lifetime fixes and bounded hashing remain.
-No experimental meter, lifetime probe, qualification runner or diagnosis runner
-is active. `harness-performance-check` retains independent validation.
-
-The selected future direction remains Go graph/lifecycle coordination and one Go
-fixture owner for graph and UI-review callers, with Node preparation, row runners
-and report adapters retained. That cutover is **not deployed on main**. First make
-already-collected information useful in the human report (S-034); then complete
-S-031 as an independently gated integration, followed by S-032. Do not resume an
-unbounded optimization or qualification loop.
-
-The existing salvage checkout at
-`/home/jochi/.codex/worktrees/instrumentation-salvage/cartulary` remains at
-`79aecc1cae7a9474c92f4a9b8f77092bc4363662` with unfinished S-031 changes.
-Its S-027–S-030 passes are source-scoped historical evidence, not mainline passes.
-Its dirty candidate is neither a merge-ready change nor a source of automatic
-compatibility obligations. No new code archive was retained during this cleanup.
+At entry, Node still owns public graph execution and fixture coordination.
+The selected destination is short-lived Node compilation, one Go graph runtime
+and one shared Go fixture policy; Node rows and offline readers remain.
+REQ-852–855 now state the adopted destination; adoption is not implementation
+completion. S-035 specification reconciliation is complete; S-034 is ready.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
-F-022/RB-006 remain unresolved; S-020–S-022 remain DEFERRED. CPU is the signed,
-equally weighted paired mean **strictly below 2.5% of one core per cell**. All other
-budgets, eligibility and stability rules remain unchanged. The original effort
-remains IN_PROGRESS. Experimental collection remains 44.952 of 90 minutes;
-cleanup and functional tests are not qualification observations.
+F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
+equally weighted paired mean strictly below 2.5% of one core per cell. All other
+budgets and eligibility/stability rules remain unchanged. The experimental ledger
+remains 44.952/90 minutes. Functional checks are not qualification observations.
 
-The current mainline subsections in Sections 1–12 control the next action. Prior
-salvage tables, original IDs, failed attempts and ledgers remain historical.
-S-033/V-034 closes with the saved cleanup/plan commit and clean-state check.
-S-034 is the next bounded implementation slice; it was not started here.
+Sections 1–12 contain current state above explicitly historical sections. Preserve
+historical IDs, failed attempts, source identities and dispositions.
 
 ## Original delivery evidence and gaps — historical
 
@@ -496,27 +474,22 @@ improvement or default-on claim.
 
 ### Current mainline scope and baseline
 
-Artifact mode: normal. Canonical tracker: this regular tracked file under
-`docs/handoffs/`; the primary checkout is `/home/jochi/code/cartulary`.
-The Testing Harness NLSpec owns behavior; `docs/domain.md` supplies navigation.
-The refactor-tracker format is used for the plan only: the user's cleanup request
-separately authorizes the source removals and commits recorded here. No next-phase
-Go implementation or report change is authorized by this handoff.
+Canonical target: `tools/harness/observability`, expanded through graph runtime,
+fixture callers, typed projections and owner tests named in Section 7. Sole
+controlling tracker: this regular file. Human owner: Testing Harness NLSpec;
+`docs/domain.md` remains vocabulary/navigation, with no new domain concept.
 
-| Baseline item | Starting state | Cleanup disposition / evidence |
+| Baseline item | Starting evidence | Preservation / applicability |
 | --- | --- | --- |
-| Main / index | `1d423c6e5f9cd204f8210fa9958c780fd933d293`; staged tracker hash `9ab829e44fa8df7ba1ee86e794518acd97129cea6af416966fbdda4b33f83426` | Main advanced through the five reviewed commits below; original tracker history reconciled, not blindly reset; E-031 |
-| Uncommitted source | Frozen `c68c8cfa45e0a3e365bb168008e99c40e6ff5f1f` source plus newer tracker; unqualified | Completed foundation selected from `c09e8ba87`; experiments removed; no Go cutover code imported |
-| Untracked layout marker | `deploy/mvp/runtime-roots/tmp/.keep` | Original one-newline content retained in its own deployment commit |
-| Ignored evidence | Primary/qualification/salvage `.cartulary` results and prior RAM-disk attempts | Preserved in place with previous evidence references; no clean/distclean, stash or blanket reset |
-| Isolated cleanup | `codex/instrumentation-main-cleanup` in `/home/jochi/.codex/worktrees/instrumentation-main-cleanup/cartulary` | Source assembled and tested independently; exact path transfer and checked fast-forward onto main |
-| Unfinished migration | Salvage branch `79aecc1ca` plus dirty S-031; qualification checkout at `c68c8cfa4` | Both untouched; existing Git history retained; no new code archive |
+| Main | `3781d9a45`, clean index/working tree | Implement sequentially; coherent source/projection checkpoints |
+| Executable foundation | `229936209`; S-033/V-034/E-031 | Retained behavior, not new validation |
+| Salvage candidate | `79aecc1ca` plus existing dirty S-031 | Read-only input; 6,937-entry content fingerprint; no automatic merge |
+| Existing evidence | Primary, salvage and qualification retained roots | Preserve failures; no clean/distclean or relabeling |
+| Qualification | F-022/RB-006, 44.952/90 minutes | DEFERRED; no new collection |
 
-E-031 accounts for all 406 initially outstanding paths. This is path-complete
-cleanup accounting and focused semantic review, not an exhaustive audit of the
-product or every generated validator. Generated outputs were regenerated and
-checked; existing owner tests and new public runs provide behavioral evidence.
-
+Discovery covers the named runtime/report/fixture/producer/reader/routing seams;
+it is not an exhaustive product audit. Generated outputs are regenerated from
+owner inputs, never hand-edited. Baseline candidates are reviewed per workstream.
 
 ### Salvage scope — historical off-main salvage
 
@@ -796,9 +769,10 @@ is justified.
 | --- | --- | --- |
 | C-010–C-014 | NLSpec REQ-845–849: clock uncertainty, exact container proof, bounded receipt, unchanged qualification arithmetic and one validated retained model | Retained on main; fresh evidence E-031; migration must preserve acceptance and canonical timing |
 | C-017 | REQ-848/850/851 distinguish functional delivery from qualification; retire experimental acquisition | Adopted on main; validation remains active, certification deferred |
-| C-015/C-016/C-018 | Future Go graph owner, shared fixtures and private compiler/session interfaces | Main does not yet adopt the salvage branch's REQ-852–855/AC-147–148. Review and adopt their necessary final form in S-031/A before integrating native ownership |
+| C-015/C-016/C-018 | Adopted REQ-852–855: one Go graph owner, shared fixtures and private interfaces | S-035 adopts final requirements; S-031/A–F implement and validate them |
 | C-019 scope-aware presentation | REQ-849 and existing resource/analysis semantics: display validated scope-specific facts without new filesystem reads or invented totals | New bounded correction S-034/V-035; clarify owner acceptance before editing presentation; retained schema unchanged unless a real shape change requires versioning |
-| C-020 mainline cleanup | Latest user scope: completed commits, preserve evidence, no new code archive, no next-phase implementation | S-033/V-034/E-031; original effort and F-022 remain open |
+| C-020 mainline cleanup | Completed prior cleanup and preserved evidence | S-033/V-034/E-031 historical completion |
+| C-021 coherent current specification | REQ-833/835/840/844/849/852–855; schema versions, availability, reports and native ownership | S-035/V-036; human-reviewed typed projections, no Markdown executable dependency |
 
 Current formats remain execution record/index v2, resource sample v2/index v3,
 envelope v2, explanation v3, instrumentation policy v3 and receipt v1. Qualification
@@ -875,6 +849,7 @@ are not applicable because no product contract changes.
 
 | Finding | Remediation / areas | Rationale and long-term benefit | Compatibility / migration | Risk if unresolved | Completion evidence |
 | --- | --- | --- | --- | --- | --- |
+| F-033 specification drift | Reconcile definition v2, container availability, retired acquisition wording, scope-aware reporting and native ownership; specification/docs | One coherent current owner, fewer obsolete compatibility assumptions | Existing retained formats unchanged; native private interfaces adopted | Contradictory versions, restored retired commands or ownerless migration | S-035/C-021/V-036: owner/acceptance/traceability review and docs lint |
 | F-019 misleading readiness | Replace current summaries and identify main versus off-main completion; documentation | One trustworthy restart point and accurate evidence scope | Preserve IDs and historical ledgers; supersede earlier next actions | Another agent merges an incomplete cutover or repeats experiments | S-033/V-034: clean main, commit/evidence ledger and explicit deferred items |
 | F-029 experiments coupled to delivery | Remove collection/probe/build/schema registrations; retain qualification validation; specification, implementation, tests, documentation | Ordinary instrumentation has fewer dependencies and no self-profiling experiment path | Explicit retirement of qualify/diagnose commands; historical source in Git | Ongoing complexity and false completion claims | Main removal complete at `229936209`; active-source search and contract/projection gates pass |
 | F-032 collected resources are poorly surfaced | Render container memory/limit, block-I/O deltas and PID gauges from existing validated metrics; label single-sample CPU unavailable; presentation, tests, owner clarification, docs | Make existing service observations actionable without adding collection | Human output only if current JSON suffices; preserve bounded output and explicit omitted counts | Users see `sampled_rss_max_bytes=not_observed` for containers despite retained memory observations | S-034/C-019/V-035: independent fixtures and fresh exact-run human/JSON fact parity; E-031 service run demonstrates the gap |
@@ -945,20 +920,28 @@ owner violation receives a new named correction and regression test.
 
 ### Current ordered workstreams
 
-| Workflow | Slice / dependency | Readiness | Exit / checkpoint |
+This is the sole dependency list for the current effort. Each saved checkpoint
+must precede any work on its successor. S-031 rolls up A–F; each is an independent
+workstream with its own result and checkpoint.
+
+| Workflow | Slice / prerequisite | Status | Exit / checkpoint |
 | --- | --- | --- | --- |
-| WF-33 Main stabilization | S-033; completed foundation and explicit cleanup request | DONE; E-031 | V-034: five scoped code commits, functional gates, removed experiments, clean main and durable plan |
-| WF-34 Useful retained reports | S-034 after S-033 | Ready for a later implementation request | V-035: scope-correct bounded human report using existing facts; save checkpoint |
-| WF-31 Go cutover | S-031 after S-034; revalidate historical S-027–S-030 against main | Blocked on explicit A–F gates in Section 7 | V-032: one production graph/fixture owner, no old dispatch or duplicated test engine; save checkpoint |
-| WF-32 Functional handoff | S-032 after saved V-032 | Blocked on S-031 | V-033: finalization, broader checks, full warm check and current-source explanations; save checkpoint |
-| WF-20–WF-22 Qualification | S-020–S-022 | DEFERRED | Separate adoption and repeatability/eligibility evidence required; never an automatic successor |
+| WF-33 | S-033; historical cleanup | DONE | V-034/E-031 |
+| WF-35 Specification | S-035 after S-033 | DONE | V-036: reviewed current owner, acceptance and lint |
+| WF-34 Reports | S-034 after saved S-035 | TODO | V-035: scope-correct fixtures and fresh exact-run parity |
+| WF-31A Characterization | S-031/A after saved S-034 | BLOCKED | Explicit test dispositions and executed baseline obligations |
+| WF-31B Native core | S-031/B after saved S-031/A | BLOCKED | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
+| WF-31C Fixtures | S-031/C after saved S-031/B | BLOCKED | V-030: one fixture policy, real lifecycle/recovery and race gates |
+| WF-31D Observation | S-031/D after saved S-031/C | BLOCKED | V-031: collection/drain/scan/receipt and independent reader gates |
+| WF-31E Cutover | S-031/E after saved S-031/D | BLOCKED | One public runtime/fixture owner, caller/generated/deletion closure |
+| WF-31F Public proof | S-031/F after saved S-031/E | BLOCKED | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
+| WF-32 Handoff | S-032 after saved S-031/F | BLOCKED | V-033: finalization, frozen-source broad checks, warm check and handoff |
+| WF-20–22 Qualification | S-020–S-022 | DEFERRED | Separate adoption and complete eligible stable evidence |
 
-Do not begin a successor without saving its predecessor's result, exact commands,
-source identity, failures and remaining risks here. Roll back a complete coherent
-commit/transaction across owners, projections, producers and readers. Keep failed
-result directories. Recovery uses Git history, not a new code archive or a
-permanent alternate-engine switch.
-
+Each checkpoint records files/changes, exact commands, source commit/state/digest,
+environment, roots, outer exits, failures/skips, compatibility and next readiness.
+Rollback uses one coherent owner/projection transaction. Preserve failed roots;
+no alternate-engine switch or new source archive.
 
 ### Salvage workflow dependency authority — historical off-main salvage
 
@@ -1033,8 +1016,16 @@ lists are historical and do not redefine the current sequence.
 
 ### Current next-step plan from clean main
 
-The cleanup is S-033. Everything below is future implementation, not work performed
-by this request. Do not resume the dirty salvage checkout automatically.
+S-033 is complete. The current request authorizes the following sequence.
+
+**S-035 — Reconcile specification and current tracker.** Correct REQ-840 v2
+identities, REQ-833 container availability and REQ-844 retired acquisition wording;
+remove obsolete milestone prose. Adopt REQ-852–855/AC-147–148 with one graph/fixture
+owner, bounded private interfaces and independent behavior tests. Clarify C-019
+report acceptance in REQ-835/849 and AC-146. Extend acceptance traceability.
+Keep implementation sequencing here and vocabulary in its existing owner.
+V-036 requires human owner/projection review, `make lint-markdown`, no runtime
+changes for editorial correction, and the saved checkpoint before S-034.
 
 **S-034 — Make existing observations useful.** Start at
 `tools/harness/observability/performance-presentation.mjs`,
@@ -1054,16 +1045,15 @@ ownership. Main command spelling and result/failure classifications remain stabl
 **S-031/A — Reconcile contracts and test ownership.** Compare main against committed
 salvage references `3528f4379` (composition/preparation), `9fbcecdcd` (engine),
 `ba543bf69` (fixtures) and `79aecc1ca` (observations). Inspect the existing dirty
-S-031 difference separately; do not import it wholesale. Adopt only the necessary
-final REQ-852–855/AC-147–148 clauses into the main NLSpec, then update their typed
-projections. Record a short keep/move/remove disposition for changed test groups,
+S-031 difference separately; do not import it wholesale. Apply S-035's adopted
+REQ-852–855/AC-147–148 boundaries when updating typed projections. Record a short keep/move/remove disposition for changed test groups,
 not a new general-purpose test registry. Preserve selection, cache correctness,
 admission/fairness, canonical accounting, security and cleanup guarantees.
 Copied `simulation.mjs` and `wrapper-fixture.mjs` coordination are not independent
 oracles; replace required assertions with explicit inputs/expected events at the
 owning Go boundary. Entry: S-034 checkpoint. Exit: each moved responsibility and
-removed test group has one owner and a concrete acceptance obligation. Review cost
-and unresolved defects here before committing to more porting.
+removed test group has one owner and a concrete acceptance obligation. Record any implementation defect as a failed gate; the selected ownership
+destination is fixed, not another architecture investigation.
 
 **S-031/B — Integrate the native core in small source-coherent transactions.** Reuse
 reviewed code under `internal/testutil/harnessruntime` and the thin
@@ -1129,8 +1119,9 @@ process lifetimes using retained phases/ordinary observations; do not infer an
 RSS improvement from process size alone. A defect blocks V-032; repair its owner
 and rerun the affected boundary. Save S-031 before beginning S-032.
 
-**S-032 — Functional validation and handoff.** Freeze the executable commit/digest.
-Run `make agent-finalize` before broader checks, then `harness-contract`, script,
+**S-032 — Functional validation and handoff.** Run `make agent-finalize`, review
+any generated refresh, then freeze the executable commit/digest before broader
+checks: `harness-contract`, script,
 shell and Markdown lint, applicable generation/drift and a full warm `make check`.
 Supply `RESULTS_DIR` to finalization only when an already eligible successful full
 warm check exists; otherwise record retained-run maintenance as skipped. Recheck
@@ -1795,21 +1786,16 @@ Their commands/results are not current-source evidence for S-014–S-022.
 
 ### Current work status on main
 
-| ID | Work | Status / next gate |
+| ID | Work | Status / evidence |
 | --- | --- | --- |
-| T-039 / S-033 | Completed-work cleanup, commits on main and durable plan | DONE; V-034/E-031; five code commits and this documentation checkpoint |
-| T-040 / S-034 | Scope-aware human resource report | TODO; ready for later implementation; C-019/F-032/V-035 |
-| T-037 / S-031 | Native public cutover and non-production test migration | DEFERRED in this request; historical dirty candidate retained; A–F above precede V-032 |
-| T-038 / S-032 | Native functional handoff | BLOCKED on saved V-032; no claim from current cleanup |
-| T-033–T-036 / S-027–S-030 | Native composition/engine/fixture/observation work | Historical DONE on salvage branch only; main integration must revalidate |
-| T-007 | Remaining original coverage | IN_PROGRESS; retained current observations pass functional checks; no original final handoff claim |
-| T-008, T-026–T-028 / S-020–S-022 | Instrumentation qualification and original final handoff | DEFERRED; F-022/RB-006 unresolved; budgets and failed evidence unchanged |
-
-S-000–S-019 keep their historical dispositions and source limits. S-023–S-026
-preservation/specification/foundation/removal evidence remains historical, with
-mainline selection and fresh checks now in E-031. Do not rewrite earlier rows as
-new passes or substitute this cleanup for S-032 or S-022.
-
+| T-039 / S-033 | Prior cleanup | DONE; E-031 |
+| T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
+| T-040 / S-034 | Scope-aware resource report | TODO; saved S-035 permits entry; C-019/F-032/V-035 |
+| T-037 / S-031 | Native cutover, separately checkpointed A–F | BLOCKED on S-034; Section 6 is authoritative |
+| T-038 / S-032 | Functional validation and handoff | BLOCKED on saved V-032 |
+| T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
+| T-007 | Original functional coverage | IN_PROGRESS until S-032 |
+| T-008, T-026–T-028 | Qualification/original certification handoff | DEFERRED; F-022/RB-006 unresolved |
 
 ### Salvage work — historical off-main salvage
 
@@ -1870,6 +1856,30 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-032 — S-035 specification completion
+
+2026-10-11, primary main starting at `3781d9a45`, clean index/source. Only the
+Testing Harness NLSpec and this tracker changed. Human review reconciled v2
+instrumentation definitions, all eleven availability tokens, current container
+and wrapper coverage, qualification validation/retirement, scope-aware human
+reports and the final native ownership/interface requirements. AC-146–149 and
+Section 17.2 traceability now cover the adopted boundaries. Runtime schema
+acceptance sets are unchanged; native private projections are future B/C work.
+Domain vocabulary required no amendment. No executable consumer reads Markdown.
+
+`env CARTULARY_TEST_RUN_ID=remediate-help-01 make help` and the corresponding
+`remediate-help-all-01 make help-all` both exited 0. `env
+CARTULARY_TEST_RUN_ID=remediate-s035-markdown-01 make lint-markdown` PASS, outer
+exit 0, 15,700 ms; exact root `.cartulary/test-results/remediate-s035-markdown-01`,
+summary `adhoc/lint-markdown/tool-run-summary.json`. Native session 86631 drained.
+`git diff --check` passed. These are documentation checks, not product or
+qualification evidence. No generator, formatter, service or product test ran.
+
+V-036/F-033 are complete. The salvage checkout remains a read-only candidate.
+S-034 may begin only after this saved checkpoint. Rollback is the two-document
+transaction; preserve the previous history and all evidence. Qualification remains
+DEFERRED, F-022/RB-006 unresolved and the ledger 44.952/90 minutes.
 
 ### E-031 — Mainline cleanup and planning checkpoint
 
@@ -2288,17 +2298,15 @@ document checkpoint, not a runtime-validation result.
 
 ### Current blockers and stop decisions
 
-| ID / scope | Current disposition | Required next evidence |
+| Scope | State | Required resolution |
 | --- | --- | --- |
-| RB-006 / F-022 | Unresolved; qualification DEFERRED, not a blocker to the current default-off functional baseline | Independently calibrated repeatability and every unchanged qualification gate at a clean frozen source |
-| S-031 integration gate | Historical native libraries passed some isolated checks; dirty public/test cutover remains incomplete | Contract/test ownership review A, current-source B–F acceptance and caller/deletion closure; no wholesale merge |
-| F-032 | Confirmed presentation gap, bounded independent work | Existing JSON/retained facts rendered with correct scope, unavailable and omission semantics; V-035 |
+| F-022/RB-006 | Unresolved, qualification DEFERRED | Separate adopted acquisition and unchanged qualification gates; outside this effort |
+| S-035 | DONE | V-036/E-032 saved checkpoint |
+| Successor workstreams | BLOCKED on predecessor | Section 6 checkpoint gates; no historic pass substitution |
 
-No architecture research loop is required to start S-034. Go integration may stop
-at A if review shows more active complexity than it removes; record that decision
-and keep the coherent main baseline. No automatic full-matrix retry, budget change,
-forced GC or workload padding follows a failed functional or measurement gate.
-
+Implementation is authorized. No permission gate follows an ordinary failed
+functional test; repair its owner and repeat affected validation. Do not restart
+experimental collection, alter budgets, force GC or pad workloads.
 
 ### Salvage gates — historical off-main salvage
 
@@ -2349,22 +2357,18 @@ Pre-existing staged tracker content is preserved.
 
 ### Current completion boundary
 
-| Outcome | Current statement |
+| Outcome | Required / current state |
 | --- | --- |
-| Planning completeness | Complete for the bounded next sequence S-034 → S-031/A–F → S-032, with adoption, validation, deletion and rollback gates; not a claim of a completed port or known RSS root cause |
-| Cleanup implementation | S-033 DONE; five code commits, tracker checkpoint and functional/documentation gates recorded in E-031 |
-| Per-slice readiness | S-034 ready for later implementation; S-031 blocked on its predecessor/adoption/current-source gates; S-032 blocked on V-032 |
-| Authorization | Current invocation authorizes cleanup/commits and this plan only. Next-phase implementation is not granted by this planning handoff |
-| Evidence and source preservation | Initial primary hashes verified before transfer; unfinished salvage/qualification checkouts and failed evidence untouched; no new code archive retained |
-| Qualification | DEFERRED; CPU <2.5% mean and all other gates unchanged; F-022/RB-006 unresolved; S-020–S-022 DEFERRED |
-| Overall original effort | IN_PROGRESS; default-off, local-only, no Core 05 claim |
+| Planning | Complete; user explicitly requested execution |
+| Implementation | S-035 DONE; S-034 ready; later work gated in Section 6 |
+| Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
+| Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
+| Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |
+| Original effort | IN_PROGRESS; final functional delivery will not imply overhead certification |
 
-Resume with `git status --short`, current executable identity and the Section 7
-entry gate. Re-read only changed owner/caller surfaces and affected evidence;
-use E-031's roots and the named salvage commits to avoid repeating discovery.
-After each future workstream save changes, commands, source/digest, run roots,
-failures/skips, migration effects, remaining risks and successor readiness here.
-
+Report functional remediation complete only after V-033. Finalization precedes
+broader verification; any executable refresh requires a new source identity and
+affected checks. Ordinary readers stay local and diagnostics default-off.
 
 ### Salvage completion — historical off-main salvage
 
