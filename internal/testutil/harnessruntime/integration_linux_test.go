@@ -71,8 +71,12 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 	if err := harnesslocal.PublishNew(filepath.Join(private, "owner.json"), b); err != nil {
 		t.Fatal(err)
 	}
+	// A nested integration probe must fit the enclosing unit's reservation.
+	// Go row compilation intentionally scales to host capacity; use the existing
+	// one-token shell row for graph/receipt proof, with Go covered independently.
+	rowID := "harness.evidence_accounting.behavior.current_epoch_evidence"
 	for _, mode := range []string{"off", "basic", "basic-second"} {
-		t.Run(mode, func(t *testing.T) {
+		if !t.Run(mode, func(t *testing.T) {
 			diagnosticMode := mode
 			if diagnosticMode != "off" {
 				diagnosticMode = "basic"
@@ -84,12 +88,12 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 			for k, v := range environment {
 				input = append(input, k+"="+v)
 			}
-			summary, code, err := Run(ctx, root, binary, []string{"--selection", "owner", "--target", "test-slice", "--owner", "harness.evidence_accounting", "--rows", "harness.evidence_accounting.behavior.local_migration_activities"}, input)
+			summary, code, err := Run(ctx, root, binary, []string{"--selection", "owner", "--target", "test-slice", "--owner", "harness.evidence_accounting", "--rows", rowID}, input)
 			run := filepath.Join(results, id+"-"+mode)
 			if err != nil || code != 0 || summary["status"] != "pass" {
 				t.Fatalf("native graph: code=%d err=%v; retained %s", code, err, run)
 			}
-			if err := checkRegularEvidence(filepath.Join(run, "rows/harness.evidence_accounting.behavior.local_migration_activities.json")); err != nil {
+			if err := checkRegularEvidence(filepath.Join(run, "rows/"+rowID+".json")); err != nil {
 				t.Fatal(err)
 			}
 			node := environment["NODE_BIN"]
@@ -102,7 +106,9 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 				t.Fatalf("independent Node retained reader: %v %s; retained %s", err, out, run)
 			}
 			t.Logf("native graph and independent reader passed: %s", run)
-		})
+		}) {
+			return // Keep the first failed graph as the primary test evidence.
+		}
 	}
 	_, end, err := bootReading()
 	if err != nil {

@@ -331,7 +331,10 @@ async function main() {
   summaryArgs.push("--quiet-success");
   summaryArgs.push("--suppress-machine-output");
   summaryArgs.push(...summaryTargets);
-  const summaryStatus = await emitTestOutput(summaryArgs);
+  // A graph child owns target summaries only. The graph runtime publishes the
+  // canonical root summary after every ordinary producer has drained.
+  const summaryStatus = process.env.CARTULARY_HARNESS_GRAPH_CHILD === "1"
+    ? 0 : await emitTestOutput(summaryArgs);
   const targetSummaryArgs = [
     "target-summary",
     label,

@@ -5,6 +5,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { otlpProjection } from "../harness/observability/otlp-projection.mjs";
 import { enforcePrivateProcessUmask } from "../harness/runtime/private-process.mjs";
 import {
   expectedBrowserRuntimeProbe,
@@ -2026,7 +2027,18 @@ function writeSummary(checks, status) {
 function validateHarnessTelemetryBoundary(checks) {
   const profileFile = "tools/harness/observability/observability.mjs";
   const exportFile = "tools/harness/observability/otel-export-cli.mjs";
-  const profile = readText(profileFile);
+  const profile = readText(profileFile) + readText("tools/harness/observability/otlp-projection.mjs");
+  // Validate emitted scope identity, independent of where the pure projection
+  // keeps its constants or how a source module spells its exports.
+  const projection = otlpProjection({
+    manifest: { run_id: "conformance", target: "check", command_id: "cartulary.harness.command.check.v2",
+      source_digest: `sha256:${"0".repeat(64)}`, started_at: "2026-01-01T00:00:00.000Z" },
+    summary: { status: "pass", wall_duration_ms: 1, actual_dependency_critical_path_ms: 1,
+      timing_accounting: { resource_blocking_ms: 0, unattributed_ms: 0 } },
+    terminal: new Map(), started: new Map(), registrations: new Map(), intervals: new Map(),
+  });
+  const scopes = [projection.traceOTLP.resourceSpans[0].scopeSpans[0].scope.name,
+    projection.metricsOTLP.resourceMetrics[0].scopeMetrics[0].scope.name];
   const exporter = readText(exportFile);
   const rootPackage = readJSON("package.json");
   const dependencies = {
@@ -2034,7 +2046,7 @@ function validateHarnessTelemetryBoundary(checks) {
     ...(rootPackage.devDependencies ?? {}),
   };
   assert(
-    profile.includes('export const harnessScope = "cartulary.harness.execution"') &&
+    scopes.every((scope) => scope === "cartulary.harness.execution") &&
       !profile.includes("OTEL_") &&
       !profile.includes("internal/platform/telemetry") &&
       !profile.includes("fetch("),

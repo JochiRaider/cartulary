@@ -27,7 +27,7 @@ S-031/E switches both public callers together; its closure checks pass.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
 REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035, S-034 and S-031/A–F are complete; S-032 is ready.
+completion. S-035, S-034 and S-031/A–F are complete; S-032 is IN_PROGRESS.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -570,7 +570,7 @@ inventory. This is a bounded subsystem inspection, not a whole-repository audit.
 
 ### Current mainline disposition and navigation
 
-The per-path ledger is
+The preserved S-033 baseline per-path ledger is
 `/home/jochi/.codex/worktrees/instrumentation-main-cleanup/cartulary/.cartulary/retained-work/main-cleanup/disposition.json`.
 It records initial and candidate hashes: 227 paths retained byte-for-byte, 132
 updated (including generated projection changes), 30 experimental files removed,
@@ -720,9 +720,9 @@ failed measurement into a reason to discard working observation features.
 
 | Option | Benefit / cost | Decision and evidence limit |
 | --- | --- | --- |
-| Keep the present Node runtime indefinitely | Least migration risk; retains resident source/compiler state and multiple helper composition paths | Valid mainline baseline, but not the selected long-term coordination boundary |
-| Short-lived Node preparation plus Go graph/fixture coordination | Explicit preparation lifetime; reuse current native ownership/admission/collection libraries; remove duplicate coordination paths | Selected, using reviewed S-027–S-030 work as input. Smaller RSS or CPU is a hypothesis until measured; a language change alone proves neither |
-| Short-lived preparation plus a compact Node coordinator | Could remove resident catalog state with less language migration | Viable fallback design if Go integration demonstrates a net increase in complexity; reassess at S-031 contract review rather than maintaining two engines |
+| Keep the former Node runtime indefinitely | Least migration risk; retains resident source/compiler state and multiple helper composition paths | Historical baseline; replaced by the validated native boundary |
+| Short-lived Node preparation plus Go graph/fixture coordination | Explicit preparation lifetime; reuse current native ownership/admission/collection libraries; remove duplicate coordination paths | Implemented through S-031/A–F using reviewed candidate inputs and fresh proof. Smaller RSS or CPU remains unproven |
+| Short-lived preparation plus a compact Node coordinator | Could remove resident catalog state with less language migration | Not selected; no fallback engine or runtime selector is retained |
 | Rewrite compilers, row runners, adapters or all tests in Go | Larger language uniformity, but duplicates mature source-aware and runner-specific behavior | Rejected for this delivery: high migration cost without demonstrated benefit |
 | Add a daemon, profiler framework, RAM-disk dependency, forced GC or allocator tuning | Changes operating assumptions and adds another subsystem to diagnose | Rejected; storage is not a CPU-budget remedy and no new collector is needed for F-032 |
 
@@ -764,23 +764,23 @@ is justified.
 
 ## 4. Public Contract and Behavior Freeze Map
 
-### Current contracts and future adoption boundary
+### Current adopted contracts and validation boundary
 
 | Contract | Owner / expected behavior | Disposition and gate |
 | --- | --- | --- |
-| C-010–C-014 | NLSpec REQ-845–849: clock uncertainty, exact container proof, bounded receipt, unchanged qualification arithmetic and one validated retained model | Retained on main; fresh evidence E-031; migration must preserve acceptance and canonical timing |
+| C-010–C-014 | NLSpec REQ-845–849: clock uncertainty, exact container proof, bounded receipt, unchanged qualification arithmetic and one validated retained model | Retained; fresh native/public evidence E-035–E-039 preserves acceptance and canonical timing |
 | C-017 | REQ-848/850/851 distinguish functional delivery from qualification; retire experimental acquisition | Adopted on main; validation remains active, certification deferred |
-| C-015/C-016/C-018 | Adopted REQ-852–855: one Go graph owner, shared fixtures and private interfaces | S-035 adopts final requirements; S-031/A–F implement and validate them |
-| C-019 scope-aware presentation | REQ-849 and existing resource/analysis semantics: display validated scope-specific facts without new filesystem reads or invented totals | New bounded correction S-034/V-035; clarify owner acceptance before editing presentation; retained schema unchanged unless a real shape change requires versioning |
+| C-015/C-016/C-018 | Adopted REQ-852–855: one Go graph owner, shared fixtures and private interfaces | Adopted in S-035; S-031/A–F implementation and validation complete |
+| C-019 scope-aware presentation | REQ-849 and existing resource/analysis semantics: display validated scope-specific facts without new filesystem reads or invented totals | DONE S-034/V-035/E-033; fresh native report parity E-039; retained schema unchanged |
 | C-020 mainline cleanup | Completed prior cleanup and preserved evidence | S-033/V-034/E-031 historical completion |
-| C-021 coherent current specification | REQ-833/835/840/844/849/852–855; schema versions, availability, reports and native ownership | S-035/V-036; human-reviewed typed projections, no Markdown executable dependency |
+| C-021 coherent current specification | REQ-833/835/840/844/849/852–855; schema versions, availability, reports and native ownership | DONE S-035/V-036/E-032; human-reviewed typed projections, no Markdown executable dependency |
 
 Current formats remain execution record/index v2, resource sample v2/index v3,
 envelope v2, explanation v3, instrumentation policy v3 and receipt v1. Qualification
 plan v3, manifest/result v2 and measurement trace v1 remain validation inputs.
 Removed versions are rejected, never translated. Credential/private proof fields
 must not cross into retained diagnostic output. Domain vocabulary needs no new
-concept; HTTP/product/UI behavior is outside this cleanup and future harness port.
+concept; HTTP/product/UI behavior remains outside this harness remediation.
 
 
 ### Salvage contracts — historical off-main salvage
@@ -858,6 +858,8 @@ are not applicable because no product contract changes.
 | F-030 shared fixture policy across callers | One Go policy for graph and UI-review; retain physical service/browser adapters; multiple areas | One lease/reuse/recovery/cleanup implementation | Both callers migrate together before JS broker deletion; borrowed services remain borrowed | Duplicate cleanup authority, ownership leaks or hidden retained processes | S-031/V-030/V-032: ownership, partial acquisition, owner loss, recovery and real service/UI-review gates |
 | F-031 tests duplicate implementation structure | Retire copied scheduler/wrapper algorithms; independent owner fixtures plus public boundaries; tests, routing, implementation cleanup | Tests assert durable behavior and can survive language changes | No product assertions or lifecycle/security cases removed merely because old APIs disappear | False confidence from testing the same algorithm twice; test-only compatibility burden | S-031/V-032: each changed test group has a keep/move/remove reason and a behavioral replacement where required |
 | F-034 local-session TLS projection drift | Include existing TLS certificate/key/trust bindings in the private descriptor schema and derive environment selection from that schema; implementation/projections/tests/docs | One closed acceptance owner prevents physical attachment fields and descriptor selection diverging | Optional private fields accepted; existing descriptor payloads and schema version remain valid | Real persistent service creation fails before native borrowing; mocks conceal missing physical coverage | S-031/C/V-030: actual native borrowing, live-owner stop rejection, repeated native close, borrowed services still active, then exact owner cleanup |
+| F-035 conformance tests retired source layout | Validate the actual pure OTLP projection's emitted scopes instead of a removed source-level export; implementation/tests/documentation | Conformance follows behavior across refactors without restoring an obsolete API | No wire or public command change; keep local-only reconstruction and explicit export gates | Correct harness output is rejected, encouraging compatibility shims or bypassed checks | S-032/V-033: otel-conformance and full warm check pass on final source |
+| F-036 child summary collides with canonical root | Graph-child smoke publishes target summaries only; standalone smoke keeps its own root summary; implementation/tests/documentation | One root publisher and preserved producer-drain/scan ownership | Child artifact ownership is corrected; public canonical and accepted legacy formats unchanged | Root publication fails, live status cannot become terminal, and required scan is never reached | S-032/V-033: public full-check smoke integration, canonical summary, terminal status and scan audit pass |
 | F-022/RB-006 overhead and repeatability | Defer certification; preserve validator and all failures; any future acquisition requires a separately adopted, bounded plan | Prevents a new profiling system from becoming the objective | No numerical relaxation or relabeling; 44.952-minute history persists | Unjustified default-on use or an unsupported overhead claim | S-020–S-022 remain DEFERRED; only eligible, stable complete frozen evidence can close them |
 
 
@@ -937,7 +939,7 @@ workstream with its own result and checkpoint.
 | WF-31D Observation | S-031/D after saved S-031/C | DONE | V-031: collection/drain/scan/receipt and independent reader gates |
 | WF-31E Cutover | S-031/E after saved S-031/D | DONE | One public runtime/fixture owner, caller/generated/deletion closure |
 | WF-31F Public proof | S-031/F after saved S-031/E | DONE | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
-| WF-32 Handoff | S-032 after saved S-031/F | TODO | V-033: finalization, frozen-source broad checks, warm check and handoff |
+| WF-32 Handoff | S-032 after saved S-031/F | IN_PROGRESS | V-033: finalization, frozen-source broad checks, warm check and handoff |
 | WF-20–22 Qualification | S-020–S-022 | DEFERRED | Separate adoption and complete eligible stable evidence |
 
 Each checkpoint records files/changes, exact commands, source commit/state/digest,
@@ -1659,18 +1661,13 @@ S-014–S-022 or qualify its completed source. These rows retain prior stable ID
 | Export | Existing explicit boundary only | Local conformance/fixture validation; no external transmission or newly admitted labels |
 | Qualification | CPU mean <2.5%; canonical and outer median ≤2%, p90 ≤3%; RSS median + 3 MAD + error ≤32 MiB; finalization maximum ≤500 ms | Signed/equal-weight arithmetic, eligibility/stability/integrity unchanged; no pass without complete eligible evidence |
 
-V-034 covers this cleanup's narrow gates, finalization, broad harness/lint/projection
-checks, source transfer and tracker lint. V-035 covers S-034's independent
-scope-specific presentation fixtures and fresh exact-run review. Existing V-028–033
-remain the future native integration gates; historical passes do not discharge
-current-source obligations. Start with `make task-guide ROLE=module-author OWNER=...`
-and exact row discovery rather than expanding unrelated suites.
-
-The current cleanup deliberately does not run the full product `check`, UI-review
-migration suites, qualification or experimental collection. No UI-review policy
-was moved and no Go graph engine was integrated. Full warm `check` remains S-032's
-future gate. This scope is functional harness validation, not product certification.
-
+V-034 records the completed S-033 baseline cleanup. V-035 and V-036 close
+presentation and specification reconciliation. Current-source V-028–032 are
+complete through E-035–E-039; historical candidate passes were not substituted.
+The native graph and shared fixture policy are integrated, UI-review migration
+and real lifecycle suites pass, and the full warm product check is running in
+S-032 after successful finalization. V-033 remains open until that run and final
+handoff pass. Qualification/experimental acquisition remain deferred.
 
 ### Salvage gates — historical off-main salvage
 
@@ -1837,7 +1834,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
 | T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
 | T-037 / S-031 | Native cutover, separately checkpointed A–F | DONE; V-032/E-039, all checkpoints saved |
-| T-038 / S-032 | Functional validation and handoff | TODO; V-032 saved, finalization first |
+| T-038 / S-032 | Functional validation and handoff | IN_PROGRESS; finalization passed; full warm check running |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
 | T-007 | Original functional coverage | IN_PROGRESS until S-032 |
 | T-008, T-026–T-028 | Qualification/original certification handoff | DEFERRED; F-022/RB-006 unresolved |
@@ -1901,6 +1898,67 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-040 — S-032 finalization and source freeze — IN_PROGRESS
+
+Starting/frozen executable commit `38b8758c8` (clean), digest
+`sha256:d11fef10e28232f528c48534e3085a3b7ad5c6b41f91d2c6367ad4d8af6d1f86`.
+`env CARTULARY_TEST_RUN_ID=remediate-s032-finalize-01 make agent-finalize`
+passed, outer exit 0, 1/1, 22,906 ms. No source/projection refresh was produced.
+`RESULTS_DIR` was unset: canonical-evidence and scheduler-drift retained-run
+maintenance were explicitly skipped (`results-dir-not-provided`), recorded in
+`finalize-01/unit-artifacts/finalize-summary.json`. Other maintenance passed.
+
+Final gates use fresh `remediate-s032-<suffix>` roots in `.cartulary/test-results`.
+`contract-01 make harness-contract` passed (99,201 ms), as did `scripts-01 make
+lint-scripts` (661 ms), `shell-01 make lint-shell` (17,587 ms), `markdown-01 make
+lint-markdown` (17,360 ms), `drift-01 make generate-drift` (23,364 ms),
+`policy-01 make generated-artifact-policy-check` (1,063 ms), and `shapes-01 make
+json-shape-check` (3,910 ms). All owning exits 0 and summaries PASS.
+`check-01 make check` FAILED: owning Make exit 2, native primary exit 10;
+979/981 units passed, two failed, none skipped/cancelled, 743,207 ms inclusive target wall.
+All 1,240 cleanup steps passed. Exact root and failures are retained unchanged.
+The selected native graph test consumed its shared 90-second deadline waiting for
+whole-host Go admission (basic probe 45,014 ms admission versus 311 ms runner).
+Use an existing one-token shell row for graph/receipt proof; keep the deadline,
+independent readers and separate Go interop coverage. Stop dependent receipt
+assertions after a failed graph so the primary error stays clear.
+
+The other unit failure was `target:otel-conformance`: its source-text assertion
+required a retired `harnessScope` export in the old facade. F-035 checks actual
+pure projection output instead; no obsolete API is restored. Final status then
+returned invalid/artifact_error (reader exit 11), revealing F-036: child smoke
+had written legacy `cartulary.test_run_summary.v6` to the native root. Native
+exclusive publication correctly refused the collision; canonical target evidence
+remains, but root publication and scanning did not complete. Do not treat this as
+a successful full run. Restrict graph-child smoke to target summaries and cover
+it through actual native integration plus the repeated full check.
+
+Post-failure repair checks: `format-01/02 make format-go` and `generate-01
+make generate` passed (generation 9,560 ms); `otel-01 make otel-conformance`
+passed (4,101 ms). `runtime-01 make harness-runtime-contract` failed (outer 2,
+42,350 ms) because a new test attempted to select internal `check-harness-smoke`
+as a standalone graph entry without a command identity. Removed that unsupported
+test composition; the public full check remains the integration regression gate.
+No runtime interface was expanded. `runtime-02 make harness-runtime-contract` passed (43,180 ms, outer 0).
+`native-row-01 make test-slice OWNER=harness.command_surface
+ROWS=harness.command_surface.unit.native_runtime CARTULARY_HARNESS_CACHE_MODE=off`
+also passed through the inherited-admission public graph (36,716 ms, outer 0).
+The final full check covers smoke root ownership through its supported entrypoint.
+
+Final acceptance and V-033 remain open. Repairs change executable source and
+require a new freeze, agent-finalize, affected checks and a fresh full warm run.
+
+Read-only preservation comparison found all 6,937 salvage entries unchanged,
+no additional tracked/nonignored path, and HEAD still `79aecc1ca`. No archive,
+reset, evidence deletion, experimental acquisition or external export occurred.
+Only tracker prose changed during check-01; the repair then changed the three
+named executable files. `finalize-02 make agent-finalize` passed, outer 0,
+21,062 ms, with no generated/source refresh. Retained-run maintenance remains
+skipped because RESULTS_DIR is unset; check-01 is failed and ineligible. The new
+executable freeze has digest
+`sha256:4da43d53e5da1260631541433f32f87d2f08245abf3d4b662e24c4d1d2ff3a65`;
+final broad checks and the fresh full warm run must use this revision.
 
 ### E-039 — S-031/F public boundary checkpoint; S-031 complete
 
@@ -2754,7 +2812,7 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035/S-034/S-031A–F DONE; S-032 ready, finalization precedes broader checks |
+| Implementation | S-035/S-034/S-031A–F DONE; S-032 in progress after finalization |
 | Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
 | Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |
