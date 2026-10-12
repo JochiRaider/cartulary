@@ -67,6 +67,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	if err != nil {
 		return nil, err
 	}
+	p.Dependencies = []string{suite.LeaseFile}
 	affinity := safeName.ReplaceAllString(request.Affinity, "-")
 	if affinity == "" {
 		affinity = "browser"
@@ -86,7 +87,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	}
 	b.mu.Unlock()
 	session := fmt.Sprintf("%s-allocation-%03d", affinity, ordinal)
-	root, err := p.Runtime.PrivatePath("browser-stack-leases", session)
+	root, err := p.Runtime.RecoveryPath("browser-stack-leases", session)
 	if err != nil {
 		return nil, err
 	}
@@ -110,9 +111,10 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 		}
 	}
 	file := filepath.Join(root, "acquisition", "owner.json")
+	p.Dependencies = []string{suite.LeaseFile, file}
 	lease := filepath.Join(root, "stack.lease")
 	envFile := filepath.Join(root, "stack.env")
-	if err := p.Runtime.RecordResource("browser_stack", file, "pending"); err != nil {
+	if err := p.Runtime.RecordDependentResource("browser_stack", file, "pending", []string{suite.LeaseFile}); err != nil {
 		return nil, artifactFailure(err)
 	}
 	var once sync.Once

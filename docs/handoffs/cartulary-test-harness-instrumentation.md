@@ -10,6 +10,68 @@ authority_boundary: Human implementation tracker and rationale; the Testing Harn
 
 ## Baseline and authorization
 
+The user has now authorized implementation of S-051–S-057. This execution starts
+at main `38c282197d8b5430a78f9adf66816d7127fd607f` with the E-061 tracker amendment
+already modified; that amendment is preserved. **S-051–S-057 are DONE at
+E-062–E-068.** Each checkpoint was saved before the next workstream began.
+The functional remediation effort is complete on executable source digest
+`sha256:0ffd71dd029e9dc3fdac3e34131796568498d145ad82ed7162ff5259aa01a4ba`.
+Earlier planning-only authorization statements describe E-061, not this
+implementation invocation. Qualification remains separately DEFERRED; that is
+why this long-lived instrumentation tracker retains IN_PROGRESS frontmatter.
+
+### E-061 entry record — historical
+
+E-061 was the **Go lifecycle cutover audit and tracker amendment** at its recorded source.
+The user requested this document update without implementation. The follow-up
+applies the prepared amendment, whose explicit scope keeps S-051–S-057 as future
+implementation work requiring a later authorized task. Earlier authorization
+statements below are historical; they do not authorize those new slices.
+
+The admitted output and sole controlling tracker is
+`/home/jochi/code/cartulary/docs/handoffs/cartulary-test-harness-instrumentation.md`.
+Entry is clean main `38c282197d8b5430a78f9adf66816d7127fd607f`.
+Static inspection found four correctness gaps (F-050–F-053), unused private
+capabilities (F-054), and stale current tracker guidance (F-055). This amendment
+closes F-055 only. F-050–F-054 remain open; no new runtime pass is claimed.
+
+The proposed sequential chain is
+**S-051 → S-052 → S-053 → S-054 → S-055 → S-056 → S-057**.
+Section 6 owns its prerequisites. Save a tracker checkpoint after each workstream
+and before its successor; a failed exit never counts as DONE.
+C-033–C-038, V-052–V-058 and E-062–E-068 carry the new contract, validation and
+future completion mappings. V-059/E-061 cover this document update only.
+
+The adopted/current Testing Harness NLSpec remains behavioral authority.
+`docs/domain.md` supplies vocabulary and owner navigation. Keep one Go shared
+session owner below cohesive fixture and review coordination. Node retains
+necessary producer recipes, browser operations and report adaptation. The new
+plan corrects owner-required behavior; existing defects are not compatibility
+requirements. It does not introduce a wholesale language rewrite, legacy reader,
+arbitrary command runner or blanket cleanup capability.
+
+S-043–S-048, S-050 and S-049 remain DONE at their recorded sources and gates.
+E-056's executable digest
+`sha256:8b0ad408870dec517c7795869a90e5869ee7b83349c09b3dc51fbf13f61ee5d9`
+and full warm check (982/982 units, 1,415 rows, zero result-cache hits) remain
+historical evidence, not coverage of F-050–F-054. E-059/E-060 preserve the ten
+legacy sessions' administrative retirement and wiring cleanup; they do not
+establish successful historical recovery or authorize future discards.
+This invocation does not reinspect live sessions or establish current cutover
+readiness for any environment.
+
+Inspection covers the named lifecycle boundaries and affected assertions.
+The 143-file inventory is explicitly partial behavioral coverage; its uninspected
+entries remain pending rather than being inferred correct. S-051 closes affected
+caller, proof and characterization gaps before structural changes.
+
+Diagnostics remain local and default-off. F-022/RB-006 and S-020–S-022 remain
+DEFERRED, with the 44.952/90-minute qualification ledger and all budgets unchanged.
+No measurement acquisition, golden refresh, default-on diagnostics or Core 05
+claim is included.
+
+## Baseline and authorization — before E-061 (historical)
+
 The current user request authorizes implementation of **Go lifecycle
 post-cutover audit and remediation**, including specification, implementation,
 tests, projections and final validation. The implementation chain is
@@ -508,7 +570,42 @@ improvement or default-on claim.
 
 ## 1. Scope and Source Posture
 
-### Current post-cutover audit scope and source
+### Current implementation scope — E-062–E-068
+
+The user authorized S-051–S-057, including necessary owner clarifications,
+implementation, private projections, tests and final handoff. S-051–S-056 are
+complete at their individual checkpoints; S-057 final acceptance is complete at E-068.
+The starting commit is `38c282197d8b5430a78f9adf66816d7127fd607f`, with the
+preexisting E-061 tracker amendment preserved. The current worktree is the
+implementation source; no new commit or release has been created.
+The scope is F-050–F-055, not a whole-repository conformance audit. Qualification,
+goldens, product/API changes and external telemetry remain excluded.
+
+### E-061 audit amendment scope — historical
+
+This is a tracker-only planning amendment. Implementation authorization is
+**not granted by this invocation**. Planning is actionable for F-050–F-055, with
+partial inspection coverage of the broader enumerated lifecycle files. No
+behavioral conclusion is inferred for a pending file. S-051 is ready for later
+authorized discovery/characterization entry; structural successors are blocked
+by its missing characterization and their own predecessor gates.
+
+| Baseline / admission | Evidence and treatment |
+| --- | --- |
+| Repository and source | `/home/jochi/code/cartulary`; clean main `38c282197d8b5430a78f9adf66816d7127fd607f`; no staged, unstaged or nonignored untracked changes at entry |
+| Target identity | Existing instrumentation/lifecycle tracker; canonical requested path, regular file, device 2096, inode 3903446, one link, no symlinked output or parent components |
+| Tracker entry fingerprint | SHA-256 `3ae8fc36474f2c08f852b0497a38a06ecf96b8cb7e6abc16880c2938243615d9`; 1,055,811 bytes |
+| Preservation universe | 6,896 tracked/nonignored entries, with file identity and content fingerprinting; not behavioral inspection |
+| Outside-tracker aggregate | SHA-256 `4155075b42dfe6773f29f605507e178334bbd8811008dfee1684b196b3a78174`; index SHA-256 `01a1fe559a4aa7013b0fc8446517470e32b9c2bf26021d1e89414c10b6cc4952` |
+| Authority | Adopted/current Testing Harness REQ-402/502/852–855; domain vocabulary/navigation and repository planning framework remain subordinate within their stated boundaries |
+| Historical applicability | E-056 validates its own frozen executable source. E-059/E-060 establish administrative retirement at their inspection times. None proves the new failure cases or today's live-session inventory |
+| Exclusions | Product/API changes, qualification, goldens, external telemetry, new daemons and historical compatibility support. Ignored run/cache/dependency trees are not rewritten or exhaustively audited |
+
+Only this tracker is edited. No NLSpec amendment is adopted by describing it here;
+S-051 must propose any necessary clarification at the behavioral owner before
+changing affected projections. No primary-owner contradiction was identified.
+
+### F-043–F-049 audit scope and source — historical
 
 Artifact mode: normal for the bounded remediation plan. Planning completeness:
 complete for F-043–F-049; this is not a whole-repository conformance audit.
@@ -657,7 +754,204 @@ inventory. This is a bounded subsystem inspection, not a whole-repository audit.
 
 ## 2. Current-State Repository Inventory
 
-### Current post-cutover inventory and inspection depth
+### Current affected-seam inventory — E-062–E-068
+
+Inspected and changed shared session identity/settlement, resource edges,
+detail preservation and output authorization; native fixture and review
+coordination; graph process execution; physical service termination; Node
+session/process/browser adapters; corresponding schemas and generated validators;
+and their focused contract, physical-boundary and public-workflow fixtures.
+E-062–E-067 record caller, assertion and path migrations and executed evidence.
+The broader E-061 143-file enumeration remains a partial historical audit;
+its pending entries are not silently counted as inspected or validated.
+
+### E-061 audit inventory and inspection depth — historical
+
+The seven enumerated roots contain 143 files: harnesssession 19, harnessfixtures
+15, harnessreview 17, harnessruntime 35, Node runtime 18, UI-review 34 and services
+5. Enumeration is not behavioral coverage. The per-file ledger below records
+direct inspection at the affected ranges, generated metadata accounting and
+pending inspection. A direct disposition does not claim every branch was read.
+Pending files remain the next discovery boundary; S-051 must inspect those
+affected by a proposed move, proof change, deletion or validation assertion.
+
+The consequential expansion beyond those roots is directly inspected at the
+named seams: `tools/testservices/main.go` termination and output emission;
+`internal/testutil/suiteservices/env.go` output resolution;
+`tools/harness/browser/{browser-acquisition,fixture-lifecycle}.mjs`;
+`tools/harness/browser/lifecycle/ports-and-token.sh`; relevant portions of
+`start-web-e2e.sh`; browser acquisition/UI lifecycle tests; the runtime resource
+schema and authored lifecycle policy; task-surface recipes, generated Make
+routing and test-owner declarations. The scanner, shared proxy stop and necessary
+physical adapters have no newly established removal rationale.
+
+| Boundary / current evidence | Disposition and next inspection |
+| --- | --- |
+| Native process creation → private resource journal → Node physical stop | F-050; Setpgid/SID mismatch and leader-only release are source-derived. Trace all proof producers and consumers before changing the private representation |
+| Review close/recovery → fixture coordinator → service termination | F-051; global success gates and shared service timeout remain. Preserve true dependent ordering while characterizing independent releases |
+| Journal parsing → preservation → terminal/recovery error exits | F-052; invalid persisted records can bypass safe purge; historical purge progress can outlive newly created detail. Audit all detail/proof producers before layout cutover |
+| Managed-suite identity → environment → lifecycle evidence | F-053; browser recovery already chooses fresh output, suite recovery reuses earlier output. Trace all physical output consumers |
+| Browser private dispatch and tests | F-054; no production reaped caller found; recordAcquisitionPort has test-only direct consumers. Text search is not complete dynamic/external caller proof |
+| Tracker, adopted NLSpec, domain reference and framework | F-055; current statements are reconciled here; historical records are retained |
+| Ignored artifacts, dependencies, live registries and retained runs | Excluded from behavioral inspection and mutation in this document step; historical existence/absence statements retain their original date/source |
+
+#### Per-file inspection ledger
+
+Disposition totals: **47 directly inspected at affected ranges, 3 metadata-only generated files, 93 pending**.
+No pending entry is counted as behavioral coverage. These 143 rows account for
+the enumeration; expanded dependency reads are recorded above and in E-061.
+
+| File | Inspection disposition | Limit / next action |
+| --- | --- | --- |
+| `internal/testutil/harnesssession/binding.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/binding_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/binding_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnesssession/cleanup_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/cleanup_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/lock_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnesssession/physical_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/policy_generated.go` | metadata-only | Generated projection pathname, regular-file identity and routing role; regenerate, never hand-edit |
+| `internal/testutil/harnesssession/preservation_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/preservation_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/protocol_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/protocol_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnesssession/protocol_unsupported.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnesssession/runtime_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/runtime_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/scan_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/scan_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnesssession/scan_syntax_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnesssession/tree_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/adapter_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessreview/adapter_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/deadline_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessreview/design_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/driver_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessreview/main_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/main_unsupported.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/model.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/policy_generated.go` | metadata-only | Generated projection pathname, regular-file identity and routing role; regenerate, never hand-edit |
+| `internal/testutil/harnessreview/publication_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessreview/publication_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/recovery_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessreview/server_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/session.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessreview/session_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessreview/transaction_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessreview/transaction_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/attachment_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/broker.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/broker_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessfixtures/browser_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/browser_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/command_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/production_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/proxy_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/proxy_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/recovery_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/recovery_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/runtime_test_support_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessfixtures/suite_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/suite_linux_test.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessfixtures/values_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessruntime/admission_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/boundary/fixtures_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/boundary/graph_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/boundary/session_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/browser_failure_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/cache_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/cache_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/canonical.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/canonical_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/clock_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/collector_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/engine.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessruntime/engine_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/execution_observation_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/failure.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/failure_scope_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/files_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/fixtures_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessruntime/integration_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/lifecycle.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessruntime/live_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/observation_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/observation_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/plan.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/plan_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/policy_generated.go` | metadata-only | Generated projection pathname, regular-file identity and routing role; regenerate, never hand-edit |
+| `internal/testutil/harnessruntime/prepare_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/prepare_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/prepare_unsupported.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/process_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessruntime/process_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/producer_linux_test.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/publication_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `internal/testutil/harnessruntime/run_linux.go` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `internal/testutil/harnessruntime/scan_linux.go` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/boot-clock.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/cleanup-results.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/command-failure-cli.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/command-failure.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/execution-observations.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/fixture-resource-stop.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/runtime/host-admission.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/launch-context.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/local-activity.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/observation-gate.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/owned-process.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/runtime/owned-renderer.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/private-child-process.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/private-process.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/process-proof.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/resource-stop-private.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/runtime/secure-local-files.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/runtime/session-client.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/browser/ui-review/adapter.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/browser/ui-review/analysis.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/artifact-store.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/axe.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/browser-observation.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/browser.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/bundle-model.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/bundle-semantics.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/bundles.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/canonical-import.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/capture.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/cli.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/contract.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/diagnostic-cli.cjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/diagnostic-processes.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/browser/ui-review/diagnostic.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/executor.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/failure.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/file-payload.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/image-algorithms.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/image-math.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/immutable.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/input-files.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/inputs.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/launch.sh` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/native-client.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/output.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/ownership.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/browser/ui-review/png.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/policy.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/report.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/source.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/toolchain.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/browser/ui-review/work-policy.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/services/fixture-attachment.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/services/journal-reader.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/services/local-session-cli.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+| `tools/harness/services/local-session.mjs` | directly inspected | Affected code/assertion ranges; no whole-file branch-coverage claim |
+| `tools/harness/services/tests/test-local-session.mjs` | pending | Enumerated; S-051 inspects if on affected caller/proof/assertion closure; no behavioral finding inferred |
+
+Outside this manifest, source reading is scoped to the listed dependency seams.
+No scanner acceptance, performance result, schema retirement completeness or
+live resource-absence claim is inferred from this audit.
+
+### F-043–F-049 inventory and inspection depth — historical
 
 E-058 adds a schema inventory boundary: `tools/schemas` contains 206 schema files
 with 206 attachment entries, and `tools/historical-schemas/performance` contains
@@ -852,7 +1146,36 @@ qualification workload roster, under the already specified owners and gates.
 
 ## 3. Module Boundary Diagnosis
 
-### Current post-cutover owner decisions
+### Current owners — E-062–E-068
+
+`harnesssession` owns actual PGID/SID process proof, pidfd-based settlement,
+private layout, durable resource attempts and output claims. `harnessfixtures`
+owns dependency ordering; review composes outcomes without a global success
+gate. Physical service owners receive independent existing deadlines. Node
+retains necessary reservation, producer and browser adapters and delegates
+process settlement to the native owner. Recovery authority stays separate from
+disposable detail and from immutable public evidence. No compatibility alias,
+legacy reader, generic command endpoint or new runtime layer was introduced.
+
+### E-061 owner decisions — historical
+
+| Responsibility | Current location / problem | Decision and owner | Finding / contract |
+| --- | --- | --- | --- |
+| Generic process identity, signaling and confirmed settlement | Native launchers and Node owned-process use different group assumptions | MOVE generic physical process handling to one reusable native owner; callers report facts. Preserve exact identity and fail closed on ambiguity | F-050 / C-033 |
+| Fixture dependency ordering | Review error gates duplicate fixture decisions; recovery uses global blocking | KEEP fixture dependency decisions in harnessfixtures; SPLIT generic attempt accounting from domain-specific edges. Review composes independent cleanup without a global success gate | F-051 / C-034 |
+| Resource attempt accounting | Shared session ledger already exists | KEEP and use once per actual release; physical owners must not hide independent releases behind one expiring sequential context | F-051 / C-034 |
+| Disposable detail versus recovery authority | Mixed private layout and journal-dependent purge | SPLIT deletion boundaries structurally in shared session ownership; keep scanner authority until required scan succeeds | F-052 / C-035 |
+| Terminal intent and historical outcomes | harnessreview durable transaction already exists | KEEP immutable intent/public bytes; correct attempt-scoped detail cleanup across all error exits | F-052 / C-035 |
+| Recovery output authority | Browser allocates fresh output; suite uses prior environment | KEEP binding authority in Go; pass an explicit distinct attempt output to physical owners, separate from resource identity | F-053 / C-036 |
+| Browser acquisition and transport | Necessary settlement function coexists with unused wire branches | KEEP production reservation/settlement; REMOVE reaped dispatch and port/recordAcquisitionPort after caller and assertion closure | F-054 / C-037 |
+| Current plan and evidence interpretation | Historical descriptions appear current | CORRECT this tracker; preserve source-scoped history, qualification limits and administrative retirement | F-055 / C-038 |
+
+The shared session owner must not import fixture orchestration or review policy.
+New workstreams are sequencing units, not new runtime modules. Retain specialized
+browser/service adapters that materially serve current contracts; Node usage,
+a low schema version or historical filename alone is not a deletion reason.
+
+### F-043–F-049 owner decisions — historical
 
 The selected architecture is present. Correct the remaining owner behavior and
 remove unnecessary interfaces without another language-wide cutover.
@@ -942,7 +1265,39 @@ is justified.
 
 ## 4. Public Contract and Behavior Freeze Map
 
-### Current post-cutover contract map
+### Current contract disposition — E-062–E-068
+
+REQ-853 now states actual process-group/session identity, confirmed settlement,
+explicit cleanup edges and independent bounded service attempts. REQ-502 now
+states independently identifiable detail, attempt-scoped purge and one-use
+native-authorized recovery output. C-033–C-037 are implemented and validated
+at E-063–E-067; C-038 is reconciled and complete at E-068. Private resource,
+session and owner projections were regenerated from authored schemas. Public
+commands and retained receipt formats are unchanged; executable checks consume
+machine inputs only, never this tracker or the NLSpec.
+
+### E-061 contract and correction map — historical
+
+All referenced REQ/AC identifiers below belong to the adopted/current Testing
+Harness NLSpec. Existing public command surfaces, receipt shapes, failure
+precedence, borrowed-resource protection and observational status remain
+preserved. Product HTTP/WebSocket, row/mutation, revision, grid selector and
+golden contracts are not changed by this harness planning amendment.
+
+| Contract / surface | Observed behavior and adopted requirement | Disposition / tests and prerequisites | Finding / future gate |
+| --- | --- | --- | --- |
+| C-033 exact process ownership and settlement | REQ-502/853/854; AC-110/111/127/148. Go Setpgid groups are not necessarily sessions; the Node scan assumes SID equals PGID. Some helpers release after leader wait | Separate owner-required correction. Existing Node detached-group and native deadline tests do not establish Go-group recovery after controller loss. Independently specify real and injected identity cases before movement; clarify proof/settlement semantics at the owner if necessary | F-050; S-051 then S-052/V-053 |
+| C-034 independent cleanup with exact dependency blocking | REQ-402/502/853; AC-007/010/110/111/148. Review and fixture recovery contain global gates; service removal shares one timeout | Separate correction. Keep exact dependent order and primary failures. Shared-attempt tests exercise supplied callbacks, not the integrated gate. Define resource edges and actual physical release units without inventing larger per-resource budgets | F-051; S-051 then S-053/V-054 |
+| C-035 independently safe detail purge | REQ-402/502 and terminal/scanner boundaries in REQ-616/855; AC-110/111/125/127. Invalid persisted journals return before purge; DetailPurged can refer to an earlier attempt | Separate correction. Existing foreign-dependency test rejects registration before preservation, and conflict tests do not establish cleanup after a previous purge plus newly created detail. Structural deletion boundaries and attempt-scoped cleanup precede layout cutover | F-052; S-051 then S-054/V-055 |
+| C-036 distinct recovery output and immutable history | REQ-502/854/855; AC-110/111/127/148. Browser recovery chooses fresh output; suite recovery uses the previous RunRoot environment | Separate correction. Resource authority remains original proof-bound identity; each recovery attempt receives separate native-authorized output. Existing mocked suite termination is not physical evidence isolation coverage | F-053; S-051 then S-055/V-056 |
+| C-037 necessary closed private capabilities only | REQ-854/855; AC-147/148. reaped and port/recordAcquisitionPort remain without necessary production consumers established | Remove after full caller/assertion closure. Keep closeAcquisitionLaunch where directly used and production reserve-port; reject removed operations without aliases | F-054; S-051 then S-056/V-057 |
+| C-038 accurate current authority and evidence | NLSpec authority boundary/REQ-001/855 and repository documentation procedure. Current tracker summaries disagree with completed source/evidence | Documentation correction in E-061/V-059. Historical completion remains source-scoped; planned tests are not passes and planning does not authorize implementation | F-055; T-062, ongoing reconciliation through S-057/V-058 |
+
+S-051 records any proposed owner clarification separately from its adoption.
+Private changes cut over coherently after affected sessions drain; no historical
+receipt rewrite or fallback reader supplies compatibility.
+
+### F-043–F-049 contract map — historical
 
 These document-local contracts map to adopted owners; they do not amend the
 NLSpec by themselves. S-043 must adopt necessary clarification before changing
@@ -1072,7 +1427,45 @@ are not applicable because no product contract changes.
 
 ## 5. Coupling and Boundary Findings
 
-### Current post-cutover findings — TODO
+### Current finding dispositions — E-062–E-068
+
+| Finding | Disposition | Implementation and focused evidence | Remaining gate |
+| --- | --- | --- | --- |
+| F-050 process settlement | DONE | Native physical owner, actual PGID/SID, verified drain and fail-closed ambiguity; E-063/V-053 | DONE at E-068 |
+| F-051 independent cleanup | DONE | Explicit edges, completed/failed/blocked outcomes and independent service budgets; E-064/V-054 | DONE at E-068 |
+| F-052 safe detail cleanup | DONE | Structural detail boundary, corrupt-journal purge and current-attempt finalizers; E-065/V-055 | DONE at E-068 |
+| F-053 recovery output | DONE | Native allocation and one-use claim at physical writers, immutable original evidence; E-066/V-056 | DONE at E-068 |
+| F-054 unused capabilities | DONE | Removed reaped/port transport and helper; retained production assertions and bounded rejection; E-067/V-057 | DONE at E-068 |
+| F-055 tracker accuracy | DONE | E-061 history preserved; all twelve current sections reconciled for authorized execution | DONE at E-068 |
+
+The detailed rationale, long-term benefit, unresolved risk and migration impact
+remain in the source-scoped planning table below. The aggregate acceptance gate is complete at E-068.
+
+### E-061 findings and priorities — historical
+
+These are static source observations, not executed reproductions. F-050–F-053
+are P1 correctness/security corrections. F-054 is P2 capability contraction.
+F-055 is the P2 documentation correction performed by this amendment.
+Each is `must_fix` only for its mapped scope and acceptance gate.
+F-043–F-049 retain their historical dispositions and evidence; those dispositions
+do not close the newly identified cases.
+
+| Finding / current status | Evidence at 38c282197 | Required remediation / areas | Rationale, long-term benefit and risk if unresolved | Compatibility, migration and implementation risk | Completion criterion |
+| --- | --- | --- | --- | --- | --- |
+| F-050 / P1 / TODO — process-group recovery disagrees with native launch semantics | `harnessfixtures/command_linux.go:56,101–111`, `harnessreview/adapter_linux.go:99,133–138`, `runtime/owned-process.mjs:12–24`: Setpgid preserves SID while the stopper requires SID and PGID equal PID. Helper/proxy paths can acknowledge release after signaling and leader wait | C-033; implementation, private proof schemas/projections, tests and necessary owner clarification. One reusable native physical process owner records actual group/session identity, preserves trustworthy signaling identity and acknowledges only verified settlement; migrate necessary Node adapters and remove superseded stop logic | One process model prevents language-specific assumptions and premature release. Leaving this gap risks descendants surviving, early dependent teardown and reused identities becoming signal targets. No such live incident is claimed here | Public command/receipt formats unchanged. Drain affected sessions before coherent private-proof cutover; no fallback reader. Do not broaden signal authority; unknown leaderless/reused ownership remains unresolved | S-052/V-053/E-063: actual Go and Node groups, leader/owner death, cancellation, delayed descendants, injected PID/group reuse and permission failures; both physical absence and journal results verified |
+| F-051 / P1 / TODO — global gates skip independent releases | `harnessreview/driver_linux.go:232–249`, `recovery_linux.go:106–119`; `harnessfixtures/recovery_linux.go:49–72,118–164`; `tools/testservices/main.go:2643–2683`. Any independent error can skip fixture recovery; allBlocked and a shared sequential timeout extend failure scope | C-034; implementation/tests and authored cleanup policy/private contracts as needed. Replace success-only gates with exact dependency-aware settlement. Keep fixture edges in the fixture owner, generic attempts in shared session ownership and completed/failed/blocked evidence per release | Independent failures stay local, resource addition does not add more global flags, and every safe cleanup remains observable. Otherwise services/borrowers remain stranded and cleanup evidence is incomplete | Preserve real dependency order, one attempt per resource and primary failure precedence. Private edge changes require coordinated cutover. Incorrect edges risk premature teardown; do not paper over it with blanket concurrent destruction or larger aggregate timeouts | S-053/V-054/E-064: diagnostic failure still permits independent fixture cleanup; unrelated suite survives another failure; true dependents block explicitly; first-service stall cannot consume sibling attempts; repeated closure grants no extra budget |
+| F-052 / P1 / TODO — detail cleanup depends on valid journals and stale progress | `harnesssession/preservation_linux.go:40–42` returns on invalid journal before purge; `preservation_linux_test.go:150–158` rejects foreign dependencies before preservation. `harnessreview/transaction_linux.go:207,253–255` can skip failure purge after an earlier DetailPurged; recovery has earlier error exits | C-035; implementation, private layout/projections, tests and documentation. Structurally separate disposable detail from required recovery/scanner authority. Safe purge cannot require acceptance of corrupt declarations. Run attempt-scoped idempotent cleanup across recovery/publication failures after its consumers close | A clear deletion boundary survives damaged metadata and newly produced detail. Otherwise credentials, logs and staged artifacts persist when recovery is least reliable | Private-layout changes drain affected sessions; public receipts remain unchanged. Never delete unresolved authority, required transitive inputs or still-consumed detail. A historical boolean is not proof of present cleanliness | S-054/V-055/E-065: corrupt/truncated/forged persisted journals, missing dependencies, prior purge plus new detail and terminal conflict, scan/publication and early recovery failures; safe detail removed while exact authority survives |
+| F-053 / P1 / TODO — suite recovery reuses prior lifecycle output | `harnessfixtures/recovery_linux.go:102–109,157–164`, `suite_linux.go:80–88,137–157`, `tools/testservices/main.go:949–1027`: browser receives fresh recovery output, suite termination retains prior RunRoot/environment for emitted lifecycle/timing/summary evidence | C-036; implementation, private adapter contracts/projections and tests. Allocate one explicit native-authorized attempt output binding for physical recovery, separate from original resource proof; ordinary retirement remains bound to its exact managed suite | Every owner follows one output rule, preventing recovery collisions and corrupted historical interpretation. Unresolved behavior risks overwritten/colliding diagnostics and non-repeatable recovery | Private adapter cutover only; preserve retained bytes. A forged output binding must not acquire another run/repository's authority. Coordinate with the S-054 layout | S-055/V-056/E-066: actual service/browser boundaries, repeated/concurrent attempts, distinct outputs, unchanged prior bytes, cross-run/repository/output rejection, owned and borrowed cases |
+| F-054 / P2 / TODO — unnecessary private capabilities remain | `browser/fixture-lifecycle.mjs:33–38` accepts reaped; search finds no production caller. `browser/browser-acquisition.mjs:141–148,392` exposes port/recordAcquisitionPort, directly used by acquisition tests while production reserves through reserve-port | C-037; implementation/tests/documentation, projections only where affected. Remove the two transport branches and test-only port helper after caller closure; keep directly used closeAcquisitionLaunch and production reservation/settlement. Disposition every affected assertion and remove unused imports/routing | Smaller capabilities reduce compatibility and destructive surface; tests no longer preserve a weaker acquisition sequence. Otherwise unused operations remain supported accidentally | No compatibility aliases/shims. Text search alone cannot prove dynamic/external absence; close that ledger before deletion. Avoid losing meaningful acquisition/recovery assertions | S-056/V-057/E-067: bounded rejection, current production behavior pass, assertion ledger closed and no executable/generated dependency on deleted support |
+| F-055 / P2 / DONE — tracker current sections describe superseded state | Baseline/authorization and Sections 1–12 contain old current-state descriptions, TODO findings and unqualified completion/authorization language together | C-038; documentation only. Reconcile all current sections around E-061, mark superseded descriptions historical, preserve stable IDs and state tracker-only authorization | One current plan prevents following retired owners, duplicating completed work or treating historical passes as new coverage | No runtime compatibility effect. Preserve historical outcomes and distinguish administrative retirement from successful recovery; do not rewrite E-056/E-059/E-060 evidence | T-062/V-059/E-061: current sections, IDs, dependencies, status and write boundary verified; completion does not imply S-051–S-057 ran |
+
+The existing streaming scanner, shared proxy stop owner, current schema contracts
+and necessary specialized browser/service adapters are `intentional/no_action`
+in this amendment unless later direct evidence establishes another finding.
+The stale PID-only port fallback and other unclosed caller branches are pending
+inspection, not automatically included in F-054's deletion authorization.
+
+### F-043–F-049 findings at audit entry — historical
 
 F-043–F-048 are static audit observations, E-049; F-049 is the E-058 schema
 retirement finding. None is a newly executed reproduction.
@@ -1184,7 +1577,37 @@ owner violation receives a new named correction and regression test.
 
 ## 6. Refactor Workstreams
 
-### Current post-cutover workstreams
+### Current sequential workstreams — E-062–E-068
+
+WF-51 through WF-56 completed in order, with E-062 through E-067 saved after
+each workstream and before its successor. WF-57 is complete at E-068: installed physical/public checks, finalization,
+source freeze, broad regression, exact-run diagnostics and handoff all passed. Any executable repair requires affected gates
+to rerun on the repaired source. Original dependencies, migration risks and
+binary exits are preserved in the workstream table below.
+
+### E-061 sequential workstream plan — historical
+
+This table is the sole prerequisite authority for WF-51–WF-57. Successor order
+is derived from it. All are future implementation workflows; no new runtime
+work is authorized by the present tracker update.
+
+| Workflow / slice | Class / authoritative prerequisites | Goal and principal owners | Risk controlled / binary exit | Validation / checkpoint |
+| --- | --- | --- | --- | --- |
+| WF-51 / S-051 specification and independent characterization | root; saved E-061, revalidated source, later implementation authorization | Map C-033–C-038 to adopted requirements; finish affected caller/proof/assertion inspection; define release units/dependencies and detail/output boundaries; inventory affected sessions; independently specify new cases | Do not encode existing defects as contracts. Existing baseline gates pass; reproduced defects recorded separately; exact structural entry and cutover gates established | V-052 / E-062 |
+| WF-52 / S-052 process ownership and settlement | chain; S-051/V-052/E-062; C-033 private cutover gate satisfied | Shared native physical process owner, proof producers/consumers and necessary Node adaptation | No widened signal scope, false release or dangling stop implementation; F-050 matrix passes | V-053 / E-063 |
+| WF-53 / S-053 dependency-aware cleanup | chain; S-052/V-053/E-063; affected dependency/policy cutover gate satisfied | Review composition, shared fixture ordering/attempts and physical service releases | No independent starvation, unsafe dependent release, extra retry or lost cleanup outcome; F-051 matrix passes | V-054 / E-064 |
+| WF-54 / S-054 detail/proof separation | chain; S-053/V-054/E-064; private-layout cutover gate satisfied | Shared private layout/purge plus review recovery/publication error finalization | Corrupt declarations and old progress cannot retain safe detail; required authority and scanner inputs survive; F-052 matrix passes | V-055 / E-065 |
+| WF-55 / S-055 recovery output isolation | chain; S-054/V-055/E-065; private-output binding cutover gate satisfied | Native recovery attempt binding and physical service/browser output consumers | Earlier evidence unchanged, no foreign scope, repeated recovery gets distinct output; F-053 physical matrix passes | V-056 / E-066 |
+| WF-56 / S-056 capability and assertion closure | chain; S-055/V-056/E-066; current caller/assertion ledger complete | Browser private dispatch, acquisition helper/tests and affected imports/projections/routing | Removed operations reject; every assertion retained/relocated/obsolete; no alias or supporting dependency; F-054 closes | V-057 / E-067 |
+| WF-57 / S-057 public validation and final handoff | chain; S-056/V-057/E-067; all required predecessor evidence saved | Installed public composition, physical owners, finalization, source freeze, broad checks and tracker reconciliation | All F-050–F-055 dispositions complete at final source; no stale gate reused after executable repair | V-058 / E-068 |
+
+Each checkpoint records changed files, decisions, exact commands, source and
+environment identity, run roots, owning-process exits, harness outcomes, failures,
+fresh execution/cache reuse, migration effects, remaining risks and successor
+readiness. Save it before beginning the next workstream. A failed validation
+blocks that successor; it never becomes DONE by elapsed time or narrative.
+
+### F-043–F-049 workstreams — historical
 
 The prerequisite column is authoritative; the displayed chain is derived from it:
 **S-043 → S-044 → S-045 → S-046 → S-047 → S-048 → S-050 → S-049**. E-049 is the
@@ -1322,7 +1745,77 @@ lists are historical and do not redefine the current sequence.
 
 ## 7. Remediation Slice Plan
 
-### Current post-cutover slices and readiness
+### Current slice completion and migration — E-062–E-068
+
+| Slice | Status | Saved checkpoint / validation |
+| --- | --- | --- |
+| S-051 specification and characterization | DONE | E-062 / V-052 |
+| S-052 process settlement | DONE | E-063 / V-053 |
+| S-053 independent cleanup | DONE | E-064 / V-054 |
+| S-054 detail boundary | DONE | E-065 / V-055 |
+| S-055 recovery output | DONE | E-066 / V-056 |
+| S-056 capability closure | DONE | E-067 / V-057 |
+| S-057 validation and handoff | DONE | E-068 / V-058 |
+
+Private layouts and schemas cut over coherently with their clients, after
+inventory and exact recovery of affected sessions. E-063 and E-066 record two
+failed-run roots closed through temporary Make-invoked native recovery helpers;
+the helpers were removed. No generic deletion authority was inferred. Other
+checkouts must drain their own old-format sessions with their running revision
+before updating; ambiguous ownership remains a blocking migration condition.
+Rollback restores a coherent source/projection revision after that same check.
+
+Assertion closure: process/callback/dependency/transaction tests remain and were
+extended with independent fault cases. Physical recovery preserves prior bytes.
+Both port-helper fixtures now use production reservation; the retired transport
+has bounded rejection checks. The frontend producer marker assertion follows
+the new detail path while preserving its race guarantee. E-062–E-067 give exact
+results and failures; no assertion was removed merely to obtain a pass.
+
+### E-061 slice and migration plan — historical
+
+The listed behavior corrections require later implementation authorization.
+S-051 is ready for its bounded inspection/characterization entry; no structural
+movement is ready before V-052/E-062. Authoritative dependencies are in Section 6.
+
+| Slice / kind | Findings / contracts | Intended change and tests to add or preserve | Current status / readiness | Completion |
+| --- | --- | --- | --- | --- |
+| S-051 / characterization and necessary owner clarification | F-050–F-055 / C-033–C-038 | Revalidate source and public routes; inspect affected pending files; enumerate proof producers/consumers, resource edges, physical release units, detail inputs and private capabilities. Create independent expected fault fixtures, inventory sessions and run existing narrow baselines. Propose/adopt only necessary owner clarification before projections | TODO; ready for later authorized entry; RB-010/RB-011 are deliverables, not permission to move code | V-052/E-062; baseline failures block movement and deliberately reproduced defects remain separate failed evidence |
+| S-052 / structural owner consolidation plus separate normative correction | F-050 / C-033 | Give process inspection/termination one native physical owner; use actual group/session identities and trustworthy signaling anchors, confirmed descendant settlement and fail-closed ambiguous ownership. Cover live Go/Node groups and new-process recovery, with independent PID/group reuse fixtures | BLOCKED; RB-010/RB-011 and WF-52 prerequisites | V-053/E-063; no false released journal or unowned signal |
+| S-053 / dependency correction | F-051 / C-034 | Replace global review/recovery success gates and overbroad fixture blocking with exact dependency outcomes. Correct independent physical service attempts and per-owner deadline accounting. Preserve primary failure, all secondary failures and explicit blocked outcomes | BLOCKED; WF-53 prerequisites | V-054/E-064; independent resources attempted once and true dependents protected |
+| S-054 / private-layout and finalization correction | F-052 / C-035 | Separate disposable detail and minimum authority, make safe purge independent of corrupt declarations, and apply attempt-scoped cleanup across early recovery and terminal failures. Keep scanner inputs until scanning finishes | BLOCKED; WF-54 prerequisites | V-055/E-065; corrupt-proof and renewed-detail cases close without losing authority |
+| S-055 / output-binding correction | F-053 / C-036 | Give each recovery attempt a distinct native-authorized output binding for every physical owner. Keep original resource identity separate; verify actual service/browser writers, repeated/concurrent recovery and immutable earlier evidence | BLOCKED; WF-55 prerequisites | V-056/E-066; no prior evidence mutation or foreign output acceptance |
+| S-056 / private capability contraction | F-054 / C-037 | Delete reaped dispatch and port/recordAcquisitionPort with their support closure. Retain necessary direct settlement and reserve-port. Move useful tests to production paths and reject retired operations | BLOCKED; WF-56 prerequisites, including caller/assertion closure | V-057/E-067; no orphan imports/helpers/routes/projections or uncovered removed assertion |
+| S-057 / integration validation and handoff | F-050–F-055 / C-033–C-038 | Exercise installed public/physical boundaries, finalize, review changes, freeze source, run final gates and inspect exact-run diagnostics. Reconcile current and historical tracker statements | BLOCKED; WF-57 prerequisites | V-058/E-068; all finding dispositions and final-source evidence complete |
+
+#### Current assertion-disposition obligations
+
+| Existing evidence / assertion family | Disposition | Required additional independent evidence |
+| --- | --- | --- |
+| Node detached-group PID-reuse/descendant tests and native preparation deadline tests | RETAIN; adapt proof fixtures to the current contract | Go Setpgid group with distinct SID; owner death before drain; reused/ambiguous identity rejection; delayed descendant settlement and permission failure |
+| Shared AttemptCleanup callback/deadline tests | RETAIN; they do not prove integrated cleanup routing | Review diagnostic failure plus successful independent service release; real dependency block; physical first-service stall with sibling attempt |
+| Exact dependency and foreign registration tests | RETAIN | Corruption after a valid record was persisted, truncated journal, forged path and independently safe purge |
+| Terminal conflict and crash/scan tests | RETAIN | Prior DetailPurged plus new detail on recovery, conflict or early intent failure; original terminal bytes and scanner authority preserved |
+| Mocked suite termination tests | RETAIN as unit evidence | Real physical output binding and distinct later recovery attempts without earlier evidence changes |
+| recordAcquisitionPort positive assertions | RELOCATE meaningful reservation/marker/cleanup assertions to reserveAcquisitionPort; obsolete helper acceptance is OBSOLETE | Production intent-before-reservation failures and bounded rejection of port |
+| Unused reaped transport branch | REMOVE transport; RETAIN directly used closeAcquisitionLaunch behavior | Rejected reaped request and successful native/Node production settlement |
+| Other callers/imports/routing or assertion dependencies discovered in S-051 | TODO: record each before deletion; no absence inferred solely from text search | Complete current consumer, projection and test disposition before S-056 |
+
+Before each persisted private change, inventory affected sessions and drain or
+recover them with their running version. Unverifiable ownership blocks that
+environment; E-059 supplies no blanket future deletion authority. Changes to
+private proof, dependency metadata, layout and output bindings cut over coherently
+with their clients/projections. No alias, archive reader or translation layer is
+introduced. Rollback restores one coherent source-and-projection revision after
+the same ownership check; it never rewrites retained receipts. Preserve existing
+per-resource bounds and derive any composite budget from the actual dependency
+order; do not renew a failed attempt or conceal starvation by extending a timeout.
+
+F-055 is addressed by T-062/E-061 and remains a reconciliation obligation during
+each future checkpoint. S-057 ends this new functional effort; it does not acquire
+or complete deferred qualification.
+
+### F-043–F-049 slices and readiness — historical
 
 The current user request authorizes this implementation chain. Dependencies are
 defined in Section 6; saved checkpoints establish predecessor completion. RB-007
@@ -1390,7 +1883,7 @@ S-050 has an explicit removal outcome, not an archival/reorganization outcome:
    JSON-shape checks or contract tests against an unchanged support tree. Save
    E-057 before final validation S-049.
 
-### Current test-disposition ledger
+### F-043–F-049 test-disposition ledger — historical
 
 This is the required disposition plan, not a claim that assertions have already
 moved. S-043 records the individual assertions; S-048 and S-050 must each close
@@ -2079,7 +2572,72 @@ S-014–S-022 or qualify its completed source. These rows retain prior stable ID
 
 ## 8. Validation Plan
 
-### Current post-cutover validation
+### Current validation and acceptance — E-062–E-068
+
+V-052–V-057 have passing focused exits, recorded separately from intentionally
+failing characterization and repaired-source failures. V-058 is complete at E-068. Installed physical/public checks, `make agent-finalize`,
+frozen-source harness contracts, script/shell/Markdown lint, projection checks and
+full warm `make check` passed. Exact-run status, human/JSON diagnostics and
+observability validation passed; optional diagnostics report truncation honestly.
+E-068 records native exits, summaries, source identity, cleanup and limitations.
+No earlier full check substitutes for this current-source acceptance.
+
+### E-061 validation plan — historical
+
+All runtime commands below are future obligations, not commands executed during
+this amendment. Run from `/home/jochi/code/cartulary` using pinned tooling on
+Linux/WSL. Physical cases require declared Docker, PostgreSQL/object-store and
+browser prerequisites; do not install/provision them merely to save this plan.
+
+At authorized entry run `make help`, `make help-all`,
+`make task-guide ROLE=module-author OWNER=harness.evidence_accounting`,
+`make task-guide ROLE=module-author OWNER=harness.browser` and
+`make explain-target TARGET=<selected-target> DETAIL=rows`.
+These are discovery prerequisites, not a copied public task inventory.
+Authored routes were inspected in `tools/task_surface_owner.json`:
+runtime and fixture contracts include native race checks, runtime-boundary
+covers installed native composition, and UI lifecycle invokes Node boundary tests.
+
+Every writing invocation receives a fresh explicit `CARTULARY_TEST_RUN_ID`.
+For example:
+`CARTULARY_TEST_RUN_ID=lifecycle-audit-s051-runtime01 make harness-runtime-contract`.
+Verify that exact output root is unused; each target/retry receives a different
+ID. Preserve failed runs, process exits and published outcomes separately.
+
+| Validation / layer | Mapping / stage | Exact public routes and required cases | Exit / failure consequence |
+| --- | --- | --- | --- |
+| V-052 / characterization | S-051; C-033–C-038; pre-move | `make harness-runtime-contract`, `make harness-fixture-contract`, `make harness-ui-review-contract`; independent fixtures, caller/proof/assertion ledgers and environment cutover inventory | Existing baselines pass; expected new defect reproductions recorded separately. Missing characterization blocks structural movement |
+| V-053 / process settlement | S-052; F-050/C-033; post-slice | `make harness-runtime-contract`, `make harness-fixture-contract`, `make harness-runtime-boundary-contract`, `make harness-ui-review-lifecycle`; Go/Node groups, lost supervisors, delayed descendants, ambiguity/reuse and permission cases | Physical settlement agrees with journals; no widened signal scope or lost primary failure |
+| V-054 / independent cleanup | S-053; F-051/C-034; post-slice | `make harness-runtime-contract`, `make harness-fixture-contract`, `make harness-runtime-boundary-contract`, `make harness-ui-review-lifecycle`; integrated independent/dependent release matrix plus physical service stalls | Every safe release attempted within its own declared bound once; failures/blocked outcomes remain visible |
+| V-055 / preservation and transaction errors | S-054; F-052/C-035; post-slice | `make harness-runtime-contract`, `make harness-fixture-contract`, `make harness-ui-review-contract`, `make harness-ui-review-lifecycle`; corrupt persisted records, fresh detail after earlier purge, early errors, scan/publication conflict/crash cases | Safe purge proceeds; exact authority/scanner inputs survive; immutable bytes do not change |
+| V-056 / output binding | S-055; F-053/C-036; post-slice | `make harness-fixture-contract`, `make harness-runtime-boundary-contract`, `make harness-ui-review-lifecycle`, `make harness-ui-review-seeded-default`; actual suite/browser repeated and concurrent recovery with owned/borrowed and forged bindings | Every recovery attempt gets distinct authorized output; prior artifacts and foreign resources unchanged |
+| V-057 / deletion closure | S-056; F-054/C-037; post-slice | `make harness-command-surface-contract`, `make harness-evidence-contract`, `make harness-runtime-contract`, `make harness-fixture-contract`, `make harness-ui-review-lifecycle`; affected browser owner selection from task guide; native/Node agreement and rejection fixtures | Caller/import/helper/routing/projection/assertion ledger closed; no compatibility aliases |
+| V-058 / installed public composition and final handoff | S-057; all new findings/contracts; final regression | Success, invalid input, producer failure, cancellation, partial acquisition, stop/recovery/status and Go/Node/shell/service/browser interoperability; finalization and full final-source gates below | No completion until final executable source, process exits, summaries, physical cleanup and diagnostics agree |
+| V-059 / tracker amendment | T-062; F-055/C-038; planning-session only | Read-only structure, ID/dependency/status and historical-content comparison; `git --no-optional-locks diff --check`; identity/index/outside-tracker fingerprint comparison | Only the admitted tracker differs; no stale current authority or unexecuted runtime pass is reported |
+
+After authored projection changes, run `make generate`, then separately
+`make generate-drift`, `make generated-artifact-policy-check` and
+`make json-shape-check`. Never hand-edit generated outputs. These are
+implementation obligations, not executable dependence on this document.
+
+S-057 first completes affected public/physical checks. Run `make agent-finalize`
+before broader final verification, with `RESULTS_DIR` only for eligible successful
+full-warm evidence; otherwise record retained-run maintenance skipped because it
+was unset. Review finalizer changes and freeze executable source. Then pass
+`make harness-contract`, applicable script/shell/Markdown lint, projection checks
+and a full warm `make check`. Inspect exact-run status and human/JSON diagnostic
+views, including observability validation, using their discovered public routes.
+Confirm status neither builds nor provisions, cleanup matches reported outcomes
+and diagnostics remain local/default-off. Any subsequent executable repair
+invalidates affected gates and requires new-source reruns before E-068.
+
+For this document step, `make lint-markdown` is skipped: its run-step wrapper
+writes retained evidence and its script writes static-analysis cache outputs,
+with tooling prerequisites that may write additional files. Tests, generation,
+finalization, formatters and service commands are likewise outside the tracker-only
+boundary. No raw tool bypass or run-then-restore substitutes for those routes.
+
+### F-043–F-049 validation — historical
 
 All commands below are future implementation obligations, run from
 `/home/jochi/code/cartulary`. At authorized entry rediscover routing with `make help`,
@@ -2338,7 +2896,26 @@ Their commands/results are not current-source evidence for S-014–S-022.
 
 ## 9. Top-Level Work Tracker
 
-### Current post-cutover work status
+### Current work status — E-062–E-068
+
+| ID | Work item / scope | Workstream | Status | Dependency / evidence | Exit |
+| --- | --- | --- | --- | --- | --- |
+| T-062 | Apply audit findings and reconcile the sole tracker; documentation only | E-061 planning amendment | DONE | F-050–F-055 / C-033–C-038; revalidated source and V-059 | All twelve current sections reconciled, historical evidence preserved and tracker-only boundary verified |
+| T-063 / S-051 | Specification mapping and independent characterization | WF-51 | DONE | User implementation authorization; E-062 | V-052/E-062; existing baseline gates pass, new cases and cutover/caller ledgers explicit |
+| T-064 / S-052 | Native process identity and confirmed settlement | WF-52 | DONE | S-051/V-052/E-062 and affected private cutover readiness | V-053/E-063; F-050 complete |
+| T-065 / S-053 | Dependency-aware independent cleanup | WF-53 | DONE | S-052/V-053/E-063 | V-054/E-064; F-051 complete |
+| T-066 / S-054 | Independent safe detail purge and attempt finalization | WF-54 | DONE | S-053/V-054/E-064 | V-055/E-065; F-052 complete |
+| T-067 / S-055 | Distinct private output per recovery attempt | WF-55 | DONE | S-054/V-055/E-065 | V-056/E-066; F-053 complete |
+| T-068 / S-056 | Remove unnecessary private capabilities and assertion wiring | WF-56 | DONE | S-055/V-056/E-066 and caller/assertion closure | V-057/E-067; F-054 complete |
+| T-069 / S-057 | Public validation, finalization and final handoff | WF-57 | DONE | S-056/V-057/E-067 | V-058/E-068; all new dispositions and final-source evidence reconciled |
+
+T-062 records the earlier documentation amendment. E-062–E-067 now contain
+executed per-slice results; E-068 records completed final validation and handoff.
+Historical T-050–T-061 and S-043–S-050 are unchanged at their original sources.
+The overall tracker remains IN_PROGRESS for the new functional findings and
+separately deferred qualification.
+
+### F-043–F-049 work status — historical
 
 | ID | Work item / scope | Workstream | Status | Depends on / evidence | Exit |
 | --- | --- | --- | --- | --- | --- |
@@ -2447,6 +3024,434 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-068 — S-057 final validation and handoff — DONE
+
+S-051–S-057 and F-050–F-055 are complete for this functional remediation scope.
+The seven workstreams ran in sequence with each checkpoint saved before its
+successor. All twelve current sections now describe the executed state; the
+E-061 audit and older histories remain explicitly source-scoped.
+
+**Final source:** main baseline `38c282197d8b5430a78f9adf66816d7127fd607f`,
+dirty worktree, executable digest
+`sha256:0ffd71dd029e9dc3fdac3e34131796568498d145ad82ed7162ff5259aa01a4ba`.
+Toolchain digest is
+`sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
+Finalizer, format, projection gates, contracts and the full check agree on this
+source. No executable edits followed the freeze. No commit or release was made.
+
+The implementation changes are concentrated in `harnesssession` physical process
+settlement and private authority, `harnessfixtures` dependency coordination,
+`harnessreview` terminal/recovery finalization, graph execution/observations,
+`tools/testservices` physical termination, Node session/browser adapters and
+focused fixtures. REQ-502/853 contain the owner clarification. Three authored
+schemas changed and their projections were regenerated: resource, session and
+runtime owner. Of 106 changed Node validators, 103 differ only in generated
+identifier numbering; the other three carry those schema changes. The topology
+render index was regenerated from its changed browser-adapter inputs. No
+executable input depends on Markdown. Public command and receipt formats remain
+unchanged; private proof/layout/output consumers cut over together.
+
+All final validation commands below exited 0 from the repository root. Run roots
+are `.cartulary/test-results/<run-id>`; each fresh ID was supplied through
+`CARTULARY_TEST_RUN_ID`. Native exits were collected separately from summaries.
+
+| Target / operation | Successful run ID / exact evidence |
+| --- | --- |
+| generate | lifecycle-s057-generate-20261012-01 |
+| agent-finalize, before broad verification | lifecycle-s057-finalize-20261012-02 |
+| format | lifecycle-s057-format-20261012-01 |
+| harness-contract | lifecycle-s057-contract-20261012-01 |
+| lint-scripts | lifecycle-s057-scripts-20261012-01 |
+| lint-shell | lifecycle-s057-shell-20261012-01 |
+| lint-markdown, including the completed handoff and NLSpec under the current lint configuration | lifecycle-s057-markdown-20261012-02 |
+| generate-drift | lifecycle-s057-drift-20261012-01 |
+| generated-artifact-policy-check | lifecycle-s057-policy-20261012-01 |
+| json-shape-check | lifecycle-s057-shape-20261012-02 |
+| harness-runtime-boundary-contract, isolated final-source run | lifecycle-s057-boundary-20261012-03 |
+| harness-ui-review-seeded-default, final-source public composition | lifecycle-s057-seeded-20261012-02 |
+| check, with CARTULARY_HARNESS_CACHE_MODE=off and HARNESS_DIAGNOSTICS=basic | lifecycle-s057-check-20261012-01 |
+| test-run-status JSON=1; explain-run summary and DETAIL=performance; explain-run DETAIL=resources JSON=1 | Exact lifecycle-s057-check-20261012-01 run root; all readers exited 0 |
+| harness-observability-check RESULTS_DIR=<exact full-check root> | Read-only PASS, invocations=1, sources=4; no new result run is emitted |
+| git diff --check and final source/assertion/generated review | Passed |
+
+The full warm check completed all **982 work units**, covering its complete
+1415-row planned roster, with zero failed/skipped/cancelled units and zero result
+cache hits. Canonical wall time was 406,750 ms; invocation receipt recorded
+418,850 ms and child exit 0. Cleanup recorded 1,241 steps with zero failed or
+blocked outcomes. The retained-secret scan passed across 6,189 files. These are
+functional results, not qualifying performance measurements.
+
+Status reported the terminal pass. Its read-only limitations correctly include
+no independent process/outer-exit observation and no evidence audit; the native
+execution handle separately returned exit 0. Public status invariants, including
+no provisioning/build or input echo, are exercised by the passing command-surface
+and aggregate contracts. The resource view reported 14,264 samples, available
+container observations, zero discovery truncations and zero container deadline
+overruns. Resource and execution detail were **truncated** within existing
+bounds, with 1,332 omitted resource observations; complete per-process attribution
+is not claimed. The observability validator accepted this explicitly limited
+evidence. Diagnostics remain local and default-off; only this check opted in.
+
+Failures and their disposition remain explicit:
+
+- Initial finalization `lifecycle-s057-finalize-20261012-01` and isolated
+  `lifecycle-s057-shape-20261012-01` failed because S-056 changed two inputs of
+  the topology render index. Make generation refreshed that index; finalization
+  then passed with zero further generated updates. No generator output was
+  hand-edited. Retained-run maintenance was skipped because `RESULTS_DIR` was
+  unset, as reported by the successful finalizer.
+- `lifecycle-s057-boundary-20261012-01` and the first seeded run passed before
+  the index refresh. Both affected boundaries were reconfirmed at final source.
+  The second boundary run (`-02`) failed the HTTPS observation assertion: its
+  service graph and cleanup passed, but the collector recorded zero samples and
+  no container identities while other tests were running. Shared host admission
+  makes contention plausible; causality is not established. After the full check
+  completed, an unchanged-source isolated run (`-03`) passed. No test assertion,
+  sampling policy or deadline was weakened; the failed evidence remains retained.
+- Earlier characterization and repaired-source failures remain in E-062–E-067;
+  successful reruns do not erase them or retroactively make them passes.
+
+The default private `suite-runtime` inventory was empty after final validation.
+Exact native recovery of two earlier empty failed-run roots is documented in
+E-063/E-066, and its temporary helpers were removed. No unresolved resource in
+this checkout remains. Other environments must drain old-format sessions with
+their running revision before this private cutover; ambiguous ownership remains
+unresolved rather than granting signal or deletion authority. Rollback restores
+one coherent source/projection revision after the same inventory check and does
+not rewrite retained evidence.
+
+No qualification acquisition, golden refresh, default-on diagnostics, external
+telemetry or Core 05 claim occurred. F-022/RB-006 and S-020–S-022 remain DEFERRED,
+with the 44.952/90-minute qualification ledger unchanged. The historical broader
+143-file inspection ledger remains a partial audit. No required work remains
+for S-051–S-057; future qualification is a separate effort under its adopted gates.
+
+### E-067 — S-056 private capability and assertion closure — DONE
+
+Saved before S-057 starts. Removed the unused `reaped` transport operation and
+`port`/`recordAcquisitionPort` helper. Inspected the native browser operation
+composition, dispatch, launch callback, shell reservation caller and acquisition
+tests. Production uses the closed settle/recover/inspect operations, direct
+`closeAcquisitionLaunch`, and intent-first `reserve-port`; these remain. No
+external/public contract exposes the removed private operations. Their negative
+CLI fixtures now verify bounded rejection and unchanged acquisition bytes.
+The two positive port fixtures use `reserveAcquisitionPort`, retaining exact
+reservation, marker mismatch, sibling preservation and recovery assertions.
+No route, schema, alias or generated support existed solely for these operations.
+
+All final commands exited 0 under `.cartulary/test-results/`:
+
+| Target | Run ID |
+| --- | --- |
+| harness-command-surface-contract | lifecycle-s056-surface-20261012-03 |
+| harness-evidence-contract | lifecycle-s056-evidence-20261012-01 |
+| harness-runtime-contract | lifecycle-s056-runtime-20261012-01 |
+| harness-fixture-contract | lifecycle-s056-fixture-20261012-01 |
+| test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.ui_review_lifecycle | lifecycle-s056-browser-20261012-01 |
+
+The browser selection is the same row routed by `harness-ui-review-lifecycle`;
+it passed as fresh execution. The first two command-surface attempts failed
+because a frontend producer fixture still counted markers in the old root
+layout. The assertion now reads the owned detail parent and preserves its
+single-winner guarantee; the corrected run passed all 42 tests. These failures
+remain retained at the corresponding `-01`/`-02` run roots, with native Make
+exit 2 and normalized harness/unknown_failure. F-054 is closed. S-057 must
+reconcile every current section and complete final-source validation.
+
+### E-066 — S-055 distinct recovery output — DONE
+
+Saved before S-056 starts. The native owner allocates a fresh authorized output
+for each physical recovery operation. Physical suite recovery takes an explicit
+`--recovery-output` binding; ordinary termination derives output from its original
+lease. Browser recovery claims its authorized output through the native session
+interface before physical retirement. Runtime authority records consumed outputs,
+so concurrent writers, repeated attempts and detail deletion cannot reuse a prior
+claim. Producers cannot authorize new outputs. Resource identity remains original
+lease-bound, separate from output identity. Private owner/session projections
+were regenerated together; no public command/receipt or old history was rewritten.
+
+All final commands exited 0, under `.cartulary/test-results/`:
+
+| Target | Run ID |
+| --- | --- |
+| harness-runtime-contract | lifecycle-s055-runtime-20261012-02 |
+| harness-fixture-contract | lifecycle-s055-fixture-20261012-01 |
+| harness-ui-review-lifecycle | lifecycle-s055-node-20261012-02 |
+| harness-runtime-boundary-contract | lifecycle-s055-boundary-20261012-02 |
+| harness-ui-review-seeded-default | lifecycle-s055-seeded-20261012-02 |
+| test-slice OWNER=harness.browser ROWS=harness.browser.unit.testservices_lifecycle_contract | lifecycle-s055-service-20261012-01 |
+| format | lifecycle-s055-format-20261012-03 |
+| generate | lifecycle-s055-generate-20261012-02 |
+| generate-drift | lifecycle-s055-drift-20261012-01 |
+| generated-artifact-policy-check | lifecycle-s055-policy-20261012-01 |
+| json-shape-check | lifecycle-s055-shape-20261012-01 |
+
+Tests cover forged repository/run/lease/output identity, concurrent and repeated
+claims, claim authority surviving detail removal, repeated browser recovery and
+the real physical boundary's byte-for-byte preservation of original run files.
+Initial boundary/seeded attempts failed source-identity admission while source was
+still changing. Their frozen-source reruns passed. One preparation failure left
+empty runtime `suite-owned-8ae3bfcf-0f26-4416-baf1-6f453a057702` with owner markers.
+A temporary exact native recovery helper, invoked through
+`lifecycle-s055-cutover-20261012-01 make harness-runtime-contract`, proved dead
+ownership and an empty resource journal, then closed it normally (exit 0).
+The helper was removed. Default suite-runtime inventory is empty. F-053 is closed.
+
+### E-065 — S-054 independent detail purge — DONE
+
+Saved before S-055 starts. `PrivatePath`/`private_path` now allocate disposable
+detail under the owned `detail` directory. Explicit `RecoveryPath`/`recovery_path`
+allocate authority outside that namespace. Journal targets, retention files and
+dependency edges cannot claim detail. Producers, frontend staging admission,
+native/Node failure channels, observations, review detail, fixture results and
+proxy logs/binaries use the new boundary; scanner inputs remain protected.
+
+Preservation purges the independently verified detail tree before parsing resource
+journals. Truncated or forged persisted records still return failure and retain
+unresolved authority. Terminal error cleanup no longer trusts an earlier
+`DetailPurged` receipt, and every admitted recovery attempt has an error-path
+finalizer, including invalid saved intent. No history rewrite or legacy layout
+reader was added. The default private-runtime inventory is empty.
+
+Final native exits were 0 for these runs under `.cartulary/test-results/`:
+
+| Target | Run ID |
+| --- | --- |
+| harness-runtime-contract | lifecycle-s054-runtime-20261012-02 |
+| harness-fixture-contract | lifecycle-s054-fixture-20261012-02 |
+| harness-ui-review-contract | lifecycle-s054-review-20261012-01 |
+| harness-ui-review-lifecycle | lifecycle-s054-node-20261012-02 |
+| test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.local_migration_activities | lifecycle-s054-activity-20261012-01 |
+| format | lifecycle-s054-format-20261012-02 |
+| generate | lifecycle-s054-generate-20261012-02 |
+| generate-drift | lifecycle-s054-drift-20261012-01 |
+| generated-artifact-policy-check | lifecycle-s054-policy-20261012-01 |
+| json-shape-check | lifecycle-s054-shape-20261012-01 |
+
+First runtime/fixture/Node attempts exposed remaining old path assumptions in
+frontend staging and test fixtures; those consumers were corrected and reruns
+passed. New persisted-corruption, forged-retention, renewed-detail and early-intent
+cases pass, alongside existing crash, immutable-terminal and scanner tests.
+F-052 is closed. Distinct physical recovery output remains S-055's workstream.
+
+### E-064 — S-053 dependency-aware cleanup — DONE
+
+Saved before S-054 starts. Resource journals now carry explicit `depends_on`
+edges, separate from `recovery_files`. Unknown edges fail closed; an explicit
+empty list establishes independence. Fixture owners bind suite/browser edges
+before launching consumers, preserve them across journal updates, and reject
+contradictory browser acquisition intent. Unrelated cleanup continues after
+diagnostic failure. True dependents retain authority and report `blocked`;
+per-resource outcomes feed review cleanup evidence without replacing the primary
+failure. The existing once-per-runtime attempt ledger remains the retry boundary.
+
+Physical leased services now drain concurrently with an independent existing
+two-minute deadline per service, detached from an expired acquisition context.
+No budget, public schema or borrowed-resource termination authority was expanded.
+The private resource projection and native/Node consumers were regenerated
+together. Default suite-runtime inventory was empty before and after this slice.
+
+All final commands exited 0; IDs below are under `.cartulary/test-results/`:
+
+| Target | Run ID |
+| --- | --- |
+| harness-runtime-contract | lifecycle-s053-runtime-20261012-01 |
+| harness-fixture-contract | lifecycle-s053-fixture-20261012-03 |
+| harness-ui-review-lifecycle | lifecycle-s053-node-20261012-01 |
+| harness-runtime-boundary-contract | lifecycle-s053-boundary-20261012-01 |
+| test-slice OWNER=harness.browser ROWS=harness.browser.unit.testservices_lifecycle_contract | lifecycle-s053-service-20261012-02 |
+| format | lifecycle-s053-format-20261012-02 |
+| generate | lifecycle-s053-generate-20261012-02 |
+| generate-drift | lifecycle-s053-drift-20261012-01 |
+| generated-artifact-policy-check | lifecycle-s053-policy-20261012-01 |
+| json-shape-check | lifecycle-s053-shape-20261012-01 |
+
+New integrated cases establish that failed diagnostics do not starve fixture
+closure, a failed browser blocks only its declared suite, repeated recovery
+does not retry a physical attempt, and an expired parent/stalled physical service
+does not starve its sibling. The first fixture run failed because its synthetic
+suite omitted a lease identity; the fixture now supplies the required identity,
+and both reruns passed. That failure remains in its exact run root.
+F-051 is closed; proof/detail and recovery-output changes remain S-054/S-055.
+
+### E-063 — S-052 process ownership and settlement — DONE
+
+Saved before S-053 starts. The native physical owner captures actual PGID/SID,
+uses verified pidfds, retains direct-child identity through settlement, and
+rejects reused or ambiguous leaderless ownership. Native fixtures, proxies,
+review adapters and graph workers acknowledge release only after confirmed
+settlement. Node's stopper delegates to that owner; the private resource
+projection requires PGID/SID. No public interface or historical receipt changes.
+Unknown ownership remains unresolved; there is no legacy proof reader.
+
+Independent tests cover inherited-session Go groups, delayed descendant absence,
+permission errors and ambiguous/reused identities without signaling them. The
+Node leaderless test now requires the specified fail-closed outcome and cleans
+its deliberately ambiguous test child through its own direct fixture authority.
+
+All commands used explicit fresh IDs under `.cartulary/test-results/`:
+
+| Target | Final run ID | Native exit |
+| --- | --- | --- |
+| harness-runtime-contract | lifecycle-s052-runtime-20261012-02 | 0 |
+| harness-fixture-contract | lifecycle-s052-fixture-20261012-02 | 0 |
+| harness-ui-review-lifecycle | lifecycle-s052-node-20261012-03 | 0 |
+| harness-runtime-boundary-contract | lifecycle-s052-boundary-20261012-03 | 0 |
+| generate | lifecycle-s052-generate-20261012-02 | 0 |
+| generate-drift | lifecycle-s052-drift-20261012-02 | 0 |
+| generated-artifact-policy-check | lifecycle-s052-policy-20261012-01 | 0 |
+| json-shape-check | lifecycle-s052-shape-20261012-01 | 0 |
+
+Earlier Node/boundary attempts failed while the acquisition decoder still
+expected the old proof keys; the decoder was repaired and the gates passed.
+The first drift run failed; regeneration and the separate drift run passed.
+These failures remain retained evidence, not passes. `make format` passed
+(`lifecycle-s052-format-20261012-01`); generation was repeated afterward.
+
+The failed physical run left exact runtime
+`suite-owned-009bdd92-4048-4fda-b22c-2ee81c4a9be2`. A temporary test helper invoked
+the native owner through the public boundary target, proved its original owner
+dead and recovered that exact fixture. The first two administrative attempts
+failed because the service-binary binding was missing; the corrected
+`lifecycle-s052-cutover-20261012-03` exited 0 and removed the runtime through
+normal closure. The helper was removed before final validation. No blanket
+deletion or legacy translation occurred. The default suite-runtime directory
+was empty after the final boundary run. S-053's private dependency cutover is
+ready; unresolved detail/output gaps remain assigned to S-054/S-055.
+
+### E-062 — S-051 specification and independent characterization — DONE
+
+Execution authorization: the user requested implementation of the proposed plan.
+Entry source is main `38c282197d8b5430a78f9adf66816d7127fd607f`, with the E-061
+tracker amendment pre-existing. Product and generated files were unchanged at entry.
+The adopted REQ-853 now explicitly distinguishes actual PGID/SID, signaling,
+leader reaping and confirmed settlement; REQ-502 explicitly separates disposable
+detail from journal validity and historical purge progress. No public format,
+qualification budget or failure precedence changed.
+
+Revalidated the process launch/wait/proof/physical-stop closure in harnesssession,
+harnessfixtures command/proxy/recovery, harnessreview adapter/driver/recovery,
+harnessruntime process, and Node owned-process/private-child/browser acquisition.
+Read session binding, secure deletion, resource validation and publication/error
+finalizers; traced suite termination and all lifecycle output environment consumers.
+The caller search covers 186 references across internal/testutil and tools/harness;
+this closes affected seam discovery, not the broader 143-file behavioral inventory.
+No nested AGENTS.md was found in the affected roots. Generated policy is unchanged.
+
+Independent expected matrix remains Sections 7–8, with these implementation choices:
+process release follows physical absence; unknown leaderless/reused identity stays
+unresolved; fixtures retain dependency edges and shared session retains attempts;
+independent container releases get distinct existing budgets; disposable detail is
+structurally separate from exact recovery/scanner inputs; each recovery gets an
+explicit fresh output binding. Current direct settlement/reservation assertions
+survive removal of reaped/port transport acceptance.
+
+| Command / exact run ID (under `.cartulary/test-results`) | Owning exit / result |
+| --- | --- |
+| `make help`, `make help-all`, both owner task guides | 0; routes rediscovered |
+| `make harness-runtime-contract`, `lifecycle-s051-runtime-20261012-01` | 0; existing baseline passes |
+| `make harness-fixture-contract`, `lifecycle-s051-fixture-20261012-01` | 0; existing baseline passes |
+| `make harness-ui-review-contract`, `lifecycle-s051-review-20261012-01` | 0; existing baseline passes |
+| `make harness-runtime-contract`, `lifecycle-s051-characterization-20261012-01` | Make 2, step 1; intentionally reproduced F-050 and F-052; all other packages pass |
+
+The characterization stdout proves two independent failures: a live Go Setpgid
+child was acknowledged as settled, and disposable detail survived a truncated
+persisted journal. These failures remain retained; they are not acceptance passes.
+The regression helpers are enabled with their respective correction slice so an
+unrelated later-slice known defect is not confused with a predecessor regression.
+Further integrated fixture/output cases are required by their owning V-054/V-056.
+
+After the baseline commands exited, `/tmp/cartulary-harness-scratch/suite-runtime`
+contained no sessions; the review registry contained only two empty lock files,
+no session records. No roots or locks were deleted. RB-011 is satisfied for this
+checkout's default-root cutover at this time only; every later cutover rechecks it.
+RB-010 is closed for the affected seams. S-052 entry is ready. No runtime fix was
+included in S-051. V-052/E-062 saved before beginning S-052.
+
+### E-061 — Go lifecycle cutover audit and tracker amendment — DONE
+
+Date: 2026-10-12. Baseline: clean main
+`38c282197d8b5430a78f9adf66816d7127fd607f`, Linux/WSL, repository root
+`/home/jochi/code/cartulary`. The preceding Plan Mode audit made no writes.
+The follow-up saves the prepared tracker amendment in the same unchanged
+checkout. Only the admitted tracker is changed. No implementation slice ran.
+
+#### Scope and authority
+
+| Boundary | Evidence / action | Limit |
+| --- | --- | --- |
+| User scope | Apply the audit/tracker amendment, retaining its explicit requirement for later implementation authorization | Earlier broad execution authorization is historical; the document step does not execute S-051–S-057 |
+| Adopted owner | NLSpec status/adoption and REQ-402/502/852–855 rechecked; domain reference supplies vocabulary and framework supplies planning doctrine | Source/tests/projections are evidence, not alternate authority; no owner amendment adopted here |
+| Tracker identity | Requested and canonical path agree; regular single-link inode 3903446 on device 2096, no symlink components; entry hash recorded in Section 1 | Identity/content rechecked immediately before write; concurrent changes must be reconciled, never overwritten unseen |
+
+#### Backend boundary
+
+| Inspected owners | Observation / disposition | Next gate |
+| --- | --- | --- |
+| harnesssession, harnessfixtures, harnessreview and affected harnessruntime paths | F-050–F-053 establish process, dependency, purge and recovery-output corrections without collapsing their owners | S-051 establishes proof/caller/characterization entry before S-052 |
+| Physical testservices and suite output resolution | Sequential removals share one expiring context; suite recovery does not receive the browser path's fresh attempt output | S-053 and S-055 require actual physical validation, not only mocks |
+
+#### Frontend and Node boundary
+
+| Inspected seam | Observation / disposition | Limit |
+| --- | --- | --- |
+| owned-process, resource-stop adapters and browser acquisition/lifecycle | Cross-language process assumptions and two unnecessary private capability branches identified | Node producer/browser/report responsibilities remain necessary; no whole-language rewrite |
+| Acquisition/UI lifecycle assertions | Existing tests retain meaningful behavior but omit the new combinations; test-only port helper acceptance is not a future contract | Per-assertion relocation/removal and dynamic caller closure remain future work |
+| Product UI, selectors and goldens | Not applicable to this amendment | No product/UI redesign or golden change |
+
+#### Contracts and code generation
+
+| Inspected inputs | Action | Limit |
+| --- | --- | --- |
+| Resource/session proof shape, authored lifecycle policy, task surface, schema attachments and generated routing membership | Added C-033–C-038 and future private proof/layout/output/capability cutover obligations | No authored projection or generated file edited; generation/drift/JSON checks remain future validation |
+| Historical schema support | Existing retirement evidence preserved | No archive loader, alias, registry or validation support reintroduced |
+
+#### Tests and harness evidence
+
+| Evidence / exact inspection | Result and applicability |
+| --- | --- |
+| `git --no-optional-locks status --short`; `git --no-optional-locks rev-parse HEAD` | Clean main at the audit source before the write |
+| `rg --files internal/testutil/harnesssession internal/testutil/harnessreview internal/testutil/harnessfixtures internal/testutil/harnessruntime tools/harness/runtime tools/harness/browser/ui-review tools/harness/services` | 143 files; Section 2 separates enumeration and affected-range inspection, generated metadata and pending files |
+| `rg -n -e recordAcquisitionPort -e '"reaped"' internal tools --glob '!**/generated/**' --glob '!*.generated.*'` | reaped routing only; recordAcquisitionPort definition/dispatch and two direct test uses found. This is not proof of absent dynamic/external consumers |
+| Source reads at the F-050–F-054 paths and authored Make recipes | Findings revalidated at unchanged source; no reproduced failure or executed test result claimed |
+| Earlier audit discovery misses | Initial searches used nonexistent scripts and guessed schema/port-helper paths; exact paths were rediscovered with rg and inspected. These were read-only discovery errors, not failed validation runs |
+| E-056 and earlier gates | Preserved as historical source-scoped results, without new run-root inspection or applicability claims for the new cases |
+| V-059 amendment checks | PASS: twelve numbered sections, 143 disposition rows, new ID/dependency mappings, table shapes/whitespace and historical-content reversal checked; git diff --check passed. HEAD/branch, Git index, outside-tracker content/identity aggregate and tracker inode/link identity agree with entry |
+| Read-only check orchestration attempt | One functions.exec check failed JavaScript parsing before any nested command ran. The corrected check passed; the failed attempt wrote nothing and was not a harness validation run |
+| `make lint-markdown` | SKIPPED: authored run-step route and static-analysis script write retained reports/cache and may provision prerequisites outside the sole permitted output |
+| Runtime tests, `make generate`, drift/policy/JSON gates, `make agent-finalize`, broader checks and services | SKIPPED: this is a document-only step. Finalizer not run; RESULTS_DIR unset and no retained-run maintenance performed. No process/harness exits or fresh/cache results fabricated |
+
+No retained run root was created by this amendment. Read-only inspection command
+exits are separate from harness outcomes; no owning test process was launched.
+The Make wrappers were inspected rather than bypassed with raw test/lint tools.
+
+#### Security and authorization
+
+| Boundary | Disposition |
+| --- | --- |
+| F-050 identity and F-051 dependencies | Future fixes must neither widen signal scope nor close true dependencies early; unknown ownership remains unresolved |
+| F-052/F-053 proof, detail and output | Structural private boundaries and exact original resource binding take priority over compatibility convenience |
+| Legacy sessions | E-059/E-060 remain administrative retirement at their original source/time. No live inventory, deletion or environment cutover is authorized or performed here |
+| Diagnostics and qualification | Local/default-off, unchanged budgets and deferred F-022/RB-006; no Core 05 claim |
+
+#### Open risks and next session
+
+| Risk / checkpoint | Required next action |
+| --- | --- |
+| Partial 143-file behavioral coverage | Use the per-file ledger and F-050–F-054 dependency seams to finish affected caller/proof/assertion inspection in S-051; do not claim a whole-harness audit |
+| Missing new runtime characterization | RB-010: run existing narrow baselines and independently specified failures only in a later authorized implementation task |
+| Private migration readiness unknown | RB-011: inventory affected environments immediately before each proof/layout/interface cutover |
+| Tracker reconciliation | Superseded current summaries marked historical; E-056/E-059/E-060 and original prose preserved. T-062/F-055/V-059 are DONE at E-061 |
+| Successor | Later authorized S-051, followed by the Section 6 chain. E-068 is the final new functional handoff; qualification remains separate |
+
+Session write-boundary verification: **PASS**. HEAD/branch and Git index are
+unchanged; all 6,895 tracked/nonignored entries outside this tracker match their
+entry content/file-identity aggregate, and the tracker retains its regular-file,
+single-link inode identity. Removing the new sections and restoring only the
+historical heading labels reconstructs the exact entry tracker bytes. Git reports
+only this tracker modified. No ignored runtime, cache or report writer was invoked.
+The same checks are repeated after saving this completion record.
 
 ### E-060 — Retired-session wiring and handoff cleanup — DONE
 
@@ -5378,7 +6383,38 @@ document checkpoint, not a runtime-validation result.
 
 ## 11. Open Questions and Blockers
 
-### Current post-cutover entry gates
+### Current gates and remaining limits — E-062–E-068
+
+| Gate | Status / evidence |
+| --- | --- |
+| RB-010 characterization and affected caller closure | DONE at E-062, with assertion/caller closure completed through E-067 |
+| RB-011 private cutover inventory | DONE for this checkout; inventories and exact native recovery are recorded per slice; other environments require their own inventory |
+| Predecessor checkpoints | DONE through E-067; each successor began after its predecessor checkpoint |
+| Implementation authorization | Explicit user instruction to implement the proposed plan |
+| Final-source acceptance | DONE in S-057/V-058/E-068 |
+| F-022 / RB-006 qualification | DEFERRED; unchanged 44.952/90-minute ledger, no measurement acquisition |
+
+Unknown leaderless process identity remains deliberately unresolved, without
+signaling unrelated processes. Current private layouts have no legacy reader.
+The broader historical partial audit remains partial. These limits do not imply
+unexecuted qualification or whole-repository specification-completeness claims.
+
+### E-061 entry gates and coverage limits — historical
+
+| ID / gate | Why it matters / affected scope | Required evidence | Status / resolution |
+| --- | --- | --- | --- |
+| RB-010 / missing characterization and affected caller closure | Static observations do not establish runtime behavior, proof completeness or safe deletion; blocks S-052–S-056 structural entry | S-051/V-052/E-062: affected pending-file review, caller/proof/assertion ledgers, narrow passing baseline and independently specified failure cases | BLOCKED for structural movement; S-051 is ready to address it after later authorization |
+| RB-011 / private cutover inventory not performed | New private proof/dependency/layout/output changes cannot invalidate affected sessions; E-059/E-060 do not establish current environment state | Exact session inventory and drain/recovery with running version before each affected cutover; preserve ambiguous ownership and block that environment | TODO in S-051; mandatory gate for every affected slice, with no assumed global readiness |
+| Predecessor gates | Every successor must use its predecessor's completed validation and saved checkpoint | Section 6's V-052–V-057/E-062–E-067 chain | BLOCKED for successors until actual evidence is saved |
+| Implementation authorization | This invocation applies the prepared tracker amendment only | A later user task authorizing runtime/specification/test/projection work | Not granted by this invocation; this is scope, not a request to reconfirm the authorized document write |
+| F-022 / RB-006 | Qualification remains separate from functional correction | Existing adopted acquisition and unchanged eligibility/stability/budget gates | DEFERRED; no measurement work scheduled |
+
+There is no discovered primary-owner contradiction. Unexecuted tests and
+uninspected callers are evidence gaps, not permission to weaken requirements.
+The 143-file ledger retains pending entries explicitly; completion of this
+document update is not exhaustive lifecycle inspection or functional completion.
+
+### F-043–F-049 entry gates — historical
 
 The current user request authorizes all eight remediation workstreams.
 S-043–S-048, S-050 and S-049 are DONE at their saved checkpoints.
@@ -5468,7 +6504,43 @@ Pre-existing staged tracker content is preserved.
 
 ## 12. Binary Completion Criteria
 
-### Current post-cutover completion boundary
+### Current completion boundary — E-062–E-068
+
+S-051–S-057 and V-052–V-058 are DONE, with E-062–E-068 saved in sequence.
+F-050–F-054 have implemented and validated corrections; F-055 is closed by the
+final reconciliation of all twelve current sections. The functional effort is
+complete. The overall document remains IN_PROGRESS solely because separate
+qualification F-022/RB-006/S-020–S-022 remains DEFERRED.
+No goldens, qualification acquisitions, default-on diagnostics or Core 05 claim
+are part of this effort. Historical records below remain tied to their sources.
+
+### E-061 completion boundary — historical
+
+| Outcome | Required / current statement |
+| --- | --- |
+| Planning completeness | Partial behavioral audit across the enumerated lifecycle universe; actionable finding-to-contract-to-slice-to-validation plan for F-050–F-055. Pending caller/proof/assertion inspection is explicitly assigned to S-051, not presented as completed discovery |
+| Implementation authorization | Not granted by this planning/document invocation; S-051–S-057 require a later authorized task |
+| Per-slice readiness | S-051 ready for authorized inspection/characterization entry; S-052–S-057 blocked on the named characterization/cutover/predecessor gates |
+| Documentation completion | T-062/F-055/V-059/E-061 DONE: current sections reconciled, historical prose preserved and document/preservation checks pass |
+| Current functional status | IN_PROGRESS: F-050–F-054 remain TODO and no new runtime validation has run |
+| Historical scopes | F-043–F-049 and their S-043–S-050 gates remain complete at their recorded sources; E-056/E-059/E-060 are unchanged historical evidence |
+| New functional exit | S-057/V-058/E-068 requires all new finding dispositions, public/physical checks, finalization, frozen-source contracts/lint/projections/full warm check, exact-run diagnostics and reconciled handoff |
+| Session write boundary | VERIFIED by V-059/E-061: only the admitted tracker differs; index, outside-tracker content/file identities and tracker inode/link identity are unchanged |
+| Qualification | F-022/RB-006 and S-020–S-022 remain DEFERRED; budgets and 44.952/90-minute ledger unchanged; no measurements, goldens, default-on diagnostics or Core 05 claim |
+
+Binary requirements for the new implementation effort are: every exact process
+settles or remains explicitly unresolved; every independent safe release is
+attempted once within its declared bound; true dependents are recorded blocked;
+corrupt recovery metadata/publication failures do not skip independently safe
+detail purge; scanner/recovery authority survives until its obligations finish;
+every explicit recovery attempt uses distinct authorized output; earlier receipt
+bytes remain unchanged; removed capabilities have no supporting executable or
+test dependency; all public/physical outcomes agree with exact-run evidence.
+An executable repair after source freeze invalidates affected gates and requires
+new-source validation before E-068. None of these runtime exits is satisfied by
+saving this document.
+
+### F-043–F-049 completion boundary — historical
 
 | Outcome | Required / current state |
 | --- | --- |

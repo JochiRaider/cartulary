@@ -143,7 +143,7 @@ export function claimFrontendProducer(runtime, profile) {
 }
 
 export function sealFrontendArtifact({ repoRoot, runRoot, runtime, profile, staging, claim }) {
-  if (path.dirname(path.resolve(staging)) !== runtime.root) throw new Error("frontend staging must belong to its private suite root");
+  if (path.dirname(path.resolve(staging)) !== path.dirname(runtime.privatePath("frontend-staging"))) throw new Error("frontend staging must belong to its private detail root");
   for (const entry of profile.entries) {
     const info = lstatSync(path.join(staging, entry));
     if (!info.isFile() || info.isSymbolicLink()) throw new Error("frontend artifact required entry is invalid");

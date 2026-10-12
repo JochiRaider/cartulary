@@ -7,6 +7,7 @@ import (
 	"errors"
 	"maps"
 	"path/filepath"
+	"slices"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 )
@@ -61,13 +62,19 @@ func (p *Production) Close(ctx context.Context) error {
 	err := p.Broker.Close(ctx)
 	resources, proofErr := p.Options.Runtime.Resources(4096)
 	unresolved := p.Broker.Unresolved() || proofErr != nil
+	p.Suite.mu.Lock()
+	dependency := ""
+	if p.Suite.suite != nil {
+		dependency = p.Suite.suite.LeaseFile
+	}
+	p.Suite.mu.Unlock()
 	for _, resource := range resources {
-		if resource.Kind == "browser_stack" || resource.Kind == "object_store_proxy" {
+		if slices.Contains([]string{"browser_stack", "object_store_proxy", "helper_process", "browser_process", "browser_renderer"}, resource.Kind) && (resource.Dependencies == nil || slices.Contains(resource.Dependencies, dependency)) {
 			unresolved = true
 		}
 	}
 	if unresolved {
-		return errors.Join(err, proofErr, CleanupFailure(errors.New("dependent fixture cleanup unresolved")))
+		return errors.Join(err, proofErr, CleanupFailure(ErrCleanupBlocked))
 	}
 	return errors.Join(err, p.Suite.Close(ctx))
 }

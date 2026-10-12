@@ -112,8 +112,7 @@ func startAdapter(root, session string, runtime *harnesssession.Runtime, environ
 	}
 	child.Close()
 	a := &adapter{runtime: runtime, session: session, cmd: cmd, channel: parent, done: make(chan struct{}), readDone: make(chan struct{}), pending: map[int]pendingRequest{}, onLost: onLost}
-	proof, proofErr := harnessadmission.Identity(cmd.Process.Pid)
-	target := map[string]any{"boot": proof.Boot, "pid": proof.PID, "start": proof.Start, "group": true}
+	target, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
 	if proofErr == nil {
 		proofErr = runtime.RecordResource("helper_process", target, "acquired")
 	}
@@ -131,8 +130,13 @@ func startAdapter(root, session string, runtime *harnesssession.Runtime, environ
 			}
 		}
 		// The zombie leader reserves the process-group identity until the final signal.
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		waitErr = errors.Join(waitErr, cmd.Wait())
+		settleCtx, settleCancel := context.WithTimeout(context.Background(), time.Duration(LimitDrain)*time.Millisecond)
+		settleErr := harnesssession.StopProcess(settleCtx, target, 0)
+		settleCancel()
+		if settleErr == nil && proofErr == nil {
+			settleErr = runtime.RecordResource("helper_process", target, "released")
+		}
+		waitErr = errors.Join(waitErr, settleErr, cmd.Wait())
 		// Exit and SIGKILL are wakeups, not proof that the whole group is gone.
 		// The Go dependency owner acknowledges this journal entry only after the
 		// physical process adapter confirms exact descendant drain.

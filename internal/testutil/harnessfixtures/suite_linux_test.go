@@ -206,7 +206,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 }
 func TestFixtureCommandLifecycle(t *testing.T) {
 	runtime, root, _ := runtimeFixture(t)
-	run := commandRunner(root, runtime)
+	run := commandRunner(root, runtime, []string{})
 	for _, mode := range []string{"exit", "cancel", "overflow"} {
 		t.Run(mode, func(t *testing.T) {
 			script := filepath.Join(root, "helper")

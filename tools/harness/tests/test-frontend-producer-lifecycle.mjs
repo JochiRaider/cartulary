@@ -80,7 +80,7 @@ export function registerFrontendProducerLifecycleTests() {
         assert.equal((await producer.closed)[0], 0);
       }
       const before = resolveFrontendArtifact(root, "build-web", f.environment);
-      assert.equal(readdirSync(f.runtime.root).filter((name) => name.startsWith("build-start-production-")).length, 1, "only the winning producer enters build work");
+      assert.equal(readdirSync(path.dirname(f.runtime.privatePath("build-start"))).filter((name) => name.startsWith("build-start-production-")).length, 1, "only the winning producer enters build work");
       const receiptFile = path.join(f.runRoot, before.receiptRef);
       const receiptBytes = readFileSync(receiptFile);
       for (const [key, value] of Object.entries({ run_id: "another-run", artifact_id: "measurement", producer_unit_id: "target:build-web-measurement", source_digest: `sha256:${"3".repeat(64)}`, toolchain_digest: `sha256:${"4".repeat(64)}`, content_digest: `sha256:${"5".repeat(64)}` })) {

@@ -34,7 +34,7 @@ func TestFixtureProxyLifecycle(t *testing.T) {
 				t.Fatal(err)
 			}
 			suite := &SuiteOwner{Acquire: func(context.Context) (*Suite, error) {
-				return &Suite{Environment: map[string]string{"CARTULARY_S3TEST_ENDPOINT": "localhost:1", "CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH": "/fixture/cert", "CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH": "/fixture/key", "SSL_CERT_FILE": filepath.Join(runtime.Root, "root.pem")}}, nil
+				return &Suite{LeaseFile: filepath.Join(runtime.Root, "suite-lease.json"), Environment: map[string]string{"CARTULARY_S3TEST_ENDPOINT": "localhost:1", "CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH": "/fixture/cert", "CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH": "/fixture/key", "SSL_CERT_FILE": filepath.Join(runtime.Root, "root.pem")}}, nil
 			}}
 			ready := ""
 			options := ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: map[string]string{"GO": "fixture-go", "GO_CACHE_DIR": root, "GO_MOD_CACHE_DIR": root, "GO_TMP_DIR": root, "PATH": "/usr/bin:/bin"}}

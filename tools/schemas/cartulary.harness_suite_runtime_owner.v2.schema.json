@@ -52,6 +52,16 @@
         "minLength": 1,
         "maxLength": 4096
       }
+    },
+    "claimed_outputs": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
     }
   }
 }

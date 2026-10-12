@@ -492,7 +492,7 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
       scratchRoot: path.join(stateRoot, "scratch"),
     });
     const envFile = path.join(stateRoot, "suite-environment.json");
-    const leaseFile = suiteRuntime.privatePath("test-services", "persistent-suite.json");
+    const leaseFile = suiteRuntime.recoveryPath("test-services", "persistent-suite.json");
     ensurePrivateDirectory(path.dirname(leaseFile), "persistent suite proof directory");
     suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending" });
     const resultFile = path.join(stateRoot, "suite-start-result.json");
@@ -752,7 +752,7 @@ export function stopLocalSession({ root, binary, sessionFile, dependencies = {} 
     rmSync(leaseFile, { force: true });
     const runRoot = path.join(descriptor.service_lease.result_root, descriptor.service_lease.run_id);
     const runtime = borrowRuntime({ repoRoot: root, runRoot, environment: { ...process.env, ...terminateEnvironment } });
-    runtime.record({ kind: "managed_suite", target: runtime.privatePath("test-services", "persistent-suite.json"), state: "released" });
+    runtime.record({ kind: "managed_suite", target: runtime.recoveryPath("test-services", "persistent-suite.json"), state: "released" });
     recoverRuntime({ repoRoot: root, runRoot, root: runtime.root, runID: runtime.runID, leaseID: runtime.leaseID });
     rmSync(sessionFile, { force: false });
     rmSync(descriptor.state_root, { recursive: true, force: false });

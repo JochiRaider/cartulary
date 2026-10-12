@@ -16,6 +16,48 @@ import (
 )
 
 func TestFixtureRecovery(t *testing.T) {
+	t.Run("failed_consumer_blocks_only_its_declared_suite", func(t *testing.T) {
+		runtime, root, run := runtimeFixture(t)
+		a, b := filepath.Join(runtime.Root, "suite-a", "suite-lease.json"), filepath.Join(runtime.Root, "suite-b", "suite-lease.json")
+		browser := filepath.Join(runtime.Root, "browser", "owner.json")
+		for _, suite := range []string{a, b} {
+			writeFixtureJSON(t, suite, map[string]string{"proof": "synthetic"})
+			writeFixtureJSON(t, filepath.Join(filepath.Dir(suite), "suite-environment.json"), map[string]string{})
+			if err := runtime.RecordResource("managed_suite", suite, "acquired"); err != nil {
+				t.Fatal(err)
+			}
+			defer runtime.RecordResource("managed_suite", suite, "released")
+		}
+		if err := runtime.RecordDependentResource("browser_stack", browser, "pending", []string{a}); err != nil {
+			t.Fatal(err)
+		}
+		defer runtime.RecordResource("browser_stack", browser, "released")
+		inspections, stops := 0, 0
+		outcomes := []CleanupOutcome{}
+		p := ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: map[string]string{"NODE_BIN": "node", "TEST_SERVICES_BIN": "services"}, ReportCleanup: func(v CleanupOutcome) { outcomes = append(outcomes, v) }}
+		p.Run = func(_ context.Context, _ string, args []string, _ map[string]string) (CommandResult, error) {
+			if args[0] == "terminate-suite" {
+				stops++
+				if !strings.HasPrefix(args[2], b+".cleanup-") {
+					t.Fatal("dependent suite stopped")
+				}
+				return CommandResult{}, nil
+			}
+			inspections++
+			return CommandResult{}, errors.New("inspection failed")
+		}
+		for range 2 {
+			if err := p.Recover(context.Background()); !errors.Is(err, ErrCleanupBlocked) {
+				t.Fatal("missing blocked outcome", err)
+			}
+		}
+		if inspections != 1 || stops != 1 {
+			t.Fatal("duplicate or starved release", inspections, stops)
+		}
+		if len(outcomes) < 3 || outcomes[0].Outcome != "failed" || outcomes[1].Outcome != "blocked" || outcomes[2].Outcome != "completed" {
+			t.Fatal("lost cleanup outcome", outcomes)
+		}
+	})
 	t.Run("stalled_dependency_inspection_is_bounded_once", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
 		browser := filepath.Join(runtime.Root, "browser-stack-leases", "a", "acquisition", "owner.json")

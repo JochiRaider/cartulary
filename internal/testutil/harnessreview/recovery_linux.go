@@ -56,7 +56,7 @@ func recoveryLock(ctx context.Context, session string) (func(), error) {
 		}
 	}, nil
 }
-func recoverSession(ctx context.Context, repository, file string, locator Locator, command string, environment map[string]string) (Result, error) {
+func recoverSession(ctx context.Context, repository, file string, locator Locator, command string, environment map[string]string) (answer Result, resultErr error) {
 	release, err := recoveryLock(ctx, locator.Session)
 	if err != nil {
 		return result(command), err
@@ -80,9 +80,6 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 	if err != nil {
 		return result(command), err
 	}
-	if record.Outcome != nil && record.Publication == nil {
-		return result(command), failure("invalid_artifact")
-	}
 	alive, err := harnessadmission.Alive(record.Process)
 	if err != nil || alive {
 		return result(command), failure("session_mismatch")
@@ -100,27 +97,50 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 	}
 	failures := []Failure{failure("session_lost").Record}
 	cleanupFailed := false
+	cleanupSteps := []cleanupStep{}
 	secrets := []string{}
 	if runtime != nil {
 		defer runtime.ReleaseHandles()
-		cleanup := recoverIndependent(ctx, repository, runRoot, runtime, environment)
-		if len(cleanup) == 0 {
-			physicalRoot := runRoot
-			if record.Presentation == "ui" {
-				physicalRoot, err = runtime.PrivatePath("lifecycle", runtime.RunID)
-				if err != nil {
-					return result(command), err
-				}
+		defer func() {
+			if _, err := os.Lstat(runtime.Root); errors.Is(err, os.ErrNotExist) {
+				return
 			}
-			owner := harnessfixtures.ProductionOptions{Root: repository, RunRoot: physicalRoot, Target: "ui-review", Runtime: runtime, Environment: environment}
-			if err = owner.Recover(ctx); err != nil {
-				cleanup = append(cleanup, err)
+			resources, err := runtime.Resources(4096)
+			if err == nil && len(resources) == 0 {
+				_, err = runtime.BeginFinalization()
+			}
+			resultErr = errors.Join(resultErr, err, runtime.PreserveRecovery())
+		}()
+		cleanup := recoverIndependent(ctx, repository, runRoot, runtime, environment)
+		for _, err := range cleanup {
+			cleanupSteps = append(cleanupSteps, cleanupStep{"provider_close", err})
+		}
+		physicalRoot := runRoot
+		if record.Presentation == "ui" {
+			physicalRoot, err = runtime.PrivatePath("lifecycle", runtime.RunID)
+			if err != nil {
+				return result(command), err
 			}
 		}
+		owner := harnessfixtures.ProductionOptions{Root: repository, RunRoot: physicalRoot, Target: "ui-review", Runtime: runtime, Environment: environment}
+		owner.ReportCleanup = func(outcome harnessfixtures.CleanupOutcome) {
+			operation := "provider_close"
+			if outcome.Kind == "managed_suite" || outcome.Kind == "borrowed_suite" {
+				operation = "services_close"
+			}
+			cleanupSteps = append(cleanupSteps, cleanupStep{operation, outcome.Err})
+		}
+		if err = owner.Recover(ctx); err != nil {
+			cleanup = append(cleanup, err)
+		}
+
 		cleanupFailed = len(cleanup) > 0
 		if cleanupFailed {
 			failures = append(failures, failure("cleanup_failed").Record)
 		}
+	}
+	if record.Outcome != nil && record.Publication == nil {
+		return result(command), failure("invalid_artifact")
 	}
 	publisher := &diskPublisher{runtime: runtime, record: record, runRoot: runRoot, secrets: secrets}
 	var receipt Receipt
@@ -146,12 +166,7 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 	}
 	var owner Publisher = publisher
 	if record.Presentation == "design" {
-		owner = &designPublisher{diskPublisher: publisher, profile: record.Profile, ready: record.Review, driver: &productionDriver{cleanup: []cleanupStep{{"provider_close", func() error {
-			if cleanupFailed {
-				return failure("cleanup_failed")
-			}
-			return nil
-		}()}}}}
+		owner = &designPublisher{diskPublisher: publisher, profile: record.Profile, ready: record.Review, driver: &productionDriver{cleanup: cleanupSteps}}
 	}
 	_, err = owner.Terminal(locator, receipt, cleanupFailed)
 	if err != nil {

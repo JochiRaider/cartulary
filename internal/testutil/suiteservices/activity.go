@@ -58,7 +58,7 @@ func migrationObservation() func(time.Time, time.Duration, string) {
 	if err != nil {
 		return noop
 	}
-	root, err := rootedfs.Open(filepath.Join(runtimeRoot, "execution-observations"))
+	root, err := rootedfs.Open(filepath.Join(runtimeRoot, "detail", "execution-observations"))
 	if err != nil {
 		return noop
 	}
@@ -128,7 +128,7 @@ func migrationObservation() func(time.Time, time.Duration, string) {
 				anchors = append(anchors, anchor)
 			}
 			record["anchors"] = anchors
-			root, err = rootedfs.Open(filepath.Join(runtimeRoot, "execution-observations"))
+			root, err = rootedfs.Open(filepath.Join(runtimeRoot, "detail", "execution-observations"))
 			if err != nil {
 				return
 			}

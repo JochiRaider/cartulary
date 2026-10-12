@@ -69,13 +69,16 @@ type ProductionOptions struct {
 	Environment           map[string]string
 	Run                   Command
 	ContainerProof        func(map[string]any)
+	Dependencies          []string
+	ReportCleanup         func(CleanupOutcome)
+	RecoveryOutput        bool
 }
 
 func (p ProductionOptions) command() Command {
 	if p.Run != nil {
 		return p.Run
 	}
-	return commandRunner(p.Root, p.Runtime)
+	return commandRunner(p.Root, p.Runtime, p.Dependencies)
 }
 func (p ProductionOptions) environment() map[string]string {
 	v := maps.Clone(p.Environment)
@@ -138,6 +141,7 @@ func (p ProductionOptions) stopSuite(ctx context.Context, lease string, environm
 	return p.Runtime.AttemptCleanup(ctx, "managed_suite", lease, func(step context.Context) error { return p.stopSuiteAttempt(step, lease, environment) })
 }
 func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, environment map[string]string) error {
+	p.Dependencies = []string{lease}
 	bytes, err := harnesslocal.ReadFile(lease, 1048576, false)
 	if err != nil {
 		return err
@@ -146,7 +150,15 @@ func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, e
 	if err := harnesslocal.PublishNew(snapshot, bytes); err != nil {
 		return err
 	}
-	_, stopErr := p.command()(ctx, p.serviceBinary(), []string{"terminate-suite", "--lease", snapshot}, environment)
+	args := []string{"terminate-suite", "--lease", snapshot}
+	if p.RecoveryOutput {
+		output, err := p.Runtime.AllocateRecoveryOutput()
+		if err != nil {
+			return errors.Join(err, removePrivate(snapshot))
+		}
+		args = append(args, "--recovery-output", output)
+	}
+	_, stopErr := p.command()(ctx, p.serviceBinary(), args, environment)
 	cleanupErr := removePrivate(snapshot)
 	if stopErr != nil || cleanupErr != nil {
 		return CleanupFailure(errors.Join(stopErr, cleanupErr))
@@ -157,7 +169,7 @@ func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, e
 	return errors.Join(removePrivate(lease), removePrivate(filepath.Join(filepath.Dir(lease), "suite-environment.json")))
 }
 func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result error) {
-	root, err := p.Runtime.PrivatePath("test-services")
+	root, err := p.Runtime.RecoveryPath("test-services")
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +178,12 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		return nil, err
 	}
 	directory.Close()
-	environmentFile, leaseFile, resultFile := filepath.Join(root, "suite-environment.json"), filepath.Join(root, "suite-lease.json"), filepath.Join(root, "suite-start-result.json")
+	environmentFile, leaseFile := filepath.Join(root, "suite-environment.json"), filepath.Join(root, "suite-lease.json")
+	resultFile, err := p.Runtime.PrivatePath("suite-start-result.json")
+	if err != nil {
+		return nil, err
+	}
+	p.Dependencies = []string{leaseFile}
 	environment := p.environment()
 	environment["CARTULARY_TEST_SUITE_ID"] = regexp.MustCompile(`[^A-Za-z0-9_.-]+`).ReplaceAllString("work-graph-"+p.Target, "-")
 	delete(environment, "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT")

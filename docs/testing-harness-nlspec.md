@@ -5963,6 +5963,22 @@ terminated, partial acquisitions MUST retain recovery proof, repeated release an
 close MUST be idempotent, and cleanup failures MUST preserve primary failure
 precedence. Client loss MUST initiate owned cleanup; failed cleanup remains
 explicit rather than inferring release from missing files or process names.
+
+Physical process settlement has one reusable native owner. Process proof records
+the actual process group and session identities rather than assuming that a group
+leader is also a session leader. Signal delivery, leader exit and leader reaping
+are not proof of descendant settlement. A trustworthy identity anchor must
+authorize signaling; ambiguous or reused identities remain unresolved without
+signaling unrelated processes. Release acknowledgement requires verified absence
+of live owned members. The owner retains a direct child's identity anchor until
+group settlement has completed where the launch/wait relationship permits it.
+
+Cleanup dependencies are explicit lifecycle edges, separate from files retained
+as recovery authority. A failed resource blocks its dependencies, while proven
+independent releases continue. Unknown edges remain unresolved. Each physical
+service receives its own existing bounded cleanup attempt; independent services
+may drain concurrently. Cleanup evidence distinguishes completed, failed and
+blocked resources without replacing the primary failure.
 Verified by: TH-HARNESS-AC-148
 
 **TH-HARNESS-REQ-854 — Private preparation and lifecycle interfaces.**
@@ -7567,8 +7583,18 @@ bound by its exact managed-suite proof, independent of ambient caller identity.
 Explicit later recovery MUST use a distinct private lifecycle output directory
 for each attempt so immutable earlier evidence cannot be overwritten or collide
 with a subsequent attempt.
+The native owner authorizes the exact output binding; a physical writer claims
+it once before writing. Original resource identity remains bound to the original
+lease. Neither ambient environment nor a previously used output authorizes a
+new recovery writer.
 
 Private detail and minimum recovery proof have separate deletion boundaries.
+The disposable-detail boundary MUST be independently identifiable from validated
+runtime ownership, without decoding resource journals. Corrupt or incomplete
+journals prevent a successful recovery verdict but MUST NOT prevent removal of
+that boundary after its consumers stop. Recovery inputs MUST NOT be placed in
+disposable detail. Each recovery attempt MUST finalize its own newly created
+detail; a previous transaction's purge progress is not proof of current cleanliness.
 Delete safely removable screenshots, observations, credentials and staged work
 even when another resource release fails. Persist exact provider-returned lease
 handles and process boot/start identities as private proof before exposing the

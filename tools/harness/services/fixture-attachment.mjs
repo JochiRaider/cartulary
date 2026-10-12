@@ -10,7 +10,7 @@ const root = path.resolve(import.meta.dirname,"../../..");
 export function fixtureAttachment(operation, environment = process.env) {
   const runID = environment.CARTULARY_TEST_RUN_ID;
   const runtime = borrowRuntime({repoRoot:root,runRoot:path.join(environment.CARTULARY_TEST_RESULTS_DIR,runID),environment});
-  const file = runtime.privatePath("borrowed-suite.json");
+  const file = runtime.recoveryPath("borrowed-suite.json");
   if (operation === "attach") {
     const target = environment.CARTULARY_TEST_TARGET;
     const posture = resolveServiceSessionMode({target,environment});

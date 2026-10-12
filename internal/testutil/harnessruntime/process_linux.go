@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"golang.org/x/sys/unix"
 )
 
@@ -240,6 +241,7 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 		optionalObservation(func() { observation.Spawned(cmd.Process.Pid) })
 	}
 	signalGroup := func(signal syscall.Signal) { _ = syscall.Kill(-cmd.Process.Pid, signal) }
+	processProof, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
 	if request.Host != nil && request.Host.Bind != nil {
 		if err := request.Host.Bind(cmd.Process.Pid); err != nil {
 			fail(failed("infra", "resource_conflict"))
@@ -300,7 +302,12 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	}
 	// WNOWAIT pins the leader until every signal has been issued. An ordinary
 	// exit also retires lingering group members before pipe collection and reap.
-	signalGroup(syscall.SIGKILL)
+	settleCtx, settleCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	settleErr := proofErr
+	if settleErr == nil {
+		settleErr = harnesssession.StopProcess(settleCtx, processProof, 0)
+	}
+	settleCancel()
 	cmd.WaitDelay = grace
 	waitErr := cmd.Wait()
 	result.Stdout = stdout.bytes
@@ -343,6 +350,15 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 				diagnosed = failed("harness", "scheduler_accounting_error")
 			}
 			fail(diagnosed)
+			outcome = "failed"
+		}
+	}
+	if settleErr != nil {
+		secondary := failed("harness", "cleanup_error")
+		secondary.Lifecycle = "cleanup_finalizers"
+		result.Cleanup = append(result.Cleanup, secondary)
+		if result.Failure == nil {
+			fail(secondary)
 			outcome = "failed"
 		}
 	}

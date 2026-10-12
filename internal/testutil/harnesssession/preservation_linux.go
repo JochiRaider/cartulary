@@ -32,6 +32,17 @@ func (r *Runtime) PreserveRecovery() error {
 	if !r.owned {
 		return harnesslocal.ErrUnsafe
 	}
+	// Purge the independently owned disposable tree before decoding authority.
+	// A malformed journal must not preserve unrelated private detail.
+	detail := filepath.Join(r.Root, "detail")
+	dir, purgeErr := harnesslocal.OpenDirectory(detail, true)
+	if purgeErr == nil {
+		purgeErr = RemoveOwnedTree(dir, detail)
+		dir.Close()
+	}
+	if errors.Is(purgeErr, os.ErrNotExist) {
+		purgeErr = nil
+	}
 	marker, err := harnesslocal.PrivateDirectory(filepath.Join(r.Root, "recovery"))
 	if err != nil {
 		return err
@@ -39,7 +50,7 @@ func (r *Runtime) PreserveRecovery() error {
 	marker.Close()
 	resources, err := r.resources(4096)
 	if err != nil {
-		return err
+		return errors.Join(err, purgeErr)
 	}
 	if len(resources) == 0 {
 		// Review terminal transactions may retain scanner authority after resources
@@ -50,7 +61,7 @@ func (r *Runtime) PreserveRecovery() error {
 		}
 	}
 	protected := []string{}
-	validationErrors := []error{}
+	validationErrors := []error{purgeErr}
 	for _, v := range resources {
 		if p, e := v.Path(); e == nil {
 			protected = append(protected, p)

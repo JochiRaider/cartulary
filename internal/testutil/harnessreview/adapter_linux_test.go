@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
@@ -21,6 +22,31 @@ func TestReviewIPC(t *testing.T) {
 		return
 	}
 	testPreparationDeadlines(t)
+	t.Run("diagnostic_failure_does_not_starve_fixture_close", func(t *testing.T) {
+		root, run := t.TempDir(), t.TempDir()
+		r, err := harnesssession.NewRuntime(root, run, "fixture", t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Close()
+		proof := map[string]any{"boot": "fixture", "start": "1", "uid": os.Getuid(), "token": strings.Repeat("a", 64)}
+		if err := r.RecordResource("diagnostic_scope", proof, "acquired"); err != nil {
+			t.Fatal(err)
+		}
+		defer r.RecordResource("diagnostic_scope", proof, "released")
+		closed := 0
+		fixtures := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Runtime: r}, harnessfixtures.Options{})
+		fixtures.Suite.Acquire = func(context.Context) (*harnessfixtures.Suite, error) {
+			return &harnessfixtures.Suite{LeaseFile: filepath.Join(r.Root, "suite.json"), Close: func(context.Context) error { closed++; return nil }}, nil
+		}
+		if _, err := fixtures.Suite.Ensure(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		d := &productionDriver{root: root, runRoot: run, runtime: r, fixtures: fixtures, environment: map[string]string{"NODE_BIN": filepath.Join(root, "missing-node")}}
+		if failures := d.Close(context.Background()); len(failures) == 0 || closed != 1 {
+			t.Fatal("lost failure or starved independent close", failures, closed)
+		}
+	})
 	t.Run("independent_response_rejections", func(t *testing.T) {
 		for _, variant := range []string{"valid", "duplicate", "truncated", "oversized", "unknown_field", "foreign_run", "foreign_lease", "unknown_id", "wrong_operation", "unclassified_exit", "wrong_exit", "too_many_failures"} {
 			t.Run(variant, func(t *testing.T) {

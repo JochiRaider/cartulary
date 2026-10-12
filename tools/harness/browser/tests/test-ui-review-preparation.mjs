@@ -76,7 +76,7 @@ test("Make child envelopes preserve classification, reject corruption and never 
     }
     for (const mode of ["malformed", "cross-invocation", "conflict", "success-plus-failure", "death"]) {
       write(root, "child.mjs", `import {publishCommandFailure} from ${JSON.stringify(diagnosticModule)}; import {writeFileSync, readdirSync} from 'node:fs'; import path from 'node:path';
-        const mode=${JSON.stringify(mode)}, root=${JSON.stringify(runtime.root)};
+        const mode=${JSON.stringify(mode)}, root=${JSON.stringify(path.join(runtime.root,"detail"))};
         if(mode==='death') process.exit(1);
         publishCommandFailure(${JSON.stringify(repoRoot)}, {failure_class:'config',failure_reason:'configuration_error'});
         const directory=path.join(root,readdirSync(root).find(name=>name.startsWith('command-failure-')));

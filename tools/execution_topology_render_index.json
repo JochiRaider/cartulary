@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:3fff6a7ff4ea830179952463ef5e124d4e59e43b89590947053be04f833f0514",
+  "input_digest": "sha256:ca96fdd160b4fbe2b6aab4178a48a52334df336b480c5090d35baef87063f82b",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -387,7 +387,7 @@
     {
       "path": "tools/harness/browser/browser-acquisition.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7824b56cdf38c9b69fc797c89c0f879f47c6c29e4038df702c135f3300b3667c"
+      "hash": "sha256:6992719340bfaaa11080c272067f3d3e27cce23dbf1eea40656f45872a54b366"
     },
     {
       "path": "tools/harness/browser/browser-batch-manifest.mjs",
@@ -457,7 +457,7 @@
     {
       "path": "tools/harness/browser/fixture-lifecycle.mjs",
       "role": "renderer_source",
-      "hash": "sha256:2d27dc35712112095fe68d3fcc224874a95e61c3ca2b65a4be81a5a9ac4848fb"
+      "hash": "sha256:ec49b4085a0c1bcfae3600128844285993a5bd09ddadfc1bcb8a16d999f61133"
     },
     {
       "path": "tools/harness/browser/fixture-process.mjs",

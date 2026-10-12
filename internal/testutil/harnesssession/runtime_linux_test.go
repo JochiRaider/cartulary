@@ -31,11 +31,13 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	return runtime, root, run
 }
 func TestSessionRuntimeProof(t *testing.T) {
+	testLifecycleGaps(t)
+	testCorruptJournalDetail(t)
 	testCleanupAttempts(t)
 	testRuntimeBindings(t)
 	t.Run("failed_registration_and_duplicate_journal_preserve_ownership", func(t *testing.T) {
 		r, _, _ := runtimeFixture(t)
-		target, _ := r.PrivatePath("browser-stack-leases", "fixture", "owner.json")
+		target, _ := r.RecoveryPath("browser-stack-leases", "fixture", "owner.json")
 		if err := r.RecordResource("browser_stack", target, "pending"); err != nil {
 			t.Fatal(err)
 		}
@@ -94,10 +96,10 @@ func TestSessionRuntimeProof(t *testing.T) {
 		if _, err := BorrowRuntime(root, run, r.Root, r.RunID, "forged"); err == nil {
 			t.Fatal("forged lease accepted")
 		}
-		if _, err := r.PrivatePath(".."); err == nil {
+		if _, err := r.RecoveryPath(".."); err == nil {
 			t.Fatal("escaping path accepted")
 		}
-		proof, _ := r.PrivatePath("service", "suite-lease.json")
+		proof, _ := r.RecoveryPath("service", "suite-lease.json")
 		if err := r.RecordResource("managed_suite", proof, "pending"); err != nil {
 			t.Fatal(err)
 		}
@@ -180,7 +182,7 @@ func TestSessionRuntimeProof(t *testing.T) {
 		for kind, target := range map[string]any{
 			"diagnostic_scope": map[string]any{"boot": "boot", "start": "1", "token": strings.Repeat("a", 64), "uid": os.Getuid()},
 			"browser_renderer": map[string]any{"daemon_id": "engine", "image_id": "sha256:" + strings.Repeat("b", 64), "name": "cartulary-visual-12-aaaaaaaaaaaa", "token": strings.Repeat("a", 32)},
-			"browser_process":  map[string]any{"boot": "boot", "start": "1", "pid": 12, "group": true},
+			"browser_process":  map[string]any{"boot": "boot", "start": "1", "pid": 12, "group": true, "pgid": 12, "sid": 12},
 		} {
 			proof := target.(map[string]any)
 			if err := r.RecordResource(kind, proof, "pending"); err != nil {
@@ -212,8 +214,8 @@ func TestSessionRuntimeProof(t *testing.T) {
 	})
 	t.Run("resource_bounds_and_registered_secrets", func(t *testing.T) {
 		r, _, _ := runtimeFixture(t)
-		a, _ := r.PrivatePath("one")
-		b, _ := r.PrivatePath("two")
+		a, _ := r.RecoveryPath("one")
+		b, _ := r.RecoveryPath("two")
 		for _, path := range []string{a, b} {
 			if err := r.RecordResource("managed_suite", path, "pending"); err != nil {
 				t.Fatal(err)

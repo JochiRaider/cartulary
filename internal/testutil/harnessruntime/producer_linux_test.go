@@ -107,7 +107,7 @@ func TestRuntimeProducerInterop(t *testing.T) {
 			if r.Failure == nil || r.Failure.Reason != c.reason || r.ExitCode != c.code {
 				t.Fatalf("%s: %+v %s", c.mode, r, r.Stderr)
 			}
-			entries, _ := os.ReadDir(rt.Root)
+			entries, _ := os.ReadDir(filepath.Join(rt.Root, "detail"))
 			for _, entry := range entries {
 				if strings.HasPrefix(entry.Name(), "command-failure-") {
 					t.Fatal("private diagnostic survived completion")
@@ -198,7 +198,7 @@ await runPrivateCapturedProcess(process.execPath, ['--input-type=module', '--eva
 		if err := syscall.Kill(pid, 0); err != syscall.ESRCH {
 			t.Fatalf("captured child was not reaped: %v", err)
 		}
-		captures, err := os.ReadDir(filepath.Join(rt.Root, "child-captures"))
+		captures, err := os.ReadDir(filepath.Join(rt.Root, "detail", "child-captures"))
 		if err != nil || len(captures) != 1 {
 			t.Fatalf("suite must own the interrupted private capture: %v %v", captures, err)
 		}

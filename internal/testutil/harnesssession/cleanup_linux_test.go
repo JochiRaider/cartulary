@@ -17,7 +17,7 @@ func testCleanupAttempts(t *testing.T) {
 	t.Run("equivalent_process_proofs_share_attempt", func(t *testing.T) {
 		runtime, _, _ := runtimeFixture(t)
 		calls := 0
-		for _, target := range []json.RawMessage{json.RawMessage(`{"boot":"fixture","pid":12345,"start":"1","group":true}`), json.RawMessage(`{"group":true,"start":"1","pid":12345,"boot":"fixture"}`)} {
+		for _, target := range []json.RawMessage{json.RawMessage(`{"boot":"fixture","pid":12345,"start":"1","group":true,"pgid":12345,"sid":12345}`), json.RawMessage(`{"group":true,"start":"1","pid":12345,"boot":"fixture","pgid":12345,"sid":12345}`)} {
 			if err := runtime.AttemptCleanup(context.Background(), "helper_process", target, func(context.Context) error { calls++; return nil }); err != nil {
 				t.Fatal(err)
 			}

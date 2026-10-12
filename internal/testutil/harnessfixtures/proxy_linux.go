@@ -18,6 +18,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/objectstoreproxy"
 	"golang.org/x/sys/unix"
 )
@@ -47,10 +48,9 @@ func startProxy(p ProductionOptions, binary string, args []string, environment m
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	proof, proofErr := harnessadmission.Identity(cmd.Process.Pid)
-	target := processTarget{proof.Boot, proof.PID, proof.Start, true}
+	target, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
 	if proofErr == nil {
-		proofErr = p.Runtime.RecordResource("helper_process", target, "acquired")
+		proofErr = p.Runtime.RecordDependentResource("helper_process", target, "acquired", p.Dependencies)
 	}
 	terminal := make(chan error, 1)
 	go func() {
@@ -81,12 +81,14 @@ func startProxy(p ProductionOptions, binary string, args []string, environment m
 				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 				waitErr = <-terminal
 			}
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			settleCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			settleErr := harnesssession.StopProcess(settleCtx, target, 0)
+			cancel()
 			_ = cmd.Wait()
-			if proofErr == nil {
+			if proofErr == nil && settleErr == nil {
 				stopErr = p.Runtime.RecordResource("helper_process", target, "released")
 			}
-			stopErr = errors.Join(waitErr, stopErr)
+			stopErr = errors.Join(waitErr, settleErr, stopErr)
 		})
 		return stopErr
 	}
@@ -113,9 +115,10 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 	if err != nil {
 		return nil, err
 	}
+	options.Dependencies = []string{suite.LeaseFile}
 	environment := options.environment()
 	maps.Copy(environment, suite.Environment)
-	root, err := options.Runtime.PrivatePath("object-store-proxy")
+	root, err := options.Runtime.RecoveryPath("object-store-proxy")
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +127,17 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 		return nil, err
 	}
 	directory.Close()
+	detail, err := options.Runtime.PrivatePath("object-store-proxy")
+	if err != nil {
+		return nil, err
+	}
+	detailDirectory, err := harnesslocal.PrivateDirectory(detail)
+	if err != nil {
+		return nil, err
+	}
+	detailDirectory.Close()
 	p.build.Do(func() {
-		p.binary = filepath.Join(root, "s3corsproxy")
+		p.binary = filepath.Join(detail, "s3corsproxy")
 		buildEnv := maps.Clone(environment)
 		for source, target := range map[string]string{"GO_CACHE_DIR": "GOCACHE", "GO_MOD_CACHE_DIR": "GOMODCACHE", "GO_TMP_DIR": "GOTMPDIR"} {
 			if environment[source] == "" {
@@ -158,7 +170,7 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 	if err := listener.Close(); err != nil {
 		return nil, err
 	}
-	attempt, lease, log := filepath.Join(instance, "start-attempt.json"), filepath.Join(instance, "ready-lease.json"), filepath.Join(instance, "proxy.log")
+	attempt, lease, log := filepath.Join(instance, "start-attempt.json"), filepath.Join(instance, "ready-lease.json"), filepath.Join(detail, id+".log")
 	// The proxy owns a trust snapshot even when the suite is borrowed. Recovery
 	// never acquires retention authority over the external suite owner's files.
 	trust := filepath.Join(instance, "root.pem")
@@ -187,7 +199,7 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 	if err := command(ctx, "attempt", "--attempt-file", attempt, "--instance-id", id, "--log-path", log); err != nil {
 		return nil, err
 	}
-	if err := options.Runtime.RecordResource("object_store_proxy", attempt, "pending", trust); err != nil {
+	if err := options.Runtime.RecordDependentResource("object_store_proxy", attempt, "pending", options.Dependencies, trust); err != nil {
 		return nil, artifactFailure(err)
 	}
 	stop, err := startProxy(options, p.binary, append(append([]string{"serve"}, common...), "--attempt-file", attempt, "--instance-id", id, "--log-path", log), environment, log)
@@ -262,7 +274,7 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 	}
 	// Promotion is transactional; pending intent preserves interruption before the
 	// ready proof becomes visible. Keep the attempt until release acknowledgement.
-	if err := options.Runtime.RecordResource("object_store_proxy", lease, "pending", trust); err != nil {
+	if err := options.Runtime.RecordDependentResource("object_store_proxy", lease, "pending", options.Dependencies, trust); err != nil {
 		return nil, artifactFailure(err)
 	}
 	if err := command(ctx, "promote", "--attempt-file", attempt, "--lease-file", lease); err != nil {

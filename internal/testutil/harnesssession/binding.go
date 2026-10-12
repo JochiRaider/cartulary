@@ -15,14 +15,15 @@ const OwnerSchema = "cartulary.harness_suite_runtime_owner.v2"
 const MaximumOwner = 1048576
 
 type runtimeOwner struct {
-	Schema     string   `json:"schema_id"`
-	LeaseID    string   `json:"lease_id"`
-	RunID      string   `json:"run_id"`
-	UID        int      `json:"owner_uid"`
-	Created    string   `json:"created_at"`
-	Repository string   `json:"repository"`
-	RunRoot    string   `json:"run_root"`
-	Outputs    []string `json:"output_roots"`
+	Schema         string   `json:"schema_id"`
+	LeaseID        string   `json:"lease_id"`
+	RunID          string   `json:"run_id"`
+	UID            int      `json:"owner_uid"`
+	Created        string   `json:"created_at"`
+	Repository     string   `json:"repository"`
+	RunRoot        string   `json:"run_root"`
+	Outputs        []string `json:"output_roots"`
+	ClaimedOutputs []string `json:"claimed_outputs,omitempty"`
 }
 
 func canonicalPath(p string) bool { return filepath.IsAbs(p) && filepath.Clean(p) == p }
@@ -37,6 +38,11 @@ func decodeOwner(data []byte) (runtimeOwner, error) {
 	}
 	if !canonicalPath(owner.Repository) || !canonicalPath(owner.RunRoot) {
 		return owner, harnesslocal.ErrUnsafe
+	}
+	for _, output := range owner.ClaimedOutputs {
+		if !slices.Contains(owner.Outputs, output) {
+			return owner, harnesslocal.ErrUnsafe
+		}
 	}
 	return owner, nil
 }

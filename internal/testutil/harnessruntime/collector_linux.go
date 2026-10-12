@@ -44,13 +44,17 @@ type collectorClient struct {
 }
 
 func newCollector(binary, runRoot, admissionRoot string, runtime *harnesssession.Runtime, plan *Plan, policy map[string]any, epoch int64, relationship func(map[string]any)) *collectorClient {
-	c := &collectorClient{queue: make(chan []byte, 64), done: make(chan struct{}), readDone: make(chan struct{}), writeDone: make(chan struct{}), acks: map[string]chan struct{}{}, pending: map[string]int{}, epoch: epoch, policy: policy, manifest: plan.facts.Manifest, lease: runtime.LeaseID, relationship: relationship, proofPath: filepath.Join(runtime.Root, "container-observation", "proof.json")}
+	proofPath, pathErr := runtime.PrivatePath("container-observation", "proof.json")
+	c := &collectorClient{queue: make(chan []byte, 64), done: make(chan struct{}), readDone: make(chan struct{}), writeDone: make(chan struct{}), acks: map[string]chan struct{}{}, pending: map[string]int{}, epoch: epoch, policy: policy, manifest: plan.facts.Manifest, lease: runtime.LeaseID, relationship: relationship, proofPath: proofPath}
 	fail := func() *collectorClient {
 		c.failed = true
 		close(c.done)
 		close(c.readDone)
 		close(c.writeDone)
 		return c
+	}
+	if pathErr != nil {
+		return fail()
 	}
 	dir, err := harnesslocal.PrivateDirectory(filepath.Dir(c.proofPath))
 	if err != nil {

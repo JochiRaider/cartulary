@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	dockercontainer "github.com/moby/moby/api/types/container"
@@ -105,7 +106,7 @@ func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
 		deps := defaultTestDependencies(t)
 		env := cloneEnv(deps.env)
 		env[suiteservices.SuiteIDEnv] = "suite-redaction"
-		lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", OwnershipMode: "attach"}
+		lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
 		payload, err := json.Marshal(lease)
 		if err != nil {
 			t.Fatal(err)
@@ -132,7 +133,7 @@ func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
 	}
 	// Attached services exercise terminal publication without owning a Docker
 	// resource. Real owned-service termination uses the same publication path.
-	lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", OwnershipMode: "attach"}
+	lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
 	payload, err := json.Marshal(lease)
 	if err != nil {
 		t.Fatal(err)
@@ -1447,6 +1448,34 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 }
 
 func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		lease := leaseproof.Lease{Resources: []leaseproof.LeaseResource{{Service: suiteservices.ServicePostgres}, {Service: suiteservices.ServiceObjectStore}}}
+		started := make(chan struct{}, 2)
+		results := terminateIndependentServices(ctx, lease, func(ctx context.Context, service leaseproof.LeaseResource) error {
+			if ctx.Err() != nil {
+				t.Error("cleanup inherited expired deadline")
+			}
+			started <- struct{}{}
+			if service.Service == suiteservices.ServicePostgres {
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			return nil
+		})
+		failed, passed := 0, 0
+		for _, result := range results {
+			if result.err != nil {
+				failed++
+			} else {
+				passed++
+			}
+		}
+		if len(started) != 2 || failed != 1 || passed != 1 {
+			t.Fatal("independent service starvation", len(started), failed, passed)
+		}
+	})
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
 	authorizeSuiteEnv(activeEnv)

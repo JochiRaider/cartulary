@@ -204,7 +204,7 @@ func (p *diskPublisher) Terminal(locator Locator, receipt Receipt, cleanupFailed
 		if result == nil {
 			return
 		}
-		if p.runtime != nil && !p.runtimeClosed && (p.record.Publication == nil || !p.record.Publication.DetailPurged) {
+		if p.runtime != nil && !p.runtimeClosed {
 			resources, err := p.runtime.Resources(4096)
 			if err == nil && len(resources) == 0 {
 				_, err = p.runtime.BeginFinalization()

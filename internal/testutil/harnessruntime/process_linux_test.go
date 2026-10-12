@@ -133,10 +133,10 @@ func TestRuntimePrivateFailureScope(t *testing.T) {
 			if kind == "duplicate" {
 				data = []byte(strings.Replace(string(data), `"failure_class":"infra"`, `"failure_class":"infra","failure_class":"infra"`, 1))
 			}
-			file := filepath.Join(root, s.name, "failure.json")
+			file := filepath.Join(root, "detail", s.name, "failure.json")
 			switch kind {
 			case "incomplete":
-				err = os.Mkdir(filepath.Join(root, s.name, "writer"), 0700)
+				err = os.Mkdir(filepath.Join(root, "detail", s.name, "writer"), 0700)
 			case "symlink":
 				err = os.Symlink("/dev/null", file)
 			default:
@@ -146,7 +146,7 @@ func TestRuntimePrivateFailureScope(t *testing.T) {
 				t.Fatal(err)
 			}
 			if kind == "conflict" {
-				if err := os.WriteFile(filepath.Join(root, s.name, "conflict"), nil, 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(root, "detail", s.name, "conflict"), nil, 0600); err != nil {
 					t.Fatal(err)
 				}
 			}

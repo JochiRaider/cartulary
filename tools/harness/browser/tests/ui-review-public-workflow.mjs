@@ -39,7 +39,7 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
     if (result.status !== "ok" && command === "ui-browser" && value?.action === "diagnostic_snapshot") {
       try {
         const record = readRegistry(locator);
-        const detail = JSON.parse(readLocalFile(path.join(record.runtime.root, "artifacts", "diagnostic-failure.json"), { maximum: 65536 }));
+        const detail = JSON.parse(readLocalFile(path.join(record.runtime.root, "detail", "artifacts", "diagnostic-failure.json"), { maximum: 65536 }));
         if (detail.operation_id === result.operation_id) diagnostic = JSON.stringify({ stage: detail.stage, cause_name: detail.cause_name, cause_code: detail.cause_code, command: detail.last_command?.command, exit_status: detail.last_command?.status });
       } catch { diagnostic = "private diagnostic unavailable"; }
     }

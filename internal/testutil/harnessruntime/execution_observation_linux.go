@@ -33,7 +33,11 @@ type executionSession struct {
 }
 
 func newExecutionSession(runtime *harnesssession.Runtime, runRoot string, manifest, policy map[string]any, proof func(map[string]any, map[string]any)) *executionSession {
-	s := &executionSession{root: filepath.Join(runtime.Root, "execution-observations"), runRoot: runRoot, manifest: manifest, policy: policy, records: map[string]map[string]any{}, missing: map[string]bool{}, proof: proof, enabled: manifest["instrumentation"].(map[string]any)["mode"] == "basic"}
+	root, pathErr := runtime.PrivatePath("execution-observations")
+	s := &executionSession{root: root, runRoot: runRoot, manifest: manifest, policy: policy, records: map[string]map[string]any{}, missing: map[string]bool{}, proof: proof, enabled: manifest["instrumentation"].(map[string]any)["mode"] == "basic", partial: pathErr != nil}
+	if pathErr != nil {
+		return s
+	}
 	if s.enabled {
 		dir, err := harnesslocal.PrivateDirectory(s.root)
 		if err == nil {

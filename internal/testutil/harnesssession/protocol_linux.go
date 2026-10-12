@@ -120,6 +120,10 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 		out.Result = runtimeIdentity(r)
 	case "private_path":
 		out.Result, result = r.PrivatePath(q.Parts...)
+	case "recovery_path":
+		out.Result, result = r.RecoveryPath(q.Parts...)
+	case "claim_recovery_output":
+		result = ClaimRecoveryOutput(repository, q.RunRoot, r.Root, r.RunID, r.LeaseID)
 	case "register":
 		for _, v := range q.Values {
 			if err := r.RegisterSecret(v); err != nil {
@@ -131,7 +135,7 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 		if q.Resource.RunID != r.RunID || q.Resource.LeaseID != r.LeaseID {
 			return out, harnesslocal.ErrUnsafe
 		}
-		result = r.RecordResource(q.Resource.Kind, q.Resource.Target, q.Resource.State, q.Resource.RecoveryFiles...)
+		result = r.RecordDependentResource(q.Resource.Kind, q.Resource.Target, q.Resource.State, q.Resource.Dependencies, q.Resource.RecoveryFiles...)
 		if result == nil && q.AdmissionToken != "" && q.Resource.State != "released" && strings.HasSuffix(q.Resource.Kind, "_process") {
 			data, _ := json.Marshal(q.Resource.Target)
 			var proof harnessadmission.Proof

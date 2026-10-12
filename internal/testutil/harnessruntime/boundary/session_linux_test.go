@@ -42,13 +42,13 @@ borrowed.registerSecret('standalone-boundary-value');
 borrowed.close(); assert.equal(existsSync(owned.root),true);
 assert.throws(()=>borrowRuntime({repoRoot,runRoot,environment:{...environment,CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:'00000000-0000-4000-8000-000000000000'}}));
 owned.close(); owned.close(); assert.equal(existsSync(owned.root),false);
-const source="import {createRuntime} from './tools/harness/runtime/session-client.mjs';const r=createRuntime({repoRoot:process.cwd(),runRoot:process.argv[1],runID:'lost-owner',scratchRoot:process.argv[2]});r.record({kind:'managed_suite',target:r.privatePath('pending.json'),state:'pending'});process.stdout.write(JSON.stringify({root:r.root,leaseID:r.leaseID,runID:r.runID}));";
+const source="import {createRuntime} from './tools/harness/runtime/session-client.mjs';const r=createRuntime({repoRoot:process.cwd(),runRoot:process.argv[1],runID:'lost-owner',scratchRoot:process.argv[2]});r.record({kind:'managed_suite',target:r.recoveryPath('pending.json'),state:'pending'});process.stdout.write(JSON.stringify({root:r.root,leaseID:r.leaseID,runID:r.runID}));";
 const child=spawnSync(process.execPath,['--input-type=module','-e',source,runRoot,scratchRoot],{cwd:repoRoot,encoding:'utf8'});
 assert.equal(child.status,0,child.stderr);
 const identity=JSON.parse(child.stdout);
 assert.throws(()=>recoverRuntime({repoRoot,runRoot,...identity})); assert.equal(existsSync(identity.root),true);
 const recovery=borrowRuntime({repoRoot,runRoot,environment:{...process.env,CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:identity.root,CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:identity.leaseID,CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:identity.runID}});
-recovery.record({kind:'managed_suite',target:recovery.privatePath('pending.json'),state:'released'});
+recovery.record({kind:'managed_suite',target:recovery.recoveryPath('pending.json'),state:'released'});
 recoverRuntime({repoRoot,runRoot,...identity}); assert.equal(existsSync(identity.root),false);
 `, runRoot)
 	command.Dir = root

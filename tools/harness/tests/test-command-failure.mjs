@@ -138,7 +138,7 @@ export function registerCommandFailureTests() {
         assert.equal(findings.counts.blocking_count, 0);
         assert.deepEqual(findings.counts.reachability, { module: 1, package: 1, symbol: 0 });
       }
-      assert.equal(readdirSync(runtime.root).some((name) => name.startsWith("command-failure-")), false, "each scanner invocation releases its private diagnostic channel");
+      assert.equal(readdirSync(path.join(runtime.root, "detail")).some((name) => name.startsWith("command-failure-")), false, "each scanner invocation releases its private diagnostic channel");
     }
   });
 
@@ -155,7 +155,7 @@ export function registerCommandFailureTests() {
     const row = JSON.parse(readFileSync(path.join(runRoot, "rows", `${rowID}.json`)));
     assert.equal(row.failure_reason, "artifact_error");
     assert.deepEqual(readdirSync(runtime.privatePath("child-captures")), []);
-    assert.equal(readdirSync(runtime.root).some((name) => name.startsWith("command-failure-")), false);
+    assert.equal(readdirSync(path.join(runtime.root, "detail")).some((name) => name.startsWith("command-failure-")), false);
   });
 
 }

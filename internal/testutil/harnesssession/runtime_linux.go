@@ -202,6 +202,22 @@ func (r *Runtime) Environment() map[string]string {
 	return map[string]string{"CARTULARY_HARNESS_SUITE_RUNTIME_ROOT": r.Root, "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID": r.LeaseID, "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID": r.RunID}
 }
 func (r *Runtime) PrivatePath(parts ...string) (string, error) {
+	path, err := r.RecoveryPath(parts...)
+	if err != nil {
+		return "", err
+	}
+	// Producers share a declared disposable namespace. Its deletion authority is
+	// the bound runtime directory, never a persisted resource declaration.
+	directory, err := harnesslocal.PrivateDirectory(filepath.Join(r.Root, "detail"))
+	if err != nil {
+		return "", err
+	}
+	directory.Close()
+	relative, _ := filepath.Rel(r.Root, path)
+	return filepath.Join(r.Root, "detail", relative), nil
+}
+
+func (r *Runtime) RecoveryPath(parts ...string) (string, error) {
 	if len(parts) == 0 {
 		return "", harnesslocal.ErrUnsafe
 	}
@@ -209,6 +225,9 @@ func (r *Runtime) PrivatePath(parts ...string) (string, error) {
 		if !component.MatchString(part) || part == "." || part == ".." {
 			return "", harnesslocal.ErrUnsafe
 		}
+	}
+	if slices.Contains([]string{"detail", "recovery", "registered-secrets", "runtime-owner.json", "runtime-process.json", "finalizing"}, parts[0]) {
+		return "", harnesslocal.ErrUnsafe
 	}
 	return filepath.Join(append([]string{r.Root}, parts...)...), nil
 }
@@ -303,6 +322,7 @@ func (r *Runtime) forbiddenValues() ([]string, error) {
 }
 
 type Resource struct {
+	Dependencies  []string        `json:"depends_on"`
 	RecoveryFiles []string        `json:"recovery_files,omitempty"`
 	Kind          string          `json:"kind"`
 	Target        json.RawMessage `json:"target"`
@@ -331,14 +351,19 @@ func (r *Runtime) checkResource(v Resource) error {
 		return harnesslocal.ErrUnsafe
 	}
 	for _, file := range v.RecoveryFiles {
-		if !filepath.IsAbs(file) || filepath.Clean(file) != file || file == r.Root || !within(r.Root, file) || within(filepath.Join(r.Root, "recovery"), file) {
+		if !filepath.IsAbs(file) || filepath.Clean(file) != file || file == r.Root || !within(r.Root, file) || within(filepath.Join(r.Root, "recovery"), file) || within(filepath.Join(r.Root, "detail"), file) {
+			return harnesslocal.ErrUnsafe
+		}
+	}
+	for _, dependency := range v.Dependencies {
+		if !filepath.IsAbs(dependency) || filepath.Clean(dependency) != dependency || dependency == r.Root || !within(r.Root, dependency) || within(filepath.Join(r.Root, "recovery"), dependency) || within(filepath.Join(r.Root, "detail"), dependency) {
 			return harnesslocal.ErrUnsafe
 		}
 	}
 	switch v.Kind {
 	case "managed_suite", "borrowed_suite", "browser_stack", "object_store_proxy":
 		target, err := v.Path()
-		if err != nil || !filepath.IsAbs(target) || filepath.Clean(target) != target || target == r.Root || !within(r.Root, target) {
+		if err != nil || !filepath.IsAbs(target) || filepath.Clean(target) != target || target == r.Root || !within(r.Root, target) || within(filepath.Join(r.Root, "detail"), target) {
 			return harnesslocal.ErrUnsafe
 		}
 		relative, _ := filepath.Rel(r.Root, target)
@@ -370,6 +395,13 @@ func (r *Runtime) checkResource(v Resource) error {
 	return nil
 }
 func (r *Runtime) RecordResource(kind string, target any, state string, files ...string) error {
+	return r.RecordDependentResource(kind, target, state, nil, files...)
+}
+
+// Nil dependencies mean unknown; an empty list explicitly proves independence.
+// Retention files do not imply lifecycle edges. Only the fixture owner supplies
+// those edges, before starting a consumer of the dependency.
+func (r *Runtime) RecordDependentResource(kind string, target any, state string, dependencies []string, files ...string) error {
 	unlock, err := r.lock()
 	if err != nil {
 		return err
@@ -382,7 +414,7 @@ func (r *Runtime) RecordResource(kind string, target any, state string, files ..
 	if err != nil {
 		return err
 	}
-	v := Resource{Kind: kind, Target: raw, State: state, LeaseID: r.LeaseID, RunID: r.RunID}
+	v := Resource{Kind: kind, Target: raw, State: state, LeaseID: r.LeaseID, RunID: r.RunID, Dependencies: dependencies}
 	if err := r.checkResource(v); err != nil {
 		return err
 	}
@@ -409,6 +441,11 @@ func (r *Runtime) RecordResource(kind string, target any, state string, files ..
 			return harnesslocal.ErrUnsafe
 		}
 		files = append(append([]string{}, previous.RecoveryFiles...), files...)
+		if dependencies == nil {
+			v.Dependencies = previous.Dependencies
+		} else {
+			v.Dependencies = append(slices.Clone(dependencies), previous.Dependencies...)
+		}
 		if previous.State == "acquired" {
 			v.State = "acquired"
 		}
@@ -418,6 +455,10 @@ func (r *Runtime) RecordResource(kind string, target any, state string, files ..
 	v.RecoveryFiles = slices.Clone(files)
 	slices.Sort(v.RecoveryFiles)
 	v.RecoveryFiles = slices.Compact(v.RecoveryFiles)
+	if v.Dependencies != nil {
+		slices.Sort(v.Dependencies)
+		v.Dependencies = slices.Compact(v.Dependencies)
+	}
 	if err := r.checkResource(v); err != nil {
 		return err
 	}
@@ -468,8 +509,7 @@ func (r *Runtime) resources(maximum int) ([]Resource, error) {
 		if err != nil {
 			return nil, err
 		}
-		o, ok := value.(map[string]any)
-		if !ok || len(o) < 5 || len(o) > 6 {
+		if harnessschema.Validate("cartulary.harness_runtime_resource.v1", value) != nil {
 			return nil, harnesslocal.ErrUnsafe
 		}
 		var v Resource

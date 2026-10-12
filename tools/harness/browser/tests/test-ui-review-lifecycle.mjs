@@ -31,19 +31,23 @@ test("failed runner acquisition publication reaps the child and preserves the pr
     await assert.rejects(runPrivateCapturedProcess(path.join(root, "missing-executable"), [], { ...options, onSpawn() { assert.fail("failed spawn must not publish an owned process"); } }), (error) => error.cause?.code === "ENOENT");
   } finally { if (proof) await stopOwnedProcess(proof); runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); }
 });
-test("process recovery rejects PID reuse and reaps descendants after their group leader exits", async () => {
+test("process recovery rejects PID reuse and preserves ambiguous leaderless ownership", async () => {
   const child = spawn(process.execPath, ["--input-type=module", "--eval", `import {spawn} from 'node:child_process'; const child=spawn(process.execPath,['-e','process.on("SIGTERM",()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});process.stdout.write(String(child.pid));setTimeout(()=>process.exit(),200);`], { detached: true, stdio: ["ignore", "pipe", "ignore"] });
   const proof = ownedProcess(child.pid); let descendant = "";
   child.stdout.on("data", (bytes) => { descendant += bytes; });
   const ended = new Promise((resolve) => child.once("exit", resolve));
   try {
-    await stopOwnedProcess({ ...proof, start: String(BigInt(proof.start) + 1n) });
+    await assert.rejects(stopOwnedProcess({ ...proof, start: String(BigInt(proof.start) + 1n) }));
     assert.equal(child.exitCode, null);
     await ended; assert.ok(Number(descendant) > 1);
-    await stopOwnedProcess(proof, { graceMS: 40 });
+    await assert.rejects(stopOwnedProcess(proof, { graceMS: 40 }));
     const stat = existsSync(`/proc/${descendant}/stat`) ? readFileSync(`/proc/${descendant}/stat`, "utf8") : "";
-    assert.ok(!stat || stat.split(") ").at(-1).startsWith("Z "));
-  } finally { await stopOwnedProcess(proof, { graceMS: 40 }); }
+    assert.ok(stat && !stat.split(") ").at(-1).startsWith("Z "));
+  } finally {
+    // The fixture owns this exact child; an ambiguous production proof must not.
+    if (Number(descendant) > 1) process.kill(Number(descendant), "SIGKILL");
+    if (child.exitCode === null) child.kill("SIGKILL");
+  }
 });
 test("private local reads reject links, permissive files and changed publication targets", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-private-files-"));

@@ -54,6 +54,23 @@
             "minLength": 1,
             "maxLength": 4096
           }
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          ]
         }
       }
     },
@@ -82,7 +99,9 @@
             "boot",
             "pid",
             "start",
-            "group"
+            "group",
+            "pgid",
+            "sid"
           ],
           "properties": {
             "boot": {
@@ -103,6 +122,16 @@
             },
             "group": {
               "type": "boolean"
+            },
+            "pgid": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "sid": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
             }
           }
         },
@@ -134,6 +163,23 @@
             "minLength": 1,
             "maxLength": 4096
           }
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          ]
         }
       }
     },
@@ -214,6 +260,23 @@
             "minLength": 1,
             "maxLength": 4096
           }
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          ]
         }
       }
     },
@@ -297,6 +360,23 @@
             "minLength": 1,
             "maxLength": 4096
           }
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          ]
         }
       }
     }

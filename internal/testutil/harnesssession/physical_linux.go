@@ -34,6 +34,13 @@ func (runtime *Runtime) stopResource(ctx context.Context, root, runRoot string, 
 	if err := runtime.checkResource(resource); err != nil {
 		return err
 	}
+	if resource.Kind == "helper_process" || resource.Kind == "browser_process" || resource.Kind == "preparation_process" {
+		var proof ProcessProof
+		if json.Unmarshal(resource.Target, &proof) != nil {
+			return harnesslocal.ErrUnsafe
+		}
+		return StopProcess(ctx, proof, time.Second)
+	}
 	if resource.Kind == "object_store_proxy" {
 		file, err := resource.Path()
 		if err != nil {

@@ -7,7 +7,7 @@ import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionPort, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
+import { createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
 import { createRuntime } from "../../runtime/session-client.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
@@ -19,14 +19,14 @@ function fixture(t) {
   const runRoot = path.join(scratch, "results", "acquisition-test"); mkdirSync(runRoot, { recursive:true, mode: 0o700 });
   const privateRoot=mkdtempSync(path.join(os.tmpdir(),"browser-acquisition-private-"));
   const runtime = createRuntime({ repoRoot: root, runRoot, runID: "acquisition-test", scratchRoot: privateRoot });
-  const suiteLease = runtime.privatePath("test-services", "suite-lease.json");
+  const suiteLease = runtime.recoveryPath("test-services", "suite-lease.json");
   mkdirSync(path.dirname(suiteLease), { mode: 0o700 });
   const resultRoot = path.join(scratch, "results");
   writeFileSync(suiteLease, JSON.stringify({ schema_id: "cartulary.test_services.lease.v1", run_id: runtime.runID, suite_id: "test-suite",
     lease_id: runtime.leaseID, result_root: resultRoot, run_root: path.join(resultRoot, runtime.runID), target: "browser-e2e",
     mode: "owned", ownership_mode: "owned", owner_pid: process.pid, created_at: new Date().toISOString(),
     resources: [], proof_labels: {}, proof_prefixes: {}, cleanup_state: "not_started" }), { mode: 0o600 });
-  const sessionRoot = runtime.privatePath("browser-stack-leases", "attempt"); mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
+  const sessionRoot = runtime.recoveryPath("browser-stack-leases", "attempt"); mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
   const file = createBrowserAcquisition({ runtime, sessionRoot, suiteLease, leaseFile: path.join(sessionRoot, "stack.lease") });
   runtime.record({ kind: "managed_suite", target: suiteLease });
   runtime.record({ kind: "browser_stack", target: file, state: "pending" });
@@ -42,10 +42,11 @@ function fixture(t) {
 }
 
 function recoveryOutput(f) {
-  const resultsRoot = f.runtime.privatePath("lifecycle", `browser-recovery-${crypto.randomUUID()}`);
+  const resultsRoot = f.runtime.privatePath("recovery-output", crypto.randomUUID());
   const marker = path.join(f.runtime.root, "runtime-owner.json");
   const owner = JSON.parse(readFileSync(marker));
   // Independent physical-adapter fixture; production declarations belong to Go.
+  mkdirSync(path.join(resultsRoot,f.runtime.runID),{recursive:true,mode:0o700});
   owner.output_roots.push(path.join(resultsRoot, f.runtime.runID));
   writeFileSync(marker, JSON.stringify(owner), { mode: 0o600 });
   return resultsRoot;
@@ -53,6 +54,21 @@ function recoveryOutput(f) {
 
 test("browser acquisition before launch settles without a ready lease", async (t) => {
   const f = fixture(t);
+  const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: path.join(f.scratch, "results"), CARTULARY_TEST_RUN_ID: f.runtime.runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: f.runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: f.runtime.runID, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: f.runtime.leaseID };
+  delete environment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+  const before = readFileSync(f.file);
+  for (const [script, operation, args, status] of [
+    ["fixture-lifecycle.mjs", "reaped", [f.file, "00000000-0000-4000-8000-000000000000"], 12],
+    ["browser-acquisition.mjs", "port", [f.file, path.join(f.scratch, "retired-port")], 11],
+  ]) {
+    const result = spawnSync(process.execPath, [path.join(root, "tools/harness/browser", script), operation, ...args], { cwd: root, env: environment, timeout: 5000, maxBuffer: 4096 });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, status);
+    assert.ok(result.stderr.length < 1024);
+  }
+  assert.deepEqual(readFileSync(f.file), before);
+  assert.equal(existsSync(path.join(f.scratch, "retired-port")), false);
   assert.equal(existsSync(path.join(f.sessionRoot, "stack.lease")), false);
   assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
   f.runtime.record({ kind: "browser_stack", target: f.file, state: "released" });
@@ -79,8 +95,8 @@ for (const recovery of [false, true]) test(`browser fixture retirement binds ${r
       assert.equal(options.env.CARTULARY_TEST_TARGET, suite.target);
       const output = options.env.CARTULARY_TEST_RESULTS_DIR;
       if (recovery) {
-        assert.equal(path.dirname(output), f.runtime.privatePath("lifecycle"));
-        assert.match(path.basename(output), /^browser-recovery-[0-9a-f-]{36}$/u);
+        assert.equal(path.dirname(output), f.runtime.privatePath("recovery-output"));
+        assert.match(path.basename(output), /^[0-9a-f-]{36}$/u);
       } else assert.equal(output, suite.result_root);
       return { status: 0 };
     } });
@@ -97,13 +113,15 @@ test("explicit browser recovery attempts cannot overwrite earlier immutable reti
   const options = { ...f, root, recovery: true, recoveryResultsRoot: recoveryOutput(f), run: (_command, _args, { env }) => {
     const output = env.CARTULARY_TEST_RESULTS_DIR;
     assert.equal(typeof output, "string");
-    assert.equal(path.dirname(output), f.runtime.privatePath("lifecycle"));
+    assert.equal(path.dirname(output), f.runtime.privatePath("recovery-output"));
     assert.ok(!outputs.includes(output), "each explicit attempt has independent immutable output");
     outputs.push(output);
     return { status: outputs.length === 1 ? 1 : 0 };
   } };
   await assert.rejects(settleBrowserAcquisition(options), (error) => error.failure_reason === "cleanup_error");
   assert.equal(existsSync(metadata), true);
+  await assert.rejects(settleBrowserAcquisition(options), (error) => error.failure_reason === "artifact_error");
+  assert.equal(outputs.length, 1, "a repeated output cannot reach the physical writer");
   options.recoveryResultsRoot = recoveryOutput(f);
   assert.equal((await settleBrowserAcquisition(options)).state, "released");
   assert.equal(outputs.length, 2);
@@ -132,8 +150,8 @@ test("pre-lease partial acquisition reaps real processes and exact ports before 
   f.cleanup.push(async () => { await stopOwnedProcess(proof); await closed; });
   recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "backend"), child.pid);
   const ports = path.join(f.scratch, "ports"); mkdirSync(ports, { mode: 0o700 });
-  const directory = path.join(ports, "port-19001"); mkdirSync(directory, { mode: 0o700 });
-  recordAcquisitionPort(f.file, directory);
+  const directory = path.join(ports, "port-19001");
+  assert.equal(reserveAcquisitionPort(f.file, directory, process.pid), true);
   const sibling = path.join(ports, "port-19002"); mkdirSync(sibling, { mode: 0o700 });
   await settleBrowserAcquisition({ ...f, root });
   await closed;
@@ -191,8 +209,8 @@ test("acquisition CLI preserves classified startup proof failures and prior diag
 
 test("changed port proof preserves unrelated resources and remains recoverable", async (t) => {
   const f = fixture(t);
-  const directory = path.join(f.scratch, "port-19001"); mkdirSync(directory, { mode: 0o700 });
-  recordAcquisitionPort(f.file, directory);
+  const directory = path.join(f.scratch, "port-19001");
+  assert.equal(reserveAcquisitionPort(f.file, directory, process.pid), true);
   const marker = path.join(directory, "acquisition.json");
   const prior = readFileSync(marker);
   writeFileSync(marker, JSON.stringify({ attempt_id: "other" }));

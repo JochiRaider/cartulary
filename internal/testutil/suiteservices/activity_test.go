@@ -33,14 +33,14 @@ func TestMigrationActivityPrivatePublicationAndShutdown(t *testing.T) {
 	}
 	owner, _ := json.Marshal(map[string]any{"schema_id": "cartulary.harness_suite_runtime_owner.v2", "lease_id": os.Getenv(SuiteRuntimeLeaseIDEnv), "run_id": "activity-test", "owner_uid": os.Getuid(), "created_at": "2026-10-09T00:00:00Z", "repository": repository, "run_root": filepath.Join(os.Getenv(testResultsDirEnv), "activity-test"), "output_roots": []string{}})
 	write("runtime-owner.json", string(owner))
-	if err := os.Mkdir(filepath.Join(root, "execution-observations"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "detail/execution-observations"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	write("execution-observations/open", "1\n")
-	write("execution-observations/limits.json", `{"maximum_execution_records":1,"maximum_record_bytes":65536}`)
+	write("detail/execution-observations/open", "1\n")
+	write("detail/execution-observations/limits.json", `{"maximum_execution_records":1,"maximum_record_bytes":65536}`)
 	finish := migrationObservation()
 	finish(time.Now(), 7500*time.Microsecond, "failed")
-	bytes, err := os.ReadFile(filepath.Join(root, "execution-observations/slot-0"))
+	bytes, err := os.ReadFile(filepath.Join(root, "detail/execution-observations/slot-0"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,12 +53,12 @@ func TestMigrationActivityPrivatePublicationAndShutdown(t *testing.T) {
 		t.Fatal("missing producer clock coordinates", record)
 	}
 	migrationObservation()(time.Now(), time.Second, "passed")
-	if _, err := os.Stat(filepath.Join(root, "execution-observations/truncated")); err != nil {
+	if _, err := os.Stat(filepath.Join(root, "detail/execution-observations/truncated")); err != nil {
 		t.Fatal("missing cap exhaustion marker", err)
 	}
-	write("execution-observations/open", "0\n")
+	write("detail/execution-observations/open", "0\n")
 	finish(time.Now(), time.Second, "passed")
-	after, _ := os.ReadFile(filepath.Join(root, "execution-observations/slot-0"))
+	after, _ := os.ReadFile(filepath.Join(root, "detail/execution-observations/slot-0"))
 	if string(after) != string(bytes) {
 		t.Fatal("late completion changed retained private fact")
 	}

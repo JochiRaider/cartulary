@@ -25,6 +25,9 @@ type privateFailureScope struct {
 }
 
 func createFailureScope(runtime *os.File, identity map[string]any) (failureScope, error) {
+	if err := harnesslocal.CheckDirectory(runtime, runtime.Name()); err != nil {
+		return nil, err
+	}
 	expected := map[string]any{"schema_id": "cartulary.harness_command_failure.v1"}
 	for _, key := range []string{"run_id", "unit_id", "command_id", "invocation_id"} {
 		expected[key] = identity[key]
@@ -38,13 +41,20 @@ func createFailureScope(runtime *os.File, identity map[string]any) (failureScope
 	if _, err := documentBytes("cartulary.harness_command_failure.v1", probe); err != nil {
 		return nil, err
 	}
+	detail, err := harnesslocal.PrivateDirectory(filepath.Join(runtime.Name(), "detail"))
+	if err != nil {
+		return nil, err
+	}
+	runtime = detail
 	name := "command-failure-" + identity["invocation_id"].(string)
 	if err := unix.Mkdirat(int(runtime.Fd()), name, 0700); err != nil {
+		detail.Close()
 		return nil, err
 	}
 	fd, err := unix.Openat(int(runtime.Fd()), name, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		_ = unix.Unlinkat(int(runtime.Fd()), name, unix.AT_REMOVEDIR)
+		detail.Close()
 		return nil, err
 	}
 	return &privateFailureScope{parent: runtime, directory: os.NewFile(uintptr(fd), filepath.Join(runtime.Name(), name)), name: name, expected: expected}, nil
@@ -107,5 +117,5 @@ func (s *privateFailureScope) Close() error {
 		return fmt.Errorf("command failure channel cleanup: %w", err)
 	}
 	s.closed = true
-	return s.directory.Close()
+	return errors.Join(s.directory.Close(), s.parent.Close())
 }

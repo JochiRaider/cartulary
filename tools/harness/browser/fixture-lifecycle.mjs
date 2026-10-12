@@ -30,11 +30,10 @@ export async function fixtureLifecycle(operation, args, environment = process.en
     finally { process.removeListener("SIGTERM",stop);process.removeListener("SIGINT",stop); }
     return {};
   }
-  if (["reaped", "settle", "recover", "inspect"].includes(operation)) {
-    if (args.length !== (operation === "reaped" ? 2 : 1)) throw new Error("invalid lifecycle arity");
+  if (["settle", "recover", "inspect"].includes(operation)) {
+    if (args.length !== 1) throw new Error("invalid lifecycle arity");
     const owner = readBrowserAcquisition(args[0], runtime);
-    if (operation === "reaped") closeAcquisitionLaunch(args[0], args[1]);
-    else if (operation === "inspect") return { suite_lease: owner.suite_lease };
+    if (operation === "inspect") return { suite_lease: owner.suite_lease };
     else await settleBrowserAcquisition({ file: args[0], runtime, root, environment, recovery: operation === "recover", recoveryResultsRoot: environment.CARTULARY_BROWSER_RECOVERY_RESULTS_DIR });
     return {};
   }

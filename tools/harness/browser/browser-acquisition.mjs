@@ -46,7 +46,7 @@ export function createBrowserAcquisition({ runtime, sessionRoot, leaseFile, suit
   validateSchemaSync(schemaID, value);
   const dependencies = [suiteLease];
   if (suite.ownership_mode === "attach") dependencies.push(path.join(runtime.root, "borrowed-environment.json"));
-  runtime.record({ kind: "browser_stack", target: file, state: "pending", recovery_files: dependencies });
+  runtime.record({ kind: "browser_stack", target: file, state: "pending", depends_on: [suiteLease], recovery_files: dependencies });
   atomicLocalFile(file, bytes(value));
   return file;
 }
@@ -138,15 +138,6 @@ export function recordAcquisitionProcess(file, launchID, pid = process.pid) {
   return proof;
 }
 
-export function recordAcquisitionPort(file, directory) {
-  const owner = readBrowserAcquisition(file);
-  // This is called only after exclusive reservation, before the lease is used.
-  // The marker binds subsequent transfers to this attempt, not a reused PID.
-  const marker = { attempt_id: owner.attempt_id };
-  writeResource(file, `port-${digest(directory)}.json`, { directory });
-  atomicLocalFile(path.join(directory, "acquisition.json"), bytes(marker));
-}
-
 export function reserveAcquisitionPort(file, directory, pid) {
   // Publish intent first. Interruption between mkdir and the marker is an
   // unresolved reservation, never permission to infer absence or delete it.
@@ -190,8 +181,8 @@ function resources(file) {
     } else if (name.startsWith("process-")) {
       const p = value.proof;
       if (Object.keys(value).sort().join(",") !== "attempt_id,launch_id,proof,role" || launchRecord(file, value.launch_id).role !== value.role ||
-          !p || Object.keys(p).sort().join(",") !== "boot,group,pid,start" || !Number.isSafeInteger(p.pid) || p.pid < 2 ||
-          typeof p.boot !== "string" || typeof p.group !== "boolean" || !/^\d+$/u.test(p.start) || name !== `process-${value.launch_id}-${p.pid}.json`) throw invalid();
+          !p || Object.keys(p).sort().join(",") !== "boot,group,pgid,pid,sid,start" || !Number.isSafeInteger(p.pid) || p.pid < 2 ||
+          typeof p.boot !== "string" || !Number.isSafeInteger(p.pgid) || p.pgid < 1 || !Number.isSafeInteger(p.sid) || p.sid < 1 || typeof p.group !== "boolean" || !/^\d+$/u.test(p.start) || name !== `process-${value.launch_id}-${p.pid}.json`) throw invalid();
       result.processes.push(value);
     } else if (name.startsWith("port-")) {
       if (Object.keys(value).sort().join(",") !== "attempt_id,directory" || typeof value.directory !== "string" ||
@@ -266,10 +257,18 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
   if (digest(suiteBytes) !== owner.suite_digest) throw invalid();
   const suite = suiteProof(suiteBytes, owner.run_id);
   if (suite.suite_id !== owner.suite_id) throw invalid();
+  const metadata = path.join(owner.session_root, "runtime-root", "test-services-web-e2e.json");
+  if (recovery && existsSync(metadata)) {
+    if (typeof recoveryResultsRoot !== "string") throw invalid();
+    const output = path.join(recoveryResultsRoot, owner.run_id);
+    const writer = borrowRuntime({ repoRoot: root, runRoot: output, environment: { ...process.env,
+      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,
+      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id } });
+    try { writer.claimRecoveryOutput(); } finally { writer.close(); }
+  }
   writeResource(file, "stopping.json", {}, { duringStop: true });
   await stopAcquisitionProcesses(file, { producerActive, stop });
   releaseAcquisitionPorts(file);
-  const metadata = path.join(owner.session_root, "runtime-root", "test-services-web-e2e.json");
   if (existsSync(metadata)) {
     readLocalFile(metadata, { maximum: 1048576 });
     // Ordinary retirement belongs to the original run, even when the provider
@@ -389,7 +388,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       declareRecoveryFiles(file, [path.join(owner.session_root, "runtime-root", "test-services-web-e2e.json")]);
     }
     else if (operation === "launch") await launch(file, args[0], args[1], args.slice(2));
-    else if (operation === "port") recordAcquisitionPort(file, args[0]);
     else if (operation === "reserve-port") process.exitCode = reserveAcquisitionPort(file, args[0], Number(args[1])) ? 0 : 1;
     else if (operation === "spawn") await spawnService(file, args[0], args[1], args[2], args.slice(3));
     else if (operation === "settle") await settleBrowserAcquisition({ file, root, environment: process.env, producerActive: args[0] === "producer-active" });

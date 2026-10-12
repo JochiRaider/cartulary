@@ -4,10 +4,13 @@ package boundary
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -184,8 +187,32 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 					t.Fatal(err)
 				}
 				options.Runtime = r
+				snapshot := func() map[string][32]byte {
+					files := map[string][32]byte{}
+					if err := filepath.WalkDir(run, func(path string, entry fs.DirEntry, err error) error {
+						if err != nil {
+							return err
+						}
+						if entry.IsDir() {
+							return nil
+						}
+						data, err := os.ReadFile(path)
+						if err != nil {
+							return err
+						}
+						files[path] = sha256.Sum256(data)
+						return nil
+					}); err != nil {
+						t.Fatal(err)
+					}
+					return files
+				}
+				original := snapshot()
 				if err := options.Recover(ctx); err != nil {
 					t.Fatal("recovery", err)
+				}
+				if !reflect.DeepEqual(original, snapshot()) {
+					t.Fatal("physical recovery changed original evidence")
 				}
 			} else {
 				if err := owner.Close(ctx); err != nil {

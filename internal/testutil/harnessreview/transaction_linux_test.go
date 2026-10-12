@@ -154,13 +154,23 @@ func testPublicationTransactions(t *testing.T) {
 		p, l := publicationFixture(t)
 		l.State = "closed"
 		p.fault = func(stage string) error {
-			if stage == "after_intent" {
+			if stage == "after_detail_purge" {
 				return errors.New("interrupt before bytes")
 			}
 			return nil
 		}
 		if _, err := p.Terminal(l, testTerminalReceipt(l), false); err == nil {
 			t.Fatal("fault missing")
+		}
+		if !p.record.Publication.DetailPurged {
+			t.Fatal("fixture did not record prior purge")
+		}
+		detail, err := p.runtime.PrivatePath("new-recovery-detail.log")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(detail, []byte("new attempt private detail"), 0600); err != nil {
+			t.Fatal(err)
 		}
 		foreign := []byte("foreign immutable outcome\n")
 		terminal := filepath.Join(p.runRoot, "ui-review/terminal.json")
@@ -178,6 +188,28 @@ func testPublicationTransactions(t *testing.T) {
 		}
 		if _, err := os.Stat(registryPath(l.Session)); err != nil {
 			t.Fatal("conflict lost recovery state", err)
+		}
+		if _, err := os.Stat(detail); !os.IsNotExist(err) {
+			t.Fatal("historical purge suppressed current cleanup", err)
+		}
+		// Reject inconsistent saved intent before terminal publication, while still
+		// removing detail from this later recovery attempt.
+		detail, err = p.runtime.PrivatePath("early-intent-detail.log")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(detail, []byte("later private detail"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		p.record.Publication.Locator.Receipt.Bytes++
+		if err = writeRegistry(p.record, true); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = control(context.Background(), p.record.Repository, commandRequest{Command: "ui-review-stop", Locator: p.record.Locator}, nil); err == nil {
+			t.Fatal("inconsistent intent accepted")
+		}
+		if _, err = os.Stat(detail); !os.IsNotExist(err) {
+			t.Fatal("early recovery exit retained detail", err)
 		}
 	})
 	t.Run("concurrent_recovery_converges", func(t *testing.T) {

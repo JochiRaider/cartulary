@@ -36,16 +36,11 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-type processTarget struct {
-	Boot  string `json:"boot"`
-	PID   int    `json:"pid"`
-	Start string `json:"start"`
-	Group bool   `json:"group"`
-}
+type processTarget = harnesssession.ProcessProof
 
 // commandRunner is private to fixed lifecycle adapters; neither an adapter
 // request nor public Make inputs can supply an arbitrary command or argv.
-func commandRunner(root string, runtime *harnesssession.Runtime) Command {
+func commandRunner(root string, runtime *harnesssession.Runtime, dependencies []string) Command {
 	return func(ctx context.Context, executable string, args []string, environment map[string]string) (result CommandResult, err error) {
 		result.Exit = -1
 		cmd := exec.Command(executable, args...)
@@ -71,10 +66,9 @@ func commandRunner(root string, runtime *harnesssession.Runtime) Command {
 		}
 		result.Started = true
 		signal := func() { _ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
-		proof, proofErr := harnessadmission.Identity(cmd.Process.Pid)
-		target := processTarget{proof.Boot, proof.PID, proof.Start, true}
+		target, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
 		if proofErr == nil {
-			proofErr = runtime.RecordResource("helper_process", target, "acquired")
+			proofErr = runtime.RecordDependentResource("helper_process", target, "acquired", dependencies)
 		}
 		if proofErr != nil {
 			signal()
@@ -99,7 +93,9 @@ func commandRunner(root string, runtime *harnesssession.Runtime) Command {
 			terminalErr = <-terminal
 		}
 		// Keep the zombie leader reserved until group signaling has finished.
-		signal()
+		settleCtx, settleCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		settleErr := harnesssession.StopProcess(settleCtx, target, 0)
+		settleCancel()
 		waitErr := cmd.Wait()
 		if cmd.ProcessState != nil {
 			result.Exit = cmd.ProcessState.ExitCode()
@@ -107,11 +103,11 @@ func commandRunner(root string, runtime *harnesssession.Runtime) Command {
 		result.Stdout = output.data
 		result.Stderr = diagnostic.data
 		releaseErr := error(nil)
-		if proofErr == nil {
+		if proofErr == nil && settleErr == nil {
 			releaseErr = runtime.RecordResource("helper_process", target, "released")
 		}
-		if proofErr != nil || terminalErr != nil || releaseErr != nil {
-			return result, errors.Join(proofErr, terminalErr, CleanupFailure(releaseErr))
+		if proofErr != nil || terminalErr != nil || releaseErr != nil || settleErr != nil {
+			return result, errors.Join(proofErr, terminalErr, CleanupFailure(errors.Join(settleErr, releaseErr)))
 		}
 		if ctx.Err() != nil {
 			return result, ctx.Err()

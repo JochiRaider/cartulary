@@ -4,8 +4,10 @@ package harnessreview
 
 import (
 	"encoding/json"
+	"errors"
 	"path/filepath"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 )
 
@@ -83,6 +85,9 @@ func (p *designPublisher) Terminal(locator Locator, receipt Receipt, cleanupFail
 		failures := []map[string]any{}
 		if step.err != nil {
 			outcome = "failed"
+			if errors.Is(step.err, harnessfixtures.ErrCleanupBlocked) {
+				outcome = "blocked"
+			}
 			class = "harness"
 			reason = "cleanup_error"
 			failures = append(failures, map[string]any{"failure_class": class, "failure_reason": reason})

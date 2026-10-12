@@ -60,6 +60,8 @@ func run() int {
 		return harnessreview.Main(os.Args[2:], os.Stdin, os.Stdout)
 	case "session":
 		return harnesssession.Main(os.Args[2:], os.Stdin, os.Stdout)
+	case "process":
+		return harnesssession.ProcessMain(os.Args[2:], os.Stdin)
 	case "admission":
 		return harnessadmission.Main(os.Args[2:], os.Stdout)
 	case "collect":

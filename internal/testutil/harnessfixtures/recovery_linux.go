@@ -15,6 +15,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
+var ErrCleanupBlocked = errors.New("resource cleanup blocked by unresolved dependent")
+
+type CleanupOutcome struct {
+	Kind, Outcome string
+	Err           error
+}
+
 func (p ProductionOptions) stopResource(ctx context.Context, resource harnesssession.Resource) error {
 	return CleanupFailure(p.Runtime.StopResource(ctx, p.Root, p.RunRoot, p.environment(), resource))
 }
@@ -25,6 +32,7 @@ func (p ProductionOptions) releaseResource(resource harnesssession.Resource) err
 // Recover uses only this runtime's verified private records. Unknown browser
 // dependency proof blocks suite termination. Borrowed suites are detached only.
 func (p ProductionOptions) Recover(ctx context.Context) error {
+	p.RecoveryOutput = true
 	resources, err := p.Runtime.Resources(4096)
 	if err != nil {
 		return artifactFailure(err)
@@ -46,7 +54,33 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 	for _, r := range resources {
 		borrowed = borrowed || r.Kind == "borrowed_suite"
 	}
-	allBlocked := false
+	unknownDependent := false
+	report := func(resource harnesssession.Resource, err error) {
+		outcome := "completed"
+		if err != nil {
+			outcome = "failed"
+			failures = append(failures, err)
+		}
+		if errors.Is(err, ErrCleanupBlocked) {
+			outcome = "blocked"
+		}
+		if p.ReportCleanup != nil {
+			p.ReportCleanup(CleanupOutcome{resource.Kind, outcome, err})
+		}
+	}
+	block := func(resource harnesssession.Resource, fallback string) {
+		dependencies := resource.Dependencies
+		if dependencies == nil && fallback != "" {
+			dependencies = []string{fallback}
+		}
+		if dependencies == nil {
+			unknownDependent = true
+			return
+		}
+		for _, dependency := range dependencies {
+			blocked[dependency] = true
+		}
+	}
 	for _, resource := range resources {
 		operation := ""
 		if resource.Kind == "browser_renderer" {
@@ -62,12 +96,13 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 			operation = "process"
 		}
 		if operation != "" {
-			if err := p.stopResource(ctx, resource); err != nil {
-				failures = append(failures, err)
-				allBlocked = true
-			} else if err := p.releaseResource(resource); err != nil {
-				failures = append(failures, err)
-				allBlocked = true
+			err := p.stopResource(ctx, resource)
+			if err == nil {
+				err = p.releaseResource(resource)
+			}
+			report(resource, err)
+			if err != nil {
+				block(resource, "")
 			}
 		}
 	}
@@ -76,14 +111,25 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 			continue
 		}
 		file, _ := resource.Path()
+		if unknownDependent || blocked[file] {
+			report(resource, ErrCleanupBlocked)
+			block(resource, "")
+			continue
+		}
 		dependency := ""
 		err := p.Runtime.AttemptCleanup(ctx, "browser_stack", file, func(step context.Context) error {
-			owner, err := p.browserOperation(step, "inspect", []string{file}, p.environment())
+			consumer := p
+			consumer.Dependencies = append([]string{file}, resource.Dependencies...)
+			owner, err := consumer.browserOperation(step, "inspect", []string{file}, p.environment())
 			var known bool
 			dependency, known = owner["suite_lease"].(string)
 			if err != nil || !known {
 				dependency = ""
 				return artifactFailure(errors.New("browser dependency unavailable"))
+			}
+			if resource.Dependencies != nil && (len(resource.Dependencies) != 1 || resource.Dependencies[0] != dependency) {
+				unknownDependent = true
+				return artifactFailure(errors.New("browser dependency contradicts acquisition intent"))
 			}
 			if _, ok := suites[dependency]; !ok && !(borrowed && dependency == borrowedDependency) {
 				dependency = ""
@@ -99,49 +145,54 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 			}
 			bound := p.environment()
 			maps.Copy(bound, environment)
-			output, err := p.Runtime.PrivatePath("lifecycle", "browser-recovery-"+identifier(), p.Runtime.RunID)
+			output, err := p.Runtime.AllocateRecoveryOutput()
 			if err != nil {
 				return err
 			}
-			if err = p.Runtime.AuthorizeOutputRoot(output); err != nil {
-				return err
-			}
 			bound["CARTULARY_BROWSER_RECOVERY_RESULTS_DIR"] = filepath.Dir(output)
-			_, err = p.browserOperation(step, "recover", []string{file}, bound)
+			consumer.Dependencies = []string{file, dependency}
+			_, err = consumer.browserOperation(step, "recover", []string{file}, bound)
 			return err
 		})
 		if err == nil {
 			err = p.releaseResource(resource)
 		}
 		if err != nil {
-			failures = append(failures, err)
-			if dependency == "" {
-				allBlocked = true
-			} else {
-				blocked[dependency] = true
-			}
+			block(resource, dependency)
 		}
+		report(resource, err)
 
 	}
 	for _, resource := range resources {
 		if resource.Kind != "object_store_proxy" {
 			continue
 		}
-		if err := p.stopResource(ctx, resource); err != nil {
-			failures = append(failures, err)
-			allBlocked = true
-		} else if err := p.releaseResource(resource); err != nil {
-			failures = append(failures, err)
-			allBlocked = true
+		file, _ := resource.Path()
+		if unknownDependent || blocked[file] {
+			report(resource, ErrCleanupBlocked)
+			block(resource, "")
+			continue
+		}
+		err := p.stopResource(ctx, resource)
+		if err == nil {
+			err = p.releaseResource(resource)
+		}
+		report(resource, err)
+		if err != nil {
+			block(resource, "")
 		}
 	}
 	for _, resource := range resources {
-		if resource.Kind == "borrowed_suite" && !allBlocked && !blocked[borrowedDependency] {
-			if _, err := p.attachmentOperation(ctx, "detach"); err != nil {
-				failures = append(failures, err)
-			} else if err := p.releaseResource(resource); err != nil {
-				failures = append(failures, err)
+		if resource.Kind == "borrowed_suite" {
+			if unknownDependent || blocked[borrowedDependency] {
+				report(resource, ErrCleanupBlocked)
+				continue
 			}
+			_, err := p.attachmentOperation(ctx, "detach")
+			if err == nil {
+				err = p.releaseResource(resource)
+			}
+			report(resource, err)
 		}
 	}
 	for _, file := range slices.Sorted(func(yield func(string) bool) {
@@ -151,19 +202,18 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 			}
 		}
 	}) {
-		if allBlocked || blocked[file] {
+		if unknownDependent || blocked[file] {
+			report(suites[file], ErrCleanupBlocked)
 			continue
 		}
 		environment, err := readRecoveryEnvironment(filepath.Join(filepath.Dir(file), "suite-environment.json"))
 		if err != nil {
-			failures = append(failures, artifactFailure(err))
+			report(suites[file], artifactFailure(err))
 			continue
 		}
 		bound := p.environment()
 		maps.Copy(bound, environment)
-		if err := p.stopSuite(ctx, file, bound); err != nil {
-			failures = append(failures, err)
-		}
+		report(suites[file], p.stopSuite(ctx, file, bound))
 	}
 	return errors.Join(failures...)
 }

@@ -232,21 +232,26 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 	dependentErrors := recoverIndependent(ctx, d.root, d.runRoot, d.runtime, d.environment)
 	d.cleanup = append(d.cleanup, cleanupStep{"provider_close", errors.Join(dependentErrors...)})
 	failures = append(failures, dependentErrors...)
-	if len(dependentErrors) == 0 {
-		if d.fixtures != nil {
-			err := d.fixtures.Close(context.WithoutCancel(ctx))
-			d.cleanup = append(d.cleanup, cleanupStep{"services_close", err})
-			if err != nil {
-				failures = append(failures, failure("cleanup_failed"))
-			}
-		}
-		recovery := harnessfixtures.ProductionOptions{Root: d.root, RunRoot: d.runRoot, Target: "ui-review", Runtime: d.runtime, Environment: d.environment}
-		err := recovery.Recover(context.WithoutCancel(ctx))
+	if d.fixtures != nil {
+		err := d.fixtures.Close(context.WithoutCancel(ctx))
 		d.cleanup = append(d.cleanup, cleanupStep{"services_close", err})
 		if err != nil {
 			failures = append(failures, failure("cleanup_failed"))
 		}
 	}
+	recovery := harnessfixtures.ProductionOptions{Root: d.root, RunRoot: d.runRoot, Target: "ui-review", Runtime: d.runtime, Environment: d.environment}
+	recovery.ReportCleanup = func(outcome harnessfixtures.CleanupOutcome) {
+		operation := "provider_close"
+		if outcome.Kind == "managed_suite" || outcome.Kind == "borrowed_suite" {
+			operation = "services_close"
+		}
+		d.cleanup = append(d.cleanup, cleanupStep{operation, outcome.Err})
+	}
+	err := recovery.Recover(context.WithoutCancel(ctx))
+	if err != nil {
+		failures = append(failures, failure("cleanup_failed"))
+	}
+
 	if d.admission != nil {
 		attempt("host_release", d.admission.Release, time.Duration(LimitLock)*time.Millisecond)
 	}

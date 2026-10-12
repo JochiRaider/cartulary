@@ -30,6 +30,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
@@ -941,7 +942,7 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 }
 
 func runTerminateSuite(args []string, env map[string]string, deps dependencies) int {
-	leasePath, err := parseTerminateSuiteArgs(args)
+	leasePath, recoveryOutput, err := parseTerminateSuiteArgs(args)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -962,6 +963,26 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 	if lease.RunID != "" {
 		leaseEnv["CARTULARY_TEST_RUN_ID"] = lease.RunID
 	}
+	// Ordinary retirement belongs to the lease's original output. Recovery is
+	// an explicit, once-claimed native binding, never an ambient environment hint.
+	output := lease.RunRoot
+	if !filepath.IsAbs(lease.ResultRoot) || output != filepath.Join(lease.ResultRoot, lease.RunID) {
+		fmt.Fprintln(os.Stderr, "invalid original output binding")
+		return 1
+	}
+	if recoveryOutput != "" {
+		repository, err := suiteservices.FindRepoRoot()
+		if err == nil {
+			err = harnesssession.ClaimRecoveryOutput(repository, recoveryOutput, leaseEnv[suiteservices.SuiteRuntimeRootEnv], lease.RunID, leaseEnv[suiteservices.SuiteRuntimeLeaseIDEnv])
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "invalid recovery output binding")
+			return 1
+		}
+		output = recoveryOutput
+	}
+	leaseEnv["CARTULARY_TEST_RESULTS_DIR"] = filepath.Dir(output)
+	leaseEnv["CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT"] = output
 
 	status := 0
 	emitCleanupTerminal, err := beginCleanupLifecycleIfNeeded(leaseEnv)
@@ -1201,18 +1222,19 @@ func firstNonEmptyString(value string, fallback string) string {
 	return fallback
 }
 
-func parseTerminateSuiteArgs(args []string) (string, error) {
+func parseTerminateSuiteArgs(args []string) (string, string, error) {
 	values, err := parseFlagPairs(args, map[string]struct{}{
-		"--lease": {},
+		"--lease":           {},
+		"--recovery-output": {},
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	leasePath := strings.TrimSpace(values["--lease"])
 	if leasePath == "" {
-		return "", errors.New("usage: testservices terminate-suite --lease <path>")
+		return "", "", errors.New("usage: testservices terminate-suite --lease <path> [--recovery-output <native-bound-path>]")
 	}
-	return leasePath, nil
+	return leasePath, values["--recovery-output"], nil
 }
 
 func parseFlagPairs(args []string, allowed map[string]struct{}) (map[string]string, error) {
@@ -2644,9 +2666,6 @@ func terminateSuiteServices(parent context.Context, lease leaseproof.Lease) []se
 	if lease.OwnershipMode == "attach" {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(parent, cleanupTimeout)
-	defer cancel()
-
 	cli, err := dockerclient.New(dockerclient.FromEnv)
 	if err != nil {
 		results := make([]serviceCleanupResult, 0, len(lease.Resources))
@@ -2663,20 +2682,33 @@ func terminateSuiteServices(parent context.Context, lease leaseproof.Lease) []se
 		return results
 	}
 	defer cli.Close()
+	return terminateIndependentServices(parent, lease, func(ctx context.Context, service leaseproof.LeaseResource) error {
+		return terminateLeasedService(ctx, cli, lease, service)
+	})
+}
 
-	results := make([]serviceCleanupResult, 0, len(lease.Resources))
-	for _, service := range lease.Resources {
-		start := time.Now().UTC()
-		err := terminateLeasedService(ctx, cli, lease, service)
-		results = append(results, serviceCleanupResult{
-			service: service.Service,
-			stage:   cleanupStageForService(service.Service),
-			label:   cleanupLabelForService(service.Service),
-			start:   start,
-			end:     time.Now().UTC(),
-			err:     err,
+// Physical services are independent after fixture retirement. Each receives its
+// existing budget, concurrently, even if acquisition or a sibling has expired.
+func terminateIndependentServices(parent context.Context, lease leaseproof.Lease, terminate func(context.Context, leaseproof.LeaseResource) error) []serviceCleanupResult {
+	results := make([]serviceCleanupResult, len(lease.Resources))
+	var workers sync.WaitGroup
+	for i, service := range lease.Resources {
+		workers.Go(func() {
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), cleanupTimeout)
+			defer cancel()
+			start := time.Now().UTC()
+			err := terminate(ctx, service)
+			results[i] = serviceCleanupResult{
+				service: service.Service,
+				stage:   cleanupStageForService(service.Service),
+				label:   cleanupLabelForService(service.Service),
+				start:   start,
+				end:     time.Now().UTC(),
+				err:     err,
+			}
 		})
 	}
+	workers.Wait()
 	slices.SortFunc(results, func(left, right serviceCleanupResult) int {
 		return strings.Compare(left.label, right.label)
 	})
