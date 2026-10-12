@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"golang.org/x/sys/unix"
 )
 
@@ -76,7 +77,7 @@ type sessionResponse struct {
 	Failures     []wireFailure  `json:"failures"`
 }
 type Session struct {
-	Runtime           *Runtime
+	Runtime           *harnesssession.Runtime
 	Broker            *Broker
 	Close             func(context.Context) error
 	Recover           func(context.Context) error
@@ -106,13 +107,14 @@ func (s *Session) Container(v map[string]any) {
 	defer s.mu.Unlock()
 	s.container = maps.Clone(v)
 }
-func (s *Session) facts() *sessionResult {
+func (s *Session) facts() (*sessionResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	v := &sessionResult{Cleanup: append([]sessionCleanup{}, s.cleanup...), Environment: map[string]string{}, Secrets: append([]string{}, s.Runtime.ForbiddenValues()...), Observations: append([]Observation{}, s.observations...), ContainerProof: maps.Clone(s.container), Unresolved: s.Broker.Unresolved(), ObservationAvailable: !s.observationFailed}
+	secrets, err := s.Runtime.ForbiddenValues()
+	v := &sessionResult{Cleanup: append([]sessionCleanup{}, s.cleanup...), Environment: map[string]string{}, Secrets: append([]string{}, secrets...), Observations: append([]Observation{}, s.observations...), ContainerProof: maps.Clone(s.container), Unresolved: s.Broker.Unresolved(), ObservationAvailable: !s.observationFailed}
 	s.observations = nil
 	s.cleanup = nil
-	return v
+	return v, err
 }
 func sessionFailures(err error) []wireFailure {
 	result := []wireFailure{}
@@ -232,7 +234,8 @@ func (s *Session) Serve(ctx context.Context, transport io.ReadWriteCloser) (resu
 				err = closeErr
 			}
 			workers.Wait()
-			facts := s.facts()
+			facts, factErr := s.facts()
+			err = errors.Join(err, factErr)
 			facts.Unresolved = facts.Unresolved || err != nil
 			if e := write(sessionResponse{sessionSchema, "response", request.ID, request.RunID, request.RuntimeLease, request.Operation, err == nil, facts, sessionFailures(err)}); e != nil {
 				return e
@@ -270,7 +273,8 @@ func (s *Session) Serve(ctx context.Context, transport io.ReadWriteCloser) (resu
 					retained, err = lease.Release(life, request.Healthy, request.Retain)
 				}
 			}
-			facts := s.facts()
+			facts, factErr := s.facts()
+			err = errors.Join(err, factErr)
 			facts.Retained = retained
 			if lease != nil {
 				record := lease.Record()
@@ -325,7 +329,7 @@ func Main(args []string) int {
 	}
 	runID := environment["CARTULARY_TEST_RUN_ID"]
 	runRoot := filepath.Join(environment["CARTULARY_TEST_RESULTS_DIR"], runID)
-	runtime, err := BorrowRuntime(root, runRoot, environment["CARTULARY_HARNESS_SUITE_RUNTIME_ROOT"], runID, environment["CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID"])
+	runtime, err := harnesssession.BorrowRuntime(root, runRoot, environment["CARTULARY_HARNESS_SUITE_RUNTIME_ROOT"], runID, environment["CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID"])
 	if err != nil {
 		return 11
 	}

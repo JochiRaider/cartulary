@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 func TestFixtureBrowserAdapter(t *testing.T) {
@@ -38,7 +39,7 @@ func TestFixtureBrowserAdapter(t *testing.T) {
 		if err := os.Mkdir(run, 0700); err != nil {
 			t.Fatal(err)
 		}
-		runtime, err := NewRuntime(root, run, "native-browser-prepare", t.TempDir())
+		runtime, err := harnesssession.NewRuntime(root, run, "native-browser-prepare", t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}

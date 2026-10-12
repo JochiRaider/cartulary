@@ -18,9 +18,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesscollect"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"golang.org/x/sys/unix"
 )
 
@@ -43,7 +43,7 @@ type collectorClient struct {
 	stopErr                           error
 }
 
-func newCollector(binary, runRoot, admissionRoot string, runtime *harnessfixtures.Runtime, plan *Plan, policy map[string]any, epoch int64, relationship func(map[string]any)) *collectorClient {
+func newCollector(binary, runRoot, admissionRoot string, runtime *harnesssession.Runtime, plan *Plan, policy map[string]any, epoch int64, relationship func(map[string]any)) *collectorClient {
 	c := &collectorClient{queue: make(chan []byte, 64), done: make(chan struct{}), readDone: make(chan struct{}), writeDone: make(chan struct{}), acks: map[string]chan struct{}{}, pending: map[string]int{}, epoch: epoch, policy: policy, manifest: plan.facts.Manifest, lease: runtime.LeaseID, relationship: relationship, proofPath: filepath.Join(runtime.Root, "container-observation", "proof.json")}
 	fail := func() *collectorClient {
 		c.failed = true

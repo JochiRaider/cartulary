@@ -1,14 +1,15 @@
 //go:build linux
 
-package harnessfixtures
+package harnesssession
 
 import (
 	"encoding/json"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 )
 
 func testFixturePreservation(t *testing.T) {

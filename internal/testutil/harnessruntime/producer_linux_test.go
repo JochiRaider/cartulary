@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 // These tests exercise the retained Node producers through their actual Go
@@ -67,7 +67,7 @@ func TestRuntimeProducerInterop(t *testing.T) {
 		if err := os.Mkdir(run, 0700); err != nil {
 			t.Fatal(err)
 		}
-		rt, err := harnessfixtures.NewRuntime(root, run, "run", filepath.Join(scratch, "private"))
+		rt, err := harnesssession.NewRuntime(root, run, "run", filepath.Join(scratch, "private"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -151,7 +151,7 @@ func TestRuntimeProducerInterop(t *testing.T) {
 		if err := os.Mkdir(run, 0700); err != nil {
 			t.Fatal(err)
 		}
-		rt, err := harnessfixtures.NewRuntime(root, run, "run", filepath.Join(scratch, "private"))
+		rt, err := harnesssession.NewRuntime(root, run, "run", filepath.Join(scratch, "private"))
 		if err != nil {
 			t.Fatal(err)
 		}

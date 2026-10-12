@@ -263,6 +263,8 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 	}
 	attached := maps.Clone(suite.Environment)
 	maps.Copy(attached, map[string]string{"OBJECT_STORE_ENDPOINT": listen, "SEAWEEDFS_S3_ACCESS_KEY_ID": suite.Environment["CARTULARY_S3TEST_ACCESS_KEY_ID"], "SEAWEEDFS_S3_SECRET_ACCESS_KEY": suite.Environment["CARTULARY_S3TEST_SECRET_ACCESS_KEY"], "OBJECT_STORE_SECURE": "true", "OBJECT_STORE_CORS_ORIGIN": "https://localhost:5173"})
-	options.Runtime.RegisterEnvironment(attached)
+	if err := options.Runtime.RegisterEnvironment(attached); err != nil {
+		return nil, artifactFailure(err)
+	}
 	return &Allocation{Ownership: "owned", ResourceIDs: []string{"suite:object_store_namespace", "object-store-proxy:" + id}, Environment: attached, Release: func(ctx context.Context, _ bool) error { return close(ctx) }}, nil
 }

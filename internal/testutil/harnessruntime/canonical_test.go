@@ -176,7 +176,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer publisher.Abort()
-	publisher.Forbidden = func() []string { return []string{"private-sentinel"} }
+	publisher.Forbidden = func() ([]string, error) { return []string{"private-sentinel"}, nil }
 	result, err := executeGraph(context.Background(), p, enginePorts{Event: publisher.Event, Terminal: publisher.Terminal, Execute: func(context.Context, executionRequest) unitResult {
 		return unitResult{Status: "passed", Stdout: []byte("PASSWORD=private-sentinel\npostgres://user:password@host/db")}
 	}})

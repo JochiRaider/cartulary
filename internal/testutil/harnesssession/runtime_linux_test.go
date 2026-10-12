@@ -1,12 +1,13 @@
 //go:build linux
 
-package harnessfixtures
+package harnesssession
 
 import (
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
@@ -29,7 +30,7 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	})
 	return runtime, root, run
 }
-func TestFixtureRuntimeProof(t *testing.T) {
+func TestSessionRuntimeProof(t *testing.T) {
 	t.Run("preservation_and_janitor", testFixturePreservation)
 	t.Run("borrow_and_recovery_closure", func(t *testing.T) {
 		r, root, run := runtimeFixture(t)
@@ -127,6 +128,41 @@ func TestFixtureRuntimeProof(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+	t.Run("exact_resource_proofs", func(t *testing.T) {
+		r, _, _ := runtimeFixture(t)
+		for kind, target := range map[string]any{
+			"diagnostic_scope": map[string]any{"boot": "boot", "start": "1", "token": strings.Repeat("a", 64), "uid": os.Getuid()},
+			"browser_renderer": map[string]any{"daemon_id": "engine", "image_id": "sha256:" + strings.Repeat("b", 64), "name": "cartulary-visual-12-aaaaaaaaaaaa", "token": strings.Repeat("a", 32)},
+			"browser_process":  map[string]any{"boot": "boot", "start": "1", "pid": 12, "group": true},
+		} {
+			proof := target.(map[string]any)
+			if err := r.RecordResource(kind, proof, "pending"); err != nil {
+				t.Fatal(kind, err)
+			}
+			if err := r.RecordResource(kind, proof, "released"); err != nil {
+				t.Fatal(err)
+			}
+			proof["extra"] = true
+			if err := r.RecordResource(kind, proof, "pending"); err == nil {
+				t.Fatal("open proof accepted", kind)
+			}
+			delete(proof, "extra")
+			if kind == "diagnostic_scope" {
+				proof["uid"] = os.Getuid() + 1
+			} else if kind == "browser_renderer" {
+				proof["token"] = strings.Repeat("c", 32)
+			} else {
+				proof["pid"] = 1
+			}
+			if err := r.RecordResource(kind, proof, "pending"); err == nil {
+				t.Fatal("forged proof accepted", kind)
+			}
+		}
+		resources, err := r.Resources(4096)
+		if err != nil || len(resources) != 0 {
+			t.Fatal("invalid proof wrote journal", resources, err)
+		}
+	})
 	t.Run("resource_bounds_and_registered_secrets", func(t *testing.T) {
 		r, _, _ := runtimeFixture(t)
 		a, _ := r.PrivatePath("one")
@@ -144,9 +180,14 @@ func TestFixtureRuntimeProof(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		r.RegisterEnvironment(map[string]string{"PASSWORD": "secret-value", "CPU_TOKENS": "999999999", "SAFE": "nonsecret"})
-		values := r.ForbiddenValues()
-		if len(values) != 1 || values[0] != "secret-value" {
+		if err := r.RegisterEnvironment(map[string]string{"PASSWORD_TOKENS": "secret-value", "tokens_token": "another-secret", "CPU_TOKENS": "999999999", "SAFE": "nonsecret"}); err != nil {
+			t.Fatal(err)
+		}
+		values, err := r.ForbiddenValues()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(values) != 2 || values[0] != "another-secret" || values[1] != "secret-value" {
 			t.Fatal(values)
 		}
 	})

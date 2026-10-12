@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 func (p ProductionOptions) browserOperation(ctx context.Context, operation string, args []string, environment map[string]string) (map[string]any, error) {
@@ -126,7 +127,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 				closeErr = artifactFailure(err)
 				return
 			}
-			closeErr = removeOwnedTree(directory, root)
+			closeErr = harnesssession.RemoveOwnedTree(directory, root)
 			closeErr = errors.Join(closeErr, directory.Close())
 		})
 		return closeErr
@@ -171,7 +172,9 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	attached["CARTULARY_BROWSER_STAGE"] = request.BrowserStage
 	attached["CARTULARY_BROWSER_SESSION_GROUP"] = session
 	attached["CARTULARY_WEB_E2E_SESSION_LEASE_FILE"] = lease
-	p.Runtime.RegisterEnvironment(attached)
+	if err := p.Runtime.RegisterEnvironment(attached); err != nil {
+		return nil, artifactFailure(err)
+	}
 	if err := removePrivate(envFile); err != nil {
 		return nil, artifactFailure(err)
 	}

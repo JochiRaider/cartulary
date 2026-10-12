@@ -11,13 +11,14 @@ import (
 	"slices"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
-func (p ProductionOptions) stopResource(ctx context.Context, kind string, resource Resource) error {
+func (p ProductionOptions) stopResource(ctx context.Context, kind string, resource harnesssession.Resource) error {
 	_, err := p.command()(ctx, p.Environment["NODE_BIN"], []string{filepath.Join(p.Root, "tools/harness/runtime/fixture-resource-stop.mjs"), kind, string(resource.Target)}, p.environment())
 	return CleanupFailure(err)
 }
-func (p ProductionOptions) releaseResource(resource Resource) error {
+func (p ProductionOptions) releaseResource(resource harnesssession.Resource) error {
 	var target any
 	if err := json.Unmarshal(resource.Target, &target); err != nil {
 		return err
@@ -34,7 +35,7 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 	}
 	failures := []error{}
 	blocked := map[string]bool{}
-	suites := map[string]Resource{}
+	suites := map[string]harnesssession.Resource{}
 	for _, resource := range resources {
 		if resource.Kind == "managed_suite" {
 			path, err := resource.Path()

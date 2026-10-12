@@ -15,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"golang.org/x/sys/unix"
 )
 
@@ -63,7 +64,7 @@ func (s *SuiteOwner) Close(ctx context.Context) error {
 
 type ProductionOptions struct {
 	Root, RunRoot, Target string
-	Runtime               *Runtime
+	Runtime               *harnesssession.Runtime
 	Environment           map[string]string
 	Run                   Command
 	ContainerProof        func(map[string]any)
@@ -251,7 +252,9 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 			admitted[name] = text
 		}
 	}
-	p.Runtime.RegisterEnvironment(admitted)
+	if err := p.Runtime.RegisterEnvironment(admitted); err != nil {
+		return nil, artifactFailure(err)
+	}
 	maps.Copy(environment, admitted)
 	if err := removePrivate(environmentFile); err != nil {
 		return nil, artifactFailure(err)

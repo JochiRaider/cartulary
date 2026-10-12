@@ -604,6 +604,22 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_runtime_resource.v1",
+      "path": "tools/schemas/cartulary.harness_runtime_resource.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native private runtime resource journal",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_runtime_session.v1",
+      "path": "tools/schemas/cartulary.harness_runtime_session.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native private runtime owner",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_schema_attachments.v1",
       "path": "tools/schemas/cartulary.harness_schema_attachments.v1.schema.json",
       "classification": "owner_input",

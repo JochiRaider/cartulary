@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 // Run accepts only ordinary graph selectors. Prepare owns their interpretation;
@@ -79,7 +80,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	}
 	defer publication.Abort()
 	diagnostics.mark("manifest_publication")
-	runtime, err := harnessfixtures.NewRuntime(root, runRoot, runID, env["CARTULARY_HARNESS_SCRATCH_ROOT"])
+	runtime, err := harnesssession.NewRuntime(root, runRoot, runID, env["CARTULARY_HARNESS_SCRATCH_ROOT"])
 	if err != nil {
 		return nil, 11, err
 	}
@@ -151,13 +152,14 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	secrets := []string{}
 	closeRuntime := func(unresolved bool) error {
 		diagnostics.execution.capture()
-		secrets = runtime.ForbiddenValues()
+		var secretErr error
+		secrets, secretErr = runtime.ForbiddenValues()
 		resources, err := runtime.Resources(4096)
 		unresolved = unresolved || err != nil || len(resources) > 0
 		if unresolved {
-			return errors.Join(err, runtime.PreserveRecovery())
+			return errors.Join(err, secretErr, runtime.PreserveRecovery())
 		}
-		return runtime.Close()
+		return errors.Join(secretErr, runtime.Close())
 	}
 	defer func() {
 		secondary := []error{}

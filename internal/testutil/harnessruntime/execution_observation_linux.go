@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 const executionRecordSchema = "cartulary.harness_execution_record.v2"
@@ -31,7 +32,7 @@ type executionSession struct {
 	proof                                            func(map[string]any, map[string]any)
 }
 
-func newExecutionSession(runtime *harnessfixtures.Runtime, runRoot string, manifest, policy map[string]any, proof func(map[string]any, map[string]any)) *executionSession {
+func newExecutionSession(runtime *harnesssession.Runtime, runRoot string, manifest, policy map[string]any, proof func(map[string]any, map[string]any)) *executionSession {
 	s := &executionSession{root: filepath.Join(runtime.Root, "execution-observations"), runRoot: runRoot, manifest: manifest, policy: policy, records: map[string]map[string]any{}, missing: map[string]bool{}, proof: proof, enabled: manifest["instrumentation"].(map[string]any)["mode"] == "basic"}
 	if s.enabled {
 		dir, err := harnesslocal.PrivateDirectory(s.root)

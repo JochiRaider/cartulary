@@ -171,7 +171,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 				if suite.Environment["IGNORE_THIS"] != "" {
 					t.Fatal("unadmitted binding")
 				}
-				if len(runtime.ForbiddenValues()) != 1 {
+				if values, err := runtime.ForbiddenValues(); err != nil || len(values) != 1 {
 					t.Fatal("secret not registered")
 				}
 				if err := suite.Close(context.Background()); err != nil {

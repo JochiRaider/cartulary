@@ -1,14 +1,10 @@
 //go:build linux
 
-package harnessfixtures
+package harnesssession
 
 import (
 	"encoding/json"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
-	"golang.org/x/sys/unix"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,6 +12,11 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"golang.org/x/sys/unix"
 )
 
 var regexpDigits = regexp.MustCompile(`^[0-9]+$`)
@@ -23,9 +24,12 @@ var regexpDigits = regexp.MustCompile(`^[0-9]+$`)
 // PreserveRecovery keeps only exact resource-owner proof and its containing
 // private directories. It never promotes credentials or logs into retained data.
 func (r *Runtime) PreserveRecovery() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.closed || !r.owned || harnesslocal.CheckDirectory(r.Directory, r.Root) != nil {
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if !r.owned {
 		return harnesslocal.ErrUnsafe
 	}
 	marker, err := harnesslocal.PrivateDirectory(filepath.Join(r.Root, "recovery"))
@@ -33,12 +37,12 @@ func (r *Runtime) PreserveRecovery() error {
 		return err
 	}
 	marker.Close()
-	resources, err := r.Resources(4096)
+	resources, err := r.resources(4096)
 	if err != nil {
 		return err
 	}
 	if len(resources) == 0 {
-		return CleanupFailure(errors.New("unresolved cleanup has no recovery proof"))
+		return ErrUnresolved
 	}
 	protected := []string{}
 	for _, v := range resources {
@@ -86,7 +90,7 @@ func (r *Runtime) PreserveRecovery() error {
 				} else {
 					d, e := harnesslocal.OpenDirectory(child, true)
 					if e == nil {
-						e = removeOwnedTree(d, child)
+						e = RemoveOwnedTree(d, child)
 						d.Close()
 					}
 					failures = append(failures, e)
@@ -155,7 +159,7 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 					return harnesslocal.ErrUnsafe
 				}
 				if len(entries) == 0 {
-					if e = removeOwnedTree(d, path); e == nil {
+					if e = RemoveOwnedTree(d, path); e == nil {
 						removed++
 					}
 					return e
@@ -173,7 +177,7 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 				return harnesslocal.ErrUnsafe
 			}
 			if staging {
-				if e := removeOwnedTree(d, path); e != nil {
+				if e := RemoveOwnedTree(d, path); e != nil {
 					return e
 				}
 				removed++
@@ -217,12 +221,15 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 			if err != unix.ENOENT {
 				return err
 			}
-			if err = removeOwnedTree(d, path); err == nil {
+			if err = RemoveOwnedTree(d, path); err == nil {
 				removed++
 			}
 			return err
 		}
-		err = inspect()
+		if err = unix.Flock(int(d.Fd()), unix.LOCK_EX); err == nil {
+			err = inspect()
+			_ = unix.Flock(int(d.Fd()), unix.LOCK_UN)
+		}
 		d.Close()
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return removed, err

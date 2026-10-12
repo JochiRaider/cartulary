@@ -1,6 +1,6 @@
 //go:build linux
 
-package harnessfixtures
+package harnesssession
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,13 +30,11 @@ type Runtime struct {
 	parent               *os.File
 	owned                bool
 	mu                   sync.Mutex
-	secrets              map[string]bool
 	closed               bool
 }
 
-var safeName = regexp.MustCompile(`[^A-Za-z0-9_.-]+`)
 var component = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
-var secretName = regexp.MustCompile(`(?:PASSWORD|SECRET|TOKEN|COOKIE|DSN|ACCESS_KEY|KEY_RING|PRIVATE_KEY)`)
+var secretName = regexp.MustCompile(`(?i)(?:PASSWORD|SECRET|TOKEN(?:[^S]|$)|COOKIE|DSN|ACCESS_KEY|KEY_RING|PRIVATE_KEY)`)
 
 func identifier() string {
 	var v [16]byte
@@ -74,8 +71,15 @@ func privateJSON(name, schema string, value any, replace bool) error {
 	}
 	return harnesslocal.PublishNew(name, data)
 }
-func NewRuntime(repository, runRoot, runID, scratch string) (result *Runtime, err error) {
-	if !component.MatchString(runID) || len(runID) > 96 {
+func NewRuntime(repository, runRoot, runID, scratch string) (*Runtime, error) {
+	owner, err := harnessadmission.Identity(os.Getpid())
+	if err != nil {
+		return nil, err
+	}
+	return newRuntime(repository, runRoot, runID, scratch, owner)
+}
+func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harnessadmission.Proof) (result *Runtime, err error) {
+	if !component.MatchString(runID) || runID == "." || runID == ".." || len(runID) > 96 {
 		return nil, harnesslocal.ErrUnsafe
 	}
 	if scratch == "" {
@@ -109,7 +113,7 @@ func NewRuntime(repository, runRoot, runID, scratch string) (result *Runtime, er
 		parent.Close()
 		return nil, err
 	}
-	result = &Runtime{Root: root, RunID: runID, LeaseID: identifier(), Directory: directory, parent: parent, owned: true, secrets: map[string]bool{}}
+	result = &Runtime{Root: root, RunID: runID, LeaseID: identifier(), Directory: directory, parent: parent, owned: true}
 	// Incomplete initialization remains under the private root, never a retained
 	// path. Only this exact created directory is eligible for rollback.
 	defer func() {
@@ -141,11 +145,7 @@ func NewRuntime(repository, runRoot, runID, scratch string) (result *Runtime, er
 	directory.Close()
 	directory = os.NewFile(uintptr(duplicate), root)
 	result.Directory = directory
-	proof, e := harnessadmission.Identity(os.Getpid())
-	if e != nil {
-		return nil, e
-	}
-	data, e := json.Marshal(proof)
+	data, e := json.Marshal(ownerProcess)
 	if e != nil {
 		return nil, e
 	}
@@ -181,7 +181,7 @@ func BorrowRuntime(repository, runRoot, root, runID, leaseID string) (*Runtime, 
 	if harnesslocal.CheckDirectory(directory, root) != nil {
 		return fail()
 	}
-	return &Runtime{Root: root, RunID: runID, LeaseID: leaseID, Directory: directory, secrets: map[string]bool{}}, nil
+	return &Runtime{Root: root, RunID: runID, LeaseID: leaseID, Directory: directory}, nil
 }
 func (r *Runtime) Environment() map[string]string {
 	return map[string]string{"CARTULARY_HARNESS_SUITE_RUNTIME_ROOT": r.Root, "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID": r.LeaseID, "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID": r.RunID}
@@ -197,25 +197,94 @@ func (r *Runtime) PrivatePath(parts ...string) (string, error) {
 	}
 	return filepath.Join(append([]string{r.Root}, parts...)...), nil
 }
-func (r *Runtime) RegisterSecret(value string) {
+
+// Registration is durable across short-lived producer clients. The directory
+// lock also serializes other handles/processes against close and preservation.
+func (r *Runtime) RegisterSecret(value string) error {
 	if len(value) < 8 {
-		return
+		return nil
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.secrets[value] = true
+	if len(value) > 1048576 {
+		return harnesslocal.ErrUnsafe
+	}
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err := r.mutable(); err != nil {
+		return err
+	}
+	dir, err := harnesslocal.PrivateDirectory(filepath.Join(r.Root, "registered-secrets"))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	name := fmt.Sprintf("%x", sha256.Sum256([]byte(value)))
+	if existing, err := harnesslocal.ReadFileAt(dir, name, 1048576, false); err == nil {
+		if string(existing) != value {
+			return harnesslocal.ErrUnsafe
+		}
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	names, err := dir.Readdirnames(4097)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	if len(names) >= 4096 {
+		return harnesslocal.ErrUnsafe
+	}
+	return harnesslocal.ReplaceFileAt(dir, name, []byte(value))
 }
-func (r *Runtime) RegisterEnvironment(environment map[string]string) {
+func (r *Runtime) RegisterEnvironment(environment map[string]string) error {
 	for k, v := range environment {
-		if secretName.MatchString(k) && !strings.Contains(k, "TOKENS") {
-			r.RegisterSecret(v)
+		if secretName.MatchString(k) {
+			if err := r.RegisterSecret(v); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
-func (r *Runtime) ForbiddenValues() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return slices.Sorted(maps.Keys(r.secrets))
+func (r *Runtime) ForbiddenValues() ([]string, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	return r.forbiddenValues()
+}
+func (r *Runtime) forbiddenValues() ([]string, error) {
+	dir, err := harnesslocal.OpenDirectory(filepath.Join(r.Root, "registered-secrets"), true)
+	if errors.Is(err, os.ErrNotExist) {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	names, err := dir.Readdirnames(4097)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	if len(names) > 4096 {
+		return nil, harnesslocal.ErrUnsafe
+	}
+	values := []string{}
+	for _, name := range names {
+		data, err := harnesslocal.ReadFileAt(dir, name, 1048576, false)
+		if err != nil {
+			return nil, err
+		}
+		if len(data) < 8 || fmt.Sprintf("%x", sha256.Sum256(data)) != name {
+			return nil, harnesslocal.ErrUnsafe
+		}
+		values = append(values, string(data))
+	}
+	slices.Sort(values)
+	return values, nil
 }
 
 type Resource struct {
@@ -239,7 +308,10 @@ func resourceName(kind string, target json.RawMessage) (string, error) {
 	return fmt.Sprintf("%s-%x.json", kind, sha256.Sum256(compact.Bytes())), nil
 }
 func (r *Runtime) checkResource(v Resource) error {
-	if v.LeaseID != r.LeaseID || v.RunID != r.RunID || v.State != "pending" && v.State != "acquired" && v.State != "released" {
+	if _, err := validateJSON("cartulary.harness_runtime_resource.v1", v); err != nil {
+		return harnesslocal.ErrUnsafe
+	}
+	if v.LeaseID != r.LeaseID || v.RunID != r.RunID {
 		return harnesslocal.ErrUnsafe
 	}
 	switch v.Kind {
@@ -255,27 +327,20 @@ func (r *Runtime) checkResource(v Resource) error {
 			}
 		}
 	case "preparation_process", "browser_process", "helper_process":
-		value, err := harnessschema.Decode(v.Target)
-		if err != nil {
-			return err
-		}
-		o, ok := value.(map[string]any)
-		if !ok || len(o) != 4 {
-			return harnesslocal.ErrUnsafe
-		}
+		// The projected schema validates exact process proof fields.
+	case "diagnostic_scope":
 		var proof struct {
-			Boot  string `json:"boot"`
-			PID   int    `json:"pid"`
-			Start string `json:"start"`
-			Group *bool  `json:"group"`
+			UID int `json:"uid"`
 		}
-		if json.Unmarshal(v.Target, &proof) != nil || proof.Boot == "" || proof.PID < 2 || proof.Group == nil || !regexp.MustCompile(`^[0-9]+$`).MatchString(proof.Start) {
+		if json.Unmarshal(v.Target, &proof) != nil || proof.UID != os.Getuid() {
 			return harnesslocal.ErrUnsafe
 		}
-	case "browser_renderer", "diagnostic_scope":
-		// These private proofs are interpreted only by their existing owners. The
-		// runtime preserves them and refuses root removal while either remains.
-		if value, err := harnessschema.Decode(v.Target); err != nil || value == nil {
+	case "browser_renderer":
+		var proof struct {
+			Name  string `json:"name"`
+			Token string `json:"token"`
+		}
+		if json.Unmarshal(v.Target, &proof) != nil || !strings.HasSuffix(proof.Name, "-"+proof.Token[:12]) {
 			return harnesslocal.ErrUnsafe
 		}
 	default:
@@ -284,10 +349,13 @@ func (r *Runtime) checkResource(v Resource) error {
 	return nil
 }
 func (r *Runtime) RecordResource(kind string, target any, state string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.closed || harnesslocal.CheckDirectory(r.Directory, r.Root) != nil {
-		return harnesslocal.ErrUnsafe
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err := r.mutable(); err != nil {
+		return err
 	}
 	raw, err := json.Marshal(target)
 	if err != nil {
@@ -321,6 +389,17 @@ func (r *Runtime) RecordResource(kind string, target any, state string) error {
 	return harnesslocal.ReplaceFileAt(directory, name, append(data, '\n'))
 }
 func (r *Runtime) Resources(maximum int) ([]Resource, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	if maximum < 1 || maximum > 4096 {
+		return nil, harnesslocal.ErrUnsafe
+	}
+	return r.resources(maximum)
+}
+func (r *Runtime) resources(maximum int) ([]Resource, error) {
 	if harnesslocal.CheckDirectory(r.Directory, r.Root) != nil {
 		return nil, harnesslocal.ErrUnsafe
 	}
@@ -376,21 +455,24 @@ func (r *Runtime) Close() error {
 		r.closed = true
 		return r.Directory.Close()
 	}
-	resources, err := r.Resources(4096)
+	if err := unix.Flock(int(r.Directory.Fd()), unix.LOCK_EX); err != nil {
+		return err
+	}
+	defer unix.Flock(int(r.Directory.Fd()), unix.LOCK_UN)
+	resources, err := r.resources(4096)
 	if err != nil {
 		return err
 	}
 	if len(resources) > 0 {
-		return CleanupFailure(errors.New("runtime retains unresolved resource ownership"))
+		return ErrUnresolved
 	}
 	if harnesslocal.CheckDirectory(r.parent, filepath.Dir(r.Root)) != nil || harnesslocal.CheckDirectory(r.Directory, r.Root) != nil {
 		return harnesslocal.ErrUnsafe
 	}
-	if err := removeOwnedTree(r.Directory, r.Root); err != nil {
+	if err := RemoveOwnedTree(r.Directory, r.Root); err != nil {
 		return err
 	}
 	r.closed = true
-	r.secrets = nil
 	return errors.Join(r.Directory.Close(), r.parent.Close())
 }
 
@@ -403,10 +485,37 @@ func (r *Runtime) ReleaseHandles() error {
 		return nil
 	}
 	r.closed = true
-	r.secrets = nil
 	var parentErr error
 	if r.parent != nil {
 		parentErr = r.parent.Close()
 	}
 	return errors.Join(r.Directory.Close(), parentErr)
+}
+
+// BeginFinalization seals registration only after every recorded resource has
+// settled. The marker fences later short-lived clients using a different handle.
+func (r *Runtime) BeginFinalization() ([]string, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	if !r.owned {
+		return nil, harnesslocal.ErrUnsafe
+	}
+	resources, err := r.resources(4096)
+	if err != nil {
+		return nil, err
+	}
+	if len(resources) != 0 {
+		return nil, ErrUnresolved
+	}
+	values, err := r.forbiddenValues()
+	if err != nil {
+		return nil, err
+	}
+	if err := harnesslocal.ReplaceFileAt(r.Directory, "finalizing", []byte("sealed\n")); err != nil {
+		return nil, err
+	}
+	return values, nil
 }

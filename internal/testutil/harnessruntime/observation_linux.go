@@ -4,12 +4,13 @@ package harnessruntime
 
 import (
 	"context"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 type graphObservation struct {
@@ -56,7 +57,7 @@ func (d *graphObservation) mark(phase string) {
 	}
 	d.last = n
 }
-func (d *graphObservation) start(binary, runRoot, admission string, runtime *harnessfixtures.Runtime, plan *Plan, policy map[string]any, environment map[string]string) {
+func (d *graphObservation) start(binary, runRoot, admission string, runtime *harnesssession.Runtime, plan *Plan, policy map[string]any, environment map[string]string) {
 	d.manifest = plan.facts.Manifest
 	d.runRoot = runRoot
 	if d.enabled && environment["CARTULARY_HARNESS_INVOCATION_ROOT"] != "" {

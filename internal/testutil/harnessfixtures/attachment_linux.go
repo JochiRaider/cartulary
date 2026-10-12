@@ -88,7 +88,9 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 		}
 		environment[k] = text
 	}
-	p.Runtime.RegisterEnvironment(environment)
+	if err := p.Runtime.RegisterEnvironment(environment); err != nil {
+		return nil, artifactFailure(err)
+	}
 	if err := p.Runtime.RecordResource("borrowed_suite", file, "acquired"); err != nil {
 		return nil, err
 	}

@@ -487,7 +487,7 @@ never this tracker or other Markdown.
 | --- | --- |
 | Main and index | Clean `b0bc9737531c7feaf573e28715348fd81ae0584a`; no staged or untracked work at entry |
 | Prior planning comparison | 6,917 tracked/nonignored files; aggregate `11c33deb2fe91d940aeaba6e54d3927b48a315bea2db82c4b98b45aceb24c53f`; tracker `a617e7fc008f29f19e709f22365f7954d85a12ddb83c4fd44df4d5b85715852b` |
-| Current source | Working changes are recorded per checkpoint; final executable identity freezes before S-042 verification |
+| Current source | S-036 committed as `439f4665f`; S-037 source and validation recorded in E-043; final executable identity freezes before S-042 |
 | Evidence | Prior primary/salvage/qualification roots preserved; each writing command uses a fresh explicit run ID |
 | Exclusions | Product behavior, compiler/reader rewrite, new daemons, performance qualification, golden refresh and Core 05 publication |
 
@@ -595,8 +595,8 @@ inventory. This is a bounded subsystem inspection, not a whole-repository audit.
 
 | Inspected seam | Current responsibility / callers | Disposition / finding |
 | --- | --- | --- |
-| `internal/testutil/harnessfixtures/runtime_linux.go`, `preservation_linux.go`; Node `runtime/suite-runtime.mjs`, `resource-recovery.mjs` | Private roots, proof, secrets, recovery and janitor; graph, review, tool wrappers, frontend, smoke and local services | Consolidate in `harnesssession`; F-037/F-039 |
-| `internal/testutil/harnessruntime/scan_linux.go`; Node suite-runtime scanner | Two retained scanners; graph and review terminal paths | Shared native scanner, preserve distinct publication protocols; F-037 |
+| `internal/testutil/harnesssession/{runtime,preservation,protocol,tree,lock}_linux.go`; Node `runtime/suite-runtime.mjs`, `resource-recovery.mjs` | Native graph/fixtures now share private roots, durable secrets, exact journals and janitor; Node callers await migration | Native extraction DONE in E-043; Node deletion remains S-038–S-040; F-037/F-039 |
+| `internal/testutil/harnesssession/scan_linux.go`; graph `scan_linux.go` publication adapter; Node suite-runtime scanner | Graph uses shared native scanner; Node review/standalone migration remains | Native policy/digest preserved; distinct publication protocols remain; F-037 |
 | `browser/ui-review/{controller,session,recovery,terminal,ownership,session-files,diagnostic-processes}.mjs`; `browser/review-preparation.mjs` | Node session authority around native fixture transport | Go `harnessreview` coordination; retain specialized browser/preparation adapters; F-038 |
 | `runtime/fixture-session.mjs`; native fixture session | Private broker-shaped transport | Remove after graph/review direct library integration; F-038/F-040 |
 | `execution/run-make-node-tool-cli.mjs`, `smoke/run-harness-smoke-cli.mjs`, `readiness/frontend-artifact.mjs`, `services/local-session.mjs` | Standalone Node private-runtime owners | Migrate private ownership, retain producer/physical responsibilities; F-039 |
@@ -1008,8 +1008,8 @@ before successor work begins. Prior completed graph/fixture work remains DONE.
 | Workflow / slice | State | Required exit |
 | --- | --- | --- |
 | WF-36 / S-036 contracts and characterization | DONE | V-037: current owner, caller/test ledger, independent expectations and fresh baseline pass |
-| WF-37 / S-037 shared native runtime/scanner | TODO | V-038: native ownership/security/race checks and shared consumers |
-| WF-38 / S-038 native review lifecycle | BLOCKED | V-039: real IPC, recovery and physical boundaries in every mode |
+| WF-37 / S-037 shared native runtime/scanner | DONE; E-043 | V-038: native ownership/security/race checks and shared consumers |
+| WF-38 / S-038 native review lifecycle | READY after E-043 | V-039: real IPC, recovery and physical boundaries in every mode |
 | WF-39 / S-039 remaining callers | BLOCKED | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
 | WF-40 / S-040 deletion/routing/docs | BLOCKED | V-041: import/build/generated closure and every assertion disposition closed |
 | WF-41 / S-041 public boundary validation | BLOCKED | V-042: installed public surface, producer interoperability and physical cleanup |
@@ -1992,8 +1992,8 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | --- | --- | --- |
 | T-042 | Adopt iteration and preserve prior history | DONE; E-041/E-042 |
 | T-043 / S-036 | Contracts and characterization | DONE; V-037/E-042 |
-| T-044 / S-037 | Native shared runtime/scanner | TODO; V-038 |
-| T-045 / S-038 | Native review lifecycle | BLOCKED; V-039 |
+| T-044 / S-037 | Native shared runtime/scanner | DONE; V-038/E-043 |
+| T-045 / S-038 | Native review lifecycle | READY; V-039 |
 | T-046 / S-039 | Remaining callers | BLOCKED; V-040 |
 | T-047 / S-040 | Deletion/routing/documentation | BLOCKED; V-041 |
 | T-048 / S-041 | Public boundaries | BLOCKED; V-042 |
@@ -2072,6 +2072,74 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-043 — S-037/V-038 shared native runtime and scanner — DONE
+
+Saved before S-038 begins. `harnesssession` now owns the native private-root,
+secret registry, resource journal, preservation, stale cleanup, pinned-tree removal
+and scanner implementations. Graph and fixtures import it directly; it imports
+neither graph nor fixture orchestration. Graph-specific scan publication stays at
+its existing owner. Removed fixture runtime/preservation tests moved to native
+session tests; scanner fixtures retain independent expected outcomes and policy
+identity. New contract/catalog routing includes the session owner without adding
+full suites to fast smoke.
+
+Secret registration is durable across short-lived producers, serialized across
+handles with the private-directory lock, and fenced by finalization. Invalid,
+foreign or replaced proof cannot authorize removal. Strict generated resource
+schemas reject open process/renderer/diagnostic proof; semantic checks bind UID
+and renderer identity. The secret-name predicate now matches mixed names such as
+`PASSWORD_TOKENS` while still excluding ordinary capacity tokens. A bounded,
+one-shot private-pipe session interface derives caller identity from the real
+parent and keeps values out of arguments and retained output. It adds no daemon.
+Tests include actual child transactions, forged ownership, concurrent handles,
+late registration, preserved recovery and independent scanner fixtures.
+
+Source: parent `439f4665f` plus staged source diff SHA-256
+`364561a9d1838e48d6a00d29b2e68bd81a08887ad977382c0dfa1d1e5ae904de`.
+This digest includes authored/new files and generated projections, excludes this
+checkpoint, and identifies the final V-038 source. Environment remains Linux/WSL,
+Go launcher 1.27.1/effective 1.27.2, Make-selected Node and existing local caches.
+Each run below has its own root `.cartulary/test-results/<run-id>`; no root reused.
+
+| Exact command | Owning exit / retained result |
+| --- | --- |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-generate-01 make generate` | 2 / fail; new family row was not ASCII sorted |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-format-01 make format` | 2 / native build failed: old tree-helper name in browser adapter |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-generate-02 make generate` | 2 / fail; new selector test list was not ASCII sorted |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-format-02 make format` | 2 / graph preparation rejected the unreconciled catalog |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-generate-03 make generate` | 0 / pass, 10,250 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-generate-04 make generate` | 0 / pass, 9,840 ms; typed responses added |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-format-03 make format` | 0 / pass, 8,919 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-runtime-01 make harness-runtime-contract` | 2 / fail; test publisher signature and private fixture mode required migration |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-runtime-02 make harness-runtime-contract` | 0 / pass, 44,340 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-generate-05 make generate` | 0 / pass, 10,400 ms; strict resource projection added |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-format-04 make format` | 0 / pass, 9,695 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-runtime-03 make harness-runtime-contract` | 0 / pass, 45,920 ms; runtime/schema/session races |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-fixture-01 make harness-fixture-contract` | 0 / pass, 5,490 ms; direct shared-owner integration/races |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-drift-01 make generate-drift` | 0 / pass, 18,832 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-policy-01 make generated-artifact-policy-check` | 0 / pass, 921 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-json-01 make json-shape-check` | 2 / fail; schema attachment registry required sorted entries |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-generate-06 make generate` | 0 / pass, 9,780 ms; sorted authored attachment registry |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-drift-02 make generate-drift` | 0 / pass, 17,655 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-policy-02 make generated-artifact-policy-check` | 0 / pass, 902 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-json-02 make json-shape-check` | 0 / pass, 3,653 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s037-runtime-04 make harness-runtime-contract` | 0 / pass, 44,930 ms on final generated source |
+| `git diff --check` | 0 |
+
+Failed gates were repaired at their authored owners; none counts as completion.
+Generator and native contract details are in their target tool/step summaries;
+graph targets retain graph/unit evidence. Failure diagnosis used exact-run
+`make explain-run RESULTS_DIR=.cartulary/test-results/lifecycle-s037-json-01 DETAIL=logs TARGET=json-shape-check`
+and bounded declared step logs for generator failures. A mistaken query for a
+nonexistent helper filename was corrected by inspecting actual imports.
+
+Public commands and retained acceptance sets are unchanged. Private session and
+resource projections are new internal interfaces. Existing Node runtime/scanner
+and fixture transport remain active only for callers scheduled in S-038/S-039;
+F-037/F-040 cannot close until deletion. Real service/UI-review boundaries remain
+S-038/S-041, full final checks S-042; those gates are not claimed here. S-038 may
+begin after this checkpoint is saved. Qualification deferral and ledger unchanged.
 
 ### E-042 — S-036/V-037 contracts and characterization — DONE
 
@@ -3147,8 +3215,8 @@ document checkpoint, not a runtime-validation result.
 
 ### Current lifecycle entry gates
 
-No unresolved product preference blocks S-036. S-037–S-042 are blocked on their
-saved predecessor checkpoints, not missing user authorization. Exact old-session
+S-036 and S-037 are DONE. S-038 is ready after E-043; S-039–S-042 remain blocked
+on their saved predecessor checkpoints, not missing user authorization. Exact old-session
 proof must be checked before protocol cutover; discovery of unresolved ownership
 blocks only the affected environment. Missing characterization or failed gates
 remain open and are never reported as passes. F-022/RB-006 remains explicitly
@@ -3220,7 +3288,7 @@ Pre-existing staged tracker content is preserved.
 | --- | --- |
 | Planning | Complete for selected lifecycle scope; no whole-repository behavior audit claimed |
 | Authorization | Current user explicitly authorizes S-036–S-042 implementation |
-| Readiness | S-036 DONE; S-037 ready after E-042; later successors blocked on saved predecessor gates |
+| Readiness | S-036/S-037 DONE; S-038 ready after E-043; later successors blocked on saved predecessor gates |
 | Prior functional scope | S-035/S-034/S-031A–F/S-032 remain DONE at historical sources |
 | Current completion | Pending S-042/V-043 and every individual checkpoint; one native shared owner, direct fixture coordination, no obsolete policy/oracle/wiring |
 | Handoff | Exact changed files, commands, process/harness outcomes, source identity, roots, failures, skips and compatibility effects |

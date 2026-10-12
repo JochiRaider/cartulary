@@ -1,6 +1,6 @@
 //go:build linux
 
-package harnessfixtures
+package harnesssession
 
 import (
 	"errors"
@@ -15,7 +15,7 @@ import (
 // Move the exact owned inode out of its public locator before recursive removal.
 // Replacement detection preserves the foreign inode, including a replacement
 // that wins the rename race. Symlinks are never followed during the deletion.
-func removeOwnedTree(directory *os.File, name string) error {
+func RemoveOwnedTree(directory *os.File, name string) error {
 	if err := harnesslocal.CheckDirectory(directory, name); err != nil {
 		return err
 	}

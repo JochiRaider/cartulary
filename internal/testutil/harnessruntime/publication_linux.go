@@ -19,7 +19,7 @@ type graphPublication struct {
 	root      string
 	facts     *canonicalFacts
 	events    *harnesslocal.Stream
-	Forbidden func() []string
+	Forbidden func() ([]string, error)
 	closed    bool
 }
 
@@ -120,7 +120,11 @@ func (p *graphPublication) Terminal(u unit, r *unitResult) error {
 	}
 	forbidden := []string{}
 	if p.Forbidden != nil {
-		forbidden = p.Forbidden()
+		var err error
+		forbidden, err = p.Forbidden()
+		if err != nil {
+			return err
+		}
 	}
 	logRoot := filepath.Join(p.root, "unit-logs", safeUnitName.ReplaceAllString(u.ID, "-"))
 	directory, err := harnesslocal.PrivateDirectory(logRoot)

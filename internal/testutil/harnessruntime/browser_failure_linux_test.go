@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 // Exercise continuation through the real graph engine and fixture broker. The
@@ -39,7 +40,7 @@ func TestRuntimeBrowserFailureContinuation(t *testing.T) {
 	for _, failing := range []string{"group", "reset"} {
 		t.Run(failing, func(t *testing.T) {
 			root := t.TempDir()
-			runtime, err := harnessfixtures.NewRuntime(root, filepath.Join(root, "run"), "browser", t.TempDir())
+			runtime, err := harnesssession.NewRuntime(root, filepath.Join(root, "run"), "browser", t.TempDir())
 			if err != nil {
 				t.Fatal(err)
 			}
