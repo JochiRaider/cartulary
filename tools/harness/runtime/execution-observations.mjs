@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
-import { borrowSuiteRuntime } from "./suite-runtime.mjs";
+import { borrowRuntime } from "./session-client.mjs";
 import { atomicLocalFile, readLocalFile } from "./secure-local-files.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 
@@ -19,7 +19,7 @@ function encodeObservation(record, maximumBytes, processProof) {
 
 function channel(repoRoot, environment) {
   const runRoot = path.resolve(repoRoot, environment.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results", environment.CARTULARY_TEST_RUN_ID);
-  const runtime = borrowSuiteRuntime({ repoRoot, runRoot, environment });
+  const runtime = borrowRuntime({ repoRoot, runRoot, environment });
   return runtime.privatePath("execution-observations");
 }
 

@@ -7,7 +7,7 @@ import { readExecutionIndex } from "../execution-reader.mjs";
 import { analyzeExecution } from "../execution-analysis.mjs";
 import { executionRecordsDigest, executionObservation, resumeExecutionObservation } from "../../runtime/execution-observations.mjs";
 import { atomicLocalFile, readLocalFile } from "../../runtime/secure-local-files.mjs";
-import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { openExecutionChannel } from "../../test-support/execution-channel-fixture.mjs";
 
@@ -84,7 +84,7 @@ test("bounded presentation retains outcomes, unavailable durations and exact lis
 test("private beginnings obey the byte bound and survive invalid replacement", (t) => {
   const f = fixture(t), repoRoot = path.resolve(import.meta.dirname, "../../../..");
   rmSync(f.file);
-  const runtime = createSuiteRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
+  const runtime = createRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
   t.after(() => runtime.close());
   const session = openExecutionChannel(runtime);
   const environment = { CARTULARY_TEST_RUN_ID: "execution", CARTULARY_TEST_RESULTS_DIR: path.dirname(f.root),
@@ -113,7 +113,7 @@ test("private beginnings obey the byte bound and survive invalid replacement", (
 test("spawn proof survives a short launch privately without retroactive retained process details", (t) => {
   const f = fixture(t), repoRoot = path.resolve(import.meta.dirname, "../../../..");
   rmSync(f.file);
-  const runtime = createSuiteRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
+  const runtime = createRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
   t.after(() => runtime.close());
   const session = openExecutionChannel(runtime);
   const environment = { CARTULARY_TEST_RUN_ID: "execution", CARTULARY_TEST_RESULTS_DIR: path.dirname(f.root),

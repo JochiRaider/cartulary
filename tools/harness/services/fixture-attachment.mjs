@@ -2,14 +2,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { attachLocalSession, detachLocalBorrower, resolveServiceSessionMode } from "./local-session.mjs";
-import { borrowSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { borrowRuntime } from "../runtime/session-client.mjs";
 import { atomicLocalFile, readLocalFile, removePrivateFile } from "../runtime/secure-local-files.mjs";
 import { parseStrictJSON } from "../contract/index.mjs";
 
 const root = path.resolve(import.meta.dirname,"../../..");
 export function fixtureAttachment(operation, environment = process.env) {
   const runID = environment.CARTULARY_TEST_RUN_ID;
-  const runtime = borrowSuiteRuntime({repoRoot:root,runRoot:path.join(environment.CARTULARY_TEST_RESULTS_DIR,runID),environment});
+  const runtime = borrowRuntime({repoRoot:root,runRoot:path.join(environment.CARTULARY_TEST_RESULTS_DIR,runID),environment});
   const file = runtime.privatePath("borrowed-suite.json");
   if (operation === "attach") {
     const target = environment.CARTULARY_TEST_TARGET;

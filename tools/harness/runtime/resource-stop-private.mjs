@@ -3,7 +3,7 @@ import { readSync } from "node:fs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { borrowRuntime } from "./session-client.mjs";
 import { stopFixtureResource } from "./fixture-resource-stop.mjs";
-import { stopDiagnosticProcesses } from "../browser/ui-review/diagnostic-processes.mjs";
+import { stopDiagnosticProcesses } from "../browser/index.mjs";
 import path from "node:path";
 import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 const maximum = lifecyclePolicy.limits.frame;

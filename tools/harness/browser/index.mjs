@@ -11,3 +11,5 @@ export { validateFrontendVisualGoldenManifest } from "./frontend-visual-golden-m
 export { createBrowserFixtureProcess, fixtureLifecycleAttachment } from "./fixture-process.mjs";
 
 export { recoverVisualRenderer } from "./visual-renderer-lease.mjs";
+
+export { stopDiagnosticProcesses } from "./ui-review/diagnostic-processes.mjs";

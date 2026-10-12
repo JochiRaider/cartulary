@@ -6,7 +6,7 @@ import test from "node:test";
 import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { createRuntime } from "../runtime/session-client.mjs";
 import { createCommandFailureContext, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
 import { adaptShellInvocation } from "../execution/runners/shell.mjs";
 
@@ -17,7 +17,7 @@ const accounting = { failure_class: "harness", failure_reason: "scheduler_accoun
 function setup(t) {
   const scratch = mkdtempSync(path.join(os.tmpdir(), "command-failure-test-"));
   const runRoot = path.join(scratch, "run"); mkdirSync(runRoot, { mode: 0o700 });
-  const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
+  const runtime = createRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
   const environment = { CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: "run", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "run" };
   const contexts=[];
   t.after(()=>{for(const context of contexts)context.close();runtime.close();rmSync(scratch,{recursive:true,force:true});});

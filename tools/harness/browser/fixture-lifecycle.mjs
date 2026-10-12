@@ -2,7 +2,7 @@
 // sharing, clone ordinals, dependency ordering and recovery decisions live in Go.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { borrowSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { borrowRuntime } from "../runtime/session-client.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { acquireProcess } from "./acquire-process.mjs";
@@ -12,7 +12,7 @@ import { browserAcquisitionLaunchArguments, recordAcquisitionProcess, createBrow
 
 const root = path.resolve(import.meta.dirname, "../../..");
 export async function fixtureLifecycle(operation, args, environment = process.env) {
-  const runtime = borrowSuiteRuntime({ repoRoot: root,
+  const runtime = borrowRuntime({ repoRoot: root,
     runRoot: path.join(environment.CARTULARY_TEST_RESULTS_DIR, environment.CARTULARY_TEST_RUN_ID), environment });
   const sessionRoot = environment.CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT;
   if (operation === "prepare" && args.length === 1) {

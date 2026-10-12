@@ -5,7 +5,7 @@ import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { createRuntime } from "../runtime/session-client.mjs";
 import { claimFrontendProducer, publishFrontendOutput, resolveFrontendArtifact, sealFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 import { createCommandFailureContext } from "../runtime/command-failure.mjs";
 import { createLaunchContext } from "../runtime/launch-context.mjs";
@@ -17,7 +17,7 @@ export function registerFrontendProducerLifecycleTests() {
     const runRoot = path.join(scratch, "run");
     mkdirSync(runRoot, { mode: 0o700 });
     writeFileSync(path.join(runRoot, "run-manifest.json"), JSON.stringify({ source_digest: `sha256:${"1".repeat(64)}`, toolchain_digest: `sha256:${"2".repeat(64)}` }), { mode: 0o600 });
-    const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
+    const runtime = createRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
     const profile = { id: "production", producer_target: "build-web", entries: ["index.html"] };
     t.after(() => { runtime.close(); rmSync(scratch, { recursive: true, force: true }); });
     {
@@ -40,7 +40,7 @@ export function registerFrontendProducerLifecycleTests() {
     function fixture(id) {
       const runRoot = path.join(processRoot, id);
       mkdirSync(runRoot, { mode: 0o700 });
-      const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID: id, scratchRoot: path.join(processRoot, "private") });
+      const runtime = createRuntime({ repoRoot: root, runRoot, runID: id, scratchRoot: path.join(processRoot, "private") });
       runtimes.push(runtime);
       const environment = { CARTULARY_TEST_RESULTS_DIR: processRoot, CARTULARY_TEST_RUN_ID: id, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: id };
       return { runtime, runRoot, environment };

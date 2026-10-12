@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chmodSync, lstatSync, linkSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 import { publishFrontendOutput, resolveFrontendArtifact, sealFrontendArtifact } from "../../readiness/frontend-artifact.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
@@ -15,7 +15,7 @@ function fixture(runID, version) {
   writeFileSync(path.join(runRoot, "run-manifest.json"), JSON.stringify({
     source_digest: `sha256:${"1".repeat(64)}`, toolchain_digest: `sha256:${"2".repeat(64)}`,
   }), { mode: 0o600 });
-  const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID, scratchRoot: path.join(scratch, "private") });
+  const runtime = createRuntime({ repoRoot: root, runRoot, runID, scratchRoot: path.join(scratch, "private") });
   runtimes.push(runtime);
   const staging = runtime.privatePath("staging");
   mkdirSync(staging, { mode: 0o700 });

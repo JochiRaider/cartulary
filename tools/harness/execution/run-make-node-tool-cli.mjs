@@ -41,7 +41,7 @@ import {
   toolSummaryPath,
 } from "../output/index.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
-import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
 
 function nowUTC() {
   return new Date().toISOString();
@@ -159,10 +159,11 @@ async function runWrapped(target, invocation) {
   let captureFailure;
   let cleanupFailed = false;
   if (quietLikeOutput()) {
-    const suiteRuntime = createSuiteRuntime({
+    const suiteRuntime = (childEnvironment.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT ? borrowRuntime : createRuntime)({
       repoRoot: process.cwd(),
       runRoot: runRootAbs,
       runID,
+      environment: childEnvironment,
     });
     Object.assign(childEnvironment, {
       CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,

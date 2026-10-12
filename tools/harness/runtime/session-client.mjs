@@ -12,7 +12,7 @@ function transaction(repository, runRoot, runID, operation, fields, environment)
   validateSchemaSync(schema, message);
   const input = Buffer.from(JSON.stringify(message));
   if (input.length > lifecyclePolicy.limits.frame) throw rejected();
-  const binary = environment.CARTULARY_HARNESS_RUNTIME_BIN || path.join(repository, workspaceLayout.toolbin, "cartulary-harness");
+  const binary = environment.CARTULARY_HARNESS_RUNTIME_BIN || path.resolve(import.meta.dirname, "../../..", workspaceLayout.toolbin, "cartulary-harness");
   const result = spawnSync(binary, ["session"], { cwd: repository, env: environment, input, stdio: ["pipe", "pipe", "ignore"], maxBuffer: lifecyclePolicy.limits.frame, timeout: 30000, killSignal: "SIGKILL" });
   if (result.error || result.status !== 0) throw rejected();
   let reply;
@@ -42,10 +42,18 @@ function handle(repository, runRoot, identity, environment, owned, admissionToke
 }
 export function createRuntime({ repoRoot, runRoot, runID, scratchRoot = "", environment = process.env }) {
   const identity = transaction(repoRoot, runRoot, runID, "create", { scratch: scratchRoot }, environment);
-  return handle(repoRoot, runRoot, identity, environment, true);
+  const runtime = handle(repoRoot, runRoot, identity, environment, true);
+  try { runtime.registerEnvironment(environment); } catch (error) { runtime.close(); throw error; }
+  return runtime;
 }
 export function borrowRuntime({ repoRoot, runRoot, environment = process.env, admissionToken }) {
   const runID = environment.CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID;
   const identity = transaction(repoRoot, runRoot, runID, "borrow", { root: environment.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT, lease_id: environment.CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID }, environment);
-  return handle(repoRoot, runRoot, identity, environment, false, admissionToken);
+  return handle(repoRoot, runRoot, identity, environment, false, admissionToken ?? (() => environment.CARTULARY_HOST_ADMISSION_LEASE || null));
+}
+
+// Exact recovery is admitted by the native owner only after the original owner
+// dies (or by that same owner). The caller must supply the bound runtime identity.
+export function recoverRuntime({ repoRoot, runRoot, root, runID, leaseID, environment = process.env }) {
+  return transaction(repoRoot, runRoot, runID, "recover_close", { root, lease_id: leaseID }, environment);
 }

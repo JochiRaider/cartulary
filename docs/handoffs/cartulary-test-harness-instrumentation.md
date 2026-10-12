@@ -1010,7 +1010,7 @@ before successor work begins. Prior completed graph/fixture work remains DONE.
 | WF-36 / S-036 contracts and characterization | DONE | V-037: current owner, caller/test ledger, independent expectations and fresh baseline pass |
 | WF-37 / S-037 shared native runtime/scanner | DONE; E-043 | V-038: native ownership/security/race checks and shared consumers |
 | WF-38 / S-038 native review lifecycle | DONE; E-044 | V-039: real IPC, recovery and physical boundaries in every mode |
-| WF-39 / S-039 remaining callers | READY | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
+| WF-39 / S-039 remaining callers | DONE; E-045 | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
 | WF-40 / S-040 deletion/routing/docs | BLOCKED | V-041: import/build/generated closure and every assertion disposition closed |
 | WF-41 / S-041 public boundary validation | BLOCKED | V-042: installed public surface, producer interoperability and physical cleanup |
 | WF-42 / S-042 final validation/handoff | BLOCKED | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
@@ -1994,7 +1994,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-043 / S-036 | Contracts and characterization | DONE; V-037/E-042 |
 | T-044 / S-037 | Native shared runtime/scanner | DONE; V-038/E-043 |
 | T-045 / S-038 | Native review lifecycle | DONE; V-039/E-044 |
-| T-046 / S-039 | Remaining callers | READY; V-040 |
+| T-046 / S-039 | Remaining callers | DONE; V-040/E-045 |
 | T-047 / S-040 | Deletion/routing/documentation | BLOCKED; V-041 |
 | T-048 / S-041 | Public boundaries | BLOCKED; V-042 |
 | T-049 / S-042 | Final validation and handoff | BLOCKED; V-043 |
@@ -2072,6 +2072,73 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-045 — S-039/V-040 remaining caller migration — DONE
+
+Saved before S-040. Parent `2ae231627`; staged source/projection diff SHA-256
+`3beff8df299f680b92e73fa227b7923cd2094777028768eb7d4263040a909d4c`
+(excludes tracker). Environment: same local Linux workspace and pinned installed
+Go/Node/browser tools, actual local PostgreSQL/object-store owners. Source identity
+is this checkpoint's commit. No qualification acquisition occurred.
+
+Migrated smoke, wrapped tools, Vitest diagnostics, execution observations,
+command-failure capture, fixture attachments, browser fixtures, frontend producers
+and local-service sessions to the native session client. Captured children register
+exact native process proof, drain descendants before release, and preserve failed
+proof. Frontend builds share that physical capture adapter. Wrapped tools borrow
+inherited authority; independent callers create an owned native root. Persistent
+service commands journal pending/acquired/released suite proof and recover the
+original runtime only after exact physical cleanup. No supervisor was introduced.
+Build prerequisites include the installed native binary for migrated writers;
+repeated generated Make predicates were factored without raising density budgets.
+
+All writing commands below use `CARTULARY_TEST_RUN_ID=lifecycle-s039-<suffix>`;
+roots are `.cartulary/test-results/lifecycle-s039-<suffix>`. Step logs are
+`<target>/<target>/{stdout,stderr}.log`; graph summaries remain at their exact roots.
+Exits are the owning Make process, separately from harness results.
+
+| Suffix | Make target / arguments | Exit / harness result |
+| --- | --- | --- |
+| generate-01 | generate | 2 / fail: generated Make density budget |
+| generate-02–07 | generate (six distinct invocations) | 0 / pass each; final 9,840 ms |
+| boundary-01 | harness-boundary-contract | 2 / no such target, no execution |
+| contracts-01 | harness-contract-tests | 2 / failed borrowed-wrapper expectation and private browser import boundary |
+| contracts-02 | harness-contract-tests | 2 / premature test-owned close and stale projection digest |
+| contracts-03 | harness-contract-tests | 2 / frontend producer used unsupported launch label |
+| contracts-04 | harness-contract-tests | 0 / 190 passed, 0 failed/skipped, 101,232 ms |
+| runtime-boundary-01 | harness-runtime-boundary-contract | 0 / pass, 40.478 s |
+| runtime-boundary-02 | harness-runtime-boundary-contract | 2 / failed frontend label and non-private test directory |
+| runtime-boundary-03 | harness-runtime-boundary-contract | 0 / pass, 41.559 s; actual PostgreSQL/HTTPS and native session IPC |
+| runtime-01 | harness-runtime-contract | 0 / all native race suites pass (runtime/schema/session/review) |
+| smoke-01 | run-harness-smoke-fast | 0 / pass, three-role surface preserved |
+| services-up-01 | test-services-session-up CARTULARY_TEST_SERVICES_SESSION_FILE=/tmp/cartulary-lifecycle-s039/session.json | 0 / pass, 6,670 ms |
+| services-status-01 | test-services-session-status with same explicit session file | 0 / active compatible services, zero borrowers |
+| services-down-01 | test-services-session-down with same explicit session file | 0 / pass, 1,120 ms; physical services and exact runtime released |
+| format-01–02 | format (two distinct invocations) | 0 / pass each |
+| build-web-01 | build-web | 2 / harness exit 11, unsupported producer label; repaired and covered by runtime-boundary-03 and contracts-04 |
+| drift-01 | generate-drift | 0 / pass, 18,182 ms |
+| policy-01 | generated-artifact-policy-check | 0 / pass, 1,012 ms |
+| json-01 | json-shape-check | 0 / pass, 3,636 ms |
+
+Read-only discovery: `make task-guide ROLE=module-author OWNER=harness.runtime`
+failed (unknown owner); corrected `OWNER=harness.command_surface` and
+`make explain-target TARGET=harness-runtime-boundary-contract DETAIL=summary`
+passed. Default `make test-services-session-status` reported absent before the
+explicit isolated persistent session. `git diff --cached --check` passed.
+
+Repairs retain their failed evidence: existing launch label `private_capture`
+replaces the invalid label, and the boundary fixture explicitly sets 0700 as the
+scanner requires. Installed-binary tests prove forged lease rejection, borrowed
+close protection, durable shared secret registration, successful scanning, repeated
+close, owner-loss recovery rejection while proof is outstanding, and successful
+recovery only after release. Existing caller tests retain failure/interruption,
+staging, quiet capture and inherited-runtime assertions. Broad finalization/lint
+remain S-042; this is not a final completion claim.
+
+Compatibility: public commands and retained schemas unchanged; private runtime
+ownership is native. Legacy Node policy/tests still await S-040 deletion; no fallback
+is used by migrated production callers. S-039 is DONE; S-040 is READY. F-022/RB-006,
+S-020–S-022, qualification thresholds and the 44.952/90-minute ledger are unchanged.
 
 ### E-044 — S-038/V-039 native review lifecycle — DONE
 
@@ -3364,7 +3431,7 @@ document checkpoint, not a runtime-validation result.
 
 ### Current lifecycle entry gates
 
-S-036–S-038 are DONE. S-039 is READY after E-044; S-040–S-042 remain blocked
+S-036–S-039 are DONE. S-040 is READY after E-045; S-041–S-042 remain blocked
 on their saved predecessor checkpoints, not missing user authorization. Exact old-session
 proof must be checked before protocol cutover; discovery of unresolved ownership
 blocks only the affected environment. Missing characterization or failed gates
@@ -3437,7 +3504,7 @@ Pre-existing staged tracker content is preserved.
 | --- | --- |
 | Planning | Complete for selected lifecycle scope; no whole-repository behavior audit claimed |
 | Authorization | Current user explicitly authorizes S-036–S-042 implementation |
-| Readiness | S-036–S-038 DONE; S-039 READY; later successors blocked on saved predecessor gates |
+| Readiness | S-036–S-039 DONE; S-040 READY; later successors blocked on saved predecessor gates |
 | Prior functional scope | S-035/S-034/S-031A–F/S-032 remain DONE at historical sources |
 | Current completion | Pending S-042/V-043 and every individual checkpoint; one native shared owner, direct fixture coordination, no obsolete policy/oracle/wiring |
 | Handoff | Exact changed files, commands, process/harness outcomes, source identity, roots, failures, skips and compatibility effects |

@@ -297,7 +297,7 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(TASK_SURFACE_NODE_READINESS\)\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\+\$\(Q\)\$\(call RUN_MAKE_PREREQUISITES,\[ "\$\$\{CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0\}" = "1" \] \|\| \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \],\$\(FRONTEND_INSTALL_STAMP\)\)/,
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(TASK_SURFACE_NODE_READINESS\)\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\+\$\(Q\)\$\(call RUN_MAKE_PREREQUISITES,\$\(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED\),\$\(FRONTEND_INSTALL_STAMP\)\)/,
   "test_target self must render Node readiness, target-specific export, and graph-owned artifact prerequisite admission",
 );
 assert.match(

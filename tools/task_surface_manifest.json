@@ -1566,7 +1566,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "testservices-build",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "step_command",
       "mode": "command",
@@ -1600,7 +1601,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "testservices-build",
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "step_command",
       "mode": "command",
@@ -2096,7 +2098,9 @@
     },
     "harness-public-target-duration-baselines": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "explain-test-owner": {
       "type": "owner_command",
@@ -2110,7 +2114,9 @@
     },
     "go-test-duration-baselines": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "go-test-duration-baseline-coverage": {
       "type": "node_tool",
@@ -2119,39 +2125,57 @@
     },
     "go-test-duration-baseline-drift": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "browser-e2e-duration-baselines": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "browser-e2e-duration-baseline-drift": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "service-backed-make-target-duration-baselines": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "service-backed-make-target-duration-baseline-drift": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "harness-smoke-duration-baselines": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "harness-smoke-duration-baseline-drift": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "scheduler-event-order-drift": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "scheduler-summary-timing-drift": {
       "type": "node_tool",
-      "prerequisites": []
+      "prerequisites": [
+        "$(HARNESS_RUNTIME_BIN)"
+      ]
     },
     "testservices-build": {
       "prerequisites": [
@@ -2451,7 +2475,8 @@
       "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
       "step_label": "harness-contract-tests",
@@ -3097,7 +3122,8 @@
     },
     "build-web": {
       "prerequisites": [
-        "$(CURDIR)/apps/web/dist/index.html"
+        "$(CURDIR)/apps/web/dist/index.html",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "artifact_binding",
       "test_target": "self",
@@ -3154,7 +3180,8 @@
     },
     "build-web-measurement": {
       "prerequisites": [
-        "$(CURDIR)/apps/web/dist-measurement/index.html"
+        "$(CURDIR)/apps/web/dist-measurement/index.html",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "artifact_binding",
       "test_target": "self",

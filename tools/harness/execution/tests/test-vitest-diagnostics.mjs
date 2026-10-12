@@ -9,7 +9,7 @@ import { primaryPublicFailure, publicExitCodeForFailures, validateSchemaSync } f
 import { normalizeVitestObservations, readVitestJSON, reconcileVitestReport } from "../../diagnostics/vitest-failure-details.mjs";
 import { adaptVitestInvocation } from "../runners/vitest.mjs";
 import { createCommandFailureContext } from "../../runtime/command-failure.mjs";
-import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const fixture = path.join(root, "tmp", `vitest-diagnostics-${randomUUID()}`);
@@ -19,7 +19,7 @@ const output = path.join(runRoot, "vitest-diagnostics-contract", randomUUID());
 mkdirSync(output, { recursive: true, mode: 0o700 });
 const ownedSuiteRuntime = process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT
   ? null
-  : createSuiteRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID });
+  : createRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID });
 const suiteRuntime = ownedSuiteRuntime?.root ?? process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT;
 const fixtureEnvironment = {
   ...process.env,

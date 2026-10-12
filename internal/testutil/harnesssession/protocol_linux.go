@@ -154,6 +154,12 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			_, result = harnessadmission.Transact(ctx, harnessadmission.Request{Root: harnessadmission.DefaultRoot(), Operation: "bind", Token: q.AdmissionToken, Guard: proof})
+			if result != nil {
+				alive, err := harnessadmission.Alive(proof)
+				if err == nil && !alive {
+					result = nil
+				}
+			}
 		}
 	case "resources":
 		out.Result, result = r.Resources(4096)

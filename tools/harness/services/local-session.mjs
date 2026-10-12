@@ -20,7 +20,7 @@ import { semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
 import { processIdentity, processIdentityAlive } from "../runtime/host-admission.mjs";
 import { parseStrictJSON } from "../contract/index.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
-import { closeSuiteRuntimeRoot, createSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { recoverRuntime, borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
 
 const descriptorSchemaID = "cartulary.test_services.local_session.v1";
 const statusSchemaID = "cartulary.test_services.local_session_status.v1";
@@ -485,14 +485,16 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
     const runRoot = path.join(resultsRoot, "session-up");
     ensurePrivateDirectory(resultsRoot, "local service session result root");
     ensurePrivateDirectory(runRoot, "local service session run root");
-    const suiteRuntime = createSuiteRuntime({
+    const suiteRuntime = createRuntime({
       repoRoot: root,
       runRoot,
       runID: "session-up",
       scratchRoot: path.join(stateRoot, "scratch"),
     });
     const envFile = path.join(stateRoot, "suite-environment.json");
-    const leaseFile = path.join(stateRoot, "suite-lease.json");
+    const leaseFile = suiteRuntime.privatePath("test-services", "persistent-suite.json");
+    ensurePrivateDirectory(path.dirname(leaseFile), "persistent suite proof directory");
+    suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending" });
     const resultFile = path.join(stateRoot, "suite-start-result.json");
     const startEnvironment = {
       CARTULARY_TEST_SERVICES_PERSISTENT_SESSION: "1",
@@ -505,7 +507,6 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
       CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
       CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "session-up",
     };
-    let started = false;
     try {
       runTestservices(binary, [
         "start-suite",
@@ -517,7 +518,6 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
         environment: startEnvironment,
         dependencies,
       });
-      started = true;
       assertPrivateFile(envFile, "local service session environment staging file");
       assertPrivateFile(leaseFile, "local service session lease staging file");
       assertPrivateFile(resultFile, "local service session start-result staging file");
@@ -582,28 +582,30 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
         service_lease: serviceLease,
       };
       validateSchemaSync(descriptor.schema_id, descriptor);
+      suiteRuntime.registerEnvironment(selectedEnvironment);
+      suiteRuntime.record({ kind: "managed_suite", target: leaseFile });
       writePrivateJSON(sessionFile, descriptor);
       rmSync(envFile, { force: true });
-      rmSync(leaseFile, { force: true });
       return statusValue(
         { state: "active", compatible: true, services: containers.map((entry) => ({ service: entry.service, running: true })) },
         descriptor,
         0,
       );
     } catch (error) {
-      if (started && existsSync(leaseFile)) {
+      if (existsSync(leaseFile)) {
         try {
           runTestservices(binary, ["terminate-suite", "--lease", leaseFile], {
             root,
             environment: startEnvironment,
             dependencies,
           });
+          suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "released" });
         } catch {
           // Preserve the primary creation failure; the state root remains for exact recovery.
         }
       }
       try {
-        closeSuiteRuntimeRoot({ root: suiteRuntime.root, expectedLeaseID: suiteRuntime.leaseID });
+        suiteRuntime.close();
         rmSync(stateRoot, { recursive: true, force: true });
       } catch {
         // Preserve exact state for manual recovery if ownership validation fails.
@@ -748,10 +750,10 @@ export function stopLocalSession({ root, binary, sessionFile, dependencies = {} 
       dependencies,
     });
     rmSync(leaseFile, { force: true });
-    closeSuiteRuntimeRoot({
-      root: descriptor.runtime_root,
-      expectedLeaseID: descriptor.runtime_lease_id,
-    });
+    const runRoot = path.join(descriptor.service_lease.result_root, descriptor.service_lease.run_id);
+    const runtime = borrowRuntime({ repoRoot: root, runRoot, environment: { ...process.env, ...terminateEnvironment } });
+    runtime.record({ kind: "managed_suite", target: runtime.privatePath("test-services", "persistent-suite.json"), state: "released" });
+    recoverRuntime({ repoRoot: root, runRoot, root: runtime.root, runID: runtime.runID, leaseID: runtime.leaseID });
     rmSync(sessionFile, { force: false });
     rmSync(descriptor.state_root, { recursive: true, force: false });
     return statusValue(

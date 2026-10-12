@@ -17,7 +17,7 @@ import {
 } from "../generated-artifacts/index.mjs";
 import { publicExitCodeForSummary } from "../contract/index.mjs";
 import { resolveArtifactIdentityForTarget } from "../contract/harness-contract.mjs";
-import { borrowSuiteRuntime, createSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
 import { verboseOutput as toolVerboseOutput } from "../output/index.mjs";
 
 function parseArgs(argv) {
@@ -295,7 +295,7 @@ async function main() {
 
   const inheritedRuntime = Boolean(process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT);
   const runtimeOptions = { repoRoot, runRoot: identity.run_root, runID: identity.run_id };
-  const runtime = inheritedRuntime ? borrowSuiteRuntime(runtimeOptions) : createSuiteRuntime(runtimeOptions);
+  const runtime = inheritedRuntime ? borrowRuntime(runtimeOptions) : createRuntime(runtimeOptions);
   const previousRuntimeEnvironment = Object.fromEntries(
     ["ROOT", "LEASE_ID", "RUN_ID"].map((suffix) => {
       const name = `CARTULARY_HARNESS_SUITE_RUNTIME_${suffix}`;

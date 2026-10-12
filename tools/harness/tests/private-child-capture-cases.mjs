@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { createRuntime } from "../runtime/session-client.mjs";
 
 const scenarios = ["allocation", "status", "second-open", "spawn", "spawn-sync", "tail-read", "read-and-cleanup", "cleanup-retry", "close", "parent-mode", "parent-symlink", "parent-owner", "file-mode", "file-symlink", "tail-limits", "component-length", "component-character", "snapshot-caller", "make-wrapper"];
 
@@ -25,7 +25,7 @@ async function exercise(scenario) {
   const runRoot = path.join(fixture, "results", "capture-contract");
   fs.mkdirSync(repoRoot, { mode: 0o700 });
   fs.mkdirSync(runRoot, { recursive: true, mode: 0o700 });
-  const runtime = createSuiteRuntime({ repoRoot, runRoot, runID: "capture-contract", scratchRoot: path.join(fixture, "scratch") });
+  const runtime = createRuntime({ repoRoot, runRoot, runID: "capture-contract", scratchRoot: path.join(fixture, "scratch") });
   const parent = runtime.privatePath("child-captures");
   fs.writeFileSync(path.join(fixture, "protected"), "protected bytes", { mode: 0o600 });
   const options = { repoRoot, runRoot, cwd: repoRoot, env: {
@@ -229,7 +229,9 @@ async function exercise(scenario) {
         assert.match(diagnostic, /cleanup_error/u, "wrapper must retain the helper's bounded secondary failure");
         assert.ok(!diagnostic.includes(fixture));
         const allocation = JSON.parse(fs.readFileSync(path.join(fixture, "capture-allocation.json"), "utf8"));
-        assert.ok(!fs.existsSync(allocation), "suite cleanup removes the actual failed invocation allocation");
+        assert.ok(fs.existsSync(allocation), "borrowed runtime remains owned by its caller after capture cleanup fails");
+        assert.ok(allocation.startsWith(`${runtime.root}${path.sep}`));
+
       }
     } else if (scenario === "tail-limits") {
       for (const tailBytes of [0, 1023, 1024 * 1024 + 1, Infinity]) await assert.rejects(run(undefined, { tailBytes }), { failure_reason: "artifact_error" });
@@ -248,7 +250,7 @@ async function exercise(scenario) {
       if (["second-open", "tail-read", "read-and-cleanup", "close", "file-mode", "file-symlink"].includes(scenario)) assert.ok(injected);
     }
     assert.equal(descriptors.size, 0, "all acquired descriptors closed");
-    if (fs.existsSync(parent) && !["parent-symlink", "read-and-cleanup", "snapshot-caller"].includes(scenario)) assert.deepEqual(fs.readdirSync(parent), []);
+    if (fs.existsSync(parent) && !["parent-symlink", "read-and-cleanup", "snapshot-caller", "make-wrapper"].includes(scenario)) assert.deepEqual(fs.readdirSync(parent), []);
     if (scenario === "read-and-cleanup") {
       const [directory] = fs.readdirSync(parent);
       assert.deepEqual(fs.readdirSync(path.join(parent, directory)), ["stdout"], "only the failed release remains for suite cleanup");

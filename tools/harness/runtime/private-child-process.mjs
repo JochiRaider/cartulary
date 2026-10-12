@@ -15,7 +15,7 @@ import path from "node:path";
 
 import { createLaunchContext } from "./launch-context.mjs";
 import { CommandFailure } from "./command-failure.mjs";
-import { borrowSuiteRuntime } from "./suite-runtime.mjs";
+import { borrowRuntime } from "./session-client.mjs";
 import { ownedProcess, stopOwnedProcess } from "./owned-process.mjs";
 
 const componentPattern = /^[A-Za-z0-9_.-]+$/u;
@@ -49,7 +49,16 @@ export async function runPrivateCapturedProcess(command, args, options) {
   let spawned = false;
   const descriptors = new Set();
   const files = new Set();
-  let directory;
+  let directory, runtime, processProof, processCompletion;
+  let interrupted = false;
+  const interrupt = () => { interrupted = true; if (processProof) void stopOwnedProcess(processProof).catch(() => {}); };
+  const drain = async () => {
+    if (!processProof) return;
+    await stopOwnedProcess(processProof, { exitNotification: processCompletion });
+    await processCompletion.catch(() => {});
+    runtime.record({ kind: "helper_process", target: processProof, state: "released" });
+    processProof = undefined;
+  };
   const close = (descriptor) => {
     closeSync(descriptor);
     descriptors.delete(descriptor);
@@ -106,7 +115,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
     if (!Number.isSafeInteger(tailBytes) || tailBytes < 1024 || tailBytes > 1024 * 1024) {
       throw new Error("private child diagnostic tail must be between 1 KiB and 1 MiB");
     }
-    const runtime = borrowSuiteRuntime({
+    runtime = borrowRuntime({
       repoRoot: options.repoRoot,
       runRoot: options.runRoot,
       environment: options.env,
@@ -127,7 +136,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: childEnvironment,
-      detached: options.detached ?? false,
+      detached: options.detached ?? true,
       stdio: ["ignore", stdoutFD, stderrFD],
     });
     if (child.pid) { spawned = true; launch.spawned(child.pid); }
@@ -143,6 +152,14 @@ export async function runPrivateCapturedProcess(command, args, options) {
     // Register close/error before handing acquisition to a caller. A failed
     // publication callback must drain the resource it has just acquired.
     completion.catch(() => {});
+    processCompletion = completion;
+    if (child.pid) {
+      try { processProof = ownedProcess(child.pid); }
+      catch (error) { if (!["ENOENT", "ESRCH"].includes(error.code)) throw error; }
+      if (processProof) runtime.record({ kind: "helper_process", target: processProof });
+    }
+    process.on("SIGINT", interrupt); process.on("SIGTERM", interrupt);
+    if (interrupted) interrupt();
     if (child.pid && options.onSpawn) {
       const proof = ownedProcess(child.pid);
       try { options.onSpawn(child); }
@@ -155,6 +172,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
       }
     }
     const outcome = await completion;
+    await drain();
     if (!options.launch) launch.settle(outcome.signal ? "cancelled" : outcome.status === 0 ? "passed" : "failed");
     close(stdoutFD);
     close(stderrFD);
@@ -163,6 +181,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
     // Ownership transfers only after both validated reads have completed.
     return { ...outcome, launch: launch.identity, stderr, stderrPath, stdout, stdoutPath, cleanup };
   } catch (error) {
+    try { await drain(); } catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
     launch.settle(spawned ? "failed" : "spawn_failed");
     const failure = captureFailure("artifact_error", error);
     try { cleanup(); }
@@ -171,5 +190,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
       failure.cause = new AggregateError([error, cleanupError]);
     }
     throw failure;
+  } finally {
+    process.off("SIGINT", interrupt); process.off("SIGTERM", interrupt);
   }
 }

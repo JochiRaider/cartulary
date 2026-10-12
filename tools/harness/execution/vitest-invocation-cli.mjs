@@ -12,7 +12,7 @@ import {
   diagnosticFailure, normalizeVitestObservations, readVitestJSON, reconcileVitestReport,
 } from "../diagnostics/vitest-failure-details.mjs";
 import { reportCommandFailure } from "../runtime/command-failure.mjs";
-import { borrowSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { borrowRuntime } from "../runtime/session-client.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -20,7 +20,7 @@ async function main() {
   const [reportFile, detailsFile, separator, command, ...args] = process.argv.slice(2);
   if (!reportFile || !detailsFile || separator !== "--" || !command) throw diagnosticFailure("Vitest invocation requires report, diagnostics, and a command");
   const runRoot = path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
-  const runtime = borrowSuiteRuntime({ repoRoot: root, runRoot });
+  const runtime = borrowRuntime({ repoRoot: root, runRoot });
   const invocationID = randomUUID();
   const privateRoot = runtime.privatePath(`vitest-${invocationID}`);
   mkdirSync(privateRoot, { mode: 0o700 });

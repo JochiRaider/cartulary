@@ -11,7 +11,7 @@ import { renderInstrumentationDefinitions } from "../../generated-artifacts/inst
 import { readFileSync } from "node:fs";
 import { createResourceAccumulator } from "../resource-accumulator.mjs";
 import Ajv2020 from "ajv/dist/2020.js";
-import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 import { createLaunchContext, readLaunchContext } from "../../runtime/launch-context.mjs";
 import { openExecutionChannel } from "../../test-support/execution-channel-fixture.mjs";
 import { readExecutionIndex } from "../execution-reader.mjs";
@@ -64,7 +64,7 @@ test("local activities retain independent overlapping durations, unavailable clo
 test("neutral launch records retain packed parentage, unlaunched failure and one terminal outcome", (t) => {
   const repoRoot = path.resolve(import.meta.dirname, "../../../..");
   const runRoot = temporary(t), runID = path.basename(runRoot);
-  const runtime = createSuiteRuntime({ repoRoot, runRoot, runID });
+  const runtime = createRuntime({ repoRoot, runRoot, runID });
   t.after(() => runtime.close());
   const digest = `sha256:${"a".repeat(64)}`;
   const { policy, digest: policyDigest } = instrumentationPolicy();

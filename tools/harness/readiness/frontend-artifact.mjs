@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { execFileSync, spawn } from "../workspace/child-process.mjs";
+import { execFileSync } from "../workspace/child-process.mjs";
 import {
   chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync,
   readFileSync, readdirSync, renameSync, rmSync, writeFileSync,
@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
 import { parseStrictJSON, publicExitCodeForFailure, validateSchemaSync } from "../contract/index.mjs";
 import { CommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
 import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
-import { borrowSuiteRuntime, createSuiteRuntime } from "../runtime/suite-runtime.mjs";
+import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
+import { borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -76,7 +77,7 @@ export function resolveFrontendArtifact(repoRoot, target, environment = process.
 
 function resolveArtifact(repoRoot, target, environment) {
   const runRoot = frontendRunRoot(repoRoot, environment);
-  const runtime = borrowSuiteRuntime({ repoRoot, runRoot, environment });
+  const runtime = borrowRuntime({ repoRoot, runRoot, environment });
   const profile = artifactProfile(repoRoot, target);
   const receiptRef = `${target}/frontend-artifact.json`;
   const receiptPath = path.join(runRoot, receiptRef);
@@ -185,9 +186,9 @@ async function build(target, command, args) {
   mkdirSync(runRoot, { recursive: true, mode: 0o700 });
   const owned = !process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT;
   const runtime = owned
-    ? createSuiteRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID })
-    : borrowSuiteRuntime({ repoRoot: root, runRoot });
-  let staging;
+    ? createRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID })
+    : borrowRuntime({ repoRoot: root, runRoot });
+  let staging, buildFailure;
   try {
     const claim = claimFrontendProducer(runtime, profile);
     const expectedProvenance = provenance(root, runRoot);
@@ -199,25 +200,23 @@ async function build(target, command, args) {
     };
     staging = mkdtempSync(runtime.privatePath(`frontend-staging-${profile.id}-`));
     validateBuildInputs();
-    const status = await new Promise((resolve, reject) => {
-      const child = spawn(command, [...args, "--outDir", staging, "--emptyOutDir"], { cwd: root, stdio: "inherit" });
-      const terminate = (signal) => child.kill(signal);
-      const interrupt = () => terminate("SIGINT");
-      const cancel = () => terminate("SIGTERM");
-      process.once("SIGINT", interrupt);
-      process.once("SIGTERM", cancel);
-      const removeHandlers = () => {
-        process.off("SIGINT", interrupt);
-        process.off("SIGTERM", cancel);
-      };
-      child.once("error", (error) => { removeHandlers(); reject(error); });
-      child.once("close", (code, signal) => {
-        removeHandlers();
-        if (signal) reject(new CommandFailure("frontend compiler interrupted", { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" }));
-        else resolve(code);
-      });
+    const produced = await runPrivateCapturedProcess(command, [...args, "--outDir", staging, "--emptyOutDir"], {
+      producer: "private_capture", cwd: root, repoRoot: root, runRoot,
+      env: { ...process.env, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
+        CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID },
     });
-    if (status !== 0) throw new CommandFailure(`frontend build failed with status ${status}`, { failure_class: "harness", failure_reason: "tool_diagnostic_failure" });
+    let productionError;
+    try {
+      process.stdout.write(produced.stdout); process.stderr.write(produced.stderr);
+      if (produced.signal) throw new CommandFailure("frontend compiler interrupted", { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" });
+      if (produced.status !== 0) throw new CommandFailure(`frontend build failed with status ${produced.status}`, { failure_class: "harness", failure_reason: "tool_diagnostic_failure" });
+    } catch (error) { productionError = error; throw error; }
+    finally {
+      try { produced.cleanup(); } catch (error) {
+        if (!productionError) throw error;
+        (productionError.cleanupFailures ??= []).push(error);
+      }
+    }
     validateBuildInputs();
     const directory = sealFrontendArtifact({ repoRoot: root, runRoot, runtime, profile, staging, claim });
     const lockRoot = path.join(root, ".cache/cartulary");
@@ -226,9 +225,17 @@ async function build(target, command, args) {
     // every browser consumer continue independently on their private artifacts.
     execFileSync("flock", ["-x", path.join(lockRoot, "frontend-publication.lock"),
       process.execPath, fileURLToPath(import.meta.url), "publish", target, directory], { stdio: "inherit" });
-  } finally {
-    if (staging) rmSync(staging, { recursive: true, force: true });
-    if (owned) runtime.close();
+  } catch (error) { buildFailure = error; throw error; }
+  finally {
+    try {
+      // Failed borrowed staging remains with its native owner; native close
+      // rejects deletion if any recorded compiler still owns a resource.
+      if (!buildFailure && staging) rmSync(staging, { recursive: true, force: true });
+      runtime.close();
+    } catch (error) {
+      if (!buildFailure) throw error;
+      (buildFailure.cleanupFailures ??= []).push(error);
+    }
   }
 }
 

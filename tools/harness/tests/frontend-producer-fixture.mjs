@@ -8,9 +8,9 @@ if (mode === "compiler-failure") {
   process.exitCode = 7;
 } else if (mode === "producer" || mode === "producer-race") {
   const { claimFrontendProducer, publishFrontendOutput, sealFrontendArtifact } = await import("../readiness/frontend-artifact.mjs");
-  const { borrowSuiteRuntime } = await import("../runtime/suite-runtime.mjs");
+  const { borrowRuntime } = await import("../runtime/session-client.mjs");
   const runRoot = path.resolve(process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
-  const runtime = borrowSuiteRuntime({ repoRoot: root, runRoot });
+  const runtime = borrowRuntime({ repoRoot: root, runRoot });
   const id = process.argv[3] || "production";
   const profile = { id, producer_target: id === "production" ? "build-web" : "build-web-measurement", entries: id === "production" ? ["index.html"] : ["index.html", "measurement.html", "presence.html"] };
   const admit = () => { try {

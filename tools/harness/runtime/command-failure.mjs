@@ -1,7 +1,7 @@
 import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { normalizeFailureRecord, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
-import { borrowSuiteRuntime } from "./suite-runtime.mjs";
+import { borrowRuntime } from "./session-client.mjs";
 
 const schemaID = "cartulary.harness_command_failure.v1";
 const contextKey = "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT";
@@ -25,7 +25,7 @@ function assertPrivate(file, directory = false) {
 
 function channel(repoRoot, environment, expected) {
   const runRoot = path.resolve(repoRoot, environment.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results", environment.CARTULARY_TEST_RUN_ID);
-  const runtime = borrowSuiteRuntime({ repoRoot, runRoot, environment });
+  const runtime = borrowRuntime({ repoRoot, runRoot, environment });
   validateSchemaSync(schemaID, { ...expected, ...accountingFailure });
   if (runtime.runID !== expected.run_id) throw new Error("command failure run mismatch");
   const directory = runtime.privatePath(`command-failure-${expected.invocation_id}`);
