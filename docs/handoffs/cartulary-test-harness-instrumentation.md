@@ -26,8 +26,12 @@ At entry, Node owned public graph execution and fixture coordination.
 S-031/E switches both public callers together; its closure checks pass.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
-REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035, S-034 and S-031/A–F are complete; S-032 is IN_PROGRESS.
+REQ-852–855 state the adopted ownership contract. S-035, S-034, S-031/A–F and
+S-032/V-033 are DONE with individually saved checkpoints. **Functional remediation
+is complete.** Final executable source is `0725873db841e6db2a52013948d6982ffc392cf6`,
+digest `sha256:1bdb3547e772d5011e1bd7ab66b85264eb5a25fe4198ad860fe06a17c9103307`;
+the handoff-only commit does not change that source. E-040 records final results,
+failed attempts, compatibility effects and explicit qualification limits.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -846,7 +850,7 @@ are not applicable because no product contract changes.
 
 ## 5. Coupling and Boundary Findings
 
-### Current remaining gaps and dispositions
+### Current findings and final dispositions
 
 | Finding | Remediation / areas | Rationale and long-term benefit | Compatibility / migration | Risk if unresolved | Completion evidence |
 | --- | --- | --- | --- | --- | --- |
@@ -939,7 +943,7 @@ workstream with its own result and checkpoint.
 | WF-31D Observation | S-031/D after saved S-031/C | DONE | V-031: collection/drain/scan/receipt and independent reader gates |
 | WF-31E Cutover | S-031/E after saved S-031/D | DONE | One public runtime/fixture owner, caller/generated/deletion closure |
 | WF-31F Public proof | S-031/F after saved S-031/E | DONE | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
-| WF-32 Handoff | S-032 after saved S-031/F | IN_PROGRESS | V-033: finalization, frozen-source broad checks, warm check and handoff |
+| WF-32 Handoff | S-032 after saved S-031/F | DONE | V-033/E-040: finalization, frozen-source broad checks, warm check and handoff |
 | WF-20–22 Qualification | S-020–S-022 | DEFERRED | Separate adoption and complete eligible stable evidence |
 
 Each checkpoint records files/changes, exact commands, source commit/state/digest,
@@ -1018,9 +1022,10 @@ lists are historical and do not redefine the current sequence.
 
 ## 7. Remediation Slice Plan
 
-### Current next-step plan from clean main
+### Adopted workstream plan and completed test dispositions
 
-S-033 is complete. The current request authorizes the following sequence.
+S-033 is complete. The following adopted sequence is complete through S-032;
+Sections 6, 9 and E-032–E-040 record its individual checkpoints and results.
 
 **S-035 — Reconcile specification and current tracker.** Correct REQ-840 v2
 identities, REQ-833 container availability and REQ-844 retired acquisition wording;
@@ -1665,9 +1670,10 @@ V-034 records the completed S-033 baseline cleanup. V-035 and V-036 close
 presentation and specification reconciliation. Current-source V-028–032 are
 complete through E-035–E-039; historical candidate passes were not substituted.
 The native graph and shared fixture policy are integrated, UI-review migration
-and real lifecycle suites pass, and the full warm product check is running in
-S-032 after successful finalization. V-033 remains open until that run and final
-handoff pass. Qualification/experimental acquisition remain deferred.
+and real lifecycle suites pass. The final full warm product check passed after
+successful finalization: 981/981 units, owning exit 0, exact canonical/scan audit
+PASS. V-033 closes through E-040. Qualification/experimental acquisition remain
+deferred; no functional result is relabeled as performance certification.
 
 ### Salvage gates — historical off-main salvage
 
@@ -1834,9 +1840,9 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
 | T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
 | T-037 / S-031 | Native cutover, separately checkpointed A–F | DONE; V-032/E-039, all checkpoints saved |
-| T-038 / S-032 | Functional validation and handoff | IN_PROGRESS; finalization passed; full warm check running |
+| T-038 / S-032 | Functional validation and handoff | DONE; V-033/E-040, final-source full warm check and audit PASS |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
-| T-007 | Original functional coverage | IN_PROGRESS until S-032 |
+| T-007 | Original functional coverage | DONE for adopted functional scope; E-040; coverage limits remain explicit |
 | T-008, T-026–T-028 | Qualification/original certification handoff | DEFERRED; F-022/RB-006 unresolved |
 
 ### Salvage work — historical off-main salvage
@@ -1899,7 +1905,7 @@ completed implementation slices do not establish successful qualification.
 
 ## 10. Session Handoff Log
 
-### E-040 — S-032 finalization and source freeze — IN_PROGRESS
+### E-040 — S-032 final validation and handoff — DONE
 
 Initial frozen executable commit `38b8758c8` (clean), digest
 `sha256:d11fef10e28232f528c48534e3085a3b7ad5c6b41f91d2c6367ad4d8af6d1f86`.
@@ -2002,8 +2008,135 @@ generated/source changes. Retained-run maintenance was skipped because
 RESULTS_DIR was unset; both prior full checks are failed and ineligible.
 The repaired executable digest is
 `sha256:1bdb3547e772d5011e1bd7ab66b85264eb5a25fe4198ad860fe06a17c9103307`.
-V-033 remains open until fresh final-source broad checks, full warm acceptance
-and handoff are saved.
+Fresh final-source broad checks, full warm acceptance and the handoff below
+close V-033; earlier failures remain retained with their original source.
+
+Current executable freeze is clean `0725873db841e6db2a52013948d6982ffc392cf6`
+with the `1bdb3547...` digest above. `contract-03 make harness-contract` passed,
+owning exit 0, 123,452 ms; this supplies both required outcomes absent from the
+contract-02 session record. `markdown-03 make lint-markdown` passed, outer 0,
+8,210 ms. `check-03 make check` completed under native session 94526. These
+functional checks overlap during initial execution; none is qualification evidence.
+
+Fresh final-source physical/report checks (all owning exits 0):
+`service-01 make service-backed-test-slice OWNER=module.database_migrations
+ROWS=module.database_migrations.integration.schema_bootstrap
+HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off` passed in 14,791 ms;
+`https-01 make service-backed-test-slice OWNER=harness.browser
+ROWS=harness.browser.boundary_support.https_trust HARNESS_DIAGNOSTICS=basic
+CARTULARY_HARNESS_CACHE_MODE=off` passed in 29,119 ms. Both exact roots passed
+`make harness-observability-check RESULTS_DIR=<root>` (one invocation/four
+sources, diagnostics/execution complete), `make test-run-status
+RESULTS_DIR=<root> JSON=1`, and `make explain-run RESULTS_DIR=<root>
+DETAIL=performance|resources` separately in human and `JSON=1` forms.
+Captures are `/tmp/cartulary-s032-{service,https}-{performance,resources}.{txt,json}`
+and `/tmp/cartulary-s032-{service,https}-status.json`; underlying exact roots
+remain authoritative. Performance/resource JSON views are identical.
+
+The short service run legitimately has no observed containers. The HTTPS run has
+two owned containers with three samples each: memory maxima 180,613,120 and
+78,041,088 bytes, limit 33,353,146,368 bytes, PID maxima 13 and 18, observed block
+writes 32,202,752 and 94,208 bytes over 12,098 ms. Both observed block-read deltas
+are measured zero. Container CPU percentages derive from valid paired samples;
+allocation remains unavailable where the validated roster has no binding.
+Human resource output includes both containers within 7,726 bytes and discloses
+35 omitted scopes and 50 omitted lines. No totals across overlapping scopes,
+new samples, longer workload or qualification claim were invented for reporting.
+
+Final full warm command `env CARTULARY_TEST_RUN_ID=remediate-s032-check-03 make
+check` passed, owning Make exit 0, canonical status PASS, 981/981 work units,
+zero failed/skipped/cancelled, 848,697 ms canonical wall. Cache disposition is
+209 hits, 609 misses and 163 bypasses; cached units are accepted warm evidence,
+not claimed freshly executed tests or timing observations. All 1,031 cleanup
+steps passed. This final-source graph includes `lint-go`, `lint-scripts`,
+`lint-shell`, `lint-biome`, `generate-drift`, `generated-artifact-policy-check`,
+`json-shape-check`, `otel-conformance`, smoke, product checks and builds. Their
+actual final target/unit summaries are retained beneath the exact root.
+The environment remains Linux/WSL with selected Go 1.27.2 and pinned repository
+tools; toolchain digest is
+`sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`,
+system digest
+`sha256:546793d134ea4063515a25068aa22b78078fc1613c1ee56fb5f9e41c5c550588`.
+
+Exact-run `make explain-run RESULTS_DIR=.cartulary/test-results/remediate-s032-check-03
+TARGET=check DETAIL=summary`, `make test-run-status RESULTS_DIR=<same-root>
+JSON=1`, `make harness-observability-check RESULTS_DIR=<same-root>`, and separate
+human/JSON `make explain-run RESULTS_DIR=<same-root> DETAIL=performance|resources`
+all exited 0. Canonical root schema is `cartulary.harness_run_summary.v1`, live
+observation resolves to terminal PASS, and the retained-secret scan passed over
+6,059 files. The independent audit passed one invocation/four sources; diagnostics
+and execution observations are correctly not observed in this default-off run.
+Performance/resource JSON facts match. Temporary views are
+`/tmp/cartulary-s032-check-{performance,resources}.{txt,json}` and
+`/tmp/cartulary-s032-check-status.json`. No export transport was invoked; the
+passing evidence/harness contracts retain local projection and export-isolation
+coverage. Scanner, status-reader and owning-process outcomes remain distinct.
+
+Retained-run maintenance was skipped at each finalization because RESULTS_DIR
+was unset and no eligible successful current-source full warm check existed then.
+This final successful root is now available for future explicitly selected
+maintenance; no maintenance pass is retroactively claimed. Experimental
+acquisition, qualification, baseline refresh, default-on promotion and Core 05
+publication were intentionally excluded. No required functional gate remains
+skipped or failed on the final executable source.
+
+Final salvage preservation comparison passed: all 6,937 tracked/nonignored
+entries, modes, hashes and absence markers match; no additional path; HEAD remains
+`79aecc1cae7a9474c92f4a9b8f77092bc4363662`. A first comparison helper incorrectly
+compared the snapshot's `['absent']` marker to null and reported the 19 already
+absent paths; correcting that comparison yielded zero differences. No source
+was restored or modified in salvage. No new archive or evidence deletion occurred.
+
+Current finding closure is explicit:
+
+| Finding | Final disposition / evidence |
+| --- | --- |
+| F-019 | DONE; E-032–E-040 replace current summaries and preserve historical source-scoped failures |
+| F-028 | DONE; E-035/E-037/E-038/E-039 and final contract/check: one Go runtime, compiler reaping, scheduler/cache/lifecycle/publication ownership |
+| F-029 | Removal remains DONE; E-038 generated/import/build closure and final contract/check preserve retired experimental paths and independent qualification validator |
+| F-030 | DONE; E-036/E-038/E-039, fixture race proof and final physical runs: one policy for graph/UI-review, physical owners retained |
+| F-031 | DONE; Section 7 disposition ledger and E-038 close all changed test groups; no copied scheduler/coordinator or repeated full-suite smoke owner |
+| F-032 | DONE; E-033/E-039 and final-source HTTPS fact/byte/omission parity above |
+| F-033 | DONE; S-035/C-021/V-036/E-032 owner reconciliation and final documentation review |
+| F-034 | DONE; E-036 real borrowed-session/TLS proof, unchanged optional private projection and final fixture/physical checks |
+| F-035 | DONE; actual projection-scope assertions, final otel-conformance and full check PASS |
+| F-036 | DONE; supported full check publishes one canonical root, terminal status and completed scan/audit |
+| F-022/RB-006 | Unresolved; S-020–S-022 DEFERRED, all thresholds, failed dispositions and 44.952/90-minute ledger unchanged |
+
+Public Make names, selection, failure semantics and retained acceptance versions
+remain stable. Human reports now expose scope-specific observations. Private
+runtime-plan/session interfaces migrate atomically to their adopted 32 MiB/1 MiB
+bounds; obsolete private entrypoints, standalone composition roots, JS scheduler,
+cache transactions, live writer, broker policy and duplicate test coordinators
+are removed. Compilation, row runners, physical service/browser adapters and
+offline readers remain. No permanent alternate-engine flag, compatibility shim
+or new domain concept is introduced. Rollback requires a coherent source plus
+authored/generated-projection transaction, not mixed owners or runtime selection.
+
+Each predecessor checkpoint was saved before its successor:
+
+| Workstream | Saved checkpoint |
+| --- | --- |
+| S-035 / E-032 | `6cb56a531` |
+| S-034 / E-033 | `531fe6f92` |
+| S-031/A / E-034 | `ae39f79f0` |
+| S-031/B / E-035 | `4e37fdd3f`, whitespace closure `4ebcdacdd` |
+| S-031/C / E-036 | `60767f7b1` |
+| S-031/D / E-037 | `8fe6c3d3c` |
+| S-031/E / E-038 | `52713a9bf` |
+| S-031/F / E-039; parent S-031 | `38b8758c8` |
+| S-032 / E-040 | Repair freezes `e7fe065cb` and `0725873db`; this final handoff-only checkpoint closes V-033 |
+
+Functional remediation is complete. Residual observations remain sampled lower
+bounds with unavailable Windows-host/Docker-internal/short-lived-process detail;
+no aggregate attribution or overhead certification follows. The original broader
+effort stays IN_PROGRESS only for explicitly deferred qualification. A future
+qualification effort requires separate adoption and complete eligible, stable
+evidence under unchanged gates. No further functional successor is pending.
+Final documentation gate `env CARTULARY_TEST_RUN_ID=remediate-s032-markdown-04
+make lint-markdown` passed, owning exit 0, 7,050 ms. `git diff --check HEAD`
+passed, all twelve numbered sections remain, and only this tracker changed
+after the validated executable freeze.
 
 ### E-039 — S-031/F public boundary checkpoint; S-031 complete
 
@@ -2799,7 +2932,7 @@ document checkpoint, not a runtime-validation result.
 | --- | --- | --- |
 | F-022/RB-006 | Unresolved, qualification DEFERRED | Separate adopted acquisition and unchanged qualification gates; outside this effort |
 | S-035 | DONE | V-036/E-032 saved checkpoint |
-| Successor workstreams | BLOCKED on predecessor | Section 6 checkpoint gates; no historic pass substitution |
+| S-034/S-031A–F/S-032 | DONE | Section 6 saved checkpoint gates and current-source V-033/E-040; no remaining functional blocker |
 
 Implementation is authorized. No permission gate follows an ordinary failed
 functional test; repair its owner and repeat affected validation. Do not restart
@@ -2857,15 +2990,16 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035/S-034/S-031A–F DONE; S-032 in progress after finalization |
-| Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
-| Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
+| Implementation | S-035/S-034/S-031A–F/S-032 DONE; one native graph and shared fixture policy |
+| Functional completion | Complete; S-035, S-034, S-031/A–F and S-032/V-033 individually checkpointed |
+| Evidence | E-040 final source, commands, owning exits, exact roots and audits; failed attempts and candidate content preserved |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |
-| Original effort | IN_PROGRESS; final functional delivery will not imply overhead certification |
+| Original effort | IN_PROGRESS solely for deferred qualification; functional delivery does not imply overhead certification |
 
-Report functional remediation complete only after V-033. Finalization precedes
-broader verification; any executable refresh requires a new source identity and
-affected checks. Ordinary readers stay local and diagnostics default-off.
+V-033 is complete. Finalization preceded broader verification; both executable
+repairs were re-frozen and revalidated. Ordinary readers stay local and diagnostics
+default-off. No overhead certification, improved RSS/CPU, default-on readiness or
+Core 05 publication is claimed.
 
 ### Salvage completion — historical off-main salvage
 
