@@ -27,7 +27,7 @@ S-031/E switches both public callers together; its closure checks pass.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
 REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035, S-034 and S-031/A–E are complete; S-031/F is ready.
+completion. S-035, S-034 and S-031/A–F are complete; S-032 is ready.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -936,8 +936,8 @@ workstream with its own result and checkpoint.
 | WF-31C Fixtures | S-031/C after saved S-031/B | DONE | V-030: one fixture policy, real lifecycle/recovery and race gates |
 | WF-31D Observation | S-031/D after saved S-031/C | DONE | V-031: collection/drain/scan/receipt and independent reader gates |
 | WF-31E Cutover | S-031/E after saved S-031/D | DONE | One public runtime/fixture owner, caller/generated/deletion closure |
-| WF-31F Public proof | S-031/F after saved S-031/E | TODO | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
-| WF-32 Handoff | S-032 after saved S-031/F | BLOCKED | V-033: finalization, frozen-source broad checks, warm check and handoff |
+| WF-31F Public proof | S-031/F after saved S-031/E | DONE | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
+| WF-32 Handoff | S-032 after saved S-031/F | TODO | V-033: finalization, frozen-source broad checks, warm check and handoff |
 | WF-20–22 Qualification | S-020–S-022 | DEFERRED | Separate adoption and complete eligible stable evidence |
 
 Each checkpoint records files/changes, exact commands, source commit/state/digest,
@@ -1836,8 +1836,8 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-039 / S-033 | Prior cleanup | DONE; E-031 |
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
 | T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
-| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A–E DONE, F ready; later gates in Section 6 |
-| T-038 / S-032 | Functional validation and handoff | BLOCKED on saved V-032 |
+| T-037 / S-031 | Native cutover, separately checkpointed A–F | DONE; V-032/E-039, all checkpoints saved |
+| T-038 / S-032 | Functional validation and handoff | TODO; V-032 saved, finalization first |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
 | T-007 | Original functional coverage | IN_PROGRESS until S-032 |
 | T-008, T-026–T-028 | Qualification/original certification handoff | DEFERRED; F-022/RB-006 unresolved |
@@ -1901,6 +1901,65 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-039 — S-031/F public boundary checkpoint; S-031 complete
+
+Executed the installed public surface on clean `52713a9bf` with executable digest
+`sha256:d11fef10e28232f528c48534e3085a3b7ad5c6b41f91d2c6367ad4d8af6d1f86`,
+Linux/WSL and unchanged pinned toolchain. No executable edits were necessary.
+Discovery used current owner task guides and target explanations. Each writing
+command used `env CARTULARY_TEST_RUN_ID=remediate-s031f-<suffix> make <target>`;
+all owning process exits 0, all retained summaries PASS. Primary roots are
+`.cartulary/test-results/remediate-s031f-<suffix>`; no failed F attempt or skipped
+required boundary. Concurrency is functional evidence only.
+
+| Suffix | Exact target | Result |
+| --- | --- | --- |
+| runtime-01 | harness-runtime-contract | PASS, 16,590 ms |
+| fixture-01 | harness-fixture-contract | PASS, 3,550 ms |
+| evidence-01 | harness-evidence-contract | PASS, 8,510 ms |
+| command-01 | harness-command-surface-contract | PASS, 53,380 ms |
+| ui-01 | harness-ui-review-contract | PASS, 2,180 ms |
+| lifecycle-01 | harness-ui-review-lifecycle | PASS, 68,210 ms |
+| seeded-01 | harness-ui-review-seeded-default | PASS, 121,630 ms |
+| boundary-01 | harness-runtime-boundary-contract | PASS, 37,290 ms |
+| local-01 | test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.local_migration_activities HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off | PASS, 1,842 ms |
+| shell-01 | test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.current_epoch_evidence HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off | PASS, 9,912 ms |
+| vitest-01 | test-slice OWNER=package.ui ROWS=package.ui.boundary_support.design_tokens_exposes_explicit_font_role_tokens_55f6ac41b0 HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off | PASS, 4,662 ms |
+| service-01 | service-backed-test-slice OWNER=module.database_migrations ROWS=module.database_migrations.integration.schema_bootstrap HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off | PASS, 14,223 ms |
+| https-01 | service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.https_trust HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off | PASS, 30,352 ms |
+| object-01 | service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.integration.object_store_fixture_roundtrip CARTULARY_HARNESS_CACHE_MODE=off | PASS, 12,799 ms |
+
+Evidence and command contracts cover malformed public input, real wrapper
+nesting/early failure/SIGINT/SIGTERM, native failure/cancellation/descendant drain,
+private output isolation, bounded readers and no-provisioning status. UI-review
+seeded lifecycle proves actual native shared borrowing, rejects stopping a live
+borrower, tolerates repeated native close and preserves borrowed services until
+the physical owner closes them. Runtime/fixture race contracts pass. Native
+boundary retains independent-reader PostgreSQL/HTTPS roots beneath
+`boundary-01/native-boundary/{postgres,https}`.
+
+Read-only `make test-run-status RESULTS_DIR=<service-01-root> JSON=1` first
+observed live revision 3, executing with one passed/one running/one pending unit,
+then terminal pass. `make harness-observability-check RESULTS_DIR=<root>` passes
+for service-01 and https-01 (one invocation, four sources, diagnostics and
+execution complete). `make explain-run RESULTS_DIR=<root> DETAIL=resources`
+and `JSON=1` pass for both; performance human/JSON pass for service-01. Saved
+views are `/tmp/cartulary-s031f-{service,https}-resources.{txt,json}` and
+`/tmp/cartulary-s031f-service-performance.{txt,json}`, with terminal status in
+`/tmp/cartulary-s031f-service-status.json`. Retained roots are authoritative.
+Human/JSON inspected values agree: service container memory 127,504,384 and
+76,034,048 bytes, limits 33,353,146,368, PID gauges 9/17; HTTPS memory
+177,057,792 and 77,070,336, PID 13/18. Each has one sample, so CPU and I/O deltas
+are unavailable, not zero. Allocation is honestly unobserved where the validated
+roster has no allocation reference. No change to cadence or accepted payloads.
+
+All Section 7 dispositions and E deletion obligations close. One production graph
+owner and one fixture policy serve migrated callers; no retired experimental
+route remains. F-028/F-030/F-031 pass their functional V-032 boundary. S-031/A–F
+and parent S-031 are DONE. S-032 may start after this checkpoint; it must run
+agent-finalize before frozen-source broad checks and full warm check. Broader
+original qualification stays unresolved/deferred with unchanged budgets/history.
 
 ### E-038 — S-031/E atomic cutover and deletion checkpoint
 
@@ -2695,7 +2754,7 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035/S-034/S-031A–E DONE; S-031/F ready; later work gated in Section 6 |
+| Implementation | S-035/S-034/S-031A–F DONE; S-032 ready, finalization precedes broader checks |
 | Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
 | Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |
