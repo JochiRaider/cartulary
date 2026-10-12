@@ -42,7 +42,7 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
         if (detail.operation_id === result.operation_id) diagnostic = JSON.stringify({ stage: detail.stage, cause_name: detail.cause_name, cause_code: detail.cause_code, command: detail.last_command?.command, exit_status: detail.last_command?.status });
       } catch { diagnostic = "private diagnostic unavailable"; }
     }
-    assert.equal(result.status, "ok", `${command}: ${JSON.stringify(result.failures)} ${diagnostic}`); assert.equal(response.code, 0);
+    assert.equal(result.status, "ok", `${command}: state=${result.state} epoch=${result.epoch} operation=${result.operation_id} ${JSON.stringify(result.failures)} ${diagnostic}`); assert.equal(response.code, 0);
     privateRefs.push(...result.private_refs.map((ref) => ref.absolute_path));
     return result;
   };

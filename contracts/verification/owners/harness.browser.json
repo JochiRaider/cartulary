@@ -21,6 +21,15 @@
       "public_target": "harness-runtime-boundary-contract"
     },
     {
+      "verification_id": "harness.browser.verification.native_review",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "harness-runtime-contract"
+    },
+    {
       "verification_id": "harness.browser.verification.support_contract",
       "behavior_class": "harness",
       "profile": "support",

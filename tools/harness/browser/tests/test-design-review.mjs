@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { holdReviewSession, reviewProfile, withReviewResources } from "../design-review.mjs";
+import { holdReviewSession, reviewProfile, withReviewResources } from "../review-preparation.mjs";
 import { reviewTotp } from "../design-review-seed.mjs";
 import { writeReviewSamples } from "../design-review-samples.mjs";
 

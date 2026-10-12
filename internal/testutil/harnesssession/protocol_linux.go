@@ -3,6 +3,7 @@
 package harnesssession
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,22 +18,22 @@ import (
 )
 
 const RequestSchema = "cartulary.harness_runtime_session.v1"
-const MaximumFrame = 1048576
 
 type request struct {
-	Schema      string            `json:"schema_id"`
-	ID          int               `json:"request_id"`
-	Operation   string            `json:"operation"`
-	Repository  string            `json:"repository"`
-	RunRoot     string            `json:"run_root"`
-	RunID       string            `json:"run_id"`
-	Root        string            `json:"root"`
-	LeaseID     string            `json:"lease_id"`
-	Scratch     string            `json:"scratch"`
-	Parts       []string          `json:"parts"`
-	Values      []string          `json:"values"`
-	Environment map[string]string `json:"environment"`
-	Resource    *Resource         `json:"resource"`
+	Schema         string            `json:"schema_id"`
+	ID             int               `json:"request_id"`
+	Operation      string            `json:"operation"`
+	Repository     string            `json:"repository"`
+	RunRoot        string            `json:"run_root"`
+	RunID          string            `json:"run_id"`
+	Root           string            `json:"root"`
+	LeaseID        string            `json:"lease_id"`
+	Scratch        string            `json:"scratch"`
+	Parts          []string          `json:"parts"`
+	Values         []string          `json:"values"`
+	Environment    map[string]string `json:"environment"`
+	Resource       *Resource         `json:"resource"`
+	AdmissionToken string            `json:"admission_token"`
 }
 
 type response struct {
@@ -144,6 +145,16 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 			return out, harnesslocal.ErrUnsafe
 		}
 		result = r.RecordResource(q.Resource.Kind, q.Resource.Target, q.Resource.State)
+		if result == nil && q.AdmissionToken != "" && q.Resource.State != "released" && strings.HasSuffix(q.Resource.Kind, "_process") {
+			data, _ := json.Marshal(q.Resource.Target)
+			var proof harnessadmission.Proof
+			if json.Unmarshal(data, &proof) != nil {
+				return out, harnesslocal.ErrUnsafe
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, result = harnessadmission.Transact(ctx, harnessadmission.Request{Root: harnessadmission.DefaultRoot(), Operation: "bind", Token: q.AdmissionToken, Guard: proof})
+		}
 	case "resources":
 		out.Result, result = r.Resources(4096)
 	case "preserve":

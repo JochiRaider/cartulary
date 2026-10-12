@@ -50,7 +50,10 @@
     "tools/workspace_layout.generated.mjs",
     "tools/workspace_layout.generated.mk",
     "tools/workspace_layout.generated.sh",
-    "internal/testutil/harnessruntime/policy_generated.go"
+    "internal/testutil/harnessruntime/policy_generated.go",
+    "internal/testutil/harnesssession/policy_generated.go",
+    "internal/testutil/harnessreview/policy_generated.go",
+    "tools/harness/contract/generated/lifecycle-policy.mjs"
   ],
   "copy_paths": [
     "apps/web/e2e/workbook.visual.spec.ts-snapshots",
@@ -127,7 +130,8 @@
     "tools/workspace_layout.generated.sh",
     "tools/workspace_layout.generated.mk",
     "tools/workspace_layout.generated.mjs",
-    "tools/harness_instrumentation_definitions.json"
+    "tools/harness_instrumentation_definitions.json",
+    "tools/harness_lifecycle_policy.json"
   ],
   "placeholder_dirs": [
     "apps/web",

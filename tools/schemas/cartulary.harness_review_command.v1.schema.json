@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_review_command.v1",
+  "anyOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "command",
+        "mode",
+        "origin",
+        "profile",
+        "tool_profile",
+        "results_root",
+        "run_id",
+        "preparation_policy"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_command.v1"
+        },
+        "command": {
+          "const": "ui-review"
+        },
+        "mode": {
+          "enum": [
+            "seeded",
+            "dev",
+            "artifacts"
+          ]
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          ]
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "default",
+                "network_flow_claimed"
+              ]
+            }
+          ]
+        },
+        "tool_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pins_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "lock_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "node_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "playwright_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "sharp_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "axe_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          "required": [
+            "pins_sha256",
+            "lock_sha256",
+            "node_version",
+            "playwright_version",
+            "sharp_version",
+            "axe_version"
+          ]
+        },
+        "results_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "preparation_policy": {
+          "enum": [
+            "installed_only",
+            "ensure"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "command",
+        "mode",
+        "origin",
+        "profile",
+        "tool_profile",
+        "results_root",
+        "run_id",
+        "preparation_policy"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_command.v1"
+        },
+        "command": {
+          "enum": [
+            "browser-design-review",
+            "browser-design-review-smoke"
+          ]
+        },
+        "mode": {
+          "const": "seeded"
+        },
+        "origin": {
+          "type": "null"
+        },
+        "profile": {
+          "enum": [
+            "default",
+            "network_flow_claimed"
+          ]
+        },
+        "tool_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pins_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "lock_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "node_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "playwright_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "sharp_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "axe_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          "required": [
+            "pins_sha256",
+            "lock_sha256",
+            "node_version",
+            "playwright_version",
+            "sharp_version",
+            "axe_version"
+          ]
+        },
+        "results_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "preparation_policy": {
+          "const": "ensure"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "command",
+        "request",
+        "bundle_id",
+        "locator"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_command.v1"
+        },
+        "command": {
+          "enum": [
+            "ui-review-status",
+            "ui-browser",
+            "ui-capture",
+            "ui-analyze",
+            "ui-review-report",
+            "ui-review-stop"
+          ]
+        },
+        "request": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "cartulary.ui_review_action.v3"
+            },
+            {
+              "$ref": "cartulary.ui_review_capture_request.v1"
+            },
+            {
+              "$ref": "cartulary.ui_review_analysis_request.v1"
+            }
+          ]
+        },
+        "bundle_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^bundle-[1-9][0-9]*$"
+            }
+          ]
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    }
+  ]
+}

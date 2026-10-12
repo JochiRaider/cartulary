@@ -157,7 +157,20 @@ func MatchPattern(pattern, value string) bool {
 		}
 		pattern = strings.ReplaceAll(strings.ReplaceAll(pattern, reservedPart, ""), reservedLast, "")
 	}
-	if pattern == legacyReference {
+	const reviewReference = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))(?!.*[\\\u0000]).+$`
+	const repositoryPath = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$`
+	if pattern == repositoryPath {
+		for _, part := range strings.Split(value, "/") {
+			if part == ".." {
+				return false
+			}
+		}
+		pattern = `^[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$`
+	}
+	if pattern == reviewReference && strings.ContainsAny(value, "\\\x00") {
+		return false
+	}
+	if pattern == legacyReference || pattern == reviewReference {
 		if value == "" || strings.HasPrefix(value, "/") || strings.ContainsAny(value, "\n\r\u2028\u2029") {
 			return false
 		}

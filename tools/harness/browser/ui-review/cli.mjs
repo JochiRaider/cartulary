@@ -9,7 +9,7 @@ try {
   const { resolveInputs } = await import("./inputs.mjs");
   if (process.argv.length !== 3 || requested !== command) throw new ReviewFailure("invalid_request");
   const input = resolveInputs(command);
-  const { execute } = await import("./controller.mjs");
+  const { execute } = await import("./native-client.mjs");
   await execute(command, input, profile);
 } catch (error) {
   // Preflight works even when an installed package is absent; no raw exception

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_review_channel.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "session_id",
+    "token",
+    "command",
+    "request",
+    "bundle_id"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_review_channel.v1"
+    },
+    "session_id": {
+      "type": "string",
+      "pattern": "^uireview-[a-f0-9]{32}$"
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "command": {
+      "enum": [
+        "ui-review-status",
+        "ui-browser",
+        "ui-capture",
+        "ui-analyze",
+        "ui-review-report",
+        "ui-review-stop"
+      ]
+    },
+    "request": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "cartulary.ui_review_action.v3"
+        },
+        {
+          "$ref": "cartulary.ui_review_capture_request.v1"
+        },
+        {
+          "$ref": "cartulary.ui_review_analysis_request.v1"
+        }
+      ]
+    },
+    "bundle_id": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^bundle-[1-9][0-9]*$"
+        }
+      ]
+    }
+  }
+}

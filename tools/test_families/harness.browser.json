@@ -1234,6 +1234,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.unit.native_review",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.native_review"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessreview",
+        "tests": [
+          "TestReviewIPC",
+          "TestReviewLifecycle",
+          "TestReviewPublication"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.unit.object_store_fixture_admission",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",

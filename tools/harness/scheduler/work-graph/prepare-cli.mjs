@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { lifecyclePolicy } from "../../contract/generated/lifecycle-policy.mjs";
 import { closeSync, fstatSync, writeSync } from "node:fs";
 import { prepareRuntimePlan } from "./prepare-plan.mjs";
 
@@ -7,7 +8,7 @@ import { prepareRuntimePlan } from "./prepare-plan.mjs";
 try {
   if (!fstatSync(3).isFIFO()) throw Error("private compiler descriptor required");
   const bytes = Buffer.from(JSON.stringify(prepareRuntimePlan(process.argv.slice(2))));
-  if (bytes.length > 32 * 1024 * 1024) throw Error("private compiler plan exceeds bound");
+  if (bytes.length > lifecyclePolicy.limits.plan) throw Error("private compiler plan exceeds bound");
   let offset = 0;
   while (offset < bytes.length) offset += writeSync(3, bytes, offset, bytes.length - offset);
   closeSync(3);

@@ -150,6 +150,10 @@ async function seedWithBrowser({ root, environment, privateDirectory, runRoot, p
   const bytes = Buffer.from(timelineRecipe.evidence.find((item) => item.key === "authentication-audit").content);
   await call("createIncidentSavedView", { display_name: "Shared review Timeline", scope: "shared", view_schema_id: view("timeline_event"), query_json: {}, layout_json: {} }, { incident_id: populated });
 
+  // Verify the seeded invariant before smoke probes intentionally import more rows.
+  const verifiedInvestigation = await investigation.verify();
+  writeFileSync(path.join(runRoot, "investigation-receipt.json"), `${JSON.stringify(verifiedInvestigation)}\n`, { mode: 0o600 });
+
   // A real attached browser exercises the production surface while preparing
   // the sample. These screenshots are observations, never golden inputs.
   let page;
@@ -235,8 +239,6 @@ async function seedWithBrowser({ root, environment, privateDirectory, runRoot, p
     }
     throw error;
   }
-  const verifiedInvestigation = await investigation.verify();
-  writeFileSync(path.join(runRoot, "investigation-receipt.json"), `${JSON.stringify(verifiedInvestigation)}\n`, { mode: 0o600 });
   return { samples, investigation: verifiedInvestigation, privateSemanticMapping: investigation.mapping, scenarios: [
     { name: "Populated workbook, Evidence, history, coordination and saved view", url: `${publicOrigin}/?incident_id=${populated}` },
     { name: "Empty workbook", url: `${publicOrigin}/?incident_id=${empty}` },

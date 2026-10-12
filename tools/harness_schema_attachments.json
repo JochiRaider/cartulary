@@ -140,7 +140,8 @@
       "path": "tools/schemas/cartulary.executable_input_policy.v1.schema.json",
       "classification": "owner_input",
       "producer": "executable input policy owner",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.execution_topology.v9",
@@ -487,6 +488,13 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_lifecycle_policy.v1",
+      "path": "tools/schemas/cartulary.harness_lifecycle_policy.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness shared lifecycle policy",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_live_snapshot.v2",
       "path": "tools/schemas/cartulary.harness_live_snapshot.v2.schema.json",
       "classification": "public_contract",
@@ -560,6 +568,46 @@
       "path": "tools/schemas/cartulary.harness_retained_secret_scan.v1.schema.json",
       "classification": "public_contract",
       "producer": "work graph retained-evidence boundary",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_review_adapter.v1",
+      "path": "tools/schemas/cartulary.harness_review_adapter.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native review coordinator private browser adapter",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_review_channel.v1",
+      "path": "tools/schemas/cartulary.harness_review_channel.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native review lifecycle",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_review_command.v1",
+      "path": "tools/schemas/cartulary.harness_review_command.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native review lifecycle",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_review_design_ready.v1",
+      "path": "tools/schemas/cartulary.harness_review_design_ready.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native review coordinator private browser adapter",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_review_registry.v1",
+      "path": "tools/schemas/cartulary.harness_review_registry.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native review lifecycle",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },
@@ -1319,14 +1367,16 @@
       "path": "tools/schemas/cartulary.ui_review_action.v3.schema.json",
       "classification": "owner_input",
       "producer": "UI review harness",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.ui_review_analysis_request.v1",
       "path": "tools/schemas/cartulary.ui_review_analysis_request.v1.schema.json",
       "classification": "owner_input",
       "producer": "UI review harness",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.ui_review_bundle.v2",
@@ -1340,14 +1390,16 @@
       "path": "tools/schemas/cartulary.ui_review_capture_request.v1.schema.json",
       "classification": "owner_input",
       "producer": "UI review harness",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.ui_review_command_result.v2",
       "path": "tools/schemas/cartulary.ui_review_command_result.v2.schema.json",
       "classification": "public_contract",
       "producer": "UI review harness",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.ui_review_observations.v1",
@@ -1361,14 +1413,16 @@
       "path": "tools/schemas/cartulary.ui_review_receipt.v2.schema.json",
       "classification": "public_contract",
       "producer": "UI review harness",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.ui_review_session.v1",
       "path": "tools/schemas/cartulary.ui_review_session.v1.schema.json",
       "classification": "public_contract",
       "producer": "UI review harness",
-      "validation": "json-shape-check"
+      "validation": "json-shape-check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.verification_contract.v3",

@@ -1,34 +1,6 @@
-export const failureMappings = Object.freeze({
-  invalid_request: ["config", "usage_error", 2],
-  tool_configuration: ["config", "configuration_error", 2],
-  session_mismatch: ["config", "configuration_error", 2],
-  target_unavailable: ["harness", "tool_diagnostic_failure", 1],
-  navigation_boundary: ["harness", "tool_diagnostic_failure", 1],
-  environment_unavailable: ["infra", "preflight_error", 3],
-  startup_failed: ["infra", "service_start_error", 3],
-  readiness_expired: ["infra", "service_readiness_timeout", 3],
-  capacity_exceeded: ["infra", "resource_conflict", 4],
-  invalid_artifact: ["artifact", "artifact_error", 11],
-  unstable_capture: ["artifact", "artifact_error", 11],
-  observation_limit: ["artifact", "artifact_error", 11],
-  analysis_failed: ["harness", "tool_diagnostic_failure", 1],
-  operation_expired: ["timing", "timeout_failure", 13],
-  session_lost: ["infra", "service_start_error", 3],
-  unsafe_artifact: ["artifact", "artifact_error", 11],
-  input_boundary: ["artifact", "artifact_error", 11],
-  cleanup_failed: ["harness", "cleanup_error", 12],
-  interrupted: ["interrupted", "cancelled_or_interrupted", 15],
-  build_failed: ["harness", "tool_diagnostic_failure", 1],
-  fixture_failed: ["harness", "fixture_error", 3],
-  diagnostic_invalid: ["harness", "scheduler_accounting_error", 11],
-  preparation_failed: ["unknown", "unknown_failure", 1],
-});
-export const preparationContext = Object.freeze({
-  phase: ["prerequisites", "build", "service_acquisition", "service_readiness", "seeding", "browser_start", "cleanup"],
-  subject_id: ["node", "pnpm", "frontend_dependencies", "chromium", "host_lock", "go", "docker", "test_service_images", "frontend", "embedded_assets", "server_harness", "migrate", "test_services", "browser_stack", "fixture_seed", "preparation_child", "source_snapshot", "browser"],
-  condition: ["missing", "incompatible", "stale_installation", "invalid_artifact", "preflight_failed", "child_failed", "timeout", "resource_conflict", "invalid_diagnostic", "cancelled", "unknown"],
-  recovery_id: ["bootstrap_node", "frontend_toolchain", "frontend_install", "playwright_install", "bootstrap", "test_service_images", "doctor", "build_web", "build_server_harness", "build_migrate", "testservices_build", "inspect_source", "inspect_failure", "exact_stop"],
-});
+import { lifecyclePolicy } from "../../contract/generated/lifecycle-policy.mjs";
+export const failureMappings = Object.freeze(lifecyclePolicy.review_failures);
+export const preparationContext = Object.freeze(lifecyclePolicy.preparation_context);
 export const recoveryGuidance = Object.freeze({
   bootstrap_node: "run make bootstrap-node-runtime",
   frontend_toolchain: "run make frontend-toolchain",

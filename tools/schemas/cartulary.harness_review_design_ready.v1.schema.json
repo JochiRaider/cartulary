@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_review_design_ready.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "public_origin",
+    "samples",
+    "private_directory",
+    "scenarios"
+  ],
+  "properties": {
+    "public_origin": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "samples": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "private_directory": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "scenarios": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "url"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      }
+    }
+  }
+}

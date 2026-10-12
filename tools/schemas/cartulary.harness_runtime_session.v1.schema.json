@@ -338,6 +338,10 @@
         },
         "resource": {
           "$ref": "cartulary.harness_runtime_resource.v1"
+        },
+        "admission_token": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
         }
       }
     },

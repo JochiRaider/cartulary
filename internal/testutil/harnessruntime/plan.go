@@ -12,10 +12,11 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 const planSchema = "cartulary.harness_runtime_plan.v1"
-const maximumPlanBytes = 32 * 1024 * 1024
+const maximumPlanBytes = harnesssession.MaximumPlan
 
 var errPlan = errors.New("invalid private harness runtime plan")
 

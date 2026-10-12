@@ -19,11 +19,7 @@ func (p ProductionOptions) stopResource(ctx context.Context, kind string, resour
 	return CleanupFailure(err)
 }
 func (p ProductionOptions) releaseResource(resource harnesssession.Resource) error {
-	var target any
-	if err := json.Unmarshal(resource.Target, &target); err != nil {
-		return err
-	}
-	return p.Runtime.RecordResource(resource.Kind, target, "released")
+	return p.Runtime.RecordResource(resource.Kind, resource.Target, "released")
 }
 
 // Recover uses only this runtime's verified private records. Unknown browser

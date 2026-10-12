@@ -3177,7 +3177,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "step_command",
       "mode": "command",
@@ -3197,7 +3198,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "step_command",
       "mode": "command",
@@ -3534,7 +3536,8 @@
         "-count=1",
         "./internal/testutil/harnessruntime",
         "./internal/testutil/harnessschema",
-        "./internal/testutil/harnesssession"
+        "./internal/testutil/harnesssession",
+        "./internal/testutil/harnessreview"
       ],
       "test_target": "self"
     },

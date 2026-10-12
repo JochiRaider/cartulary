@@ -1805,13 +1805,13 @@ frontend-artifact-consumer-check: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
 browser-design-review:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-design-review)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,[ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ],go-toolchain-readiness $(FRONTEND_INSTALL_STAMP))
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,[ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ],go-toolchain-readiness $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN))
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) REVIEW_PROFILE="$(REVIEW_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,REVIEW_PROFILE)" REVIEW_PROFILE="$(REVIEW_PROFILE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" $(NODE_BIN) ./tools/harness/browser/design-review.mjs
 
 browser-design-review-smoke:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-design-review-smoke)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,[ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ],go-toolchain-readiness $(FRONTEND_INSTALL_STAMP))
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,[ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ],go-toolchain-readiness $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN))
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) REVIEW_PROFILE="$(REVIEW_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,REVIEW_PROFILE)" REVIEW_PROFILE="$(REVIEW_PROFILE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" $(NODE_BIN) ./tools/harness/browser/design-review.mjs --smoke
 
 ui-review:
@@ -2009,7 +2009,7 @@ go-analysis-dependencies: go-toolchain-readiness
 harness-runtime-contract: export CARTULARY_TEST_TARGET ?= harness-runtime-contract
 harness-runtime-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-runtime-contract: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-runtime-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" $(GO) test -race -count=1 ./internal/testutil/harnessruntime ./internal/testutil/harnessschema ./internal/testutil/harnesssession
+	$(Q)$(RUN_STEP_SCRIPT) "harness-runtime-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" $(GO) test -race -count=1 ./internal/testutil/harnessruntime ./internal/testutil/harnessschema ./internal/testutil/harnesssession ./internal/testutil/harnessreview
 
 harness-fixture-contract: export CARTULARY_TEST_TARGET ?= harness-fixture-contract
 harness-fixture-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

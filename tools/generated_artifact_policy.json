@@ -145,6 +145,27 @@
         ".go"
       ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "internal/testutil/harnesssession/policy_generated.go",
+      "allowed_extensions": [
+        ".go"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "internal/testutil/harnessreview/policy_generated.go",
+      "allowed_extensions": [
+        ".go"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/harness/contract/generated/lifecycle-policy.mjs",
+      "allowed_extensions": [
+        ".mjs"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "lint_scope_checks": {

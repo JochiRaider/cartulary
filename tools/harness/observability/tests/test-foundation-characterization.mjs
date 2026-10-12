@@ -241,7 +241,7 @@ test("foundation generation compiles before publication and rolls back partial i
   const { generateFoundationArtifacts } = await import("../../generated-artifacts/generate-foundation-schema-validators.mjs");
   const { publishGeneratedTransaction } = await import("../../generated-artifacts/generated-transaction.mjs");
   const root = temporary(t), repo = path.resolve(import.meta.dirname, "../../../..");
-  for (const relative of ["tools/schemas", "tools/harness_schema_attachments.json", "tools/harness_instrumentation_definitions.json", "tools/task_surface_owner.json", "internal/testutil/harnessdiag/testdata/schema-probes.json"]) {
+  for (const relative of ["tools/schemas", "tools/harness_schema_attachments.json", "tools/harness_instrumentation_definitions.json", "tools/harness_lifecycle_policy.json", "tools/task_surface_owner.json", "internal/testutil/harnessdiag/testdata/schema-probes.json"]) {
     mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
     cpSync(path.join(repo, relative), path.join(root, relative), { recursive: true });
   }

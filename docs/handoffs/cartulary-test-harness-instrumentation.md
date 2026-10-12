@@ -487,7 +487,7 @@ never this tracker or other Markdown.
 | --- | --- |
 | Main and index | Clean `b0bc9737531c7feaf573e28715348fd81ae0584a`; no staged or untracked work at entry |
 | Prior planning comparison | 6,917 tracked/nonignored files; aggregate `11c33deb2fe91d940aeaba6e54d3927b48a315bea2db82c4b98b45aceb24c53f`; tracker `a617e7fc008f29f19e709f22365f7954d85a12ddb83c4fd44df4d5b85715852b` |
-| Current source | S-036 committed as `439f4665f`; S-037 source and validation recorded in E-043; final executable identity freezes before S-042 |
+| Current source | S-036 committed as `439f4665f`; S-037 committed as `f64bc88b771fcb523725bb207d92fb3d48b2fe40`; S-038 completed source/projection transaction at E-044; final executable identity freezes before S-042 |
 | Evidence | Prior primary/salvage/qualification roots preserved; each writing command uses a fresh explicit run ID |
 | Exclusions | Product behavior, compiler/reader rewrite, new daemons, performance qualification, golden refresh and Core 05 publication |
 
@@ -1009,8 +1009,8 @@ before successor work begins. Prior completed graph/fixture work remains DONE.
 | --- | --- | --- |
 | WF-36 / S-036 contracts and characterization | DONE | V-037: current owner, caller/test ledger, independent expectations and fresh baseline pass |
 | WF-37 / S-037 shared native runtime/scanner | DONE; E-043 | V-038: native ownership/security/race checks and shared consumers |
-| WF-38 / S-038 native review lifecycle | READY after E-043 | V-039: real IPC, recovery and physical boundaries in every mode |
-| WF-39 / S-039 remaining callers | BLOCKED | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
+| WF-38 / S-038 native review lifecycle | DONE; E-044 | V-039: real IPC, recovery and physical boundaries in every mode |
+| WF-39 / S-039 remaining callers | READY | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
 | WF-40 / S-040 deletion/routing/docs | BLOCKED | V-041: import/build/generated closure and every assertion disposition closed |
 | WF-41 / S-041 public boundary validation | BLOCKED | V-042: installed public surface, producer interoperability and physical cleanup |
 | WF-42 / S-042 final validation/handoff | BLOCKED | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
@@ -1993,8 +1993,8 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-042 | Adopt iteration and preserve prior history | DONE; E-041/E-042 |
 | T-043 / S-036 | Contracts and characterization | DONE; V-037/E-042 |
 | T-044 / S-037 | Native shared runtime/scanner | DONE; V-038/E-043 |
-| T-045 / S-038 | Native review lifecycle | READY; V-039 |
-| T-046 / S-039 | Remaining callers | BLOCKED; V-040 |
+| T-045 / S-038 | Native review lifecycle | DONE; V-039/E-044 |
+| T-046 / S-039 | Remaining callers | READY; V-040 |
 | T-047 / S-040 | Deletion/routing/documentation | BLOCKED; V-041 |
 | T-048 / S-041 | Public boundaries | BLOCKED; V-042 |
 | T-049 / S-042 | Final validation and handoff | BLOCKED; V-043 |
@@ -2072,6 +2072,155 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-044 — S-038/V-039 native review lifecycle — DONE
+
+Saved exit checkpoint before S-039. Parent source is
+`f64bc88b771fcb523725bb207d92fb3d48b2fe40`; staged executable/source projection
+diff SHA-256 is `adce43945a246a30df557c5043d13392190ceca1c6a621e9d6f69fac064fc6c8`
+(excludes tracker). Final source is this checkpoint's commit; final broad-source
+validation remains S-042.
+The pre-cutover `/tmp/cartulary-ui-review-<uid>` registry contained no JSON session
+records; no active old session required draining. Environment remains the local
+Linux workspace, installed pinned Node/Go/browser tools and local service owners.
+
+Implemented: `harnessreview` owns preparation, session admission,
+serialization, cancellation, private registry/IPC, recovery and public receipts;
+`harnessadmission.Lease` supplies shared admission waiting. UI commands now compile
+inputs through `native-client.mjs`; browser, artifact and preparation recipes stay
+in bounded Node adapters. Design review uses the same native coordinator and
+fixture library with helper-only presentation. Seeded UI build/fixture evidence
+stays in the private runtime. Shared bounds and failure mappings project from
+`harness_lifecycle_policy.json`; private request schemas and native validation
+attachments use the existing generator. Independent lifecycle, private-channel,
+request-boundary and publication tests live with the actual Go owner. The existing
+Node lifecycle tests remain temporary removal obligations for S-040, not an oracle
+for native behavior.
+
+Fresh evidence (each root is `.cartulary/test-results/<run-id>`; commands
+are `CARTULARY_TEST_RUN_ID=<run-id> make <target>` unless selection is shown):
+
+| Run ID | Exact target / selection | Owning Make exit | Retained result |
+| --- | --- | --- | --- |
+| `lifecycle-s038-generate-01` | `generate` | 0 | pass; 9810 ms |
+| `lifecycle-s038-generate-02` | `generate` | 2 | see exact tool summary |
+| `lifecycle-s038-generate-03` | `generate` | 0 | pass; 11220 ms |
+| `lifecycle-s038-format-01` | `format` | 0 | pass; 8883 ms |
+| `lifecycle-s038-runtime-01` | `harness-runtime-contract` | 2 | fail; 23350 ms |
+| `lifecycle-s038-generate-04` | `generate` | 0 | pass; 10380 ms |
+| `lifecycle-s038-format-02` | `format` | unavailable; retained pass only | pass; 8938 ms |
+| `lifecycle-s038-runtime-02` | `harness-runtime-contract` | 2 | fail; 43740 ms |
+| `lifecycle-s038-generate-05` | `generate` | 0 | pass; 10120 ms |
+| `lifecycle-s038-format-03` | `format` | 0 | pass; 8586 ms |
+| `lifecycle-s038-runtime-03` | `harness-runtime-contract` | 0 | pass; 45390 ms |
+| `lifecycle-s038-generate-06` | `generate` | 0 | pass; 10020 ms |
+| `lifecycle-s038-format-04` | `format` | 0 | pass; 8915 ms |
+| `lifecycle-s038-runtime-04` | `harness-runtime-contract` | 0 | pass; 45290 ms |
+| `lifecycle-s038-ui-lifecycle-01` | `harness-ui-review-lifecycle` | 2 | fail; 65570 ms |
+| `lifecycle-s038-ui-workflow-01` | `harness-ui-review-workflow` | 2 | fail; 6440 ms |
+| `lifecycle-s038-runtime-05` | `harness-runtime-contract` | 2 | fail; 43120 ms |
+| `lifecycle-s038-ui-workflow-02` | `harness-ui-review-workflow` | 2 | fail; 6230 ms |
+| `lifecycle-s038-generate-07` | `generate` | 0 | pass; 10130 ms |
+| `lifecycle-s038-native-review-01` | `test-slice OWNER=harness.browser ROWS=harness.browser.unit.native_review` | 0 | pass; 2191 ms |
+| `lifecycle-s038-ui-workflow-03` | `harness-ui-review-workflow` | 0 | pass; 16740 ms |
+| `lifecycle-s038-ui-seeded-01` | `harness-ui-review-seeded-default` | 2 | fail; 41440 ms |
+
+Failures and repairs: generate-02 rejected newly reachable unsupported path
+patterns; explicit native predicates and parity cases now cover them. Runtime-01
+found a generator fixture missing the authored lifecycle-policy input; fixture
+closure repaired. Runtime-02 exposed missing receipt-parent directory creation;
+the native writer now creates and verifies private parents. Public lifecycle-01,
+workflow-01/02 and runtime-05 exposed valid actions rejected because their schema
+IDs were reachable internally but not attached as callable native validators;
+authored attachments and an independent public-request regression now cover that
+boundary. Seeded-01 reached real services and browser operations but failed capture
+because the new recipe lacked the attachment-check callback; the callback has been
+restored at the physical recipe boundary. Seeded-02 is the pending rerun at this
+checkpoint. No failed gate is DONE.
+
+Native-review-01 passed against the manifest's dirty executable digest
+`sha256:28ca667d0d2e173612ae867ad20676b48acf9909cc0ba3dd7124aaee65fb6eb1`.
+Runtime-04 passed the native race/contract route. Workflow-03 passed all seven
+public/diagnostic/font tests, including dev and artifact modes, exact browser
+operations, reports, repeated terminal reads and private-detail removal. These
+passes are source-scoped partial evidence; later edits require affected reruns.
+
+Completion evidence supplements the earlier attempts above. Each invocation uses
+`CARTULARY_TEST_RUN_ID=lifecycle-s038-<suffix> make <target>` and the matching
+`.cartulary/test-results/lifecycle-s038-<suffix>` root. Diagnostic `make explain-run`
+reads and target/owner explanations were read-only.
+
+| Suffix | Target / selection | Owning exit | Retained outcome |
+| --- | --- | --- | --- |
+| `ui-seeded-02` | `harness-ui-review-seeded-default` | 2 | pass; 840 ms |
+| `generate-08` | `generate` | 0 | pass; 9880 ms |
+| `generate-09` | `generate` | 0 | pass; 10020 ms |
+| `format-05` | `format` | 0 | pass; — ms |
+| `native-review-02` | `test-slice OWNER=harness.browser ROWS=harness.browser.unit.native_review` | 0 | pass; — ms |
+| `ui-seeded-03` | `harness-ui-review-seeded-default` | 0 | pass; 120960 ms |
+| `native-review-03` | `test-slice OWNER=harness.browser ROWS=harness.browser.unit.native_review` | 0 | pass; — ms |
+| `design-smoke-01` | `browser-design-review-smoke REVIEW_PROFILE=default` | 2 | failed; terminal exit 3; cleanup complete |
+| `design-smoke-02` | `browser-design-review-smoke REVIEW_PROFILE=default` | 2 | failed; terminal exit 3; cleanup complete |
+| `design-smoke-03` | `browser-design-review-smoke REVIEW_PROFILE=default` | unavailable | failed; terminal exit 3; cleanup complete |
+| `generate-10` | `generate` | 0 | pass; 11240 ms |
+| `generate-11` | `generate` | 0 | pass; 10090 ms |
+| `format-06` | `format` | 0 | pass; — ms |
+| `design-smoke-04` | `browser-design-review-smoke REVIEW_PROFILE=default` | 0 | closed; terminal exit 0; cleanup complete |
+| `runtime-06` | `harness-runtime-contract` | 0 | pass; 820 ms |
+| `ui-lifecycle-02` | `harness-ui-review-lifecycle` | 2 | fail; 65880 ms |
+| `projection-drift-01` | `generate-drift` | 2 | fail; — ms |
+| `projection-drift-02` | `generate-drift VERBOSE=1` | 2 | usage rejection; no admitted run |
+| `projection-drift-03` | `generate-drift (VERBOSE=1 environment)` | 2 | fail; — ms |
+| `ui-lifecycle-03` | `harness-ui-review-lifecycle` | 0 | pass; 65190 ms |
+| `fixture-01` | `harness-fixture-contract` | 0 | pass; 4090 ms |
+| `projection-drift-04` | `generate-drift` | 2 | fail; — ms |
+| `ui-contract-01` | `harness-ui-review-contract` | 0 | pass; 2110 ms |
+| `policy-01` | `generated-artifact-policy-check` | 0 | pass; — ms |
+| `generate-12` | `generate` | 0 | pass; 10110 ms |
+| `json-01` | `json-shape-check` | 2 | fail; — ms |
+| `projection-drift-05` | `generate-drift` | 0 | pass; — ms |
+| `json-02` | `json-shape-check` | 0 | pass; — ms |
+
+Additional repairs and dispositions: seeded-02 exposed physical recovery output
+escaping the UI private preparation root; native recovery now uses the same private
+root as acquisition. Native recovery fixtures cover failed publication, preserved
+primary failure, exact dead-owner recovery and immutable repetition. Concurrent IPC
+request IDs serialize allocation and writes. Undrained preparation withholds
+terminal publication and cleanup beneath live dependents.
+
+Design-smoke-01/02 found a retired v4 incident sample. A shared current v5 archive
+fixture now serves design review and the existing browser import helper. Attempt 02
+used a temporary numeric source-location diagnostic; it was removed. Attempt 03
+completed the import probes but failed the original Timeline row-count invariant
+after those probes added rows. That invariant now runs before mutating probes;
+all import and role assertions remain. Attempt 04 passed with cleanup complete.
+Attempt 03's owning exit was not retained; its failed terminal is evidence only.
+
+UI-lifecycle-02 exposed `target_unavailable` on intentional cancellation of busy
+navigation. The physical adapter now reports interruption when its abort is active;
+UI-lifecycle-03 passes all 51 checks, including exact public cancellation and borrowed
+origin survival. Runtime-06 passes native race contracts; fixture-01 and UI-contract-01
+pass. Seeded-03 passes the real seeded/editor/viewer and controller-death workflow;
+its temporary legacy cleanup cases are not claimed as native policy evidence and
+remain S-040 removal obligations.
+
+Projection-drift-01/03/04 and json-01 rejected stale projection digests during
+repairs. The scratch manifest now includes lifecycle policy inputs/outputs; Make's
+binary build inputs include both new native packages, and design commands require
+the installed binary. Generate-12, drift-05, policy-01 and json-02 establish closure.
+Drift-02 rejected a command-line `VERBOSE` input; attempt 03 used its supported
+environment form. One edit attempt stopped at a wrong JSON key after moving the
+seed verification; the subsequent edit used `make_recipes` and completed normally.
+Staged whitespace validation found trailing empty lines in the two new archive helpers;
+those were removed and `git diff --cached --check` passed. Broad lint/finalization
+remain S-042 obligations.
+
+Compatibility: public commands, request bounds, retained versions and borrowed
+resources stay stable. UI and design sessions now use direct native fixture policy;
+old controller/transport files remain solely until the S-040 caller/test deletion
+transaction. Node retains browser work and preparation recipes. No fallback engine
+or resident service was added. S-038/V-039 is DONE; S-039 is READY. S-040–S-042
+remain predecessor-gated. Qualification remains deferred and unchanged.
 
 ### E-043 — S-037/V-038 shared native runtime and scanner — DONE
 
@@ -3215,7 +3364,7 @@ document checkpoint, not a runtime-validation result.
 
 ### Current lifecycle entry gates
 
-S-036 and S-037 are DONE. S-038 is ready after E-043; S-039–S-042 remain blocked
+S-036–S-038 are DONE. S-039 is READY after E-044; S-040–S-042 remain blocked
 on their saved predecessor checkpoints, not missing user authorization. Exact old-session
 proof must be checked before protocol cutover; discovery of unresolved ownership
 blocks only the affected environment. Missing characterization or failed gates
@@ -3288,7 +3437,7 @@ Pre-existing staged tracker content is preserved.
 | --- | --- |
 | Planning | Complete for selected lifecycle scope; no whole-repository behavior audit claimed |
 | Authorization | Current user explicitly authorizes S-036–S-042 implementation |
-| Readiness | S-036/S-037 DONE; S-038 ready after E-043; later successors blocked on saved predecessor gates |
+| Readiness | S-036–S-038 DONE; S-039 READY; later successors blocked on saved predecessor gates |
 | Prior functional scope | S-035/S-034/S-031A–F/S-032 remain DONE at historical sources |
 | Current completion | Pending S-042/V-043 and every individual checkpoint; one native shared owner, direct fixture coordination, no obsolete policy/oracle/wiring |
 | Handoff | Exact changed files, commands, process/harness outcomes, source identity, roots, failures, skips and compatibility effects |
