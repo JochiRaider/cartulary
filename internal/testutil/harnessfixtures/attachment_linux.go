@@ -18,6 +18,18 @@ import (
 )
 
 func (p ProductionOptions) attachmentOperation(ctx context.Context, op string) (map[string]any, error) {
+	if op == "detach" {
+		var value map[string]any
+		err := p.Runtime.AttemptCleanup(ctx, "borrowed_suite", filepath.Join(p.Runtime.Root, "borrowed-suite.json"), func(step context.Context) error {
+			var err error
+			value, err = p.attachmentCommand(step, op)
+			return err
+		})
+		return value, err
+	}
+	return p.attachmentCommand(ctx, op)
+}
+func (p ProductionOptions) attachmentCommand(ctx context.Context, op string) (map[string]any, error) {
 	env := p.environment()
 	proof, err := harnessadmission.Identity(os.Getpid())
 	if err != nil {
@@ -42,6 +54,7 @@ func (p ProductionOptions) attachmentOperation(ctx context.Context, op string) (
 func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, result error) {
 	file := filepath.Join(p.Runtime.Root, "borrowed-suite.json")
 	leaseFile := filepath.Join(p.Runtime.Root, "borrowed-service-lease.json")
+	environmentFile := filepath.Join(p.Runtime.Root, "borrowed-environment.json")
 	if err := p.Runtime.RecordResource("borrowed_suite", file, "pending"); err != nil {
 		return nil, err
 	}
@@ -54,7 +67,7 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 			if closeErr == nil {
 				closeErr = p.Runtime.RecordResource("borrowed_suite", file, "released")
 				if closeErr == nil {
-					closeErr = removePrivate(leaseFile)
+					closeErr = errors.Join(removePrivate(leaseFile), removePrivate(environmentFile))
 				}
 			}
 		})
@@ -89,6 +102,9 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 		environment[k] = text
 	}
 	if err := p.Runtime.RegisterEnvironment(environment); err != nil {
+		return nil, artifactFailure(err)
+	}
+	if err := saveRecoveryEnvironment(environmentFile, environment); err != nil {
 		return nil, artifactFailure(err)
 	}
 	if err := p.Runtime.RecordResource("borrowed_suite", file, "acquired"); err != nil {

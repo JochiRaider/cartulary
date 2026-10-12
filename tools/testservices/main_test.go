@@ -2051,8 +2051,13 @@ func defaultTestDependencies(t testing.TB) testDeps {
 	if err := os.Chmod(runtimeRoot, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	repository, err := suiteservices.FindRepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
 	owner := map[string]any{
-		"schema_id":  "cartulary.harness_suite_runtime_owner.v1",
+		"schema_id":  "cartulary.harness_suite_runtime_owner.v2",
+		"repository": repository, "run_root": filepath.Join(resultsDir, "wrapper-tests"), "output_roots": []string{},
 		"lease_id":   "00000000-0000-4000-8000-000000000001",
 		"run_id":     "wrapper-tests",
 		"owner_uid":  os.Getuid(),

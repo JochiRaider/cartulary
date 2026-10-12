@@ -20,7 +20,10 @@
     "action": 10000,
     "operation": 30000,
     "lifetime": 28800000,
-    "failures": 64
+    "failures": 64,
+    "preparation": 300000,
+    "terminationGrace": 2000,
+    "drain": 30000
   },
   "review_failures": {
     "invalid_request": [
@@ -198,5 +201,16 @@
       "inspect_failure",
       "exact_stop"
     ]
+  },
+  "cleanup_deadlines_ms": {
+    "diagnostic_scope": 30000,
+    "preparation_process": 30000,
+    "browser_process": 30000,
+    "helper_process": 30000,
+    "browser_renderer": 30000,
+    "browser_stack": 120000,
+    "object_store_proxy": 30000,
+    "managed_suite": 120000,
+    "borrowed_suite": 30000
   }
 }

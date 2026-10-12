@@ -11,10 +11,11 @@ export function renderLifecyclePolicy(root) {
   const goName = (name) => name[0].toUpperCase() + name.slice(1);
   const constants = Object.entries(policy.limits).map(([name, value]) => `const Limit${goName(name)} = ${value}`).join("\n");
   const failures = Object.entries(policy.review_failures).map(([name, [kind, reason, code]]) => `${JSON.stringify(name)}: {${JSON.stringify(kind)}, ${JSON.stringify(reason)}, ${code}}`).join(",\n");
+  const cleanup = Object.entries(policy.cleanup_deadlines_ms).map(([name, value]) => `${JSON.stringify(name)}: ${value}`).join(",\n");
   const contexts = Object.entries(policy.preparation_context).map(([name, values]) => `${JSON.stringify(name)}: {${values.map(JSON.stringify).join(",")}}`).join(",\n");
   return [
     ["tools/harness/contract/generated/lifecycle-policy.mjs", `${marker}export const lifecyclePolicy = Object.freeze(${JSON.stringify(policy)});\n`],
-    ["internal/testutil/harnesssession/policy_generated.go", `${marker}package harnesssession\nconst MaximumFrame = ${policy.limits.frame}\nconst MaximumPlan = ${policy.limits.plan}\n`],
+    ["internal/testutil/harnesssession/policy_generated.go", `${marker}package harnesssession\nconst MaximumFrame = ${policy.limits.frame}\nconst MaximumPlan = ${policy.limits.plan}\nvar cleanupDeadlinesMS = map[string]int{\n${cleanup},\n}\n`],
     ["internal/testutil/harnessreview/policy_generated.go", `${marker}package harnessreview\n${constants}\nvar failurePolicy = map[string]failureMapping{\n${failures},\n}\nvar preparationContext = map[string][]string{\n${contexts},\n}\n`],
   ];
 }

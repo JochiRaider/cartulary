@@ -1,3 +1,4 @@
+import { closeReviewBrowser } from "./ui-review-browser-fixture.mjs";
 import assert from "node:assert/strict";
 import { chmodSync, existsSync, linkSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -124,8 +125,8 @@ test("browser actions use exact handles, epochs and isolated contexts without mo
     await browser.action(action("scroll", { x: 0, y: 100 }));
     await browser.page.getByTestId("virtual-row").waitFor({ state: "visible" });
     const row = await browser.resolve({ kind: "test_id", value: "virtual-row" }); await row.dispose();
-    await browser.close(); assert.equal((await fetch(origin)).status, 200); assert.ok(requests > 0);
-  } finally { await browser.close(); await admission?.release(); await new Promise((resolve) => server.close(resolve)); }
+    await closeReviewBrowser(browser); assert.equal((await fetch(origin)).status, 200); assert.ok(requests > 0);
+  } finally { await closeReviewBrowser(browser); await admission?.release(); await new Promise((resolve) => server.close(resolve)); }
 });
 
 
@@ -151,7 +152,7 @@ test("browser timeout requires a fresh snapshot, redirects stay at the borrowed 
     await assert.rejects(browser.action(action("navigate", { path: "/redirect" })), /navigation_boundary/u);
     await browser.browser.close(); assert.equal(lost.diagnostic, "session_lost");
     assert.equal((await fetch(browser.origin)).status, 200);
-  } finally { await browser.close(); await admission?.release(); await new Promise((resolve) => server.close(resolve)); }
+  } finally { await closeReviewBrowser(browser); await admission?.release(); await new Promise((resolve) => server.close(resolve)); }
 });
 function cleanEnvironment() {
   const env = { ...process.env };

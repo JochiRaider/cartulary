@@ -4,6 +4,7 @@ package harnessfixtures
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"maps"
 	"os"
@@ -134,6 +135,9 @@ func removePrivate(name string) error {
 	return unix.Unlinkat(int(parent.Fd()), filepath.Base(name), 0)
 }
 func (p ProductionOptions) stopSuite(ctx context.Context, lease string, environment map[string]string) error {
+	return p.Runtime.AttemptCleanup(ctx, "managed_suite", lease, func(step context.Context) error { return p.stopSuiteAttempt(step, lease, environment) })
+}
+func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, environment map[string]string) error {
 	bytes, err := harnesslocal.ReadFile(lease, 1048576, false)
 	if err != nil {
 		return err
@@ -150,7 +154,7 @@ func (p ProductionOptions) stopSuite(ctx context.Context, lease string, environm
 	if err := p.Runtime.RecordResource("managed_suite", lease, "released"); err != nil {
 		return artifactFailure(err)
 	}
-	return removePrivate(lease)
+	return errors.Join(removePrivate(lease), removePrivate(filepath.Join(filepath.Dir(lease), "suite-environment.json")))
 }
 func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result error) {
 	root, err := p.Runtime.PrivatePath("test-services")
@@ -166,7 +170,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	environment := p.environment()
 	environment["CARTULARY_TEST_SUITE_ID"] = regexp.MustCompile(`[^A-Za-z0-9_.-]+`).ReplaceAllString("work-graph-"+p.Target, "-")
 	delete(environment, "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT")
-	if err := p.Runtime.RecordResource("managed_suite", leaseFile, "pending"); err != nil {
+	if err := p.Runtime.RecordResource("managed_suite", leaseFile, "pending", environmentFile); err != nil {
 		return nil, artifactFailure(err)
 	}
 	startup, commandErr := p.command()(ctx, p.serviceBinary(), []string{"start-suite", "--env-file", environmentFile, "--lease-file", leaseFile, "--result-file", resultFile}, environment)
@@ -256,10 +260,10 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		return nil, artifactFailure(err)
 	}
 	maps.Copy(environment, admitted)
-	if err := removePrivate(environmentFile); err != nil {
+	if err := saveRecoveryEnvironment(environmentFile, admitted); err != nil {
 		return nil, artifactFailure(err)
 	}
-	if err := p.Runtime.RecordResource("managed_suite", leaseFile, "acquired"); err != nil {
+	if err := p.Runtime.RecordResource("managed_suite", leaseFile, "acquired", recoveryEnvironmentFiles(p.Runtime.Root, environmentFile, admitted)...); err != nil {
 		return nil, artifactFailure(err)
 	}
 	if proof, err := readObject(leaseFile, "cartulary.test_services.lease.v1", 1048576); err == nil {
@@ -272,4 +276,45 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		return closeErr
 	}}
 	return suite, nil
+}
+
+// Recovery needs only physical cleanup bindings, not build or application secrets.
+func saveRecoveryEnvironment(file string, environment map[string]string) error {
+	values := map[string]string{}
+	for name, value := range environment {
+		if name == "SSL_CERT_FILE" || name == "CARTULARY_TEST_SUITE_ID" || strings.HasPrefix(name, "CARTULARY_PGTEST_") || strings.HasPrefix(name, "CARTULARY_S3TEST_") {
+			if strings.Contains(name, "PROXY_CERTIFICATE") || strings.Contains(name, "PROXY_PRIVATE_KEY") {
+				continue
+			}
+			values[name] = value
+		}
+	}
+	data, err := json.Marshal(values)
+	if err != nil {
+		return err
+	}
+	return harnesslocal.ReplaceFile(file, data)
+}
+func recoveryEnvironmentFiles(root, file string, environment map[string]string) []string {
+	files := []string{file}
+	if cert := environment["SSL_CERT_FILE"]; strings.HasPrefix(cert, root+string(filepath.Separator)) {
+		files = append(files, cert)
+	}
+	return files
+}
+func readRecoveryEnvironment(file string) (map[string]string, error) {
+	data, err := harnesslocal.ReadFile(file, 1048576, false)
+	if err != nil {
+		return nil, err
+	}
+	values := map[string]string{}
+	if err := json.Unmarshal(data, &values); err != nil {
+		return nil, err
+	}
+	for name := range values {
+		if name != "SSL_CERT_FILE" && name != "CARTULARY_TEST_SUITE_ID" && !strings.HasPrefix(name, "CARTULARY_PGTEST_") && !strings.HasPrefix(name, "CARTULARY_S3TEST_") {
+			return nil, harnesslocal.ErrUnsafe
+		}
+	}
+	return values, nil
 }

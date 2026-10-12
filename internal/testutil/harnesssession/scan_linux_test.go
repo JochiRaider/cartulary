@@ -3,6 +3,8 @@
 package harnesssession
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +13,63 @@ import (
 )
 
 func TestSessionScan(t *testing.T) {
+	t.Run("private_candidate_is_safe_retained_input", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Chmod(root, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "fixture.png"), []byte("old-golden"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if result, err := ScanRetained(root, nil); err != nil || result["status"] != "pass" {
+			t.Fatal(result, err)
+		}
+	})
+	t.Run("fragmentation_does_not_change_acceptance", func(t *testing.T) {
+		for _, c := range []struct {
+			text string
+			safe bool
+		}{
+			{`{"tokens":"ordinary","secret":"<redacted>suffix"}`, true},
+			{`{"tokens_token":"leak"}`, false},
+			{`{"tokenS":"ordinary"}`, true},
+			{`{"secret":"<redact"}`, false},
+			{`{"secret":"<REDACTED>"}`, false},
+			{`{"secret":""}`, true},
+			{`{"secret":"unfinished`, true},
+			{`TOKEN=<redacted>suffix`, true},
+			{`TOKEN=<redact`, false},
+			{`TOKENS=ordinary`, true},
+			{`postgresql://user:<redacted>@host`, true},
+			{`postgresql://user:<redact@host`, false},
+			{`{"中文password":"秘密"}`, false},
+			{"\xffsafe 中文", true},
+			{strings.Repeat("x", 65530) + "private-sentinel-12345", false},
+		} {
+			for _, size := range []int{1, 2, 7, 257, 65536} {
+				r := &fragmentReader{Reader: strings.NewReader(c.text), size: size}
+				if err := scanContent(r, []string{"private-sentinel-12345"}); (err == nil) != c.safe {
+					t.Errorf("size %d input %q: %v", size, c.text, err)
+				}
+			}
+		}
+		errRead := errors.New("reader failed")
+		if err := scanContent(errorReader{errRead}, nil); !errors.Is(err, errRead) {
+			t.Fatal("read failure lost", err)
+		}
+	})
+	t.Run("long_unregistered_syntax", func(t *testing.T) {
+		for _, input := range []string{
+			`{"password":"` + strings.Repeat("x", 150000) + `"}`,
+			`{"password` + strings.Repeat("x", 150000) + `":"value"}`,
+			`{"password"` + strings.Repeat(" ", 150000) + `:"value"}`,
+			`postgres://` + strings.Repeat("u", 150000) + `:value@host`,
+		} {
+			if err := scanContent(strings.NewReader(input), nil); err == nil {
+				t.Error("unregistered secret escaped streaming scan")
+			}
+		}
+	})
 	t.Run("scan_independent_expectations", func(t *testing.T) {
 		cases := []struct {
 			name, text string
@@ -68,3 +127,14 @@ func TestSessionScan(t *testing.T) {
 		}
 	})
 }
+
+type fragmentReader struct {
+	io.Reader
+	size int
+}
+
+func (r *fragmentReader) Read(p []byte) (int, error) { return r.Reader.Read(p[:min(len(p), r.size)]) }
+
+type errorReader struct{ err error }
+
+func (r errorReader) Read([]byte) (int, error) { return 0, r.err }

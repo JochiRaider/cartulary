@@ -40,6 +40,9 @@ func TestRuntimeBrowserFailureContinuation(t *testing.T) {
 	for _, failing := range []string{"group", "reset"} {
 		t.Run(failing, func(t *testing.T) {
 			root := t.TempDir()
+			if err := os.Mkdir(filepath.Join(root, "run"), 0700); err != nil {
+				t.Fatal(err)
+			}
 			runtime, err := harnesssession.NewRuntime(root, filepath.Join(root, "run"), "browser", t.TempDir())
 			if err != nil {
 				t.Fatal(err)

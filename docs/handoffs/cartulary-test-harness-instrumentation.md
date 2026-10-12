@@ -10,12 +10,21 @@ authority_boundary: Human implementation tracker and rationale; the Testing Harn
 
 ## Baseline and authorization
 
-The current user request authorizes implementation of **Complete Go lifecycle
-ownership and retire residual harness infrastructure**, starting from clean main
-`b0bc9737531c7feaf573e28715348fd81ae0584a`. This supersedes the preceding
-planning-only restriction. The sole active chain is **S-036 → S-037 → S-038 →
-S-039 → S-040 → S-041 → S-042**. Save a checkpoint after every workstream and
-before beginning its successor; a failed exit never counts as DONE.
+The current user request authorizes implementation of **Go lifecycle
+post-cutover audit and remediation**, including specification, implementation,
+tests, projections and final validation. The implementation chain is
+**S-043 → S-044 → S-045 → S-046 → S-047 → S-048 → S-050 → S-049**.
+The entry checkout is main `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` with
+pre-existing changes in this tracker; those changes are preserved. Earlier
+documentation-only authorization statements below are historical.
+Save a checkpoint after every workstream and before beginning its
+successor; a failed exit never counts as DONE.
+
+The historical audit and documentation update started from clean main
+`f32ac56e1414858ddb3a9779aa8f60e4be655d2f`. Its executable source was
+`aed9737cbb77683451bdd4dfd47d97b42c3bb1ed`; the commits differ only in this
+tracker. E-049 records the initial audit; E-058 adds the user-requested historical
+schema and validation retirement workstream within the same tracker-only boundary.
 
 The prior graph/fixture cutover remains complete in its adopted scope:
 S-035, S-034, S-031/A–F and S-032/V-033 remain DONE. Its final executable source is
@@ -30,14 +39,30 @@ retained scanning and terminal publication. Graph and review call the same nativ
 fixture owner. Node retains compilation/selection, row runners, browser operations,
 report adaptation and offline readers; physical service/browser adapters retain
 their distinct operations. This is lifecycle consolidation, not a whole-harness
-language rewrite. S-042 is the required completion and handoff gate.
+language rewrite. S-042 completed the previous iteration; S-049 is the required
+post-cutover validation and handoff gate.
 
-**Functional remediation is complete.** S-036–S-042/V-037–V-043 are DONE, with
-individual checkpoints E-042–E-048. Final executable source
-`aed9737cbb77683451bdd4dfd47d97b42c3bb1ed` passed the full warm check, 982/982
-units, plus final contracts, lint and projection gates. The final tracker checkpoint
-changes documentation only. E-048 records source identity, successful evidence,
-failed attempts, repairs, skips and migration limits.
+**All eight remediation workstreams are DONE, including S-049/V-050/E-056.
+F-043–F-049 are closed.** Final executable source is
+`sha256:8b0ad408870dec517c7795869a90e5869ee7b83349c09b3dc51fbf13f61ee5d9`;
+full warm `check03` passed 982/982 units and 1,415 rows with zero result-cache hits.
+After that handoff, the user requested removal of the ten legacy sessions.
+E-059 records their administrative retirement after a fresh resource-absence
+audit. No legacy runtime roots remain at the default scratch location. This does not turn
+missing legacy proof into successful historical recovery evidence.
+E-060 reconciles the remaining handoff references, removes the empty scratch
+parents and confirms that no executable route or active registry entry depends
+on those retired sessions. The current runtime creates scratch directories on
+demand for future sessions.
+S-036–S-042/V-037–V-043 remain DONE at their historical sources, with
+individual checkpoints E-042–E-048. Their historical executable source
+`aed9737cbb77683451bdd4dfd47d97b42c3bb1ed` has historical full warm-check evidence,
+982/982 units, plus contracts, lint and projection gates. That evidence does not
+establish coverage of the newly identified failure cases. E-048 remains unchanged
+as the source-scoped completion record, including failures, repairs and skips.
+No new runtime validation was executed during that historical audit. Fresh
+implementation evidence is recorded separately in E-050–E-057, with E-056
+the final handoff after the S-050/E-057 schema-retirement checkpoint.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -483,7 +508,41 @@ improvement or default-on claim.
 
 ## 1. Scope and Source Posture
 
-### Current lifecycle iteration scope and source
+### Current post-cutover audit scope and source
+
+Artifact mode: normal for the bounded remediation plan. Planning completeness:
+complete for F-043–F-049; this is not a whole-repository conformance audit.
+Implementation authorization: **not granted by this documentation invocation**.
+S-043 is ready for a later authorized characterization task; subsequent slices
+are blocked on their predecessor's validation and saved checkpoint.
+
+The admitted output is the existing regular, single-link file
+`/home/jochi/code/cartulary/docs/handoffs/cartulary-test-harness-instrumentation.md`.
+Its canonical identity is unchanged and no parent component is a symlink.
+The established instrumentation target now includes the shared session, scanner,
+fixture and review lifecycle seams inventoried below; no new tracker is created.
+The adopted/current Testing Harness NLSpec owns REQ-416/502/616/852–855.
+Core 00 supplies owner allocation; `domain.md` remains vocabulary/navigation.
+The repository planning framework and refactor-tracker skill govern this human
+handoff. Documents are never executable requirement registries.
+
+| Baseline item | Revalidated identity / treatment |
+| --- | --- |
+| Branch, HEAD and entry state | Clean `main`, `f32ac56e1414858ddb3a9779aa8f60e4be655d2f`; no staged, unstaged or nonignored untracked changes |
+| Executable source | `aed9737cbb77683451bdd4dfd47d97b42c3bb1ed`; digest `sha256:6dfb070d1f521a638b2121d285f6f5dd3e39ef20ebe700062933b5dbb010e7e8`; HEAD differs only in this tracker |
+| Preservation universe | 6,960 tracked/nonignored entries; path, lstat identity and content aggregate `09084784924ad982cf55548e20df7f7145d608141b2f3b4d6c9cd6b50eff0278`; fingerprinting is not behavioral inspection |
+| Outside-tracker comparison | Aggregate `c1f8c29c0ff87c56bfe01e59791a8bddb035c37e70320bf13f56156e53d040f3`; index SHA-256 `331fd8da8caafcb3d428be7a7d3251ea7d42af1e2ff6f93c3d45a9a4dbbe5b90`; Git optional writes disabled |
+| Tracker before write | SHA-256 `688100011e328ccf362509cd76494f9133e1e4c2dd04d5fb07fe3982734b4a77`, inode 3903446, device 2096, one link; identity/content rechecked immediately before editing |
+| Historical retained evidence | `.cartulary/test-results/lifecycle-s042-check03` and `lifecycle-s042-contract03` exist; manifests match the executable commit/digest and summaries report pass; E-048 owns their original command exits and 982/982 count |
+| Ignored outputs | Existing `.cartulary`, test-results, retained-work, `.cache` and `node_modules` roots accounted by metadata; contents are not exhaustively hashed or claimed revalidated |
+| Exclusions | Product/API redesign, wholesale Node rewrite, new daemon, performance acquisition, golden refresh, external telemetry and Core 05 publication |
+
+Static inspection identifies failure paths and test omissions. It does not claim
+new reproductions, race results, live service cleanup or broad assertion coverage.
+The previous 982/982 check includes accepted cache reuse; it is not 982 freshly
+executed producer results. The final preservation comparison belongs to E-049.
+
+### Completed lifecycle iteration scope and source — historical
 
 Artifact mode: normal; implementation authorized. Repository and admitted tracker
 are unchanged. Testing Harness REQ-852–855 and REQ-416/502/616 own behavior;
@@ -598,7 +657,43 @@ inventory. This is a bounded subsystem inspection, not a whole-repository audit.
 
 ## 2. Current-State Repository Inventory
 
-### Current lifecycle inventory and ownership
+### Current post-cutover inventory and inspection depth
+
+E-058 adds a schema inventory boundary: `tools/schemas` contains 206 schema files
+with 206 attachment entries, and `tools/historical-schemas/performance` contains
+14 separately registered historical schemas. Counts and IDs are enumerated;
+individual schema bodies are not all behaviorally audited. The historical loader,
+registry, active attachment policy, validator generator and affected diagnostic,
+JSON-shape and contract-test call sites were directly inspected. S-050 must finish
+the per-file current-contract and reference-closure ledger before deletion.
+
+E-049 reuses the preceding read-only audit at the same source and rechecks the
+critical source paths before writing. The following groups account for the
+consequential files inspected, rather than implying that every file in the
+preservation universe received behavioral review. Generated outputs are inspected
+for routing/schema membership, not treated as authored behavior owners.
+
+| Inspected seam / depth | Current responsibility and observation | Disposition / next boundary |
+| --- | --- | --- |
+| `internal/testutil/harnesssession/{runtime,preservation,protocol,scan,lock,tree,physical}_linux.go`; corresponding runtime/protocol/preservation/scan tests; direct inspection | One native owner exists; preservation infers whole directories, syntax scanning uses finite overlap, protocol retains unused operations | Correct F-043/F-046/F-047 at this owner; characterize exact dependencies and hostile inputs before movement |
+| `internal/testutil/harnessreview/{session.go,driver_linux.go,adapter_linux.go,publication_linux.go,recovery_linux.go}`; publication tests directly inspected, session/IPC tests inspected at affected cases | Go controls sessions; preparation waits and partial publication still have uncovered failure windows | Correct F-044/F-045; preserve distinct UI publication semantics |
+| `internal/testutil/harnessfixtures/{proxy,suite,recovery}_linux.go`; `tools/s3corsproxy/main.go`; `runtime/fixture-resource-stop.mjs`; affected acquire/stop/recovery paths inspected | Physical proxy recovery depends on a binary outside the preserved proof directory; suite proof has credential/detail siblings | Extract the existing physical stop implementation, never copy it; enumerate actual certificate/proof dependencies in S-043/S-045 |
+| `tools/harness/runtime/{session-client,resource-stop-private,host-admission,owned-process}.mjs`; `browser/{review-child,review-recipes}.mjs`; review adapter/client; direct inspection | Node still performs justified physical and producer operations; review child contains deadline policy and session client exposes test-only operations | Move deadline authority; shrink the private interface; retain specialized adapters |
+| Smoke, wrapped-tool, frontend-artifact, local-session, fixture-lifecycle and private-child-process callers; affected call sites inspected | Existing production callers create or borrow native authority; physical lifecycle output roots can differ from retained run roots | Preserve inherited/owned/persistent behavior; verify each binding during S-048, not a generic arbitrary-root exception |
+| Native scanner/preservation/publication tests and affected Node browser tests; direct assertions inspected | Existing expectations miss long unregistered syntax, proof-directory siblings, post-terminal publication faults and unresponsive preparation adapter cases | Section 7 records additional assertions and test-only interface dispositions |
+| `tools/task_surface_owner.json`, `tools/test_families/harness.{browser,evidence_accounting}.json`, lifecycle policy, private schemas and generator seams; authored route/policy inspection | Existing native owner routes and three-role smoke surface already exist | Extend owner coverage, remove only obsolete declarations; generated roots are metadata/routing evidence and must be regenerated |
+| Tracker, NLSpec clauses/acceptance mappings, domain owner navigation, older UI-review revision plan and historical handoff notices; direct relevant sections | One adopted behavior owner; older UI-review plan still declares itself active below its historical notice | F-048; this invocation edits only this tracker, leaving other-document correction for S-048 |
+
+Searches across `tools`, `internal`, `apps`, `packages`, `contracts` and Make
+inputs found no live fallback to the deleted JavaScript runtime or fixture-session
+coordinator. Historical path mentions, retained receipt filenames and unrelated
+product fixture labels are not legacy execution routes. Text-search absence does
+not prove absence of external consumers; S-048 requires import/build/schema closure.
+Unrelated product/browser implementation, external trees, dependencies and binary
+contents were not behaviorally audited. Live failure injection and physical
+boundaries remain future validation, not discovery claimed complete.
+
+### Completed lifecycle inventory and ownership — historical
 
 | Inspected seam | Current responsibility / callers | Disposition / finding |
 | --- | --- | --- |
@@ -757,7 +852,29 @@ qualification workload roster, under the already specified owners and gates.
 
 ## 3. Module Boundary Diagnosis
 
-### Current lifecycle architecture
+### Current post-cutover owner decisions
+
+The selected architecture is present. Correct the remaining owner behavior and
+remove unnecessary interfaces without another language-wide cutover.
+
+| Responsibility | Decision / intended owner | Why / finding |
+| --- | --- | --- |
+| Private root, secret registry, exact recovery dependencies, scanner | KEEP one `harnesssession` owner below graph/fixture/review; replace coarse preservation and chunk-dependent recognition | F-043/F-047: minimal sensitive retention and reliable security decisions |
+| Physical proxy stop | MOVE the existing implementation into a cohesive physical-owner Go library; native fixture/session callers and existing proxy tool use it | F-043: recovery survives removal of the disposable runtime binary without a copied stop algorithm or orchestration cycle |
+| UI terminal transaction | KEEP `harnessreview`; make publication progress and recovery explicit | F-044: immutable outcomes and retryable publication belong to the lifecycle owner |
+| Preparation timing | MOVE per-producer deadline and drain decisions to Go; Node retains closed recipes and child operations | F-045: stalled adapters cannot defeat parent-owned deadlines |
+| Node private client | SIMPLIFY to operations with production consumers; use persisted exact authority rather than caller-selected scope | F-046: fewer supported capabilities and fewer independent decisions |
+| Compilation, row execution, physical browser/service operations, offline readers | KEEP distinct Node/physical responsibilities | No evidence supports wholesale replacement; REQ-852/853 expressly retain these boundaries |
+| Historical instructions and test routing | Correct active guidance and relocate test-only interface use to native owner tests | F-048/F-046: documentation or scaffolding must not keep obsolete production surfaces alive |
+| Historical-only schemas and their validation infrastructure | REMOVE obsolete schemas, historical registry/loader, validation branches, generated validators and supporting wiring after the explicit owner amendment; retain only schemas needed by current contracts | F-049: diagnostic, integrity-check and test references alone are not a reason to preserve historical infrastructure |
+
+Shared scanning does not merge graph's final-scan/outer-receipt boundary with
+UI terminal publication. Recovery dependency declarations are typed private
+facts supplied by physical owners, not a generic plugin or command registry.
+`harnesssession` must not import graph or fixture orchestration. No alternate
+engine, compatibility transport, background service or new domain concept is added.
+
+### Completed lifecycle architecture — historical
 
 `harnesssession` sits below graph, fixture and review coordination and depends on
 secure local files, schema validation and process identity. It must not import
@@ -825,7 +942,40 @@ is justified.
 
 ## 4. Public Contract and Behavior Freeze Map
 
-### Current lifecycle contract map
+### Current post-cutover contract map
+
+These document-local contracts map to adopted owners; they do not amend the
+NLSpec by themselves. S-043 must adopt necessary clarification before changing
+typed projections, without turning existing defects into compatibility promises.
+
+| Contract | Adopted owner / required behavior | Change and compatibility boundary | Validation |
+| --- | --- | --- | --- |
+| C-026 exact recovery dependencies | REQ-502/616/853/855; AC-111/125/148/149: safe detail is deleted while exact unresolved proof survives | Private dependency/proof changes may cut over atomically; preserve borrowed resources, process identities and certificate proof | S-045/V-046 |
+| C-027 terminal publication recovery | REQ-416/502/616/855; AC-110/111/125: cleanup despite publication/scan failure, primary precedence, immutable terminal repetition | Persist progress/scanner authority; resume only validated matching publication, reject conflicts, never rewrite completed receipts or report scan failure as success | S-046/V-047 |
+| C-028 native preparation bounds | REQ-416/502/853; AC-111/130/131: 300 seconds per producer, two-second grace, independent owned-resource teardown deadlines | Correct missing enforcement; do not apply 300 seconds to an aggregate build recipe or extend owner deadlines | S-047/V-048 |
+| C-029 minimal bound private interface | REQ-854/855; AC-147–149: closed operations, exact proof, fail-closed input validation | Remove unused private operations without aliases; persist canonical creation bindings; retain distinct proof-bound physical output roots | S-048/V-049 |
+| C-030 streaming scan semantics | REQ-616/852/855; AC-125/147/149: one security scan owner, independent expectations | Fix read-boundary dependence while preserving intended syntax/redaction semantics, filesystem checks, retained schema and policy identity | S-044/V-045 |
+| C-031 documentation and assertion disposition | REQ-852–855; AC-147–149; repository authority rules | Current guidance names one tracker; historical evidence remains source-scoped; tests do not require obsolete interfaces or consume Markdown | S-048/V-049 and S-049/V-050 |
+| C-032 current-contract schema closure and historical support retirement | REQ-062/815/855 and relevant browser historical-validation clauses; AC-041/099/147–149 and schema attachment policy | S-050 adopts removal of historical schema-validation support, then deletes its schema/registry/loader/consumer/generated/test closure. Retained historical bytes remain unchanged but are no longer supported validation inputs. Current owner-required contracts remain covered. | S-050/V-051; final S-049/V-050 includes the resulting source |
+
+Preserve public commands, selection, modes, failure classifications/precedence,
+current-format acceptance, status without provisioning, local-only/default-off
+diagnostics, and the 32 MiB plan / 1 MiB lifecycle frame / 64 KiB UI request bounds.
+Persisted proof or private protocol changes require draining affected sessions
+with their running version. Unresolved ownership blocks that environment's
+cutover; no legacy recovery reader or historical receipt rewrite is permitted.
+Rollback restores one coherent source-and-projection transaction.
+
+C-032 is an explicit proposed contraction of historical diagnostic acceptance,
+not merely a file move. REQ-815 currently requires a historical registry and
+permits diagnostic/integrity tools to load it; related browser clauses retain
+historical-validation inputs. Amend those requirements and acceptance mappings
+before removing the support. Preserve current accepted formats and public command
+names; historical-only `explain-run` validation branches are retired with a bounded
+unsupported-artifact outcome. Do not add an archive loader, translation layer,
+schema tombstone registry or compatibility alias in their place.
+
+### Completed lifecycle contract map — historical
 
 | Contract | Owner and required behavior | Validation |
 | --- | --- | --- |
@@ -922,7 +1072,31 @@ are not applicable because no product contract changes.
 
 ## 5. Coupling and Boundary Findings
 
-### Current lifecycle findings
+### Current post-cutover findings — TODO
+
+F-043–F-048 are static audit observations, E-049; F-049 is the E-058 schema
+retirement finding. None is a newly executed reproduction.
+P1 findings are correctness/security fixes; P2 findings remove
+unnecessary authority, wiring and competing guidance. Each is `must_fix` only
+within its named future slice and validation gate. Completed F-037–F-042 remain
+source-scoped history rather than being silently relabelled as failures.
+
+| Finding / priority | Evidence and risk if unresolved | Remediation / affected areas | Rationale and long-term benefit | Compatibility / validation |
+| --- | --- | --- | --- | --- |
+| F-043 / P1: recovery preservation is neither minimal nor complete | `harnesssession/preservation_linux.go:50,71` protects proof parent directories wholesale. `harnessfixtures/proxy_linux.go:127` builds a sibling executable; `runtime/fixture-resource-stop.mjs:24` needs it for retry, but preservation removes it. Suite/proxy proof directories retain unrelated detail. | C-026; implementation/private projections/tests and necessary owner clarification: exact provider-declared recovery dependencies; extract the existing physical proxy stop owner into a shared Go library and call it directly. Preserve required certificate/proof dependencies explicitly. | Prevent stranded resources and unnecessary credential/log retention; remove recovery's dependency on a disposable executable without copying physical policy. | Public formats unchanged; private proof changes require coherent drain/cutover. S-045/V-046: failed release → preservation → new process → exact recovery; sibling secrets removed; missing/forged dependencies rejected; borrowed resources survive. |
+| F-044 / P1: terminal publication cannot reliably resume after partial publication | `harnessreview/publication_linux.go:267–325` can create terminal bytes before locator/final-scan failure; `recovery_linux.go` then calls exclusive publication again. Pre-scan error returns before detail purge; closing the runtime before completion loses durable scanner inputs. Existing tests cover failure before terminal creation. | C-027; specification clarification/implementation/private projections/tests: durable publication phases, retained private scanner authority, validation and resumption of exact matching terminal artifacts, fail-closed conflicts and independent safe-detail cleanup despite failure. | Make recovery explicit and repeatable; prevent permanent publication failure, premature closure and private residue. | Preserve primary failures and immutable completed receipts. S-046/V-047: failure/death at every boundary, repeated/concurrent recovery, pre-existing conflicts, scan failure and cleanup-only failure; no fabricated successful closure. |
+| F-045 / P1: preparation deadlines depend on Node responsiveness | `harnessreview/driver_linux.go:58,93,108,123` waits on preparation without a producer deadline; `browser/review-child.mjs:7,20` owns the 300-second/two-second timers. `adapter_linux.go:290` instead waits 30 seconds after cancellation. An unresponsive adapter before child initialization is uncovered. | C-028; implementation/authored policy/generated projections/tests: Go owns per-producer deadlines and process-tree drain; split aggregate build requests into closed producer operations; project limits once. Audit independent cleanup budgets rather than trusting the aggregate 330-second timeout. | Bounded preparation and cleanup remain enforceable even when an adapter stalls; future recipes do not inherit hidden lifecycle policy. | Enforce existing bounds rather than extending them or applying one producer budget to the entire recipe. S-047/V-048: injected clocks and actual IPC/process stalls, cancellation, late acquisition, exact primary/secondary classification. |
+| F-046 / P2: unused private operations and caller-supplied scope remain | Session protocol exposes `secrets`, `scan`, `preserve`, `prune` and `resources` without production consumers; some are test-only. Runtime owner proof binds run/lease/user but not creation's repository/result-root association; scan uses the supplied run root. | C-029; implementation/private schemas/generated projections/tests: delete unused wire/client operations, retain necessary direct native methods, relocate assertions, persist canonical creation bindings and derive authority from validated proof. | Reduce supported capabilities, disclosure/destructive surface and compatibility burden; prevent caller mistakes from selecting a different scope. | No public command changes or aliases. Preserve proof-bound private lifecycle output locations distinct from retained roots. S-048/V-049: cross-repository/run rejection, inherited/owned/persistent callers and complete schema/import/build closure. |
+| F-047 / P1: scanner detection depends on read boundaries | `harnesssession/scan_linux.go:72–101` uses 64 KiB reads with minimum 256-byte overlap. A long unregistered JSON secret can lose its key before its closing quote arrives. The existing cross-chunk test covers a registered value, not this syntax case. | C-030; implementation/independent tests: bounded streaming syntax recognition, retaining existing registered-value and filesystem protections. | Security decisions become independent of read size; no large buffering or future size-dependent acceptance exceptions are needed. | Preserve intended syntax/redaction semantics and policy identity; no silent acceptance-policy revision. S-044/V-045: long keys/values, arbitrary short reads and boundaries, redacted exclusions, assignments, URLs and registered secrets. |
+| F-048 / P2: historical instructions compete with current ownership | `testing-harness-ui-review-revision-plan.md:23–27,41` still calls itself active/sole tracker after its historical notice. This tracker's previous current summaries overstate coverage of the newly found paths. | C-031; documentation/test-disposition accounting: replace competing active instructions with source-scoped history; record retained/relocated/obsolete disposition for every removed test dependency. Current-summary correction is part of E-049; other-document and deletion closure remain S-048. | Prevent future edits against retired owners and prevent historical passes being reused as unexecuted current proof. | No runtime compatibility impact. S-048/V-049 and S-049/V-050: one current tracker, preserved historical evidence, no uncovered removed assertion. |
+| F-049 / P2: historical-only schemas retain unnecessary validation and support infrastructure | E-058: 206 active-root schemas/attachments and 14 historical schemas. Historical registry/loader is consumed by `explain-run-cli.mjs`, `check-json-shapes.mjs` and `contract-suite-support.mjs`; the generator emits JavaScript validators for all active attachments, including historical-only entries. | C-032; specification/implementation/schema inputs/generated projections/tests/documentation: retire purely historical schema support and remove the complete validation/diagnostic/test/build/routing closure. No schema survives merely because a validator, diagnostic or test references it. | Eliminate maintenance and runtime/generation dependencies that serve only obsolete formats; keep the supported schema surface understandable and tied to necessary current contracts. | Intentional removal of historical-only validation, after owner amendment; historical evidence bytes and qualification dispositions remain intact. S-050/V-051: full per-file disposition and reference closure, current-contract tests pass, retired inputs fail without historical loading and final S-049 validates the cleaned source. |
+
+For F-047, a concrete independent fixture is a JSON `password` string whose
+unregistered value is 65,536 ASCII characters. With no registered value supplying
+a longer overlap, the key and closing quote never coexist in a scanned window.
+This source-derived example is a required future reproduction, not a test run.
+
+### Completed lifecycle findings — historical
 
 | ID | Remediation / areas | Benefit / unresolved risk | Migration / exit |
 | --- | --- | --- | --- |
@@ -1010,11 +1184,36 @@ owner violation receives a new named correction and regression test.
 
 ## 6. Refactor Workstreams
 
-### Current lifecycle workstreams
+### Current post-cutover workstreams
 
-The sole active dependency chain is **S-036 → S-037 → S-038 → S-039 → S-040 →
-S-041 → S-042**. Every predecessor must pass and its checkpoint must be saved
-before successor work begins. Prior completed graph/fixture work remains DONE.
+The prerequisite column is authoritative; the displayed chain is derived from it:
+**S-043 → S-044 → S-045 → S-046 → S-047 → S-048 → S-050 → S-049**. E-049 is the
+documentation planning checkpoint, not a completed implementation workstream.
+All workstreams are included; there is no optional parallel bypass.
+S-050 is deliberately inserted before S-049 without renumbering stable IDs;
+S-049 remains the final validation and handoff slice.
+
+| Workflow / slice | Class / prerequisite | Goal / principal risk | Likely owners | Required gate and saved checkpoint |
+| --- | --- | --- | --- | --- |
+| WF-43 / S-043 contracts and characterization | root; E-049/E-058 plus later implementation authorization | Freeze owner mappings, exact recovery dependencies, publication recovery semantics, producer boundaries and independent expectations; risk of treating defects as requirements | NLSpec/acceptance, native session/review/fixture tests, authored policy and test ledger | V-044: characterization and necessary owner clarification complete; E-050 before S-044 |
+| WF-44 / S-044 streaming scanner | chain; S-043/V-044/E-050 | Resolve F-047 without false negatives or changed redaction semantics | Shared scanner and native scanner tests | V-045: boundary-independent security/race contracts pass; E-051 before S-045 |
+| WF-45 / S-045 exact recovery dependencies | chain; S-044/V-045/E-051 | Resolve F-043 without deleting needed authority or retaining unnecessary detail | Session preservation/proof, fixture recovery, physical proxy owner and tests | V-046: physical preservation/restart/recovery passes; E-052 before S-046 |
+| WF-46 / S-046 resumable terminal publication | chain; S-045/V-046/E-052 | Resolve F-044; risk of rewriting history or premature closure | Review publication/recovery/session and private registry projection | V-047: publication fault matrix and independent cleanup pass; E-053 before S-047 |
+| WF-47 / S-047 native preparation bounds | chain; S-046/V-047/E-053 | Resolve F-045; risk of aggregate recipe timeout or starved independent releases | Go review driver/adapter, Node producer recipes, lifecycle policy/projections | V-048: injected-clock and physical IPC/process checks pass; E-054 before S-048 |
+| WF-48 / S-048 private interface, wiring and docs | chain; S-047/V-048/E-054 | Resolve F-046/F-048; risk of hidden callers or lost assertions | Session protocol/client, schemas, routing/helper inputs, tests, current/historical guidance | V-049: deletion dispositions and import/build/schema/generated closure pass; E-055 before S-050 |
+| WF-50 / S-050 historical schemas and validation retirement | chain; S-048/V-049/E-055 | Resolve F-049 by deleting the full historical-only support closure; risk of deleting a necessary current contract or preserving obsolete infrastructure through tests | `tools/schemas`, historical schemas/registry/loader, attachments, generators, diagnostic/check/test consumers, authored routing and owner guidance | V-051: owner amendment adopted, every schema dispositioned, historical validation/support removed, current contracts and generated closure pass; E-057 before S-049 |
+| WF-49 / S-049 public validation and handoff | chain; S-050/V-051/E-057 | Validate installed composition then finalize; risk of stale or library-only evidence | Public Make routes, physical owners, final frozen source, tracker | V-050: final contracts/lint/projections/full warm check and exact-run evidence pass; E-056 closes this iteration |
+
+Mandatory checkpoint transaction: record substantive files/changes, exact commands,
+source commit/state/digest, environment, run roots, owning process exits, harness
+outcomes, failed attempts, migration impact, remaining risks and successor readiness.
+Save the tracker before beginning the successor. Do not call a failed gate DONE.
+
+### Completed lifecycle workstreams — historical
+
+The completed iteration followed **S-036 → S-037 → S-038 → S-039 → S-040 →
+S-041 → S-042**, with each predecessor's passing checkpoint saved before its
+successor. Prior completed graph/fixture work remains DONE at its named source.
 
 | Workflow / slice | State | Required exit |
 | --- | --- | --- |
@@ -1123,7 +1322,94 @@ lists are historical and do not redefine the current sequence.
 
 ## 7. Remediation Slice Plan
 
-### Current lifecycle slice implementation and test dispositions
+### Current post-cutover slices and readiness
+
+The current user request authorizes this implementation chain. Dependencies are
+defined in Section 6; saved checkpoints establish predecessor completion. RB-007
+closed at E-050. The isolated implementation environment completed every slice.
+The ten default-root sessions that blocked RB-008 were subsequently retired in
+E-059; E-060 closes their remaining handoff references. Other environments still
+require their own ownership inventory before cutover. No planned test is a
+passed test.
+
+| Slice / kind | Findings / contracts | Implementation steps and entry evidence | Readiness / acceptance |
+| --- | --- | --- | --- |
+| S-043 / contracts and characterization | F-043–F-049 / C-026–C-032 | Revalidate E-049 baseline and callers; map adopted clauses and AC-111/125/130/131/147–149; enumerate exact provider recovery inputs and producer operations; clarify partial-publication recovery without weakening immutable receipts; record per-assertion dispositions and independent expected fixtures. Run narrow existing baseline gates. Record reproduced defects as failures, not fixed behavior. | DONE, V-044/E-050; RB-007 resolved; existing baseline gates pass and each correction has concrete expected outcomes |
+| S-044 / normative scanner correction | F-047 / C-030 | Replace fixed-overlap syntax matching with bounded streaming recognition across arbitrary reads. Retain registered-value detection and secure traversal/inode checks. Add independent accept/reject cases without invoking JavaScript as oracle. | DONE, V-045/E-051: security and race gates pass; no full-file buffering, silent size cutoff or changed redaction acceptance |
+| S-045 / structural extraction and recovery correction | F-043 / C-026 | Replace inferred parent-directory protection with validated exact dependency declarations. Extract the existing physical proxy stop implementation into a shared Go owner; fixture/session recovery and the proxy tool use it. Preserve actual certificate/process/lease dependencies, purge safe siblings, and retain unresolved authority. | DONE in isolated environment, V-046/E-052: physical stop failure followed by preservation and later exact recovery works in a new process; unrelated secrets and logs disappear; borrowed resources remain |
+| S-046 / publication correction | F-044 / C-027 | Persist terminal intent, completed phases and scanner inputs in private recovery state. Validate exact existing terminal bytes and bindings before resuming; reject foreign/conflicting files without replacement. Continue independent safe-detail deletion after scan or publication failure; release recovery state only after validated terminal publication and scanning. | DONE in isolated environment, V-047/E-053: every fault boundary has a validated recovery outcome or explicit ownership conflict, primary cause survives and completed receipts remain byte-identical |
+| S-047 / lifecycle authority correction | F-045 / C-028 | Project preparation deadline/grace from authored policy; expose closed single-producer adapter operations for the existing ordered recipe; Go starts deadlines before dispatch and owns cancellation/drain. Remove competing Node timeout decisions. Check each cleanup deadline is applied once and cannot starve independent releases through the aggregate budget. | DONE in isolated environment, V-048/E-054: pre-initialization and mid-operation stalls terminate within adopted bounds; late replies cannot publish readiness; seeded/dev/artifact and design preparation retain normalized outcomes |
+| S-048 / interface deletion and documentation | F-046/F-048 / C-029/C-031 | Migrate test-only protocol consumers to native-owner assertions; remove unused operations/methods/schema alternatives and declarations. Bind creation authority to canonical repository/run proof while preserving owner-bound physical recovery destinations. Regenerate from authored inputs and correct competing historical active instructions. | DONE in isolated environment, V-049/E-055: production callers use only justified capabilities; no uncovered assertion, fallback, obsolete route, schema attachment or backing-script declaration remains |
+| S-050 / historical schema and validation retirement | F-049 / C-032 | Complete the 206-schema active-root and 14-schema historical inventory; adopt historical-support retirement in owners; delete historical-only schemas and every supporting validation/diagnostic/test/generation/routing path; regenerate and verify necessary current contracts. Detailed deletion contract follows. | DONE, V-051/E-057: full disposition/reference closure and current-contract checks pass before final S-049 |
+| S-049 / validation and handoff | F-043–F-049 / C-026–C-032 | Exercise installed public/physical boundaries; repair at owners and rerun affected gates. Run finalization before broader final verification, review refreshes, freeze executable source, run final gates and inspect exact-run evidence. Update current summaries and every finding disposition. | DONE, V-050/E-056: final-source public/physical gates, contracts, lint, projections and full warm check pass; exits, cleanup, scans and handoff agree |
+
+Rollback for every structural/correction slice restores a coherent source and
+generated-projection transaction. Before any private schema/proof change, drain
+affected sessions using their running version; preserve unresolved ownership.
+Do not add translation readers, aliases, alternate-engine switches or receipt
+rewrites to ease rollback. Required current public behavior and formats stay
+stable; C-032 deliberately retires historical-only validation after its owner
+amendment. Correcting the identified unsafe behavior is intentional.
+
+### Historical schema retirement — S-050
+
+S-050 has an explicit removal outcome, not an archival/reorganization outcome:
+
+1. Inventory every file under `tools/schemas` and `tools/historical-schemas`,
+   attachment entry, `$ref`/generated dependency, producer, reader and test use.
+   Record `keep-current` or `remove-historical/unused` with owner and evidence.
+   Retention requires a necessary current contract or a dependency of that
+   contract. A validator, `explain-run`, JSON-shape check, contract test, historical
+   document or archived run referring to a schema is not sufficient justification.
+2. Adopt the removal of historical validation in REQ-815/AC-099 and reconcile
+   related historical browser schema/diagnostic clauses. Preserve current command
+   names and current owner-required formats. Document the deliberate loss of
+   historical-format validation and bounded unsupported-artifact behavior.
+3. Delete the 14 historical performance schemas, their registry and its schema,
+   the historical-performance loader, and all historical-only consumer branches.
+   Delete confirmed purely historical/unused active-root schemas too. Initial
+   candidates are randomness-control v2 (explicitly no active producer), stack v3,
+   startup diagnostics v1 and schema-object-ownership manifest v1; prove current
+   producer/consumer and `$ref` closure before deciding each candidate, never use
+   version number alone. Required current schemas and shared definitions survive.
+4. Remove associated validation functions, imports/exports, fixtures, digest lists,
+   helper ownership, source/build inputs, task/family routing and schema attachment
+   entries. Delete historical branches in `explain-run`, the historical registry
+   invocation in JSON-shape validation and positive historical acceptance tests.
+   Preserve necessary current diagnostics/checks, and retain small independent
+   negative fixtures proving retired inputs are rejected without old schemas.
+   Update authored inputs then regenerate obsolete validators out of both relevant
+   JavaScript and Go closures; do not hand-edit generated files.
+5. Prove no executable, generated, test, build or validation path requires the
+   retired schemas/registry/loader. Do not replace them with a historical bundle,
+   alternate loader, translation shim, schema tombstone list or second acceptance
+   registry. Preserve historical result bytes, failed evidence and qualification
+   ledgers without rewriting them; Git history remains source history, not a
+   runtime compatibility dependency. Verification must build and exercise affected
+   current producers/readers after removal, not merely pass `explain-run`,
+   JSON-shape checks or contract tests against an unchanged support tree. Save
+   E-057 before final validation S-049.
+
+### Current test-disposition ledger
+
+This is the required disposition plan, not a claim that assertions have already
+moved. S-043 records the individual assertions; S-048 and S-050 must each close
+their own deletion dispositions before completing. Add owner-row selections if new top-level tests would
+otherwise be omitted; do not repeatedly invoke full native suites from smoke.
+
+| Existing group / uncovered obligation | Planned disposition | Actual owner / Make route |
+| --- | --- | --- |
+| `harnesssession/scan_linux_test.go`: registered boundary and fixed syntax fixtures | KEEP; ADD long unregistered JSON key/value, assignment/URL, short-read and redaction cases; fixed independent expected results | `TestSessionScan`; `harness-runtime-contract`, native session row and evidence boundary |
+| `harnesssession/preservation_linux_test.go`: unrelated-directory purge | KEEP; ADD credential/log siblings, exact certificate dependencies, lost/forged proof and preservation-to-new-process recovery | `TestSessionRuntimeProof`, fixture recovery and `harness-fixture-contract` / `harness-runtime-boundary-contract` |
+| `harnessreview/publication_linux_test.go`: failure before terminal creation, immutable repetition | KEEP; ADD failure/death after terminal write, locator update, post-scan and registry removal, plus safe-detail purge on pre-scan failure | `TestReviewPublication`; runtime and UI-review lifecycle routes |
+| Review session/IPC tests and Node `review-child` preparation tests | KEEP observable phase/failure/process behavior; MOVE deadline authority assertions to Go with injected clocks and actual IPC; remove obsolete duplicate timer assertions | `TestReviewLifecycle` / `TestReviewIPC`; runtime, UI contract/lifecycle/seeded routes |
+| Node `test-browser-work-graph.mjs` scanner invocation | MOVE scanner assertion to native owner/boundary coverage using actual generated fixture bytes; KEEP browser/graph construction assertions | Native scanner/boundary plus existing browser owner route; remove test-only `scan` transport use |
+| Node `test-browser-acquisition.mjs` resource enumeration and test cleanup | MOVE journal-authority assertions to native fixture/session tests; KEEP actual browser-adapter binding and process cleanup obligations | Native session/fixture owner and browser boundary; remove test-only `resources` transport use without losing assertions |
+| Session protocol secret enumeration; uncalled preserve/prune operations | REMOVE unused wire cases and client methods; RETAIN direct native secret/preservation/janitor obligations with independent outcomes | `TestSessionProtocol` / `TestSessionRuntimeProof`; generated Node/Go schema parity and negative removed-operation cases |
+| Historical schema loader/registry, positive historical acceptance and archive directory/digest tests | REMOVE obsolete acceptance, loader-integrity and archive-presence assertions with their implementation. KEEP current-format contracts and independent unsupported-schema rejection; tests cannot keep historical schema files alive | S-050/V-051; generated-artifact, evidence, command-surface and native schema owner routes |
+| Compiler/selection, row/report adapters, offline readers, qualification validator, three-role smoke | KEEP distinct responsibilities and existing retirement regression protection | Existing owner routes; no JavaScript runtime/scanner oracle or expanded smoke coordinator |
+
+### Completed lifecycle slice implementation and test dispositions — historical
 
 **S-036:** adopt native shared/session/review ownership, enumerate callers and
 freeze independent expectations before moving production policy. Baseline native
@@ -1793,7 +2079,62 @@ S-014–S-022 or qualify its completed source. These rows retain prior stable ID
 
 ## 8. Validation Plan
 
-### Current lifecycle validation
+### Current post-cutover validation
+
+All commands below are future implementation obligations, run from
+`/home/jochi/code/cartulary`. At authorized entry rediscover routing with `make help`,
+`make help-all`, `make task-guide ROLE=module-author OWNER=<owner-id>` and exact
+target explanations. Current authored routes are confirmed in
+`tools/task_surface_owner.json`; native rows include
+`harness.evidence_accounting.behavior.native_session` and
+`harness.browser.unit.native_review`. Use pinned repository tooling; physical gates
+require the existing Linux/WSL, Docker, PostgreSQL/object-store and browser setup.
+Do not repair/install prerequisites merely to inspect this planning document.
+
+Each writing invocation receives a fresh explicit `CARTULARY_TEST_RUN_ID`, for
+example `CARTULARY_TEST_RUN_ID=postcutover-s044-runtime01 make harness-runtime-contract`.
+Confirm the root is absent/empty first; use a different literal ID for every target
+and retry. Default roots are `.cartulary/test-results/<run-id>`. Preserve both
+owning process exit and harness summary; neither substitutes for the other.
+
+| Validation / stage | Findings / contracts / slice | Exact Make routes and required evidence | Failure consequence |
+| --- | --- | --- | --- |
+| V-044 / pre-move characterization | F-043–F-049 / C-026–C-032 / S-043 | `make harness-runtime-contract`, `make harness-fixture-contract`, `make harness-ui-review-contract`; independent expected fixture/event/failure matrix and owner review of necessary clarification | Existing baseline failures block movement; expected defect reproductions remain explicitly failed evidence until their correction gates pass |
+| V-045 / scanner correction | F-047 / C-030 / S-044 | `make harness-runtime-contract` includes native race checks; `make harness-evidence-contract`; long/unregistered/registered syntax, read fragmentation, redaction and hostile filesystem cases | Any missed secret, changed policy acceptance or insecure removal blocks S-045 |
+| V-046 / recovery correction | F-043 / C-026 / S-045 | `make harness-runtime-contract`, `make harness-fixture-contract`, `make harness-runtime-boundary-contract`; actual proxy/service failure, preservation, owner restart and exact retry; borrowed protection and secret-sibling purge | Lost dependency, retained unnecessary detail, unrelated deletion or unproven successful cleanup blocks S-046 |
+| V-047 / publication correction | F-044 / C-027 / S-046 | `make harness-runtime-contract`, `make harness-ui-review-contract`, `make harness-ui-review-lifecycle`; fault injection at intent, sealing, scan, detail purge, terminal write, locator publication, final scan and registry deletion | Failed primary preservation, conflicting artifact adoption, skipped independent cleanup or receipt mutation blocks S-047 |
+| V-048 / preparation correction | F-045 / C-028 / S-047 | `make harness-runtime-contract`, `make harness-ui-review-contract`, `make harness-ui-review-lifecycle`, `make harness-ui-review-seeded-default`; injected clocks plus actual unresponsive/pre-init producers, cancellation and physical seeded/dev/artifact/design boundaries | Deadline extension, duplicate release budget, undrained descendants or late ready/result publication blocks S-048 |
+| V-049 / deletion and projection closure | F-046/F-048 / C-029/C-031 / S-048 | `make harness-command-surface-contract`, `make harness-evidence-contract`, `make harness-runtime-contract`; authored caller/test ledger, schema parity, negative removed-operation cases, cross-run/repository proof checks; generation/drift/policy/JSON gates below | Hidden caller, undocumented deletion, obsolete route/schema/helper, generated drift or competing current instructions blocks S-050 |
+| V-051 / historical schema retirement | F-049 / C-032 / S-050 | Per-file owner/current-consumer and `$ref` disposition ledger; `make generate`, then separately `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`; `make harness-command-surface-contract`, `make harness-evidence-contract`, `make harness-runtime-contract` and affected owner selections; current-format positive and retired-format negative fixtures, import/build/generated dependency closure | Any historical-only schema/loader/validator dependency, orphan declaration, uncovered current contract, alias/translation fallback or changed historical evidence blocks final S-049 |
+| V-050 / public and final regression | F-043–F-049 / C-026–C-032 / S-049 | Installed command success/rejection/failure/cancel/recovery/status; Go/Node/shell/browser interoperability and actual services; finalization then final contracts, applicable lint/projections and full warm `make check`; exact-run human/JSON evidence and local export isolation | No completion until required current-source exits/results/cleanup pass and E-056 is saved |
+
+After authored projection changes run `make generate`, followed separately by
+`make generate-drift`, `make generated-artifact-policy-check` and
+`make json-shape-check`. Never hand-edit generated files. S-049 first validates
+affected public boundaries, then runs `make agent-finalize` before broader final
+`make harness-contract`, applicable `make lint-scripts`, `make lint-shell`,
+`make lint-markdown`, projection checks and full warm `make check`. Review any
+refresh and freeze the executable source afterward. If finalization or a repair
+changes executable inputs, identify the new source and repeat affected verification.
+Supply finalization's `RESULTS_DIR` only for eligible retained successful full-warm
+evidence; otherwise record the maintenance skip because it was unset.
+
+Use the exact completed root with `make test-run-status RESULTS_DIR=<exact-root>
+JSON=1`, `make harness-observability-check RESULTS_DIR=<exact-root>` and
+`make explain-run RESULTS_DIR=<exact-root> DETAIL=performance` / `DETAIL=resources`,
+each in human and JSON views. Status must not build/provision or initialize writers.
+Preserve graph's quiescence/final-scan/outer-receipt and UI's terminal/scan boundaries.
+Qualification acquisition, performance/default-on claims and product golden refresh
+are not applicable to this iteration.
+
+| Planning-session check | Invocation path / admission | Result and applicability |
+| --- | --- | --- |
+| Git source/diff and preservation checks | Read-only Git with optional writes disabled; in-memory Python hashing/lstat over tracked/nonignored entries, excluding only tracker in final comparison | E-049 records baseline, source equality and final document/preservation review; no executable conformance registry is created |
+| Retained E-048 evidence | Direct read of exact check03/contract03 manifests and summaries | Historical source/digest and pass disposition revalidated; no new process exit or runtime pass inferred |
+| `make lint-markdown` | Authored/generated route enters preflight/run-step; `markdownlint.sh` uses cache-artifact and runner writes `.cache/cartulary/static-analysis/outputs/lint-markdown.ok` | SKIPPED: violates this invocation's tracker-only write boundary; manual structural review and `git diff --check` are not a lint pass |
+| Tests, generation, finalization, service/browser gates | Write retained roots, caches, generated inputs or physical state | SKIPPED: future implementation obligations, not authorized by this document update |
+
+### Completed lifecycle validation — historical
 
 V-037–V-043 map in order to S-036–S-042. Use Make-owned runtime, fixture,
 runtime-boundary, evidence, command-surface, UI-review contract/lifecycle/seeded
@@ -1997,7 +2338,30 @@ Their commands/results are not current-source evidence for S-014–S-022.
 
 ## 9. Top-Level Work Tracker
 
-### Current lifecycle work status
+### Current post-cutover work status
+
+| ID | Work item / scope | Workstream | Status | Depends on / evidence | Exit |
+| --- | --- | --- | --- | --- | --- |
+| T-050 | Save post-cutover audit and remediation plan; documentation only | planning checkpoint | DONE | E-049; unchanged audited executable source | All twelve sections reconciled and tracker-only preservation verified |
+| T-051 / S-043 | Contracts and independent characterization | WF-43 | DONE | User implementation request; baseline gates and independent regressions, E-050 | V-044/E-050 passed; RB-007 resolved |
+| T-052 / S-044 | Streaming scanner correction | WF-44 | DONE | S-043/V-044/E-050 saved; native streaming recognizer and independent fixtures | V-045/E-051 passed |
+| T-053 / S-045 | Exact recovery dependencies and shared physical proxy stop | WF-45 | DONE | S-044/E-051; isolated cutover, F-043/C-026 | V-046/E-052 passed; subsequent default-root retirement is recorded separately in E-059 |
+| T-054 / S-046 | Resumable terminal publication | WF-46 | DONE | S-045/E-052; durable intent and crash recovery | V-047/E-053 passed |
+| T-055 / S-047 | Native preparation deadlines and independent cleanup bounds | WF-47 | DONE | S-046/E-053; Go producer clocks and resource attempt ledger | V-048/E-054 passed |
+| T-056 / S-048 | Remove unused private interface/test wiring and conflicting guidance | WF-48 | DONE | Exact bindings and capability/assertion closure; RB-008 remained at this checkpoint and was subsequently dispositioned in E-059 | V-049/E-055 passed |
+| T-058 / S-050 | Remove historical-only schemas and complete validation/support closure | WF-50 | DONE | Owner amendment, 220-file ledger and complete deletion closure | V-051/E-057 saved before final S-049/E-056 |
+| T-057 / S-049 | Public verification, final validation and handoff | WF-49 | DONE | All predecessor checkpoints saved in order; all seven findings closed | V-050/E-056: final-source full warm check, public/physical gates, evidence and handoff complete |
+| T-059 | Add the user-requested schema retirement workstream; documentation only | planning amendment | DONE | E-058; prior tracker edits and historical evidence preserved | New workstream integrated into dependencies, validation and final completion criteria; tracker-only checks pass |
+| T-060 | Retire the ten legacy scratch sessions after the user's follow-up | administrative maintenance | DONE | E-059; fresh process/container/reference and filesystem audit | Exactly ten roots removed; default runtime directory empty; historical outcomes unchanged |
+| T-061 | Remove obsolete session follow-up wiring and reconcile handoffs | administrative maintenance | DONE | E-059; explicit request to clean up remaining wiring | E-060: no active references, corrected current guidance, empty scratch parents removed and documentation validation passed |
+
+The authorized implementation chain is complete. S-043–S-048, S-050 and S-049
+are DONE, with every predecessor checkpoint saved before its successor. E-056
+closes functional remediation at the final frozen source. Qualification remains
+deferred. E-059 subsequently removes the ten stale default-root sessions as
+administrative retirement; their historical cleanup remains unverifiable.
+
+### Completed lifecycle work status — historical
 
 | ID | Work | State / evidence |
 | --- | --- | --- |
@@ -2083,6 +2447,1218 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-060 — Retired-session wiring and handoff cleanup — DONE
+
+2026-10-12; the user requested cleanup of the ten retired sessions' remaining
+wiring. Read-only searches of authored and generated repository code, schemas,
+contracts and task routing found no references to the ten runtime identities or
+their retired v1 session/owner/review interfaces. The shared current runtime,
+recovery, persistent-session and port-lease facilities remain required by current
+callers; no compatibility reader, alias, recovery bypass or session-specific
+executable routing remains to remove.
+
+Inspected the default scratch and review roots, host-admission state,
+`.cartulary/runtime`, `.cartulary/web-e2e-port-leases` and the persistent-session
+location declared by `local-session.mjs`. No active state references the retired
+runtime paths or lease IDs. Admission has zero leases; the scratch runtime and
+review registries have zero entries. Other port records and the unpublished
+admission snapshot are not linked to these sessions and are outside this cleanup.
+Retained test results and the E-059 retirement audit remain historical evidence.
+
+The controlling tracker's current slice-readiness paragraph still described the
+default environment as blocked. The release-reliability and Reference Pack
+handoffs also described retired private roots as still present. Reconciled those
+references with E-059, explicitly separating checkpoint-time state from current
+instructions. Historical failures, missing-proof limitations, source identities
+and acceptance outcomes remain unchanged. E-056 remains the final executable
+validation record; this follow-up does not introduce another implementation slice.
+
+The persistent-session default resolves through the Make-owned machine cache to
+`/home/jochi/.cache/cartulary/test-services/session.json`; no descriptor or
+borrower files remain there. The adjacent machine-cache harness scratch is empty.
+Removed only the now-empty `/tmp/cartulary-harness-scratch/suite-runtime` and its
+parent with `rmdir`, after checking same-user ownership, mode 0700 and absence of
+new contents. Both removals succeeded with process exit 0. No shared admission
+mutex, current lifecycle code, unrelated port reservation or service was changed.
+
+This is documentation and local
+state maintenance, so no generator, implementation test or `agent-finalize`
+invocation is needed. The initial source search included a nonexistent `scripts`
+directory and an initial guessed admission source path did not exist; both
+inspections were corrected before drawing conclusions. No cleanup command failed.
+
+`TMPDIR=/tmp/cr261012
+CARTULARY_TEST_RUN_ID=legacy-wiring-20261012-markdown01 make lint-markdown`
+completed with owning exit 0 and published pass, 16,770 ms, at
+`.cartulary/test-results/legacy-wiring-20261012-markdown01/adhoc/lint-markdown/tool-run-summary.json`.
+`git diff --check` passed. A final retired-interface search across `tools`,
+`internal`, `contracts` and `.agents` returned no matches (the expected `rg`
+exit 1). The default scratch parent is absent, the review directory is empty,
+and admission still has zero leases. The non-Markdown patch/untracked-source
+fingerprint remains E-056's
+`dd7872e19c4cb1b3786d29e79b14c8aaac1cb0488441715849602dfe831dc4cd`;
+zero paths are staged. These results and DONE labels were saved after the
+Markdown pass. T-061 is complete; no session-specific cleanup remains open.
+
+### E-059 — Legacy scratch session administrative retirement — DONE
+
+2026-10-12; follow-up request: “Can the Ten unverifiable legacy sessions be
+removed?” This maintenance follows E-056 and changes no executable source,
+projection, public receipt or historical outcome. Earlier checkpoints accurately
+record that these roots were preserved at their execution times; this entry
+supersedes their current environment inventory only.
+
+Fresh read-only inspection, after rediscovering `make help` and `make help-all`,
+found all ten recorded owner PIDs absent. All sixteen container IDs recorded by
+the eight physical service leases were absent: `docker ps --all --no-trunc`
+returned exit 0 and zero containers on the current `default` context,
+`docker-desktop` Linux daemon, with no `DOCKER_HOST` override. Recorded helper
+group 10385 and browser groups 2595/2752 had no members. There were no review JSON
+registries under `/tmp/cartulary-ui-review-1000` and no exact-root references in
+readable same-user process command lines, environments, working directories,
+executables or open file links. Two same-user processes disallowed private reads:
+PID 392 (`systemd`) and its child PID 398 (`(sd-pam)`); these were identified from
+readable process status and are explicitly excluded from that negative result.
+
+Legacy proof remains incomplete: 72 browser target files and one borrowing target
+file were missing. Their absence is not proof of a successful historical stop.
+This is user-requested administrative retirement of private scratch files after
+the current absence checks, not a replay of legacy recovery or a migration of
+legacy records into v2. No process was signalled and no service, volume or
+borrowed resource was modified. A remote resource absent from surviving proof
+cannot be reconstructed by this audit; no broader resource-absence claim is made.
+
+All roots and both scratch parents were same-user, nonsymlink, mode 0700
+directories. Descendants were same-user regular files or directories on the same
+device, with no symlinks, special files or multiply linked regular files. The
+one-shot maintenance operation required the exact ten-name inventory, checked
+record/owner bindings, snapshotted and rechecked entry identities before deletion,
+rechecked Docker absence and each owner PID, and used Python's fd-based,
+symlink-resistant `shutil.rmtree` on only these enumerated roots:
+
+| Root under `/tmp/cartulary-harness-scratch/suite-runtime` | Disposition |
+| --- | --- |
+| `suite-20261002T221420Z-p56807-br4R8j` | Removed |
+| `suite-20261003T005539Z-p6721-2V50CA` | Removed |
+| `suite-20261003T012636Z-p23799-63UATt` | Removed |
+| `suite-20261003T030043Z-p5210-lgZ0YJ` | Removed |
+| `suite-20261003T040642Z-p63009-9jDn6q` | Removed |
+| `suite-20261004T042948Z-p63192-PHe0zy` | Removed |
+| `suite-borrowed-92a4ad75-d696-42be-b52c-ddd7bab14dff` | Removed; no external owner touched |
+| `suite-fixture-cleanup-1790962532794-unresolved-9MCDyG` | Removed |
+| `suite-fixture-cleanup-1791130012864-product-ShMirv` | Removed |
+| `suite-selected-graph-7687-basic-e462f15d-8a4d-4c34-a447-0030261f829f` | Removed |
+
+The owning maintenance process exited 0: ten roots and 551 regular files
+(26,181,175 bytes) removed; zero runtime roots remain. A private mode-0600 audit
+record, written before deletion and completed afterward, is retained at
+`.cartulary/retained-work/legacy-runtime-retirement-20261012.json`. It includes the
+exact inventory, resource identifiers, aggregate file-set hashes, limitations and
+completed deletion list, but no credential contents. No retained test runs were
+removed and no successful cleanup receipt was fabricated. RB-008 no longer has
+these affected sessions awaiting migration; other environments still require
+their own inventory and ownership checks.
+
+Validation of the tracker update is recorded below. Implementation tests,
+generation and `agent-finalize` are not required for this administrative cleanup
+and documentation-only update; E-056's executable validation remains unchanged.
+One initial documentation patch failed its context check and applied no edits;
+the corrected patch succeeded. No deletion or audit command failed.
+
+`TMPDIR=/tmp/cr261012
+CARTULARY_TEST_RUN_ID=legacy-retirement-20261012-markdown01 make lint-markdown`
+completed with owning exit 0 and published pass, 16,660 ms, at
+`.cartulary/test-results/legacy-retirement-20261012-markdown01/adhoc/lint-markdown/tool-run-summary.json`.
+`git diff --check` passed. The non-Markdown patch/untracked-source fingerprint
+still equals E-056's
+`dd7872e19c4cb1b3786d29e79b14c8aaac1cb0488441715849602dfe831dc4cd`;
+zero paths are staged. A final inventory again found zero legacy runtime roots.
+This validation-result paragraph was appended after the Markdown pass.
+
+### E-056 — S-049 public validation and final handoff — DONE
+
+2026-10-12; main `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` plus preserved
+tracker edits and the remediation patch. Final executable source frozen after `finalize03`:
+`sha256:8b0ad408870dec517c7795869a90e5869ee7b83349c09b3dc51fbf13f61ee5d9`.
+Final non-Markdown patch/untracked-source fingerprint:
+`dd7872e19c4cb1b3786d29e79b14c8aaac1cb0488441715849602dfe831dc4cd`.
+The intermediate `finalize02` source was
+`sha256:e3d3f03490b2df19a3e24251d9d4a4cd6b3dfdf37ab6ab1bf98c2f70576a1e86`.
+The first validation batch used E-057’s source `sha256:2431cb4978710a18629487ccdcbfd38f45e62b524d49e2dca7bbecbcb1724ae9`.
+Linux/WSL, effective Go 1.27.2 and pinned Node 24.15.0 with installed declared
+service/browser prerequisites. All three finalizers changed zero files. The first full check required the
+assertion-equivalent test-expression repair described below; `runtime02`,
+`golint02` and `finalize02` passed. The temporary maintenance branch was then
+removed, and `finalize03` established the final source freeze. Documentation reconciliation does not change source
+identity or product evidence.
+
+Writing commands use fresh `CARTULARY_TEST_RUN_ID=remediation-s049-<suffix>`.
+The first batch uses `TMPDIR=/tmp/cartulary-remediation-20261012`; from
+`securefile01` onward, new runs use the shorter isolated `TMPDIR=/tmp/cr261012`.
+Exact roots are `.cartulary/test-results/remediation-s049-<suffix>`; graph evidence
+is `run-manifest.json`, `run-summary.json`, referenced rows/unit results and terminal
+scan/cleanup artifacts. Non-graph gates use `<target>/tool-run-summary.json`;
+Markdown uses `adhoc/lint-markdown/tool-run-summary.json`. Every listed owning exit
+was collected independently of its published result.
+
+| Suffix | Exact Make target / additional inputs | Owning exit / published result |
+| --- | --- | --- |
+| `boundary01` | `harness-runtime-boundary-contract` | 0 / pass, 92,250 ms |
+| `lifecycle01` | `harness-ui-review-lifecycle` | 0 / pass, 24,430 ms |
+| `shell01` | `run-harness-smoke-lifecycle` | 0 / pass, 122,518 ms; both web and dev stack lifecycle checks pass |
+| `workflow01` | `harness-ui-review-workflow` | 0 / pass, 18,040 ms |
+| `seeded01` | `harness-ui-review-seeded-default` | 0 / pass, 55,860 ms |
+| `ui01` | `harness-ui-review-contract` | 0 / pass, 2,090 ms |
+| `finalize01` | `agent-finalize`, `RESULTS_DIR` explicitly unset via `env -u RESULTS_DIR` | 0 / pass, 21,497 ms; generated unchanged, zero updated files |
+| `contract01` | `harness-contract` | 0 / pass, 107,189 ms |
+| `scripts01` | `lint-scripts` | 0 / pass, 589 ms |
+| `shelllint01` | `lint-shell` | 0 / pass, 16,911 ms |
+| `markdown01` | `lint-markdown` | 0 / pass, 17,870 ms |
+| `drift01` | `generate-drift` | 0 / pass, 19,401 ms |
+| `policy01` | `generated-artifact-policy-check` | 0 / pass, 1,082 ms |
+| `shape01` | `json-shape-check` | 0 / pass, 3,797 ms |
+| `diagnostics01` | `test-slice OWNER=harness.command_surface ROWS=harness.command_surface.unit.native_runtime HARNESS_DIAGNOSTICS=basic`, environment `CARTULARY_HARNESS_CACHE_MODE=off` | 0 / pass, 120,902 ms; one fresh unit, zero result-cache hits |
+| `observability01` | `harness-observability-check RESULTS_DIR=.cartulary/test-results/remediation-s049-diagnostics01` | 0 / PASS; one invocation, four sources, complete diagnostics/execution; read-only checker |
+| `design01` | `browser-design-review-smoke` | 0 / terminal closed/ok, cleanup complete, no failures |
+| `check01` | `check`, environment `CARTULARY_HARNESS_CACHE_MODE=off` | 2 / fail, 529,058 ms; 980 passed, 2 failed, 0 skipped out of 982 units |
+| `securefile01` | `test-slice OWNER=platform.rootedfs ROWS=platform.rootedfs.unit.secure_absolute_file_reads`, environment `CARTULARY_HARNESS_CACHE_MODE=off`, short isolated `TMPDIR=/tmp/cr261012` | 0 / pass, 708 ms |
+
+| Intermediate-source suffix | Exact Make target / additional inputs | Owning exit / published result |
+| --- | --- | --- |
+| `runtime02` | `harness-runtime-contract` | 0 / pass, 44,120 ms; race contracts |
+| `golint02` | `lint-go` | 0 / pass; formatting, staticcheck and vet |
+| `finalize02` | `agent-finalize`, `RESULTS_DIR` explicitly unset | 0 / pass, 21,126 ms; zero generated changes |
+| `contract02` | `harness-contract` | 0 / pass, 117,855 ms |
+| `scripts02` | `lint-scripts` | 0 / pass, 5,760 ms |
+| `shelllint02` | `lint-shell` | 0 / pass, 12,944 ms |
+| `drift02` | `generate-drift` | 0 / pass, 35,304 ms |
+| `policy02` | `generated-artifact-policy-check` | 0 / pass, 3,772 ms |
+| `shape02` | `json-shape-check` | 0 / pass, 6,212 ms |
+| `diagnostics02` | `test-slice OWNER=harness.browser ROWS=harness.browser.unit.testservices_lifecycle_contract HARNESS_DIAGNOSTICS=basic`, environment `CARTULARY_HARNESS_CACHE_MODE=off` | 0 / pass, 77,011 ms; one fresh unit |
+| `observability02` | `harness-observability-check RESULTS_DIR=.cartulary/test-results/remediation-s049-diagnostics02` | 0 / PASS, one invocation/four sources, complete diagnostics/execution |
+| `lifecycle02` | `harness-ui-review-lifecycle` | 2 / tool exit 1, harness/unknown_failure; 27 tests passed, four failed during concurrent full-check host admission/readiness; retained for diagnosis |
+| `boundary02` | `harness-runtime-boundary-contract` | 2 / tool exit 1, harness/unknown_failure, 142,280 ms; HTTPS observation assertion found no owned-container sample while concurrent full check was active |
+| `shell02` | `run-harness-smoke-lifecycle` | 0 / pass |
+| `check02` | `check`, environment `CARTULARY_HARNESS_CACHE_MODE=off` | 2 / fail, 490,174 ms; 980 passed, two failed, zero skipped/cancelled of 982 units |
+| `indicators01` | `service-backed-test-slice OWNER=module.indicators ROWS=module.indicators.identity.z_concurrent_find_or_create_convergence`, cache off | 0 / pass, 11,175 ms |
+| `serving01` | `service-backed-test-slice OWNER=app.server ROWS=app.server.integration.server_shared_and_restore_exclusive_serving_leas_1da2a38098`, cache off | 0 / pass, 10,436 ms |
+| `boundary03` | `harness-runtime-boundary-contract`, standalone | 0 / pass; real owned-container observation restored |
+
+| Final-source suffix | Exact Make target / additional inputs | Owning exit / published result |
+| --- | --- | --- |
+| `finalize03` | `agent-finalize`, `RESULTS_DIR` explicitly unset | 0 / pass, 21,112 ms; generated unchanged |
+| `boundary04` | `harness-runtime-boundary-contract`, standalone | 0 / pass, 90,740 ms |
+| `lifecycle03` | `harness-ui-review-lifecycle`, standalone | 0 / pass, 24,460 ms |
+| `workflow02` | `harness-ui-review-workflow`, standalone | 0 / pass, 16,360 ms |
+| `seeded02` | `harness-ui-review-seeded-default`, standalone | 0 / pass, 51,910 ms |
+| `ui02` | `harness-ui-review-contract`, standalone | 0 / pass, 2,010 ms |
+| `design02` | `browser-design-review-smoke`, standalone | 0 / closed/ok, cleanup complete |
+| `observability03` | `harness-observability-check RESULTS_DIR=.cartulary/test-results/remediation-s049-boundary04/native-boundary/https` | 0 / PASS; one invocation, four sources, complete diagnostics/execution |
+| `contract03` | `harness-contract` | 0 / pass, 96,173 ms |
+| `shell03` | `run-harness-smoke-lifecycle` | 0 / pass, 122,499 ms |
+| `scripts03` | `lint-scripts` | 0 / pass, 721 ms |
+| `shelllint03` | `lint-shell` | 0 / pass, 1,788 ms |
+| `drift03` | `generate-drift` | 0 / pass, 18,988 ms |
+| `policy03` | `generated-artifact-policy-check` | 0 / pass, 1,191 ms |
+| `shape03` | `json-shape-check` | 0 / pass, 3,921 ms |
+| `diagnostics03` | `service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.https_trust HARNESS_DIAGNOSTICS=basic`, cache off, standalone | 0 / pass, 22,167 ms; 123 samples, two owned containers, complete execution diagnostics |
+| `observability04` | `harness-observability-check RESULTS_DIR=.cartulary/test-results/remediation-s049-diagnostics03` | 0 / PASS; public wrapper receipt and scan pass at final source |
+| `check03` | `check`, environment `CARTULARY_HARNESS_CACHE_MODE=off`, standalone | 0 / pass, 425,770 ms; 982/982 work units, 1,415 rows, zero failed/skipped/cancelled, 982 bypasses and zero result-cache hits |
+| `observability05` | `harness-observability-check RESULTS_DIR=.cartulary/test-results/remediation-s049-check03` | 0 / PASS; default-off diagnostics/execution correctly reported not observed |
+| `markdown02` | `lint-markdown` after handoff/evidence reconciliation | 0 / pass, 8,210 ms |
+| `markdown03` | `lint-markdown` after final DONE/current-summary reconciliation | 0 / pass, 7,580 ms |
+
+The final native HTTPS boundary retains 148 resource samples and two proven owned
+containers. Human performance, JSON resource and terminal status views pass at
+that exact nested run; partial observation and bounded presentation omissions remain
+explicit. This library-invoked graph has no outer Make terminal receipt, which the
+reader correctly reports unavailable. `diagnostics03` separately executes the public Make entry at final source and
+retains a passed outer terminal receipt, child exit 0 and passed retained scan.
+Its performance JSON confirms all three, with 123 samples and two owned containers.
+These are functional diagnostics, not qualification.
+
+`lifecycle02` overlapped `check02`. Two browser cases report explicit
+`infra/resource_conflict` from host admission; two more failed their readiness
+assertion. The standalone gate's five-second admission bound was not changed.
+The standalone `lifecycle03` passed after the full check drained, without any
+deadline or assertion changes; no production repair was inferred from those failures.
+`boundary03` and final-source `boundary04` passed standalone. In `boundary02`, nested service graphs
+passed but the independent HTTPS reader found no owned-container observation.
+The collector fences sampling while host admission requires quietness; neither
+its policy nor this assertion was relaxed.
+
+The first full check's `platform.rootedfs.unit.secure_absolute_file_reads` reports
+`product/test_assertion_failure`, normalized unit exit 10. Its retained referenced
+stderr proves setup failed before the assertion: the Unix socket path under the
+long temporary root exceeds Linux's address-length limit (`bind: invalid argument`).
+The same row passed at unchanged source under newly admitted owner-only 0700 empty
+`/tmp/cr261012`. No product/test implementation was changed to accommodate this
+environment choice. Failed evidence remains retained. The first check drained normally. A second
+failed unit, `target:lint-go` (`harness/child_target_failure`, unit exit 2),
+reported staticcheck S1024 at `harnesssession/cleanup_linux_test.go:55`. Replaced
+`end.Sub(time.Now())` with equivalent `time.Until(end)`; the deadline and assertion
+are unchanged. Finalization and affected runtime/lint gates were repeated successfully. The
+fresh standalone full warm `check03` passed in the shorter environment.
+
+Final deletion review retired the temporary `CARTULARY_BOUNDARY_RECOVERY_PROOF`
+branch from `TestNativeFixturePhysicalLifecycle`. E-055 used that test-only entry
+to recover three exact failed-fixture roots, all now absent. Its future maintenance
+value does not justify an environment-controlled early return that bypasses normal
+physical assertions. **Disposition: obsolete maintenance helper removed; all ordinary
+owned/borrowed/persistent/failed-cleanup/new-owner recovery assertions retained.**
+There is no replacement operation or compatibility alias. `finalize03` and final
+source gates follow this deletion; no executable edits follow that freeze.
+
+The second full check's two failures are PostgreSQL database teardown deadlines:
+`module.indicators.identity.z_concurrent_find_or_create_convergence` and
+`app.server.integration.server_shared_and_restore_exclusive_serving_leas_1da2a38098`.
+Both retained stderr artifacts report `pgtest.go:676` normal/forced database-drop
+cleanup exhausting the existing five/15-second limits, with normalized
+`product/test_assertion_failure` and unit exit 10. The test bodies reported no
+assertion failure before cleanup. The same rows passed in `check01` and the independent `indicators01`/`serving01`
+reproductions. The complete standalone warm `check03` passed, including both rows. No causal connection
+to the remediation is established by these errors, and a later pass alone does
+not prove flakiness or a root cause. No timeout, capacity or workload policy changes
+were made. Both failed full checks completed all 1,241 graph cleanup steps with
+zero failed/blocked cleanup steps and passed retained scanning. Their failed test
+outcomes remain failed evidence.
+
+Public native/Node/shell/browser checks cover success, invalid input, producer
+failure, cancellation, partial acquisition, exact stop/recovery and observational
+status. Physical fixture boundaries include owned, borrowed and persistent service
+scopes and failed cleanup followed by recovery in a new owner. Browser lifecycle
+checks cover controller/parent death, concurrent controls, interrupted actions and
+immutable repeated-stop receipts; dev origins survive borrowed-session teardown.
+Seeded and design entries exercise actual service/proxy/browser setup and cleanup.
+The design receipt is closed/ok with cleanup complete; private session registries
+and runtime roots were empty after the preliminary physical gates.
+
+`agent-finalize` ran before broader final checks. Retained-run maintenance was
+**skipped because RESULTS_DIR was unset**: no eligible successful full warm run at
+this final source was available then. Its schema, tier and generated-structure
+checks passed; `updated_files=[]`. Subsequent gates use the frozen source, not
+historical accepted results. Build-cache reuse is distinct from result-cache reuse.
+
+Exact-run status JSON and human/JSON performance/resource views for `diagnostics01`
+pass; the checker validates canonical/diagnostic and terminal-receipt closure.
+Resources are explicitly `observed_partial` with zero samples in this selected run;
+this proves reader/receipt closure, not CPU/RSS measurements or qualification.
+Diagnostics remain opt-in, local and default-off. Public status tests reject missing
+installed tools without provisioning and reject inherited selection/command injection.
+Final full-run status (human and JSON), human run explanation and JSON
+performance/resource views all exit 0 for exact `check03`. They report pass while
+correctly separating observer success from the owning exit and reporting optional
+diagnostics as not observed. `observability05` passes. The installed native tool
+and selected manifest/summary/cleanup/scan file identities, sizes and modification
+times remain unchanged across these readers. Together with current public missing-tool
+and command-injection assertions, this confirms observational status does not
+build or provision. Markdown validation passed; this final checkpoint is saved. S-049/V-050 and
+T-057 are DONE. The final status/result-word update is documentation only; `markdown03` passed
+after the DONE/current-summary reconciliation. Recording its result adds no
+executable change.
+
+Read-only discovery covered final targets, owner task guides and exact-run readers.
+One `explain-target` discovery call supplied unsupported OWNER/ROWS arguments and
+returned usage exit 2; routing was resolved from the owner task guide and authored
+row selector. A few inspection commands named nonexistent `.sh` counterparts of
+`.mjs` fixtures; corrected paths supplied the evidence above. These were read-only
+inspection failures, not validation passes. Earlier E-050–E-055/E-057 failures,
+characterization-only failures and explicit skips remain preserved at their sources.
+
+Implementation dispositions, public/physical validation and full warm acceptance
+are complete for all seven findings:
+
+| Finding | Final disposition / durable owner | Correction checkpoint / final coverage |
+| --- | --- | --- |
+| F-043 / C-026 | Exact validated dependency retention; shared physical proxy stop; no disposable executable dependency | S-045/V-046/E-052; native runtime/fixture/race and standalone physical recovery gates |
+| F-044 / C-027 | Durable review publication transaction, persisted scanner authority, immutable matching terminal bytes, independent cleanup | S-046/V-047/E-053; crash/error/concurrency cases and public stop/recovery lifecycle |
+| F-045 / C-028 | One Go producer deadline and termination policy; closed producer operations; one-attempt resource cleanup ledger | S-047/V-048/E-054; real stalled IPC/process and injected-clock tests; seeded/dev/artifacts/design public gates |
+| F-046 / C-029 | Private protocol contracted; canonical repository/run binding; exact native-authorized private output roots; obsolete test maintenance escape removed | S-048/V-049/E-055 plus S-049 final deletion; native/Node/Go/shell and owned/borrowed/persistent composition |
+| F-047 / C-030 | Bounded streaming syntax recognition independent of read fragmentation; registered-secret detection and traversal preserved | S-044/V-045/E-051; independent long/split/error/filesystem fixtures, race/evidence contracts and final retained scans |
+| F-048 / C-031 | One controlling tracker; older handoff explicitly superseded; every removed assertion retained, relocated or obsolete | S-048/V-049/E-055; human ownership/disposition review and Markdown validation |
+| F-049 / C-032 | 220-file disposition ledger; 21 obsolete schemas and complete historical validator/registry/reader closure removed; 199 current schemas remain | S-050/V-051/E-057; current-format producers/readers, independent rejection cases, generation/drift/policy/shape and final contracts |
+
+The inspected authority set includes the Testing Harness NLSpec, `domain.md`,
+repository procedure, typed routing/policy/schema owners and the source/test seams
+recorded in each checkpoint. `domain.md` required no vocabulary/owner-navigation
+edit. Changes span the shared Go session, fixture and review owners; the extracted
+proxy physical library; Node recipes/transport/readers; authored private schemas,
+lifecycle policy and routing; their generated projections; independent/native and
+public boundary tests; the adopted spec and two human handoffs. No production
+product module, dependency lock, visual golden or qualification input was changed.
+
+Final cleanup and retention agree with the successful owning exit: all 1,241
+`check03` cleanup steps are completed, none failed or blocked; retained scanning
+passes over 6,185 files with the unchanged scan policy identity. Both isolated
+scratch environments contain zero runtime roots and zero review JSON registries.
+At this checkpoint the default root still contained the ten pre-existing
+unresolved runtimes; their later administrative retirement is recorded in E-059.
+The final source/patch fingerprint is unchanged after finalization and validation;
+no generated root was hand-edited, no dependency lock changed, no staging or commit
+was performed, and the pre-existing tracker content remains preserved with its
+historical evidence. `git diff --check` passes.
+
+The two database cleanup timeouts from `check02` did not recur in either independent
+owner reproduction or the full standalone `check03`. Their underlying transient
+cause remains unestablished; retain those exact runs for any future recurrence
+instead of treating the later pass as proof of a diagnosed/fixed PostgreSQL issue.
+This limit does not reopen F-043–F-049 or weaken any required assertion/deadline.
+
+Compatibility/handoff: private owner/session/adapter/review registry v2 formats
+replace their predecessors coherently, without aliases or fallback readers. Drain
+or recover existing sessions using their running version before deploying this
+source into another environment. At this checkpoint the ten unverifiable
+default-root sessions still blocked that environment; implementation did not
+delete their proof or signal their resources. E-059 records their subsequent
+user-requested administrative retirement. Historical-format inspection support is intentionally
+removed; retained historical bytes are unchanged and current readers reject
+unsupported artifacts with bounded failures. Rollback restores one coherent
+source/projection revision and never rewrites retained receipts. No further
+functional implementation slice remains. E-056 completes the authorized effort.
+
+The default-root blocker above is historical and superseded by E-059 for those
+ten sessions. New isolated environments had no affected predecessor
+sessions before admission. F-022/RB-006 qualification remains DEFERRED; no budgets,
+goldens, measurement acquisition, diagnostics defaults or Core 05 claims changed.
+
+### E-057 — S-050 historical schema and support retirement — DONE
+
+2026-10-12; main `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` plus preserved
+tracker and implementation patch. Final projection-gate source digest:
+`sha256:2431cb4978710a18629487ccdcbfd38f45e62b524d49e2dca7bbecbcb1724ae9`.
+Non-Markdown patch/untracked-source fingerprint:
+`4ee0b5fb640df72c5d4cf32dd968d2cd4b0d4d20d55b1e620705a34eac5a3366`.
+Linux/WSL, pinned installed tooling and declared prerequisites. All writing
+commands use `TMPDIR=/tmp/cartulary-remediation-20261012` and fresh
+`CARTULARY_TEST_RUN_ID=remediation-s050-<suffix>`. Exact run roots and tool/graph
+summary paths follow E-055's conventions.
+
+REQ-815/AC-099 and the browser historical-validation clause were amended before
+schema deletion. Current-only validation replaces historical inspection support;
+retained historical bytes remain immutable. The public schema table's stale
+row-result, registry, browser-group and startup-diagnostic versions were aligned
+with current contracts. Dormant fixture-tier and future-only frontend claim-review
+formats were retired after confirming zero current producers/readers/references;
+this does not introduce or weaken a Core 05 claim-publication boundary.
+
+The **220-row ledger** below accounts for every original active/historical file,
+its attachment, producer/reader evidence, references and generation dependency.
+**199 active schemas remain.** Removed all 14 historical performance schemas,
+`historical_performance_evidence_registry.json`, its schema, the dynamic historical
+loader and six other inactive active-root schemas. No retained `$ref` points to a
+removed schema. Authored attachment deletion and `make generate` remove generated
+validators and refresh topology/input digests; generated outputs were not edited
+by hand. Closed-owner input directories need no compatibility declarations or
+replacement routes. No executable/generated dependency on retired support remains.
+
+`explain-run-cli.mjs` now accepts only current measurement aggregates and their
+current referenced artifacts. Unsupported aggregate input returns constant bounded
+artifact exit 11 without echoing supplied identity bytes. Historical field fallbacks
+for traffic and stage samples were removed. JSON-shape checks no longer load a
+historical registry. Positive historical loader/acceptance assertions were deleted;
+small independently specified rejection fixtures require no retired schema bundle.
+Existing browser-work-graph tests now execute the current measurement reader with
+synthetic observation/build/lease/summary artifacts and assert unsupported-input
+rejection, bounded output and unchanged rejected bytes. Current qualification
+validators and profile policy were retained; no measurement was acquired.
+
+| Suffix(es) | Exact Make target | Owning exit / published result |
+| --- | --- | --- |
+| `generate01`, `generate02` | `generate` | 0 / pass; authored deletion then final input refresh |
+| `runtime01` | `harness-runtime-contract` | 0 / pass, 55,650 ms; race/native schema parity |
+| `command01` | `harness-command-surface-contract` | 0 / pass, 65,670 ms |
+| `evidence01` | `harness-evidence-contract` | 0 / pass, 11,000 ms |
+| `extended01` | `run-harness-smoke-extended` | 0 / pass, 43 checks, 107,502 ms; current browser measurement reader/rejections and current canonical qualification/evidence contracts executed |
+| `boundary01` | `harness-contract-tests` | 2 / tool exit 1; private child-capture test bound a fake repository while launching a real repository producer, and changed wrapper run scope under inherited authority. S-048 binding correctly rejected it before intended cleanup fault; failed evidence preserved |
+| `boundary02` | `harness-contract-tests` | 0 / pass |
+| `drift01`, `drift02` | `generate-drift` | 0 / graph pass; drift02 final source |
+| `policy01`, `policy02` | `generated-artifact-policy-check` | 0 / graph pass |
+| `shape01`, `shape02` | `json-shape-check` | 0 / graph pass |
+
+The child-capture fixture repair uses the actual repository for actual producers
+and a separately owned exact wrapper-run runtime. It retains every original
+primary/secondary failure, private allocation, borrower non-deletion, redaction,
+descriptor cleanup and raw-output-retention assertion. This is additional F-046
+caller evidence discovered in S-050; E-055's source-scoped passes are not rewritten.
+The assertion/support ledger below closes removed test and infrastructure uses.
+
+Read-only `task-guide ROLE=module-author OWNER=harness.generated_artifacts` and
+`explain-target TARGET=run-harness-smoke-fast DETAIL=summary` exited 0; discovery
+showed the affected browser-work-graph check belongs to the extended route, which
+was executed. Product owner reruns were unnecessary for the deleted dormant
+schemas: no current product producer/reader uses them. Current generated-owner
+checks, native/Node schemas and current reader/producer fixtures provide the
+required closure. Fresh executions are distinct from build-cache reuse.
+Default-root unresolved private ownership was untouched at this checkpoint
+(later retired in E-059). Final S-049 was still required; no successful historical
+run substitutes for final executable evidence.
+
+V-051/F-049/C-032 and RB-009 close at this source. Every owning exit was
+collected separately from published summaries. The final contract suite passes,
+including repaired caller binding and current-versus-retired schema contracts.
+`git diff --check` passes. E-057 is saved; S-049 may now begin.
+
+### E-055 — S-048 private capability and binding closure — DONE
+
+2026-10-12; main `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` plus preserved
+tracker and implementation patch. Final gate source digest:
+`sha256:6e624c6626440538c0b4eb46fbd625d4e82606101d1aba087e68d79ead96cc79`.
+Non-Markdown patch/untracked-source fingerprint:
+`48608876281af432af1938f1c21351dfe55e3b40313f140233efc330720dbad6`.
+Linux/WSL, pinned installed tooling and declared service/browser prerequisites.
+All writing commands use `TMPDIR=/tmp/cartulary-remediation-20261012` and fresh
+`CARTULARY_TEST_RUN_ID=remediation-s048-<suffix>`; exact roots are
+`.cartulary/test-results/remediation-s048-<suffix>`. Tool summaries are
+`<root>/<target>/tool-run-summary.json`; graph summaries are `<root>/run-summary.json`.
+
+Session protocol/client v2 removes `secrets`, `scan`, `preserve`, `prune` and
+`resources`. Direct native methods remain. Owner proof v2 persists canonical
+repository and retained-root bindings plus native-authorized exact private
+lifecycle output roots. New `harnesssession/binding.go`, `binding_linux.go` and
+binding tests centralize validation; the session protocol, native physical stop,
+`suiteservices/env.go`, browser acquisition, shell entry and review/fixture
+coordinators consume that proof. Physical cleanup receives the exact output
+path rather than reconstructing it from a run ID. Recovery destinations remain
+private and do not replace retained-root authority. No producer operation can
+extend output authority. Authored schemas/attachments and generated validators
+cut over together, without aliases or historical readers.
+
+`ReviewBrowser.close()` had only test callers after native cleanup ownership;
+its physical test composition moved to `ui-review-browser-fixture.mjs`. Current
+production imports and private operation cases contain no removed capabilities.
+The assertion ledger below records every removed dependency and its disposition.
+`testing-harness-ui-review-revision-plan.md` now explicitly marks superseded
+execution guidance and points to this tracker, preserving dated outcomes and
+rationale. This tracker's current readiness language no longer repeats obsolete
+planning authorization or predecessor blockers for completed slices.
+
+| Suffix(es) | Exact Make target / selection | Owning exit / published result |
+| --- | --- | --- |
+| `generate01`–`generate03` | `generate` | 0 / pass; v2 projections and final topology input digests |
+| `format01`–`format05` | `format` | 0 / graph pass |
+| `runtime01` | `harness-runtime-contract` | 2 / tool exit 1, harness/unknown_failure; test directory setup plus physical-output reconstruction failures; repaired, failed evidence retained |
+| `runtime02` | `harness-runtime-contract` | 0 / pass, including race assertions |
+| `runtime03` | `harness-runtime-contract` | 0 / pass |
+| `fixture01` | `harness-fixture-contract` | 0 / pass |
+| `command01` | `harness-command-surface-contract` | 2 / tool exit 1; Vitest smoke changed retained roots under its inherited runtime. Retained all assertions under its exact enclosing binding |
+| `command02` | `harness-command-surface-contract` | 0 / pass |
+| `evidence01` | `harness-evidence-contract` | 0 / pass |
+| `lifecycle01` | `harness-ui-review-lifecycle` | 0 / pass |
+| `services01` | `test-slice OWNER=harness.browser ROWS=harness.browser.unit.testservices_lifecycle_contract` | 0 / graph pass |
+| `accounting01` | `test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.local_migration_activities` | 0 / graph pass |
+| `seeded01` | `harness-ui-review-seeded-default` | 0 / pass; actual seeded and artifacts public boundaries |
+| `workflow01` | `harness-ui-review-workflow` | 0 / pass; public dev/artifacts and recovery workflow |
+| `boundary01` | `harness-runtime-boundary-contract` | 2 / tool exit 1; remaining removed-method and aggregate-recipe test callers; moved assertions and individual producer calls |
+| `boundary02` | `harness-runtime-boundary-contract` | 2 / tool exit 1; failed cleanup retry reused the completed owner's ledger. Test now opens a new recovery owner; no duplicate budget added |
+| `boundary03` | `harness-runtime-boundary-contract` | 0 / pass |
+| `recover01` | `harness-runtime-boundary-contract` with exact `CARTULARY_BOUNDARY_RECOVERY_PROOF` for boundary02 failed-cleanup root | 2 / testservices build failed while concurrent generation briefly replaced SQL output. No recovery executed; generation and builds subsequently sequenced |
+| `recover02`–`recover04` | same Make gate with test-only exact proof for boundary02 failed-cleanup, boundary01 empty failed-cleanup and boundary01 empty owned roots respectively | 0 / pass; maintenance invocations, not full physical-gate evidence |
+| `drift01`, `drift02` | `generate-drift` | 2 / graph fail; topology render index stale after production browser helper deletion; regenerated. Drift02 used environment `VERBOSE=1`, which added no nested diagnostic |
+| `drift03`, `drift04` | `generate-drift` | 0 / graph pass; drift04 final source |
+| `shape01`–`shape03` | `json-shape-check` | 2 / graph fail; same stale topology index. Shape02 used environment `VERBOSE=1`; shape03's bounded private-log observation found no output and made no changes |
+| `shape04`, `shape05` | `json-shape-check` | 0 / graph pass; shape05 final source |
+| `policy01`–`policy03` | `generated-artifact-policy-check` | 0 / graph pass |
+
+Read-only task guides for `harness.browser`/`harness.evidence_accounting` and
+valid target explanations exited 0. Two attempted explanations used undeclared
+names (`harness-smoke-web-e2e-lifecycle`, `harness-runtime-boundary`) and exited 2
+with usage_error; corrected to actual public routes. Exact failed graph
+explanations exited 0. Bounded retained unit logs identified stale topology;
+no private event staging was read. Fresh gate execution is separate from accepted
+build-cache reuse. Failed evidence remains intact. Default-root pre-existing
+ownership is unchanged and still blocks that environment's cutover.
+
+V-049/F-046/F-048/C-029/C-031 close at this source. All owning exits above were
+collected independently of summaries. Final boundary03 exercises owned, borrowed,
+persistent and failed-cleanup recovery paths; all three exact failed-test roots
+were recovered by the same current version. The isolated runtime and review
+registry inventory is empty after these runs. `git diff --check` passes.
+S-050 may begin after this saved checkpoint; final S-049 remains required.
+
+### S-050 assertion and support-closure dispositions
+
+| Removed support | Disposition / retained obligation |
+| --- | --- |
+| Historical registry/digest/directory loader and its positive validation fixture | Obsolete after REQ-815 amendment. Deleted registry, loader, dynamic Ajv cache/compilation, directory closure and digest assertions together. Current attachment/generation integrity assertions remain. |
+| Historical schema acceptance in `assertPerformanceEvidenceGenerationBoundary` | Replaced by small independently authored unsupported-schema rejection examples; current active profile and aggregate-reference size assertions remain. No retired schema file is required by rejection tests. |
+| Historical measurement explanation and legacy traffic/stage fallbacks | Removed. Current observations have typed fact arrays, so readers use that one representation. Unsupported aggregate generations return constant bounded artifact exit 11, without echoing supplied schema bytes. |
+| Seven active-root schemas with no current producer, reader or inbound reference | Deleted attachments and generated Node validators. No fixtures or routing refer to these schemas. Dormant fixture-tier/claim-review schema-table entries removed after human owner review; current fixture evidence and Core 05 publication boundary unchanged. |
+| Historical browser schema clauses and stale public schema-table versions | Owner amended before deletion. The table now names current row-result, family-registry, browser-group and startup-diagnostic generations. |
+| Current measurement producer/reference reader and current qualification | Retained and exercised with synthetic current observation/build/lease/summary artifacts. Added actual diagnostic CLI acceptance and retired-input rejection, bounded output and byte-immutability assertions to the existing browser-work-graph tests. No qualification measurements acquired. |
+| Build inputs, helper ownership, routes and generated closure | Exhaustive searches find no explicit retired support inputs outside removed attachment/registry/loader consumers. Existing owner directory inputs discover current files; regeneration refreshes their digests. No replacement compatibility registry, alias, reader or route added. |
+
+### S-050 schema disposition and reference ledger
+
+Inventory before deletion: **206 active-root files plus 14 historical files**, exactly one row per file below. The four private v1→v2 replacements in S-046–S-048 preserve this cohort count; their predecessor removal is accounted in E-053–E-055. **199 active files survive; seven inactive active-root files and all 14 historical files are removed.**
+
+This is human-reviewed evidence, never an executable registry. Each active row identifies its exact pre-deletion attachment in `tools/harness_schema_attachments.json` by schema ID; its path is `tools/schemas/<ID>.schema.json`. Historical rows identify `tools/historical-schemas/performance/<ID>.schema.json` and the removed registry entry. `N` means generated Node validation; `G` also means the native foundation/reference closure. The common generators are `generate-foundation-schema-validators.mjs` and `native-schema-validators.mjs`; generation removes deleted exports/files instead of hand-editing them. Reference arrows enumerate external schema dependencies; local fragment references stay within the named file.
+
+For retained owner inputs, authored JSON instances and their corresponding generators/checkers establish an active contract. For retained output contracts, listed production readers/writers establish the active use. Shared definitions survive only through the listed inbound current contracts. Test or diagnostic acceptance alone is not a retention reason. UI bundle/observation IDs use `ui-review/contract.mjs:schemaID`, so literal searches alone would incorrectly classify them as unused. Historical closure has no remaining current inbound references. No age/version heuristic was used.
+
+| Exact schema ID / file basename | Disposition; owner/producer and attachment class | Production/input/reader evidence | Schema references and generated closure |
+| --- | --- | --- | --- |
+| `cartulary.administrative_audit.v1` | KEEP current; administrative audit contract owner; owner_input | `contracts/audit/index.json:2`; `tools/protocol-ts/generate-protocol-types.mjs:1162` | in: none; out: none; N retained |
+| `cartulary.agent_finalize_summary.v3` | KEEP current; agent finalizer; public_contract | `tools/harness/finalization/agent-finalize-cli.mjs:29`; `tools/harness/generated-artifacts/check-json-shapes.mjs:85` | in: none; out: none; N retained |
+| `cartulary.backend_module_boundaries.v3` | KEEP current; backend module boundary owner; owner_input | `tools/backend_module_boundaries.json:2`; `tools/harness/static-analysis/backend-module-boundary-check-cli.mjs:19` | in: none; out: none; N retained |
+| `cartulary.benchmark_profile_registry.v1` | KEEP current; Core 05 benchmark profile registry; owner_input | `contracts/claim-publication/benchmark-profile-registry.v1.json:2`; `tools/release-evidence/check-benchmark-claim.mjs:14` | in: none; out: none; N retained |
+| `cartulary.browser_acquisition.v1` | KEEP current; private browser acquisition owner; shared_component | `tools/harness/browser/browser-acquisition.mjs:13` | in: none; out: none; N retained |
+| `cartulary.browser_e2e_batch_manifest.v11` | KEEP current; execution topology generator; public_contract | `tools/browser_e2e_batch_manifest.json:2`; `tools/harness/browser/browser-batch-manifest.mjs:14`; `tools/harness/generated-artifacts/execution-topology.mjs:16` | in: none; out: `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.browser_fixture_event.v1` | KEEP current; browser fixture process owner; shared_component | `internal/testutil/recoverybrowsertest/lifecycle.go:41`; `tools/harness/browser/fixture-process.mjs:43` | in: `cartulary.browser_fixture_lifecycle.v1`; out: none; N+G retained |
+| `cartulary.browser_fixture_lifecycle.v1` | KEEP current; browser fixture process owner; shared_component | `tools/harness/browser/fixture-process.mjs:132`; `tools/harness/contract/browser-fixture-diagnostic.mjs:14` | in: `cartulary.browser_group_result.v7`, `cartulary.harness_row_result.v3`; out: `cartulary.browser_fixture_event.v1`; N+G retained |
+| `cartulary.browser_group_result.v7` | KEEP current; browser evidence adapter; public_contract | `tools/harness/browser/browser-catalog-group-cli.mjs:377`; `tools/harness/browser/browser-measurement-finalizer-cli.mjs:152`; `tools/harness/browser/browser-target-finalizer-cli.mjs:94`; `tools/harness/browser/ui-review/canonical-import.mjs:101` | in: `cartulary.browser_target_result.v4`; out: `cartulary.browser_fixture_lifecycle.v1`, `cartulary.harness_test_failure.v1`, `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.browser_reset_attempt.v2` | KEEP current; browser reset lifecycle; public_contract | `internal/testutil/harnessruntime/process_linux.go:406`; `tools/harness/browser/browser-reset-attempt.mjs:133` | in: none; out: `cartulary.harness.defs.v1`, `cartulary.harness_instrumentation_defs.v2`; N+G retained |
+| `cartulary.browser_startup_diagnostics.v1` | REMOVE unused; browser lifecycle; public_contract | No producer or inbound reference; current lifecycle emits v3. | in: none; out: none; N removed |
+| `cartulary.browser_startup_diagnostics.v3` | KEEP current; browser session lifecycle; public_contract | `tools/harness/browser/browser-session-evidence.mjs:238`; `tools/harness/output/test-output/runners/shell.mjs:250` | in: none; out: none; N retained |
+| `cartulary.browser_startup_event.v2` | KEEP current; browser session lifecycle; public_contract | `tools/harness/browser/browser-session-evidence.mjs:180` | in: none; out: none; N retained |
+| `cartulary.browser_target_result.v4` | KEEP current; browser evidence finalizer; public_contract | `tools/harness/browser/browser-target-finalizer-cli.mjs:416`; `tools/harness/browser/ui-review/canonical-import.mjs:75` | in: none; out: `cartulary.browser_group_result.v7`; N retained |
+| `cartulary.browser_tls_trust.v1` | KEEP current; owned browser renderer TLS trust; public_contract | `tools/harness/browser/browser-trust.mjs:93` | in: none; out: none; N retained |
+| `cartulary.contract_family_registry.v5` | KEEP current; contract family owner; owner_input | `contracts/index.json:3`; `tools/contractgen/families.go:13`; `tools/harness/generated-artifacts/check-json-shapes.mjs:77`; `tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs:139` | in: none; out: none; N retained |
+| `cartulary.design_presentation.v2` | KEEP current; design presentation projection owner; owner_input | `contracts/design/presentation.v2.json:2`; `tools/harness/generated-artifacts/design-presentation/design-presentation.mjs:11` | in: none; out: none; N retained |
+| `cartulary.design_token_registry.v1` | KEEP current; design token owner; owner_input | `contracts/design/tokens.v1.json:2`; `tools/harness/generated-artifacts/design-tokens/design-tokens.mjs:21` | in: none; out: none; N retained |
+| `cartulary.distribution_notices.v1` | KEEP current; immutable local release producer; public_contract | `deploy/mvp/scripts/release-verify.sh:43`; `tools/release-evidence/package-release.mjs:69` | in: none; out: none; N retained |
+| `cartulary.executable_input_policy.v1` | KEEP current; executable input policy owner; owner_input | `internal/testutil/harnessreview/publication_linux.go:181`; `tools/executable_input_policy.json:2`; `tools/harness/test-catalog/restricted-input-boundary.mjs:7` | in: none; out: none; N+G retained |
+| `cartulary.execution_topology.v9` | KEEP current; execution topology owner; owner_input | `tools/execution_topology_manifest.json:2`; `tools/harness/generated-artifacts/execution-topology.mjs:12` | in: none; out: `cartulary.harness_execution_defs.v1`, `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.fallow_reachability_owner.v1` | KEEP current; Fallow reachability owner; owner_input | `tools/fallow/reachability_owner.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:83`; `tools/harness/static-analysis/fallow-reachability.mjs:12` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.fallow_static_summary.v2` | KEEP current; Fallow wrapper; public_contract | `tools/harness/generated-artifacts/check-json-shapes.mjs:84`; `tools/harness/static-analysis/fallow-static-cli.mjs:35` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.fixture_report.v1` | KEEP current; fixture diagnostics; public_contract | `tools/harness/diagnostics/fixture-reporting.mjs:6` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.fixture_tier_proof.v3` | REMOVE unused; scheduler reporter; public_contract | No producer, reader, fixture or inbound reference; obsolete schema-table promise removed; current native lease/row evidence retained. | in: none; out: none; N removed |
+| `cartulary.frontend_build_artifact.v1` | KEEP current; frontend build artifact producer; public_contract | `tools/harness/browser/ui-review/canonical-import.mjs:112`; `tools/harness/browser/ui-review/source.mjs:55`; `tools/harness/readiness/frontend-artifact.mjs:92` | in: none; out: none; N retained |
+| `cartulary.frontend_claim_publication_review.v1` | REMOVE unused; conditional claim review; public_contract | Dormant future-only schema with no producer, reader or inbound reference; conditional table promise removed without changing Core 05 authority. | in: none; out: none; N removed |
+| `cartulary.frontend_installation.v1` | KEEP current; explicit frontend installer; public_contract | `tools/harness/readiness/installed-readiness.mjs:46` | in: none; out: none; N retained |
+| `cartulary.frontend_measurement_aggregate.v3` | KEEP current; target performance evidence generation; public_contract | `tools/harness/diagnostics/explain-run-cli.mjs:804`; `tools/harness/performance-fixture/index.mjs:26`; `tools/performance_fixture_snapshot_owner.json:202` | in: none; out: `cartulary.harness_artifact_ref.v1`, `cartulary.performance_fixture_snapshot_key.v2`; N retained |
+| `cartulary.frontend_measurement_observation.v2` | KEEP current; target performance evidence generation; public_contract | `apps/web/e2e/measurement/timingSupport.ts:249`; `tools/harness/diagnostics/explain-run-cli.mjs:815`; `tools/harness/performance-fixture/index.mjs:24`; `tools/performance_fixture_snapshot_owner.json:200` | in: none; out: `cartulary.performance_fixture_snapshot_key.v2`; N retained |
+| `cartulary.frontend_measurement_summary.v3` | KEEP current; target performance evidence generation; public_contract | `tools/harness/diagnostics/explain-run-cli.mjs:809`; `tools/harness/performance-fixture/index.mjs:25`; `tools/performance_fixture_snapshot_owner.json:201` | in: none; out: `cartulary.harness_artifact_ref.v1`, `cartulary.performance_fixture_snapshot_key.v2`, `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.frontend_source_ownership.v1` | KEEP current; web architecture owner; owner_input | `tools/frontend_source_ownership.json:2` | in: none; out: none; N retained |
+| `cartulary.frontend_visual_capture_intent.v2` | KEEP current; visual capture helper; public_contract | `tools/harness/browser/frontend-visual-reconciliation.mjs:20`; `tools/harness/browser/ui-review/canonical-import.mjs:39` | in: none; out: `cartulary.frontend_visual_reconciliation.v3`; N retained |
+| `cartulary.frontend_visual_fixture_registry.v6` | KEEP current; visual fixture owner; owner_input | `tools/frontend_visual_fixture_registry.json:2`; `tools/harness/browser/ui-review/canonical-import.mjs:94`; `tools/harness/browser/ui-review/source.mjs:41`; `tools/harness/generated-artifacts/check-json-shapes.mjs:102` | in: `cartulary.ui_review_bundle.v2`; out: none; N+G retained |
+| `cartulary.frontend_visual_golden_manifest.v1` | KEEP current; browser visual golden manifest generator; public_contract | `tools/frontend_visual_golden_manifest.json:2`; `tools/harness/browser/frontend-visual-golden-manifest.mjs:20`; `tools/harness/browser/ui-review/source.mjs:39`; `tools/harness/generated-artifacts/check-json-shapes.mjs:3622` | in: none; out: none; N retained |
+| `cartulary.frontend_visual_normalization.v1` | KEEP current; visual metadata capture support; owner_input | `apps/web/e2e/support/visual/metadataNormalization.ts:140`; `tools/frontend_visual_normalization.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:3594` | in: none; out: none; N retained |
+| `cartulary.frontend_visual_normalization_receipt.v1` | KEEP current; visual metadata capture support; public_contract | `apps/web/e2e/support/visual/metadataNormalization.ts:158` | in: none; out: none; N retained |
+| `cartulary.frontend_visual_reconciliation.v3` | KEEP current; browser visual target summary; public_contract | `tools/harness/browser/frontend-visual-reconciliation.mjs:22`; `tools/harness/browser/ui-review/canonical-import.mjs:78` | in: `cartulary.frontend_visual_capture_intent.v2`, `cartulary.ui_review_bundle.v2`; out: none; N+G retained |
+| `cartulary.frontend_visual_renderer_attestation.v1` | KEEP current; canonical renderer lease; public_contract | `tools/harness/browser/visual-renderer-lease.mjs:197`; `tools/harness/browser/visual-renderer-profile.mjs:34` | in: none; out: `cartulary.frontend_visual_renderer_profile.v2`; N retained |
+| `cartulary.frontend_visual_renderer_profile.v2` | KEEP current; browser visual renderer owner; owner_input | `apps/web/e2e/support/runtime/visualRenderer.ts:2`; `tools/frontend_visual_renderer_profile.json:2`; `tools/harness/browser/ui-review/canonical-import.mjs:90`; `tools/harness/browser/visual-renderer-profile.mjs:13`; `tools/harness/generated-artifacts/check-json-shapes.mjs:3615` | in: `cartulary.frontend_visual_renderer_attestation.v1`; out: none; N retained |
+| `cartulary.frontend_visual_timeline_profiles.v1` | KEEP current; Timeline visual fixture owner; owner_input | `apps/web/e2e/support/visual/timelineDataProfiles.ts:21`; `tools/frontend_visual_timeline_profiles.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:3605` | in: none; out: none; N retained |
+| `cartulary.govulncheck_findings.v1` | KEEP current; Govulncheck wrapper; public_contract | `tools/harness/output/test-output/security-diagnostics.mjs:14`; `tools/harness/static-analysis/govulncheck-findings.mjs:8` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.harness.defs.v1` | KEEP current; harness contract; shared_component | `tools/harness/generated-artifacts/schema-attachment-validation.mjs:6` | in: `cartulary.browser_reset_attempt.v2`, `cartulary.fallow_reachability_owner.v1`, `cartulary.fallow_static_summary.v2`, `cartulary.fixture_report.v1`, `cartulary.govulncheck_findings.v1`, `cartulary.network_flow_fixture_manifest.v2`, `cartulary.performance_fixture_build_diagnostics.v2`, `cartulary.performance_fixture_snapshot.v2`, `cartulary.performance_fixture_snapshot_lease.v2`, `cartulary.test.clock_control.v1`, `cartulary.test.database_reset_diagnostic.v1`, `cartulary.test.network_flow_audit_assertion_control.v2`, `cartulary.test.network_flow_auth_transition_control.v2`, `cartulary.test.network_flow_fault_control.v2`, `cartulary.test.network_flow_randomness_control.v2`, `cartulary.test.network_flow_randomness_control.v3`, `cartulary.test.public_error_fault.v1`, `cartulary.test.runtime_identity.v1`, `cartulary.test_run_summary.v6`, `cartulary.test_services.journal_event.v1`, `cartulary.test_services.lease.v1`, `cartulary.test_services.lifecycle.v3`, `cartulary.test_services.local_session.v1`, `cartulary.test_services.local_session_status.v1`, `cartulary.test_services.resource_ledger.v1`, `cartulary.test_services.scope.v2`, `cartulary.test_step_summary.v1`, `cartulary.test_target_summary.v4`, `cartulary.tool_run_summary.v5`, `cartulary.vitest_failure_details.v2`, `cartulary.web_e2e_stack.v3`, `cartulary.performance_fixture_snapshot.v1`, `cartulary.performance_fixture_snapshot_lease.v1`; out: none; N+G retained |
+| `cartulary.harness_artifact_ref.v1` | KEEP current; harness contract; shared_component | Shared definition required by inbound contracts | in: `cartulary.frontend_measurement_aggregate.v3`, `cartulary.frontend_measurement_summary.v3`, `cartulary.same_run_helper_artifact_ref.v2`, `cartulary.test_services.lifecycle.v3`, `cartulary.tool_run_summary.v5`, `cartulary.frontend_measurement_aggregate.v2`, `cartulary.frontend_measurement_summary.v2`; out: none; N+G retained |
+| `cartulary.harness_cache_record.v2` | KEEP current; unified harness cache; public_contract | `internal/testutil/harnessruntime/cache_linux.go:23`; `tools/harness/readiness/cache-artifact.sh:6`; `tools/harness/scheduler/work-graph/cache-plan.mjs:6`; `tools/harness_cache_registry.json:116` | in: none; out: `cartulary.test_catalog_defs.v1`; N+G retained |
+| `cartulary.harness_cache_registry.v1` | KEEP current; harness cache registry; owner_input | `tools/harness_cache_registry.json:2` | in: none; out: none; N retained |
+| `cartulary.harness_capability_snapshot.v1` | KEEP current; unified harness scheduler; public_contract | `tools/harness/scheduler/work-graph/capability.mjs:166` | in: `cartulary.harness_run_manifest.v2`; out: none; N+G retained |
+| `cartulary.harness_capacity_override.v1` | KEEP current; unified harness capability resolver; public_contract | `tools/harness/scheduler/scheduler-resources.mjs:41`; `tools/harness/scheduler/work-graph/capability.mjs:45`; `tools/scheduler_resource_registry.json:3` | in: none; out: none; N+G retained |
+| `cartulary.harness_cleanup_results.v1` | KEEP current; harness fixture finalization; public_contract | `internal/testutil/harnessreview/design_linux.go:92`; `internal/testutil/harnessreview/transaction_linux.go:85`; `internal/testutil/harnessruntime/publication_linux.go:261`; `tools/harness/diagnostics/explain-run-cli.mjs:1069`; `tools/harness/runtime/cleanup-results.mjs:59` | in: none; out: `cartulary.harness_execution_defs.v1`; N+G retained |
+| `cartulary.harness_command_failure.v1` | KEEP current; private command failure channel; shared_component | `internal/testutil/harnessruntime/failure_scope_linux.go:28`; `tools/harness/runtime/command-failure.mjs:6` | in: none; out: none; N+G retained |
+| `cartulary.harness_evidence_root_manifest.v1` | KEEP current; canonical evidence audit; public_contract | `contracts/extensions/dependencies.json:96`; `tools/harness/observability/canonical-evidence-audit-cli.mjs:31` | in: none; out: none; N retained |
+| `cartulary.harness_execution_defs.v1` | KEEP current; harness execution contracts; shared_component | Shared definition required by inbound contracts | in: `cartulary.execution_topology.v9`, `cartulary.harness_cleanup_results.v1`, `cartulary.harness_runtime_plan.v1`, `cartulary.harness_target_plan.v4`, `cartulary.harness_unit_event.v3`, `cartulary.harness_unit_result.v1`, `cartulary.harness_work_graph.v5`; out: none; N+G retained |
+| `cartulary.harness_execution_index.v2` | KEEP current; harness execution diagnostics; public_contract | `internal/testutil/harnessruntime/execution_observation_linux.go:221`; `tools/harness/observability/execution-reader.mjs:11` | in: `cartulary.harness_runtime_plan.v1`; out: `cartulary.harness_execution_record.v2`; N+G retained |
+| `cartulary.harness_execution_record.v2` | KEEP current; harness execution diagnostics; shared_component | `internal/testutil/harnessruntime/execution_observation_linux.go:21`; `tools/harness/runtime/execution-observations.mjs:8` | in: `cartulary.harness_execution_index.v2`, `cartulary.harness_performance_explanation.v3`, `cartulary.harness_private_launch_observation.v2`; out: `cartulary.harness_instrumentation_defs.v2`; N+G retained |
+| `cartulary.harness_fixture_lease.v4` | KEEP current; harness fixture broker; public_contract | `internal/testutil/harnessfixtures/broker.go:234`; `tools/harness/observability/execution-reader.mjs:58` | in: none; out: none; N+G retained |
+| `cartulary.harness_go_lpt_plan.v2` | KEEP current; backend Go LPT planner; public_contract | `tools/harness/backend/go-lpt-shards.mjs:74` | in: none; out: none; N retained |
+| `cartulary.harness_helper_ownership.v1` | KEEP current; helper ownership owner; owner_input | `tools/harness/generated-artifacts/schema-attachment-validation.mjs:158`; `tools/harness/static-analysis/harness-helper-ownership.mjs:6`; `tools/harness_helper_ownership.json:2` | in: none; out: none; N retained |
+| `cartulary.harness_historical_schema_registry.v1` | REMOVE unused; historical performance evidence diagnostics; owner_input | Historical-only loader/registry removed by REQ-815 amendment. | in: none; out: none; N removed |
+| `cartulary.harness_instrumentation_definitions.v2` | KEEP current; harness instrumentation definitions; owner_input | `tools/harness/generated-artifacts/check-json-shapes.mjs:3683`; `tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs:97`; `tools/harness_instrumentation_definitions.json:2` | in: none; out: none; N retained |
+| `cartulary.harness_instrumentation_defs.v2` | KEEP current; harness instrumentation definitions; shared_component | `tools/generate_drift_scratch_inputs.json:46`; `tools/generated_artifact_policy.json:115`; `tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs:102`; `tools/harness/generated-artifacts/instrumentation-definitions.mjs:15` | in: `cartulary.browser_reset_attempt.v2`, `cartulary.harness_execution_record.v2`, `cartulary.harness_performance_explanation.v3`, `cartulary.harness_resource_index.v3`, `cartulary.harness_resource_sample.v2`, `cartulary.harness_unit_event.v3`; out: none; N+G retained |
+| `cartulary.harness_instrumentation_policy.v3` | KEEP current; harness local instrumentation; owner_input | `internal/testutil/harnesscollect/collector_linux.go:446`; `internal/testutil/harnessruntime/observation_linux.go:41`; `tools/harness_instrumentation_policy.json:2` | in: none; out: none; N+G retained |
+| `cartulary.harness_instrumentation_qualification.v2` | KEEP current; instrumentation owner; public_contract | `tools/harness/observability/qualification/policy.mjs:8` | in: none; out: none; N+G retained |
+| `cartulary.harness_instrumentation_qualification_plan.v3` | KEEP current; instrumentation qualification plan owner; owner_input | `tools/harness/observability/qualification/policy.mjs:7`; `tools/harness_instrumentation_qualification_plan.json:2` | in: none; out: none; N+G retained |
+| `cartulary.harness_instrumentation_qualification_result.v2` | KEEP current; instrumentation owner; public_contract | `tools/harness/observability/qualification/policy.mjs:9` | in: none; out: none; N+G retained |
+| `cartulary.harness_invocation_envelope.v2` | KEEP current; harness local instrumentation; public_contract | `internal/testutil/harnessdiag/receipt.go:199`; `internal/testutil/harnessruntime/observation_linux.go:109`; `tools/harness/observability/observability.mjs:62` | in: `cartulary.harness_performance_explanation.v3`; out: none; N+G retained |
+| `cartulary.harness_launch_context.v1` | KEEP current; harness execution diagnostics; public_contract | `internal/testutil/harnessruntime/process_linux.go:90`; `tools/harness/runtime/launch-context.mjs:11` | in: none; out: none; N+G retained |
+| `cartulary.harness_lifecycle_policy.v1` | KEEP current; harness shared lifecycle policy; owner_input | `tools/harness/generated-artifacts/lifecycle-policy.mjs:8`; `tools/harness_lifecycle_policy.json:2` | in: none; out: none; N retained |
+| `cartulary.harness_live_snapshot.v2` | KEEP current; harness live observation; public_contract | `internal/testutil/harnessdiag/observation.go:152`; `internal/testutil/harnessruntime/live_linux.go:56`; `tools/harness/contract/live-observation.mjs:3` | in: none; out: `cartulary.harness_resource_live.v1`; N+G retained |
+| `cartulary.harness_measurement_trace.v1` | KEEP current; instrumentation measurement supervisor; public_contract | `tools/harness/observability/qualification/trace.mjs:7` | in: none; out: none; N retained |
+| `cartulary.harness_performance_evidence_roots.v3` | KEEP current; canonical harness performance acceptance; owner_input | `tools/harness/observability/canonical-performance.mjs:8` | in: none; out: none; N retained |
+| `cartulary.harness_performance_explanation.v3` | KEEP current; harness local instrumentation; public_contract | `tools/harness/observability/performance-analysis.mjs:21` | in: none; out: `cartulary.harness_execution_record.v2`, `cartulary.harness_instrumentation_defs.v2`, `cartulary.harness_invocation_envelope.v2`, `cartulary.harness_terminal_receipt.v1`; N+G retained |
+| `cartulary.harness_private_launch_observation.v2` | KEEP current; harness execution diagnostics; shared_component | `internal/testutil/harnessruntime/execution_observation_linux.go:150`; `tools/harness/runtime/execution-observations.mjs:14` | in: none; out: `cartulary.harness_execution_record.v2`; N+G retained |
+| `cartulary.harness_public_target_duration_baselines.v3` | KEEP current; harness performance baseliner; owner_input | `tools/harness/observability/canonical-performance.mjs:9` | in: none; out: none; N retained |
+| `cartulary.harness_resource_index.v3` | KEEP current; harness local instrumentation; public_contract | `internal/testutil/harnesscollect/collector_linux.go:384`; `internal/testutil/harnesscollect/store_linux.go:117`; `tools/harness/observability/resource-reader.mjs:12` | in: none; out: `cartulary.harness_instrumentation_defs.v2`; N+G retained |
+| `cartulary.harness_resource_live.v1` | KEEP current; harness local instrumentation; public_contract | `internal/testutil/harnessruntime/collector_linux.go:371` | in: `cartulary.harness_live_snapshot.v2`, `cartulary.harness_run_observation.v2`; out: none; N+G retained |
+| `cartulary.harness_resource_sample.v2` | KEEP current; harness local instrumentation; public_contract | `internal/testutil/harnesscollect/store_linux.go:63`; `tools/harness/observability/resource-reader.mjs:38` | in: none; out: `cartulary.harness_instrumentation_defs.v2`; N+G retained |
+| `cartulary.harness_retained_secret_scan.v1` | KEEP current; work graph retained-evidence boundary; public_contract | `internal/testutil/harnessdiag/receipt.go:236`; `internal/testutil/harnessruntime/scan_linux.go:18`; `internal/testutil/harnesssession/scan_linux.go:160`; `tools/harness/observability/terminal-receipt.mjs:27` | in: none; out: none; N+G retained |
+| `cartulary.harness_review_adapter.v2` | KEEP current; native review coordinator private browser adapter; shared_component | `internal/testutil/harnessreview/adapter_linux.go:27`; `tools/harness/browser/ui-review/adapter.mjs:105` | in: none; out: `cartulary.harness_review_design_ready.v1`, `cartulary.ui_review_action.v3`, `cartulary.ui_review_analysis_request.v1`, `cartulary.ui_review_bundle.v2`, `cartulary.ui_review_capture_request.v1`; N+G retained |
+| `cartulary.harness_review_channel.v1` | KEEP current; native review lifecycle; shared_component | `internal/testutil/harnessreview/server_linux.go:28` | in: none; out: `cartulary.ui_review_action.v3`, `cartulary.ui_review_analysis_request.v1`, `cartulary.ui_review_capture_request.v1`; N+G retained |
+| `cartulary.harness_review_command.v1` | KEEP current; native review lifecycle; shared_component | `internal/testutil/harnessreview/server_linux.go:27`; `tools/harness/browser/ui-review/native-client.mjs:21` | in: none; out: `cartulary.ui_review_action.v3`, `cartulary.ui_review_analysis_request.v1`, `cartulary.ui_review_capture_request.v1`; N+G retained |
+| `cartulary.harness_review_design_ready.v1` | KEEP current; native review coordinator private browser adapter; shared_component | `tools/harness/browser/ui-review/native-client.mjs:47` | in: `cartulary.harness_review_adapter.v2`, `cartulary.harness_review_output.v1`, `cartulary.harness_review_registry.v2`; out: none; N+G retained |
+| `cartulary.harness_review_output.v1` | KEEP current; native review owner; shared_component | `internal/testutil/harnessreview/main_linux.go:138`; `tools/harness/browser/ui-review/native-client.mjs:43` | in: none; out: `cartulary.harness_review_design_ready.v1`, `cartulary.ui_review_command_result.v2`; N+G retained |
+| `cartulary.harness_review_registry.v2` | KEEP current; native review lifecycle; shared_component | `internal/testutil/harnessreview/publication_linux.go:26` | in: none; out: `cartulary.harness_review_design_ready.v1`, `cartulary.ui_review_receipt.v2`, `cartulary.ui_review_session.v1`; N+G retained |
+| `cartulary.harness_row_result.v3` | KEEP current; canonical row runner; public_contract | `contracts/extensions/dependencies.json:97`; `internal/testutil/harnessruntime/cache_linux.go:337`; `tools/harness/browser/browser-catalog-group-cli.mjs:79`; `tools/harness/execution/runners/row-runner-cli.mjs:211`; `tools/otel/check-otel-conformance.mjs:2103` | in: none; out: `cartulary.browser_fixture_lifecycle.v1`, `cartulary.harness_test_failure.v1`, `cartulary.test_catalog_defs.v1`; N+G retained |
+| `cartulary.harness_run_manifest.v2` | KEEP current; unified harness runner; public_contract | `contracts/extensions/dependencies.json:98`; `internal/testutil/harnessdiag/observation.go:289`; `internal/testutil/harnessdiag/receipt.go:216`; `internal/testutil/harnessruntime/publication_linux.go:32`; `tools/harness/browser/ui-review/canonical-import.mjs:73`; `tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs:33`; `tools/harness/finalization/agent-finalize-retained-run.mjs:69`; `tools/harness/observability/canonical-evidence.mjs:38`; `tools/harness/observability/canonical-performance.mjs:106`; `tools/harness/scheduler/work-graph/prepare-plan.mjs:43` | in: `cartulary.harness_runtime_plan.v1`, `cartulary.ui_review_bundle.v2`; out: `cartulary.harness_capability_snapshot.v1`; N+G retained |
+| `cartulary.harness_run_observation.v2` | KEEP current; harness live observation; public_contract | `internal/testutil/harnessdiag/observation.go:38`; `tools/harness/contract/live-observation.mjs:4` | in: none; out: `cartulary.harness_resource_live.v1`; N+G retained |
+| `cartulary.harness_run_summary.v1` | KEEP current; unified harness projector; public_contract | `contracts/extensions/dependencies.json:99`; `internal/testutil/harnessdiag/observation.go:302`; `internal/testutil/harnessdiag/receipt.go:228`; `internal/testutil/harnessruntime/publication_linux.go:381`; `tools/harness/diagnostics/explain-run-cli.mjs:230`; `tools/harness/finalization/agent-finalize-retained-run.mjs:70`; `tools/harness/generated-artifacts/task-surface/validation.mjs:79`; `tools/harness/observability/canonical-evidence.mjs:39`; `tools/harness/observability/canonical-performance-cli.mjs:56`; `tools/harness/observability/canonical-performance.mjs:107` | in: `cartulary.harness_target_summary.v1`; out: none; N+G retained |
+| `cartulary.harness_runtime_plan.v1` | KEEP current; private graph compiler; shared_component | `internal/testutil/harnessruntime/plan.go:18`; `tools/harness/scheduler/work-graph/prepare-plan.mjs:71` | in: none; out: `cartulary.harness_execution_defs.v1`, `cartulary.harness_execution_index.v2`, `cartulary.harness_run_manifest.v2`, `cartulary.harness_work_graph.v5`; N+G retained |
+| `cartulary.harness_runtime_resource.v1` | KEEP current; native private runtime resource journal; shared_component | `internal/testutil/harnesssession/runtime_linux.go:327`; `tools/harness/browser/ui-review/diagnostic-processes.mjs:23`; `tools/harness/runtime/resource-stop-private.mjs:15` | in: `cartulary.harness_runtime_session.v2`; out: none; N+G retained |
+| `cartulary.harness_runtime_session.v2` | KEEP current; native private runtime owner; shared_component | `internal/testutil/harnesssession/protocol_linux.go:20`; `tools/harness/runtime/session-client.mjs:8` | in: none; out: `cartulary.harness_runtime_resource.v1`; N+G retained |
+| `cartulary.harness_schema_attachments.v1` | KEEP current; schema attachment owner; owner_input | `tools/harness_schema_attachments.json`; `tools/harness/generated-artifacts/schema-attachment-validation.mjs:98` | in: none; out: none; N retained |
+| `cartulary.harness_suite_runtime_owner.v2` | KEEP current; private suite runtime allocator; public_contract | `internal/testutil/harnesssession/binding.go:14`; `internal/testutil/harnesssession/preservation_linux.go:186`; `internal/testutil/harnesssession/runtime_linux.go:144`; `tools/harness/browser/browser-acquisition.mjs:63` | in: none; out: none; N+G retained |
+| `cartulary.harness_target_plan.v4` | KEEP current; work graph target plan; public_contract | `tools/harness/diagnostics/target-plan-cli.mjs:41` | in: none; out: `cartulary.harness_execution_defs.v1`, `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.harness_target_summary.v1` | KEEP current; unified harness projector; public_contract | `contracts/extensions/dependencies.json:100`; `internal/testutil/harnessdiag/observation.go:317`; `internal/testutil/harnessruntime/publication_linux.go:328`; `tools/harness/contract/artifact-discovery.mjs:33`; `tools/harness/diagnostics/explain-run-cli.mjs:317`; `tools/harness/finalization/agent-finalize-retained-run.mjs:71`; `tools/harness/observability/canonical-evidence.mjs:93`; `tools/harness/observability/canonical-performance-cli.mjs:61`; `tools/harness/observability/canonical-performance.mjs:108` | in: none; out: `cartulary.harness_run_summary.v1`; N+G retained |
+| `cartulary.harness_terminal_receipt.v1` | KEEP current; instrumentation owner; public_contract | `internal/testutil/harnessdiag/receipt.go:263`; `tools/harness/observability/terminal-receipt.mjs:15` | in: `cartulary.harness_performance_explanation.v3`; out: none; N+G retained |
+| `cartulary.harness_test_failure.v1` | KEEP current; Go test support; public_contract | `internal/testutil/testfailure/failure.go:10`; `tools/harness/execution/runners/go.mjs:65` | in: `cartulary.browser_group_result.v7`, `cartulary.harness_row_result.v3`, `cartulary.browser_group_result.v5`; out: none; N+G retained |
+| `cartulary.harness_unit_event.v3` | KEEP current; unified harness scheduler; public_contract | `internal/testutil/harnessruntime/canonical.go:80`; `internal/testutil/harnessruntime/engine.go:304`; `tools/harness/evidence-accounting/canonical-unit-events.mjs:57` | in: none; out: `cartulary.harness_execution_defs.v1`, `cartulary.harness_instrumentation_defs.v2`, `cartulary.test_catalog_defs.v1`; N+G retained |
+| `cartulary.harness_unit_result.v1` | KEEP current; unified harness runner; public_contract | `internal/testutil/harnessruntime/cache_linux.go:346`; `internal/testutil/harnessruntime/publication_linux.go:115`; `tools/harness/browser/browser-target-finalizer-cli.mjs:112`; `tools/harness/diagnostics/explain-run-cli.mjs:991` | in: none; out: `cartulary.harness_execution_defs.v1`; N+G retained |
+| `cartulary.harness_work_graph.v5` | KEEP current; harness graph compiler; public_contract | `tools/harness/scheduler/work-graph/model.mjs:10`; `tools/harness_cache_registry.json:117` | in: `cartulary.harness_runtime_plan.v1`; out: `cartulary.harness_execution_defs.v1`, `cartulary.test_catalog_defs.v1`; N+G retained |
+| `cartulary.harness_work_graph_owner.v2` | KEEP current; harness graph owner; owner_input | `tools/harness_work_graph_owner.json:2` | in: none; out: `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.image_inventory_tool.v1` | KEEP current; immutable local release producer; public_contract | `deploy/mvp/scripts/release-verify.sh:42`; `tools/release-evidence/package-release.mjs:56` | in: none; out: none; N retained |
+| `cartulary.incident_bundle_fixture_manifest.v1` | KEEP current; Incident Bundles fixture owner; owner_input | `contracts/incident-bundles/fixture_manifest.json:2` | in: none; out: none; N retained |
+| `cartulary.incident_bundle_source_catalog.v5` | KEEP current; Incident Bundles source-port catalog owner; owner_input | `contracts/incident-bundles/source_catalog.json:2` | in: none; out: none; N retained |
+| `cartulary.incident_bundle_traceability.v1` | KEEP current; Incident Bundles traceability owner; owner_input | `contracts/incident-bundles/traceability.json:2` | in: none; out: none; N retained |
+| `cartulary.license_report.v2` | KEEP current; release inventory generator; public_contract | `tools/harness_cache_registry.json:118`; `tools/release-evidence/generate-sbom-license-evidence.mjs:1149`; `tools/release-evidence/validate-license-report.mjs:12` | in: none; out: none; N retained |
+| `cartulary.local_object_store_proxy_health.v2` | KEEP current; local development object-store proxy lifecycle; public_contract | `internal/testutil/objectstoreproxy/proxy.go:342` | in: none; out: `cartulary.local_object_store_proxy_start_attempt.v2`; N retained |
+| `cartulary.local_object_store_proxy_lease.v2` | KEEP current; local development object-store proxy lifecycle; public_contract | `internal/testutil/objectstoreproxy/proxy.go:419` | in: none; out: `cartulary.local_object_store_proxy_start_attempt.v2`; N retained |
+| `cartulary.local_object_store_proxy_start_attempt.v2` | KEEP current; local development object-store proxy lifecycle; public_contract | `internal/testutil/objectstoreproxy/proxy.go:278` | in: `cartulary.local_object_store_proxy_health.v2`, `cartulary.local_object_store_proxy_lease.v2`; out: none; N retained |
+| `cartulary.local_release_inspection.v1` | KEEP current; immutable local release producer; public_contract | `tools/release-evidence/package-release.mjs:173` | in: none; out: none; N retained |
+| `cartulary.local_release_manifest.v1` | KEEP current; immutable local release producer; public_contract | `deploy/mvp/scripts/release-verify.sh:12`; `internal/app/recoveryassembly/release_identity.go:83`; `tools/release-evidence/package-release.mjs:133` | in: none; out: none; N retained |
+| `cartulary.local_release_receipt.v1` | KEEP current; immutable local release producer; public_contract | `tools/release-evidence/package-release.mjs:144` | in: none; out: none; N retained |
+| `cartulary.measurement_policy.v1` | KEEP current; measurement policy owner; owner_input | `tools/harness/generated-artifacts/performance/performance-contracts.mjs:16`; `tools/harness/performance-fixture/profile-adapters/ac043-large-grid.mjs:60`; `tools/measurement_policy_owner.json:2` | in: none; out: none; N retained |
+| `cartulary.migration_history_manifest.v1` | KEEP current; migration history owner; owner_input | `contracts/database-migrations/fixtures/migration-history-evidence.v1.rejected.json:11`; `contracts/database-migrations/fixtures/migration-history-evidence.v2.valid.json:11`; `internal/modules/database_migrations/migrationevidence/evidence.go:233`; `tools/database-migrations/generate-catalog-projections.mjs:27`; `tools/harness/generated-artifacts/database-contract-drift/migration-history.mjs:18`; `tools/migration_history_manifest.json:2` | in: none; out: none; N retained |
+| `cartulary.network_flow_contract_index.v3` | KEEP current; Network Flow owner; owner_input | `contracts/network-flow/index.json:3`; `tools/harness/generated-artifacts/check-json-shapes.mjs:94` | in: none; out: none; N retained |
+| `cartulary.network_flow_fixture_manifest.v2` | KEEP current; Network Flow fixtures; owner_input | `fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/manifest.json:2`; `fixtures/network-flow/NF-FIX-002-cisco-sna-interface-fields/manifest.json:2`; `fixtures/network-flow/NF-FIX-003-duplicate-headers/manifest.json:2`; `fixtures/network-flow/NF-FIX-004-rejected-rows/manifest.json:2`; `fixtures/network-flow/NF-FIX-005-csv-parser-edges/manifest.json:2`; `fixtures/network-flow/NF-FIX-006-cross-table-graph/manifest.json:2`; `fixtures/network-flow/NF-FIX-007-indicator-linking/manifest.json:2`; `fixtures/network-flow/NF-FIX-008-large-limits/manifest.json:2`; `fixtures/network-flow/NF-FIX-009-soft-delete-stale-graph/manifest.json:2`; `fixtures/network-flow/NF-FIX-010-json-admission/manifest.json:2`; `fixtures/network-flow/NF-FIX-011-alias-collision/manifest.json:2`; `fixtures/network-flow/NF-FIX-012-sys-uptime-timestamps/manifest.json:2`; `fixtures/network-flow/NF-FIX-013-filename-display/manifest.json:2`; `fixtures/network-flow/NF-FIX-014-cursor-pagination/manifest.json:2`; `fixtures/network-flow/NF-FIX-015-graph-adapter-input/manifest.json:2`; `fixtures/network-flow/NF-FIX-016-redaction/manifest.json:2`; `fixtures/network-flow/NF-FIX-017-indicator-link-mismatch/manifest.json:2`; `fixtures/network-flow/NF-FIX-018-resource-limits/manifest.json:2`; `fixtures/network-flow/NF-FIX-019-canonical-json-unicode/manifest.json:2`; `fixtures/network-flow/NF-FIX-020-atomic-import-commit/manifest.json:2`; `fixtures/network-flow/NF-FIX-021-preview-boundaries/manifest.json:2`; `fixtures/network-flow/NF-FIX-022-timestamp-rulesets/manifest.json:2`; `fixtures/network-flow/NF-FIX-023-import-facade-source-change/manifest.json:2`; `fixtures/network-flow/NF-FIX-024-query-normalization-cursors/manifest.json:2`; `fixtures/network-flow/NF-FIX-025-graph-contributors/manifest.json:2`; `fixtures/network-flow/NF-FIX-026-audit-and-replay/manifest.json:2`; `fixtures/network-flow/NF-FIX-027-retention-soft-delete/manifest.json:2`; `fixtures/network-flow/NF-FIX-028-graph-aggregate-bounds/manifest.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:90` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.network_flow_fixture_scenario.v2` | KEEP current; Network Flow fixtures; owner_input | `fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/source/cisco-sna-minimal.scenario.json:2`; `fixtures/network-flow/NF-FIX-002-cisco-sna-interface-fields/source/cisco-sna-interface-fields.scenario.json:2`; `fixtures/network-flow/NF-FIX-003-duplicate-headers/source/duplicate-headers.scenario.json:2`; `fixtures/network-flow/NF-FIX-004-rejected-rows/source/rejected-rows.scenario.json:2`; `fixtures/network-flow/NF-FIX-005-csv-parser-edges/source/csv-parser-edges.scenario.json:2`; `fixtures/network-flow/NF-FIX-006-cross-table-graph/source/cross-table-graph.scenario.json:2`; `fixtures/network-flow/NF-FIX-007-indicator-linking/source/indicator-linking.scenario.json:2`; `fixtures/network-flow/NF-FIX-008-large-limits/source/large-limits.scenario.json:2`; `fixtures/network-flow/NF-FIX-009-soft-delete-stale-graph/source/soft-delete-stale-graph.scenario.json:2`; `fixtures/network-flow/NF-FIX-010-json-admission/source/json-admission.scenario.json:2`; `fixtures/network-flow/NF-FIX-011-alias-collision/source/alias-collision.scenario.json:2`; `fixtures/network-flow/NF-FIX-012-sys-uptime-timestamps/source/sys-uptime-timestamps.scenario.json:2`; `fixtures/network-flow/NF-FIX-013-filename-display/source/filename-display.scenario.json:2`; `fixtures/network-flow/NF-FIX-014-cursor-pagination/source/cursor-pagination.scenario.json:2`; `fixtures/network-flow/NF-FIX-015-graph-adapter-input/source/graph-adapter-input.scenario.json:2`; `fixtures/network-flow/NF-FIX-016-redaction/source/redaction.scenario.json:2`; `fixtures/network-flow/NF-FIX-017-indicator-link-mismatch/source/indicator-link-mismatch.scenario.json:2`; `fixtures/network-flow/NF-FIX-018-resource-limits/source/resource-limits.scenario.json:2`; `fixtures/network-flow/NF-FIX-019-canonical-json-unicode/source/canonical-json-unicode.scenario.json:2`; `fixtures/network-flow/NF-FIX-020-atomic-import-commit/source/atomic-import-commit.scenario.json:2`; `fixtures/network-flow/NF-FIX-021-preview-boundaries/source/preview-boundaries.scenario.json:2`; `fixtures/network-flow/NF-FIX-022-timestamp-rulesets/source/timestamp-rulesets.scenario.json:2`; `fixtures/network-flow/NF-FIX-023-import-facade-source-change/source/import-facade-source-change.scenario.json:2`; `fixtures/network-flow/NF-FIX-024-query-normalization-cursors/source/query-normalization-cursors.scenario.json:2`; `fixtures/network-flow/NF-FIX-025-graph-contributors/source/graph-contributors.scenario.json:2`; `fixtures/network-flow/NF-FIX-026-audit-and-replay/source/audit-and-replay.scenario.json:2`; `fixtures/network-flow/NF-FIX-027-retention-soft-delete/source/retention-soft-delete.scenario.json:2`; `fixtures/network-flow/NF-FIX-028-graph-aggregate-bounds/source/graph-aggregate-bounds.scenario.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:92` | in: none; out: none; N retained |
+| `cartulary.network_flow_frontend_entrypoints.v7` | KEEP current; Network Flow frontend contract owner; owner_input | `contracts/network-flow/frontend-entrypoints.v7.json:3` | in: none; out: none; N retained |
+| `cartulary.network_flow_graph_semantics.v2` | KEEP current; Network Flow graph semantic contract owner; owner_input | `contracts/network-flow/graph-semantics.v2.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:98` | in: none; out: none; N retained |
+| `cartulary.network_flow_operation_policy.v1` | KEEP current; Network Flow contract owner; owner_input | `contracts/network-flow/operation-policy.v1.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:1181` | in: none; out: none; N retained |
+| `cartulary.network_flow_resource_limits.v2` | KEEP current; Network Flow resource limit contract owner; owner_input | `contracts/network-flow/resource-limits.v2.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:96` | in: none; out: none; N retained |
+| `cartulary.network_flow_timezone_ruleset_provenance.v2` | KEEP current; Network Flow timezone owner; owner_input | `contracts/network-flow/timezone/tzdb-2026c.provenance.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:100` | in: none; out: none; N retained |
+| `cartulary.object_store_readiness_diagnostic.v1` | KEEP current; object-store readiness controller; public_contract | `internal/testutil/s3test/s3test.go:452`; `internal/testutil/suiteservices/diagnostics.go:600` | in: `cartulary.test_services.scope.v2`; out: none; N+G retained |
+| `cartulary.object_store_release_threat_policy.v1` | KEEP current; object-store release threat-policy owner; owner_input | `contracts/object-store/release-threat-policy.v1.json:2`; `tools/release-evidence/seaweedfs-release-evidence.mjs:695` | in: none; out: none; N retained |
+| `cartulary.openapi_assembly_policy.v1` | KEEP current; OpenAPI aggregation owner; owner_input | `contracts/openapi-source/assembly-policy.json:2`; `internal/platform/openapiassembly/assembly.go:20` | in: none; out: none; N retained |
+| `cartulary.openapi_release_change_set.v2` | KEEP current; OpenAPI release compatibility owner; owner_input | `contracts/openapi-releases/2.0.0.change-set.json:2`; `internal/platform/openapicompat/compatibility.go:19` | in: none; out: none; N retained |
+| `cartulary.openapi_release_registry.v1` | KEEP current; OpenAPI release compatibility owner; owner_input | `contracts/openapi-releases/index.json:2`; `internal/platform/openapicompat/compatibility.go:18` | in: none; out: none; N retained |
+| `cartulary.openapi_source_manifest.v3` | KEEP current; OpenAPI aggregation owner; owner_input | `contracts/openapi-source/manifest.json:2`; `internal/platform/openapiassembly/assembly.go:19`; `tools/openapi-operation-catalog/main.go:19` | in: none; out: none; N retained |
+| `cartulary.otel_conformance_summary.v1` | KEEP current; OpenTelemetry conformance; public_contract | `tools/harness/generated-artifacts/task-surface/validation.mjs:80`; `tools/otel/check-otel-conformance.mjs:2017` | in: none; out: none; N retained |
+| `cartulary.otel_signal_registry.v2` | KEEP current; OpenTelemetry instrumentation owner; owner_input | `contracts/otel/cartulary_signal_registry.v2.json:2`; `tools/otel/check-otel-conformance.mjs:453` | in: none; out: none; N retained |
+| `cartulary.parties.field_registry.v1` | KEEP current; Parties field contract owner; owner_input | `contracts/parties/field_registry.v1.json:2`; `contracts/parties/normalization_corpus.v1.json:3`; `tools/contractgen/party_policy.go:18` | in: none; out: none; N retained |
+| `cartulary.parties.normalization_corpus.v1` | KEEP current; Parties normalization contract owner; owner_input | `contracts/parties/normalization_corpus.v1.json:2` | in: none; out: none; N retained |
+| `cartulary.parties.safe_error_fixtures.v1` | KEEP current; Parties safe failure contract owner; owner_input | `contracts/parties/safe_error_fixtures.v1.json:2` | in: none; out: none; N retained |
+| `cartulary.performance_fixture_build_diagnostics.v2` | KEEP current; performance fixture builder; public_contract | `internal/testutil/performancefixturelifecycle/artifacts.go:185`; `tools/harness/performance-fixture/snapshot-builder-cli.mjs:64` | in: none; out: `cartulary.harness.defs.v1`, `cartulary.performance_fixture_snapshot_key.v2`, `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.performance_fixture_builder_policy.v1` | KEEP current; performance fixture builder policy; owner_input | `tools/harness/performance-fixture/index.mjs:14`; `tools/performance_fixture_builder_policy.json:2` | in: none; out: none; N retained |
+| `cartulary.performance_fixture_runtime.v2` | KEEP current; target performance evidence generation; public_contract | `apps/web/e2e/support/performance/ac043Snapshot.ts:95`; `tools/harness/performance-fixture/index.mjs:23`; `tools/performance_fixture_snapshot_owner.json:199` | in: none; out: `cartulary.performance_fixture_snapshot_key.v2`; N retained |
+| `cartulary.performance_fixture_snapshot.v2` | KEEP current; target performance evidence generation; public_contract | `tools/harness/diagnostics/explain-run-cli.mjs:819`; `tools/harness/performance-fixture/index.mjs:21`; `tools/performance_fixture_snapshot_owner.json:197` | in: none; out: `cartulary.harness.defs.v1`, `cartulary.performance_fixture_snapshot_key.v2`, `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.performance_fixture_snapshot_key.v2` | KEEP current; target performance evidence generation; shared_component | `internal/testutil/performancefixture/key.go:13`; `tools/harness/performance-fixture/index.mjs:20`; `tools/performance_fixture_snapshot_key_vectors.json:7`; `tools/performance_fixture_snapshot_owner.json:196` | in: `cartulary.frontend_measurement_aggregate.v3`, `cartulary.frontend_measurement_observation.v2`, `cartulary.frontend_measurement_summary.v3`, `cartulary.performance_fixture_build_diagnostics.v2`, `cartulary.performance_fixture_runtime.v2`, `cartulary.performance_fixture_snapshot.v2`, `cartulary.performance_fixture_snapshot_key_vectors.v1`, `cartulary.performance_fixture_snapshot_lease.v2`; out: none; N retained |
+| `cartulary.performance_fixture_snapshot_key_vectors.v1` | KEEP current; performance fixture snapshot owner; owner_input | `tools/harness/generated-artifacts/performance/performance-contracts.mjs:273`; `tools/performance_fixture_snapshot_key_vectors.json:2` | in: none; out: `cartulary.performance_fixture_snapshot_key.v2`; N retained |
+| `cartulary.performance_fixture_snapshot_lease.v2` | KEEP current; target performance evidence generation; public_contract | `tools/harness/diagnostics/explain-run-cli.mjs:822`; `tools/harness/performance-fixture/index.mjs:22`; `tools/performance_fixture_snapshot_owner.json:198` | in: none; out: `cartulary.harness.defs.v1`, `cartulary.performance_fixture_snapshot_key.v2`, `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.performance_fixture_snapshot_owner.v2` | KEEP current; performance fixture snapshot owner; owner_input | `tools/harness/performance-fixture/index.mjs:13`; `tools/performance_fixture_snapshot_owner.json:2` | in: none; out: `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.performance_interaction_contract.v1` | KEEP current; Core 04 performance contract projection; owner_input | `contracts/performance/ac043.v1.json:2`; `tools/harness/generated-artifacts/performance/performance-contracts.mjs:15`; `tools/harness/performance-fixture/profile-adapters/ac043-large-grid.mjs:55`; `tools/performance_fixture_snapshot_owner.json:42` | in: none; out: none; N retained |
+| `cartulary.postgres_fixture_policy_registry.v2` | KEEP current; PostgreSQL fixture policy registry; owner_input | `tools/harness/test-catalog/postgres-fixture-policy.mjs:6`; `tools/postgres_fixture_policy_registry.json:2` | in: none; out: none; N retained |
+| `cartulary.projection_provider_manifest.v4` | KEEP current; projection provider owner; owner_input | `contracts/projection-providers/index.json:2`; `tools/harness/generated-artifacts/check-json-shapes.mjs:88`; `tools/performance_fixture_snapshot_owner.json:47` | in: none; out: none; N retained |
+| `cartulary.protocol_ts_frontend_entrypoints.v2` | KEEP current; protocol TypeScript package owner; owner_input | `contracts/protocol-ts/frontend-entrypoints.v2.json:3`; `tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs:820`; `tools/protocol-ts/generate-protocol-types.mjs:137` | in: none; out: none; N retained |
+| `cartulary.protocol_ts_http_operations.v2` | KEEP current; protocol TypeScript package owner; owner_input | `contracts/protocol-ts/http-operations.v2.json:3` | in: none; out: none; N retained |
+| `cartulary.reference_pack_fixture_manifest.v1` | KEEP current; Reference Data fixture owner; owner_input | `contracts/reference-pack-fixtures/fixture-manifests/admission/equivalent_gzip.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/equivalent_tar.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/equivalent_zip.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_case_collision.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_concatenated.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_device.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_directory_double_slash.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_directory_traversal.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_duplicate.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_fifo.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_hardlink.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_parent_collision.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_parent_collision_reverse.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_pax.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_sparse.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_symlink.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/gzip_traversal.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/json_bom.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/json_duplicate.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/json_invalid_utf8.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/json_noncanonical.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/json_nonobject.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/json_surrogate.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/json_unknown.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/json_unknown_duplicate.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/license_document_ref.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/license_prohibited.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/license_restricted.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/license_spdx_exception.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/license_spdx_invalid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/license_spdx_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/license_unbound_ref.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/license_unregistered.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/non_ustar.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/source_0b221a86ed33.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/source_f0c7012f41ea.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/source_fe60f8ccc99b.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_case_collision.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_device.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_directory_double_slash.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_directory_traversal.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_duplicate.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_fifo.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_hardlink.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_parent_collision.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_parent_collision_reverse.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_pax.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_sparse.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_symlink.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_traversal.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/tar_truncated.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip64.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip_case_collision.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip_directory_double_slash.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip_directory_traversal.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip_duplicate.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip_parent_collision.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip_parent_collision_reverse.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip_symlink.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/admission/zip_traversal.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/complete_set.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/dependency/conflict.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/dependency/cycle.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/dependency/missing.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/dependency/transitive_missing.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/dependency/valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/activate.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/cancel.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/disable.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/empty_refresh.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/import.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/reactivate.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/reconcile_claimed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/reconcile_unclaimed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/refresh.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/reimport.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/remove.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/renew.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/replay.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/lifecycle/reverify_active.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/manifest_identity.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/owner_historical_readiness.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/owner_portable_destination.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/owner_snapshot_binding.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_cisa_kev_boundary.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_cisa_kev_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_cisa_kev_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_cisa_kev_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_entra_app_ids_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_entra_app_ids_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_entra_app_ids_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_hijacklibs_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_hijacklibs_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_hijacklibs_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_lolbas_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_lolbas_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_lolbas_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_loldrivers_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_loldrivers_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_loldrivers_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_lolesxi_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_lolesxi_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_lolesxi_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_ms_portals_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_ms_portals_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_ms_portals_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_tor_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_tor_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_tor_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_event_ids_boundary.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_event_ids_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_event_ids_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_event_ids_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_sids_aliases_over.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_sids_boundary.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_sids_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_sids_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_sids_source_refs_over.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/enrichment_windows_sids_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_attack_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_attack_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_attack_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_d3fend_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_d3fend_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_d3fend_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_veris_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_veris_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/framework_veris_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_evidence_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_evidence_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_evidence_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_host_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_host_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_host_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_indicator_malformed.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_indicator_semantic.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/profiles/type_registry_indicator_valid.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/set_cardinality_64.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/set_cardinality_65.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/signed_container.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/all_roles_bad_signatures.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/all_roles_expired.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/all_roles_rollback.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/canonical_before_root.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/expiry_equality.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/length_before_hash.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/missing_declarations.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/missing_payloads.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/ordinary_3.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/ordinary_3_replay.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/root_history_missing.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/rotation_3.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/rotation_3_replay.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/rotation_64.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/rotation_64_replay.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/rotation_gap.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/rotation_predecessor_only.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/rotation_successor_only.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/trust/target_substitution.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/type_compatibility/ambiguous_alias.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/type_compatibility/changed_algorithm.v1.json:2`; `contracts/reference-pack-fixtures/fixture-manifests/type_compatibility/removed_key.v1.json:2` | in: none; out: none; N retained |
+| `cartulary.retained_run_relationships.v1` | KEEP current; harness evidence retention owner; owner_input | `tools/retained_run_relationships.json:2` | in: none; out: none; N retained |
+| `cartulary.same_run_helper_artifact_ref.v2` | KEEP current; run summary; public_contract | `tools/harness/output/test-output/same-run-helper-artifacts.mjs:17` | in: none; out: `cartulary.harness_artifact_ref.v1`; N retained |
+| `cartulary.scheduler_manifest.v3` | KEEP current; schedule renderer; public_contract | `tools/harness/execution/summary-topology.mjs:21`; `tools/harness/generated-artifacts/execution-topology.mjs:15`; `tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs:428`; `tools/harness/scheduler/scheduler-manifest.mjs:3`; `tools/scheduler_manifest.json:2` | in: none; out: none; N retained |
+| `cartulary.scheduler_resource_registry.v6` | KEEP current; canonical scheduler resource owner; owner_input | `tools/harness/scheduler/scheduler-resources.mjs:38`; `tools/scheduler_resource_registry.json:2` | in: none; out: none; N retained |
+| `cartulary.schema_object_ownership_manifest.v1` | REMOVE unused; database contract owner; owner_input | No producer or inbound reference; database catalog owner emits v2. | in: none; out: none; N removed |
+| `cartulary.schema_object_ownership_manifest.v2` | KEEP current; database contract owner; owner_input | `tools/database-migrations/generate-catalog-projections.mjs:109`; `tools/harness/generated-artifacts/database-contract-drift/schema-object-ownership.mjs:21`; `tools/schema_object_ownership_manifest.json:2` | in: none; out: none; N retained |
+| `cartulary.task_guide_summary.v3` | KEEP current; owner task guidance; public_contract | `tools/harness/diagnostics/owner-diagnostics.mjs:109` | in: none; out: `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.task_surface_owner.v2` | KEEP current; task surface owner; owner_input | `tools/harness/generated-artifacts/execution-topology.mjs:13` | in: none; out: none; N retained |
+| `cartulary.test.clock_control.v1` | KEEP current; test clock route; public_contract | `internal/platform/httpapi/testclock.go:19` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test.database_reset_diagnostic.v1` | KEEP current; browser database reset controller; public_contract | `tools/testservices/reset_diagnostic.go:12` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test.network_flow_audit_assertion_control.v2` | KEEP current; Network Flow test route; public_contract | `internal/modules/networkflow/harnesscontrol/network_flow_audit_assertion.go:16` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test.network_flow_auth_transition_control.v2` | KEEP current; Network Flow test route; public_contract | `internal/modules/networkflow/harnesscontrol/network_flow_auth_transition.go:16` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test.network_flow_fault_control.v2` | KEEP current; Network Flow test route; public_contract | `internal/modules/networkflow/harnesscontrol/network_flow_fault.go:16` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test.network_flow_randomness_control.v2` | REMOVE unused; historical Network Flow test-route artifacts; no active producer; public_contract | Explicit historical-only attachment; current control emits v3. | in: none; out: `cartulary.harness.defs.v1`; N removed |
+| `cartulary.test.network_flow_randomness_control.v3` | KEEP current; Network Flow test route; public_contract | `internal/modules/networkflow/harnesscontrol/network_flow_randomness.go:15` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test.public_error_fault.v1` | KEEP current; public-error test route; public_contract | `internal/platform/harnessruntime/public_error_fault.go:17` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test.runtime_identity.v1` | KEEP current; runtime identity route; public_contract | `apps/web/e2e/support/runtime/readiness.ts:93`; `internal/platform/harnessruntime/reset.go:21`; `tools/harness/browser/start-web-e2e.sh:1134` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test_catalog_check_summary.v2` | KEEP current; test catalog validator; public_contract | `tools/harness/test-catalog/test-catalog.mjs:558` | in: none; out: none; N retained |
+| `cartulary.test_catalog_defs.v1` | KEEP current; test catalog contracts; shared_component | Shared definition required by inbound contracts | in: `cartulary.browser_e2e_batch_manifest.v11`, `cartulary.browser_group_result.v7`, `cartulary.execution_topology.v9`, `cartulary.frontend_measurement_summary.v3`, `cartulary.harness_cache_record.v2`, `cartulary.harness_row_result.v3`, `cartulary.harness_target_plan.v4`, `cartulary.harness_unit_event.v3`, `cartulary.harness_work_graph.v5`, `cartulary.harness_work_graph_owner.v2`, `cartulary.performance_fixture_build_diagnostics.v2`, `cartulary.performance_fixture_snapshot.v2`, `cartulary.performance_fixture_snapshot_lease.v2`, `cartulary.performance_fixture_snapshot_owner.v2`, `cartulary.task_guide_summary.v3`, `cartulary.test_family_manifest.v6`, `cartulary.test_owner_explanation.v3`, `cartulary.browser_group_result.v5`, `cartulary.frontend_measurement_summary.v2`, `cartulary.performance_fixture_snapshot.v1`, `cartulary.performance_fixture_snapshot_lease.v1`, `cartulary.performance_fixture_snapshot_owner.v1`; out: none; N+G retained |
+| `cartulary.test_catalog_row_migration.v1` | KEEP current; test catalog owner; owner_input | `tools/harness/test-catalog/test-catalog.mjs:24`; `tools/test_catalog_row_migrations.json:2` | in: none; out: none; N retained |
+| `cartulary.test_family_manifest.v6` | KEEP current; test family owner; owner_input | `contracts/extensions/dependencies.json:101`; `tools/harness/browser/ui-review/source.mjs:28`; `tools/harness/test-catalog/test-catalog.mjs:23`; `tools/postgres_fixture_policy_registry.json:3`; `tools/test_families/app.migrate.json:2`; `tools/test_families/app.operator.json:2`; `tools/test_families/app.server.json:2`; `tools/test_families/harness.browser.json:2`; `tools/test_families/harness.command_surface.json:2`; `tools/test_families/harness.evidence_accounting.json:2`; `tools/test_families/harness.generated_artifacts.json:2`; `tools/test_families/harness.release.json:2`; `tools/test_families/harness.test_catalog.json:2`; `tools/test_families/module.artifacts.json:2`; `tools/test_families/module.assessments.json:2`; `tools/test_families/module.auth.json:2`; `tools/test_families/module.collaboration.json:2`; `tools/test_families/module.crossownertransaction.json:2`; `tools/test_families/module.database_migrations.json:2`; `tools/test_families/module.entities.json:2`; `tools/test_families/module.evidence.json:2`; `tools/test_families/module.extensions.json:2`; `tools/test_families/module.graphprojection.json:2`; `tools/test_families/module.imports.json:2`; `tools/test_families/module.incidentbundles.json:2`; `tools/test_families/module.incidents.json:2`; `tools/test_families/module.indicators.json:2`; `tools/test_families/module.jobapi.json:2`; `tools/test_families/module.links.json:2`; `tools/test_families/module.networkflow.json:2`; `tools/test_families/module.parties.json:2`; `tools/test_families/module.projections.json:2`; `tools/test_families/module.records.json:2`; `tools/test_families/module.recovery.json:2`; `tools/test_families/module.reference_data.json:2`; `tools/test_families/module.reportcomposition.json:2`; `tools/test_families/module.reporting.json:2`; `tools/test_families/module.revisions.json:2`; `tools/test_families/module.savedviews.json:2`; `tools/test_families/module.stagedobjects.json:2`; `tools/test_families/module.tabularingest.json:2`; `tools/test_families/module.tasksdecisions.json:2`; `tools/test_families/module.timeline.json:2`; `tools/test_families/module.workbook.json:2`; `tools/test_families/package.grid_adapter.json:2`; `tools/test_families/package.protocol_ts.json:2`; `tools/test_families/package.test_utils.json:2`; `tools/test_families/package.ui.json:2`; `tools/test_families/package.view_contracts.json:2`; `tools/test_families/platform.audit.json:2`; `tools/test_families/platform.bootstrap.json:2`; `tools/test_families/platform.config.json:2`; `tools/test_families/platform.cryptography.json:2`; `tools/test_families/platform.httpruntime.json:2`; `tools/test_families/platform.jobs.json:2`; `tools/test_families/platform.objectstore.json:2`; `tools/test_families/platform.openapi.json:2`; `tools/test_families/platform.pagination.json:2`; `tools/test_families/platform.postgres.json:2`; `tools/test_families/platform.rootedfs.json:2`; `tools/test_families/platform.telemetry.json:2`; `tools/test_families/platform.viewquery.json:2`; `tools/test_families/platform.viewschema.json:2`; `tools/test_families/platform.ws.json:2`; `tools/test_families/web.application.json:2`; `tools/test_families/web.architecture.json:2`; `tools/test_families/web.collaboration.json:2`; `tools/test_families/web.design.json:2`; `tools/test_families/web.networkflow.json:2`; `tools/test_families/web.workbook.json:2` | in: none; out: `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.test_owner_explanation.v3` | KEEP current; owner diagnostics; public_contract | `contracts/extensions/dependencies.json:102`; `tools/harness/diagnostics/owner-diagnostics.mjs:55` | in: none; out: `cartulary.test_catalog_defs.v1`; N retained |
+| `cartulary.test_owner_registry.v1` | KEEP current; test owner registry; owner_input | `contracts/extensions/dependencies.json:103`; `tools/harness/browser/ui-review/source.mjs:26`; `tools/harness/test-catalog/test-catalog.mjs:22`; `tools/test_catalog_owner.json:2` | in: none; out: none; N retained |
+| `cartulary.test_run_summary.v6` | KEEP current; run summary; public_contract | `tools/harness/contract/test-output-context.mjs:10`; `tools/harness/diagnostics/explain-run-cli.mjs:230` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test_runner_registry.v1` | KEEP current; test runner registry; owner_input | `contracts/extensions/dependencies.json:104`; `tools/harness/test-catalog/test-catalog.mjs:25`; `tools/test_runner_registry.json:2` | in: none; out: none; N retained |
+| `cartulary.test_services.browser_admission.v1` | KEEP current; browser session admission; public_contract | `tools/harness/browser/browser-session-evidence.mjs:317`; `tools/harness/browser/fixture-lifecycle.mjs:52` | in: none; out: none; N retained |
+| `cartulary.test_services.journal_event.v1` | KEEP current; service suite producer; shared_component | `internal/testutil/suiteservices/diagnostics.go:300`; `tools/harness/services/journal-reader.mjs:34` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test_services.lease.v1` | KEEP current; service suite; public_contract | `internal/testutil/harnesscollect/container_observer_linux.go:93`; `internal/testutil/harnessfixtures/attachment_linux.go:118`; `internal/testutil/harnessfixtures/suite_linux.go:269`; `tools/harness/browser/browser-acquisition.mjs:27`; `tools/harness/browser/browser-session-evidence.mjs:293`; `tools/testservices/main.go:1410` | in: `cartulary.test_services.local_session.v1`; out: `cartulary.harness.defs.v1`; N+G retained |
+| `cartulary.test_services.lifecycle.v3` | KEEP current; service suite; public_contract | `internal/testutil/suiteservices/lifecycle.go:109` | in: none; out: `cartulary.harness.defs.v1`, `cartulary.harness_artifact_ref.v1`; N retained |
+| `cartulary.test_services.local_session.v1` | KEEP current; local service session manager; public_contract | `tools/harness/services/local-session.mjs:25` | in: none; out: `cartulary.harness.defs.v1`, `cartulary.test_services.lease.v1`; N retained |
+| `cartulary.test_services.local_session_status.v1` | KEEP current; local service session manager; public_contract | `tools/harness/services/local-session.mjs:26` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test_services.resource_ledger.v1` | KEEP current; service suite cleanup authority; shared_component | `internal/testutil/suiteservices/resource_ledger.go:74` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test_services.scope.v2` | KEEP current; service suite; public_contract | `internal/testutil/harnessfixtures/suite_linux.go:212`; `internal/testutil/suiteservices/diagnostics.go:424`; `tools/harness/browser/browser-session-evidence.mjs:278`; `tools/testservices/main.go:2875` | in: none; out: `cartulary.harness.defs.v1`, `cartulary.object_store_readiness_diagnostic.v1`; N+G retained |
+| `cartulary.test_services.start_result.v1` | KEEP current; service suite broker; shared_component | `internal/testutil/harnessfixtures/suite_linux.go:193`; `tools/testservices/main.go:1149` | in: none; out: none; N+G retained |
+| `cartulary.test_step_summary.v1` | KEEP current; step handlers; public_contract | `tools/harness/contract/test-output-context.mjs:7` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.test_support_inventory.v1` | KEEP current; test-support owner; owner_input | `tools/harness/generated-artifacts/check-json-shapes.mjs:86`; `tools/harness/static-analysis/support-inventory-profiles.mjs:9`; `tools/test_support_inventory.json:2` | in: none; out: none; N retained |
+| `cartulary.test_target_summary.v4` | KEEP current; target summary; public_contract | `tools/harness/contract/test-output-context.mjs:9` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.timeline_investigation_expectations.v1` | KEEP current; representative Timeline fixture owner; owner_input | `tools/harness/fixtures/timeline-investigation/expectations.json:2`; `tools/harness/fixtures/timeline-investigation/index.mjs:20` | in: none; out: none; N retained |
+| `cartulary.timeline_investigation_recipe.v1` | KEEP current; representative Timeline fixture owner; owner_input | `tools/harness/fixtures/timeline-investigation/index.mjs:19`; `tools/harness/fixtures/timeline-investigation/recipe.json:2` | in: none; out: none; N retained |
+| `cartulary.timezone_name_registry.v1` | KEEP current; Core string-contract registry owner; owner_input | `contracts/parties/normalization_corpus.v1.json:4`; `contracts/string-contracts/timezone_name_registry.v1.json:2`; `contracts/string-contracts/timezone_name_registry_provenance.v1.json:3`; `tools/contractgen/party_policy.go:21` | in: none; out: none; N retained |
+| `cartulary.timezone_name_registry_provenance.v1` | KEEP current; Core string-contract registry owner; owner_input | `contracts/string-contracts/timezone_name_registry.v1.json:4`; `contracts/string-contracts/timezone_name_registry_provenance.v1.json:2` | in: none; out: none; N retained |
+| `cartulary.tool_run_summary.v5` | KEEP current; centralized wrappers; public_contract | `internal/testutil/harnessdiag/observation.go:345`; `tools/harness/diagnostics/explain-run-cli.mjs:29`; `tools/harness/generated-artifacts/check-json-shapes.mjs:81`; `tools/harness/generated-artifacts/task-surface/make-renderer.mjs:188`; `tools/harness/generated-artifacts/task-surface/validation.mjs:78`; `tools/harness/output/test-output/target-summary.mjs:1299`; `tools/harness/output/tool-output.mjs:15`; `tools/harness/static-analysis/fallow-static-cli.mjs:423` | in: none; out: `cartulary.harness.defs.v1`, `cartulary.harness_artifact_ref.v1`; N+G retained |
+| `cartulary.ui_review_action.v3` | KEEP current; UI review harness; owner_input | `internal/testutil/harnessreview/server_linux.go:53` | in: `cartulary.harness_review_adapter.v2`, `cartulary.harness_review_channel.v1`, `cartulary.harness_review_command.v1`; out: `cartulary.ui_review_bundle.v2`; N+G retained |
+| `cartulary.ui_review_analysis_request.v1` | KEEP current; UI review harness; owner_input | `internal/testutil/harnessreview/server_linux.go:53` | in: `cartulary.harness_review_adapter.v2`, `cartulary.harness_review_channel.v1`, `cartulary.harness_review_command.v1`; out: none; N+G retained |
+| `cartulary.ui_review_bundle.v2` | KEEP current; UI review harness; public_contract | `tools/harness/browser/ui-review/contract.mjs`; `tools/harness/browser/ui-review/bundles.mjs`; `tools/harness/browser/ui-review/browser.mjs` | in: `cartulary.harness_review_adapter.v2`, `cartulary.ui_review_action.v3`, `cartulary.ui_review_capture_request.v1`, `cartulary.ui_review_observations.v1`; out: `cartulary.frontend_visual_fixture_registry.v6`, `cartulary.frontend_visual_reconciliation.v3`, `cartulary.harness_run_manifest.v2`; N+G retained |
+| `cartulary.ui_review_capture_request.v1` | KEEP current; UI review harness; owner_input | `internal/testutil/harnessreview/server_linux.go:53` | in: `cartulary.harness_review_adapter.v2`, `cartulary.harness_review_channel.v1`, `cartulary.harness_review_command.v1`; out: `cartulary.ui_review_bundle.v2`; N+G retained |
+| `cartulary.ui_review_command_result.v2` | KEEP current; UI review harness; public_contract | `internal/testutil/harnessreview/model.go:166`; `internal/testutil/harnessreview/server_linux.go:217`; `tools/harness/browser/ui-review/cli.mjs:17`; `tools/harness/browser/ui-review/launch.sh:16`; `tools/harness/browser/ui-review/native-client.mjs:45`; `tools/harness/generated-artifacts/task-surface/validation.mjs:77` | in: `cartulary.harness_review_output.v1`; out: none; N+G retained |
+| `cartulary.ui_review_observations.v1` | KEEP current; UI review harness; shared_component | `tools/harness/browser/ui-review/contract.mjs`; `tools/harness/browser/ui-review/bundles.mjs`; `tools/harness/browser/ui-review/browser.mjs` | in: none; out: `cartulary.ui_review_bundle.v2`; N retained |
+| `cartulary.ui_review_receipt.v2` | KEEP current; UI review harness; public_contract | `internal/testutil/harnessreview/publication_linux.go:230`; `internal/testutil/harnessreview/recovery_linux.go:142`; `internal/testutil/harnessreview/session.go:241` | in: `cartulary.harness_review_registry.v2`; out: none; N+G retained |
+| `cartulary.ui_review_session.v1` | KEEP current; UI review harness; public_contract | `internal/testutil/harnessreview/publication_linux.go:202`; `internal/testutil/harnessreview/session.go:61`; `internal/testutil/harnessreview/transaction_linux.go:131` | in: `cartulary.harness_review_registry.v2`; out: none; N+G retained |
+| `cartulary.verification_contract.v3` | KEEP current; verification contract owner; owner_input | `contracts/extensions/dependencies.json:105`; `contracts/verification/owners/app.migrate.json:2`; `contracts/verification/owners/app.operator.json:2`; `contracts/verification/owners/app.server.json:2`; `contracts/verification/owners/harness.browser.json:2`; `contracts/verification/owners/harness.command_surface.json:2`; `contracts/verification/owners/harness.evidence_accounting.json:2`; `contracts/verification/owners/harness.generated_artifacts.json:2`; `contracts/verification/owners/harness.release.json:2`; `contracts/verification/owners/harness.test_catalog.json:2`; `contracts/verification/owners/harness.visual.json:2`; `contracts/verification/owners/module.artifacts.json:2`; `contracts/verification/owners/module.assessments.json:2`; `contracts/verification/owners/module.auth.json:2`; `contracts/verification/owners/module.collaboration.json:2`; `contracts/verification/owners/module.crossownertransaction.json:2`; `contracts/verification/owners/module.database_migrations.json:2`; `contracts/verification/owners/module.entities.json:2`; `contracts/verification/owners/module.evidence.json:2`; `contracts/verification/owners/module.extensions.json:2`; `contracts/verification/owners/module.graphprojection.json:2`; `contracts/verification/owners/module.imports.json:2`; `contracts/verification/owners/module.incidentbundles.json:2`; `contracts/verification/owners/module.incidents.json:2`; `contracts/verification/owners/module.indicators.json:2`; `contracts/verification/owners/module.jobapi.json:2`; `contracts/verification/owners/module.links.json:2`; `contracts/verification/owners/module.networkflow.json:2`; `contracts/verification/owners/module.parties.json:2`; `contracts/verification/owners/module.projections.json:2`; `contracts/verification/owners/module.records.json:2`; `contracts/verification/owners/module.recovery.json:2`; `contracts/verification/owners/module.reference_data.json:2`; `contracts/verification/owners/module.reportcomposition.json:2`; `contracts/verification/owners/module.reporting.json:2`; `contracts/verification/owners/module.revisions.json:2`; `contracts/verification/owners/module.savedviews.json:2`; `contracts/verification/owners/module.stagedobjects.json:2`; `contracts/verification/owners/module.tabularingest.json:2`; `contracts/verification/owners/module.tasksdecisions.json:2`; `contracts/verification/owners/module.timeline.json:2`; `contracts/verification/owners/module.workbook.json:2`; `contracts/verification/owners/package.grid_adapter.json:2`; `contracts/verification/owners/package.protocol_ts.json:2`; `contracts/verification/owners/package.test_utils.json:2`; `contracts/verification/owners/package.ui.json:2`; `contracts/verification/owners/package.view_contracts.json:2`; `contracts/verification/owners/platform.audit.json:2`; `contracts/verification/owners/platform.bootstrap.json:2`; `contracts/verification/owners/platform.config.json:2`; `contracts/verification/owners/platform.cryptography.json:2`; `contracts/verification/owners/platform.httpruntime.json:2`; `contracts/verification/owners/platform.jobs.json:2`; `contracts/verification/owners/platform.objectstore.json:2`; `contracts/verification/owners/platform.openapi.json:2`; `contracts/verification/owners/platform.pagination.json:2`; `contracts/verification/owners/platform.postgres.json:2`; `contracts/verification/owners/platform.rootedfs.json:2`; `contracts/verification/owners/platform.telemetry.json:2`; `contracts/verification/owners/platform.viewquery.json:2`; `contracts/verification/owners/platform.viewschema.json:2`; `contracts/verification/owners/platform.ws.json:2`; `contracts/verification/owners/web.application.json:2`; `contracts/verification/owners/web.architecture.json:2`; `contracts/verification/owners/web.collaboration.json:2`; `contracts/verification/owners/web.design.json:2`; `contracts/verification/owners/web.networkflow.json:2`; `contracts/verification/owners/web.workbook.json:2`; `tools/harness/test-catalog/verification-contracts.mjs:11`; `tools/otel/check-otel-conformance.mjs:1042` | in: none; out: none; N retained |
+| `cartulary.verification_registry.v3` | KEEP current; verification registry owner; owner_input | `contracts/extensions/dependencies.json:106`; `contracts/verification/registry.json:2`; `tools/harness/test-catalog/verification-contracts.mjs:10` | in: none; out: none; N retained |
+| `cartulary.view_inspector_registry.v1` | KEEP current; view Inspector contract owner; owner_input | `contracts/view-inspector/index.json:3`; `tools/contractgen/view_inspector_validation.go:13` | in: none; out: none; N retained |
+| `cartulary.view_schema_source.v1` | KEEP current; view-schema contract owner; owner_input | `contracts/view-schemas/cartulary.view.assessments.v1.json:3`; `contracts/view-schemas/cartulary.view.comm_log.v1.json:3`; `contracts/view-schemas/cartulary.view.decisions.v1.json:3`; `contracts/view-schemas/cartulary.view.evidence.v1.json:3`; `contracts/view-schemas/cartulary.view.findings.v1.json:3`; `contracts/view-schemas/cartulary.view.forensic_keywords.v1.json:3`; `contracts/view-schemas/cartulary.view.handoff.v1.json:3`; `contracts/view-schemas/cartulary.view.hosts.v1.json:3`; `contracts/view-schemas/cartulary.view.identities.v1.json:3`; `contracts/view-schemas/cartulary.view.indicators.v1.json:3`; `contracts/view-schemas/cartulary.view.investigative_queries.v1.json:3`; `contracts/view-schemas/cartulary.view.lesson.v1.json:3`; `contracts/view-schemas/cartulary.view.notes.v1.json:3`; `contracts/view-schemas/cartulary.view.parties.v1.json:3`; `contracts/view-schemas/cartulary.view.status_review.v1.json:3`; `contracts/view-schemas/cartulary.view.task_requests.v1.json:3`; `contracts/view-schemas/cartulary.view.timeline.v2.json:3`; `internal/testutil/appsupport/performancefixture/assembly.go:120`; `tools/contractgen/main.go:854`; `tools/contractgen/validation.go:385`; `tools/performance_fixture_snapshot_owner.json:52` | in: none; out: none; N retained |
+| `cartulary.vitest_failure_details.v2` | KEEP current; Vitest wrapper; public_contract | `tools/harness/contract/test-output-context.mjs:13`; `tools/harness/diagnostics/vitest-collector.mjs:46`; `tools/harness/diagnostics/vitest-observations.mjs:5` | in: none; out: `cartulary.harness.defs.v1`; N retained |
+| `cartulary.web_e2e_backend_generation.v2` | KEEP current; browser reset lifecycle; public_contract | `tools/harness/browser/browser-session-evidence.mjs:586` | in: none; out: `cartulary.web_e2e_stack.v8`; N retained |
+| `cartulary.web_e2e_stack.v3` | REMOVE unused; browser lifecycle; public_contract | No producer or inbound reference; current lifecycle emits v8. | in: none; out: `cartulary.harness.defs.v1`; N removed |
+| `cartulary.web_e2e_stack.v8` | KEEP current; browser session lifecycle; public_contract | `apps/web/playwright.shared.config.ts:26`; `tools/harness/browser/browser-session-evidence.mjs:504`; `tools/harness/browser/fixture-lifecycle.mjs:50`; `tools/harness/browser/ui-review/canonical-import.mjs:110`; `tools/harness/browser/ui-review/source.mjs:54` | in: `cartulary.web_e2e_backend_generation.v2`; out: none; N retained |
+| `cartulary.web_e2e_stack_lease.v2` | KEEP current; browser session cleanup evidence; public_contract | `tools/harness/browser/browser-session-evidence.mjs:364` | in: none; out: none; N retained |
+| `cartulary.workspace_layout.v1` | KEEP current; workspace layout owner; owner_input | `tools/harness/workspace/layout.mjs:7`; `tools/workspace_layout.json:2` | in: none; out: none; N retained |
+| `cartulary.browser_group_result.v5` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: `cartulary.browser_target_result.v2`; out: `cartulary.harness_test_failure.v1`, `cartulary.test_catalog_defs.v1`; dynamic Ajv removed; no static projection |
+| `cartulary.browser_target_result.v2` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: `cartulary.browser_group_result.v5`; dynamic Ajv removed; no static projection |
+| `cartulary.frontend_measurement_aggregate.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: `cartulary.frontend_measurement_summary.v1`; dynamic Ajv removed; no static projection |
+| `cartulary.frontend_measurement_aggregate.v2` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: `cartulary.frontend_measurement_summary.v2`, `cartulary.harness_artifact_ref.v1`; dynamic Ajv removed; no static projection |
+| `cartulary.frontend_measurement_observation.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: `cartulary.frontend_measurement_summary.v2`; out: none; dynamic Ajv removed; no static projection |
+| `cartulary.frontend_measurement_summary.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: `cartulary.frontend_measurement_aggregate.v1`; out: none; dynamic Ajv removed; no static projection |
+| `cartulary.frontend_measurement_summary.v2` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: `cartulary.frontend_measurement_aggregate.v2`; out: `cartulary.frontend_measurement_observation.v1`, `cartulary.harness_artifact_ref.v1`, `cartulary.test_catalog_defs.v1`; dynamic Ajv removed; no static projection |
+| `cartulary.frontend_visual_reconciliation.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: none; dynamic Ajv removed; no static projection |
+| `cartulary.performance_fixture_runtime.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: none; dynamic Ajv removed; no static projection |
+| `cartulary.performance_fixture_snapshot.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: `cartulary.harness.defs.v1`, `cartulary.test_catalog_defs.v1`; dynamic Ajv removed; no static projection |
+| `cartulary.performance_fixture_snapshot_key.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: none; dynamic Ajv removed; no static projection |
+| `cartulary.performance_fixture_snapshot_lease.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: `cartulary.harness.defs.v1`, `cartulary.test_catalog_defs.v1`; dynamic Ajv removed; no static projection |
+| `cartulary.performance_fixture_snapshot_owner.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: `cartulary.test_catalog_defs.v1`; dynamic Ajv removed; no static projection |
+| `cartulary.web_e2e_stack_lease.v1` | REMOVE historical; former performance evidence; registry entry only | No current producer; historical loader, diagnostic explanation and positive acceptance removed | in: none; out: none; dynamic Ajv removed; no static projection |
+
+All seven deleted active-root schemas have zero inbound references. Removed historical references terminate within the removed historical set or retained shared components; no retained schema points into that set. Owner rows requiring current qualification/profile validation remain retained. Deletion changes no qualification budget, profile policy or measured evidence.
+
+### S-048 assertion disposition ledger
+
+This ledger closes the private-interface assertion movement for C-029/C-031.
+No former JavaScript lifecycle behavior serves as an expected-result oracle.
+
+| Removed dependency or assertion | Disposition and current owner |
+| --- | --- |
+| Session protocol `secrets` and Node `forbiddenValues()` | Wire capability obsolete; registration, deduplication, persistence, secret-name exclusions and sealing assertions retained in `harnesssession` runtime/protocol tests using direct native methods. |
+| Session protocol/client `scan` | Wire capability obsolete; native scanner retains hostile-filesystem, registered-value, syntax, fragmentation, EOF/error and policy-identity assertions. The Node private golden-candidate scan moved to `TestSessionScan/private_candidate_is_safe_retained_input`. |
+| Session protocol/client `preserve` and `prune` | Unused production capability obsolete; exact retention, sibling deletion, forged/missing proof and restart assertions remain in native preservation, fixture and review transaction tests. |
+| Session protocol/client `resources` | Enumeration capability obsolete; journal state/limits/corruption assertions remain in native runtime tests. Browser success-empty and failed-two-unresolved assertions moved to native fixture recovery tests. Node fixtures release the exact resources they created. |
+| Standalone Node boundary secret/scan/resource reads | Relocated to the native assertions above; boundary retains registration, borrower non-deletion, forged lease rejection, repeated close, dead-owner unresolved-close rejection and explicit release/recovery. |
+| Production `ReviewBrowser.close()` with only test callers after S-047 | Orchestration obsolete in production; physical renderer/process cleanup assertions retained in `browser/tests/ui-review-browser-fixture.mjs` and the existing lifecycle, bundle, analysis and diagnostic tests. Go remains production cleanup authority. |
+| Vitest smoke per-case caller-selected roots under inherited runtime | Invalid authority assumption removed; all classification, timeout, cancellation, diagnostic and retained-output assertions retained with the enclosing exact binding and separate step labels. |
+| Aggregate `buildReview` reference in physical boundary fixture | Obsolete recipe call replaced with the closed ordered individual producers; owned/borrowed/failure/recovery physical assertions retained. |
+| Runtime owner/session schema v1 attachments and generated validators | Replaced coherently by v2; no alias or fallback. Native rejection cases cover all five removed operations; generated Node/Go projections share authored schema inputs. |
+
+### E-054 — S-047 native producer deadlines and cleanup bounds — DONE
+
+2026-10-12; main `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` plus preserved
+tracker and implementation patch. Final gate source digest:
+`sha256:d52e3c8a52cc0a4d004dee9d95cd443933c85ef3fe75aefa667df675bd867922`.
+Non-Markdown patch/untracked-source fingerprint:
+`b49b32cfc21f53b65106071d93ebb565a0b6427b176cd6b8cdfeb6c3d29ba391`.
+Linux/WSL, pinned installed Go/Node/browser/service prerequisites. All writing
+commands use `TMPDIR=/tmp/cartulary-remediation-20261012` and a fresh
+`CARTULARY_TEST_RUN_ID=remediation-s047-<suffix>`.
+
+`harnessreview/driver_linux.go` starts the projected 300-second producer clock
+before adapter dispatch/initialization. Ordered closed operations separately
+cover each existing build producer, optional explicit installation producers,
+seeding and browser preparation. Fixture acquisition also receives a native
+producer context; existing narrower physical readiness policies still apply.
+`adapter_linux.go` owns cancellation, two-second termination grace, process-group
+termination and reaping. Preparation children inherit that group. Node retains
+recipes and normalized failure envelopes in `review-recipes.mjs`, `review-child.mjs`
+and `ui-review/adapter.mjs`; its competing producer timer is removed. Private
+adapter v2 replaces v1 and rejects aggregate build/obsolete close operations.
+No arbitrary command dispatch or compatibility alias was introduced.
+
+`harnesssession/cleanup_linux.go` supplies one synchronized exact-resource attempt
+ledger per native runtime. Equivalent structured proofs share an attempt; proxy
+attempt/ready receipts identify the same physical instance. Authored lifecycle
+policy projects existing resource deadlines (30-second process/renderer/proxy/
+attachment, 120-second browser-stack/suite cleanup). Fixture normal close, failed
+acquisition and recovery consult the same ledger. Browser dependency inspection
+shares its teardown deadline. A fresh recovery owner has a fresh ledger; repeated
+paths within one owner cannot silently restart a budget. Independent resources
+receive independent uncancelled cleanup contexts. `session.go`, recovery and stop
+transport remove aggregate cleanup authority while preserving dependency order,
+late-acquisition handoff and bounded operation drain.
+
+Native tests independently advance every producer's 300-second clock, exercise
+real unresponsive IPC and inherited descendants, and cover initialization for
+seeded/dev/artifacts/design preparation. Resource tests prove independent deadlines,
+concurrent duplicate suppression, equivalent-proof identity and bounded inspection.
+The undrained-preparation assertion is retained with its intended invariant:
+withhold cleanup/publication until ownership is relinquished; the obsolete
+aggregate-clock expectation is removed. Existing late-acquisition and primary/
+secondary failure assertions remain. Public workflows verify actual seeded,
+dev and artifacts composition, owner death/recovery and complete private cleanup.
+
+Exact commands are `TMPDIR=/tmp/cartulary-remediation-20261012
+CARTULARY_TEST_RUN_ID=<id> make <target>`. Tool summaries are
+`.cartulary/test-results/<id>/<target>/tool-run-summary.json`; graph summaries
+are `.cartulary/test-results/<id>/run-summary.json`. All native exits below were
+collected independently of summaries.
+
+| Suffix(es) | Target | Owning exit / published result |
+| --- | --- | --- |
+| `generate01` | `generate` | 0 / pass; authored policy, private adapter v2 and projections |
+| `format01`–`format06` | `format` | 0 / graph pass |
+| `runtime01` | `harness-runtime-contract` | 2 / tool exit 1, harness/unknown_failure; new stalled-build test supplied an invalid admission token, so schema rejection preceded timeout; corrected fixture; failed evidence retained |
+| `runtime02`–`runtime04` | `harness-runtime-contract` | 0 / pass; runtime04 final source with race checks, 48,830 ms |
+| `fixture01`–`fixture03` | `harness-fixture-contract` | 0 / pass; fixture03 final source, 6,760 ms |
+| `ui01`, `ui02` | `harness-ui-review-contract` | 0 / pass |
+| `lifecycle01`–`lifecycle03` | `harness-ui-review-lifecycle` | 0 / pass; lifecycle03 final source, 25,100 ms |
+| `seeded01` | `harness-ui-review-seeded-default` | 2 / tool exit 1, harness/unknown_failure; final artifact-session stop reported cleanup_error after successful browser recovery; asynchronous abort could arrive after close. Explicit abort completion now precedes close; failed evidence retained |
+| `seeded02`, `seeded03` | `harness-ui-review-seeded-default` | 0 / pass; seeded03 final source, 56,110 ms |
+| `workflow01`, `workflow02` | `harness-ui-review-workflow` | 0 / pass; workflow02 final source, 18,690 ms |
+| `drift01`–`drift03` | `generate-drift` | 0 / graph pass; drift03 final source |
+| `policy01` | `generated-artifact-policy-check` | 0 / graph pass |
+| `shape01` | `json-shape-check` | 0 / graph pass |
+
+Fresh execution is distinguished from build-cache reuse inside individual recipes;
+no prior passing run substitutes for these gates. `git diff --check` passes.
+V-048/F-045/C-028 close at this source. S-048 may begin after this saved checkpoint.
+Private adapter cutover was confined to the isolated environment, with no live
+predecessor review registry. Ten unresolved default-root runtimes were untouched
+and blocked that environment's cutover at this checkpoint (later retired in
+E-059). No receipts, budgets, goldens,
+qualification measurements or diagnostics defaults changed. Final S-049 remains
+required; rollback restores coherent source/projections without rewriting history.
+
+### E-053 — S-046 resumable terminal publication — DONE
+
+2026-10-12; main `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` plus the
+preserved tracker and implementation patch. Final gate source digest:
+`sha256:8eb7436bb4404ac696065019cc45b758367fc8a1f934e1dfdde6e57a58438eb8`.
+Linux/WSL; all writing commands below use isolated
+`TMPDIR=/tmp/cartulary-remediation-20261012` and fresh
+`CARTULARY_TEST_RUN_ID=remediation-s046-<suffix>`.
+
+`harnessreview/transaction_linux.go` now owns durable exact terminal intent,
+publication progress, design presentation bytes and scan completion. Registry v2
+replaces v1 coherently, including authored attachment, generated Go/Node validators
+and Node fixtures. No v1 reader or alias remains. REQ-502 explicitly distinguishes
+mutable preterminal intent from immutable published terminal history. Existing
+receipt formats and primary failure precedence remain intact.
+
+`publication_linux.go`, `design_linux.go`, `recovery_linux.go`, `server_linux.go`
+and `session.go` resume publication, validate bound exact bytes, serialize recovery,
+report ownership conflicts and prevent pending transactions from claiming successful
+closure. Status stays observational. `harnesssession/preservation_linux.go`
+retains sealed scanner authority while independently deleting disposable detail.
+Recovery can finish registry removal after runtime deletion only with persisted
+successful scan and release proof. Failed historical receipts remain immutable
+when later cleanup succeeds.
+
+Native publication tests inject returned errors for UI and design transactions
+and actual child-process death before/after intent, seal, scans, detail purge,
+terminal creation, locator publication, runtime removal and registry removal.
+They verify repeat/concurrent convergence, exact byte identity, stable timestamps,
+conflict rejection, independent cleanup and retained scanner inputs after a real
+post-publication secret-scan failure. Existing assertions remain routed; none were
+retired in this slice.
+
+Exact commands are `TMPDIR=/tmp/cartulary-remediation-20261012
+CARTULARY_TEST_RUN_ID=<id> make <target>`. Tool summaries are
+`.cartulary/test-results/<id>/<target>/tool-run-summary.json`; graph summaries
+are `.cartulary/test-results/<id>/run-summary.json`.
+
+| Suffix(es) | Target | Owning exit / published result |
+| --- | --- | --- |
+| `generate01`, `generate02` | `generate` | 0 / pass; second generation adopts registry v2 |
+| `format01` | `format` | 2 / build failure before formatting; unused `time` import after extraction; removed import, failed run retained |
+| `format02`–`format05` | `format` | 0 / graph pass |
+| `format06` | `format` | Native completion output was consumed across context compaction; exact graph summary is pass. No independent exit claim for this invocation |
+| `runtime01`–`runtime04` | `harness-runtime-contract` | 0 / pass; runtime04 final source, race and crash matrix |
+| `ui01`, `ui02` | `harness-ui-review-contract` | 0 / pass; ui02 final source |
+| `lifecycle01`, `lifecycle02` | `harness-ui-review-lifecycle` | 0 / pass; lifecycle02 final source |
+| `drift01`, `drift02` | `generate-drift` | 0 / graph pass; drift02 after final generation |
+| `policy01` | `generated-artifact-policy-check` | 0 / graph pass |
+| `shape01` | `json-shape-check` | 0 / graph pass |
+
+Final runtime04 and lifecycle02 tool durations are 47,390 ms and 24,570 ms;
+their native exits were collected separately. Gate runs are fresh execution;
+no accepted cache evidence substitutes for them. `git diff --check` passes.
+The isolated review registry was empty before the private-format cutover.
+Ten pre-existing default-root unresolved runtimes were untouched at this
+checkpoint; ownership/proof gaps blocked that environment's cutover until their
+later administrative retirement in E-059. No retained
+receipts were migrated. Rollback requires coherent source and projections.
+V-047/F-044/C-027 close at this source; S-047 is ready. Final public composition,
+full check and E-056 remain mandatory; qualification remains deferred.
+
+### E-052 — S-045 exact recovery dependencies — DONE
+
+2026-10-12; main `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` plus preserved
+tracker edits and this implementation. Canonical source identity for the final
+production/projection gates is
+`sha256:04268efc138e34ef8cc10363d82307050eb293212b09bca14c628af4dfb9ac79`.
+The only subsequent executable edit adds failure cleanup to the new proxy test;
+its fixture gate passed again. Final non-Markdown binary Git diff plus sorted
+untracked source-path/content fingerprint:
+`e12f2c1e7afc825738ebc8674e799f885c119fc90cab0d274ba12c7dc16e79ba`.
+This fingerprint identifies the patch, not a harness evidence digest.
+Environment: Linux/WSL, effective pinned Go 1.27.2, pinned Node/browser/services;
+all S-045 writing commands use `TMPDIR=/tmp/cartulary-remediation-20261012`.
+
+Substantive ownership changes:
+
+| Owner/files | Decision and retained dependency closure |
+| --- | --- |
+| `harnesssession/runtime_linux.go`, `preservation_linux.go`, resource schema and generated validators | Resource records declare bounded exact recovery files. Validate canonical containment and secure regular-file access. Preserve target proof, declared files and necessary ancestors; purge unrelated siblings. Missing/unsafe dependencies report failure while independent detail is purged. Dependency registration merges under the runtime lock without downgrading acquired state. |
+| `harnessfixtures/suite_linux.go`, `attachment_linux.go`, `recovery_linux.go` | Persist minimal physical cleanup environment, excluding proxy server key/certificate paths. Managed suite recovery retains its lease, cleanup credentials and needed trust root. Borrowed detach retains only its own attachment proof; browser dependencies explicitly retain the attachment lease and cleanup environment. External service-owner files remain borrowed. |
+| `harnessfixtures/proxy_linux.go`, new `internal/testutil/objectstoreproxy/*`, `tools/s3corsproxy/main.go`, `harnesssession/physical_linux.go` | One shared physical proxy stop/read/verify implementation. Native recovery calls it directly. Each proxy owns an exact trust snapshot, including when services are borrowed. Temporary stop copies preserve unresolved original authority until journal release. Disposable binaries, server private keys/certificates and logs are unnecessary for recovery. |
+| `browser-acquisition.mjs`, `start-web-e2e.sh`, private session client | Declare individual acquisition journals, exact suite dependency, fixture metadata and settlement receipt. Browser recovery preserves no whole proof directory. Process/renderer/diagnostic records carry their physical proof directly. |
+| Native preservation, fixture, proxy and physical-boundary tests; owner routing/task surface | Activate S-043 sibling regression; cover missing, foreign, symlink and directory dependencies; add real failed TLS stop, detail purge, owner exit and new-process successful recovery after executable deletion. Existing physical proxy assertions move intact to their library. Physical browser recovery now purges siblings before retry; borrowed service tests verify survival. |
+
+Every command below has a fresh `CARTULARY_TEST_RUN_ID=remediation-s045-<suffix>`.
+The exact command is `TMPDIR=/tmp/cartulary-remediation-20261012
+CARTULARY_TEST_RUN_ID=<id> make <target>` unless noted. Tool summaries are
+`.cartulary/test-results/<id>/<target>/tool-run-summary.json`; graph summaries
+are `.cartulary/test-results/<id>/run-summary.json`. Native owning-process exits
+were collected separately.
+
+| Suffix(es) | Make target | Owning exit and published result |
+| --- | --- | --- |
+| `generate01`, `generate02`, `generate03` | `generate` | 0 / pass; authored resource schema, routing and task surface regenerated |
+| `format01`–`format04` | `format` | 0 / graph pass; authored sources only |
+| `runtime01`–`runtime03` | `harness-runtime-contract` | 0 / pass; final runtime03 includes race contracts |
+| `fixture01`–`fixture04` | `harness-fixture-contract` | 0 / pass; shared proxy tests included; fixture04 verifies the final test cleanup guard |
+| `boundary01`, `boundary02` | `harness-runtime-boundary-contract` | 0 / pass; real services/browser and borrowed/owned/failed-cleanup paths |
+| `drift01`, `drift03`, `drift04`, `drift05` | `generate-drift` | 2 / graph fail, unit exit 10, row exit 2; normalized product/test_assertion_failure; all failed runs preserved |
+| `drift02` | `generate-drift VERBOSE=1` | 2 / configuration_error before graph; unsupported command-line input; no test execution |
+| `drift06` | `generate-drift` | 0 / graph pass after obsolete test-root removal |
+| `policy01`, `policy02` | `generated-artifact-policy-check` | 0 / graph pass |
+| `shape01`, `shape02` | `json-shape-check` | 0 / graph pass |
+
+Drift03 set `VERBOSE=1` in the environment; it did not expose nested graph
+failure detail. `make explain-run RESULTS_DIR=.cartulary/test-results/remediation-s045-drift01`
+exited 0 and confirmed the failing generated-artifact row and complete cleanup.
+A bounded, read-only observation of drift05's exact owner-validated private
+command capture revealed the cause: isolated topology rendering still expected
+`tools/s3corsproxy` as an approved test root after its tests moved. Removed that
+obsolete root from the authored runner registry and its closed validator; no
+placeholder or legacy test route was added. Drift06 is fresh execution, not cache
+reuse. `git diff --check` passed.
+
+`make test-run-status RESULTS_DIR=.cartulary/test-results/remediation-s045-boundary01 JSON=1`
+exited 2 with usage_error: this is a non-graph tool invocation, so structured graph
+status was unavailable. Its native process exit and exact tool summary separately
+confirmed success. This observer failure is not a boundary-test failure.
+
+V-046 closes F-043/C-026 at this source. No production assertion was discarded:
+physical proxy tests were relocated and discovery routing updated; added tests
+specify independent failure expectations. No retained receipts or historical
+runtime roots were changed. Ten pre-existing unresolved default-root runtimes
+were untouched and blocked that environment's cutover at this checkpoint (later
+retired in E-059); isolated validation does not waive ownership proof. Rollback
+must restore one coherent source/projection
+revision, never rewrite receipts. S-046 may now start in the isolated environment.
+The later S-049 public/final validation is still required; no full-check,
+qualification, benchmark or final-handoff claim is made here.
+
+### E-051 — S-044 streaming scan correction — DONE
+
+2026-10-12; main `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` plus this iteration's
+authored changes. Added `harnesssession/scan_syntax_linux.go`: a fixed-policy
+streaming automaton retains program counters and an incomplete UTF-8 rune, never
+whole keys/values/files. Redaction-prefix exclusions compile to ordinary regular
+languages. Registered-value matching and secure traversal retain their existing
+owner; scan result schema and policy digest remain unchanged.
+
+Independent tests cover 150,000-byte unregistered values/keys/whitespace/usernames,
+1/2/7/257/65,536-byte reader fragments, redacted prefixes, plural-token exclusions,
+empty/incomplete strings, UTF-8 and invalid bytes, registered secrets and read
+errors. The S-043 scanner reproductions now pass. S-045's sibling-detail fixture
+remains unbound until its own correction; it is not claimed passing.
+
+`CARTULARY_TEST_RUN_ID=remediation-s044-format01 make format` passed, followed by
+`CARTULARY_TEST_RUN_ID=remediation-s044-runtime01 make harness-runtime-contract`
+and `CARTULARY_TEST_RUN_ID=remediation-s044-evidence01 make harness-evidence-contract`.
+Both gate invocations completed with outer exit 0 and tool summary pass under
+`.cartulary/test-results/<run-id>/<target>/tool-run-summary.json`; runtime includes
+native race checks. F-047/C-030 and V-045 close at this source. No public migration,
+policy identity change, qualification acquisition or benchmark claim occurred.
+
+S-045 is next after RB-008 environment treatment. Read-only proof inspection found
+missing browser/borrowed acquisition files in pre-existing recovery roots; deleting
+them based on dead owners would lose unresolved authority. The user was asked to
+choose isolated validation with preserved roots and an explicit environment-cutover
+blocker, or recovery of the old environment before private-format changes.
+
+### E-050 — S-043 specification and characterization — DONE
+
+2026-10-12; user-authorized implementation, main
+`f32ac56e1414858ddb3a9779aa8f60e4be655d2f` plus preserved tracker edits.
+REQ-416/502/855 now explicitly require native producer deadlines, independent
+cleanup attempts, exact recovery dependencies, durable publication/scanner
+authority, bound runtime scope and fragmentation-independent scanning. Current
+formats and failure precedence remain required; C-032 adoption belongs to S-050.
+
+| Seam / independent expectation | Owner and correction |
+| --- | --- |
+| JSON password value/key or intervening whitespace of 150,000 bytes; long PostgreSQL username | All reject independent of chunking; native scanner, S-044 |
+| Suite lease plus credential-log sibling | Preserve the exact lease, delete sibling; native preservation, S-045 |
+| Proxy recovery | Persist attempt/ready proof and TLS trust inputs actually consumed by physical stop; process identity remains exact. Disposable proxy binary/log is not a recovery requirement; extract stop/read/verify from the proxy tool in S-045 |
+| Managed suite / borrowed suite / browser acquisition | Exact lease/acquisition files own recovery. Managed suite carries physical resource proof; browser acquisition carries suite dependency and process/TLS authority. No directory-wide retention; borrowed resources detach only |
+| Terminal transaction | Failure after terminal creation must reuse matching immutable bytes; scanner registration survives pre/post-scan and publication faults; independent detail purge always attempted, S-046 |
+| Preparation | initialize, build-web, embedded-web-assets, build-server-harness, build-migrate, testservices-build, seed and prepare_browser have closed dispatch; per-producer timing starts in Go, S-047 |
+| Private consumers | Native methods retain scan/secret/preservation/journal assertions; Node work-graph scan and browser-acquisition resource enumeration move to native tests before transport removal, S-048 |
+| Schema retirement | S-050 dispositions every schema by current owner/consumer/reference closure; diagnostic/test references alone do not retain historical support |
+
+Baseline commands all completed with outer exit 0 and tool summary pass:
+`CARTULARY_TEST_RUN_ID=remediation-s043-runtime01 make harness-runtime-contract`,
+`CARTULARY_TEST_RUN_ID=remediation-s043-fixture01 make harness-fixture-contract`,
+`CARTULARY_TEST_RUN_ID=remediation-s043-ui01 make harness-ui-review-contract`.
+Roots are `.cartulary/test-results/<run-id>`; each target's
+`tool-run-summary.json` records its child result. `make help`, `make help-all`
+and task guides for `harness.evidence_accounting`/`harness.browser` passed.
+
+Added independent native regression fixtures for long unregistered syntax and
+proof-directory siblings. `remediation-s043-reproduction01` ran
+`make harness-runtime-contract`, outer exit 2, and reproduced both gaps. This is
+expected failing evidence, never a fixed behavior or a passing gate. The sibling
+fixture remains explicitly unbound until S-045 so S-044 can validate its own
+correction without silently changing recovery. Publication/deadline fault matrices
+above are independent expectations to execute in their respective slices.
+
+RB-007 is resolved for movement. S-043/V-044 is DONE; S-044 is next. RB-008 remains
+under investigation: no live predecessor remained after baseline execution, but
+ten pre-existing private runtime roots retained recovery records, including older
+browser/suite runs and synthetic fixtures. No root was deleted or inferred safe
+from its age at this checkpoint. Exact proof inspection/recovery remained a
+private-format cutover prerequisite; E-059 records the later user-requested
+administrative retirement of these roots.
+No qualification acquisition or budget change occurred. Initial specification
+patch context attempts failed without applying; the corrected patch is saved.
+
+### E-058 — Historical schema retirement planning amendment — DONE
+
+2026-10-12 UTC; same HEAD `f32ac56e1414858ddb3a9779aa8f60e4be655d2f` and
+executable source as E-049. The user requests an additional workstream and
+explicitly directs removal of historical-only schemas and their validation;
+diagnostic, JSON-shape and contract-test references alone do not justify retention.
+This is another tracker-only planning edit, not implementation authorization.
+
+Entry tracker SHA-256 is
+`2fe303d6dc1e54ea6a741d70b93f81d8740d4c9ff5479c628b1209358b46ea7a`.
+The previous tracker changes are preserved; no reset, staging or commit occurs.
+Canonical identity, inode 3903446, single link and nonsymlink parents were
+rechecked before editing. The index and 6,959 other tracked/nonignored entries
+match E-049's preservation fingerprints. E-049 and older handoff bodies remain
+unchanged; their six-finding plan is superseded only by this additive amendment.
+
+| Evidence / inspection | Observation and disposition | Scope / next proof |
+| --- | --- | --- |
+| `tools/schemas`, `tools/harness_schema_attachments.json`, `tools/historical-schemas/performance`, `tools/historical_performance_evidence_registry.json` | Read-only Python enumeration finds 206 active-root files/attachments and 14 historical schemas; registry and selected older schema definitions directly inspected | Inventory counts are not a per-schema behavioral audit; S-050 must disposition every file/reference before removal |
+| `diagnostics/historical-performance-evidence.mjs`, `diagnostics/explain-run-cli.mjs`, `generated-artifacts/check-json-shapes.mjs`, `tests/contract-suite-support.mjs` | Historical registry is actively loaded for diagnostics/integrity/tests; the loader dynamically compiles historical and active schema inputs with AJV | Delete the historical feature and full support closure rather than treating these consumers as preservation requirements |
+| Attachment validation and foundation/native generator seams; generated-artifact policy | Active attachments all enter JavaScript validator generation; native foundation is a selected transitive closure; historical-registry schema itself is actively attached | Remove authored entries and regenerate obsolete generated outputs; inspect both closures and supporting routing/build inputs |
+| NLSpec REQ-062/815/855, AC-099 and browser historical-validation clauses | Historical registry support is currently required/allowed by the owner | C-032 requires a specific retirement amendment before deletion; current formats and deferred qualification validator remain supported |
+| This tracker, all twelve current sections | Added F-049/C-032, S-050/WF-50/V-051, T-058/T-059 and RB-009; reserve E-057 for implementation checkpoint, E-058 for this planning addition | Order is S-048 → S-050 → S-049; S-049/E-056 remains the final handoff without renumbering stable IDs |
+
+Commands were read-only Git status/HEAD, `rg`/`rg --files`, bounded source reads
+and in-memory Python JSON enumeration/fingerprint checks. Initial guessed
+registry/module paths reported missing-file errors; actual paths were resolved
+before drawing conclusions. No generator, linter, runtime validation, test,
+`explain-run`, service command or historical loader was executed. S-050 validation
+is planned only. Backend/frontend product behavior is outside
+scope; schema-related support dependencies are the added boundary. F-022/RB-006,
+all historical evidence and the 44.952/90-minute ledger are unchanged.
+
+Final planning verification: `git diff --check` passed; `git status --short`
+shows only this tracker modified. Read-only in-memory checks confirmed all twelve
+numbered sections, the dependency/checkpoint chain, unchanged E-049 and older
+handoff bodies, the unchanged index and all 6,959 outside-tracker entries in the
+6,960-entry preservation inventory. The tracker retains its original file identity.
+No lint or finalizer ran: their wrappers write artifacts outside the authorized
+tracker. T-059 is DONE; S-050 remains BLOCKED on S-048/V-049/E-055 and RB-009,
+and all implementation still requires later authorization.
+
+### E-049 — Post-cutover audit and tracker update — DONE
+
+2026-10-12 UTC. The preceding read-only audit left the repository unchanged.
+The current user request expressly retains documentation-only scope and names
+this file as the sole output. The implementation-shaped wording at the start of
+the request does not override its explicit restriction. The adopted NLSpec
+remains behavior authority; proposed clarification and future execution are not
+performed by saving this plan.
+
+The initial and immediate pre-write checks agree: clean main
+`f32ac56e1414858ddb3a9779aa8f60e4be655d2f`, 6,960 tracked/nonignored entries,
+index `331fd8da8caafcb3d428be7a7d3251ea7d42af1e2ff6f93c3d45a9a4dbbe5b90`,
+tracker `688100011e328ccf362509cd76494f9133e1e4c2dd04d5fb07fe3982734b4a77`.
+The admitted canonical file is regular, inode 3903446/device 2096, one link,
+with no symlinked parent. No concurrent source change was detected before editing.
+The 6,960-entry aggregate matches the preceding audit exactly. This update edits
+only the current summaries and adds this checkpoint; historical E-048 and earlier
+completion/failure records remain source-scoped evidence.
+
+#### E-049 scope and authority
+
+| Evidence / inspected source | Observation / change | Applicability |
+| --- | --- | --- |
+| AGENTS, repository planning framework, refactor-tracker skill/format, NLSpec owner clauses and domain navigation | One output admitted; documents are human planning inputs; no product/API/owner amendment performed | Documentation-only authorization; implementation requires a later request |
+| This tracker Sections 1–12 and top authorization | Added F-043–F-048/C-026–C-031, S-043–S-049/WF-43–WF-49, V-044–V-050 and T-050–T-057; reserved E-050–E-056 for future saved checkpoints | New plan supersedes blanket current completion, not historical DONE evidence |
+
+#### E-049 backend boundary
+
+| Evidence / inspected source | Observation / decision | Next validation |
+| --- | --- | --- |
+| Session preservation/scanner/protocol; fixture suite/proxy/recovery; physical proxy stop | Native ownership exists; exact preservation dependencies, read-independent scanning and smaller bound transport are required | S-043 characterizes; S-044/S-045/S-048 correct owners |
+| Review session/driver/adapter/publication/recovery | Parent deadlines and partial terminal recovery remain incomplete despite Go ownership | S-046/S-047 with independent fault injection and actual process boundaries |
+
+#### E-049 frontend and adapter boundary
+
+| Evidence / inspected source | Observation / decision | Limit |
+| --- | --- | --- |
+| Review recipes/child, native client/adapter, browser acquisition/fixture lifecycle, frontend artifact and smoke/tool/local-service call sites | Retain browser work, source-aware recipes, compilation, row runners and offline readers; move lifecycle timing decisions and remove unsupported private capability exports | No UI/product refactor; no actual browser/service run during this update |
+
+#### E-049 contracts and code generation
+
+| Evidence / inspected source | Observation / decision | Limit |
+| --- | --- | --- |
+| Authored task surface, lifecycle policy, session/runtime-owner/review-adapter schema attachments and native family rows | Existing owner routes cover the relevant packages; future private-schema/policy changes require authored projection updates and regeneration | No schema, routing, generator or generated file changed; generated routing inspection is not behavioral proof |
+| Historical UI-review revision plan | Its historical notice conflicts with later active/sole-tracker instructions | F-048 remains open; only this tracker is edited now, other guidance correction belongs to S-048 |
+
+#### E-049 tests and harness evidence
+
+| Exact command / evidence | Result | Applicability / skipped work |
+| --- | --- | --- |
+| `git --no-optional-locks status --short`; `git --no-optional-locks rev-parse HEAD` | Exit 0; clean entry and audited HEAD confirmed | No index refresh or source mutation |
+| `git --no-optional-locks diff --name-only aed9737cbb77683451bdd4dfd47d97b42c3bb1ed HEAD` | Exit 0; only this tracker listed | Earlier executable validation still names the same source, but does not cover new cases |
+| `git --no-optional-locks diff --check` | Passed during the preceding audit; post-edit result recorded below | Whitespace validation only, not Markdown lint or runtime acceptance |
+| In-memory Python SHA-256/lstat comparison over `git --no-optional-locks ls-files -z --cached --others --exclude-standard`, sorted and deduplicated | Section 1 records entry fingerprints; final comparison excludes only the admitted tracker | Index compared byte-for-byte; regular-file contents and entry identities compared; ignored roots receive metadata checks, not exhaustive content attestation |
+| Exact `lifecycle-s042-check03` and `lifecycle-s042-contract03` run manifests/summaries read with Python | Both roots exist, report pass and name `aed9737cbb77683451bdd4dfd47d97b42c3bb1ed` / `sha256:6dfb070d1f521a638b2121d285f6f5dd3e39ef20ebe700062933b5dbb010e7e8` | Historical evidence only; original owning exits, 982/982 units and cache reuse remain E-048's observations |
+| `rg`, `rg --files`, bounded `sed`/`cat` reads of the Section 2 seams | Static findings and affected test gaps confirmed at unchanged source | No reproduction, race/security suite or physical lifecycle check executed |
+| `make lint-markdown` invocation inspected in authored/generated routing and `markdownlint{,-runner}.sh` | Not run: cache stamp and wrapper artifacts exceed tracker-only writes | Manual structural review is not substituted for a lint pass |
+| `make agent-finalize`, contracts/tests, generation/drift, full `make check`, service/browser operations | Not run: no implementation or side-effectful verification authorized | No fresh run root or owning process exit exists; RESULTS_DIR maintenance is not applicable because finalization was not invoked |
+
+Exploratory searches initially named nonexistent paths including
+`tools/task_surface.json`, `internal/testutil/objectstoreproxy`,
+`tools/harness/local-services/local-session.mjs`,
+`tools/harness/static-analysis/lint-markdown.sh` and a nested family glob.
+Those reads reported missing-path errors; corrected `rg --files` and owner-input
+paths supplied the evidence. One documentation patch failed its context check
+before applying; the corrected patch used the actual historical chain. These
+are discovery/edit attempts, not failed runtime verification or missing final
+evidence. No run-then-restore or code archive was used.
+
+#### E-049 security and authorization
+
+| Boundary | Current evidence / disposition | Required future proof |
+| --- | --- | --- |
+| Secrets, recovery and retained scanning | Source-derived F-043/F-044/F-047 require correction; no secret values copied into the tracker | Exact minimal recovery closure, scan-independent cleanup, streaming detection and immutable terminal recovery |
+| Private capability and cutover | F-046 removes operations without production consumers and strengthens creation binding | Strict schema/parity/ownership rejection; old sessions drained by their running version; no compatibility recovery reader |
+| Qualification | F-022/RB-006 and S-020–S-022 remain unresolved/DEFERRED, ledger 44.952/90 minutes | Separate adopted acquisition under unchanged thresholds; no performance/default-on/Core 05 claim |
+
+#### E-049 open risks and next session
+
+| State | Evidence / readiness | Next action |
+| --- | --- | --- |
+| Planning complete for the six bounded findings | Static evidence and acceptance/owner mappings recorded; not a whole-repository audit | Revalidate baseline and affected seams, then start S-043 only after a later implementation request |
+| Future movement blocked | RB-007 characterization and predecessor checkpoints; RB-008 applies before private-protocol/proof cutover | Preserve all historical failures; save each checkpoint before successor work |
+| Final documentation review | `git --no-optional-locks diff --check` passed; all twelve numbered sections and new ID ranges present; current tables have consistent columns; all historical IDs and E-048/prior checkpoint bodies preserved | T-050 DONE; implementation workstreams remain TODO/BLOCKED |
+
+Final preservation comparison passed: 6,960 tracked/nonignored entries remain;
+the outside-tracker aggregate is unchanged at
+`c1f8c29c0ff87c56bfe01e59791a8bddb035c37e70320bf13f56156e53d040f3`;
+the index is byte-identical to entry; the inspected ignored-root metadata is
+unchanged. Git reports only this tracker modified. The historical checkpoint
+body from E-048 through the end of Section 10 is byte-for-byte identical to HEAD.
+No production code, tests, specification, schema, routing, generated artifact,
+dependency or other document changed. No runtime verification or lint pass is
+claimed; the explicit skips above remain skips. This completes the requested
+documentation update, not S-043–S-049 implementation.
 
 ### E-048 — S-042/V-043 final validation and handoff — DONE
 
@@ -3802,7 +5378,28 @@ document checkpoint, not a runtime-validation result.
 
 ## 11. Open Questions and Blockers
 
-### Current lifecycle entry gates
+### Current post-cutover entry gates
+
+The current user request authorizes all eight remediation workstreams.
+S-043–S-048, S-050 and S-049 are DONE at their saved checkpoints.
+E-056 records final-source acceptance and its then-remaining environment migration
+limit. E-059 records subsequent administrative retirement of the ten legacy roots.
+
+| ID / gate | Why it matters / affected slices | Required evidence | State / next action |
+| --- | --- | --- | --- |
+| RB-007 / missing pre-move characterization | F-043–F-047 corrections cannot rely on existing test presence or historical full-check success | V-044/E-050: independent expected fixtures, exact provider dependencies/producer boundaries, necessary publication clarification and narrow baseline checks | CLOSED by V-044/E-050 before S-044 |
+| RB-008 / private cutover readiness | Private dependency/protocol changes in S-045/S-046/S-048 cannot invalidate live or unverifiable ownership | Exact affected-session inventory and drain/recovery with the running version before changing proof/interfaces | CLOSED for the inspected environments: isolated validation in E-052/E-055; user-requested administrative retirement of the ten default-root records in E-059 and reference cleanup in E-060. No affected sessions remain there. Historical recovery remains unverifiable; other environments still require their own cutover inventory. |
+| RB-009 / historical-support retirement and schema disposition | S-050 cannot delete a currently required historical registry before its owner changes or infer obsolescence solely from version numbers | Adopt C-032 retirement; complete current-contract/producer/consumer/`$ref` ledger and test dispositions; validator/diagnostic/test-only consumers do not count as retention reasons | CLOSED by V-051/E-057 after owner amendment and complete 220-file disposition/reference closure |
+| Predecessor gates | Every slice depends on its Section 6 predecessor's validation and saved checkpoint | V-044–V-049/E-050–E-055 plus V-051/E-057 before final S-049 | CLOSED: predecessor checkpoints and final S-049/E-056 saved in order |
+| F-022 / RB-006 | Original qualification remains unresolved; does not block this functional remediation plan | Separate adopted acquisition and unchanged eligibility/stability/budget gates | DEFERRED; no acquisition scheduled, 44.952/90-minute ledger unchanged |
+
+Required implementation clarifications are named S-043 deliverables, with C-032's
+retirement amendment adopted in S-050; neither is authority created by this
+tracker. Failed gates require owner-level repair and affected
+revalidation within this authorized implementation effort. Do not replace
+failed evidence, relax thresholds or reinterpret cache reuse as fresh execution.
+
+### Completed lifecycle entry gates — historical
 
 S-036–S-042 are DONE at E-042–E-048. No functional blocker remains in this scope.
 Other environments must check exact old-session proof before protocol cutover;
@@ -3871,7 +5468,27 @@ Pre-existing staged tracker content is preserved.
 
 ## 12. Binary Completion Criteria
 
-### Current lifecycle completion boundary
+### Current post-cutover completion boundary
+
+| Outcome | Required / current state |
+| --- | --- |
+| Planning completeness | Complete for F-043–F-049 and their bounded owner/caller seams; no whole-repository or live failure-injection completeness claim |
+| Current authorization | Explicit user request to implement all eight workstreams, including owner amendments, implementation, projections, tests and final handoff |
+| Documentation completion | Initial T-050/E-049 and schema-retirement amendment T-059/E-058 DONE; consistent dependencies, preserved history and tracker-only verification recorded |
+| Readiness | All eight workstreams DONE in authorized order; E-056 saved last |
+| Prior completed scopes | S-035/S-034/S-031A–F/S-032 and S-036–S-042 remain DONE at their named sources; E-048's 982/982 evidence remains historical |
+| Current functional status | COMPLETE: F-043–F-049 closed; S-049/V-050/E-056 passes at source `sha256:8b0ad408870dec517c7795869a90e5869ee7b83349c09b3dc51fbf13f61ee5d9` |
+| Implementation completion | S-043–S-050 and V-044–V-051 DONE with individual checkpoints; exact recovery dependencies, resumable publication, native preparation bounds, streaming scanner, minimal private interface and historical-support deletion validated; all deletion/test dispositions closed |
+| Final handoff | E-056 DONE: final-source public/physical checks, finalization, contracts/lint/projections, full warm check 982/982, exact-run human/JSON views, scans, cleanup and source freeze; failures, skips, compatibility effects and migration limits preserved |
+| Qualification | F-022/RB-006 and S-020–S-022 remain unresolved/DEFERRED; all thresholds and 44.952/90-minute ledger unchanged; no overhead, RSS/CPU, default-on or Core 05 claim |
+| Original effort | IN_PROGRESS solely for deferred qualification; the authorized functional remediation is complete and historical evidence is unchanged |
+
+S-049/V-050/E-056 establishes functional completion. The end state retains one Go owner for shared lifecycle policy and only justified
+Node/physical adapters, without unused private operations, historical-only schema
+validation infrastructure or obsolete test wiring. S-050/V-051/E-057 passed
+before final S-049; no historical evidence or qualification ledger was rewritten.
+
+### Completed lifecycle completion boundary — historical
 
 | Outcome | Required / current state |
 | --- | --- |
@@ -10334,3 +11951,18 @@ file modes/identities and both indexes/staged tracker bytes matched. All twelve
 numbered sections remain in order, F-031/E-030 are unique entries, and the mirror
 matches the controlling tracker. No unexpected non-tracker changes were observed
 after the planning boundary. This is preservation/document validation only.
+
+### S-045 execution environment update — historical entry
+
+After E-051, implementation proceeds in the fresh owner-only temporary root
+`TMPDIR=/tmp/cartulary-remediation-20261012`. Ten pre-existing default-root
+runtimes have dead owners and unresolved records, including incomplete proof.
+They were untouched at this entry. No default-environment cutover or migration
+success was claimed. The optional environment question had received no answer
+before proceeding with isolated validation; that silence did not authorize
+deletion of the older roots.
+This entry was recorded before V-046. E-052 above now supplies its completed
+validation and successor readiness. The user subsequently requested removal and
+explicitly answered “Remove them all”; E-059 records their administrative
+retirement. This historical entry no longer imposes a default-environment blocker
+for those ten sessions.

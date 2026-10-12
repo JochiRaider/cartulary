@@ -48,9 +48,12 @@ func (p *designPublisher) Locator(v Locator) error {
 	if err := p.diskPublisher.Locator(v); err != nil {
 		return err
 	}
+	if p.record.Publication != nil {
+		return nil
+	}
 	return p.details(v.State, nil)
 }
-func (p *designPublisher) details(state string, failures []Failure) error {
+func (p *designPublisher) detailValue(state string, failures []Failure) map[string]any {
 	v := map[string]any{"purpose": "interactive_design_review", "run_id": p.record.Runtime.RunID, "runtime_profile_id": p.profile, "state": state}
 	if p.ready != nil {
 		v["public_origin"] = p.ready.Origin
@@ -64,11 +67,14 @@ func (p *designPublisher) details(state string, failures []Failure) error {
 	if state == "closed" || state == "failed" {
 		v["artifact_refs"] = []string{"cleanup-results.json"}
 	}
-	return writeDesign(filepath.Join(p.runRoot, "review-session.json"), v)
+	return v
+}
+func (p *designPublisher) details(state string, failures []Failure) error {
+	return writeDesign(filepath.Join(p.runRoot, "review-session.json"), p.detailValue(state, failures))
 }
 func (p *designPublisher) Terminal(locator Locator, receipt Receipt, cleanupFailed bool) (*Reference, error) {
-	if err := p.details(locator.State, receipt.Failures); err != nil {
-		return nil, err
+	if p.record.Publication != nil {
+		return p.diskPublisher.Terminal(locator, receipt, cleanupFailed)
 	}
 	cleanup := make([]map[string]any, 0, len(p.driver.cleanup))
 	for i, step := range p.driver.cleanup {
@@ -83,8 +89,14 @@ func (p *designPublisher) Terminal(locator Locator, receipt Receipt, cleanupFail
 		}
 		cleanup = append(cleanup, map[string]any{"sequence": i + 1, "operation": step.operation, "unit_id": nil, "fixture_lease_id": nil, "outcome": outcome, "failure_class": class, "failure_reason": reason, "failures": failures, "artifact_refs": []string{}})
 	}
-	if _, err := publish(filepath.Join(p.runRoot, "cleanup-results.json"), "cartulary.harness_cleanup_results.v1", map[string]any{"schema_id": "cartulary.harness_cleanup_results.v1", "run_id": p.record.Runtime.RunID, "results": cleanup}, true); err != nil {
+	cleanupBytes, err := jsonDocument("cartulary.harness_cleanup_results.v1", map[string]any{"schema_id": "cartulary.harness_cleanup_results.v1", "run_id": p.record.Runtime.RunID, "results": cleanup})
+	if err != nil {
 		return nil, err
 	}
+	detailBytes, err := json.Marshal(p.detailValue(locator.State, receipt.Failures))
+	if err != nil {
+		return nil, err
+	}
+	p.extras = []publicationExtra{{Path: "review-session.json", Content: string(append(detailBytes, '\n'))}, {Path: "cleanup-results.json", Content: string(cleanupBytes)}}
 	return p.diskPublisher.Terminal(locator, receipt, cleanupFailed)
 }

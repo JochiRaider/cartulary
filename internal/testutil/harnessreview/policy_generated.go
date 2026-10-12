@@ -20,6 +20,9 @@ const LimitAction = 10000
 const LimitOperation = 30000
 const LimitLifetime = 28800000
 const LimitFailures = 64
+const LimitPreparation = 300000
+const LimitTerminationGrace = 2000
+const LimitDrain = 30000
 var failurePolicy = map[string]failureMapping{
 "invalid_request": {"config", "usage_error", 2},
 "tool_configuration": {"config", "configuration_error", 2},

@@ -7,6 +7,6 @@ export function readRegistry(locatorFile) {
   validateSchemaSync("cartulary.ui_review_session.v1", locator);
   const file = path.join(os.tmpdir(), `cartulary-ui-review-${process.getuid()}`, `${locator.session_id.slice(9)}.json`);
   const record = parseStrictJSON(readLocalFile(file).toString());
-  validateSchemaSync("cartulary.harness_review_registry.v1", record);
+  validateSchemaSync("cartulary.harness_review_registry.v2", record);
   return record;
 }

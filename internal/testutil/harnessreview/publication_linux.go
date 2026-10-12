@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
@@ -24,7 +23,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const registrySchema = "cartulary.harness_review_registry.v1"
+const registrySchema = "cartulary.harness_review_registry.v2"
 
 type runtimeRef struct {
 	Root  string `json:"root"`
@@ -48,6 +47,7 @@ type registryRecord struct {
 	Profile      string                 `json:"profile"`
 	Review       *designReady           `json:"review"`
 	Outcome      *Receipt               `json:"outcome"`
+	Publication  *publicationState      `json:"publication"`
 }
 
 func nonce(size int) string {
@@ -146,6 +146,12 @@ func resolveRecord(repository, file string, locator Locator) (*registryRecord, e
 	if r.Repository != repository || r.Session != locator.Session || r.Locator != file || r.Runtime.RunID != locator.RunID || r.Socket != filepath.Join(registryRoot(), strings.TrimPrefix(r.Session, "uireview-")+".sock") {
 		return nil, harnesslocal.ErrUnsafe
 	}
+	if tx := r.Publication; tx != nil {
+		l := tx.Locator
+		if l.Session != locator.Session || l.RunID != locator.RunID || l.Mode != locator.Mode || l.Created != locator.Created {
+			return nil, failure("session_mismatch")
+		}
+	}
 	return &r, nil
 }
 func inputPath(repository, file string) (string, error) {
@@ -225,7 +231,7 @@ func terminalResult(file string, locator Locator, command string) (Result, error
 		return v, failure("invalid_artifact")
 	}
 	var receipt Receipt
-	if json.Unmarshal(data, &receipt) != nil || receipt.Session != locator.Session || receipt.State != locator.State || receipt.Operation != nil || receipt.Command != commandID("ui-review") || receipt.Cleanup == "not_terminal" || (receipt.Status == "ok") != (len(receipt.Failures) == 0) || (receipt.Exit == 0) != (receipt.Status == "ok") {
+	if json.Unmarshal(data, &receipt) != nil || receipt.Session != locator.Session || receipt.State != locator.State || receipt.Mode != locator.Mode || receipt.Started != locator.Created || receipt.Operation != nil || receipt.Command != commandID("ui-review") || receipt.Cleanup == "not_terminal" || (receipt.Status == "ok") != (len(receipt.Failures) == 0) || (receipt.Exit == 0) != (receipt.Status == "ok") {
 		return v, failure("invalid_artifact")
 	}
 	for _, f := range receipt.Failures {
@@ -243,13 +249,28 @@ func terminalResult(file string, locator Locator, command string) (Result, error
 }
 
 type diskPublisher struct {
-	runtime *harnesssession.Runtime
-	record  *registryRecord
-	runRoot string
-	secrets []string
+	runtime       *harnesssession.Runtime
+	record        *registryRecord
+	runRoot       string
+	secrets       []string
+	extras        []publicationExtra
+	fault         func(string) error
+	runtimeClosed bool
 }
 
 func (p *diskPublisher) Locator(v Locator) error {
+	// A failed response must not retract or replace already-published terminal
+	// history. Pending closure remains visible through its private transaction.
+	if p.record.Publication != nil && p.record.Outcome != nil {
+		data, err := jsonDocument(p.record.Outcome.Schema, *p.record.Outcome)
+		if err != nil {
+			return err
+		}
+		existing, readErr := harnesslocal.ReadFile(filepath.Join(p.runRoot, "ui-review/terminal.json"), LimitRequest, false)
+		if readErr == nil && string(existing) == string(data) {
+			v = p.record.Publication.Locator
+		}
+	}
 	_, err := publish(p.record.Locator, v.Schema, v, true)
 	return err
 }
@@ -263,66 +284,6 @@ func (p *diskPublisher) Operation(v Receipt) (*Reference, error) {
 		ref.Path = relative
 	}
 	return ref, err
-}
-func (p *diskPublisher) Terminal(locator Locator, receipt Receipt, cleanupFailed bool) (*Reference, error) {
-	var err error
-	// Private intent preserves primary failure if filesystem publication fails.
-	// It never substitutes for a scan-bound retained receipt.
-	p.record.Outcome = &receipt
-	if err = writeRegistry(p.record, true); err != nil {
-		return nil, err
-	}
-	unresolved := false
-	if p.runtime != nil {
-		resources, e := p.runtime.Resources(4096)
-		if e != nil {
-			return nil, e
-		}
-		unresolved = len(resources) > 0
-		if unresolved {
-			p.secrets, err = p.runtime.ForbiddenValues()
-		} else {
-			p.secrets, err = p.runtime.BeginFinalization()
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-	if _, err = harnesssession.ScanRetained(p.runRoot, p.secrets); err != nil {
-		return nil, err
-	}
-	if !unresolved && p.runtime != nil {
-		p.record.Released = true
-		if err = writeRegistry(p.record, true); err != nil {
-			return nil, err
-		}
-		if err = p.runtime.Close(); err != nil {
-			return nil, err
-		}
-	} else if p.runtime != nil {
-		if err = p.runtime.PreserveRecovery(); err != nil {
-			return nil, err
-		}
-	}
-	ref, err := publish(filepath.Join(p.runRoot, "ui-review/terminal.json"), receipt.Schema, receipt, false)
-	if err != nil {
-		return nil, err
-	}
-	ref.Path = "ui-review/terminal.json"
-	locator.Receipt = ref
-	locator.Updated = timestamp(time.Now())
-	if err = p.Locator(locator); err != nil {
-		return nil, err
-	}
-	if _, err = harnesssession.ScanRetained(p.runRoot, p.secrets); err != nil {
-		return nil, err
-	}
-	if !unresolved {
-		if err = removeRegistry(p.record); err != nil {
-			return nil, err
-		}
-	}
-	return ref, nil
 }
 
 var runPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,96}$`)

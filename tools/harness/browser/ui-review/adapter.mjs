@@ -10,7 +10,7 @@ import { borrowRuntime } from "../../runtime/session-client.mjs";
 import { readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
-import { buildReview, seedReview, checkReview, recipeEnvironment } from "../review-recipes.mjs";
+import { buildReviewProducer, seedReview, checkReview, recipeEnvironment } from "../review-recipes.mjs";
 import { ReviewBrowser, browserReady } from "./browser.mjs";
 import { ArtifactStore } from "./artifact-store.mjs";
 import { limits, emptyCounts, ReviewFailure, failureRecord, parseRequest } from "./contract.mjs";
@@ -87,16 +87,14 @@ export class ReviewAdapter {
   async call(operation, payload) {
     switch (operation) {
       case "initialize": return { facts: await this.initialize(payload) };
-      case "build": this.parentLease = payload.admission_token; this.environment.CARTULARY_HOST_ADMISSION_LEASE = this.parentLease; await buildReview({ root: repoRoot, environment: this.environment, input: this.input, runtime: this.runtime, signal: this.abort.signal }); return { facts: this.facts() };
+      case "build-web": case "embedded-web-assets": case "build-server-harness": case "build-migrate": case "testservices-build": case "test-service-images": case "playwright-install": this.parentLease = payload.admission_token; this.environment.CARTULARY_HOST_ADMISSION_LEASE = this.parentLease; await buildReviewProducer({ target: operation, root: repoRoot, environment: this.environment, input: this.input, runtime: this.runtime, signal: this.abort.signal }); return { facts: this.facts() };
       case "seed": this.seeded = await seedReview({ root: repoRoot, runRoot: this.preparationRoot, runtime: this.runtime, environment: payload.environment, input: this.input, sourceDigest: this.sourceDigest, signal: this.abort.signal }); return { facts: this.facts() };
       case "prepare_browser": await this.prepareBrowser(payload); return {};
       case "validate": this.validate(payload.command, payload.request); return {};
       case "execute": return { outcome: await this.execute(payload) };
       case "abort": this.abort.abort(new ReviewFailure("interrupted")); return {};
-      case "close_browser": this.abort.abort(new ReviewFailure("interrupted")); await this.browser?.close(); return {};
-      case "close_store": this.store?.close(); return {};
       case "check": if (this.seeded) await checkReview({ root: repoRoot, runtime: this.runtime, environment: this.seeded.attached, signal: this.abort.signal }); return {};
-      case "close": this.runtime?.close(); return {};
+      case "close": this.store?.close(); this.runtime?.close(); return {};
       default: throw new ReviewFailure("invalid_request");
     }
   }
@@ -104,7 +102,7 @@ export class ReviewAdapter {
 
 async function main() {
   process.umask(0o077);
-  const schema = "cartulary.harness_review_adapter.v1";
+  const schema = "cartulary.harness_review_adapter.v2";
   const identity = { session_id: process.env.CARTULARY_REVIEW_SESSION_ID, run_id: process.env.CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID, runtime_lease_id: process.env.CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID };
   const channel = new net.Socket({ fd: 3, readable: true, writable: true });
   const adapter = new ReviewAdapter(identity); let buffered = Buffer.alloc(0), closing = false, sequence = 0;
@@ -129,7 +127,7 @@ async function main() {
         try { response = await adapter.call(message.operation, message.payload); Object.assign(outcome, response.outcome); }
         catch (error) {
           if (message.operation === "execute" && adapter.abort.signal.aborted) error = adapter.abort.signal.reason;
-          const normalized = ["initialize", "build", "seed", "prepare_browser"].includes(message.operation) ? preparationFailure(error) : error instanceof ReviewFailure ? error : new ReviewFailure("unsafe_artifact");
+          const normalized = ["initialize", "build-web", "embedded-web-assets", "build-server-harness", "build-migrate", "testservices-build", "test-service-images", "playwright-install", "seed", "prepare_browser"].includes(message.operation) ? preparationFailure(error) : error instanceof ReviewFailure ? error : new ReviewFailure("unsafe_artifact");
           outcome.failures = [failureRecord(normalized)]; outcome.exit_code = normalized.exitCode;
           if (error.cleanupFailures?.length) { outcome.failures.push(failureRecord(new ReviewFailure("cleanup_failed"))); outcome.stop = true; }
         }

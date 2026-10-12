@@ -130,9 +130,6 @@ func control(ctx context.Context, repository string, q commandRequest, environme
 			return result(q.Command), failure("session_mismatch")
 		}
 		prior, terminalErr := terminalResult(file, locator, q.Command)
-		if q.Command != "ui-review-stop" || locator.State != "failed" {
-			return prior, terminalErr
-		}
 		record, err := resolveRecord(repository, file, locator)
 		if errors.Is(err, os.ErrNotExist) {
 			return prior, terminalErr
@@ -140,14 +137,31 @@ func control(ctx context.Context, repository string, q commandRequest, environme
 		if err != nil {
 			return prior, err
 		}
+		// A published locator is not proof that scanning/private cleanup finished.
+		// Status observes pending recovery; only stop is authorized to resume it.
+		if q.Command == "ui-review-status" {
+			if terminalErr == nil && prior.Status == "error" {
+				return prior, nil
+			}
+			return prior, errors.Join(terminalErr, failure("unsafe_artifact"))
+		}
 		alive, err := harnessadmission.Alive(record.Process)
 		if err != nil || alive {
-			return prior, errors.Join(terminalErr, err)
+			if err == nil && terminalErr == nil && prior.Status == "error" {
+				return prior, nil
+			}
+			return prior, errors.Join(terminalErr, err, failure("unsafe_artifact"))
 		}
 		return recoverSession(ctx, repository, file, locator, q.Command, environment)
 	}
 	record, err := resolveRecord(repository, file, locator)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && (q.Command == "ui-review-stop" || q.Command == "ui-review-status") {
+			_, finished, readErr := readLocator(repository, file)
+			if readErr == nil && finished.Session == locator.Session && finished.RunID == locator.RunID && finished.Mode == locator.Mode && finished.Created == locator.Created && finished.Receipt != nil {
+				return terminalResult(file, finished, q.Command)
+			}
+		}
 		return result(q.Command), failure("session_mismatch")
 	}
 	alive, err := harnessadmission.Alive(record.Process)
@@ -167,10 +181,14 @@ func control(ctx context.Context, repository string, q commandRequest, environme
 		return result(q.Command), err
 	}
 	timeout := time.Duration(LimitOperation+LimitLock+10000) * time.Millisecond
+	var cancel context.CancelFunc
 	if q.Command == "ui-review-stop" {
-		timeout = 360 * time.Second
+		// Resource owners bound stop; a transport-wide clock would truncate
+		// legitimate sequential cleanup as the dependency tree grows.
+		ctx, cancel = context.WithCancel(ctx)
+	} else {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	connection, err := (&net.Dialer{}).DialContext(ctx, "unix", record.Socket)
 	if err != nil {
@@ -178,7 +196,11 @@ func control(ctx context.Context, repository string, q commandRequest, environme
 	}
 	defer connection.Close()
 	go func() { <-ctx.Done(); connection.Close() }()
-	_ = connection.SetDeadline(time.Now().Add(timeout))
+	if q.Command == "ui-review-stop" {
+		_ = connection.SetWriteDeadline(time.Now().Add(time.Duration(LimitLock) * time.Millisecond))
+	} else {
+		_ = connection.SetDeadline(time.Now().Add(timeout))
+	}
 	message := controlRequest{Schema: channelSchema, Session: record.Session, Token: record.Token, Command: q.Command, Request: q.Request, Bundle: q.Bundle}
 	data, err := jsonDocument(channelSchema, message)
 	if err != nil || len(data) > harnesssession.MaximumFrame {

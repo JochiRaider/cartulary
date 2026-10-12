@@ -35,10 +35,20 @@ function fixture(t) {
     for (const release of cleanup) await release();
     // These are synthetic service/controller records; real test processes are
     // reaped above before their fixture ownership can be retired.
-    for (const record of runtime.resources()) runtime.record({ ...record, state: "released" });
+    for (const record of [{ kind: "managed_suite", target: suiteLease }, { kind: "browser_stack", target: file }]) runtime.record({ ...record, state: "released" });
     runtime.close(); rmSync(scratch, { recursive: true, force: true }); rmSync(privateRoot,{recursive:true,force:true});
   });
   return { scratch, runtime, suiteLease, sessionRoot, file, cleanup };
+}
+
+function recoveryOutput(f) {
+  const resultsRoot = f.runtime.privatePath("lifecycle", `browser-recovery-${crypto.randomUUID()}`);
+  const marker = path.join(f.runtime.root, "runtime-owner.json");
+  const owner = JSON.parse(readFileSync(marker));
+  // Independent physical-adapter fixture; production declarations belong to Go.
+  owner.output_roots.push(path.join(resultsRoot, f.runtime.runID));
+  writeFileSync(marker, JSON.stringify(owner), { mode: 0o600 });
+  return resultsRoot;
 }
 
 test("browser acquisition before launch settles without a ready lease", async (t) => {
@@ -46,7 +56,6 @@ test("browser acquisition before launch settles without a ready lease", async (t
   assert.equal(existsSync(path.join(f.sessionRoot, "stack.lease")), false);
   assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
   f.runtime.record({ kind: "browser_stack", target: f.file, state: "released" });
-  assert.deepEqual(f.runtime.resources().map((r) => r.kind), ["managed_suite"]);
   assert.equal(existsSync(f.suiteLease), true, "browser settlement never closes its borrowed suite");
   assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
 });
@@ -58,7 +67,7 @@ for (const recovery of [false, true]) test(`browser fixture retirement binds ${r
   writeFileSync(metadata, "{}", { mode: 0o600 });
   const suite = JSON.parse(readFileSync(f.suiteLease, "utf8"));
   let calls = 0;
-  await settleBrowserAcquisition({ ...f, root, recovery,
+  await settleBrowserAcquisition({ ...f, root, recovery, recoveryResultsRoot: recovery ? recoveryOutput(f) : undefined,
     environment: { CARTULARY_TEST_RESULTS_DIR: "/unrelated-results", CARTULARY_TEST_RUN_ID: "unrelated-run",
       CARTULARY_TEST_TARGET: "unrelated-target", CARTULARY_TEST_SUITE_ID: "unrelated-suite" },
     run: (command, args, options) => {
@@ -85,7 +94,7 @@ test("explicit browser recovery attempts cannot overwrite earlier immutable reti
   mkdirSync(path.dirname(metadata), { mode: 0o700 });
   writeFileSync(metadata, "{}", { mode: 0o600 });
   const outputs = [];
-  const options = { ...f, root, recovery: true, run: (_command, _args, { env }) => {
+  const options = { ...f, root, recovery: true, recoveryResultsRoot: recoveryOutput(f), run: (_command, _args, { env }) => {
     const output = env.CARTULARY_TEST_RESULTS_DIR;
     assert.equal(typeof output, "string");
     assert.equal(path.dirname(output), f.runtime.privatePath("lifecycle"));
@@ -95,6 +104,7 @@ test("explicit browser recovery attempts cannot overwrite earlier immutable reti
   } };
   await assert.rejects(settleBrowserAcquisition(options), (error) => error.failure_reason === "cleanup_error");
   assert.equal(existsSync(metadata), true);
+  options.recoveryResultsRoot = recoveryOutput(f);
   assert.equal((await settleBrowserAcquisition(options)).state, "released");
   assert.equal(outputs.length, 2);
 });
@@ -138,7 +148,6 @@ test("failed process cleanup retains acquisition and suite proof for explicit re
   await assert.rejects(settleBrowserAcquisition({ ...f, root, stop: async () => { throw new Error("release sentinel"); } }),
     (error) => error.settlement.state === "recovery_required");
   assert.equal(existsSync(path.join(path.dirname(f.file), "settlement.json")), false);
-  assert.equal(f.runtime.resources().length, 2);
   const calls = [];
   await settleBrowserAcquisition({ ...f, root, stop: async (proof) => { calls.push(proof.pid); } });
   assert.deepEqual(calls, [process.pid]);
@@ -159,7 +168,7 @@ test("wrong runtime or changed suite proof is rejected before destructive recove
 test("acquisition CLI preserves classified startup proof failures and prior diagnostics", (t) => {
   const f = fixture(t);
   mkdirSync(path.join(f.scratch, f.runtime.runID), { mode: 0o700 });
-  const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: f.scratch, CARTULARY_TEST_RUN_ID: f.runtime.runID,
+  const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: path.join(f.scratch, "results"), CARTULARY_TEST_RUN_ID: f.runtime.runID,
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: f.runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: f.runtime.runID,
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: f.runtime.leaseID };
   writeFileSync(f.file, "{}", { mode: 0o600 });

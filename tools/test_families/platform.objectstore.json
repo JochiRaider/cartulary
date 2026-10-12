@@ -175,7 +175,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./tools/s3corsproxy",
+        "package": "./internal/testutil/objectstoreproxy",
         "tests": [
           "TestProxyConfigurationRejectsAmbiguousOrNonLoopbackInputs",
           "TestProxyHelperProcess",

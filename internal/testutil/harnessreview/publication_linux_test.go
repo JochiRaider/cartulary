@@ -26,6 +26,12 @@ func publicationFixture(t *testing.T) (*diskPublisher, Locator) {
 		t.Fatal(err)
 	}
 	run, scratch := filepath.Join(t.TempDir(), "fixture"), t.TempDir()
+	if base := os.Getenv("CARTULARY_REVIEW_PUBLICATION_CRASH_BASE"); base != "" {
+		run, scratch = filepath.Join(base, "fixture"), filepath.Join(base, "scratch")
+		if err := os.MkdirAll(scratch, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := os.Mkdir(run, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +80,13 @@ func publicationFixture(t *testing.T) (*diskPublisher, Locator) {
 	return p, l
 }
 func TestReviewPublication(t *testing.T) {
+	if stage := os.Getenv("CARTULARY_REVIEW_PUBLICATION_CRASH_STAGE"); stage != "" {
+		publicationCrashHelper(t, stage)
+		return
+	}
+	testPublicationTransactions(t)
+	testPublicationCrashRecovery(t)
+
 	t.Run("existing_terminal_is_never_overwritten", func(t *testing.T) {
 		p, l := publicationFixture(t)
 		l.State = "closed"

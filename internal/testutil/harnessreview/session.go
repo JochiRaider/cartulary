@@ -32,30 +32,30 @@ type Publisher interface {
 	Terminal(Locator, Receipt, bool) (*Reference, error)
 }
 type Session struct {
-	mu                                                      sync.Mutex
-	id, runID, mode, state                                  string
-	started                                                 time.Time
-	epoch                                                   *int
-	operation                                               int
-	counts                                                  Counts
-	failures                                                []Failure
-	exit                                                    int
-	receipt                                                 *Reference
-	driver                                                  Driver
-	publisher                                               Publisher
-	now                                                     func() time.Time
-	lockTimeout, operationTimeout, cleanupTimeout, lifetime time.Duration
-	ctx                                                     context.Context
-	cancel                                                  context.CancelFunc
-	prepareDone                                             chan struct{}
-	done                                                    chan struct{}
-	slot                                                    chan struct{}
-	stopOnce                                                sync.Once
+	mu                                                    sync.Mutex
+	id, runID, mode, state                                string
+	started                                               time.Time
+	epoch                                                 *int
+	operation                                             int
+	counts                                                Counts
+	failures                                              []Failure
+	exit                                                  int
+	receipt                                               *Reference
+	driver                                                Driver
+	publisher                                             Publisher
+	now                                                   func() time.Time
+	lockTimeout, operationTimeout, drainTimeout, lifetime time.Duration
+	ctx                                                   context.Context
+	cancel                                                context.CancelFunc
+	prepareDone                                           chan struct{}
+	done                                                  chan struct{}
+	slot                                                  chan struct{}
+	stopOnce                                              sync.Once
 }
 
 func NewSession(id, runID, mode string, driver Driver, publisher Publisher) *Session {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Session{id: id, runID: runID, mode: mode, state: "preparing", started: time.Now(), driver: driver, publisher: publisher, now: time.Now, lockTimeout: time.Duration(LimitLock) * time.Millisecond, operationTimeout: time.Duration(LimitOperation) * time.Millisecond, cleanupTimeout: 330 * time.Second, lifetime: time.Duration(LimitLifetime) * time.Millisecond, ctx: ctx, cancel: cancel, prepareDone: make(chan struct{}), done: make(chan struct{}), slot: make(chan struct{}, 1), failures: []Failure{}}
+	return &Session{id: id, runID: runID, mode: mode, state: "preparing", started: time.Now(), driver: driver, publisher: publisher, now: time.Now, lockTimeout: time.Duration(LimitLock) * time.Millisecond, operationTimeout: time.Duration(LimitOperation) * time.Millisecond, drainTimeout: time.Duration(LimitDrain) * time.Millisecond, lifetime: time.Duration(LimitLifetime) * time.Millisecond, ctx: ctx, cancel: cancel, prepareDone: make(chan struct{}), done: make(chan struct{}), slot: make(chan struct{}, 1), failures: []Failure{}}
 }
 func (s *Session) locatorLocked() Locator {
 	return Locator{Schema: "cartulary.ui_review_session.v1", Session: s.id, RunID: s.runID, Mode: s.mode, State: s.state, Created: timestamp(s.started), Updated: timestamp(s.now()), Receipt: s.receipt}
@@ -277,27 +277,22 @@ func (s *Session) Stop(cause error) {
 }
 func (s *Session) finish(publishErr error) {
 	defer close(s.done)
-	ctx, cancel := context.WithTimeout(context.Background(), s.cleanupTimeout)
-	defer cancel()
 	failures := []error{}
 	if publishErr != nil {
 		failures = append(failures, publishErr)
 	}
-	select {
-	case <-s.prepareDone:
-	case <-ctx.Done():
-		// Preparation has not relinquished its resource handles. Preserve recovery
-		// proof and withhold terminal publication; do not close beneath that writer.
-		s.failUndrained()
-		return
-	}
+	// Preparation owns bounded cancellation and any late-acquisition cleanup.
+	// Do not start a competing aggregate clock while that owner relinquishes.
+	<-s.prepareDone
 	// Close first drains physical browser/work children so an active operation can
 	// settle. Its Go driver attempts independent cleanup even after a failed step.
-	failures = append(failures, s.driver.Close(ctx)...)
+	failures = append(failures, s.driver.Close(context.Background())...)
+	drain, cancel := context.WithTimeout(context.Background(), s.drainTimeout)
+	defer cancel()
 	select {
 	case s.slot <- struct{}{}:
 		defer func() { <-s.slot }()
-	case <-ctx.Done():
+	case <-drain.Done():
 		s.failUndrained()
 		return
 	}
@@ -323,9 +318,10 @@ func (s *Session) finish(publishErr error) {
 	ref, err := s.publisher.Terminal(s.locatorLocked(), receipt, len(failures) > 0)
 	if err != nil {
 		s.state = "failed"
-		s.failures = appendFailure(s.failures, failure("unsafe_artifact").Record)
+		cause := normalized(err, "unsafe_artifact")
+		s.failures = appendFailure(s.failures, cause.Record)
 		if s.exit == 0 {
-			s.exit = 11
+			s.exit = cause.Exit
 		}
 		s.receipt = nil
 		_ = s.publishLocked()

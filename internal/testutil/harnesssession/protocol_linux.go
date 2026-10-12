@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 )
 
-const RequestSchema = "cartulary.harness_runtime_session.v1"
+const RequestSchema = "cartulary.harness_runtime_session.v2"
 
 type request struct {
 	Schema         string            `json:"schema_id"`
@@ -103,21 +103,10 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 			out.Result = nil
 		}
 	}()
-	if q.Operation == "prune" {
-		scratch := q.Scratch
-		if scratch == "" {
-			scratch = filepath.Join(os.TempDir(), "cartulary-harness-scratch")
-		}
-		if !filepath.IsAbs(scratch) || within(repository, scratch) || within(q.RunRoot, scratch) {
-			return out, harnesslocal.ErrUnsafe
-		}
-		out.Result, result = CleanupStaleRoots(filepath.Join(scratch, "suite-runtime"), time.Now())
-		return out, result
-	}
 	var r *Runtime
 	if q.Operation == "create" {
 		r, err = newRuntime(repository, q.RunRoot, q.RunID, q.Scratch, caller)
-	} else if q.Operation == "close" || q.Operation == "recover_close" || q.Operation == "preserve" || q.Operation == "scan" {
+	} else if q.Operation == "close" || q.Operation == "recover_close" {
 		r, err = OwnRuntime(repository, q.RunRoot, q.Root, q.RunID, q.LeaseID, caller, q.Operation == "recover_close")
 	} else {
 		r, err = BorrowRuntime(repository, q.RunRoot, q.Root, q.RunID, q.LeaseID)
@@ -138,13 +127,11 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 			}
 		}
 		result = r.RegisterEnvironment(q.Environment)
-	case "secrets":
-		out.Result, result = r.ForbiddenValues()
 	case "record":
 		if q.Resource.RunID != r.RunID || q.Resource.LeaseID != r.LeaseID {
 			return out, harnesslocal.ErrUnsafe
 		}
-		result = r.RecordResource(q.Resource.Kind, q.Resource.Target, q.Resource.State)
+		result = r.RecordResource(q.Resource.Kind, q.Resource.Target, q.Resource.State, q.Resource.RecoveryFiles...)
 		if result == nil && q.AdmissionToken != "" && q.Resource.State != "released" && strings.HasSuffix(q.Resource.Kind, "_process") {
 			data, _ := json.Marshal(q.Resource.Target)
 			var proof harnessadmission.Proof
@@ -161,18 +148,8 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 				}
 			}
 		}
-	case "resources":
-		out.Result, result = r.Resources(4096)
-	case "preserve":
-		result = r.PreserveRecovery()
 	case "close", "recover_close":
 		result = r.Close()
-	case "scan":
-		secrets, err := r.BeginFinalization()
-		if err != nil {
-			return out, err
-		}
-		out.Result, result = ScanRetained(q.RunRoot, secrets)
 	default:
 		return out, harnesslocal.ErrUnsafe
 	}

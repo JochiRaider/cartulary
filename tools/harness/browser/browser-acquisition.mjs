@@ -8,6 +8,7 @@ import { createSecureWriteStream, parseStrictJSON, validateSchemaSync } from "..
 import { CommandFailure, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
+import { borrowRuntime } from "../runtime/session-client.mjs";
 
 const schemaID = "cartulary.browser_acquisition.v1";
 const bytes = (value) => `${JSON.stringify(value)}\n`;
@@ -43,6 +44,9 @@ export function createBrowserAcquisition({ runtime, sessionRoot, leaseFile, suit
     runtime_lease_id: runtime.leaseID, runtime_root: runtime.root, session_root: sessionRoot,
     ready_lease: leaseFile, suite_lease: suiteLease, suite_digest: digest(suiteBytes), suite_id: suite.suite_id };
   validateSchemaSync(schemaID, value);
+  const dependencies = [suiteLease];
+  if (suite.ownership_mode === "attach") dependencies.push(path.join(runtime.root, "borrowed-environment.json"));
+  runtime.record({ kind: "browser_stack", target: file, state: "pending", recovery_files: dependencies });
   atomicLocalFile(file, bytes(value));
   return file;
 }
@@ -56,6 +60,8 @@ export function readBrowserAcquisition(file, runtime) {
     inside(value.session_root, value.ready_lease);
     inside(value.runtime_root, value.suite_lease);
     const owner = read(path.join(value.runtime_root, "runtime-owner.json"));
+    validateSchemaSync("cartulary.harness_suite_runtime_owner.v2", owner);
+    if (owner.repository !== path.resolve(import.meta.dirname, "../../..")) throw invalid();
     if (owner.run_id !== value.run_id || owner.lease_id !== value.runtime_lease_id ||
         (runtime && (runtime.root !== value.runtime_root || runtime.runID !== value.run_id || runtime.leaseID !== value.runtime_lease_id))) throw invalid();
     return value;
@@ -63,6 +69,16 @@ export function readBrowserAcquisition(file, runtime) {
 }
 
 function resourceFile(file, name) { return path.join(path.dirname(file), name); }
+
+function declareRecoveryFiles(file, files) {
+  const owner = readBrowserAcquisition(file);
+  const suite = suiteProof(readLocalFile(owner.suite_lease, { maximum: 1048576 }), owner.run_id);
+  const runtime = borrowRuntime({ repoRoot: path.resolve(import.meta.dirname, "../../.."), runRoot: suite.run_root,
+    environment: { ...process.env, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root,
+      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id } });
+  runtime.record({ kind: "browser_stack", target: file, state: "pending", recovery_files: [owner.suite_lease, ...files] });
+  runtime.close();
+}
 function receipt(file) {
   try {
     const result = read(resourceFile(file, "settlement.json"));
@@ -76,6 +92,7 @@ function writeResource(file, name, resource, { duringStop = false } = {}) {
   const owner = readBrowserAcquisition(file);
   if (receipt(file) || (!duringStop && stopping(file))) throw invalid();
   const value = { attempt_id: owner.attempt_id, ...resource };
+  declareRecoveryFiles(file, [resourceFile(file, name)]);
   try { atomicLocalFile(resourceFile(file, name), bytes(value)); }
   catch (error) {
     if (error.code !== "EEXIST" || bytes(read(resourceFile(file, name))) !== bytes(value)) throw error;
@@ -229,6 +246,7 @@ export function releaseAcquisitionPorts(file) {
 export function acknowledgeBrowserSettlement(file) {
   const owner = readBrowserAcquisition(file);
   if (!receipt(file)) try {
+    declareRecoveryFiles(file, [resourceFile(file, "settlement.json")]);
     atomicLocalFile(resourceFile(file, "settlement.json"), bytes({ attempt_id: owner.attempt_id, state: "released" }));
   } catch (error) { if (error.code !== "EEXIST" || !receipt(file)) throw error; }
 }
@@ -237,7 +255,7 @@ export function acknowledgeBrowserSettlement(file) {
 // interrupted before fixture metadata publication. Releasing this dependent
 // permits that suite's existing ledger/container finalizer to run; it never
 // deletes or reconstructs database/bucket identities here.
-async function settle({ file, runtime, root, environment = {}, producerActive = false, recovery = false,
+async function settle({ file, runtime, root, environment = {}, producerActive = false, recovery = false, recoveryResultsRoot,
   stop = stopOwnedProcess, run = spawnSync } = {}) {
   const owner = readBrowserAcquisition(file, runtime);
   if (receipt(file)) {
@@ -258,9 +276,16 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
     // has only tool/service environment. Later recovery must never backfill that
     // run or collide with immutable output from an earlier recovery attempt.
     const resultsRoot = recovery
-      ? path.join(owner.runtime_root, "lifecycle", `browser-recovery-${randomUUID()}`)
+      ? recoveryResultsRoot
       : suite.result_root;
-    if (recovery) privateDirectory(path.join(resultsRoot, owner.run_id));
+    if (recovery) {
+      if (typeof resultsRoot !== "string") throw invalid();
+      const proof = read(path.join(owner.runtime_root, "runtime-owner.json"));
+      validateSchemaSync("cartulary.harness_suite_runtime_owner.v2", proof);
+      const output = path.join(resultsRoot, owner.run_id);
+      if (proof.repository !== root || !proof.output_roots.includes(output)) throw invalid();
+      privateDirectory(output);
+    }
     const result = run(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["cleanup-web-e2e", "--metadata-file", metadata], {
       cwd: root, env: { ...environment, CARTULARY_TEST_SUITE_ID: owner.suite_id, CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
         CARTULARY_TEST_RESULTS_DIR: resultsRoot, CARTULARY_TEST_RUN_ID: owner.run_id, CARTULARY_TEST_TARGET: suite.target,
@@ -354,7 +379,16 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const [operation, file, ...args] = process.argv.slice(2);
   const root = path.resolve(import.meta.dirname, "../../..");
   try {
-    if (operation === "launch") await launch(file, args[0], args[1], args.slice(2));
+    if (operation === "validate-runtime") {
+      if (file !== undefined) throw invalid();
+      const runtime = borrowRuntime({repoRoot:root,runRoot:path.join(process.env.CARTULARY_TEST_RESULTS_DIR,process.env.CARTULARY_TEST_RUN_ID)});
+      runtime.close();
+    }
+    else if (operation === "declare-fixture") {
+      const owner = readBrowserAcquisition(file);
+      declareRecoveryFiles(file, [path.join(owner.session_root, "runtime-root", "test-services-web-e2e.json")]);
+    }
+    else if (operation === "launch") await launch(file, args[0], args[1], args.slice(2));
     else if (operation === "port") recordAcquisitionPort(file, args[0]);
     else if (operation === "reserve-port") process.exitCode = reserveAcquisitionPort(file, args[0], Number(args[1])) ? 0 : 1;
     else if (operation === "spawn") await spawnService(file, args[0], args[1], args[2], args.slice(3));

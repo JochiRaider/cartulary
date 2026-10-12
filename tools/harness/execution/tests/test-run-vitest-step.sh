@@ -79,8 +79,9 @@ artifact_abs_path() {
 tmp_dir="$(cartulary_harness_mktemp_dir "run-vitest-step-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 unset CARTULARY_HARNESS_IDENTITY_PREPARED CARTULARY_TEST_TARGET
-export CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-default"
-export CARTULARY_TEST_RUN_ID="run-vitest-step-default"
+# Every case uses the enclosing native runtime binding; step labels separate outputs.
+: "${CARTULARY_TEST_RESULTS_DIR:?bound result root required}"
+: "${CARTULARY_TEST_RUN_ID:?bound run identity required}"
 fake_vitest="$tmp_dir/fake-vitest.sh"
 cat >"$fake_vitest" <<'EOF'
 #!/usr/bin/env bash
@@ -213,12 +214,10 @@ fi
 assert_contains "$package_failure_output" "package_or_file=packages/test-utils/src/index.test.ts" "vitest raw package failure owner"
 assert_contains "$package_failure_output" "reproduce=pnpm --dir apps/web exec vitest run ../../packages/test-utils/src/index.test.ts -t 'raw package failure$'" "vitest raw package failure reproduce"
 
-stack_trace_results="$tmp_dir/results-stack-trace"
+stack_trace_results="$CARTULARY_TEST_RESULTS_DIR"
 set +e
 stack_trace_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
-  CARTULARY_TEST_RESULTS_DIR="$stack_trace_results" \
-  CARTULARY_TEST_RUN_ID="stack-trace" \
   NODE_BIN="${NODE:-node}" \
   FAKE_VITEST_MODE=stack_trace_error \
     "$HELPER" "vitest raw stack trace" -- "$fake_vitest" \
@@ -234,18 +233,16 @@ assert_contains "$stack_trace_output" "failure: vitest raw stack trace" "vitest 
 assert_contains "$stack_trace_output" "symbol_or_title=raw stack trace assertion" "vitest raw stack trace title"
 assert_contains "$stack_trace_output" "message=AssertionError: expected \"Syncing\" to be \"Conflict\"" "vitest raw stack trace assertion message"
 assert_contains "$stack_trace_output" "diagnostic_tags=vitest_stack_trace_error" "vitest raw stack trace diagnostic tag"
-stack_trace_summary="$stack_trace_results/stack-trace/adhoc/vitest-raw-stack-trace/step-summary.json"
+stack_trace_summary="$stack_trace_results/$CARTULARY_TEST_RUN_ID/adhoc/vitest-raw-stack-trace/step-summary.json"
 assert_equals "$(json_field "$stack_trace_summary" "failure_class")" "product" "vitest raw stack trace failure class"
 assert_equals "$(json_field "$stack_trace_summary" "failure_reason")" "test_assertion_failure" "vitest raw stack trace failure reason"
 assert_equals "$(json_field "$stack_trace_summary" "dossiers.0.diagnostic_tags.0")" "vitest_stack_trace_error" "vitest raw stack trace summary tag"
 assert_contains "$(json_field "$stack_trace_summary" "dossiers.0.raw")" "runner.json" "vitest raw stack trace raw artifact"
 
-suite_load_results="$tmp_dir/results"
+suite_load_results="$CARTULARY_TEST_RESULTS_DIR"
 set +e
 suite_load_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
-  CARTULARY_TEST_RESULTS_DIR="$suite_load_results" \
-  CARTULARY_TEST_RUN_ID="suite-load" \
   NODE_BIN="${NODE:-node}" \
   FAKE_VITEST_MODE=suite_load_failure \
     "$HELPER" "vitest raw suite load" -- "$fake_vitest" \
@@ -260,16 +257,14 @@ fi
 assert_contains "$suite_load_output" "failure: vitest raw suite load" "vitest raw suite load label"
 assert_contains "$suite_load_output" "symbol_or_title=(suite load)" "vitest raw suite load title"
 assert_contains "$suite_load_output" "message=ReferenceError: window is not defined" "vitest raw suite load message"
-step_summary="$suite_load_results/suite-load/adhoc/vitest-raw-suite-load/step-summary.json"
+step_summary="$suite_load_results/$CARTULARY_TEST_RUN_ID/adhoc/vitest-raw-suite-load/step-summary.json"
 assert_equals "$(json_field "$step_summary" "counts.failed")" "1" "vitest raw suite load failed count"
 assert_equals "$(json_field "$step_summary" "counts.unmapped_failed")" "1" "vitest raw suite load unmapped failed count"
 
-timeout_results="$tmp_dir/results-timeout"
+timeout_results="$CARTULARY_TEST_RESULTS_DIR"
 set +e
 timeout_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
-  CARTULARY_TEST_RESULTS_DIR="$timeout_results" \
-  CARTULARY_TEST_RUN_ID="timeout" \
   CARTULARY_VITEST_WATCHDOG_SECONDS=1 \
   CARTULARY_WATCHDOG_KILL_GRACE_SECONDS=1 \
   NODE_BIN="${NODE:-node}" \
@@ -286,19 +281,17 @@ fi
 assert_contains "$timeout_output" "failure: vitest raw timeout" "vitest raw timeout failure label"
 assert_contains "$timeout_output" "coverage=non_test" "vitest raw timeout non-test coverage"
 assert_contains "$timeout_output" "vitest watchdog timed out before runner.json was written" "vitest raw timeout message"
-timeout_summary="$timeout_results/timeout/adhoc/vitest-raw-timeout/step-summary.json"
+timeout_summary="$timeout_results/$CARTULARY_TEST_RUN_ID/adhoc/vitest-raw-timeout/step-summary.json"
 assert_equals "$(json_field "$timeout_summary" "counts.failed")" "1" "vitest raw timeout failed count"
 assert_equals "$(json_field "$timeout_summary" "counts.non_test_failed")" "1" "vitest raw timeout non-test failed count"
 assert_contains "$(json_field "$timeout_summary" "artifacts.watchdog_json")" "watchdog.json" "vitest raw timeout watchdog artifact"
 
-interrupt_results="$tmp_dir/results-interrupt"
+interrupt_results="$CARTULARY_TEST_RESULTS_DIR"
 interrupt_pid_file="$tmp_dir/interrupt-child.pid"
 interrupt_signal_file="$tmp_dir/interrupt-child.signal"
 interrupt_stdout="$tmp_dir/interrupt.stdout.log"
 interrupt_stderr="$tmp_dir/interrupt.stderr.log"
 CARTULARY_OUTPUT_MODE=quiet \
-CARTULARY_TEST_RESULTS_DIR="$interrupt_results" \
-CARTULARY_TEST_RUN_ID="interrupt" \
 CARTULARY_VITEST_WATCHDOG_SECONDS=30 \
 CARTULARY_WATCHDOG_KILL_GRACE_SECONDS=1 \
 NODE_BIN="${NODE:-node}" \
@@ -335,7 +328,7 @@ assert_equals "$(cat "$interrupt_signal_file")" "SIGTERM" "vitest raw interrupt 
 interrupt_output="$(cat "$interrupt_stdout" "$interrupt_stderr")"
 assert_contains "$interrupt_output" "failure: vitest raw interrupt" "vitest raw interrupt failure label"
 assert_contains "$interrupt_output" "vitest interrupted by SIGTERM before runner.json was written" "vitest raw interrupt message"
-interrupt_summary="$interrupt_results/interrupt/adhoc/vitest-raw-interrupt/step-summary.json"
+interrupt_summary="$interrupt_results/$CARTULARY_TEST_RUN_ID/adhoc/vitest-raw-interrupt/step-summary.json"
 assert_equals "$(json_field "$interrupt_summary" "failure_class")" "interrupted" "vitest raw interrupt failure class"
 assert_equals "$(json_field "$interrupt_summary" "failure_reason")" "cancelled_or_interrupted" "vitest raw interrupt failure reason"
 assert_equals "$(json_field "$interrupt_summary" "counts.failed")" "1" "vitest raw interrupt failed count"

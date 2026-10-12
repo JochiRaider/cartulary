@@ -393,8 +393,12 @@ security_session_root="$security_suite_root/browser-stack-leases/security-sessio
 mkdir -p "$security_results_root/$security_run_id" "$security_session_root"
 chmod 700 "$security_suite_root" "$security_session_root"
 security_lease_id="00000000-0000-4000-8000-000000000002"
-printf '{"schema_id":"cartulary.harness_suite_runtime_owner.v1","lease_id":"%s","run_id":"%s","owner_uid":%s,"created_at":"2026-08-14T00:00:00Z"}\n' \
-  "$security_lease_id" "$security_run_id" "$(id -u)" >"$security_suite_root/runtime-owner.json"
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$security_suite_root" "$security_results_root/$security_run_id" "$security_run_id" "$security_lease_id" <<'JS'
+import { writeFileSync } from "node:fs";
+import path from "node:path";
+const [repository, root, run_root, run_id, lease_id] = process.argv.slice(2);
+writeFileSync(path.join(root, "runtime-owner.json"), JSON.stringify({schema_id:"cartulary.harness_suite_runtime_owner.v2",repository,run_root,output_roots:[],run_id,lease_id,owner_uid:process.getuid(),created_at:"2026-08-14T00:00:00Z"}), {mode:0o600});
+JS
 chmod 600 "$security_suite_root/runtime-owner.json"
 export CARTULARY_TEST_SERVICES_CALL_MODE=owned
 export CARTULARY_TEST_RESULTS_DIR="$security_results_root"
@@ -509,7 +513,8 @@ import path from "node:path";
 const [root, runRoot, privateRoot, runID] = process.argv.slice(2);
 const { sealFrontendArtifact } = await import(path.join(root, "tools/harness/readiness/frontend-artifact.mjs"));
 writeFileSync(path.join(privateRoot, "runtime-owner.json"), JSON.stringify({
-  schema_id: "cartulary.harness_suite_runtime_owner.v1", run_id: runID,
+  schema_id: "cartulary.harness_suite_runtime_owner.v2", run_id: runID,
+  repository: root, run_root: runRoot, output_roots: [], owner_uid: process.getuid(), created_at: "2026-08-14T00:00:00Z",
   lease_id: process.env.CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID,
 }), { mode: 0o600 });
 const staging = path.join(privateRoot, "frontend-staging");

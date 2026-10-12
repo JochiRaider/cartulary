@@ -10,10 +10,11 @@ import { CommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { execFileSync } from "../workspace/child-process.mjs";
 
-export const preparationBuilds = Object.freeze([
+const preparationBuilds = Object.freeze([
   ["build-web", "frontend", "build_web"], ["embedded-web-assets", "embedded_assets", "build_server_harness"],
   ["build-server-harness", "server_harness", "build_server_harness"], ["build-migrate", "migrate", "build_migrate"],
   ["testservices-build", "test_services", "testservices_build"],
+  ["test-service-images", "test_service_images", "test_service_images"], ["playwright-install", "chromium", "playwright_install"],
 ]);
 export function recipeEnvironment(root, runRoot, runtime, input, environment = process.env) {
   const base = { ...environment };
@@ -39,20 +40,19 @@ function processRegistration(runtime, pid) {
   const proof = ownedProcess(pid); runtime.record({ kind: "helper_process", target: proof });
   return async () => { await stopOwnedProcess(proof); runtime.record({ kind: "helper_process", target: proof, state: "released" }); };
 }
-export async function buildReview({ root, environment, input, runtime, signal }) {
-  if (input.preparation_policy === "installed_only") {
+export async function buildReviewProducer({ target, root, environment, input, runtime, signal }) {
+  const recipe = preparationBuilds.find(([name]) => name === target);
+  if (!recipe || (input.preparation_policy !== "ensure" && ["test-service-images", "playwright-install"].includes(target))) throw new CommandFailure("unsupported preparation producer", { failure_class: "config", failure_reason: "usage_error" });
+  if (input.preparation_policy === "installed_only" && target === "build-web") {
     coreReadiness(root); frontendBuildReadiness(root, { environment }); browserReadiness(root); environment.GO = goReadiness(environment, root);
   }
   const surface = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json")));
-  const builds = [...preparationBuilds];
-  if (input.preparation_policy === "ensure") builds.push(["test-service-images", "test_service_images", "test_service_images"], ["playwright-install", "chromium", "playwright_install"]);
-  for (const [target, subject_id, recovery_id] of builds) {
+  const [, subject_id, recovery_id] = recipe;
     const context = { phase: "build", subject_id, condition: "child_failed", recovery_id };
     await reviewChild({ root, command: "make", args: ["--no-print-directory", target], environment: { ...environment, CARTULARY_TEST_TARGET: target,
       CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" }, signal, output: "ignore",
       commandID: surface.targets.find((entry) => entry.name === target)?.command_id, context, onChildProcess: (pid) => processRegistration(runtime, pid) });
-  }
-  if (input.preparation_policy === "installed_only") serviceImageReadiness(environment, root);
+  if (input.preparation_policy === "installed_only" && target === "testservices-build") serviceImageReadiness(environment, root);
   return environment;
 }
 export async function seedReview({ root, runRoot, runtime, environment, input, sourceDigest, signal }) {

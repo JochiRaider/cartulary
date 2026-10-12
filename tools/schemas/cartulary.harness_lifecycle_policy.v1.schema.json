@@ -7,7 +7,8 @@
     "schema_id",
     "limits",
     "review_failures",
-    "preparation_context"
+    "preparation_context",
+    "cleanup_deadlines_ms"
   ],
   "properties": {
     "schema_id": {
@@ -36,7 +37,10 @@
         "action",
         "operation",
         "lifetime",
-        "failures"
+        "failures",
+        "preparation",
+        "terminationGrace",
+        "drain"
       ],
       "properties": {
         "frame": {
@@ -135,6 +139,21 @@
           "maximum": 1073741824
         },
         "failures": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1073741824
+        },
+        "preparation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1073741824
+        },
+        "terminationGrace": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1073741824
+        },
+        "drain": {
           "type": "integer",
           "minimum": 1,
           "maximum": 1073741824
@@ -631,6 +650,68 @@
             "type": "string",
             "minLength": 1
           }
+        }
+      }
+    },
+    "cleanup_deadlines_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "diagnostic_scope",
+        "preparation_process",
+        "browser_process",
+        "helper_process",
+        "browser_renderer",
+        "browser_stack",
+        "object_store_proxy",
+        "managed_suite",
+        "borrowed_suite"
+      ],
+      "properties": {
+        "diagnostic_scope": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "preparation_process": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "browser_process": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "helper_process": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "browser_renderer": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "browser_stack": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "object_store_proxy": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "managed_suite": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "borrowed_suite": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
         }
       }
     }

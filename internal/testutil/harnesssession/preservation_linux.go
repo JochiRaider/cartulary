@@ -42,12 +42,26 @@ func (r *Runtime) PreserveRecovery() error {
 		return err
 	}
 	if len(resources) == 0 {
-		return ErrUnresolved
+		// Review terminal transactions may retain scanner authority after resources
+		// have drained. Only a sealed runtime can enter this resource-free phase.
+		data, err := harnesslocal.ReadFileAt(r.Directory, "finalizing", 16, false)
+		if err != nil || string(data) != "sealed\n" {
+			return ErrUnresolved
+		}
 	}
 	protected := []string{}
+	validationErrors := []error{}
 	for _, v := range resources {
 		if p, e := v.Path(); e == nil {
-			protected = append(protected, filepath.Dir(p))
+			protected = append(protected, p)
+		}
+		protected = append(protected, v.RecoveryFiles...)
+	}
+	for _, file := range protected {
+		// Validate the entire secure path without accepting a directory or link as
+		// proof. Invalid authority remains unresolved; independent detail is purged.
+		if _, err := harnesslocal.ReadFile(file, 1048576, false); err != nil {
+			validationErrors = append(validationErrors, err)
 		}
 	}
 	var purge func(string) error
@@ -64,13 +78,10 @@ func (r *Runtime) PreserveRecovery() error {
 		slices.Sort(names)
 		failures := []error{}
 		for _, name := range names {
-			if path == r.Root && slices.Contains([]string{"runtime-owner.json", "runtime-process.json", "recovery"}, name) {
+			if path == r.Root && slices.Contains([]string{"runtime-owner.json", "runtime-process.json", "recovery", "registered-secrets", "finalizing"}, name) {
 				continue
 			}
 			child := filepath.Join(path, name)
-			if slices.Contains(protected, child) {
-				continue
-			}
 			var info unix.Stat_t
 			if err := unix.Fstatat(int(dir.Fd()), name, &info, unix.AT_SYMLINK_NOFOLLOW); err != nil {
 				failures = append(failures, err)
@@ -78,6 +89,9 @@ func (r *Runtime) PreserveRecovery() error {
 			}
 			if info.Uid != uint32(os.Getuid()) {
 				failures = append(failures, harnesslocal.ErrUnsafe)
+				continue
+			}
+			if slices.Contains(protected, child) && info.Mode&unix.S_IFMT != unix.S_IFDIR {
 				continue
 			}
 			if info.Mode&unix.S_IFMT == unix.S_IFDIR {
@@ -101,7 +115,7 @@ func (r *Runtime) PreserveRecovery() error {
 		}
 		return errors.Join(failures...)
 	}
-	return purge(r.Root)
+	return errors.Join(append(validationErrors, purge(r.Root))...)
 }
 
 // CleanupStaleRoots is bounded and conservative. Age alone is never deletion
@@ -142,7 +156,7 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 			return removed, err
 		}
 		inspect := func() error {
-			data, err := harnesslocal.ReadFileAt(d, "runtime-owner.json", 4096, false)
+			data, err := harnesslocal.ReadFileAt(d, "runtime-owner.json", MaximumOwner, false)
 			if staging {
 				info, e := d.Stat()
 				if e != nil {
@@ -169,7 +183,7 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 				return err
 			}
 			v, err := harnessschema.Decode(data)
-			if err != nil || harnessschema.Validate("cartulary.harness_suite_runtime_owner.v1", v) != nil {
+			if err != nil || harnessschema.Validate("cartulary.harness_suite_runtime_owner.v2", v) != nil {
 				return harnesslocal.ErrUnsafe
 			}
 			owner := v.(map[string]any)

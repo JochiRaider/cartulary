@@ -24,7 +24,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const adapterSchema = "cartulary.harness_review_adapter.v1"
+const adapterSchema = "cartulary.harness_review_adapter.v2"
 
 type adapterFacts struct {
 	Epoch       *int                        `json:"epoch"`
@@ -75,6 +75,9 @@ type adapter struct {
 	failure     error
 	onLost      func(error)
 	closing     bool
+	terminated  bool
+	abortOnce   sync.Once
+	abortDone   chan struct{}
 	exitError   error
 }
 
@@ -94,7 +97,7 @@ func startAdapter(root, session string, runtime *harnesssession.Runtime, environ
 	}
 	cmd.ExtraFiles = []*os.File{child}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
-	cmd.WaitDelay = 2 * time.Second
+	cmd.WaitDelay = time.Duration(LimitTerminationGrace) * time.Millisecond
 	release, err := harnessadmission.InheritWorkspace(cmd)
 	if err != nil {
 		parent.Close()
@@ -135,7 +138,7 @@ func startAdapter(root, session string, runtime *harnesssession.Runtime, environ
 		// physical process adapter confirms exact descendant drain.
 		select {
 		case <-a.readDone:
-		case <-time.After(2 * time.Second):
+		case <-time.After(time.Duration(LimitTerminationGrace) * time.Millisecond):
 		}
 		parent.Close()
 		a.mu.Lock()
@@ -246,18 +249,26 @@ func (a *adapter) read() {
 		}
 	}
 }
-func (a *adapter) write(id int, operation string, payload any) error {
+func (a *adapter) write(ctx context.Context, id int, operation string, payload any) error {
 	data, err := jsonDocument(adapterSchema, map[string]any{"schema_id": adapterSchema, "session_id": a.session, "run_id": a.runtime.RunID, "runtime_lease_id": a.runtime.LeaseID, "request_id": id, "kind": "request", "operation": operation, "payload": payload})
 	if err != nil || len(data) > harnesssession.MaximumFrame {
 		return harnessschema.ErrInvalid
 	}
 	a.writeMu.Lock()
 	defer a.writeMu.Unlock()
-	_ = a.channel.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	deadline := time.Now().Add(time.Duration(LimitTerminationGrace) * time.Millisecond)
+	if end, ok := ctx.Deadline(); ok && end.Before(deadline) {
+		deadline = end
+	}
+	_ = a.channel.SetWriteDeadline(deadline)
 	_, err = a.channel.Write(data)
 	return err
 }
 func (a *adapter) call(ctx context.Context, operation string, payload any) (adapterReply, error) {
+	if ctx.Err() != nil {
+		a.terminate()
+		return adapterReply{}, preparationCancellation(ctx, operation)
+	}
 	a.dispatch.Lock()
 	a.mu.Lock()
 	if a.failure != nil {
@@ -274,11 +285,15 @@ func (a *adapter) call(ctx context.Context, operation string, payload any) (adap
 	p := pendingRequest{operation, make(chan adapterReply, 1)}
 	a.pending[id] = p
 	a.mu.Unlock()
-	err := a.write(id, operation, payload)
+	err := a.write(ctx, id, operation, payload)
 	a.dispatch.Unlock()
 	if err != nil {
 		a.reject(err)
 		a.kill()
+		if ctx.Err() != nil {
+			<-a.done
+			return adapterReply{}, preparationCancellation(ctx, operation)
+		}
 		return adapterReply{}, err
 	}
 	var reply adapterReply
@@ -286,20 +301,23 @@ func (a *adapter) call(ctx context.Context, operation string, payload any) (adap
 	select {
 	case reply, ok = <-p.response:
 	case <-ctx.Done():
-		a.interrupt()
-		timer := time.NewTimer(30 * time.Second)
-		defer timer.Stop()
-		select {
-		case reply, ok = <-p.response:
-		case <-timer.C:
-			a.kill()
-			<-a.done
-			return adapterReply{}, failure("cleanup_failed")
+		a.terminate()
+		if errors.Is(ctx.Err(), context.Canceled) {
+			select {
+			case completed, open := <-p.response:
+				if open && len(completed.Outcome.Failures) > 0 && completed.Outcome.Failures[0].Code != "interrupted" {
+					return completed, &ReviewError{Record: completed.Outcome.Failures[0], Exit: completed.Outcome.Exit, Secondary: completed.Outcome.Failures[1:]}
+				}
+			default:
+			}
 		}
-		if ok && len(reply.Outcome.Failures) == 0 {
-			return reply, ctx.Err()
-		}
+		return adapterReply{}, preparationCancellation(ctx, operation)
 	}
+	if ctx.Err() != nil {
+		a.terminate()
+		return adapterReply{}, preparationCancellation(ctx, operation)
+	}
+
 	if !ok {
 		a.mu.Lock()
 		err := a.failure
@@ -311,7 +329,12 @@ func (a *adapter) call(ctx context.Context, operation string, payload any) (adap
 	}
 	return reply, nil
 }
-func (a *adapter) interrupt() { go func() { _ = a.write(0, "abort", nil) }() }
+func (a *adapter) interrupt() {
+	a.abortOnce.Do(func() {
+		a.abortDone = make(chan struct{})
+		go func() { defer close(a.abortDone); _ = a.write(context.Background(), 0, "abort", nil) }()
+	})
+}
 func (a *adapter) kill() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -323,6 +346,20 @@ func (a *adapter) kill() {
 	_ = syscall.Kill(-a.cmd.Process.Pid, syscall.SIGKILL)
 }
 func (a *adapter) close(ctx context.Context) error {
+	a.mu.Lock()
+	terminated := a.terminated
+	a.mu.Unlock()
+	if terminated {
+		<-a.done
+		return nil
+	}
+	a.interrupt()
+	select {
+	case <-a.abortDone:
+	case <-ctx.Done():
+		a.terminate()
+		return ctx.Err()
+	}
 	a.mu.Lock()
 	a.closing = true
 	a.mu.Unlock()
@@ -350,4 +387,58 @@ func (a *adapter) drain(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// Termination remains effective before the adapter has initialized its IPC loop.
+func (a *adapter) terminate() {
+	a.mu.Lock()
+	a.closing = true
+	a.terminated = true
+	select {
+	case <-a.done:
+		a.mu.Unlock()
+		return
+	default:
+	}
+	_ = syscall.Kill(-a.cmd.Process.Pid, syscall.SIGTERM)
+	a.mu.Unlock()
+	a.interrupt()
+	timer := time.NewTimer(time.Duration(LimitTerminationGrace) * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-a.done:
+		return
+	case <-timer.C:
+		a.kill()
+		<-a.done
+	}
+}
+func preparationCancellation(ctx context.Context, operation string) error {
+	if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return failure("interrupted")
+	}
+	phase, subject, recovery := "prerequisites", "preparation_child", "inspect_failure"
+	switch operation {
+	case "initialize":
+		subject = "node"
+	case "build-web":
+		phase, subject, recovery = "build", "frontend", "build_web"
+	case "embedded-web-assets":
+		phase, subject, recovery = "build", "embedded_assets", "build_server_harness"
+	case "build-server-harness":
+		phase, subject, recovery = "build", "server_harness", "build_server_harness"
+	case "build-migrate":
+		phase, subject, recovery = "build", "migrate", "build_migrate"
+	case "testservices-build":
+		phase, subject, recovery = "build", "test_services", "testservices_build"
+	case "test-service-images":
+		phase, subject, recovery = "build", "test_service_images", "test_service_images"
+	case "playwright-install":
+		phase, subject, recovery = "build", "chromium", "playwright_install"
+	case "seed":
+		phase, subject = "seeding", "fixture_seed"
+	case "prepare_browser":
+		phase, subject = "browser_start", "browser"
+	}
+	return contextual("operation_expired", phase, subject, "timeout", recovery)
 }

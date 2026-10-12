@@ -238,8 +238,8 @@ prepare_runtime_root() {
     echo "suite runtime owner marker must be an owner-only 0600 regular file" >&2
     return 2
   fi
-  if ! grep -Fq "\"lease_id\":\"${suite_runtime_lease_id}\"" "${owner_marker}" || ! grep -Fq "\"run_id\":\"${suite_runtime_run_id}\"" "${owner_marker}"; then
-    echo "suite runtime owner marker does not match the active browser lease" >&2
+  if ! "$NODE_BIN" "$ROOT_DIR/tools/harness/browser/browser-acquisition.mjs" validate-runtime; then
+    echo "suite runtime owner marker does not match the active browser scope" >&2
     return 2
   fi
   PRIVATE_SESSION_ROOT="${private_session_real}"
@@ -1228,6 +1228,10 @@ browser_prepare_database() {
     return 1
   fi
   local preparation_status=0
+  if [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
+    "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
+      declare-fixture "${CARTULARY_BROWSER_ACQUISITION_FILE}" || return $?
+  fi
   "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}" || preparation_status=$?
   if [[ "${preparation_status}" -ne 0 ]]; then
     write_startup_diagnostics fail database_preparation infra service_start_error \

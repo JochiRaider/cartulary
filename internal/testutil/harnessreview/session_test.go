@@ -81,7 +81,7 @@ func readySession(t *testing.T, d *testDriver, p *testPublisher) *Session {
 	s := NewSession("uireview-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "run", "artifacts", d, p)
 	s.lockTimeout = 20 * time.Millisecond
 	s.operationTimeout = time.Second
-	s.cleanupTimeout = time.Second
+	s.drainTimeout = time.Second
 	if err := s.Prepare(); err != nil {
 		t.Fatal(err)
 	}
@@ -210,21 +210,29 @@ func TestReviewLifecycle(t *testing.T) {
 	})
 
 	t.Run("undrained_preparation_blocks_cleanup_and_terminal", func(t *testing.T) {
-		entered, release := make(chan struct{}), make(chan struct{})
-		p := &testPublisher{}
-		s := NewSession("session", "run", "seeded", &testDriver{prepare: func(context.Context) (*int, error) { close(entered); <-release; return nil, context.Canceled }, close: func(context.Context) []error { t.Error("cleanup ran under a live preparation producer"); return nil }}, p)
-		s.cleanupTimeout = 10 * time.Millisecond
-		prepared := make(chan error, 1)
-		go func() { prepared <- s.Prepare() }()
-		<-entered
-		s.Stop(nil)
-		awaitSession(t, s)
-		if len(p.terminals) != 0 || s.Value("ui-review-stop").Exit != 12 {
-			t.Fatal("undrained owner finalized", p.terminals)
-		}
-		close(release)
-		<-prepared
+		synctest.Test(t, func(t *testing.T) {
+			entered, release := make(chan struct{}), make(chan struct{})
+			p := &testPublisher{}
+			closed := false
+			s := NewSession("session", "run", "seeded", &testDriver{prepare: func(context.Context) (*int, error) { close(entered); <-release; return nil, context.Canceled }, close: func(context.Context) []error { closed = true; return nil }}, p)
+			prepared := make(chan error, 1)
+			go func() { prepared <- s.Prepare() }()
+			<-entered
+			s.Stop(nil)
+			time.Sleep(10 * time.Minute)
+			synctest.Wait()
+			if closed || len(p.terminals) != 0 {
+				t.Fatal("undrained owner finalized")
+			}
+			close(release)
+			<-prepared
+			<-s.Done()
+			if !closed || len(p.terminals) != 1 {
+				t.Fatal("relinquished producer did not finalize")
+			}
+		})
 	})
+
 	t.Run("compiled_action_crosses_private_command_boundaries", func(t *testing.T) {
 		request := jsonRequest{"schema_id": "cartulary.ui_review_action.v3", "expected_epoch": float64(0), "action": "navigate", "parameters": map[string]any{"path": "/slow"}}
 		if err := validateCommand("ui-browser", request, nil); err != nil {

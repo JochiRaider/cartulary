@@ -119,7 +119,10 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	var closeErr error
 	close := func(ctx context.Context) error {
 		once.Do(func() {
-			if _, err := p.browserOperation(ctx, "settle", []string{file}, environment); err != nil {
+			if err := p.Runtime.AttemptCleanup(ctx, "browser_stack", file, func(step context.Context) error {
+				_, err := p.browserOperation(step, "settle", []string{file}, environment)
+				return err
+			}); err != nil {
 				closeErr = CleanupFailure(err)
 				return
 			}

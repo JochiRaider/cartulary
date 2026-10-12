@@ -3589,7 +3589,8 @@
         "test",
         "-race",
         "-count=1",
-        "./internal/testutil/harnessfixtures"
+        "./internal/testutil/harnessfixtures",
+        "./internal/testutil/objectstoreproxy"
       ],
       "test_target": "self"
     },

@@ -35,7 +35,7 @@ export async function fixtureLifecycle(operation, args, environment = process.en
     const owner = readBrowserAcquisition(args[0], runtime);
     if (operation === "reaped") closeAcquisitionLaunch(args[0], args[1]);
     else if (operation === "inspect") return { suite_lease: owner.suite_lease };
-    else await settleBrowserAcquisition({ file: args[0], runtime, root, environment, recovery: operation === "recover" });
+    else await settleBrowserAcquisition({ file: args[0], runtime, root, environment, recovery: operation === "recover", recoveryResultsRoot: environment.CARTULARY_BROWSER_RECOVERY_RESULTS_DIR });
     return {};
   }
   if (operation === "validate" && args.length === 1) {

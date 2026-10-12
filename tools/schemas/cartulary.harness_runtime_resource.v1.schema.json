@@ -44,6 +44,16 @@
           "minLength": 1,
           "maxLength": 36,
           "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_files": {
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
         }
       }
     },
@@ -114,6 +124,16 @@
           "minLength": 1,
           "maxLength": 36,
           "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_files": {
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
         }
       }
     },
@@ -184,6 +204,16 @@
           "minLength": 1,
           "maxLength": 36,
           "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_files": {
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
         }
       }
     },
@@ -257,6 +287,16 @@
           "minLength": 1,
           "maxLength": 36,
           "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_files": {
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
         }
       }
     }

@@ -1,3 +1,4 @@
+import { closeReviewBrowser } from "./ui-review-browser-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
@@ -125,5 +126,5 @@ test("CLI diagnostic shares the exact owned page and preserves its state", async
       } }));
     assert.equal(resources.size, 0); assert.ok(owner.browser.isConnected());
     assert.equal(await owner.page.locator("input").inputValue(), "private-field-state");
-  } finally { await owner.close(); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
+  } finally { await closeReviewBrowser(owner); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
 });

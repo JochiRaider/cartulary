@@ -6,7 +6,7 @@ import { browserReadiness } from "../../readiness/installed-readiness.mjs";
 import { preparationFailure } from "./failure.mjs";
 import { ReviewFailure, limits, schemaID, validate } from "./contract.mjs";
 import { reviewTotp } from "../design-review-seed.mjs";
-import { boundedCleanup, ownedProcess, stopOwnedProcess } from "./ownership.mjs";
+import { ownedProcess } from "./ownership.mjs";
 import { startVisualRendererLease } from "../visual-renderer-lease.mjs";
 import { repoRoot } from "./policy.mjs";
 
@@ -218,15 +218,5 @@ export class ReviewBrowser {
     const capability = Object.freeze({ page: this.page, get epoch() { return owner.epoch; }, get generation() { return owner.generation; }, resolve: (target) => owner.resolve(target), observe: (entries) => owner.observe(entries) });
     return captureObservation(capability, request, context, operationID, stage);
   }
-  async close() {
-    this.closing = true;
-    try { await boundedCleanup(async () => { await this.browser?.close(); await this.server?.close(); }, 10000); }
-    finally {
-      this.renderer?.cleanup();
-      if (this.process) {
-        await stopOwnedProcess(this.process);
-        await this.onOwnedResource({ kind: "browser_process", target: this.process, state: "released" });
-      }
-    }
-  }
+
 }

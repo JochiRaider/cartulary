@@ -12,7 +12,6 @@ import {
 import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
 import { resolveExactRunDir, printObservabilityPerformance } from "../observability/observability.mjs";
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
-import { validateHistoricalPerformanceEvidence } from "./historical-performance-evidence.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -831,16 +830,7 @@ function measurementAggregate(runDir) {
     );
     return { file, generation: "current", measurements, value };
   }
-  validateHistoricalPerformanceEvidence(repoRoot, value.schema_id, value);
-  const measurements = value.summaries.map((summary) => ({
-    generation: "historical",
-    observation: summary.observation ?? summary,
-    overlap:
-      summary.scheduler_overlap_count ??
-      summary.qualification?.scheduler_overlap_count ??
-      null,
-  }));
-  return { file, generation: "historical", measurements, value };
+  throw Object.assign(new Error("unsupported measurement artifact; current diagnostics require frontend measurement aggregate v3"), { exit_code: 11 });
 }
 
 function readMeasurementReference(runDir, reference) {
@@ -875,11 +865,7 @@ function nearestRank(samples, percentile) {
 }
 
 function measurementFact(observation, collection, factID) {
-  const facts = observation.traffic?.[collection];
-  if (Array.isArray(facts)) {
-    return facts.find((fact) => fact.fact_id === factID)?.value ?? null;
-  }
-  return observation.traffic?.[factID] ?? observation.qualification?.[factID] ?? null;
+  return observation.traffic[collection].find((fact) => fact.fact_id === factID)?.value ?? null;
 }
 
 function measurementCompatibilityKey(observation) {
@@ -900,18 +886,13 @@ function measurementCompatibilityKey(observation) {
 }
 
 function stageValue(sample, stage) {
-  if (Array.isArray(sample.stages_ms)) {
-    return sample.stages_ms.find((fact) => fact.fact_id === stage)?.value;
-  }
-  return sample.stages_ms[stage];
+  return sample.stages_ms.find((fact) => fact.fact_id === stage)?.value;
 }
 
 function measurementStages(observation) {
   const measured = observation.samples.filter((sample) => !sample.warmup);
   const stageNames = [...new Set(measured.flatMap((sample) =>
-    Array.isArray(sample.stages_ms)
-      ? sample.stages_ms.map((fact) => fact.fact_id)
-      : Object.keys(sample.stages_ms),
+    sample.stages_ms.map((fact) => fact.fact_id),
   ))].sort((left, right) => left.localeCompare(right));
   return stageNames.map((stage) => {
     const samples = measured

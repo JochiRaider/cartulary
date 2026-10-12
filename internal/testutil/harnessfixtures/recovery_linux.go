@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -75,27 +76,52 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 			continue
 		}
 		file, _ := resource.Path()
-		owner, err := p.browserOperation(ctx, "inspect", []string{file}, p.environment())
-		dependency, known := owner["suite_lease"].(string)
-		if err != nil || !known {
-			failures = append(failures, artifactFailure(errors.New("browser dependency unavailable")))
-			allBlocked = true
-			continue
+		dependency := ""
+		err := p.Runtime.AttemptCleanup(ctx, "browser_stack", file, func(step context.Context) error {
+			owner, err := p.browserOperation(step, "inspect", []string{file}, p.environment())
+			var known bool
+			dependency, known = owner["suite_lease"].(string)
+			if err != nil || !known {
+				dependency = ""
+				return artifactFailure(errors.New("browser dependency unavailable"))
+			}
+			if _, ok := suites[dependency]; !ok && !(borrowed && dependency == borrowedDependency) {
+				dependency = ""
+				return artifactFailure(errors.New("browser dependency not owned by this recovery"))
+			}
+			environmentFile := filepath.Join(filepath.Dir(dependency), "suite-environment.json")
+			if dependency == borrowedDependency {
+				environmentFile = filepath.Join(p.Runtime.Root, "borrowed-environment.json")
+			}
+			environment, err := readRecoveryEnvironment(environmentFile)
+			if err != nil {
+				return artifactFailure(err)
+			}
+			bound := p.environment()
+			maps.Copy(bound, environment)
+			output, err := p.Runtime.PrivatePath("lifecycle", "browser-recovery-"+identifier(), p.Runtime.RunID)
+			if err != nil {
+				return err
+			}
+			if err = p.Runtime.AuthorizeOutputRoot(output); err != nil {
+				return err
+			}
+			bound["CARTULARY_BROWSER_RECOVERY_RESULTS_DIR"] = filepath.Dir(output)
+			_, err = p.browserOperation(step, "recover", []string{file}, bound)
+			return err
+		})
+		if err == nil {
+			err = p.releaseResource(resource)
 		}
-		if _, ok := suites[dependency]; !ok && !(borrowed && dependency == borrowedDependency) {
-			failures = append(failures, artifactFailure(errors.New("browser dependency not owned by this recovery")))
-			allBlocked = true
-			continue
-		}
-		if _, err := p.browserOperation(ctx, "recover", []string{file}, p.environment()); err != nil {
+		if err != nil {
 			failures = append(failures, err)
-			blocked[dependency] = true
-			continue
+			if dependency == "" {
+				allBlocked = true
+			} else {
+				blocked[dependency] = true
+			}
 		}
-		if err := p.releaseResource(resource); err != nil {
-			failures = append(failures, err)
-			blocked[dependency] = true
-		}
+
 	}
 	for _, resource := range resources {
 		if resource.Kind != "object_store_proxy" {
@@ -128,7 +154,14 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 		if allBlocked || blocked[file] {
 			continue
 		}
-		if err := p.stopSuite(ctx, file, p.environment()); err != nil {
+		environment, err := readRecoveryEnvironment(filepath.Join(filepath.Dir(file), "suite-environment.json"))
+		if err != nil {
+			failures = append(failures, artifactFailure(err))
+			continue
+		}
+		bound := p.environment()
+		maps.Copy(bound, environment)
+		if err := p.stopSuite(ctx, file, bound); err != nil {
 			failures = append(failures, err)
 		}
 	}

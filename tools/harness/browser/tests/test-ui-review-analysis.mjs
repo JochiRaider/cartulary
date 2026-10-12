@@ -1,3 +1,4 @@
+import { closeReviewBrowser } from "./ui-review-browser-fixture.mjs";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -130,7 +131,7 @@ test("live axe excludes iframe contents; offline reports escape observed markup 
     await session.store.publishBundle(updated, entry.files);
     const result = await report(session, "bundle-2"), html = readFileSync(result.private_refs[0].absolute_path, "utf8");
     assert.ok(html.includes("&lt;script&gt;")); assert.ok(!html.includes('<img src="https://private.invalid'));
-    await browser.close(); browser = null;
+    await closeReviewBrowser(browser); browser = null;
     viewer = await chromium.launch({ headless: true }); const page = await viewer.newPage(), network = [];
     page.on("request", (request) => { if (/^https?:/u.test(request.url())) network.push(request.url()); });
     await page.goto(pathToFileURL(result.private_refs[0].absolute_path).href);
@@ -155,5 +156,5 @@ test("live axe excludes iframe contents; offline reports escape observed markup 
     await assert.rejects(observeAxe(failedPage), /analysis_failed/u);
     failedPage.evaluate = async () => { const error = new Error("expired"); error.name = "TimeoutError"; throw error; };
     await assert.rejects(observeAxe(failedPage), /operation_expired/u);
-  } finally { await viewer?.close(); await browser?.close(); await admission?.release(); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
+  } finally { await viewer?.close(); await closeReviewBrowser(browser); await admission?.release(); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
 });

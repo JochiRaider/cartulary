@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
@@ -82,7 +83,7 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				environment["CARTULARY_TEST_SERVICES_SESSION_FILE"] = sessionFile
 			} else {
 				// Source compilation and build recipes remain Node responsibilities.
-				source := `import {writeFileSync,readFileSync} from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {borrowRuntime} from './tools/harness/runtime/session-client.mjs';import {buildSourceSnapshot} from './tools/harness/test-catalog/index.mjs';import {recipeEnvironment,buildReview} from './tools/harness/browser/review-recipes.mjs';const root=process.cwd(),runRoot=process.argv[1],runtime=borrowRuntime({repoRoot:root,runRoot});const input={preparation_policy:'installed_only',presentation:'design',profile:'default'};writeFileSync(path.join(runRoot,'run-manifest.json'),JSON.stringify({purpose:'interactive_design_review',source_digest:buildSourceSnapshot(root).digest,toolchain_digest:'sha256:'+createHash('sha256').update(readFileSync('tools/toolchain_pins.json')).digest('hex')}),{mode:0o600});const environment=recipeEnvironment(root,runRoot,runtime,input);await buildReview({root,environment,input,runtime,signal:new AbortController().signal});process.stdout.write(JSON.stringify(environment));`
+				source := `import {writeFileSync,readFileSync} from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {borrowRuntime} from './tools/harness/runtime/session-client.mjs';import {buildSourceSnapshot} from './tools/harness/test-catalog/index.mjs';import {recipeEnvironment,buildReviewProducer} from './tools/harness/browser/review-recipes.mjs';const root=process.cwd(),runRoot=process.argv[1],runtime=borrowRuntime({repoRoot:root,runRoot});const input={preparation_policy:'installed_only',presentation:'design',profile:'default'};writeFileSync(path.join(runRoot,'run-manifest.json'),JSON.stringify({purpose:'interactive_design_review',source_digest:buildSourceSnapshot(root).digest,toolchain_digest:'sha256:'+createHash('sha256').update(readFileSync('tools/toolchain_pins.json')).digest('hex')}),{mode:0o600});const environment=recipeEnvironment(root,runRoot,runtime,input);for(const target of ['build-web','embedded-web-assets','build-server-harness','build-migrate','testservices-build']) await buildReviewProducer({target,root,environment,input,runtime,signal:new AbortController().signal});process.stdout.write(JSON.stringify(environment));`
 				out, err := invoke(source, run)
 				if err != nil {
 					t.Fatal("physical fixture preparation", err)
@@ -158,7 +159,31 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				if err := os.Chmod(blocked, 0600); err != nil {
 					t.Fatal(err)
 				}
+				detail := filepath.Join(filepath.Dir(blocked), "private-credentials.log")
+				if err := os.WriteFile(detail, []byte("unnecessary private detail"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := r.PreserveRecovery(); err != nil {
+					t.Fatal("exact dependency preservation", err)
+				}
+				if _, err := os.Stat(detail); !os.IsNotExist(err) {
+					t.Fatal("sibling detail retained", err)
+				}
 				blocked = ""
+				// A completed failed attempt cannot restart its budget. Recovery opens a new owner.
+				privateRoot, leaseID := r.Root, r.LeaseID
+				if err := r.ReleaseHandles(); err != nil {
+					t.Fatal(err)
+				}
+				caller, err := harnessadmission.Identity(os.Getpid())
+				if err != nil {
+					t.Fatal(err)
+				}
+				r, err = harnesssession.OwnRuntime(root, run, privateRoot, variant, leaseID, caller, true)
+				if err != nil {
+					t.Fatal(err)
+				}
+				options.Runtime = r
 				if err := options.Recover(ctx); err != nil {
 					t.Fatal("recovery", err)
 				}

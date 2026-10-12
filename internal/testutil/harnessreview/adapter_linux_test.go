@@ -16,6 +16,11 @@ import (
 )
 
 func TestReviewIPC(t *testing.T) {
+	if stage := os.Getenv("CARTULARY_REVIEW_STALL_HELPER"); stage != "" {
+		preparationStallHelper(t, stage)
+		return
+	}
+	testPreparationDeadlines(t)
 	t.Run("independent_response_rejections", func(t *testing.T) {
 		for _, variant := range []string{"valid", "duplicate", "truncated", "oversized", "unknown_field", "foreign_run", "foreign_lease", "unknown_id", "wrong_operation", "unclassified_exit", "wrong_exit", "too_many_failures"} {
 			t.Run(variant, func(t *testing.T) {
@@ -27,9 +32,9 @@ func TestReviewIPC(t *testing.T) {
 				done := make(chan struct{})
 				close(done)
 				response := make(chan adapterReply, 1)
-				a := &adapter{runtime: &harnesssession.Runtime{RunID: "fixture", LeaseID: "00000000-0000-4000-8000-000000000000"}, session: "uireview-" + strings.Repeat("a", 32), channel: r, done: done, readDone: make(chan struct{}), idle: make(chan struct{}), pending: map[int]pendingRequest{1: {operation: "build", response: response}}}
+				a := &adapter{runtime: &harnesssession.Runtime{RunID: "fixture", LeaseID: "00000000-0000-4000-8000-000000000000"}, session: "uireview-" + strings.Repeat("a", 32), channel: r, done: done, readDone: make(chan struct{}), idle: make(chan struct{}), pending: map[int]pendingRequest{1: {operation: "build-web", response: response}}}
 				outcome := adapterOutcome{Counts: Counts{}, Private: []PrivateReference{}, Failures: []Failure{}}
-				message := map[string]any{"schema_id": adapterSchema, "session_id": a.session, "run_id": "fixture", "runtime_lease_id": a.runtime.LeaseID, "request_id": 1, "kind": "response", "operation": "build", "facts": nil, "outcome": outcome}
+				message := map[string]any{"schema_id": adapterSchema, "session_id": a.session, "run_id": "fixture", "runtime_lease_id": a.runtime.LeaseID, "request_id": 1, "kind": "response", "operation": "build-web", "facts": nil, "outcome": outcome}
 				switch variant {
 				case "unknown_field":
 					message["private_detail"] = "must never escape"
@@ -113,7 +118,7 @@ func TestReviewIPC(t *testing.T) {
 				}
 			})
 			if forged {
-				raw := `{"schema_id":"cartulary.harness_review_adapter.v1","session_id":"uireview-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","run_id":"fixture","runtime_lease_id":"` + runtime.LeaseID + `","request_id":1,"kind":"request","operation":"close","payload":null}` + "\n"
+				raw := `{"schema_id":"cartulary.harness_review_adapter.v2","session_id":"uireview-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","run_id":"fixture","runtime_lease_id":"` + runtime.LeaseID + `","request_id":1,"kind":"request","operation":"close","payload":null}` + "\n"
 				if _, err := worker.channel.Write([]byte(raw)); err != nil {
 					t.Fatal(err)
 				}

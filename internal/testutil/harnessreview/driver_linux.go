@@ -39,6 +39,7 @@ type productionDriver struct {
 	isReady                func() bool
 	facts                  *adapterFacts
 	cleanup                []cleanupStep
+	deadline               func(context.Context, time.Duration) (context.Context, context.CancelFunc)
 }
 
 type cleanupStep struct {
@@ -48,14 +49,17 @@ type cleanupStep struct {
 
 func (d *productionDriver) worker() *adapter { d.mu.Lock(); defer d.mu.Unlock(); return d.adapter }
 func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
+	initialize, cancel := d.producerContext(ctx)
 	a, err := startAdapter(d.root, d.session, d.runtime, d.environment, d.onLost)
 	if err != nil {
+		cancel()
 		return nil, normalized(err, "tool_configuration")
 	}
 	d.mu.Lock()
 	d.adapter = a
 	d.mu.Unlock()
-	reply, err := a.call(ctx, "initialize", map[string]any{"input": d.input, "profile": d.profile, "repository": d.root, "run_root": d.runRoot, "runtime_root": d.runtime.Root})
+	reply, err := a.call(initialize, "initialize", map[string]any{"input": d.input, "profile": d.profile, "repository": d.root, "run_root": d.runRoot, "runtime_root": d.runtime.Root})
+	cancel()
 	if err != nil {
 		return nil, err
 	}
@@ -87,25 +91,32 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err = d.runtime.AuthorizeOutputRoot(privateRoot); err != nil {
+			return nil, err
+		}
 		if err = publishSource(privateRoot, reply.Facts, *d.input.Profile); err != nil {
 			return nil, err
 		}
-		reply, err = a.call(ctx, "build", map[string]any{"admission_token": d.admission.Token})
-		if err != nil {
-			return nil, err
-		}
-		if reply.Facts == nil {
-			return nil, failure("invalid_artifact")
+		for _, operation := range preparationOperations(d.input.Policy) {
+			reply, err = d.produce(ctx, a, operation, map[string]any{"admission_token": d.admission.Token})
+			if err != nil {
+				return nil, err
+			}
+			if reply.Facts == nil {
+				return nil, failure("invalid_artifact")
+			}
 		}
 		environment := maps.Clone(reply.Facts.Environment)
 		environment["CARTULARY_HOST_ADMISSION_LEASE"] = d.admission.Token
 		d.fixtures = harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{Root: d.root, RunRoot: privateRoot, Target: "ui-review", Runtime: d.runtime, Environment: environment}, harnessfixtures.Options{})
-		lease, err := d.fixtures.Broker.Acquire(ctx, harnessfixtures.Request{Capability: "browser_stack", UnitID: "ui-review", Affinity: "design-review-" + *d.input.Profile, BrowserStage: "webserver-backed", RuntimeProfile: *d.input.Profile})
+		acquire, cancel := d.producerContext(ctx)
+		lease, err := d.fixtures.Broker.Acquire(acquire, harnessfixtures.Request{Capability: "browser_stack", UnitID: "ui-review", Affinity: "design-review-" + *d.input.Profile, BrowserStage: "webserver-backed", RuntimeProfile: *d.input.Profile})
+		cancel()
 		if err != nil {
 			return nil, preparationError(err, "service_acquisition", "browser_stack")
 		}
 		maps.Copy(environment, lease.Environment())
-		reply, err = a.call(ctx, "seed", map[string]any{"environment": environment})
+		reply, err = d.produce(ctx, a, "seed", map[string]any{"environment": environment})
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +131,7 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 		go d.health(ctx, a)
 		return nil, nil
 	}
-	reply, err = a.call(ctx, "prepare_browser", map[string]any{"admission_token": d.admission.Token})
+	reply, err = d.produce(ctx, a, "prepare_browser", map[string]any{"admission_token": d.admission.Token})
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +141,12 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 	return reply.Outcome.Epoch, nil
 }
 func preparationError(err error, phase, subject string) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return contextual("operation_expired", phase, subject, "timeout", "inspect_failure")
+	}
+	if errors.Is(err, context.Canceled) {
+		return failure("interrupted")
+	}
 	var classified interface{ HarnessFailure() (string, string) }
 	if errors.As(err, &classified) {
 		kind, reason := classified.HarnessFailure()
@@ -192,43 +209,68 @@ func (d *productionDriver) Interrupt() {
 func (d *productionDriver) Close(ctx context.Context) []error {
 	failures := []error{}
 	attempt := func(operation string, fn func(context.Context) error, maximum time.Duration) {
-		step, done := context.WithTimeout(ctx, maximum)
-		defer done()
+		step, done := context.WithTimeout(context.WithoutCancel(ctx), maximum)
 		err := fn(step)
+		done()
 		d.cleanup = append(d.cleanup, cleanupStep{operation, err})
 		if err != nil {
-			failures = append(failures, normalized(err, "cleanup_failed"))
+			failures = append(failures, failure("cleanup_failed"))
 		}
 	}
 	if a := d.worker(); a != nil {
-		attempt("provider_close", func(ctx context.Context) error { _, err := a.call(ctx, "close_browser", nil); return err }, 30*time.Second)
 		attempt("provider_close", func(ctx context.Context) error {
 			if err := a.drain(ctx); err != nil {
 				a.kill()
 				<-a.done
 				return err
 			}
-			_, err := a.call(ctx, "close_store", nil)
-			return err
-		}, 30*time.Second)
-		attempt("provider_close", a.close, 30*time.Second)
+			return a.close(ctx)
+		}, time.Duration(LimitDrain)*time.Millisecond)
 	}
-	// Every independent process/renderer stop is attempted. A surviving dependent
-	// blocks fixture teardown, so its service cannot disappear underneath it.
+	// The adapter relinquishes all process handles before the physical resource
+	// ledger drains dependents. There is no second browser-close authority in Node.
 	dependentErrors := recoverIndependent(ctx, d.root, d.runRoot, d.runtime, d.environment)
 	d.cleanup = append(d.cleanup, cleanupStep{"provider_close", errors.Join(dependentErrors...)})
 	failures = append(failures, dependentErrors...)
 	if len(dependentErrors) == 0 {
 		if d.fixtures != nil {
-			attempt("services_close", d.fixtures.Close, 125*time.Second)
+			err := d.fixtures.Close(context.WithoutCancel(ctx))
+			d.cleanup = append(d.cleanup, cleanupStep{"services_close", err})
+			if err != nil {
+				failures = append(failures, failure("cleanup_failed"))
+			}
 		}
 		recovery := harnessfixtures.ProductionOptions{Root: d.root, RunRoot: d.runRoot, Target: "ui-review", Runtime: d.runtime, Environment: d.environment}
-		attempt("services_close", recovery.Recover, 125*time.Second)
+		err := recovery.Recover(context.WithoutCancel(ctx))
+		d.cleanup = append(d.cleanup, cleanupStep{"services_close", err})
+		if err != nil {
+			failures = append(failures, failure("cleanup_failed"))
+		}
 	}
 	if d.admission != nil {
-		attempt("host_release", d.admission.Release, 5*time.Second)
+		attempt("host_release", d.admission.Release, time.Duration(LimitLock)*time.Millisecond)
 	}
 	return failures
+}
+
+func preparationOperations(policy string) []string {
+	operations := []string{"build-web", "embedded-web-assets", "build-server-harness", "build-migrate", "testservices-build"}
+	if policy == "ensure" {
+		operations = append(operations, "test-service-images", "playwright-install")
+	}
+	return operations
+}
+func (d *productionDriver) producerContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	deadline := d.deadline
+	if deadline == nil {
+		deadline = context.WithTimeout
+	}
+	return deadline(ctx, time.Duration(LimitPreparation)*time.Millisecond)
+}
+func (d *productionDriver) produce(ctx context.Context, a *adapter, operation string, payload any) (adapterReply, error) {
+	step, done := d.producerContext(ctx)
+	defer done()
+	return a.call(step, operation, payload)
 }
 func waitOrigin(ctx context.Context, origin string) error {
 	parsed, err := url.Parse(origin)
@@ -273,14 +315,12 @@ func recoverIndependent(ctx context.Context, root, runRoot string, runtime *harn
 			if resource.Kind != kind {
 				continue
 			}
-			step, cancel := context.WithTimeout(ctx, 30*time.Second)
-			err := runtime.StopResource(step, root, runRoot, environment, resource)
-			cancel()
+			err := runtime.StopResource(ctx, root, runRoot, environment, resource)
 			if err == nil {
 				err = runtime.RecordResource(resource.Kind, resource.Target, "released")
 			}
 			if err != nil {
-				failures = append(failures, normalized(err, "cleanup_failed"))
+				failures = append(failures, failure("cleanup_failed"))
 			}
 		}
 	}

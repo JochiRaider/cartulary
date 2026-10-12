@@ -1,3 +1,4 @@
+import { closeReviewBrowser } from "./ui-review-browser-fixture.mjs";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -256,5 +257,5 @@ test("page capture preserves focus and scroll, crops exactly, and rejects post-s
       let count = 0; const move = () => { node.style.left = `${20 + count++ * 0.25}px`; requestAnimationFrame(move); }; requestAnimationFrame(move);
     });
     await assert.rejects(execute(session, request, 3), /operation_expired/u); assert.equal(session.store.usage.bundles, 1);
-  } finally { await browser?.close(); await admission?.release(); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
+  } finally { await closeReviewBrowser(browser); await admission?.release(); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
 });

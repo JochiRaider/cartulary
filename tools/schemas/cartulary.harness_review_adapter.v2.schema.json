@@ -1,0 +1,2031 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_review_adapter.v2",
+  "anyOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "const": "initialize"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "input",
+            "profile",
+            "repository",
+            "run_root",
+            "runtime_root"
+          ],
+          "properties": {
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "origin",
+                "profile",
+                "preparation_policy",
+                "presentation",
+                "verify_samples"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "seeded",
+                    "dev",
+                    "artifacts"
+                  ]
+                },
+                "origin": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 4096
+                    }
+                  ]
+                },
+                "profile": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "enum": [
+                        "default",
+                        "network_flow_claimed"
+                      ]
+                    }
+                  ]
+                },
+                "preparation_policy": {
+                  "enum": [
+                    "installed_only",
+                    "ensure"
+                  ]
+                },
+                "presentation": {
+                  "enum": [
+                    "ui",
+                    "design"
+                  ]
+                },
+                "verify_samples": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "profile": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "pins_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "lock_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "node_version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "playwright_version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "sharp_version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "axe_version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                }
+              },
+              "required": [
+                "pins_sha256",
+                "lock_sha256",
+                "node_version",
+                "playwright_version",
+                "sharp_version",
+                "axe_version"
+              ]
+            },
+            "repository": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "run_root": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "runtime_root": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "const": "initialize"
+        },
+        "facts": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/facts"
+            }
+          ]
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "enum": [
+            "build-web",
+            "embedded-web-assets",
+            "build-server-harness",
+            "build-migrate",
+            "testservices-build",
+            "test-service-images",
+            "playwright-install"
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "admission_token"
+          ],
+          "properties": {
+            "admission_token": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "enum": [
+            "build-web",
+            "embedded-web-assets",
+            "build-server-harness",
+            "build-migrate",
+            "testservices-build",
+            "test-service-images",
+            "playwright-install"
+          ]
+        },
+        "facts": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/facts"
+            }
+          ]
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "const": "seed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "environment"
+          ],
+          "properties": {
+            "environment": {
+              "type": "object",
+              "maxProperties": 1024,
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 1048576
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "const": "seed"
+        },
+        "facts": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/facts"
+            }
+          ]
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "const": "prepare_browser"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "admission_token"
+          ],
+          "properties": {
+            "admission_token": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "maxLength": 64
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "const": "prepare_browser"
+        },
+        "facts": {
+          "type": "null"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "const": "validate"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command",
+            "request"
+          ],
+          "properties": {
+            "command": {
+              "enum": [
+                "ui-browser",
+                "ui-capture",
+                "ui-analyze",
+                "ui-review-report"
+              ]
+            },
+            "request": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "cartulary.ui_review_action.v3"
+                },
+                {
+                  "$ref": "cartulary.ui_review_capture_request.v1"
+                },
+                {
+                  "$ref": "cartulary.ui_review_analysis_request.v1"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "const": "validate"
+        },
+        "facts": {
+          "type": "null"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "const": "execute"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command",
+            "request",
+            "bundle_id",
+            "operation_id"
+          ],
+          "properties": {
+            "command": {
+              "enum": [
+                "ui-browser",
+                "ui-capture",
+                "ui-analyze",
+                "ui-review-report"
+              ]
+            },
+            "request": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "cartulary.ui_review_action.v3"
+                },
+                {
+                  "$ref": "cartulary.ui_review_capture_request.v1"
+                },
+                {
+                  "$ref": "cartulary.ui_review_analysis_request.v1"
+                }
+              ]
+            },
+            "bundle_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^bundle-[1-9][0-9]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "operation_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "const": "execute"
+        },
+        "facts": {
+          "type": "null"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "const": "abort"
+        },
+        "payload": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "const": "abort"
+        },
+        "facts": {
+          "type": "null"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "const": "check"
+        },
+        "payload": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "const": "check"
+        },
+        "facts": {
+          "type": "null"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "request"
+        },
+        "operation": {
+          "const": "close"
+        },
+        "payload": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "facts",
+        "outcome"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "response"
+        },
+        "operation": {
+          "const": "close"
+        },
+        "facts": {
+          "type": "null"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "session_id",
+        "run_id",
+        "runtime_lease_id",
+        "request_id",
+        "kind",
+        "operation",
+        "failure"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_review_adapter.v2"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^uireview-[a-f0-9]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96
+        },
+        "runtime_lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "event"
+        },
+        "operation": {
+          "const": "lost"
+        },
+        "failure": {
+          "$ref": "cartulary.ui_review_bundle.v2#/$defs/failure"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "epoch",
+        "capacities",
+        "source_digest",
+        "environment",
+        "source_commit",
+        "toolchain_digest",
+        "review"
+      ],
+      "properties": {
+        "epoch": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capacities": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "source_digest": {
+          "type": "string",
+          "maxLength": 71
+        },
+        "environment": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 1048576
+          }
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "toolchain_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "cartulary.harness_review_design_ready.v1"
+            }
+          ]
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "epoch",
+        "counts",
+        "bundle_id",
+        "private_refs",
+        "failures",
+        "exit_code",
+        "stop"
+      ],
+      "properties": {
+        "epoch": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "images": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "observed_elements": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "axe_violations": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "axe_incomplete": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "console_errors": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "failed_requests": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "images",
+            "observed_elements",
+            "axe_violations",
+            "axe_incomplete",
+            "console_errors",
+            "failed_requests"
+          ]
+        },
+        "bundle_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^bundle-[1-9][0-9]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "private_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "bundle",
+                  "image",
+                  "observations",
+                  "report"
+                ]
+              },
+              "absolute_path": {
+                "type": "string",
+                "pattern": "^/",
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "kind",
+              "absolute_path"
+            ]
+          },
+          "maxItems": 8
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "failure_class": {
+                "enum": [
+                  "config",
+                  "infra",
+                  "harness",
+                  "artifact",
+                  "timing",
+                  "interrupted",
+                  "unknown"
+                ]
+              },
+              "failure_reason": {
+                "enum": [
+                  "usage_error",
+                  "configuration_error",
+                  "tool_diagnostic_failure",
+                  "preflight_error",
+                  "service_start_error",
+                  "service_readiness_timeout",
+                  "resource_conflict",
+                  "artifact_error",
+                  "timeout_failure",
+                  "cleanup_error",
+                  "cancelled_or_interrupted",
+                  "fixture_error",
+                  "scheduler_accounting_error",
+                  "unknown_failure"
+                ]
+              },
+              "diagnostic_code": {
+                "enum": [
+                  "invalid_request",
+                  "tool_configuration",
+                  "session_mismatch",
+                  "target_unavailable",
+                  "navigation_boundary",
+                  "environment_unavailable",
+                  "startup_failed",
+                  "readiness_expired",
+                  "capacity_exceeded",
+                  "invalid_artifact",
+                  "unstable_capture",
+                  "observation_limit",
+                  "analysis_failed",
+                  "operation_expired",
+                  "session_lost",
+                  "unsafe_artifact",
+                  "input_boundary",
+                  "cleanup_failed",
+                  "interrupted",
+                  "build_failed",
+                  "fixture_failed",
+                  "diagnostic_invalid",
+                  "preparation_failed"
+                ]
+              },
+              "phase": {
+                "enum": [
+                  null,
+                  "prerequisites",
+                  "build",
+                  "service_acquisition",
+                  "service_readiness",
+                  "seeding",
+                  "browser_start",
+                  "cleanup"
+                ]
+              },
+              "subject_id": {
+                "enum": [
+                  null,
+                  "node",
+                  "pnpm",
+                  "frontend_dependencies",
+                  "chromium",
+                  "host_lock",
+                  "go",
+                  "docker",
+                  "test_service_images",
+                  "frontend",
+                  "embedded_assets",
+                  "server_harness",
+                  "migrate",
+                  "test_services",
+                  "browser_stack",
+                  "fixture_seed",
+                  "preparation_child",
+                  "source_snapshot",
+                  "browser"
+                ]
+              },
+              "condition": {
+                "enum": [
+                  null,
+                  "missing",
+                  "incompatible",
+                  "stale_installation",
+                  "invalid_artifact",
+                  "preflight_failed",
+                  "child_failed",
+                  "timeout",
+                  "resource_conflict",
+                  "invalid_diagnostic",
+                  "cancelled",
+                  "unknown"
+                ]
+              },
+              "recovery_id": {
+                "enum": [
+                  null,
+                  "bootstrap_node",
+                  "frontend_toolchain",
+                  "frontend_install",
+                  "playwright_install",
+                  "bootstrap",
+                  "test_service_images",
+                  "doctor",
+                  "build_web",
+                  "build_server_harness",
+                  "build_migrate",
+                  "testservices_build",
+                  "inspect_source",
+                  "inspect_failure",
+                  "exact_stop"
+                ]
+              }
+            },
+            "required": [
+              "failure_class",
+              "failure_reason",
+              "diagnostic_code",
+              "phase",
+              "subject_id",
+              "condition",
+              "recovery_id"
+            ],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "phase": {
+                      "type": "null"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "phase": {
+                      "type": "null"
+                    },
+                    "subject_id": {
+                      "type": "null"
+                    },
+                    "condition": {
+                      "type": "null"
+                    },
+                    "recovery_id": {
+                      "type": "null"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "phase": {
+                      "type": "string"
+                    },
+                    "subject_id": {
+                      "type": "string"
+                    },
+                    "condition": {
+                      "type": "string"
+                    },
+                    "recovery_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "invalid_request"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "config"
+                    },
+                    "failure_reason": {
+                      "const": "usage_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "tool_configuration"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "config"
+                    },
+                    "failure_reason": {
+                      "const": "configuration_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "session_mismatch"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "config"
+                    },
+                    "failure_reason": {
+                      "const": "configuration_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "target_unavailable"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "harness"
+                    },
+                    "failure_reason": {
+                      "const": "tool_diagnostic_failure"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "navigation_boundary"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "harness"
+                    },
+                    "failure_reason": {
+                      "const": "tool_diagnostic_failure"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "environment_unavailable"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "infra"
+                    },
+                    "failure_reason": {
+                      "const": "preflight_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "startup_failed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "infra"
+                    },
+                    "failure_reason": {
+                      "const": "service_start_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "readiness_expired"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "infra"
+                    },
+                    "failure_reason": {
+                      "const": "service_readiness_timeout"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "capacity_exceeded"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "infra"
+                    },
+                    "failure_reason": {
+                      "const": "resource_conflict"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "invalid_artifact"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "artifact"
+                    },
+                    "failure_reason": {
+                      "const": "artifact_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "unstable_capture"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "artifact"
+                    },
+                    "failure_reason": {
+                      "const": "artifact_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "observation_limit"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "artifact"
+                    },
+                    "failure_reason": {
+                      "const": "artifact_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "analysis_failed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "harness"
+                    },
+                    "failure_reason": {
+                      "const": "tool_diagnostic_failure"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "operation_expired"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "timing"
+                    },
+                    "failure_reason": {
+                      "const": "timeout_failure"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "session_lost"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "infra"
+                    },
+                    "failure_reason": {
+                      "const": "service_start_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "unsafe_artifact"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "artifact"
+                    },
+                    "failure_reason": {
+                      "const": "artifact_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "input_boundary"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "artifact"
+                    },
+                    "failure_reason": {
+                      "const": "artifact_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "cleanup_failed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "harness"
+                    },
+                    "failure_reason": {
+                      "const": "cleanup_error"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "interrupted"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "interrupted"
+                    },
+                    "failure_reason": {
+                      "const": "cancelled_or_interrupted"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "build_failed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "harness"
+                    },
+                    "failure_reason": {
+                      "const": "tool_diagnostic_failure"
+                    },
+                    "phase": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "fixture_failed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "harness"
+                    },
+                    "failure_reason": {
+                      "const": "fixture_error"
+                    },
+                    "phase": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "diagnostic_invalid"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "harness"
+                    },
+                    "failure_reason": {
+                      "const": "scheduler_accounting_error"
+                    },
+                    "phase": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "diagnostic_code": {
+                      "const": "preparation_failed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "failure_class": {
+                      "const": "unknown"
+                    },
+                    "failure_reason": {
+                      "const": "unknown_failure"
+                    },
+                    "phase": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "exit_code": {
+          "enum": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            11,
+            12,
+            13,
+            15,
+            130,
+            143
+          ]
+        },
+        "stop": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

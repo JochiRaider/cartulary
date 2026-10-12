@@ -31,6 +31,8 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	return runtime, root, run
 }
 func TestSessionRuntimeProof(t *testing.T) {
+	testCleanupAttempts(t)
+	testRuntimeBindings(t)
 	t.Run("failed_registration_and_duplicate_journal_preserve_ownership", func(t *testing.T) {
 		r, _, _ := runtimeFixture(t)
 		target, _ := r.PrivatePath("browser-stack-leases", "fixture", "owner.json")

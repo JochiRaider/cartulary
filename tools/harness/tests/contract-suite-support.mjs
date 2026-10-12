@@ -25,10 +25,6 @@ import { pathToFileURL } from "node:url";
 import { planGoLPTShards } from "../backend/go-lpt-shards.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import {
-  loadHistoricalPerformanceSchemaRegistry,
-  validateHistoricalPerformanceEvidence,
-} from "../diagnostics/historical-performance-evidence.mjs";
-import {
   canonicalSnapshotKeyInput,
   groupRowsByPerformanceFixture,
   loadPerformanceFixtureSnapshotRegistry,
@@ -90,17 +86,8 @@ const retiredTargets = [
 const tiers = ["fast", "standard", "full", "release"];
 
 function assertPerformanceEvidenceGenerationBoundary() {
-  const historical = loadHistoricalPerformanceSchemaRegistry(root);
-  const historicalIDs = new Set(historical.schemas.keys());
   const attachments = readJSON("tools/harness_schema_attachments.json");
   const activeIDs = new Set(attachments.attachments.map((entry) => entry.schema_id));
-  for (const schemaID of historicalIDs) {
-    assert.equal(activeIDs.has(schemaID), false);
-    assert.equal(
-      existsSync(path.join(root, "tools/schemas", `${schemaID}.schema.json`)),
-      false,
-    );
-  }
   for (const schemaID of [
     "cartulary.browser_target_result.v4",
     "cartulary.frontend_measurement_aggregate.v3",
@@ -115,24 +102,11 @@ function assertPerformanceEvidenceGenerationBoundary() {
     "cartulary.web_e2e_stack_lease.v2",
   ]) {
     assert.equal(activeIDs.has(schemaID), true);
-    assert.equal(historicalIDs.has(schemaID), false);
   }
-  const historicalKey = {
-    schema_id: "cartulary.performance_fixture_snapshot_key.v1",
-    migration_digest: "e".repeat(64),
-    source_contract_digest: "f".repeat(64),
-    fixture_version: "cartulary.perf.large_grid.v1",
-    seed: 20260405,
-  };
-  validateHistoricalPerformanceEvidence(
-    root,
-    historicalKey.schema_id,
-    historicalKey,
-  );
-  assert.throws(
-    () => validateSchemaSync(historicalKey.schema_id, historicalKey),
-    /unregistered schema attachment cartulary\.performance_fixture_snapshot_key\.v1/u,
-  );
+  // Independent rejection examples require no retired schema bundle or registry.
+  for (const schema_id of ["cartulary.performance_fixture_snapshot_key.v1", "cartulary.frontend_measurement_aggregate.v1", "cartulary.web_e2e_stack.v3", "cartulary.test.network_flow_randomness_control.v2"]) {
+    assert.throws(() => validateSchemaSync(schema_id, { schema_id }), /unregistered schema attachment/u);
+  }
   const reference = (role, name) => ({
     role,
     path_kind: "file",

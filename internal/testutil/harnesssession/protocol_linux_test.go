@@ -102,14 +102,28 @@ func TestSessionProtocol(t *testing.T) {
 		call()
 		delete(q, "values")
 		delete(q, "environment")
-		q["operation"] = "secrets"
-		secrets := call().Result.([]string)
-		if len(secrets) != 2 {
-			t.Fatal(secrets)
+		native, err := OwnRuntime(repo, run, identity["root"], "fixture", identity["lease_id"], caller, false)
+		if err != nil {
+			t.Fatal(err)
 		}
-		q["operation"] = "scan"
-		if call().Result.(map[string]any)["status"] != "pass" {
-			t.Fatal("scan failed")
+		values, err := native.ForbiddenValues()
+		if err != nil || len(values) != 2 {
+			t.Fatal("native secret registration", err)
+		}
+		secrets, err := native.BeginFinalization()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = ScanRetained(run, secrets); err != nil {
+			t.Fatal(err)
+		}
+		native.ReleaseHandles()
+		for _, operation := range []string{"secrets", "scan", "preserve", "prune", "resources"} {
+			q["operation"] = operation
+			data, _ := json.Marshal(q)
+			if _, err := execute(data, repo, caller); err == nil {
+				t.Fatal("removed operation accepted", operation)
+			}
 		}
 		q["operation"] = "close"
 		data, _ := json.Marshal(q)

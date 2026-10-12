@@ -2,3 +2,14 @@
 package harnesssession
 const MaximumFrame = 1048576
 const MaximumPlan = 33554432
+var cleanupDeadlinesMS = map[string]int{
+"diagnostic_scope": 30000,
+"preparation_process": 30000,
+"browser_process": 30000,
+"helper_process": 30000,
+"browser_renderer": 30000,
+"browser_stack": 120000,
+"object_store_proxy": 30000,
+"managed_suite": 120000,
+"borrowed_suite": 30000,
+}

@@ -21,11 +21,12 @@ export function assertPrivateChildCaptureBoundary() {
 
 async function exercise(scenario) {
   const fixture = fs.mkdtempSync(path.join(tmpdir(), "cartulary-capture-contract-"));
-  const repoRoot = path.join(fixture, "repo");
+  const repoRoot = ["snapshot-caller", "make-wrapper"].includes(scenario) ? path.resolve(import.meta.dirname, "../../..") : path.join(fixture, "repo");
   const runRoot = path.join(fixture, "results", "capture-contract");
-  fs.mkdirSync(repoRoot, { mode: 0o700 });
+  if (!["snapshot-caller", "make-wrapper"].includes(scenario)) fs.mkdirSync(repoRoot, { mode: 0o700 });
   fs.mkdirSync(runRoot, { recursive: true, mode: 0o700 });
   const runtime = createRuntime({ repoRoot, runRoot, runID: "capture-contract", scratchRoot: path.join(fixture, "scratch") });
+  let wrapperRuntime;
   const parent = runtime.privatePath("child-captures");
   fs.writeFileSync(path.join(fixture, "protected"), "protected bytes", { mode: 0o600 });
   const options = { repoRoot, runRoot, cwd: repoRoot, env: {
@@ -214,10 +215,16 @@ async function exercise(scenario) {
         for (const directory of fs.readdirSync(parent)) assert.deepEqual(fs.readdirSync(path.join(parent, directory)), ["stdout"]);
       } else {
         const wrapperResults = path.join(fixture, "wrapper-results");
+        const wrapperRun = path.join(wrapperResults, "wrapper-run");
+        fs.mkdirSync(wrapperRun, { recursive: true, mode: 0o700 });
+        wrapperRuntime = createRuntime({ repoRoot: root, runRoot: wrapperRun, runID: "wrapper-run", scratchRoot: path.join(fixture, "scratch") });
         const target = "go-test-duration-baseline-drift";
         const outcome = await execute(["tools/harness/execution/run-make-node-tool-cli.mjs", target], {
           CARTULARY_TEST_RESULTS_DIR: wrapperResults,
           CARTULARY_TEST_RUN_ID: "wrapper-run",
+          CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: wrapperRuntime.root,
+          CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: wrapperRuntime.leaseID,
+          CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: wrapperRuntime.runID,
           CARTULARY_OUTPUT_MODE: "summary",
           RESULTS_DIR: path.join(fixture, "missing-evidence"),
         });
@@ -230,7 +237,7 @@ async function exercise(scenario) {
         assert.ok(!diagnostic.includes(fixture));
         const allocation = JSON.parse(fs.readFileSync(path.join(fixture, "capture-allocation.json"), "utf8"));
         assert.ok(fs.existsSync(allocation), "borrowed runtime remains owned by its caller after capture cleanup fails");
-        assert.ok(allocation.startsWith(`${runtime.root}${path.sep}`));
+        assert.ok(allocation.startsWith(`${wrapperRuntime.root}${path.sep}`));
 
       }
     } else if (scenario === "tail-limits") {
@@ -260,6 +267,7 @@ async function exercise(scenario) {
     assert.deepEqual(fs.readdirSync(runRoot), [], "raw output and private paths are never retained");
   } finally {
     restore();
+    wrapperRuntime?.close();
     runtime.close();
     assert.ok(!fs.existsSync(runtime.root));
     fs.rmSync(fixture, { recursive: true, force: true });

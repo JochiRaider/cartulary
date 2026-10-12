@@ -26,11 +26,14 @@ import (
 
 type Runtime struct {
 	Root, RunID, LeaseID string
+	Repository, RunRoot  string
 	Directory            *os.File
 	parent               *os.File
 	owned                bool
 	mu                   sync.Mutex
 	closed               bool
+	cleanupMu            sync.Mutex
+	cleanupAttempts      map[string]*cleanupAttempt
 }
 
 var component = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
@@ -86,9 +89,20 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 		scratch = filepath.Join(os.TempDir(), "cartulary-harness-scratch")
 	}
 	for _, name := range []string{repository, runRoot, scratch} {
-		if !filepath.IsAbs(name) {
+		if !canonicalPath(name) {
 			return nil, harnesslocal.ErrUnsafe
 		}
+	}
+	for _, bound := range []string{repository, runRoot} {
+		canonical, err := filepath.EvalSymlinks(bound)
+		if err != nil || canonical != bound {
+			return nil, harnesslocal.ErrUnsafe
+		}
+		dir, err := harnesslocal.OpenDirectory(bound, false)
+		if err != nil {
+			return nil, err
+		}
+		dir.Close()
 	}
 	if within(repository, scratch) || within(runRoot, scratch) {
 		return nil, harnesslocal.ErrUnsafe
@@ -113,7 +127,7 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 		parent.Close()
 		return nil, err
 	}
-	result = &Runtime{Root: root, RunID: runID, LeaseID: identifier(), Directory: directory, parent: parent, owned: true}
+	result = &Runtime{Root: root, RunID: runID, LeaseID: identifier(), Repository: repository, RunRoot: runRoot, Directory: directory, parent: parent, owned: true}
 	// Incomplete initialization remains under the private root, never a retained
 	// path. Only this exact created directory is eligible for rollback.
 	defer func() {
@@ -125,8 +139,9 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 			parent.Close()
 		}
 	}()
-	owner := map[string]any{"schema_id": "cartulary.harness_suite_runtime_owner.v1", "lease_id": result.LeaseID, "run_id": runID, "owner_uid": os.Getuid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano)}
-	if err = privateJSON(filepath.Join(root, "runtime-owner.json"), "cartulary.harness_suite_runtime_owner.v1", owner, false); err != nil {
+	owner := runtimeOwner{Schema: OwnerSchema, LeaseID: result.LeaseID, RunID: runID, UID: os.Getuid(), Created: time.Now().UTC().Format(time.RFC3339Nano), Repository: repository, RunRoot: runRoot, Outputs: []string{}}
+
+	if err = privateJSON(filepath.Join(root, "runtime-owner.json"), "cartulary.harness_suite_runtime_owner.v2", owner, false); err != nil {
 		return nil, err
 	}
 	publishedName := strings.TrimPrefix(name, ".creating-")
@@ -158,7 +173,7 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 	return result, nil
 }
 func BorrowRuntime(repository, runRoot, root, runID, leaseID string) (*Runtime, error) {
-	if !filepath.IsAbs(repository) || !filepath.IsAbs(runRoot) || !filepath.IsAbs(root) || within(repository, root) || within(runRoot, root) {
+	if !canonicalPath(repository) || !canonicalPath(runRoot) || !canonicalPath(root) || within(repository, root) || within(runRoot, root) {
 		return nil, harnesslocal.ErrUnsafe
 	}
 	directory, err := harnesslocal.OpenDirectory(root, true)
@@ -166,22 +181,22 @@ func BorrowRuntime(repository, runRoot, root, runID, leaseID string) (*Runtime, 
 		return nil, err
 	}
 	fail := func() (*Runtime, error) { directory.Close(); return nil, harnesslocal.ErrUnsafe }
-	data, err := harnesslocal.ReadFileAt(directory, "runtime-owner.json", 4096, false)
+	if _, err := ReadBinding(repository, runRoot, root, runID, leaseID); err != nil {
+		return fail()
+	}
+	data, err := harnesslocal.ReadFileAt(directory, "runtime-owner.json", MaximumOwner, false)
 	if err != nil {
 		return fail()
 	}
-	value, err := harnessschema.Decode(data)
-	if err != nil || harnessschema.Validate("cartulary.harness_suite_runtime_owner.v1", value) != nil {
+	owner, err := decodeOwner(data)
+	if err != nil {
 		return fail()
 	}
-	owner := value.(map[string]any)
-	if owner["lease_id"] != leaseID || owner["run_id"] != runID || owner["owner_uid"] != float64(os.Getuid()) {
-		return fail()
-	}
+
 	if harnesslocal.CheckDirectory(directory, root) != nil {
 		return fail()
 	}
-	return &Runtime{Root: root, RunID: runID, LeaseID: leaseID, Directory: directory}, nil
+	return &Runtime{Root: root, RunID: runID, LeaseID: leaseID, Directory: directory, Repository: owner.Repository, RunRoot: owner.RunRoot}, nil
 }
 func (r *Runtime) Environment() map[string]string {
 	return map[string]string{"CARTULARY_HARNESS_SUITE_RUNTIME_ROOT": r.Root, "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID": r.LeaseID, "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID": r.RunID}
@@ -288,11 +303,12 @@ func (r *Runtime) forbiddenValues() ([]string, error) {
 }
 
 type Resource struct {
-	Kind    string          `json:"kind"`
-	Target  json.RawMessage `json:"target"`
-	State   string          `json:"state"`
-	LeaseID string          `json:"lease_id"`
-	RunID   string          `json:"run_id"`
+	RecoveryFiles []string        `json:"recovery_files,omitempty"`
+	Kind          string          `json:"kind"`
+	Target        json.RawMessage `json:"target"`
+	State         string          `json:"state"`
+	LeaseID       string          `json:"lease_id"`
+	RunID         string          `json:"run_id"`
 }
 
 func (r Resource) Path() (string, error) {
@@ -314,10 +330,15 @@ func (r *Runtime) checkResource(v Resource) error {
 	if v.LeaseID != r.LeaseID || v.RunID != r.RunID {
 		return harnesslocal.ErrUnsafe
 	}
+	for _, file := range v.RecoveryFiles {
+		if !filepath.IsAbs(file) || filepath.Clean(file) != file || file == r.Root || !within(r.Root, file) || within(filepath.Join(r.Root, "recovery"), file) {
+			return harnesslocal.ErrUnsafe
+		}
+	}
 	switch v.Kind {
 	case "managed_suite", "borrowed_suite", "browser_stack", "object_store_proxy":
 		target, err := v.Path()
-		if err != nil || target == r.Root || !within(r.Root, target) {
+		if err != nil || !filepath.IsAbs(target) || filepath.Clean(target) != target || target == r.Root || !within(r.Root, target) {
 			return harnesslocal.ErrUnsafe
 		}
 		relative, _ := filepath.Rel(r.Root, target)
@@ -348,7 +369,7 @@ func (r *Runtime) checkResource(v Resource) error {
 	}
 	return nil
 }
-func (r *Runtime) RecordResource(kind string, target any, state string) error {
+func (r *Runtime) RecordResource(kind string, target any, state string, files ...string) error {
 	unlock, err := r.lock()
 	if err != nil {
 		return err
@@ -381,6 +402,24 @@ func (r *Runtime) RecordResource(kind string, target any, state string) error {
 			return err
 		}
 		return unix.Unlinkat(int(directory.Fd()), name, 0)
+	}
+	if prior, err := harnesslocal.ReadFileAt(directory, name, 1048576, false); err == nil {
+		var previous Resource
+		if json.Unmarshal(prior, &previous) != nil || r.checkResource(previous) != nil {
+			return harnesslocal.ErrUnsafe
+		}
+		files = append(append([]string{}, previous.RecoveryFiles...), files...)
+		if previous.State == "acquired" {
+			v.State = "acquired"
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	v.RecoveryFiles = slices.Clone(files)
+	slices.Sort(v.RecoveryFiles)
+	v.RecoveryFiles = slices.Compact(v.RecoveryFiles)
+	if err := r.checkResource(v); err != nil {
+		return err
 	}
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -430,7 +469,7 @@ func (r *Runtime) resources(maximum int) ([]Resource, error) {
 			return nil, err
 		}
 		o, ok := value.(map[string]any)
-		if !ok || len(o) != 5 {
+		if !ok || len(o) < 5 || len(o) > 6 {
 			return nil, harnesslocal.ErrUnsafe
 		}
 		var v Resource

@@ -1,7 +1,7 @@
 package suiteservices
 
 import (
-	"fmt"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +53,11 @@ func TestResolveSuiteRuntimeDirRejectsUnsafeRoots(t *testing.T) {
 		if err := os.Chmod(runtimeRoot, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		owner := fmt.Sprintf("{\"schema_id\":\"cartulary.harness_suite_runtime_owner.v1\",\"lease_id\":\"00000000-0000-4000-8000-000000000001\",\"run_id\":\"run-runtime-contract\",\"owner_uid\":%d,\"created_at\":\"2026-08-14T00:00:00Z\"}\n", os.Getuid())
+		repository, err := FindRepoRoot()
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner, _ := json.Marshal(map[string]any{"schema_id": "cartulary.harness_suite_runtime_owner.v2", "lease_id": "00000000-0000-4000-8000-000000000001", "run_id": "run-runtime-contract", "owner_uid": os.Getuid(), "created_at": "2026-08-14T00:00:00Z", "repository": repository, "run_root": filepath.Join(resultsRoot, "run-runtime-contract"), "output_roots": []string{}})
 		if err := os.WriteFile(filepath.Join(runtimeRoot, "runtime-owner.json"), []byte(owner), 0o600); err != nil {
 			t.Fatal(err)
 		}

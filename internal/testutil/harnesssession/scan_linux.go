@@ -10,7 +10,6 @@ import (
 	"os"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"golang.org/x/sys/unix"
@@ -32,43 +31,7 @@ const scanSyntax = `/"[^"]*(?:password|secret|token(?!s)|cookie|dsn|access_key|p
 /(?:postgres|postgresql):\/\/[^\s/:]+:(?!<redacted>)[^\s/@]+@/iu`
 
 var forbiddenName = regexp.MustCompile(`(?i:^(?:stack|suite|test-services).*\.env$)|^postgres\.recovery\.dsn$|^performance-fixture-runtime\.json$|^suite-environment\.json$|^suite-lease\.json$|^stack\.lease$|^test-route-token$|(?i:key[-_.]?ring)`)
-var jsonSecret = regexp.MustCompile(`(?i)"([^"]*(?:password|secret|token|cookie|dsn|access_key|private_key)[^"]*)"\s*:\s*"([^"]+)"`)
-var assignmentSecret = regexp.MustCompile(`(?:PASSWORD|SECRET|TOKEN|COOKIE|DSN|ACCESS_KEY|PRIVATE_KEY)=([^\s]+)`)
-var postgresSecret = regexp.MustCompile(`(?i)(?:postgres|postgresql)://[^\s/:]+:([^\s/@]+)@`)
 
-func sensitiveJSONKey(key string) bool {
-	k := strings.ToLower(key)
-	for _, s := range []string{"password", "secret", "cookie", "dsn", "access_key", "private_key"} {
-		if strings.Contains(k, s) {
-			return true
-		}
-	}
-	for {
-		i := strings.Index(k, "token")
-		if i < 0 {
-			return false
-		}
-		k = k[i+5:]
-		if !strings.HasPrefix(k, "s") {
-			return true
-		}
-	}
-}
-func secretSyntax(text []byte) bool {
-	for _, m := range jsonSecret.FindAllSubmatch(text, -1) {
-		if sensitiveJSONKey(string(m[1])) && !bytes.HasPrefix(m[2], []byte("<redacted>")) {
-			return true
-		}
-	}
-	for _, re := range []*regexp.Regexp{assignmentSecret, postgresSecret} {
-		for _, m := range re.FindAllSubmatch(text, -1) {
-			if !bytes.HasPrefix(m[1], []byte("<redacted>")) {
-				return true
-			}
-		}
-	}
-	return false
-}
 func scanContent(reader io.Reader, secrets []string) error {
 	maximum := 256
 	for _, s := range secrets {
@@ -78,11 +41,12 @@ func scanContent(reader io.Reader, secrets []string) error {
 	}
 	buffer := make([]byte, 64*1024)
 	overlap := []byte{}
+	syntax := newSecretMatcher()
 	for {
 		n, err := reader.Read(buffer)
 		if n > 0 {
 			b := append(overlap, buffer[:n]...)
-			if secretSyntax(b) {
+			if syntax.feed(buffer[:n], false) {
 				return harnesslocal.ErrUnsafe
 			}
 			for _, s := range secrets {
@@ -93,6 +57,9 @@ func scanContent(reader io.Reader, secrets []string) error {
 			overlap = append([]byte{}, b[max(0, len(b)-maximum):]...)
 		}
 		if err == io.EOF {
+			if syntax.feed(nil, true) {
+				return harnesslocal.ErrUnsafe
+			}
 			return nil
 		}
 		if err != nil {

@@ -61,7 +61,6 @@ import { validateVerificationContracts } from "../test-catalog/index.mjs";
 import { validateTestCatalog } from "../test-catalog/index.mjs";
 import { validateTestCatalogImportBoundary } from "../test-catalog/index.mjs";
 import { validateExecutableInputPolicy } from "../test-catalog/index.mjs";
-import { loadHistoricalPerformanceSchemaRegistry } from "../diagnostics/historical-performance-evidence.mjs";
 import { validateTimelineRecipe } from "../fixtures/timeline-investigation/index.mjs";
 import { renderInstrumentationDefinitions } from "./instrumentation-definitions.mjs";
 import { validateFrontendVisualGoldenManifest } from "../browser/index.mjs";
@@ -3576,7 +3575,6 @@ function validateKind(kind, file, root = repoRoot) {
 
 function validateAll(root) {
   validateSchemaAttachmentPolicy(root);
-  loadHistoricalPerformanceSchemaRegistry(root);
   validateHarnessHelperOwnership(root);
   validateVerificationContracts(root);
   const testCatalog = validateTestCatalog(root);

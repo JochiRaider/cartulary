@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import "./test-frontend-artifact.mjs";
 import { createHash } from "node:crypto";
 import {
@@ -34,7 +35,6 @@ import {
   loadVisualRendererProfile,
 } from "../visual-renderer-lease.mjs";
 import { promoteVisualSnapshotCandidate, stageVisualSnapshotCandidate } from "../visual-snapshot-promotion.mjs";
-import { createRuntime } from "../../runtime/session-client.mjs";
 import {
   collectFinalizedMeasurementSummaries,
   collectFrontendMeasurementObservations,
@@ -265,6 +265,33 @@ const measurementEvidenceRoot = mkdtempSync(
   path.join(os.tmpdir(), "cartulary-measurement-evidence-"),
 );
 try {
+  const summary = finalizedMeasurementSummary(measurementEvidenceRoot);
+  const summaryArtifact = writeMeasurementArtifact(measurementEvidenceRoot, "inspection-summary.json", "frontend_measurement_summary", summary);
+  const aggregateDirectory = path.join(measurementEvidenceRoot, "browser-e2e-measurement");
+  mkdirSync(aggregateDirectory, { mode: 0o700 });
+  const aggregateFile = path.join(aggregateDirectory, "frontend-measurement-aggregate.json");
+  const aggregate = { schema_id: "cartulary.frontend_measurement_aggregate.v3", target_id: "browser-e2e-measurement", status: "qualified", profile_groups: [{
+    fixture_profile_id: summary.fixture_profile_id, snapshot_key: summary.snapshot_key, builder_count: 1, clone_count: 1, scheduler_overlap_count: 0,
+    build_artifact: summary.build_artifact, summary_artifacts: [summaryArtifact.ref], rollups: [{predicate_id: summary.rollup.predicate_id, sample_count: summary.rollup.sample_count, p95_ms: summary.rollup.p95_ms, threshold_ms: summary.rollup.threshold_ms, outcome: summary.rollup.outcome}],
+  }] };
+  const inspect = () => spawnSync(process.execPath, ["tools/harness/diagnostics/explain-run-cli.mjs", "--results-dir", path.dirname(measurementEvidenceRoot), "--run-id", path.basename(measurementEvidenceRoot), "--detail", "measurement"], { cwd: root, encoding: "utf8", timeout: 30000 });
+  writeFileSync(aggregateFile, JSON.stringify(aggregate));
+  const current = inspect();
+  assert.equal(current.status, 0, current.stderr);
+  assert.match(current.stdout, /generation=current/u);
+  assert.match(current.stdout, /MEASUREMENT-STAGE/u);
+  for (const schema_id of ["cartulary.frontend_measurement_aggregate.v1", "cartulary.frontend_measurement_aggregate.v2", "unsupported-private-value"]) {
+    const bytes = JSON.stringify({ schema_id, summaries: [] });
+    writeFileSync(aggregateFile, bytes);
+    const rejected = inspect();
+    assert.equal(rejected.status, 11, rejected.stderr);
+    assert.equal(rejected.stdout, "");
+    assert.match(rejected.stderr, /^unsupported measurement artifact;/u);
+    assert.ok(rejected.stderr.length < 160);
+    assert.equal(rejected.stderr.includes(schema_id), false);
+    assert.equal(readFileSync(aggregateFile, "utf8"), bytes, "inspection changed retired bytes");
+  }
+  rmSync(aggregateDirectory, { recursive: true });
   const reportPath = path.join(measurementEvidenceRoot, "playwright-report.json");
   const collect = (summary, expected = [summary.predicate_id]) => {
     writeFileSync(reportPath, `${JSON.stringify(measurementReport(summary))}\n`);
@@ -688,8 +715,6 @@ try {
   stageVisualSnapshotCandidate(sourceSnapshots, candidateSnapshots);
   assert.equal(lstatSync(path.join(candidateSnapshots, "fixture.png")).mode & 0o777, 0o600);
   assert.equal(readFileSync(path.join(candidateSnapshots, "fixture.png"), "utf8"), "old-golden");
-  const scanOwner = createRuntime({ repoRoot: root, runRoot: candidateSnapshots, runID: "browser-snapshots" });
-  try { assert.equal(scanOwner.scan().status, "pass"); } finally { scanOwner.close(); }
   stageVisualSnapshotCandidate(sourceSnapshots, candidateSnapshots);
   writeFileSync(path.join(candidateSnapshots, "fixture.png"), "new-golden");
   writeFileSync(sourceManifest, "old-manifest");

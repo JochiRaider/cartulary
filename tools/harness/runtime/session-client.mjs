@@ -5,7 +5,7 @@ import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 
-const schema = "cartulary.harness_runtime_session.v1";
+const schema = "cartulary.harness_runtime_session.v2";
 const rejected = () => Object.assign(new Error("native private runtime rejected"), { failure_class: "artifact", failure_reason: "artifact_error" });
 function transaction(repository, runRoot, runID, operation, fields, environment) {
   const message = { schema_id: schema, request_id: 1, operation, repository, run_root: runRoot, run_id: runID, ...fields };
@@ -32,11 +32,7 @@ function handle(repository, runRoot, identity, environment, owned, admissionToke
     privatePath: (...parts) => call("private_path", { parts }),
     registerSecret: (value) => call("register", { values: [String(value ?? "")], environment: {} }),
     registerEnvironment: (values) => call("register", { values: [], environment: values }),
-    forbiddenValues: () => call("secrets"),
-    record: ({ kind, target, state = "acquired" }) => call("record", { ...(admissionToken() ? { admission_token: admissionToken() } : {}), resource: { kind, target, state, run_id: runID, lease_id: leaseID } }),
-    resources: () => call("resources"),
-    scan: () => call("scan"),
-    preserveRecovery: () => { if (!owned) throw rejected(); call("preserve"); },
+    record: ({ kind, target, state = "acquired", recovery_files }) => call("record", { ...(admissionToken() ? { admission_token: admissionToken() } : {}), resource: { kind, target, state, ...(recovery_files ? { recovery_files } : {}), run_id: runID, lease_id: leaseID } }),
     close: () => { if (closed) return; if (owned) call("close"); closed = true; },
   });
 }

@@ -9,17 +9,51 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 )
 
 func TestFixtureRecovery(t *testing.T) {
+	t.Run("stalled_dependency_inspection_is_bounded_once", func(t *testing.T) {
+		runtime, root, run := runtimeFixture(t)
+		browser := filepath.Join(runtime.Root, "browser-stack-leases", "a", "acquisition", "owner.json")
+		if err := runtime.RecordResource("browser_stack", browser, "pending"); err != nil {
+			t.Fatal(err)
+		}
+		defer runtime.RecordResource("browser_stack", browser, "released")
+		synctest.Test(t, func(t *testing.T) {
+			calls := 0
+			p := ProductionOptions{Root: root, RunRoot: run, Target: "review", Runtime: runtime, Environment: map[string]string{"NODE_BIN": "node"}}
+			p.Run = func(ctx context.Context, _ string, args []string, _ map[string]string) (CommandResult, error) {
+				calls++
+				if args[1] != "inspect" {
+					t.Error("unexpected cleanup")
+				}
+				<-ctx.Done()
+				return CommandResult{}, ctx.Err()
+			}
+			before := time.Now()
+			if err := p.Recover(context.Background()); err == nil {
+				t.Fatal("stalled inspection passed")
+			}
+			if time.Since(before) != 120*time.Second {
+				t.Fatal("inspection did not use resource deadline")
+			}
+			if err := p.Recover(context.Background()); err == nil || calls != 1 {
+				t.Fatal("duplicate resource budget", calls, err)
+			}
+		})
+	})
 	for _, variant := range []string{"success", "missing_dependency", "unknown_dependency", "failed_browser", "borrowed", "borrowed_browser_failure"} {
 		t.Run(variant, func(t *testing.T) {
 			runtime, root, run := runtimeFixture(t)
 			suite := filepath.Join(runtime.Root, "test-services", "suite-lease.json")
 			browser := filepath.Join(runtime.Root, "browser-stack-leases", "a", "acquisition", "owner.json")
 			writeFixtureJSON(t, suite, map[string]string{"proof": "synthetic"})
+			writeFixtureJSON(t, filepath.Join(filepath.Dir(suite), "suite-environment.json"), map[string]string{})
+			writeFixtureJSON(t, filepath.Join(runtime.Root, "borrowed-environment.json"), map[string]string{})
 			writeFixtureJSON(t, browser, map[string]string{"proof": "synthetic"})
 			if variant != "missing_dependency" && !strings.HasPrefix(variant, "borrowed") {
 				if err := runtime.RecordResource("managed_suite", suite, "acquired"); err != nil {
@@ -80,6 +114,16 @@ func TestFixtureRecovery(t *testing.T) {
 			}
 			err := p.Recover(context.Background())
 			joined := strings.Join(calls, ",")
+			resources, readErr := runtime.Resources(64)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if variant == "success" && len(resources) != 0 {
+				t.Fatal("successful recovery left resource authority", resources)
+			}
+			if variant == "failed_browser" && len(resources) != 2 {
+				t.Fatal("failed browser recovery lost exact browser and suite authority", resources)
+			}
 			if variant == "success" {
 				if err != nil || joined != "inspect,recover,suite" {
 					t.Fatal(calls, err)

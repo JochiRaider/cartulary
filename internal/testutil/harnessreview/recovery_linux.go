@@ -69,36 +69,25 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 	}
 	terminal := locator.Receipt != nil
 	var prior Result
+	var terminalErr error
 	if terminal {
-		prior, err = terminalResult(file, locator, command)
-		if err != nil {
-			return prior, err
-		}
+		prior, terminalErr = terminalResult(file, locator, command)
 	}
 	record, err := resolveRecord(repository, file, locator)
 	if errors.Is(err, os.ErrNotExist) && terminal {
-		return prior, nil
+		return prior, terminalErr
 	}
 	if err != nil {
 		return result(command), err
 	}
-	if record.Outcome != nil {
-		pending := record.Outcome
-		if pending.Session != locator.Session || pending.Mode != locator.Mode || pending.Operation != nil || pending.Command != commandID("ui-review") || pending.Cleanup == "not_terminal" {
-			return result(command), failure("invalid_artifact")
-		}
-		for _, f := range pending.Failures {
-			if f.validate() != nil {
-				return result(command), failure("invalid_artifact")
-			}
-		}
+	if record.Outcome != nil && record.Publication == nil {
+		return result(command), failure("invalid_artifact")
 	}
 	alive, err := harnessadmission.Alive(record.Process)
 	if err != nil || alive {
 		return result(command), failure("session_mismatch")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 330*time.Second)
-	defer cancel()
+	ctx = context.WithoutCancel(ctx)
 	runRoot := filepath.Dir(filepath.Dir(file))
 	proof, err := harnessadmission.Identity(os.Getpid())
 	if err != nil {
@@ -106,7 +95,7 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 	}
 	var runtime *harnesssession.Runtime
 	runtime, err = harnesssession.OwnRuntime(repository, runRoot, record.Runtime.Root, record.Runtime.RunID, record.Runtime.Lease, proof, true)
-	if err != nil && !(errors.Is(err, os.ErrNotExist) && record.Released) {
+	if err != nil && !(errors.Is(err, os.ErrNotExist) && record.Released && record.Publication != nil && record.Publication.Scanned) {
 		return result(command), failure("unsafe_artifact")
 	}
 	failures := []Failure{failure("session_lost").Record}
@@ -114,10 +103,6 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 	secrets := []string{}
 	if runtime != nil {
 		defer runtime.ReleaseHandles()
-		secrets, err = runtime.ForbiddenValues()
-		if err != nil {
-			return result(command), err
-		}
 		cleanup := recoverIndependent(ctx, repository, runRoot, runtime, environment)
 		if len(cleanup) == 0 {
 			physicalRoot := runRoot
@@ -137,51 +122,27 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 			failures = append(failures, failure("cleanup_failed").Record)
 		}
 	}
-	if terminal {
-		if !cleanupFailed {
-			if runtime != nil {
-				if _, err = runtime.BeginFinalization(); err != nil {
-					return prior, err
-				}
-				record.Released = true
-				if err = writeRegistry(record, true); err != nil {
-					return prior, err
-				}
-				if err = runtime.Close(); err != nil {
-					return prior, err
-				}
-			}
-			if _, err = harnesssession.ScanRetained(runRoot, secrets); err != nil {
-				return prior, err
-			}
-			if err = removeRegistry(record); err != nil {
-				return prior, err
-			}
-		}
-		return prior, nil
-	}
-	counts, err := recoverCounts(runRoot, locator.Session)
-	if err != nil {
-		failures = append(failures, failure("invalid_artifact").Record)
-	}
-	tick, e := strconv.ParseInt(record.StartedTick, 10, 64)
-	if e != nil || tick > monotonic() {
-		return result(command), failure("invalid_artifact")
-	}
-	locator.State = "failed"
 	publisher := &diskPublisher{runtime: runtime, record: record, runRoot: runRoot, secrets: secrets}
-	receipt := Receipt{Schema: "cartulary.ui_review_receipt.v2", Command: commandID("ui-review"), Session: locator.Session, Mode: locator.Mode, State: "failed", Status: "error", Exit: 3, Started: locator.Created, Finished: timestamp(time.Now()), Duration: (monotonic() - tick) / int64(time.Millisecond), Failures: failures, Counts: counts, Cleanup: "complete"}
-	if record.Outcome != nil {
-		receipt.Failures = append([]Failure{}, record.Outcome.Failures...)
-		receipt.Exit = record.Outcome.Exit
-		receipt.Failures = appendFailure(receipt.Failures, failure("unsafe_artifact").Record)
-		if receipt.Exit == 0 {
-			receipt.Exit = 11
+	var receipt Receipt
+	if record.Publication != nil {
+		if err := publisher.validateIntent(); err != nil {
+			return result(command), err
 		}
-	}
-	if cleanupFailed {
-		receipt.Cleanup = "failed"
-		receipt.Failures = appendFailure(receipt.Failures, failure("cleanup_failed").Record)
+		receipt = *record.Outcome
+	} else {
+		counts, countErr := recoverCounts(runRoot, locator.Session)
+		if countErr != nil {
+			failures = append(failures, failure("invalid_artifact").Record)
+		}
+		tick, e := strconv.ParseInt(record.StartedTick, 10, 64)
+		if e != nil || tick > monotonic() {
+			return result(command), failure("invalid_artifact")
+		}
+		locator.State = "failed"
+		receipt = Receipt{Schema: "cartulary.ui_review_receipt.v2", Command: commandID("ui-review"), Session: locator.Session, Mode: locator.Mode, State: "failed", Status: "error", Exit: 3, Started: locator.Created, Finished: timestamp(time.Now()), Duration: (monotonic() - tick) / int64(time.Millisecond), Failures: failures, Counts: counts, Cleanup: "complete"}
+		if cleanupFailed {
+			receipt.Cleanup = "failed"
+		}
 	}
 	var owner Publisher = publisher
 	if record.Presentation == "design" {
@@ -192,27 +153,32 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 			return nil
 		}()}}}}
 	}
-	ref, err := owner.Terminal(locator, receipt, cleanupFailed)
+	_, err = owner.Terminal(locator, receipt, cleanupFailed)
 	if err != nil {
-		locator.Receipt = nil
-		_ = owner.Locator(locator)
+		failed := locator
+		failed.State = "failed"
+		failed.Receipt = nil
+		_ = owner.Locator(failed)
 		v := result(command)
 		v.Session = &locator.Session
-		v.State = &locator.State
+		state := "failed"
+		v.State = &state
 		v.Status = "error"
+		cause := normalized(err, "unsafe_artifact")
 		v.Exit = receipt.Exit
-		v.Failures = appendFailure(receipt.Failures, failure("unsafe_artifact").Record)
+		if v.Exit == 0 {
+			v.Exit = cause.Exit
+		}
+		v.Failures = appendFailure(append([]Failure{}, receipt.Failures...), cause.Record)
 		return v, nil
 	}
-	value := result(command)
-	value.Session = &locator.Session
-	value.State = &locator.State
-	value.Status = "error"
-	value.Exit = receipt.Exit
-	value.Failures = receipt.Failures
-	value.Receipt = ref
-	return value, nil
+	_, completed, err := readLocator(repository, file)
+	if err != nil {
+		return result(command), err
+	}
+	return terminalResult(file, completed, command)
 }
+
 func recoverCounts(root, session string) (Counts, error) {
 	var counts Counts
 	directory := filepath.Join(root, "ui-review/operations")

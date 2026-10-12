@@ -4,7 +4,6 @@ import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { borrowRuntime } from "./session-client.mjs";
 import { stopFixtureResource } from "./fixture-resource-stop.mjs";
 import { stopDiagnosticProcesses } from "../browser/index.mjs";
-import path from "node:path";
 import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 const maximum = lifecyclePolicy.limits.frame;
 try {
@@ -14,13 +13,12 @@ try {
   if (data.length > maximum || process.argv.length !== 2) throw new Error("invalid private cleanup");
   const resource = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(data));
   validateSchemaSync("cartulary.harness_runtime_resource.v1", resource);
-  const runRoot = path.resolve(process.cwd(), process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
+  const runRoot = process.env.CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT;
   const runtime = borrowRuntime({ repoRoot: process.cwd(), runRoot });
   if (resource.run_id !== runtime.runID || resource.lease_id !== runtime.leaseID) throw new Error("foreign cleanup");
   if (resource.kind === "diagnostic_scope") await stopDiagnosticProcesses(resource.target);
   else if (resource.kind.endsWith("_process")) await stopFixtureResource("process", resource.target);
   else if (resource.kind === "browser_renderer") await stopFixtureResource("renderer", resource.target);
-  else if (resource.kind === "object_store_proxy") await stopFixtureResource("proxy", resource.target);
   else throw new Error("unknown physical cleanup");
   runtime.close();
 } catch { process.exitCode = 12; }

@@ -13,6 +13,45 @@ import (
 )
 
 func testFixturePreservation(t *testing.T) {
+	testFixturePreservationBaseline(t)
+	testSiblingDetailRemoval(t)
+	testRecoveryDependencyValidation(t)
+}
+
+// Independent correction fixture, activated by the exact-dependency slice.
+func testSiblingDetailRemoval(t *testing.T) {
+	t.Run("purge_sibling_detail", func(t *testing.T) {
+		r, _, _ := runtimeFixture(t)
+		proof := filepath.Join(r.Root, "suite", "lease.json")
+		dir, err := harnesslocal.PrivateDirectory(filepath.Dir(proof))
+		if err != nil {
+			t.Fatal(err)
+		}
+		dir.Close()
+		if err := os.WriteFile(proof, []byte("private proof"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.RecordResource("managed_suite", proof, "acquired"); err != nil {
+			t.Fatal(err)
+		}
+		defer r.RecordResource("managed_suite", proof, "released")
+		detail := filepath.Join(filepath.Dir(proof), "credentials.log")
+		if err := os.WriteFile(detail, []byte("unnecessary private detail"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.PreserveRecovery(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(proof); err != nil {
+			t.Fatal("lost proof", err)
+		}
+		if _, err := os.Stat(detail); !os.IsNotExist(err) {
+			t.Error("sibling detail survived", err)
+		}
+	})
+}
+
+func testFixturePreservationBaseline(t *testing.T) {
 	t.Run("purge_only_unprotected_detail", func(t *testing.T) {
 		r, _, _ := runtimeFixture(t)
 		protected := filepath.Join(r.Root, "suite", "suite-lease.json")
@@ -92,4 +131,62 @@ func testFixturePreservation(t *testing.T) {
 			t.Fatal("dead empty root remains", err)
 		}
 	})
+}
+
+func testRecoveryDependencyValidation(t *testing.T) {
+	for _, variant := range []string{"valid", "missing", "symlink", "foreign", "directory"} {
+		t.Run("dependency_"+variant, func(t *testing.T) {
+			r, _, _ := runtimeFixture(t)
+			proof := filepath.Join(r.Root, "proof.json")
+			cert := filepath.Join(r.Root, "root.pem")
+			detail := filepath.Join(r.Root, "credentials.log")
+			for _, file := range []string{proof, cert, detail} {
+				if err := os.WriteFile(file, []byte("private"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if variant == "foreign" {
+				cert = filepath.Join(t.TempDir(), "foreign")
+			}
+			if err := r.RecordResource("object_store_proxy", proof, "acquired", cert); variant == "foreign" {
+				if err == nil {
+					t.Fatal("foreign dependency admitted")
+				}
+				return
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			defer r.RecordResource("object_store_proxy", proof, "released")
+			if variant == "missing" || variant == "symlink" || variant == "directory" {
+				if err := os.Remove(cert); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if variant == "symlink" {
+				if err := os.Symlink(proof, cert); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if variant == "directory" {
+				if err := os.Mkdir(cert, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err := r.PreserveRecovery()
+			if (err == nil) != (variant == "valid") {
+				t.Fatal("dependency validation", variant, err)
+			}
+			if _, err := os.Stat(detail); !os.IsNotExist(err) {
+				t.Fatal("independent purge skipped", err)
+			}
+			if _, err := os.Stat(proof); err != nil {
+				t.Fatal("authority removed", err)
+			}
+			if variant == "valid" {
+				if _, err := os.Stat(cert); err != nil {
+					t.Fatal("certificate removed", err)
+				}
+			}
+		})
+	}
 }

@@ -800,15 +800,17 @@ references with digests to its observation, build, and retained lease
 artifacts; it MUST NOT embed any of those artifacts. An aggregate v3 contains
 independent profile groups, immutable summary references, and bounded
 cross-row rollups; it MUST NOT embed observations or complete summaries. The
-browser target result wrapper is v3 and the retained browser-stack lease is v2.
+browser target result wrapper is v4 and the retained browser-stack lease is v2.
 
-Superseded performance evidence schemas live outside the active schema root in
-one digest-pinned, read-only historical registry. Only diagnostic and schema
-integrity tools may load that registry. Graph compilation, producers,
-finalizers, qualification, release evidence, and active schema attachment
-resolution MUST reject historical identities. Historical validation proves
-only that retained bytes match their former shape; it MUST NOT translate those
-bytes, synthesize current evidence, or qualify current source.
+Only necessary current owner-required schemas and their transitive definitions
+belong to the supported schema surface. Superseded performance evidence remains
+immutable inspectable bytes; the harness MUST NOT retain or load historical
+schemas, a historical registry, a translator or an alternate validator. Current
+diagnostics, graph compilation, producers, finalizers, qualification and release
+evidence MUST reject unsupported artifact generations using a bounded artifact
+failure. Diagnostics MUST NOT interpret historical fields or present historical
+validation as current evidence. Removal of support MUST NOT rewrite retained
+bytes, synthesize evidence or change current qualification policy.
 Verified by: TH-HARNESS-AC-099
 
 **TH-HARNESS-REQ-816**
@@ -1434,8 +1436,9 @@ the compact service-admission proof, lease, database, object-store namespace, fi
 process, and frontend-build identities. Group and target results MUST carry
 ordered run-relative session artifact references and SHA-256 digests. Shared or
 multi-profile target projections MUST consume those artifacts without gaining
-write authority. V3/V7 stacks and v1/v2 diagnostic schemas are historical-validation
-inputs only and MUST NOT be active-run admission fallbacks.
+write authority. Superseded stack and diagnostic generations are unsupported
+artifacts. Neither current admission nor diagnostic inspection may load historical
+schemas or use them as fallbacks; retained historical bytes remain unchanged.
 
 The `browser-e2e-stateful` public target MAY use generated `stateful_partition` groups when each partition declares explicit semantic row IDs and an explicit browser session group. Partitioning MUST preserve the same row inventory as the unpartitioned target. An empty adapter invocation MUST be omitted rather than represented as product success. Direct execution MUST reset between selector-file partitions. Scheduler execution MUST serialize stateful partitions that share a browser session group in authored order, and each partition's reset MUST complete before the next partition starts. Distinct browser session groups MAY overlap only when each group owns an isolated retained lifecycle. The `network_flow_claimed` profile MUST always have a distinct startup session for stateful, accessibility, visual, measurement, and webserver-backed evidence. Partitioning MUST NOT remove reset, taint, teardown, route-token, runtime identity, evidence-accounting, or target-summary evidence.
 
@@ -2938,6 +2941,14 @@ files; an unregistered file, duplicate ID/path, or missing registered attachment
 is invalid. The machine owner supplies attachment mechanics and MUST remain
 parity-checked with every harness-public row in this table.
 
+The retired fixture-tier proof document has no current producer or consumer;
+current fixture evidence uses the native fixture lease and canonical row/unit
+contracts. The harness produces and accepts no separate frontend claim-review
+artifact. Any future claim-publication implementation requires its own adopted
+Core 05 boundary and necessary schemas; dormant schemas do not establish one.
+These retirements do not alter current fixture-policy validation or authorize
+claim publication.
+
 | Schema ID                                       | Repository attachment path                                               | Status            | Producer class           | Required validation point                 |
 | ----------------------------------------------- | ------------------------------------------------------------------------- | ----------------- | ------------------------ | ----------------------------------------- |
 | `cartulary.harness_artifact_ref.v1`             | `tools/schemas/cartulary.harness_artifact_ref.v1.schema.json`             | present           | Shared schema component  | Whenever a current schema declares structured retained harness artifact references. |
@@ -2950,7 +2961,7 @@ parity-checked with every harness-public row in this table.
 | `cartulary.harness_run_manifest.v2`             | `tools/schemas/cartulary.harness_run_manifest.v2.schema.json`             | present           | Graph runner             | Before scheduler admission.               |
 | `cartulary.harness_unit_event.v3`               | `tools/schemas/cartulary.harness_unit_event.v3.schema.json`               | present           | Graph scheduler          | Before event-stream publication.          |
 | `cartulary.harness_unit_result.v1`              | `tools/schemas/cartulary.harness_unit_result.v1.schema.json`              | present           | Graph runner             | Before unit completion is accepted.       |
-| `cartulary.harness_row_result.v2`               | `tools/schemas/cartulary.harness_row_result.v2.schema.json`               | present           | Runner adapters          | Before selected-row closure.              |
+| `cartulary.harness_row_result.v3`               | `tools/schemas/cartulary.harness_row_result.v3.schema.json`               | present           | Runner adapters          | Before selected-row closure.              |
 | `cartulary.harness_test_failure.v1`             | `tools/schemas/cartulary.harness_test_failure.v1.schema.json`             | present           | Go test-support helpers  | Before a setup failure marker is emitted or accepted. |
 | `cartulary.harness_run_summary.v1`              | `tools/schemas/cartulary.harness_run_summary.v1.schema.json`              | present           | Event projection         | Before graph command exit.                |
 | `cartulary.harness_target_summary.v1`           | `tools/schemas/cartulary.harness_target_summary.v1.schema.json`           | present           | Target projection        | Before graph command exit.                |
@@ -2962,8 +2973,7 @@ parity-checked with every harness-public row in this table.
 | `cartulary.test_target_summary.v4`              | `tools/schemas/cartulary.test_target_summary.v4.schema.json`              | present           | Target summary generator | Before aggregate/run summary consumes it. |
 | `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | present           | Run summary generator    | Before public aggregate success.          |
 | `cartulary.task_surface_owner.v2`               | `tools/schemas/cartulary.task_surface_owner.v2.schema.json`               | present           | Authored task-surface owner validation | Before task-surface, graph, or generated Make projection. |
-| `cartulary.contract_family_registry.v3`         | `tools/schemas/cartulary.contract_family_registry.v3.schema.json`         | present           | Contract generator family registry | During JSON shape checks and before `tools/contractgen` emits generated contract roots. |
-| `cartulary.fixture_tier_proof.v3`               | `tools/schemas/cartulary.fixture_tier_proof.v3.schema.json`               | present           | Scheduler reporter and fixture-proof validators | Before a retained fixture-tier proof artifact is accepted. |
+| `cartulary.contract_family_registry.v5`         | `tools/schemas/cartulary.contract_family_registry.v5.schema.json`         | present           | Contract generator family registry | During JSON shape checks and before `tools/contractgen` emits generated contract roots. |
 | `cartulary.verification_registry.v3`            | `tools/schemas/cartulary.verification_registry.v3.schema.json`            | present           | Verification registry    | Before catalog compilation or evidence routing. |
 | `cartulary.verification_contract.v3`            | `tools/schemas/cartulary.verification_contract.v3.schema.json`            | present           | Verification owner       | Before catalog compilation or evidence routing. |
 | `cartulary.test_owner_registry.v1`              | `tools/schemas/cartulary.test_owner_registry.v1.schema.json`              | present           | Test catalog owner       | Before owner manifest loading. |
@@ -2990,8 +3000,8 @@ parity-checked with every harness-public row in this table.
 | `cartulary.web_e2e_stack.v8`                    | `tools/schemas/cartulary.web_e2e_stack.v8.schema.json`                    | present           | Browser session lifecycle | Before browser target starts Playwright. |
 | `cartulary.web_e2e_backend_generation.v2`       | `tools/schemas/cartulary.web_e2e_backend_generation.v2.schema.json`       | present           | Browser reset lifecycle  | Before a replacement backend is attached. |
 | `cartulary.browser_startup_event.v2`             | `tools/schemas/cartulary.browser_startup_event.v2.schema.json`             | present           | Browser session lifecycle | For each append-only startup transition. |
-| `cartulary.browser_startup_diagnostics.v2`       | `tools/schemas/cartulary.browser_startup_diagnostics.v2.schema.json`       | present           | Browser session lifecycle | Once at terminal ready or failed state. |
-| `cartulary.browser_group_result.v6`              | `tools/schemas/cartulary.browser_group_result.v6.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
+| `cartulary.browser_startup_diagnostics.v3`       | `tools/schemas/cartulary.browser_startup_diagnostics.v3.schema.json`       | present           | Browser session lifecycle | Once at terminal ready or failed state. |
+| `cartulary.browser_group_result.v7`              | `tools/schemas/cartulary.browser_group_result.v7.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
 | `cartulary.browser_target_result.v4`             | `tools/schemas/cartulary.browser_target_result.v4.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
 | `cartulary.local_object_store_proxy_start_attempt.v2` | `tools/schemas/cartulary.local_object_store_proxy_start_attempt.v2.schema.json` | present | Local development proxy lifecycle | Before a startup attempt is recovered or promoted. |
 | `cartulary.local_object_store_proxy_lease.v2`    | `tools/schemas/cartulary.local_object_store_proxy_lease.v2.schema.json`    | present           | Local development proxy lifecycle | Before reuse or signaling. |
@@ -3012,7 +3022,6 @@ parity-checked with every harness-public row in this table.
 | `cartulary.network_flow_timezone_ruleset_provenance.v2` | `tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v2.schema.json` | present | Network Flow timezone provenance validator | During JSON shape checks and before timestamp fixtures are accepted. |
 | `cartulary.agent_finalize_summary.v3`           | `tools/schemas/cartulary.agent_finalize_summary.v3.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
 | `cartulary.frontend_visual_fixture_registry.v6` | `tools/schemas/cartulary.frontend_visual_fixture_registry.v6.schema.json` | present           | Semantic frontend visual fixture registry and one-to-one design-contract projection validation | During JSON shape checks, catalog checks, and visual readiness validation. |
-| `cartulary.frontend_claim_publication_review.v1` | `tools/schemas/cartulary.frontend_claim_publication_review.v1.schema.json` | present          | Conditional frontend claim-publication review metadata; no default target emits it | Before any future or explicit frontend claim-review artifact is accepted as Core 05-routed release evidence. |
 | `cartulary.otel_conformance_summary.v1`         | `tools/schemas/cartulary.otel_conformance_summary.v1.schema.json`         | present           | OpenTelemetry conformance target | Before `otel-conformance` success. |
 
 Adoption and continued conformance for
@@ -6002,6 +6011,19 @@ adapters use the shared native private-runtime owner; borrowing never grants roo
 deletion authority. Persistent service proof survives short-lived commands without
 a new resident supervisor. Tests use independently specified expected outcomes;
 a retired JavaScript implementation MUST NOT remain a native test oracle.
+
+Runtime creation binds the canonical repository and retained run root in private
+owner proof. Borrowing and recovery MUST validate those creation bindings; supplied
+paths alone never confer authority. Distinct physical lifecycle output roots are
+explicit owner-bound destinations, not a general arbitrary-root exception. Private
+wire operations without current production consumers MUST be removed; necessary
+native methods and their behavioral tests do not require wire exposure.
+
+Shared retained scanning MUST recognize the existing secret syntax independently
+of input fragmentation, key/value length and intervening whitespace. Use bounded
+streaming state without full-file buffering or silent size cutoffs. Registered
+secret matching, redaction exclusions, filesystem safety and the existing policy
+identity remain unchanged.
 Verified by: TH-HARNESS-AC-147–149
 
 
@@ -6710,6 +6732,15 @@ stalled capture. Concurrent sessions have separate contexts, files, and leases.
 | Capture, including settling and axe when requested | 30 seconds | No successful bundle; preserve bounded stage diagnostic. |
 | Offline analysis or report | 30 seconds each | Discard unpublished outputs; return `timeout_failure`. |
 | Stop | Existing owned-resource teardown deadlines, each applied once | Preserve earlier cause; cleanup-only failure is `cleanup_error`. |
+
+The Go review owner starts each preparation deadline before dispatch, including
+adapter initialization, and owns cancellation, the two-second grace, process-tree
+termination and reaping even when the adapter is unresponsive. Each existing
+Make build producer is a separate closed operation; a compound build recipe
+MUST NOT share one producer deadline. Adapters report facts and outcomes rather
+than run competing lifecycle timers. Cleanup attempts track exact resources so
+each owner deadline is applied once; an aggregate timeout MUST NOT starve the
+remaining independent releases.
 
 Seeded startup uses an `installed_only` preparation policy. Explicit design-review
 preparation uses `ensure`; both enter the same preparation owner. The ordered
@@ -7553,6 +7584,33 @@ successful later cleanup removes recovery proof without rewriting history.
 Missing, changed, cross-user or ambiguous
 proof fails closed without touching unrelated resources. Registry removal requires
 successful owned cleanup, validated terminal publication and retained-boundary scan.
+
+Recovery preservation MUST use validated exact provider-declared file dependencies,
+not protection of entire containing directories. Required private proof and its
+transitive recovery inputs survive; unrelated sibling credentials, logs and work
+are deleted. The physical stop implementation is shared by ordinary termination
+and recovery and MUST NOT depend on a disposable runtime executable surviving
+detail deletion. Invalid dependencies prevent successful recovery but MUST NOT
+skip independently safe detail cleanup.
+
+Terminal publication is a resumable private transaction. Persist its exact intent,
+progress and scanner inputs until all required phases finish. Under exact recovery
+serialization, validate an existing terminal artifact against the persisted intent
+and session bindings before completing missing publication phases. Matching bytes
+are reused unchanged; conflicting bytes are rejected without replacement. Scanner
+authority MUST survive resource release and detail purge until retained scanning
+succeeds. A failed scan or publication never establishes successful closure, and
+neither may skip remaining independent cleanup. Completed receipts remain immutable
+even when a later explicit recovery successfully releases unresolved resources.
+Before terminal bytes exist, a detected publication, scan or cleanup failure is
+persisted into the intent without changing its original timestamps or replacing
+an earlier primary failure. Once any terminal bytes exist, recovery may only
+reuse the exact intended bytes; it MUST NOT regenerate timestamps or outcomes.
+This includes terminal design-presentation and cleanup artifacts in the same
+transaction. Their outcomes remain historical even when later cleanup succeeds.
+A terminal locator with pending private transaction state is not successful
+closure. Status remains observational; an explicit stop may resume that
+transaction, including a locator whose historical terminal state is closed.
 
 
 Verified by: TH-HARNESS-AC-110, TH-HARNESS-AC-111, TH-HARNESS-AC-125, TH-HARNESS-AC-127
@@ -8489,7 +8547,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-096 | Sections 2.1, 3.2 | Populated fixture profile and key closure | Valid v2 registry and catalog plus a synthetic second profile and missing, unknown, inactive, duplicate, incompatible, divergent, malformed-digest, unsupported-version, contract-drift, and reordered fixtures | Registry, catalog, schema, generator, direct-plan, aggregate-plan, and generated Go/JavaScript key-vector validation | Every bound row resolves its explicit profile; every route resolves the same raw key and builder identity; a second profile renders and routes without an AC-043 generic branch; invalid routing fails before child work | Bounded profile/key summary | Exact registry, row, field, digest, version, or compatibility diagnostic | Registry digest, defensive generated descriptor, key vector, generated profile group, graph unit, and target-plan projection | Filename inference, default profile, handwritten profile mirror, prefixed raw key, duplicated binding, route divergence, unsupported current version, or cross-language mismatch passes | no child work; scratch registry removed |
 | TH-HARNESS-AC-097 | Section 2.1 | Source-owner contribution closure | Registered contribution graph plus missing, duplicate, reordered, cyclic, incompatible, authorization, descriptor mutation, entropy, session, and redaction fixtures | Direct contribution and assembler contracts plus one canonical production snapshot build and read-back | The selected profile adapter proves its exact source-owner counts and conditions, production invariants, inactive sessions, stable semantic digest, and safe structural receipts without an independent repeated full build | Bounded contribution receipts | Owner-qualified contribution, descriptor, or validation diagnostic | Ordered structural receipts, selected profile descriptor, semantic validation digest, and owner-backed retired-row mapping | A generic schema embeds profile facts, raw browser SQL, cross-owner loader, secret field, unstable ID, redundant production build, or partial seal passes | partial database and secret bundle removed |
 | TH-HARNESS-AC-098 | Sections 2.1, 5, 9 | Snapshot builder, clone, private runtime, and cleanup lifecycle | Same-key concurrency, different-profile and different-key, bounded four-clone lifecycle, connection race, corruption, partial build, clone failure, cancellation, finalizer failure, credential cleanup, stale-resource, ownership-marker, permission, symlink, and early-delete fixtures | Graph, broker, testservices, PostgreSQL support, browser lifecycle, generated descriptor, private-runtime boundary, and janitor tests | One shared production builder per profile and key precedes quiet sessions; each nonempty Timeline measurement closure records construction count one, a non-measurement closure records zero, clones are isolated, and all proved owned resources clean idempotently on every terminal path | Bounded build/lease/cleanup summary | Builder, descriptor, construction-count, private lease, isolation, or cleanup diagnostic | Active-policy immutable build artifact, separate build diagnostic, opaque retained lease evidence, lifecycle events, cleanup proof, and absent external runtime root | Generic lifecycle code branches on AC-043, lifecycle tests construct production volume, builder enters quiet session, live fallback, unknown connection termination, clone aliasing, early private-file deletion, retained private handle, or unproven janitor deletion passes | zero owned database, bucket, runtime-bundle, private file, session, process, or directory residue |
-| TH-HARNESS-AC-099 | Sections 2.1, 8, 15 | Immutable post-cleanup measurement provenance | Current-policy observations plus valid, missing, stale, inconsistent, unredacted, superseded-generation-only, digest-tampered, overlap, cleanup-failed, secret-bearing, forbidden-path, and injected-value fixtures | Row and target finalizers, schema validation, retained-root scan, direct and aggregate measurement routing | Every current summary links immutable observation, build, and retained cleanup-evidence bytes after private cleanup; independent profile groups prove builder and clone closure, exact policy, zero overlap, cleanup, redaction, and secret-free retention | Bounded active-generation qualification summary | Evidence-integrity, environment, cleanup, compatibility, or security diagnostic | Active registry policy, observation, build, opaque lease evidence, summary, aggregate, digested references, and retained-secret scan | Embedded observation qualifies as a summary, referenced artifact mutates, historical evidence translates or qualifies, cleanup is claimed early, a private lease is retained, or secret material/value is retained | secret copies, private runtime tree, and owned resources removed before retained lease finalization |
+| TH-HARNESS-AC-099 | Sections 2.1, 8, 15 | Immutable post-cleanup measurement provenance | Current-policy observations plus valid, missing, stale, inconsistent, unredacted, unsupported-generation, digest-tampered, overlap, cleanup-failed, secret-bearing, forbidden-path, and injected-value fixtures | Row and target finalizers, schema validation, retained-root scan, direct and aggregate measurement routing | Every current summary links immutable observation, build, and retained cleanup-evidence bytes after private cleanup; independent profile groups prove builder and clone closure, exact policy, zero overlap, cleanup, redaction, and secret-free retention | Bounded active-generation qualification summary | Evidence-integrity, environment, cleanup, compatibility, or security diagnostic | Active registry policy, observation, build, opaque lease evidence, summary, aggregate, digested references, and retained-secret scan | Embedded observation qualifies as a summary, referenced artifact mutates, historical schemas remain loadable or historical evidence validates, translates or qualifies, cleanup is claimed early, a private lease is retained, or secret material/value is retained | secret copies, private runtime tree, and owned resources removed before retained lease finalization |
 | TH-HARNESS-AC-100 | Sections 2.1, 4, 11 | Explicit local service sessions | Missing, malformed, stale, expired, wrong-owner, wrong-digest, dead-container, symlink, concurrent attach, live-borrower, repeated-down, and owned-only target fixtures | Session lifecycle commands, task-surface validation, graph runner, testservices, and one small attached service-backed owner slice | Attachment is explicit and redacted; borrowers and run resources are unique; down refuses live borrowers and deletes only exact proven session resources; owned-only targets reject attach before setup | Redacted typed session status | Usage, configuration, ownership, expiry, borrower, or cleanup diagnostic | Session descriptor, borrower leases, per-run service scope, lifecycle events, and exact cleanup proof | Descriptor presence auto-attaches, a caller sets internal active state, CI/release borrows, unrelated containers are removed, secrets print, or a live borrower loses its session | Run-owned resources clean after each borrower; session resources clean only after exclusive down |
 | TH-HARNESS-AC-101 | Sections 2.1, 8, 10 | Deterministic cached release inventory | Cold and warm paired-producer runs plus source, manifest, lockfile, package, toolchain, scanner, schema, container, generator, partial, surplus, corruption, traversal, link, mode, producer, destination, concurrency, and missing-output fixtures | Release inventory generator and validators, graph compiler, cache-v2 contract fixtures, schema validation, and downstream release-readiness consumption | The real cold producer executes once and publishes one deterministic current pair; a warm hit invokes no producer scanner, restores both files transactionally, and both non-cacheable consumers emit fresh evidence | Existing bounded release summaries | Exact generation, validation, schema, cache, or artifact diagnostic | CycloneDX SBOM, `cartulary.license_report.v2`, cache-v2 record with the exact typed pair, and fresh validator unit evidence | Either consumer regenerates, canonical bytes contain volatile identity, v1 is accepted, the output set is incomplete, an unsafe cache entry publishes bytes, or downstream readiness consumes stale/unvalidated inventory | temporary scanner work is removed; invalid cache entry quarantined; canonical pair follows release-artifact cleanup policy |
 

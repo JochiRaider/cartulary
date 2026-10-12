@@ -3,15 +3,14 @@ package suiteservices
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 )
 
 const (
@@ -246,42 +245,19 @@ func resolveSuiteRuntimeRoot(env map[string]string) (string, error) {
 }
 
 func validateSuiteRuntimeOwner(root string, env map[string]string) error {
-	ownerPath := filepath.Join(root, "runtime-owner.json")
-	info, err := os.Lstat(ownerPath)
+	repository, err := FindRepoRoot()
 	if err != nil {
-		return fmt.Errorf("inspect suite runtime owner marker: %w", err)
+		return err
 	}
-	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 {
-		return fmt.Errorf("suite runtime owner marker must be a non-symlink owner-only 0600 file")
-	}
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Getuid() {
-		return fmt.Errorf("suite runtime owner marker must be owned by the current user")
-	}
-	file, err := os.Open(ownerPath) // #nosec G304 -- ownerPath is contained below the validated non-symlink suite root.
+	results, err := ResolveResultsRoot(env)
 	if err != nil {
-		return fmt.Errorf("open suite runtime owner marker: %w", err)
+		return err
 	}
-	defer file.Close()
-	var owner struct {
-		SchemaID  string `json:"schema_id"`
-		LeaseID   string `json:"lease_id"`
-		RunID     string `json:"run_id"`
-		OwnerUID  int    `json:"owner_uid"`
-		CreatedAt string `json:"created_at"`
-	}
-	decoder := json.NewDecoder(file)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&owner); err != nil {
-		return fmt.Errorf("decode suite runtime owner marker: %w", err)
-	}
-	expectedLease := strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeLeaseIDEnv))
-	if owner.SchemaID != "cartulary.harness_suite_runtime_owner.v1" ||
-		expectedLease == "" || owner.LeaseID != expectedLease ||
-		owner.RunID != strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeRunIDEnv)) || owner.OwnerUID != os.Getuid() {
-		return fmt.Errorf("suite runtime owner marker does not match the active lease")
-	}
-	if _, err := time.Parse(time.RFC3339Nano, owner.CreatedAt); err != nil {
-		return fmt.Errorf("suite runtime owner marker has invalid creation time: %w", err)
+	runID := strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeRunIDEnv))
+	leaseID := strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeLeaseIDEnv))
+	runRoot := filepath.Join(results, strings.TrimSpace(LookupEnvValue(env, testRunIDEnv)))
+	if _, err := harnesssession.ReadBinding(repository, runRoot, root, runID, leaseID); err != nil {
+		return fmt.Errorf("suite runtime owner marker does not match the active lease and scope: %w", err)
 	}
 	return nil
 }
