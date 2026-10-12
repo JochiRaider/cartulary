@@ -57,11 +57,7 @@ import {
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { validateFixtureProfile } from "../test-catalog/index.mjs";
 import { resolveRowSelector } from "../test-support/owner-fixtures.mjs";
-import {
-  cleanupStaleSuiteRuntimeRoots,
-  createSuiteRuntime,
-  scanRetainedRoot,
-} from "../runtime/suite-runtime.mjs";
+import { createRuntime } from "../runtime/session-client.mjs";
 import { validateFrontendAttachment } from "../test-support/owner-fixtures.mjs";
 import { resolveFrontendArtifact, sealFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
@@ -485,11 +481,10 @@ const generalCases = [
   },
 ];
 
-async function assertSuiteRuntimeBoundary() {
+async function assertProducerUmaskBoundary() {
   const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-suite-runtime-contract."));
   const repo = path.join(fixtureRoot, "repo");
   const runRoot = path.join(fixtureRoot, "results", "run-runtime-contract");
-  const scratch = path.join(fixtureRoot, "scratch");
   mkdirSync(repo, { recursive: true, mode: 0o700 });
   mkdirSync(runRoot, { recursive: true, mode: 0o700 });
   try {
@@ -517,126 +512,6 @@ async function assertSuiteRuntimeBoundary() {
       assert.equal(lstatSync(directory).mode & 0o777, 0o700);
     }
 
-    const runtime = createSuiteRuntime({
-      repoRoot: repo,
-      runRoot,
-      runID: "run-runtime-contract",
-      scratchRoot: scratch,
-    });
-    assert.equal(lstatSync(runtime.root).mode & 0o777, 0o700);
-    runtime.registerSecret("injected-secret-value");
-    writeFileSync(path.join(runRoot, "safe.json"), '{"status":"pass"}\n', { mode: 0o600 });
-    assert.equal((await scanRetainedRoot(runRoot)).status, "pass");
-
-    const forbiddenFile = path.join(runRoot, "suite-environment.json");
-    writeFileSync(forbiddenFile, "{}\n", { mode: 0o600 });
-    await assert.rejects(
-      () => scanRetainedRoot(runRoot, { removeUnsafe: true }),
-      /forbidden runtime filename/u,
-    );
-    assert.equal(existsSync(forbiddenFile), false);
-
-    const secretFile = path.join(runRoot, "diagnostic.log");
-    writeFileSync(secretFile, "injected-secret-value\n", { mode: 0o600 });
-    await assert.rejects(
-      () => scanRetainedRoot(runRoot, {
-        forbiddenValues: runtime.forbiddenValues(),
-        removeUnsafe: true,
-      }),
-      /registered runtime secret/u,
-    );
-    assert.equal(existsSync(secretFile), false);
-
-    const link = path.join(runRoot, "unsafe-link");
-    symlinkSync(path.join(runRoot, "safe.json"), link);
-    await assert.rejects(
-      () => scanRetainedRoot(runRoot, { removeUnsafe: true }),
-      /symlink/u,
-    );
-    assert.equal(existsSync(link), false);
-
-    const permissive = path.join(runRoot, "permissive.log");
-    writeFileSync(permissive, "bounded diagnostic\n", { mode: 0o600 });
-    chmodSync(permissive, 0o644);
-    await assert.rejects(
-      () => scanRetainedRoot(runRoot, { removeUnsafe: true }),
-      /not owner-only/u,
-    );
-    assert.equal(lstatSync(permissive).mode & 0o777, 0o600);
-    rmSync(permissive);
-
-    const runtimeBase = path.join(scratch, "suite-runtime");
-    const inFlight = mkdtempSync(path.join(runtimeBase, ".creating-suite-race-contract-"));
-    chmodSync(inFlight, 0o700);
-    const concurrent = createSuiteRuntime({
-      repoRoot: repo,
-      runRoot,
-      runID: "concurrent-runtime-contract",
-      scratchRoot: scratch,
-    });
-    concurrent.close();
-    assert.equal(existsSync(inFlight), true);
-    const old = new Date("2000-01-01T00:00:00.000Z");
-    utimesSync(inFlight, old, old);
-    const stagedCleanup = cleanupStaleSuiteRuntimeRoots({
-      repoRoot: repo,
-      runRoot,
-      scratchRoot: scratch,
-    });
-    assert.equal(stagedCleanup.removed, 1);
-    assert.equal(existsSync(inFlight), false);
-
-    const published = runtime.root;
-    const disappearing = path.join(runtimeBase, ".creating-suite-publish-contract");
-    renameSync(published, disappearing);
-    const concurrentPublication = cleanupStaleSuiteRuntimeRoots({
-      repoRoot: repo,
-      runRoot,
-      scratchRoot: scratch,
-      beforeCandidateInspection(candidate) {
-        if (candidate === disappearing) renameSync(disappearing, published);
-      },
-    });
-    assert.ok(concurrentPublication.scanned >= 1);
-    assert.equal(concurrentPublication.removed, 0);
-    assert.equal(existsSync(disappearing), false);
-    assert.equal(existsSync(published), true);
-    runtime.close();
-    assert.equal(existsSync(runtime.root), false);
-
-    const stale = createSuiteRuntime({
-      repoRoot: repo,
-      runRoot,
-      runID: "stale-runtime-contract",
-      scratchRoot: scratch,
-    });
-    const ownerPath = path.join(stale.root, "runtime-owner.json");
-    const owner = JSON.parse(readFileSync(ownerPath, "utf8"));
-    owner.created_at = "2000-01-01T00:00:00.000Z";
-    writeFileSync(ownerPath, `${JSON.stringify(owner)}\n`, { mode: 0o600 });
-    chmodSync(ownerPath, 0o600);
-    assert.equal(cleanupStaleSuiteRuntimeRoots({ repoRoot: repo, runRoot, scratchRoot: scratch }).removed, 0);
-    const processFile = path.join(stale.root, "runtime-process.json");
-    const processProof = JSON.parse(readFileSync(processFile, "utf8"));
-    processProof.boot = "proven-other-boot";
-    writeFileSync(processFile, `${JSON.stringify(processProof)}\n`, { mode: 0o600 });
-    const cleanup = cleanupStaleSuiteRuntimeRoots({
-      repoRoot: repo,
-      runRoot,
-      scratchRoot: scratch,
-    });
-    assert.equal(cleanup.removed, 1);
-    assert.equal(existsSync(stale.root), false);
-
-    assert.throws(
-      () => createSuiteRuntime({
-        repoRoot: repo,
-        runRoot,
-        runID: "contained-runtime-contract",
-        scratchRoot: path.join(repo, "scratch"),
-      }),
-      /outside repository/u,
-    );
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });
   }
@@ -647,7 +522,7 @@ async function assertBoundaryContract(context, kind) {
     case "performance_and_runtime":
       assertPerformanceFixtureSnapshotContract(context);
       assertPerformanceEvidenceGenerationBoundary();
-      await assertSuiteRuntimeBoundary();
+      await assertProducerUmaskBoundary();
       return;
     case "attachment_uniqueness": {
       const attachments = readJSON("tools/harness_schema_attachments.json");
@@ -1475,7 +1350,7 @@ suiteCases.evidence.push(semanticCase(
         const runRoot = path.join(temporaryRoot, runID);
         mkdirSync(runRoot, { mode: 0o700 });
         writeFileSync(path.join(runRoot, "run-manifest.json"), JSON.stringify({ source_digest: `sha256:${"1".repeat(64)}`, toolchain_digest: `sha256:${"2".repeat(64)}` }));
-        const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID, scratchRoot: path.join(temporaryRoot, "private") });
+        const runtime = createRuntime({ repoRoot: root, runRoot, runID, scratchRoot: path.join(temporaryRoot, "private") });
         try {
           const environment = { CARTULARY_TEST_RESULTS_DIR: temporaryRoot, CARTULARY_TEST_RUN_ID: runID, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID };
           const staging = runtime.privatePath("staging");

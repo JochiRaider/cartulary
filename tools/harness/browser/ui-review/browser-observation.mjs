@@ -1,5 +1,5 @@
 import { artifact, bundleBase } from "./bundles.mjs";
-import { jsonBytes } from "./session-files.mjs";
+import { jsonBytes } from "./input-files.mjs";
 import { limits, ReviewFailure } from "./contract.mjs";
 import { freeze } from "./immutable.mjs";
 

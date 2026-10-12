@@ -1,5 +1,12 @@
 # workbook Module Refactoring Tracker and Handoff
 
+Harness repair paths in this completed Workbook handoff are historical evidence.
+Subsequent lifecycle migration moved shared runtime, review and recovery ownership
+to Go; the [harness lifecycle tracker](cartulary-test-harness-instrumentation.md)
+owns those changes and current verification. The Workbook evidence below is not
+rewritten by that migration.
+
+
 ## 1. Scope and Source Posture
 
 | Item | Current posture |

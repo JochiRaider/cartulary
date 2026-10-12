@@ -7,13 +7,11 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { acquireHostAdmission, processIdentityAlive, processIdentity } from "../../runtime/host-admission.mjs";
 import { encodePNG, crc32 } from "../ui-review/png.mjs";
-import { ReviewSession } from "../ui-review/session.mjs";
-import { toolProfile } from "../ui-review/toolchain.mjs";
+import { sessionAt } from "./ui-review-work-fixture.mjs";
 import { limits, parseRequest, schemaID, ReviewFailure } from "../ui-review/contract.mjs";
 import { work } from "./ui-review-work-fixture.mjs";
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const sessionAt = (root) => Object.assign(new ReviewSession({ UI_MODE: "artifacts" }, toolProfile()), { runtime: { privatePath: (...parts) => path.join(root, ...parts) } });
 const caps = { cpu: 2, process: 2, memory_mb: 1536, io: 2, browser_stack: 2 };
 const raster = { cpu: 1, process: 1, memory_mb: 1024, io: 1 }, report = { ...raster, memory_mb: 512 };
 

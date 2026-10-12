@@ -4,7 +4,7 @@ import { freeze } from "./immutable.mjs";
 import { reviewPins } from "./policy.mjs";
 import { validateSchemaSync, parseStrictJSON } from "../../contract/index.mjs";
 import { artifact, components } from "./bundles.mjs";
-import { digest, inputPath, readInput } from "./session-files.mjs";
+import { digest, inputPath, readInput } from "./input-files.mjs";
 import { catalogRow, containedFile, one, readJSON } from "./source.mjs";
 import { repoRoot } from "./policy.mjs";
 import { ReviewFailure, limits } from "./contract.mjs";

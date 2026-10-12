@@ -397,14 +397,6 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_fixture_session.v1",
-      "path": "tools/schemas/cartulary.harness_fixture_session.v1.schema.json",
-      "classification": "shared_component",
-      "producer": "native fixture session",
-      "validation": "json-shape-check",
-      "foundation_runtime": true
-    },
-    {
       "schema_id": "cartulary.harness_go_lpt_plan.v2",
       "path": "tools/schemas/cartulary.harness_go_lpt_plan.v2.schema.json",
       "classification": "public_contract",
@@ -600,6 +592,14 @@
       "path": "tools/schemas/cartulary.harness_review_design_ready.v1.schema.json",
       "classification": "shared_component",
       "producer": "native review coordinator private browser adapter",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_review_output.v1",
+      "path": "tools/schemas/cartulary.harness_review_output.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native review owner",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },

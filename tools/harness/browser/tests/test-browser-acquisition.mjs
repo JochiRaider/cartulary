@@ -8,10 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import os from "node:os";
 import path from "node:path";
 import { createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionPort, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
-import { preparationOwnership, recoverReviewPreparation, withReviewResources } from "../review-preparation.mjs";
-import { createFixtureSession } from "../../runtime/fixture-session.mjs";
-import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
-import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { CommandFailure, createCommandFailureContext, publishCommandFailure } from "../../runtime/command-failure.mjs";
@@ -21,7 +18,7 @@ function fixture(t) {
   const scratch = mkdtempSync(path.join(os.tmpdir(), "browser-acquisition-"));
   const runRoot = path.join(scratch, "results", "acquisition-test"); mkdirSync(runRoot, { recursive:true, mode: 0o700 });
   const privateRoot=mkdtempSync(path.join(os.tmpdir(),"browser-acquisition-private-"));
-  const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID: "acquisition-test", scratchRoot: privateRoot });
+  const runtime = createRuntime({ repoRoot: root, runRoot, runID: "acquisition-test", scratchRoot: privateRoot });
   const suiteLease = runtime.privatePath("test-services", "suite-lease.json");
   mkdirSync(path.dirname(suiteLease), { mode: 0o700 });
   const resultRoot = path.join(scratch, "results");
@@ -31,26 +28,25 @@ function fixture(t) {
     resources: [], proof_labels: {}, proof_prefixes: {}, cleanup_state: "not_started" }), { mode: 0o600 });
   const sessionRoot = runtime.privatePath("browser-stack-leases", "attempt"); mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
   const file = createBrowserAcquisition({ runtime, sessionRoot, suiteLease, leaseFile: path.join(sessionRoot, "stack.lease") });
-  const ownership = preparationOwnership(runtime);
-  ownership.record({ kind: "managed_suite", target: suiteLease });
-  ownership.record({ kind: "browser_stack", target: file, state: "pending" });
+  runtime.record({ kind: "managed_suite", target: suiteLease });
+  runtime.record({ kind: "browser_stack", target: file, state: "pending" });
   const cleanup = [];
   t.after(async () => {
     for (const release of cleanup) await release();
     // These are synthetic service/controller records; real test processes are
     // reaped above before their fixture ownership can be retired.
-    for (const record of runtimeRecoveryResources(runtime)) recordRuntimeResource(runtime, { ...record, state: "released" });
+    for (const record of runtime.resources()) runtime.record({ ...record, state: "released" });
     runtime.close(); rmSync(scratch, { recursive: true, force: true }); rmSync(privateRoot,{recursive:true,force:true});
   });
-  return { scratch, runtime, suiteLease, sessionRoot, file, ownership, cleanup };
+  return { scratch, runtime, suiteLease, sessionRoot, file, cleanup };
 }
 
 test("browser acquisition before launch settles without a ready lease", async (t) => {
   const f = fixture(t);
   assert.equal(existsSync(path.join(f.sessionRoot, "stack.lease")), false);
   assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
-  f.ownership.record({ kind: "browser_stack", target: f.file, state: "released" });
-  assert.deepEqual(f.ownership.outstanding().map((r) => r.kind), ["managed_suite"]);
+  f.runtime.record({ kind: "browser_stack", target: f.file, state: "released" });
+  assert.deepEqual(f.runtime.resources().map((r) => r.kind), ["managed_suite"]);
   assert.equal(existsSync(f.suiteLease), true, "browser settlement never closes its borrowed suite");
   assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
 });
@@ -103,14 +99,6 @@ test("explicit browser recovery attempts cannot overwrite earlier immutable reti
   assert.equal(outputs.length, 2);
 });
 
-test("borrowed runtime controller records do not hide or block preparation dependencies", (t) => {
-  const f = fixture(t);
-  recordRuntimeResource(f.runtime, { kind: "preparation_process", target: ownedProcess(process.pid) });
-  assert.equal(f.ownership.outstanding().filter((r) => r.kind === "browser_stack").length, 1);
-  f.ownership.record({ kind: "browser_stack", target: f.file, state: "released" });
-  assert.deepEqual(f.ownership.outstanding().map((r) => r.kind), ["managed_suite"]);
-  assert.equal(runtimeRecoveryResources(f.runtime).some((r) => r.kind === "preparation_process"), true);
-});
 
 test("producer exit cleanup cannot publish release before the external owner reaps it", async (t) => {
   const f = fixture(t);
@@ -125,15 +113,6 @@ test("producer exit cleanup cannot publish release before the external owner rea
   assert.deepEqual(stopped, [process.pid]);
 });
 
-test("failed registration acknowledgement retains dependency and exact acquisition proof", (t) => {
-  const f = fixture(t);
-  const ownership = preparationOwnership(f.runtime, (r) => { if (r.state === "released") throw new Error("acknowledgement failed"); });
-  ownership.record({ kind: "browser_stack", target: f.file, state: "pending" });
-  assert.throws(() => ownership.record({ kind: "browser_stack", target: f.file, state: "released" }), /acknowledgement/u);
-  assert.equal(ownership.outstanding().length, 1);
-  assert.equal(runtimeRecoveryResources(f.runtime).some((r) => r.target === f.file), true);
-  assert.equal(readBrowserAcquisition(f.file, f.runtime).suite_lease, f.suiteLease);
-});
 
 test("pre-lease partial acquisition reaps real processes and exact ports before suite cleanup", async (t) => {
   const f = fixture(t);
@@ -156,17 +135,10 @@ test("pre-lease partial acquisition reaps real processes and exact ports before 
 test("failed process cleanup retains acquisition and suite proof for explicit recovery", async (t) => {
   const f = fixture(t);
   recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "backend"));
-  const primary = new CommandFailure("startup sentinel", { failure_class: "infra", failure_reason: "service_start_error" });
-  let caught;
-  try {
-    await withReviewResources({ acquire: async () => { throw primary; }, prepare: async () => {}, hold: async () => {},
-      close: () => settleBrowserAcquisition({ ...f, root, stop: async () => { throw new Error("release sentinel"); } }), finish: async () => {} });
-  } catch (error) { caught = error; }
-  assert.equal(caught, primary);
-  assert.equal(caught.cleanupFailures.length, 1);
-  assert.equal(caught.cleanupFailures[0].settlement.state, "recovery_required");
+  await assert.rejects(settleBrowserAcquisition({ ...f, root, stop: async () => { throw new Error("release sentinel"); } }),
+    (error) => error.settlement.state === "recovery_required");
   assert.equal(existsSync(path.join(path.dirname(f.file), "settlement.json")), false);
-  assert.equal(runtimeRecoveryResources(f.runtime).length, 2);
+  assert.equal(f.runtime.resources().length, 2);
   const calls = [];
   await settleBrowserAcquisition({ ...f, root, stop: async (proof) => { calls.push(proof.pid); } });
   assert.deepEqual(calls, [process.pid]);
@@ -183,29 +155,6 @@ test("wrong runtime or changed suite proof is rejected before destructive recove
   assert.equal(stopped, false);
 });
 
-test("missing and duplicate durable browser dependencies fail closed without releasing a suite", async (t) => {
-  const f=fixture(t),resources=runtimeRecoveryResources(f.runtime);
-  const unopened=createFixtureSession({root,runRoot:path.join(f.scratch,"results",f.runtime.runID),target:"ui-review",runtime:f.runtime,environment:process.env});
-  const closing=unopened.close();assert.equal(unopened.close(),closing);await closing;
-  await assert.rejects(unopened.acquire("browser_stack",{unitID:"late"}),error=>error.failure_reason==="artifact_error");
-
-  await assert.rejects(recoverReviewPreparation({runtime:{...f.runtime,runID:"foreign-recovery"},resources:[]}),error=>error.failure_reason==="artifact_error");
-  const suite=resources.find((resource)=>resource.kind==="managed_suite");
-  let released=false;
-  const recover=()=>recoverReviewPreparation({runtime:f.runtime,resources:runtimeRecoveryResources(f.runtime),onReleased:()=>{released=true;}});
-  recordRuntimeResource(f.runtime,{...suite,state:"released"});
-  await assert.rejects(recover());
-  recordRuntimeResource(f.runtime,suite);
-  const recovery=f.runtime.privatePath("recovery"),original=readdirSync(recovery).find((name)=>name.startsWith("managed_suite-"));
-  const duplicate=path.join(recovery,"managed_suite-forged.json");
-  writeFileSync(duplicate,readFileSync(path.join(recovery,original)),{mode:0o600});
-  try { await assert.rejects(recoverReviewPreparation({runtime:f.runtime,resources,onReleased:()=>{released=true;}})); }
-  finally { rmSync(duplicate); }
-  rmSync(f.file);
-  await assert.rejects(recover());
-  assert.equal(released,false);
-  assert.equal(existsSync(f.suiteLease),true);
-});
 
 test("acquisition CLI preserves classified startup proof failures and prior diagnostics", (t) => {
   const f = fixture(t);

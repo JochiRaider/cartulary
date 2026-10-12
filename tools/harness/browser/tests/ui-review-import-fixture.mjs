@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { digest } from "../ui-review/session-files.mjs";
+import { digest } from "../ui-review/input-files.mjs";
 import { repoRoot, reviewPins } from "../ui-review/policy.mjs";
 import { captureCapabilitySnapshot } from "../../scheduler/work-graph/capability.mjs";
 

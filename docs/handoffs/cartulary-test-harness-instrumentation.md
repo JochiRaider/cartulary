@@ -487,7 +487,7 @@ never this tracker or other Markdown.
 | --- | --- |
 | Main and index | Clean `b0bc9737531c7feaf573e28715348fd81ae0584a`; no staged or untracked work at entry |
 | Prior planning comparison | 6,917 tracked/nonignored files; aggregate `11c33deb2fe91d940aeaba6e54d3927b48a315bea2db82c4b98b45aceb24c53f`; tracker `a617e7fc008f29f19e709f22365f7954d85a12ddb83c4fd44df4d5b85715852b` |
-| Current source | S-036 committed as `439f4665f`; S-037 committed as `f64bc88b771fcb523725bb207d92fb3d48b2fe40`; S-038 completed source/projection transaction at E-044; final executable identity freezes before S-042 |
+| Current source | S-036 committed as `439f4665f`; S-037 committed as `f64bc88b771fcb523725bb207d92fb3d48b2fe40`; S-038 `2ae231627`, S-039 `f15f6c717`; S-040 completed source/projection transaction at E-046; final executable identity freezes before S-042 |
 | Evidence | Prior primary/salvage/qualification roots preserved; each writing command uses a fresh explicit run ID |
 | Exclusions | Product behavior, compiler/reader rewrite, new daemons, performance qualification, golden refresh and Core 05 publication |
 
@@ -595,11 +595,11 @@ inventory. This is a bounded subsystem inspection, not a whole-repository audit.
 
 | Inspected seam | Current responsibility / callers | Disposition / finding |
 | --- | --- | --- |
-| `internal/testutil/harnesssession/{runtime,preservation,protocol,tree,lock}_linux.go`; Node `runtime/suite-runtime.mjs`, `resource-recovery.mjs` | Native graph/fixtures now share private roots, durable secrets, exact journals and janitor; Node callers await migration | Native extraction DONE in E-043; Node deletion remains S-038–S-040; F-037/F-039 |
-| `internal/testutil/harnesssession/scan_linux.go`; graph `scan_linux.go` publication adapter; Node suite-runtime scanner | Graph uses shared native scanner; Node review/standalone migration remains | Native policy/digest preserved; distinct publication protocols remain; F-037 |
-| `browser/ui-review/{controller,session,recovery,terminal,ownership,session-files,diagnostic-processes}.mjs`; `browser/review-preparation.mjs` | Node session authority around native fixture transport | Go `harnessreview` coordination; retain specialized browser/preparation adapters; F-038 |
-| `runtime/fixture-session.mjs`; native fixture session | Private broker-shaped transport | Remove after graph/review direct library integration; F-038/F-040 |
-| `execution/run-make-node-tool-cli.mjs`, `smoke/run-harness-smoke-cli.mjs`, `readiness/frontend-artifact.mjs`, `services/local-session.mjs` | Standalone Node private-runtime owners | Migrate private ownership, retain producer/physical responsibilities; F-039 |
+| `internal/testutil/harnesssession/{runtime,preservation,protocol,tree,lock}_linux.go`; Node `runtime/suite-runtime.mjs`, `resource-recovery.mjs` | Native graph/fixtures/review and migrated callers share private roots, durable secrets, exact journals and janitor | Native extraction/caller migration DONE in E-043–E-045; obsolete Node policy removed and validated in E-046; F-037/F-039 |
+| `internal/testutil/harnesssession/scan_linux.go`; graph `scan_linux.go` publication adapter; Node suite-runtime scanner | Graph and review use the same native scanner; Node scanner removed in S-040 | Native policy/digest preserved; distinct publication protocols remain; F-037 |
+| `browser/ui-review/{controller,session,recovery,terminal,ownership,session-files,diagnostic-processes}.mjs`; `browser/review-preparation.mjs` | Historical Node session authority, deleted in S-040 after native caller migration | Go `harnessreview` coordination; retain specialized browser/preparation adapters; F-038 |
+| `runtime/fixture-session.mjs`; native fixture session | Retired private broker-shaped transport | Deleted after graph/review direct library integration; F-038/F-040 |
+| `execution/run-make-node-tool-cli.mjs`, `smoke/run-harness-smoke-cli.mjs`, `readiness/frontend-artifact.mjs`, `services/local-session.mjs` | Node producer/physical adapters using native runtime authority | Migration DONE in E-045; retain distinct producer/physical responsibilities; F-039 |
 | Native observation/runtime tests; `tests/contract-suite-support.mjs`; `observability/tests/test-collection-engine.mjs` | Scanner comparison, direct runtime assertions, process-exit wakeup assertion | Independent owner fixtures; retain distinct producer boundary assertions; F-040 |
 | Task surface owner, helper ownership, test families, schema attachments and native schema generator | Authored executable routing and projections | Update owner inputs then generate; no hand-edited generated roots |
 | Active tracker/current owner guidance and historical handoffs | Some removed paths labeled LIVE; historical change lists remain valid at their source | Correct current navigation, preserve source-scoped history; F-041 |
@@ -1011,8 +1011,8 @@ before successor work begins. Prior completed graph/fixture work remains DONE.
 | WF-37 / S-037 shared native runtime/scanner | DONE; E-043 | V-038: native ownership/security/race checks and shared consumers |
 | WF-38 / S-038 native review lifecycle | DONE; E-044 | V-039: real IPC, recovery and physical boundaries in every mode |
 | WF-39 / S-039 remaining callers | DONE; E-045 | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
-| WF-40 / S-040 deletion/routing/docs | BLOCKED | V-041: import/build/generated closure and every assertion disposition closed |
-| WF-41 / S-041 public boundary validation | BLOCKED | V-042: installed public surface, producer interoperability and physical cleanup |
+| WF-40 / S-040 deletion/routing/docs | DONE; E-046 | V-041: import/build/generated closure and every assertion disposition closed |
+| WF-41 / S-041 public boundary validation | READY | V-042: installed public surface, producer interoperability and physical cleanup |
 | WF-42 / S-042 final validation/handoff | BLOCKED | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
 
 
@@ -1995,7 +1995,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-044 / S-037 | Native shared runtime/scanner | DONE; V-038/E-043 |
 | T-045 / S-038 | Native review lifecycle | DONE; V-039/E-044 |
 | T-046 / S-039 | Remaining callers | DONE; V-040/E-045 |
-| T-047 / S-040 | Deletion/routing/documentation | BLOCKED; V-041 |
+| T-047 / S-040 | Deletion/routing/documentation | DONE; V-041/E-046 |
 | T-048 / S-041 | Public boundaries | BLOCKED; V-042 |
 | T-049 / S-042 | Final validation and handoff | BLOCKED; V-043 |
 
@@ -2072,6 +2072,129 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-046 — S-040/V-041 deletion, routing and documentation — DONE
+
+Parent `f15f6c7173605120fcccd84b16c06caf280e274c`; Linux/WSL, installed
+pinned Go/Node and Docker physical owners. This checkpoint supersedes current
+legacy-deletion summaries, not prior completion evidence.
+
+Deleted Node suite-runtime/scanner/recovery policy, fixture-session client and
+Go transport/schema/subcommand, review controller/session/preparation/recovery/
+terminal wrappers and their copied test coordinators. Specialized Node browser,
+service and preparation operations remain. Native session owns physical-stop
+private dispatch; review and fixture owners keep their own cleanup ordering.
+Native output now validates a closed generated envelope; secondary failures have
+a generated 64-item bound, preserve the primary, and reject malformed/truncated/
+foreign/duplicate adapter replies. Authored task/schema/helper/test inputs were
+updated, then generated normally. Active guide ownership was corrected and five
+historical inventories explicitly source-scoped; historical failures stay intact.
+
+Every command below has the form `CARTULARY_TEST_RUN_ID=<ID> make <target>`;
+run root is `.cartulary/test-results/<ID>`. Successful entries mean both observed
+owning exit 0 and reported pass; failures retain owning exit 2 and failed gate.
+
+| ID suffix after `lifecycle-s040-` | Target | Observed result |
+| --- | --- | --- |
+| `format-01` | `format` | FAIL: unused Go import in driver; removed import |
+| `generate-01`, `generate-02`, `generate-03`, `generate-04` | `generate` | PASS; intermediate source |
+| `format-02`, `format-03`, `format-04` | `format` | PASS; intermediate source |
+| `runtime-01`, `fixture-01`, `ui-01`, `lifecycle-01` | respective `harness-runtime-contract`, `harness-fixture-contract`, `harness-ui-review-contract`, `harness-ui-review-lifecycle` | PASS; intermediate source |
+| `generate-05` | `generate` | FAIL: native schema projection rejected JavaScript Unicode regex escape; authored pattern corrected |
+| `generate-06`, `generate-07`, `generate-08` | `generate` | PASS after repair |
+| `runtime-02` | `harness-runtime-contract` | FAIL: selected graph wrapper receipt rejected two distinct source digests; schema/session/review packages passed |
+| `boundary-01` | `harness-runtime-boundary-contract` | FAIL: borrowed physical fixture incorrectly selected owned-only `ui-review`; owned/recovery variants passed |
+| `contracts-01` | `harness-contract-tests` | PASS 190/190 |
+| `lifecycle-02` | `harness-ui-review-lifecycle` | PASS 31/31 |
+| `ui-02`, `scripts-01`, `smoke-01` | `harness-ui-review-contract`, `lint-scripts`, `harness-smoke` | PASS |
+| `drift-01`, `policy-01`, `json-01` | `generate-drift`, `generated-artifact-policy-check`, `json-shape-check` | PASS |
+| `format05`, `format06` | `format` | PASS after boundary fixture/assertion repairs |
+| `boundary02` | `harness-runtime-boundary-contract` | PASS actual borrowed/owned/failed-cleanup recovery, native PostgreSQL/HTTPS graphs and session-client boundary |
+| `generate09` | `generate` | PASS final authored projections |
+
+`runtime-02` recorded source digests `326a8905d5c9e75dd17bd5de95ef08b7a4fe9bf05c08a6c07874808875051ca9`
+and `db252a8abbd8e2708213a4a1e0d76d33ab60941ede5b5a4f76bb5ff4c2794f7e`
+under one wrapper while other verification/build work ran. The mixed evidence is
+ineligible; no receipt gate was relaxed. The affected rerun is serialized after
+source-changing work. The exact source-writing cause was not established.
+
+`boundary-01` also exposed a test-fixture proof lifetime defect: Go's `t.TempDir`
+removed the failed persistent owner's descriptor. The revised fixture stores it
+under the preserved native private runtime and uses the supported
+`service-backed-test-slice` attachment target. Two orphaned containers from that
+failed test were manually removed by exact full container ID after checking
+session `24b2b0998bc503d3cacd3c62`, creation at 03:44:43Z on 2026-10-12 and
+expiry `2026-10-13T03:44:43.067Z`: `5f509b2d1c1830279e1683ab917020e7ee638ad2cfbf9f2774b4c07ccafd2282`
+and `4d849f6578de8b3d87011b35d3146ab0c2df73f5b88469337bfc4d6611a3cd3d`.
+Operational teardown used `docker inspect` and `docker rm -f` for those exact
+identities only (exit 0); it is not native recovery validation. No receipt was
+rewritten and no unknown ownership was deleted. The failed runtime's unresolved
+journal remains private historical proof. `boundary02` validates the repaired
+fixture's complete supported cleanup path.
+
+Final closure: `runtime03` (`harness-runtime-contract`, race enabled), `drift02`
+(`generate-drift`), `policy02` (`generated-artifact-policy-check`), `json02`
+(`json-shape-check`) and `markdown01` (`lint-markdown`) all completed with owning
+exit 0 and reported pass. `git diff --check` passed. Actual runtime/session/review
+packages include failed journal registration, duplicate journal rejection and
+existing-terminal preservation; the former Node assertions below are closed.
+Source digest in all three selected graphs is
+`sha256:4550a159bda71123d1c20e7fe23fb94fc770984eceacea92ac638e14b6db42c3`;
+staged executable/projection diff SHA-256 against the parent is
+`de38e603435f475130f2b18bd99d1e10448ecb2b482b40c0794af0a38b2788ac`.
+
+Import/build/schema/backing-script searches found no deleted implementation
+consumer. Only distinct compiler/producer/browser/physical/reader adapters remain;
+fast smoke still has its three roles and broad suites stay in owner routes.
+Current guide plus historical annotations passed Markdown lint. Public and retained
+schema acceptance sets are unchanged; only superseded private transport is removed.
+No fallback, new service, secret-bearing argv or replacement scanner oracle exists.
+S-040/V-041 is DONE and saved before S-041; S-041 is READY. Remaining risks are
+public composition and final-source validation, addressed by S-041/S-042.
+F-022/RB-006 and the 44.952/90 ledger remain unchanged.
+
+### S-040 assertion migration ledger — CLOSED at E-046
+
+Assertion dispositions below identify actual owners, independently specified expectations, and obsolete mechanisms. V-041 passed the final affected gates recorded above.
+
+| Former assertion | Native obligation |
+| --- | --- |
+| `test-ui-review-lifecycle.mjs`: hung cleanup is bounded and stale cleanup preserves unresolved proof | MOVE → `TestReviewLifecycle/undrained_preparation_blocks_cleanup_and_terminal`, `TestSessionRuntimeProof/preservation_and_janitor`; runtime contract |
+| `test-ui-review-lifecycle.mjs`: stop drains a resource returned after preparation cancellation | MOVE → `TestReviewLifecycle/late_acquisition_is_closed_before_terminal`; runtime contract |
+| `test-ui-review-lifecycle.mjs`: unavailable borrowed origin expires without acquiring or resetting services | MOVE → `TestReviewLifecycle/borrowed_origin_deadline_has_no_destructive_effect`; runtime contract |
+| `test-ui-review-lifecycle.mjs`: partial cleanup attempts all owners, preserves the primary failure and retains failed ownership | MOVE → `TestReviewLifecycle/primary_precedes_independent_cleanup_failure`, `TestFixtureRecovery`, `TestSessionRuntimeProof/preservation_and_janitor`; runtime/fixture contracts |
+| `test-ui-review-lifecycle.mjs`: every normalized primary failure survives secondary cleanup failure and terminal repetition | MOVE → `TestReviewLifecycle/every_primary_survives_cleanup_and_repetition` (independent 23-code/exit matrix); runtime contract |
+| `test-ui-review-lifecycle.mjs`: session serialization bounds contention and never overlaps operations | MOVE → `TestReviewLifecycle/single_admission_and_stop_drains_before_terminal`, native contention/deadline cases; runtime contract |
+| `test-ui-review-lifecycle.mjs`: eight-hour expiry closes the session at the exact lifetime boundary | MOVE → `TestReviewLifecycle/exact_eight_hour_lifetime` (virtual clock, boundary minus one ns and exact expiry); runtime contract |
+| `test-ui-review-lifecycle.mjs`: unsafe terminal publication cannot report success or overwrite an existing file | MOVE → `TestReviewPublication` scan rejection, exclusive publication and immutable receipt cases; runtime contract |
+| `test-ui-review-lifecycle.mjs`: a preparation failure already in flight survives an exact stop during cleanup | MOVE → `TestReviewLifecycle/late_preparation_failure_survives_stop`; runtime contract |
+| `test-ui-review-preparation.mjs`: shared preparation cleanup alone has cleanup classification and preserves an earlier operational failure | MOVE → `TestReviewLifecycle/cleanup_only_failure_and_failed_publication` and primary matrix; runtime contract |
+| `test-ui-review-preparation.mjs`: preparation IPC retains validated context and latches malformed outcomes | MOVE semantic rejection/context obligation → `TestReviewIPC/independent_response_rejections`, actual private adapter; REMOVE obsolete process.send protocol assumptions |
+| `test-ui-review-preparation.mjs`: cancellation in each preparation phase rejects late ready publication and drains the IPC owner | MOVE → native late-acquisition, undrained-preparation and actual IPC-owner drain; runtime contract; KEEP actual public stop/death cases in UI lifecycle |
+| `test-ui-review-preparation.mjs`: IPC rejects duplicate terminal outcomes and success followed by child failure | MOVE → `TestReviewIPC` duplicate/truncated/exit mismatch rejection and exact process drain; REMOVE old preparation IPC message format |
+| `test-ui-review-preparation.mjs`: preparation cleanup-only IPC outcome retains cleanup context after cancellation | MOVE → native cleanup-only/context and primary matrix cases; REMOVE superseded IPC envelope assertions |
+| `test-ui-review-preparation.mjs`: a failing Make producer crosses preparation IPC into the terminal receipt and safe human guidance | MOVE → native validated failure mapping/IPC and actual Node Make producer envelope tests retained in preparation route; KEEP command-surface public failures |
+| `test-ui-review-preparation.mjs`: preparation bounds secondary diagnostics without replacing the primary outcome | MOVE → `TestReviewLifecycle/bounded_secondary_diagnostics_preserve_primary`, IPC 65-failure rejection; runtime contract |
+| `test-ui-review-preparation.mjs`: missing preparation IPC stays primary when reaping acknowledgement and later stop fail | MOVE → native undrained-preparation and primary/cleanup precedence; REMOVE superseded missing-process.send classification path |
+| `test-browser-acquisition.mjs`: borrowed runtime controller records do not hide or block preparation dependencies | REMOVE controller-record filter: retired controller/fixture transport no longer shares that policy. KEEP actual runtime run/lease binding and native dependency-order fixtures |
+| `test-browser-acquisition.mjs`: failed registration acknowledgement retains dependency and exact acquisition proof | MOVE → native durable journal fault/security cases and physical acquisition proof tests; REMOVE obsolete fixture-session acknowledgement mechanism |
+| `test-browser-acquisition.mjs`: missing and duplicate durable browser dependencies fail closed without releasing a suite | MOVE → native exact resource filename identity and `TestFixtureRecovery` missing/unknown dependency rejection; no duplicate executable recovery oracle |
+
+Additional groups: removed `TestFixtureSession` authenticated socket/request tests
+are obsolete with the deleted transport; native session/review IPC now cover
+run/lease/owner binding and hostile input. Broker race, close-during-acquisition,
+release/reuse and recovery tests remain in the fixture route. Removed
+`ui-review-fixture-cleanup.mjs` cases move to
+`TestNativeFixturePhysicalLifecycle/{borrowed,owned,failed_cleanup}` through the
+native boundary route; these use actual service/browser owners. Removed
+design-review coordinator loops move to the native lifecycle/failure tests and
+actual public design boundary; profile/TOTP/archive recipes remain Node tests.
+Node suite-runtime/scanner tests move to `TestSessionRuntimeProof`,
+`TestSessionProtocol`, and independent `TestSessionScan` fixtures. Node producer
+umask, frontend staging, quiet capture, command failures and local-service tests
+remain and use the native session client. Compiler/selection, schema parity,
+offline explanation, retained evidence and qualification validator tests remain.
+No removed test is retained as a second lifecycle or scanner implementation.
 
 ### E-045 — S-039/V-040 remaining caller migration — DONE
 
@@ -3431,8 +3554,8 @@ document checkpoint, not a runtime-validation result.
 
 ### Current lifecycle entry gates
 
-S-036–S-039 are DONE. S-040 is READY after E-045; S-041–S-042 remain blocked
-on their saved predecessor checkpoints, not missing user authorization. Exact old-session
+S-036–S-040 are DONE. S-041 is READY after E-046; S-042 remains blocked
+on its saved predecessor checkpoint, not missing user authorization. Exact old-session
 proof must be checked before protocol cutover; discovery of unresolved ownership
 blocks only the affected environment. Missing characterization or failed gates
 remain open and are never reported as passes. F-022/RB-006 remains explicitly
@@ -3504,7 +3627,7 @@ Pre-existing staged tracker content is preserved.
 | --- | --- |
 | Planning | Complete for selected lifecycle scope; no whole-repository behavior audit claimed |
 | Authorization | Current user explicitly authorizes S-036–S-042 implementation |
-| Readiness | S-036–S-039 DONE; S-040 READY; later successors blocked on saved predecessor gates |
+| Readiness | S-036–S-040 DONE; S-041 READY; S-042 blocked on saved predecessor gate |
 | Prior functional scope | S-035/S-034/S-031A–F/S-032 remain DONE at historical sources |
 | Current completion | Pending S-042/V-043 and every individual checkpoint; one native shared owner, direct fixture coordination, no obsolete policy/oracle/wiring |
 | Handoff | Exact changed files, commands, process/harness outcomes, source identity, roots, failures, skips and compatibility effects |

@@ -4,6 +4,7 @@ package harnessreview
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,65 @@ import (
 )
 
 func TestReviewIPC(t *testing.T) {
+	t.Run("independent_response_rejections", func(t *testing.T) {
+		for _, variant := range []string{"valid", "duplicate", "truncated", "oversized", "unknown_field", "foreign_run", "foreign_lease", "unknown_id", "wrong_operation", "unclassified_exit", "wrong_exit", "too_many_failures"} {
+			t.Run(variant, func(t *testing.T) {
+				r, w, err := os.Pipe()
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer r.Close()
+				done := make(chan struct{})
+				close(done)
+				response := make(chan adapterReply, 1)
+				a := &adapter{runtime: &harnesssession.Runtime{RunID: "fixture", LeaseID: "00000000-0000-4000-8000-000000000000"}, session: "uireview-" + strings.Repeat("a", 32), channel: r, done: done, readDone: make(chan struct{}), idle: make(chan struct{}), pending: map[int]pendingRequest{1: {operation: "build", response: response}}}
+				outcome := adapterOutcome{Counts: Counts{}, Private: []PrivateReference{}, Failures: []Failure{}}
+				message := map[string]any{"schema_id": adapterSchema, "session_id": a.session, "run_id": "fixture", "runtime_lease_id": a.runtime.LeaseID, "request_id": 1, "kind": "response", "operation": "build", "facts": nil, "outcome": outcome}
+				switch variant {
+				case "unknown_field":
+					message["private_detail"] = "must never escape"
+				case "foreign_run":
+					message["run_id"] = "foreign"
+				case "foreign_lease":
+					message["runtime_lease_id"] = "11111111-1111-4111-8111-111111111111"
+				case "unknown_id":
+					message["request_id"] = 2
+				case "wrong_operation":
+					message["operation"] = "seed"
+				case "unclassified_exit":
+					outcome.Exit = 1
+				case "wrong_exit":
+					outcome.Failures = []Failure{failure("startup_failed").Record}
+					outcome.Exit = 1
+				case "too_many_failures":
+					for range 65 {
+						outcome.Failures = append(outcome.Failures, failure("cleanup_failed").Record)
+					}
+					outcome.Exit = 12
+				}
+				message["outcome"] = outcome
+				data, err := json.Marshal(message)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if variant == "oversized" {
+					data = []byte(strings.Repeat(" ", harnesssession.MaximumFrame+1))
+				}
+				if variant != "truncated" {
+					data = append(data, '\n')
+				}
+				if variant == "duplicate" {
+					data = append(data, data...)
+				}
+				go func() { defer w.Close(); _, _ = w.Write(data) }()
+				a.read()
+				if (a.failure == nil) != (variant == "valid") {
+					t.Fatal("unexpected response acceptance", a.failure)
+				}
+			})
+		}
+	})
+
 	root, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatal(err)

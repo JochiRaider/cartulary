@@ -63,7 +63,7 @@ func Main(args []string, input io.Reader, output io.Writer) int {
 	}
 	value, err := harnessschema.Decode(data)
 	if err != nil || harnessschema.Validate(commandSchema, value) != nil {
-		_ = json.NewEncoder(output).Encode(map[string]any{"kind": "terminal", "value": errorResult("ui-review", failure("invalid_request"))})
+		_ = writeOutput(output, "terminal", errorResult("ui-review", failure("invalid_request")))
 		return 2
 	}
 	var q commandRequest
@@ -72,7 +72,7 @@ func Main(args []string, input io.Reader, output io.Writer) int {
 	}
 	environment, err := installedEnvironment(repository)
 	if err != nil {
-		_ = json.NewEncoder(output).Encode(map[string]any{"kind": "terminal", "value": errorResult(q.Command, failure("tool_configuration"))})
+		_ = writeOutput(output, "terminal", errorResult(q.Command, failure("tool_configuration")))
 		return 2
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -128,6 +128,20 @@ func Main(args []string, input io.Reader, output io.Writer) int {
 	if _, err = jsonDocument(response.Schema, response); err != nil {
 		response = errorResult(q.Command, failure("invalid_artifact"))
 	}
-	_ = json.NewEncoder(output).Encode(map[string]any{"kind": "terminal", "value": response})
+	if err := writeOutput(output, "terminal", response); err != nil {
+		return 11
+	}
 	return response.Exit
+}
+
+func writeOutput(output io.Writer, kind string, value any) error {
+	data, err := jsonDocument("cartulary.harness_review_output.v1", map[string]any{"kind": kind, "value": value})
+	if err != nil {
+		return err
+	}
+	if len(data) > harnesssession.MaximumFrame {
+		return harnessschema.ErrInvalid
+	}
+	_, err = output.Write(data)
+	return err
 }

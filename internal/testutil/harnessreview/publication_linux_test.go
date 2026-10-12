@@ -74,6 +74,26 @@ func publicationFixture(t *testing.T) (*diskPublisher, Locator) {
 	return p, l
 }
 func TestReviewPublication(t *testing.T) {
+	t.Run("existing_terminal_is_never_overwritten", func(t *testing.T) {
+		p, l := publicationFixture(t)
+		l.State = "closed"
+		file := filepath.Join(p.runRoot, "ui-review/terminal.json")
+		original := []byte("existing immutable artifact\n")
+		if err := os.WriteFile(file, original, 0600); err != nil {
+			t.Fatal(err)
+		}
+		receipt := Receipt{Schema: "cartulary.ui_review_receipt.v2", Command: commandID("ui-review"), Session: l.Session, Mode: l.Mode, State: "closed", Status: "ok", Started: l.Created, Finished: l.Updated, Failures: []Failure{}, Cleanup: "complete"}
+		if _, err := p.Terminal(l, receipt, false); err == nil {
+			t.Fatal("existing terminal replaced")
+		}
+		data, err := os.ReadFile(file)
+		if err != nil || string(data) != string(original) {
+			t.Fatal("immutable artifact changed", err)
+		}
+		if _, err = os.Stat(registryPath(l.Session)); err != nil {
+			t.Fatal("publication recovery lost", err)
+		}
+	})
 	t.Run("failed_publication_preserves_primary_through_exact_recovery", func(t *testing.T) {
 		p, l := publicationFixture(t)
 		original := contextual("build_failed", "build", "frontend", "child_failed", "build_web")

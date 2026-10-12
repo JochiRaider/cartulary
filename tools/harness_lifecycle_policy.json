@@ -19,7 +19,8 @@
     "lock": 5000,
     "action": 10000,
     "operation": 30000,
-    "lifetime": 28800000
+    "lifetime": 28800000,
+    "failures": 64
   },
   "review_failures": {
     "invalid_request": [

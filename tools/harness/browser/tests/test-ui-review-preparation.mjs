@@ -3,43 +3,18 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { browserReadiness, coreReadiness, goReadiness, nodeReadiness, publishFrontendInstallation, serviceImageReadiness, validateFrontendInstallation } from "../../readiness/installed-readiness.mjs";
-import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
-import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
-import { stopOwnedProcess } from "../../runtime/owned-process.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 import { reviewChild } from "../review-child.mjs";
-import { withReviewResources } from "../review-preparation.mjs";
-import { prepareReview, cleanupRecords } from "../ui-review/preparation.mjs";
 import { failureRecord, preparationFailure, failureFromRecord, ReviewFailure } from "../ui-review/failure.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
-import { ReviewSession } from "../ui-review/session.mjs";
-import { toolProfile } from "../ui-review/toolchain.mjs";
-import { emitResult } from "../ui-review/output.mjs";
 
 const scratch = () => mkdtempSync(path.join(os.tmpdir(), "cartulary-preparation-"));
 function write(root, file, value) { mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); writeFileSync(path.join(root, file), typeof value === "string" ? value : JSON.stringify(value)); }
 const context = { phase: "build", subject_id: "server_harness", condition: "child_failed", recovery_id: "build_server_harness" };
 const diagnosticModule = new URL("../../runtime/command-failure.mjs", import.meta.url).href;
 
-test("shared preparation cleanup alone has cleanup classification and preserves an earlier operational failure", async () => {
-  for (const operational of [false, true]) {
-    const events = [], primary = preparationFailure({ failure_class: "harness", failure_reason: "fixture_error" }, { phase: "seeding", subject_id: "fixture_seed", condition: "child_failed", recovery_id: "inspect_failure" });
-    let caught;
-    try {
-      await withReviewResources({ acquire: async () => {}, prepare: async () => { if (operational) throw primary; }, hold: async () => {},
-        close: async () => { events.push("close"); throw new Error("private cleanup sentinel"); }, finish: async () => { events.push("finish"); } });
-    } catch (error) { caught = error; }
-    assert.deepEqual(events, ["close", "finish"]); assert.equal(caught.cleanupFailures.length, 1);
-    if (operational) assert.equal(caught, primary);
-    const projected = preparationFailure(caught), record = failureRecord(projected);
-    assert.equal(projected.exitCode, operational ? 3 : 12);
-    assert.equal(record.phase, operational ? "seeding" : "cleanup");
-    assert.equal(record.failure_reason, operational ? "fixture_error" : "cleanup_error");
-    assert.ok(!JSON.stringify(record).includes("sentinel"));
-  }
-});
 
 test("installation proof is independent of reuse caches and binds installed lock and workspace inputs", () => {
   const root = scratch();
@@ -84,7 +59,7 @@ test("readiness rejects missing tools, damaged packages, browsers and images wit
 
 test("Make child envelopes preserve classification, reject corruption and never disclose error text", async () => {
   const root = scratch(), runID = path.basename(root);
-  const runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID });
+  const runtime = createRuntime({ repoRoot, runRoot: root, runID });
   const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: path.dirname(root), CARTULARY_TEST_RUN_ID: path.basename(root), CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID };
   try {
     for (const [failure_class, failure_reason] of [["config", "configuration_error"], ["infra", "preflight_error"], ["infra", "service_start_error"], ["infra", "service_readiness_timeout"], ["harness", "fixture_error"], ["harness", "tool_diagnostic_failure"], ["artifact", "artifact_error"], ["infra", "resource_conflict"], ["unknown", "unknown_failure"]]) {
@@ -114,24 +89,6 @@ test("Make child envelopes preserve classification, reject corruption and never 
   } finally { runtime.close(); rmSync(root, { recursive: true, force: true }); }
 });
 
-test("preparation IPC retains validated context and latches malformed outcomes", async () => {
-  const root = scratch();
-  const runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "ipc" });
-  try {
-    for (const mode of ["classified", "malformed", "death"]) {
-      const record = failureRecord(preparationFailure({ failure_class: "harness", failure_reason: "fixture_error" }, { phase: "seeding", subject_id: "fixture_seed", condition: "child_failed", recovery_id: "inspect_failure" }));
-      const worker = path.join(root, `${mode}.mjs`);
-      write(root, `${mode}.mjs`, `process.once('message',()=>{ process.send({phase:${JSON.stringify(context)}}); ${mode === "death" ? "process.exit(1);" : `process.send({done:true,failure:${JSON.stringify(mode === "malformed" ? { ...record, private_message: "secret-sentinel" } : record)},cleanup_failures:[]},()=>process.disconnect());`} });`);
-      const preparation = prepareReview({ input: {}, runtime, runID: mode, signal: new AbortController().signal, workerModule: pathToFileURL(worker).href });
-      await assert.rejects(preparation.ready, (error) => {
-        assert.equal(error.diagnostic, mode === "classified" ? "fixture_failed" : mode === "malformed" ? "diagnostic_invalid" : "preparation_failed");
-        assert.equal(error.context.phase, mode === "classified" ? "seeding" : "build");
-        return true;
-      });
-      await assert.rejects(preparation.done);
-    }
-  } finally { runtime.close(); rmSync(root, { recursive: true, force: true }); }
-});
 
 
 test("Go readiness validates only review producer dependencies with network and automatic toolchain acquisition disabled", () => {
@@ -142,124 +99,4 @@ test("Go readiness validates only review producer dependencies with network and 
   for (const [key, value] of Object.entries({ GOTOOLCHAIN: "local", GOPROXY: "off", GONOPROXY: "none", GOSUMDB: "off" })) assert.equal(calls[1].env[key], value);
   let invocation = 0;
   assert.throws(() => goReadiness({}, repoRoot, () => ({ status: 0, stdout: ++invocation === 1 ? "/installed/go" : "MISSING" })), (error) => error.subject_id === "go" && error.condition === "missing");
-});
-
-test("cancellation in each preparation phase rejects late ready publication and drains the IPC owner", async () => {
-  const root = scratch(), runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "cancel" });
-  try {
-    for (const phase of ["prerequisites", "build", "service_acquisition", "service_readiness", "seeding", "browser_start"]) {
-      const abort = new AbortController(), worker = path.join(root, `${phase}.mjs`);
-      write(root, `${phase}.mjs`, `process.once('message',()=>{process.send({phase:${JSON.stringify({ ...context, phase })}});process.on('message',message=>{if(message.stop) {process.send({ready:{}});process.send({done:true,failure:null,cleanup_failures:[]},()=>process.disconnect());}});});`);
-      const preparation = prepareReview({ input: {}, runtime, runID: phase, signal: abort.signal, workerModule: pathToFileURL(worker).href });
-      const rejection = assert.rejects(preparation.ready, (error) => error.diagnostic === "interrupted");
-      await new Promise((resolve) => setTimeout(resolve, 100)); abort.abort(new ReviewFailure("interrupted"));
-      await preparation.stop(); await rejection;
-    }
-  } finally { runtime.close(); rmSync(root, { recursive: true, force: true }); }
-});
-
-
-test("IPC rejects duplicate terminal outcomes and success followed by child failure", async () => {
-  const root = scratch(), runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "contradiction" });
-  try {
-    for (const mode of ["duplicate", "nonzero"]) {
-      const worker = path.join(root, `${mode}.mjs`);
-      write(root, `${mode}.mjs`, `process.once('message',()=>{process.send({phase:${JSON.stringify(context)}});const done={done:true,failure:null,cleanup_failures:[]};process.send(done,()=>{${mode === "duplicate" ? "process.send(done,()=>process.disconnect());" : "process.exit(1);"}});});`);
-      const preparation = prepareReview({ input: {}, runtime, runID: mode, signal: new AbortController().signal, workerModule: pathToFileURL(worker).href });
-      await assert.rejects(preparation.ready, (error) => error.diagnostic === "diagnostic_invalid");
-      await assert.rejects(preparation.done, (error) => error.diagnostic === "diagnostic_invalid");
-    }
-  } finally { runtime.close(); rmSync(root, { recursive: true, force: true }); }
-});
-
-test("preparation cleanup-only IPC outcome retains cleanup context after cancellation", async () => {
-  const root = scratch(), runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "cleanup-context" }), abort = new AbortController();
-  try {
-    const worker = path.join(root, "worker.mjs");
-    write(root, "worker.mjs", `process.once('message',()=>{process.send({phase:${JSON.stringify(context)}});process.send({ready:{}});process.once('message',()=>process.send({done:true,failure:null,cleanup_failures:${JSON.stringify([failureRecord(new ReviewFailure("cleanup_failed", { context: { ...context, phase: "cleanup", recovery_id: "exact_stop" } }))])}},()=>process.disconnect()));});`);
-    const preparation = prepareReview({ input: {}, runtime, runID: "cleanup-context", signal: abort.signal, workerModule: pathToFileURL(worker).href });
-    await preparation.ready; abort.abort(new ReviewFailure("interrupted"));
-    await assert.rejects(preparation.stop(), (error) => error.exitCode === 12 && error.context.phase === "cleanup" && error.context.recovery_id === "exact_stop");
-  } finally { runtime.close(); rmSync(root, { recursive: true, force: true }); }
-});
-
-test("a failing Make producer crosses preparation IPC into the terminal receipt and safe human guidance", async () => {
-  const root = scratch(), session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
-  try {
-    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "producer-failure" });
-    const privateRoot = session.runtime.privatePath("fault-producer");
-    write(privateRoot, "child.mjs", `import {publishCommandFailure} from ${JSON.stringify(diagnosticModule)}; console.error("secret-sentinel /private/path"); publishCommandFailure(${JSON.stringify(repoRoot)}, {failure_class:'harness',failure_reason:'tool_diagnostic_failure'}); process.exit(7);`);
-    write(privateRoot, "Makefile", `all:\n\t@${process.execPath} ${path.join(privateRoot, "child.mjs")}\n`);
-    const worker = path.join(privateRoot, "worker.mjs");
-    write(privateRoot, "worker.mjs", `
-      import {reviewChild} from ${JSON.stringify(new URL("../review-child.mjs", import.meta.url).href)};
-      import {failureRecord,preparationFailure} from ${JSON.stringify(new URL("../ui-review/failure.mjs", import.meta.url).href)};
-      process.once('message',async ({runID,runtime})=>{
-        const context=${JSON.stringify(context)};
-        process.send({phase:context});
-        let failure=null;
-        try { await reviewChild({root:${JSON.stringify(repoRoot)}, command:'make',args:['-f',${JSON.stringify(path.join(privateRoot, "Makefile"))}],
-          environment:{...process.env,CARTULARY_TEST_RESULTS_DIR:${JSON.stringify(root)},CARTULARY_TEST_RUN_ID:runID,CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:runtime.root,CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:runtime.leaseID,CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:runID},
-          commandID:'cartulary.harness.command.build_server_harness.v1',context}); }
-        catch(error) { failure=failureRecord(preparationFailure(error,context)); }
-        process.send({done:true,failure,cleanup_failures:[]},()=>process.disconnect());
-      });`);
-    session.prepareMode = async () => {
-      session.preparedOwner = prepareReview({ input: session.input, runtime: session.runtime, runID: session.runID, signal: session.abort.signal, workerModule: pathToFileURL(worker).href });
-      session.preparation = session.preparedOwner.done;
-      await session.preparedOwner.ready;
-    };
-    let primary;
-    try { await session.prepare(); } catch (error) { primary = error; }
-    assert.equal(primary?.diagnostic, "build_failed");
-    await session.stop(primary);
-    const value = session.terminalValue("ui-review-stop");
-    assert.equal(value.exit_code, 1); assert.equal(value.failures.length, 1);
-    assert.deepEqual(value.failures[0], { failure_class: "harness", failure_reason: "tool_diagnostic_failure", diagnostic_code: "build_failed", ...context });
-    const file = path.join(session.runRoot, value.receipt.path), receipt = readFileSync(file, "utf8");
-    assert.equal(JSON.parse(receipt).cleanup, "complete"); assert.deepEqual(JSON.parse(receipt).failures, value.failures);
-    let human = ""; emitResult(value, "summary", { write: (text) => { human += text; } });
-    assert.match(human, /phase=build subject=server_harness condition=child_failed; inspect make build-server-harness/u);
-    assert.ok(!`${human}${receipt}`.includes("sentinel") && !`${human}${receipt}`.includes("/private/path"));
-    assert.equal(existsSync(session.runtime.root), false);
-    await session.stop(); assert.equal(readFileSync(file, "utf8"), receipt);
-  } finally { await session.stop(); rmSync(root, { recursive: true, force: true }); }
-});
-
-
-test("preparation bounds secondary diagnostics without replacing the primary outcome", () => {
-  const records = cleanupRecords(Array.from({ length: 80 }, () => new Error("private cleanup detail")), { subject_id: "preparation_child" });
-  assert.equal(records.length, 64);
-  assert.equal(records.at(-1).diagnostic_code, "diagnostic_invalid");
-  assert.ok(records.every((record) => !JSON.stringify(record).includes("private cleanup detail")));
-});
-
-test("missing preparation IPC stays primary when reaping acknowledgement and later stop fail", async () => {
-  const root = scratch(), runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "ipc-reap-failure" });
-  try {
-    const worker = path.join(root, "worker.mjs");
-    write(root, "worker.mjs", `process.once('message',()=>{process.send({phase:${JSON.stringify(context)}},()=>process.exit(1));});`);
-    const preparation = prepareReview({ input: {}, runtime, runID: "death", signal: new AbortController().signal,
-      workerModule: pathToFileURL(worker).href,
-      stopProcess: async (proof) => { await stopOwnedProcess(proof); throw new Error("reaping acknowledgement failed"); },
-    });
-    let primary;
-    await assert.rejects(preparation.ready, (error) => {
-      primary = error;
-      assert.equal(error.diagnostic, "preparation_failed");
-      assert.equal(error.context.phase, "build");
-      assert.equal(error.cleanupFailures.length, 2);
-      assert.ok(error.cleanupFailures.every((failure) => failure.diagnostic === "cleanup_failed"));
-      return true;
-    });
-    await assert.rejects(preparation.done, (error) => error === primary);
-    await assert.rejects(preparation.stop(), (error) => error === primary && error.cleanupFailures.length === 3);
-    assert.equal(runtimeRecoveryResources(runtime).length, 1, "failed acknowledgement retains exact process proof");
-  } finally {
-    for (const record of runtimeRecoveryResources(runtime)) {
-      await stopOwnedProcess(record.target);
-      recordRuntimeResource(runtime, { ...record, state: "released" });
-    }
-    runtime.close(); rmSync(root, { recursive: true, force: true });
-  }
 });

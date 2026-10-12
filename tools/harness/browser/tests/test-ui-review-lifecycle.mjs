@@ -11,19 +11,16 @@ import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/w
 import { atomicLocalFile, privateDirectory, readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { ReviewBrowser } from "../ui-review/browser.mjs";
 import { schemaID, validate, ReviewFailure, failureMappings, limits } from "../ui-review/contract.mjs";
-import { ReviewSession } from "../ui-review/session.mjs";
-import { toolProfile } from "../ui-review/toolchain.mjs";
-import { unregisterSession } from "../ui-review/session-files.mjs";
-import { inputPath } from "../ui-review/session-files.mjs";
+import { inputPath } from "../ui-review/input-files.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
-import { boundedCleanup, ownedProcess, recordResource, stopOwnedProcess } from "../ui-review/ownership.mjs";
-import { cleanupStaleSuiteRuntimeRoots, createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
+import { ownedProcess, stopOwnedProcess } from "../ui-review/ownership.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 test("failed runner acquisition publication reaps the child and preserves the primary error", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-publication-"));
   const scratchRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-scratch-"));
-  const runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "capture-publication", scratchRoot });
+  const runtime = createRuntime({ repoRoot, runRoot: root, runID: "capture-publication", scratchRoot });
   const options = { cwd: repoRoot, repoRoot, runRoot: root, detached: true, env: { ...process.env,
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID } };
   let proof;
@@ -32,23 +29,6 @@ test("failed runner acquisition publication reaps the child and preserves the pr
     assert.ok(proof); assert.equal(processIdentityAlive(proof), false);
     await assert.rejects(runPrivateCapturedProcess(path.join(root, "missing-executable"), [], { ...options, onSpawn() { assert.fail("failed spawn must not publish an owned process"); } }), (error) => error.cause?.code === "ENOENT");
   } finally { if (proof) await stopOwnedProcess(proof); runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); }
-});
-test("hung cleanup is bounded and stale cleanup preserves unresolved proof", async () => {
-  const tick = performance.now();
-  await assert.rejects(boundedCleanup(() => new Promise(() => {}), 40), /cleanup_failed/u);
-  assert.ok(performance.now() - tick < 1000);
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-recovery-proof-"));
-  const scratchRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-proof-scratch-"));
-  const runtime = createSuiteRuntime({ repoRoot, runRoot: root, runID: "proof", scratchRoot });
-  try {
-    recordResource(runtime, { kind: "browser_stack", target: runtime.privatePath("exact", "lease.json"), state: "pending" });
-    atomicLocalFile(runtime.privatePath("runtime-process.json"), JSON.stringify({ boot: "previous-boot", pid: process.pid, start: "1" }), { replace: true });
-    cleanupStaleSuiteRuntimeRoots({ repoRoot, runRoot: root, scratchRoot, now: Date.now() + 8 * 86400000 });
-    assert.equal(existsSync(runtime.root), true);
-  } finally {
-    recordResource(runtime, { kind: "browser_stack", target: runtime.privatePath("exact", "lease.json"), state: "released" });
-    runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true });
-  }
 });
 test("process recovery rejects PID reuse and reaps descendants after their group leader exits", async () => {
   const child = spawn(process.execPath, ["--input-type=module", "--eval", `import {spawn} from 'node:child_process'; const child=spawn(process.execPath,['-e','process.on("SIGTERM",()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});process.stdout.write(String(child.pid));setTimeout(()=>process.exit(),200);`], { detached: true, stdio: ["ignore", "pipe", "ignore"] });
@@ -63,20 +43,6 @@ test("process recovery rejects PID reuse and reaps descendants after their group
     const stat = existsSync(`/proc/${descendant}/stat`) ? readFileSync(`/proc/${descendant}/stat`, "utf8") : "";
     assert.ok(!stat || stat.split(") ").at(-1).startsWith("Z "));
   } finally { await stopOwnedProcess(proof, { graceMS: 40 }); }
-});
-test("stop drains a resource returned after preparation cancellation", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-late-acquire-"));
-  const session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
-  const gate = Promise.withResolvers(); let closed = 0;
-  try {
-    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "late" });
-    session.prepareMode = async () => { await gate.promise; session.browser = { close: async () => { closed++; } }; session.abort.signal.throwIfAborted(); };
-    const preparing = session.prepare(); preparing.catch(() => {});
-    const stopping = session.stop(); await pause(20); gate.resolve(); await stopping;
-    assert.equal(closed, 1); assert.equal(session.state, "closed");
-    assert.equal(existsSync(session.runtime.root), false);
-    await assert.rejects(preparing, /interrupted/u);
-  } finally { gate.resolve(); await session.stop(); rmSync(root, { recursive: true, force: true }); }
 });
 test("private local reads reject links, permissive files and changed publication targets", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-private-files-"));
@@ -162,105 +128,9 @@ test("browser actions use exact handles, epochs and isolated contexts without mo
   } finally { await browser.close(); await admission?.release(); await new Promise((resolve) => server.close(resolve)); }
 });
 
-test("unavailable borrowed origin expires without acquiring or resetting services", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-review-unreachable-"));
-  const server = createServer(); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const origin = `http://127.0.0.1:${server.address().port}`; await new Promise((resolve) => server.close(resolve));
-  const session = new ReviewSession({ UI_MODE: "dev", UI_ORIGIN: origin }, toolProfile());
-  try {
-    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "unreachable" });
-    await assert.rejects(session.prepare(), /readiness_expired/u);
-    assert.equal(session.browser, undefined); assert.equal(session.seeded, undefined);
-    await session.stop(new ReviewFailure("readiness_expired")); assert.equal(session.terminalValue("ui-review-stop").exit_code, 3);
-    assert.equal(existsSync(session.runtime.root), false);
-  } finally { await session.stop(); rmSync(root, { recursive: true, force: true }); }
-});
 
-test("partial cleanup attempts all owners, preserves the primary failure and retains failed ownership", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-review-cleanup-"));
-  const session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
-  try {
-    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "cleanup" });
-    const detail = session.runtime.privatePath("review-access", "private.json");
-    atomicLocalFile(detail, "private failure sentinel");
-    const credentials = session.runtime.privatePath("test-services", "suite-environment.json");
-    atomicLocalFile(credentials, "private failed acquisition credentials");
-    const released = [];
-    session.browser = { close: async () => { released.push("browser"); throw new Error("private failure detail"); } };
-    session.preparation = Promise.reject(Object.assign(new Error("private preparation"), { cleanupFailures: [new Error("private owner")] }));
-    session.preparation.catch(() => {});
-    session.hostLease = { release: async () => { released.push("host"); } };
-    await session.stop(new ReviewFailure("startup_failed"));
-    assert.deepEqual(released, ["browser", "host"]);
-    const value = session.terminalValue("ui-review-stop");
-    assert.equal(value.exit_code, 3); assert.equal(value.failures[0].diagnostic_code, "startup_failed");
-    assert.equal(value.failures[1].diagnostic_code, "cleanup_failed");
-    assert.equal(existsSync(session.runtime.root), true);
-    assert.equal(existsSync(detail), false);
-    assert.equal(existsSync(credentials), false);
-    const receipt = JSON.parse(readLocalFile(path.join(session.runRoot, value.receipt.path)));
-    assert.equal(receipt.cleanup, "failed"); assert.equal(JSON.stringify(receipt).includes("private failure"), false);
-    await session.stop(); assert.deepEqual(session.terminalValue("ui-review-stop"), value);
-  } finally { session.runtime?.close(); if (session.record) unregisterSession(session.record); rmSync(root, { recursive: true, force: true }); }
-});
 
-test("every normalized primary failure survives secondary cleanup failure and terminal repetition", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-failure-matrix-"));
-  try {
-    for (const [code, [kind, reason, exit]] of Object.entries(failureMappings)) {
-      const session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
-      try {
-        session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: code });
-        session.browser = { close: async () => { throw new Error("private release failure"); } };
-        const context = ["build_failed", "fixture_failed", "diagnostic_invalid", "preparation_failed"].includes(code) ? { phase: "build", subject_id: "preparation_child", condition: "unknown", recovery_id: "inspect_failure" } : { phase: null, subject_id: null, condition: null, recovery_id: null };
-        await session.stop(new ReviewFailure(code, { context }));
-        const value = validate("command_result", session.terminalValue("ui-review-stop"));
-        assert.equal(value.exit_code, exit); assert.deepEqual(value.failures[0], { diagnostic_code: code, failure_class: kind, failure_reason: reason, ...context });
-        assert.ok(value.failures.some((item) => item.diagnostic_code === "cleanup_failed"));
-        const receipt = readFileSync(path.join(session.runRoot, value.receipt.path), "utf8"); assert.ok(!receipt.includes("private release failure"));
-        await session.stop(); assert.deepEqual(session.terminalValue("ui-review-stop"), value);
-      } finally { session.runtime?.close(); if (session.record) unregisterSession(session.record); }
-    }
-  } finally { rmSync(root, { recursive: true, force: true }); }
-});
-test("session serialization bounds contention and never overlaps operations", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-serial-review-")), session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
-  try {
-    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "serial" }); await session.prepare();
-    const gate = Promise.withResolvers(); let executed = 0;
-    session.operation = async (command) => { executed++; await gate.promise; return session.value(command); };
-    const first = session.handle("ui-analyze", {});
-    const second = await session.handle("ui-analyze", {});
-    assert.equal(second.exit_code, 4); assert.equal(executed, 1); assert.equal(session.operationID, 1);
-    gate.resolve(); await first; assert.equal(session.state, "ready");
-    await session.handle("ui-analyze", {}); assert.equal(executed, 2);
-  } finally { await session.stop(); rmSync(root, { recursive: true, force: true }); }
-});
-test("eight-hour expiry closes the session at the exact lifetime boundary", async (context) => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-expiry-review-")), session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
-  try {
-    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "expiry" });
-    context.mock.timers.enable({ apis: ["setTimeout"] }); await session.prepare();
-    context.mock.timers.tick(limits.lifetime - 1); assert.equal(session.state, "ready");
-    context.mock.timers.tick(1); await session.stopping; assert.equal(session.state, "closed"); assert.equal(existsSync(session.runtime.root), false);
-  } finally { context.mock.timers.reset(); await session.stop(); rmSync(root, { recursive: true, force: true }); }
-});
 
-test("unsafe terminal publication cannot report success or overwrite an existing file", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-review-publication-"));
-  const session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
-  try {
-    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "publication" });
-    const terminal = path.join(session.runRoot, "ui-review/terminal.json"); atomicLocalFile(terminal, "unrelated bytes");
-    await session.stop(); const value = session.terminalValue("ui-review-stop");
-    assert.equal(value.status, "error"); assert.equal(value.exit_code, 11); assert.equal(value.receipt, null);
-    assert.equal(readLocalFile(terminal).toString(), "unrelated bytes");
-    assert.equal(existsSync(session.runtime.root), false);
-    const status = spawnSync("make", ["--silent", "ui-review-status", `UI_SESSION=${session.locatorFile}`], { cwd: repoRoot, env: { ...cleanEnvironment(), CARTULARY_OUTPUT_MODE: "machine" }, encoding: "utf8" });
-    assert.equal(JSON.parse(status.stdout).exit_code, 11);
-    assert.equal(JSON.parse(status.stdout).receipt, null);
-  } finally { session.runtime?.close(); if (session.record) unregisterSession(session.record); rmSync(root, { recursive: true, force: true }); }
-});
 
 test("browser timeout requires a fresh snapshot, redirects stay at the borrowed origin, and browser loss is reported", async () => {
   const server = createServer((request, response) => {
@@ -404,19 +274,4 @@ test("stop interrupts a busy public dev action and leaves the borrowed origin al
     assert.equal(await actionEnded, 2); const response = JSON.parse(actionOutput); validate("command_result", response); assert.equal(response.failures[0].diagnostic_code, "interrupted"); assert.deepEqual(response.private_refs, []);
     assert.equal(await ended, 0); assert.equal((await fetch(origin)).status, 200);
   } finally { if (child.exitCode === null) child.kill("SIGTERM"); if (actionChild?.exitCode === null) actionChild.kill("SIGTERM"); await ended; await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
-});
-
-
-test("a preparation failure already in flight survives an exact stop during cleanup", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-preparation-stop-"));
-  const session = new ReviewSession({ UI_MODE: "artifacts" }, toolProfile());
-  try {
-    session.initialize({ CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "race" });
-    const failure = new ReviewFailure("build_failed", { context: { phase: "build", subject_id: "server_harness", condition: "child_failed", recovery_id: "build_server_harness" } });
-    session.preparedOwner = { stop: async () => { throw failure; } };
-    await session.stop();
-    const terminal = session.terminalValue("ui-review-stop");
-    assert.equal(terminal.failures[0].diagnostic_code, "build_failed"); assert.equal(terminal.exit_code, 1);
-    assert.equal(JSON.parse(readFileSync(path.join(session.runRoot, terminal.receipt.path))).cleanup, "complete");
-  } finally { await session.stop(); rmSync(root, { recursive: true, force: true }); }
 });

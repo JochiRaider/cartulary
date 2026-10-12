@@ -3,18 +3,13 @@
 package harnessreview
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"maps"
 	"net/http"
 	"net/url"
-	"os/exec"
-	"path/filepath"
 	"slices"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
@@ -279,7 +274,7 @@ func recoverIndependent(ctx context.Context, root, runRoot string, runtime *harn
 				continue
 			}
 			step, cancel := context.WithTimeout(ctx, 30*time.Second)
-			err := stopResource(step, root, runRoot, runtime, environment, resource)
+			err := runtime.StopResource(step, root, runRoot, environment, resource)
 			cancel()
 			if err == nil {
 				err = runtime.RecordResource(resource.Kind, resource.Target, "released")
@@ -290,34 +285,4 @@ func recoverIndependent(ctx context.Context, root, runRoot string, runtime *harn
 		}
 	}
 	return failures
-}
-func stopResource(ctx context.Context, root, runRoot string, runtime *harnesssession.Runtime, environment map[string]string, resource harnesssession.Resource) error {
-	data, err := json.Marshal(resource)
-	if err != nil {
-		return err
-	}
-	cmd := exec.CommandContext(ctx, environment["NODE_BIN"], filepath.Join(root, "tools/harness/runtime/resource-stop-private.mjs"))
-	cmd.Dir = root
-	env := maps.Clone(environment)
-	maps.Copy(env, runtime.Environment())
-	env["CARTULARY_TEST_RESULTS_DIR"] = filepath.Dir(runRoot)
-	env["CARTULARY_TEST_RUN_ID"] = runtime.RunID
-	for _, k := range slices.Sorted(maps.Keys(env)) {
-		cmd.Env = append(cmd.Env, k+"="+env[k])
-	}
-	cmd.Stdin = bytes.NewReader(data)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
-	cmd.WaitDelay = time.Second
-	release, err := harnessadmission.InheritWorkspace(cmd)
-	if err != nil {
-		return err
-	}
-	defer release()
-	cmd.Cancel = func() error {
-		if cmd.Process == nil {
-			return nil
-		}
-		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-	}
-	return cmd.Run()
 }

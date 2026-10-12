@@ -8,7 +8,7 @@ import { canonicalComparison } from "./canonical-import.mjs";
 import { FilePayload, StoredFiles, bytesOf } from "./file-payload.mjs";
 import { artifact, references, validateFiles } from "./bundles.mjs";
 import { emptyCounts, limits, ReviewFailure, validate } from "./contract.mjs";
-import { digest, jsonBytes } from "./session-files.mjs";
+import { digest, jsonBytes } from "./input-files.mjs";
 
 const safeName = (name) => /^[a-z][a-z0-9_.-]*$/u.test(name);
 

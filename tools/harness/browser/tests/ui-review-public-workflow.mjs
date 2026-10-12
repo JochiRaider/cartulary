@@ -1,3 +1,4 @@
+import { readRegistry } from "./ui-review-registry-fixture.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -7,7 +8,7 @@ import path from "node:path";
 import { failureFromRecord } from "../ui-review/failure.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
 import { schemaID, validate } from "../ui-review/contract.mjs";
-import { digest, readLocator, resolveSession } from "../ui-review/session-files.mjs";
+import { digest } from "../ui-review/input-files.mjs";
 import { readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { importFixture } from "./ui-review-import-fixture.mjs";
@@ -37,7 +38,7 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
     let diagnostic = "";
     if (result.status !== "ok" && command === "ui-browser" && value?.action === "diagnostic_snapshot") {
       try {
-        const record = resolveSession(readLocator(locator));
+        const record = readRegistry(locator);
         const detail = JSON.parse(readLocalFile(path.join(record.runtime.root, "artifacts", "diagnostic-failure.json"), { maximum: 65536 }));
         if (detail.operation_id === result.operation_id) diagnostic = JSON.stringify({ stage: detail.stage, cause_name: detail.cause_name, cause_code: detail.cause_code, command: detail.last_command?.command, exit_status: detail.last_command?.status });
       } catch { diagnostic = "private diagnostic unavailable"; }
@@ -68,7 +69,7 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
   };
   const stop = async (interruptController = false) => {
     if (interruptController) {
-      const record = resolveSession(readLocator(locator));
+      const record = readRegistry(locator);
       assert.equal(processIdentityAlive(record.process), true);
       process.kill(record.process.pid, "SIGKILL");
       const ended = await running.ended;

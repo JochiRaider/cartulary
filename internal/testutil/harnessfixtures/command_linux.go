@@ -43,8 +43,8 @@ type processTarget struct {
 	Group bool   `json:"group"`
 }
 
-// commandRunner is private to fixed lifecycle adapters; neither the fixture
-// session nor public Make inputs can supply an arbitrary command or argv.
+// commandRunner is private to fixed lifecycle adapters; neither an adapter
+// request nor public Make inputs can supply an arbitrary command or argv.
 func commandRunner(root string, runtime *harnesssession.Runtime) Command {
 	return func(ctx context.Context, executable string, args []string, environment map[string]string) (result CommandResult, err error) {
 		result.Exit = -1

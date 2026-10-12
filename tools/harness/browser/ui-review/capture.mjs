@@ -1,5 +1,5 @@
 import { artifact, bundleBase } from "./bundles.mjs";
-import { digest, inputPath, readInput } from "./session-files.mjs";
+import { digest, inputPath, readInput } from "./input-files.mjs";
 import { limits, ReviewFailure } from "./contract.mjs";
 
 export function scopeRectangle(scope, visible, viewport, image) {

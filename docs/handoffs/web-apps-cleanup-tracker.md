@@ -1,5 +1,13 @@
 # web-apps-cleanup Module Refactoring Tracker and Handoff
 
+The harness path inventory and LIVE dispositions below describe this tracker’s
+recorded source, not a permanent compatibility surface. Subsequent graph and
+lifecycle migration retired the JavaScript scheduler/cache, review coordinator,
+private-runtime policy and fixture transport. Current harness ownership and
+verification are in the [lifecycle tracker](cartulary-test-harness-instrumentation.md).
+Historical inventories and validation remain source-scoped evidence.
+
+
 ## 1. Scope and Source Posture
 
 - Target: `apps/web`; target label: `web-apps-cleanup`; output: `docs/handoffs/web-apps-cleanup-tracker.md`.
@@ -4304,7 +4312,7 @@ S-55 begins after S-54's saved successful exit. Reconcile every baseline advisor
 | `apps/web/src/workbook/timeline/mutations/WorkbookTimelineMutationOwner.ts` / `WorkbookTimelineMutationOwner.suspend` | LIVE structural lifecycle port: fixed WorkbookMutationFeatureAssembly membership / WorkbookFeatureLifecycle and runtime Timeline contributions require this exact member for once-only subscription, write settlement, authority fencing and retirement; lifecycle integration tests exercise the concrete owner. |
 | `apps/web/src/workbook/timeline/mutations/WorkbookTimelineMutationOwner.ts` / `WorkbookTimelineMutationOwner.closeIncident` | LIVE structural lifecycle port: fixed WorkbookMutationFeatureAssembly membership / WorkbookFeatureLifecycle and runtime Timeline contributions require this exact member for once-only subscription, write settlement, authority fencing and retirement; lifecycle integration tests exercise the concrete owner. |
 | `apps/web/src/workbook/timeline/mutations/WorkbookTimelineMutationOwner.ts` / `WorkbookTimelineMutationOwner.retire` | LIVE structural lifecycle port: fixed WorkbookMutationFeatureAssembly membership / WorkbookFeatureLifecycle and runtime Timeline contributions require this exact member for once-only subscription, write settlement, authority fencing and retirement; lifecycle integration tests exercise the concrete owner. |
-| `tools/harness/scheduler/work-graph/cache.mjs` / `WorkGraphCache.validateGraph` | LIVE consumer/structural port: `tools/harness/scheduler/work-graph/scheduler.mjs:390`; current admission, authoring, identity, authority, review, navigation or recovery port; actual receiver/callback and semantic regression remain supported. |
+| `tools/harness/scheduler/work-graph/cache.mjs` / `WorkGraphCache.validateGraph` | HISTORICAL S-52 consumer: `tools/harness/scheduler/work-graph/scheduler.mjs:390`. Removed by the native graph cutover; native cache validation now belongs to `internal/testutil/harnessruntime`. |
 
 **All remaining raw health entries:** generated machine projection: 379, authored owner implementation: 2214, semantic test/fixture: 148. Every `findings`, `file_scores`, `hotspots`, `large_functions` and `targets` entry maps by its exact `path` to the classifications below. These structural metrics do not establish a confirmed defect; no numerical threshold was relaxed. Generated functions are downstream machine projections and are not manually refactored. Test-body spans are suite/fixture aggregation observations; actual execution and assertions, not extracted line counts, determine coverage. Authored algorithms retain their cohesive owner and real execution path; dead-surface recommendations are already reconciled above. Source ownership, private import enforcement and actual owner regressions validate the maintained boundaries.
 

@@ -12,15 +12,13 @@ import { capture as execute } from "./ui-review-work-fixture.mjs";
 import { importFixture } from "./ui-review-import-fixture.mjs";
 import { ArtifactStore } from "../ui-review/artifact-store.mjs";
 import { atomicLocalFile, removePrivateTree } from "../../runtime/secure-local-files.mjs";
-import { ReviewSession } from "../ui-review/session.mjs";
+import { sessionAt } from "./ui-review-work-fixture.mjs";
 import { ReviewBrowser } from "../ui-review/browser.mjs";
 import { limits, parseRequest, schemaID } from "../ui-review/contract.mjs";
-import { toolProfile } from "../ui-review/toolchain.mjs";
 import { repoRoot, reviewPins } from "../ui-review/policy.mjs";
 import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
 
-const sessionAt = (root) => Object.assign(new ReviewSession({ UI_MODE: "artifacts" }, toolProfile()), { runtime: { privatePath: (...parts) => path.join(root, ...parts) }, workspaceDigest: "a".repeat(64) });
 const png = () => encodePNG({ width: 2, height: 1, data: Buffer.from([11, 22, 33, 0, 44, 55, 66, 255]) });
 function insertChunk(bytes, kind, payload) {
   const chunk = Buffer.alloc(payload.length + 12); chunk.writeUInt32BE(payload.length); chunk.write(kind, 4); payload.copy(chunk, 8); chunk.writeUInt32BE(crc32(chunk.subarray(4, -4)), chunk.length - 4);

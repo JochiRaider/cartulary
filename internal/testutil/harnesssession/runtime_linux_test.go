@@ -31,6 +31,51 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	return runtime, root, run
 }
 func TestSessionRuntimeProof(t *testing.T) {
+	t.Run("failed_registration_and_duplicate_journal_preserve_ownership", func(t *testing.T) {
+		r, _, _ := runtimeFixture(t)
+		target, _ := r.PrivatePath("browser-stack-leases", "fixture", "owner.json")
+		if err := r.RecordResource("browser_stack", target, "pending"); err != nil {
+			t.Fatal(err)
+		}
+		entries, err := os.ReadDir(filepath.Join(r.Root, "recovery"))
+		if err != nil || len(entries) != 1 {
+			t.Fatal(entries, err)
+		}
+		file := filepath.Join(r.Root, "recovery", entries[0].Name())
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Chmod(file, 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err = r.RecordResource("browser_stack", target, "acquired"); err == nil {
+			t.Fatal("unsafe journal replacement accepted")
+		}
+		if err = os.Chmod(file, 0600); err != nil {
+			t.Fatal(err)
+		}
+		resources, err := r.Resources(64)
+		if err != nil || len(resources) != 1 || resources[0].State != "pending" {
+			t.Fatal("pending ownership lost", resources, err)
+		}
+		duplicate := filepath.Join(r.Root, "recovery", "duplicate.json")
+		if err = os.WriteFile(duplicate, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = r.Resources(64); err == nil {
+			t.Fatal("duplicate journal accepted")
+		}
+		if err = r.Close(); err == nil {
+			t.Fatal("unresolved root removed")
+		}
+		if err = os.Remove(duplicate); err != nil {
+			t.Fatal(err)
+		}
+		if err = r.RecordResource("browser_stack", target, "released"); err != nil {
+			t.Fatal(err)
+		}
+	})
 	t.Run("preservation_and_janitor", testFixturePreservation)
 	t.Run("borrow_and_recovery_closure", func(t *testing.T) {
 		r, root, run := runtimeFixture(t)

@@ -1220,7 +1220,6 @@
           "TestFixtureCommandLifecycle",
           "TestFixtureProxyLifecycle",
           "TestFixtureRecovery",
-          "TestFixtureSession",
           "TestFixtureSuiteOwner"
         ]
       },

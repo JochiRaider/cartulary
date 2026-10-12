@@ -290,7 +290,7 @@ func start(ctx context.Context, repository string, q commandRequest, environment
 	emit := func(kind string, value any) {
 		outputMu.Lock()
 		defer outputMu.Unlock()
-		if json.NewEncoder(output).Encode(map[string]any{"kind": kind, "value": value}) != nil {
+		if writeOutput(output, kind, value) != nil {
 			session.Stop(failure("session_lost"))
 		}
 	}

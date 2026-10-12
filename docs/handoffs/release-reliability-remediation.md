@@ -1,5 +1,13 @@
 # Release reliability and recovery remediation
 
+The implementation paths and validation below are historical evidence for the
+named release source. Current harness lifecycle ownership is Go:
+`internal/testutil/harnesssession`, `harnessreview`, and `harnessfixtures`.
+The retired Node coordinators and fixture transport are not extension points.
+See the [current lifecycle tracker](cartulary-test-harness-instrumentation.md)
+for migration checkpoints and current-source validation.
+
+
 The implementation is on `main`. The qualified implementation candidate is
 `36ed8c239981b576caf58b09a7bf772c4884a536`, with source fingerprint
 `sha256:8aff5143719ce3efd33e6298814653f101f42a788f2bc3d71a30ce6b01fbc4e8`.

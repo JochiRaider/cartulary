@@ -14,9 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
-func (p ProductionOptions) stopResource(ctx context.Context, kind string, resource harnesssession.Resource) error {
-	_, err := p.command()(ctx, p.Environment["NODE_BIN"], []string{filepath.Join(p.Root, "tools/harness/runtime/fixture-resource-stop.mjs"), kind, string(resource.Target)}, p.environment())
-	return CleanupFailure(err)
+func (p ProductionOptions) stopResource(ctx context.Context, resource harnesssession.Resource) error {
+	return CleanupFailure(p.Runtime.StopResource(ctx, p.Root, p.RunRoot, p.environment(), resource))
 }
 func (p ProductionOptions) releaseResource(resource harnesssession.Resource) error {
 	return p.Runtime.RecordResource(resource.Kind, resource.Target, "released")
@@ -62,7 +61,7 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 			operation = "process"
 		}
 		if operation != "" {
-			if err := p.stopResource(ctx, operation, resource); err != nil {
+			if err := p.stopResource(ctx, resource); err != nil {
 				failures = append(failures, err)
 				allBlocked = true
 			} else if err := p.releaseResource(resource); err != nil {
@@ -102,7 +101,7 @@ func (p ProductionOptions) Recover(ctx context.Context) error {
 		if resource.Kind != "object_store_proxy" {
 			continue
 		}
-		if err := p.stopResource(ctx, "proxy", resource); err != nil {
+		if err := p.stopResource(ctx, resource); err != nil {
 			failures = append(failures, err)
 			allBlocked = true
 		} else if err := p.releaseResource(resource); err != nil {

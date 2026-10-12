@@ -5,9 +5,13 @@ import { nativeReview } from "./ui-review/native-client.mjs";
 import { toolProfile } from "./ui-review/toolchain.mjs";
 import { repoRoot } from "./ui-review/policy.mjs";
 
-export async function runDesignReview({ smoke = false, environment = process.env, writeOutput = (value) => process.stdout.write(value) } = {}) {
-  const profile = (environment.REVIEW_PROFILE ?? "network_flow_claimed").trim();
+export function reviewProfile(value = "network_flow_claimed") {
+  const profile = value.trim();
   if (!["default", "network_flow_claimed"].includes(profile)) throw Object.assign(new Error("invalid review profile"), { exitCode: 2 });
+  return profile;
+}
+export async function runDesignReview({ smoke = false, environment = process.env, writeOutput = (value) => process.stdout.write(value) } = {}) {
+  const profile = reviewProfile(environment.REVIEW_PROFILE);
   const results = validateResultRoot(environment.CARTULARY_TEST_RESULTS_DIR || undefined, { root: repoRoot, create: false });
   const runID = environment.CARTULARY_TEST_RUN_ID ? validateRunId(environment.CARTULARY_TEST_RUN_ID) : generateRunId();
   let locator, outcome;

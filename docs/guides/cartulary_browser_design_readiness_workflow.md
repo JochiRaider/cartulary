@@ -169,6 +169,14 @@ reason and diagnostic code rather than the generic Make exit. Cleanup failure is
 visible and retains ownership evidence for recovery; do not delete arbitrary
 runtime directories to conceal it.
 
+The installed harness binary owns review admission, cancellation, recovery and
+terminal publication through `internal/testutil/harnessreview`. It calls
+`harnessfixtures` directly and shares private state and scanning through
+`harnesssession`. Node handles input compilation, preparation recipes, browser
+operations, capture and report adaptation; it owns no parallel session registry,
+recovery policy or fixture-session transport. Graph final scanning and review
+terminal publication retain their distinct ordering contracts.
+
 Status and stop use minimal control readiness and remain available when analysis
 engine packages are missing or damaged. Status never performs recovery. Exact
 stop can recover proven-dead nonterminal ownership after supervisor loss, with

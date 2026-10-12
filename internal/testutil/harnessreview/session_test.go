@@ -3,8 +3,11 @@ package harnessreview
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -94,6 +97,118 @@ func awaitSession(t *testing.T, s *Session) {
 	}
 }
 func TestReviewLifecycle(t *testing.T) {
+	t.Run("borrowed_origin_deadline_has_no_destructive_effect", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(503) }))
+		defer server.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer cancel()
+		if normalized(waitOrigin(ctx, server.URL), "unsafe_artifact").Record.Code != "readiness_expired" {
+			t.Fatal("wrong deadline failure")
+		}
+		response, err := http.Get(server.URL)
+		if err != nil {
+			t.Fatal("borrowed origin stopped", err)
+		}
+		response.Body.Close()
+	})
+	t.Run("bounded_secondary_diagnostics_preserve_primary", func(t *testing.T) {
+		values := []Failure{failure("startup_failed").Record}
+		for _, phase := range []string{"prerequisites", "build", "service_acquisition", "service_readiness", "seeding", "browser_start", "cleanup"} {
+			for code := range failurePolicy {
+				f := contextual(code, phase, "server_harness", "child_failed", "inspect_failure").Record
+				if err := f.validate(); err != nil {
+					t.Fatal(err)
+				}
+				values = appendFailure(values, f)
+			}
+		}
+		if len(values) != 64 || values[0].Code != "startup_failed" || values[63].Code != "diagnostic_invalid" {
+			t.Fatal("unbounded failure projection")
+		}
+	})
+
+	t.Run("exact_eight_hour_lifetime", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			p := &testPublisher{}
+			s := readySession(t, &testDriver{}, p)
+			synctest.Wait()
+			time.Sleep(8*time.Hour - time.Nanosecond)
+			if !s.Ready() {
+				t.Fatal("expired before boundary")
+			}
+			time.Sleep(time.Nanosecond)
+			synctest.Wait()
+			select {
+			case <-s.Done():
+			default:
+				t.Fatal("did not close at boundary")
+			}
+			if len(p.terminals) != 1 || s.Value("ui-review-stop").Exit != 0 {
+				t.Fatal(p.terminals)
+			}
+		})
+	})
+	t.Run("every_primary_survives_cleanup_and_repetition", func(t *testing.T) {
+		expected := map[string]int{"invalid_request": 2, "tool_configuration": 2, "session_mismatch": 2,
+			"target_unavailable": 1, "navigation_boundary": 1, "environment_unavailable": 3, "startup_failed": 3,
+			"readiness_expired": 3, "capacity_exceeded": 4, "invalid_artifact": 11, "unstable_capture": 11,
+			"observation_limit": 11, "analysis_failed": 1, "operation_expired": 13, "session_lost": 3,
+			"unsafe_artifact": 11, "input_boundary": 11, "cleanup_failed": 12, "interrupted": 15,
+			"build_failed": 1, "fixture_failed": 3, "diagnostic_invalid": 11, "preparation_failed": 1}
+		if len(expected) != len(failurePolicy) {
+			t.Fatal("update independent primary expectations")
+		}
+		for code, exit := range expected {
+			t.Run(code, func(t *testing.T) {
+				p := &testPublisher{}
+				s := readySession(t, &testDriver{close: func(context.Context) []error { return []error{errors.New("private cleanup detail")} }}, p)
+				primary := failure(code)
+				if code == "build_failed" || code == "fixture_failed" || code == "diagnostic_invalid" || code == "preparation_failed" {
+					primary = contextual(code, "build", "server_harness", "child_failed", "build_server_harness")
+				}
+				s.Stop(primary)
+				awaitSession(t, s)
+				first := s.Value("ui-review-stop")
+				if first.Exit != exit || first.Failures[0].Code != code || p.terminals[0].Cleanup != "failed" {
+					t.Fatal(first)
+				}
+				for range 3 {
+					s.Stop(failure("session_lost"))
+					if s.Value("ui-review-stop").Exit != exit || len(p.terminals) != 1 {
+						t.Fatal("terminal changed")
+					}
+				}
+			})
+		}
+	})
+	t.Run("late_acquisition_is_closed_before_terminal", func(t *testing.T) {
+		entered, release := make(chan struct{}), make(chan struct{})
+		var acquired, closed bool
+		p := &testPublisher{}
+		s := NewSession("session", "run", "seeded", &testDriver{prepare: func(ctx context.Context) (*int, error) {
+			close(entered)
+			<-release
+			acquired = true
+			return nil, ctx.Err()
+		}, close: func(context.Context) []error {
+			if !acquired {
+				t.Error("cleanup before acquisition settled")
+			}
+			closed = true
+			return nil
+		}}, p)
+		prepared := make(chan error, 1)
+		go func() { prepared <- s.Prepare() }()
+		<-entered
+		s.Stop(nil)
+		close(release)
+		<-prepared
+		awaitSession(t, s)
+		if !closed || len(p.terminals) != 1 || *s.Value("ui-review-stop").State != "closed" {
+			t.Fatal("late acquisition leaked")
+		}
+	})
+
 	t.Run("undrained_preparation_blocks_cleanup_and_terminal", func(t *testing.T) {
 		entered, release := make(chan struct{}), make(chan struct{})
 		p := &testPublisher{}

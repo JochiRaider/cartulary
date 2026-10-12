@@ -196,5 +196,9 @@ func appendFailure(values []Failure, f Failure) []Failure {
 			return values
 		}
 	}
+	if len(values) >= LimitFailures {
+		values[LimitFailures-1] = contextual("diagnostic_invalid", "cleanup", "preparation_child", "invalid_artifact", "inspect_failure").Record
+		return values
+	}
 	return append(values, f)
 }

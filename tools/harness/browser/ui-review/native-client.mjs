@@ -5,7 +5,7 @@ import { spawn } from "../../workspace/child-process.mjs";
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 import { generateRunId, validateResultRoot, validateRunId } from "../../contract/harness-contract.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../../contract/index.mjs";
-import { readInput } from "./session-files.mjs";
+import { readInput } from "./input-files.mjs";
 import { limits, parseRequest, ReviewFailure } from "./contract.mjs";
 import { emitResult } from "./output.mjs";
 import { repoRoot } from "./policy.mjs";
@@ -40,7 +40,8 @@ export function nativeReview(message, { onProgress = () => {}, environment = pro
         const line = bytes.subarray(0, end); bytes = bytes.subarray(end + 1);
         try {
           const value = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(line));
-          if (Object.keys(value).sort().join(",") !== "kind,value" || terminal) throw new ReviewFailure("invalid_artifact");
+          validateSchemaSync("cartulary.harness_review_output.v1", value);
+          if (terminal) throw new ReviewFailure("invalid_artifact");
           if (value.kind === "terminal") { validateSchemaSync("cartulary.ui_review_command_result.v2", value.value); terminal = value.value; }
           else if (["preparing", "ready"].includes(value.kind) && ["ui-review", "browser-design-review", "browser-design-review-smoke"].includes(message.command) && typeof value.value === "string" && value.value.length < 4096 && !/[\u0000-\u001f]/u.test(value.value)) onProgress(value);
           else if (value.kind === "design_ready" && message.command.startsWith("browser-design-review")) { validateSchemaSync("cartulary.harness_review_design_ready.v1", value.value); onProgress(value); }

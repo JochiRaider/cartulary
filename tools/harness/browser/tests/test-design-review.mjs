@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { holdReviewSession, reviewProfile, withReviewResources } from "../review-preparation.mjs";
+import { reviewProfile } from "../design-review.mjs";
 import { reviewTotp } from "../design-review-seed.mjs";
 import { writeReviewSamples } from "../design-review-samples.mjs";
 
@@ -14,37 +14,6 @@ for (const invalid of ["", "base", "../default", "enterprise"]) assert.throws(()
 const totpKey = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA";
 for (const [seconds, expected] of [[59, "119246"], [1111111109, "084774"], [1111111111, "062674"], [1234567890, "819424"], [2000000000, "698825"], [20000000000, "737706"]]) assert.equal(reviewTotp(totpKey, seconds * 1000), expected);
 for (const invalid of ["GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", totpKey.toLowerCase(), `${totpKey}=`, `${totpKey.slice(0, -1)}B`]) assert.throws(() => reviewTotp(invalid));
-
-await assert.rejects(holdReviewSession({ check: async () => { throw new Error("stale attachment"); } }), /stale attachment/u);
-for (const checking of [true, false]) {
-  const controller = new AbortController();
-  let checks = 0;
-  await holdReviewSession({ signal: controller.signal, check: async () => {
-    checks++;
-    if (checking) {
-      controller.abort();
-      controller.abort();
-      throw new Error("interrupted attachment check");
-    }
-    setTimeout(() => controller.abort(), 1);
-  } });
-  assert.equal(checks, 1, "interruption must stop without another attachment check");
-}
-
-for (const failure of [null, "acquire", "prepare", "hold", "close", "finish"]) {
-  const events = [];
-  const step = (name) => async () => { events.push(name); if (failure === name) throw new Error(name); return "lease"; };
-  const promise = withReviewResources({ acquire: step("acquire"), prepare: step("prepare"), hold: step("hold"), close: step("close"), finish: step("finish") });
-  if (["close", "finish"].includes(failure)) await assert.rejects(promise, (error) => error.failure_reason === "cleanup_error" && error.phase === "cleanup" && error instanceof AggregateError && error.errors[0].message === failure && error.cleanupFailures[0].message === failure);
-  else if (failure) await assert.rejects(promise, new RegExp(failure)); else await promise;
-  assert.deepEqual(events.slice(-2), ["close", "finish"]);
-  if (failure === "acquire") assert.ok(!events.includes("prepare"));
-  if (failure === "prepare") assert.ok(!events.includes("hold"));
-}
-await assert.rejects(withReviewResources({
-  acquire: async () => { throw new Error("primary"); }, prepare: async () => {}, hold: async () => {},
-  close: async () => { throw new Error("secondary"); }, finish: async () => {},
-}), /primary/u);
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-review-samples-"));
@@ -61,4 +30,4 @@ try {
   assert.equal(archive.subarray(257, 263).toString(), "ustar\0");
   assert.ok(archive.includes(Buffer.from("manifest_sha256_v1")));
 } finally { rmSync(directory, { recursive: true, force: true }); }
-process.stdout.write("design review lifecycle and sample preparation: pass\n");
+process.stdout.write("design review input and sample preparation: pass\n");

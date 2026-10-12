@@ -8,6 +8,13 @@ authority_boundary: Human planning and execution tracker; iteration 1 is complet
 
 # UI Review Harness — Revision and Production Readiness Plan
 
+The Node ownership inventory and implementation instructions in this earlier
+plan are historical. Native review/session/fixture ownership and current work
+are tracked solely in the [lifecycle tracker](cartulary-test-harness-instrumentation.md).
+Its S-036–S-042 iteration supersedes the old coordination and transport design;
+the acceptance history below remains scoped to its recorded source.
+
+
 Subsequent preparation and diagnostic remediation is recorded in the
 [remediation handoff](ui-review-preparation-remediation.md). Its coordinated v2
 cutover supersedes the historical v1 examples below for current commands. The

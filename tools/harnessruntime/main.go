@@ -12,7 +12,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesscollect"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessreview"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
@@ -59,8 +58,6 @@ func run() int {
 		return code
 	case "review":
 		return harnessreview.Main(os.Args[2:], os.Stdin, os.Stdout)
-	case "fixtures":
-		return harnessfixtures.Main(os.Args[2:])
 	case "session":
 		return harnesssession.Main(os.Args[2:], os.Stdin, os.Stdout)
 	case "admission":

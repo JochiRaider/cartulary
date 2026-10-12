@@ -1,5 +1,13 @@
 # Fixture cleanup lifecycle remediation
 
+This completion record applies to its original source. The Node runtime,
+recovery and review-coordination paths below have since been retired; their
+historical failures and passes remain unchanged. Current ownership is native
+`harnesssession`, `harnessreview`, and `harnessfixtures`; physical browser/service
+operations remain specialized adapters. See the
+[current lifecycle tracker](../cartulary-test-harness-instrumentation.md).
+
+
 Status: COMPLETE. G1–G6 and W1–W4 pass current verification, including the full
 uncached visual comparison and seeded real-stack failure/recovery scenarios.
 This bounded repair preserves the existing Workbook implementation and refreshed

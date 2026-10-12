@@ -1,6 +1,6 @@
 import { parseStrictJSON } from "../../contract/index.mjs";
 import { FilePayload, bytesOf } from "./file-payload.mjs";
-import { digest } from "./session-files.mjs";
+import { digest } from "./input-files.mjs";
 import { limits, schemaID, validate, ReviewFailure } from "./contract.mjs";
 import { validateObservationChannels } from "./bundle-semantics.mjs";
 

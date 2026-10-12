@@ -16,11 +16,10 @@ import { requireComparable } from "../ui-review/bundle-model.mjs";
 import { execute as analyze } from "../ui-review/analysis.mjs";
 import { execute as report } from "../ui-review/report.mjs";
 import { artifact, references } from "../ui-review/bundles.mjs";
-import { digest } from "../ui-review/session-files.mjs";
+import { digest } from "../ui-review/input-files.mjs";
 import { importFixture } from "./ui-review-import-fixture.mjs";
-import { ReviewSession } from "../ui-review/session.mjs";
+import { sessionAt } from "./ui-review-work-fixture.mjs";
 import { ReviewBrowser } from "../ui-review/browser.mjs";
-import { toolProfile } from "../ui-review/toolchain.mjs";
 import { repoRoot, reviewPins } from "../ui-review/policy.mjs";
 import { parseRequest, schemaID, ReviewFailure } from "../ui-review/contract.mjs";
 import { acquireHostAdmission, inheritedHostLease } from "../../runtime/host-admission.mjs";
@@ -29,8 +28,6 @@ import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/w
 const pixels = (width, height, rgba = [10, 20, 30, 255]) => ({ width, height, data: Buffer.from(Array.from({ length: width * height }, () => rgba).flat()) });
 const parsed = (value) => parseRequest(Buffer.from(JSON.stringify({ schema_id: schemaID("analysis_request"), ...value })), "analysis_request");
 const compatible = (left, right, kind) => requireComparable({ comparisonIdentity: canonicalComparison(left.source) }, { comparisonIdentity: canonicalComparison(right.source) }, kind);
-const capacity = () => captureCapabilitySnapshot({ root: repoRoot }).port_lanes;
-const sessionAt = (root) => Object.assign(new ReviewSession({ UI_MODE: "artifacts" }, toolProfile()), { capacity: capacity(), runtime: { privatePath: (...parts) => path.join(root, ...parts) }, workspaceDigest: "a".repeat(64) });
 
 test("exact RGBA math includes transparent RGB and rounds ties upward without tolerances", () => {
   const left = pixels(2, 1, [0, 0, 0, 0]), right = pixels(2, 1, [0, 0, 0, 0]); right.data[0] = 1;

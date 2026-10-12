@@ -34,7 +34,7 @@ import {
   loadVisualRendererProfile,
 } from "../visual-renderer-lease.mjs";
 import { promoteVisualSnapshotCandidate, stageVisualSnapshotCandidate } from "../visual-snapshot-promotion.mjs";
-import { scanRetainedRoot } from "../../runtime/suite-runtime.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 import {
   collectFinalizedMeasurementSummaries,
   collectFrontendMeasurementObservations,
@@ -688,7 +688,8 @@ try {
   stageVisualSnapshotCandidate(sourceSnapshots, candidateSnapshots);
   assert.equal(lstatSync(path.join(candidateSnapshots, "fixture.png")).mode & 0o777, 0o600);
   assert.equal(readFileSync(path.join(candidateSnapshots, "fixture.png"), "utf8"), "old-golden");
-  assert.equal((await scanRetainedRoot(candidateSnapshots)).status, "pass");
+  const scanOwner = createRuntime({ repoRoot: root, runRoot: candidateSnapshots, runID: "browser-snapshots" });
+  try { assert.equal(scanOwner.scan().status, "pass"); } finally { scanOwner.close(); }
   stageVisualSnapshotCandidate(sourceSnapshots, candidateSnapshots);
   writeFileSync(path.join(candidateSnapshots, "fixture.png"), "new-golden");
   writeFileSync(sourceManifest, "old-manifest");

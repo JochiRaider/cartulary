@@ -1,7 +1,8 @@
+import { validateSchemaSync } from "../../contract/index.mjs";
 import { randomBytes } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { processIdentity, processIdentityAlive } from "../../runtime/host-admission.mjs";
-import { ownedProcess, stopOwnedProcess, validateDiagnosticScope } from "./ownership.mjs";
+import { ownedProcess, stopOwnedProcess } from "./ownership.mjs";
 import { ReviewFailure } from "./failure.mjs";
 
 // Persisted before spawn: the upstream CLI forks a detached daemon before it
@@ -19,7 +20,9 @@ export async function bindDiagnosticProcess(lease, proof) {
   catch (error) { if (processIdentityAlive(proof)) throw error; return false; }
 }
 export function diagnosticProcesses(scope) {
-  validateDiagnosticScope(scope);
+  validateSchemaSync("cartulary.harness_runtime_resource.v1", { kind: "diagnostic_scope", target: scope,
+    state: "acquired", run_id: "physical-validation", lease_id: "00000000-0000-4000-8000-000000000000" });
+  if (scope.uid !== process.getuid()) throw new ReviewFailure("unsafe_artifact");
   if (scope.boot !== processIdentity().boot) return [];
   const found = [];
   for (const pid of readdirSync("/proc")) {

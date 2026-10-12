@@ -176,7 +176,7 @@ func (a *adapter) read() {
 	for {
 		line, err := reader.ReadSlice('\n')
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
+			if len(line) > 0 || !errors.Is(err, io.EOF) {
 				a.reject(err)
 			}
 			return
@@ -217,6 +217,11 @@ func (a *adapter) read() {
 			}
 		}
 		if (len(reply.Outcome.Failures) == 0) != (reply.Outcome.Exit == 0) {
+			a.reject(harnessschema.ErrInvalid)
+			a.kill()
+			return
+		}
+		if len(reply.Outcome.Failures) > 0 && reply.Outcome.Exit != failurePolicy[reply.Outcome.Failures[0].Code].Exit {
 			a.reject(harnessschema.ErrInvalid)
 			a.kill()
 			return

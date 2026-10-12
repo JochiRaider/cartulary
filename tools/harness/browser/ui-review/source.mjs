@@ -2,7 +2,7 @@ import path from "node:path";
 import { freeze } from "./immutable.mjs";
 import { artifact } from "./bundles.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../../contract/index.mjs";
-import { digest, inputPath, readInput } from "./session-files.mjs";
+import { digest, inputPath, readInput } from "./input-files.mjs";
 import { limits, ReviewFailure } from "./contract.mjs";
 import { repoRoot } from "./policy.mjs";
 

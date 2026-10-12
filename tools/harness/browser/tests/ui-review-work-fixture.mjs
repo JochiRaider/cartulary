@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+import path from "node:path";
+import { ArtifactStore } from "../ui-review/artifact-store.mjs";
+import { toolProfile } from "../ui-review/toolchain.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
 import { inheritedHostLease } from "../../runtime/host-admission.mjs";
 import { executeWork } from "../ui-review/executor.mjs";
@@ -12,4 +16,13 @@ export function work(session, command, request, operationID, options = {}) {
 }
 export function capture(session, request, operationID) {
   return request.source === "page" ? work(session, "ui-capture", request, operationID) : importCapture(session, request, operationID);
+}
+
+export function sessionAt(root) {
+  const session = { input: { UI_MODE: "artifacts" }, mode: "artifacts", profile: toolProfile(),
+    sessionID: `uireview-${randomBytes(16).toString("hex")}`, abort: new AbortController(),
+    workspaceDigest: "a".repeat(64), runtime: { privatePath: (...parts) => path.join(root, ...parts) } };
+  session.store = new ArtifactStore({ sessionID: session.sessionID, profile: session.profile,
+    signal: session.abort.signal, privatePath: session.runtime.privatePath });
+  return session;
 }

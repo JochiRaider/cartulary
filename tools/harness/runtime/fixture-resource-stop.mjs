@@ -1,7 +1,6 @@
 // Physical stop adapters only. The native owner chooses dependency order and
 // acknowledges durable recovery records after these operations succeed.
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { spawnSync } from "../workspace/child-process.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { stopOwnedProcess } from "./owned-process.mjs";
@@ -28,8 +27,4 @@ export async function stopFixtureResource(kind,target,environment=process.env) {
     {env:environment,stdio:"ignore",timeout:30000,killSignal:"SIGKILL"});
     if (result.error || result.status!==0) throw new Error("proxy stop failed");
   } finally { removePrivateFile(snapshot); }
-}
-if (process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
-  try { if(process.argv.length!==4)throw new Error("invalid arity"); await stopFixtureResource(process.argv[2],parseStrictJSON(process.argv[3])); }
-  catch { process.stderr.write("fixture resource stop failed\n");process.exitCode=12; }
 }
