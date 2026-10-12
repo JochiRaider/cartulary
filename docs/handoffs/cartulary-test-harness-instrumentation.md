@@ -2086,7 +2086,7 @@ retained-run and scheduler-drift maintenance were explicitly skipped because
 RESULTS_DIR was unset (`results-dir-not-provided`); there was no eligible current
 full-warm evidence to supply. No skipped maintenance is reported as a pass.
 
-Executable source is frozen at `2b800928c` (only the tracker differs from
+The first pre-repair source freeze was `2b800928c` (only the tracker differed from
 implementation commit `081f5b0e6`), digest
 `sha256:4550a159bda71123d1c20e7fe23fb94fc770984eceacea92ac638e14b6db42c3`.
 Final pre-check gates used fresh `lifecycle-s042-<suffix>` IDs under
@@ -2147,6 +2147,39 @@ and canonical `cancelled` were expected. Run/events/cleanup/scan evidence exists
 read-only observability audit and summary explanation both passed. This is an
 intentional negative boundary test, distinct from check01's publication failure.
 No source change was made while this invocation ran.
+
+Repair commit `ab2afb5e0` is the new executable freeze, digest
+`sha256:3e5473d6d94660c085252c27a593bbc8bf5083b34b1588d5bfec0a1d077609a2`.
+`env -u RESULTS_DIR CARTULARY_TEST_RUN_ID=lifecycle-s042-finalize02 make
+agent-finalize` passed (22,028 ms, owning exit 0) and refreshed zero files.
+Retained-run maintenance remains explicitly skipped for unset RESULTS_DIR.
+Repaired-source final gates all passed with observed owning exit 0:
+`contract02 make harness-contract` (182/182 assertions, 99,660 ms),
+`scripts02 make lint-scripts` (580 ms), `shell02 make lint-shell` (1,608 ms),
+`markdown02 make lint-markdown` (7,370 ms), `drift02 make generate-drift`
+(19,087 ms), `policy02 make generated-artifact-policy-check` (1,076 ms), and
+`json02 make json-shape-check` (3,707 ms). Each uses the full
+`CARTULARY_TEST_RUN_ID=lifecycle-s042-<suffix>` prefix. Earlier source-scoped
+passes are not substituted for this validation.
+`CARTULARY_TEST_RUN_ID=lifecycle-s042-check02 make check` completed with owning
+Make exit 2, native child exit 1 and canonical FAIL: 981/982 passed, one failed,
+zero skipped/cancelled; 704,462 ms. Only `target:lint-go` failed. Staticcheck found
+unused `harnessfixtures.within` left by transport deletion (U1000) and redundant
+field copying from `adapterOutcome` to `Operation` (S1016). All 1,241 cleanup
+records completed; the retained scan passed over 6,185 files. Cache disposition
+was 0 hits, 819 misses and 163 bypasses; all misses remain current-run evidence.
+The completed failed root is preserved unchanged.
+
+Remove the unused helper/imports and use the equivalent checked Go conversion
+`Operation(o)`. This closes residual support-code cleanup without changing any
+public or retained behavior. `lintgo01 make lint-go`, `fixture01 make
+harness-fixture-contract`, and `runtime-repair03 make harness-runtime-contract`
+all passed with observed owning exit 0. Runtime/schema/session/review and fixture
+race tests are complete; the selected graphs all report source digest
+`sha256:6dfb070d1f521a638b2121d285f6f5dd3e39ef20ebe700062933b5dbb010e7e8`.
+The final freeze and full check follow; S-042 remains IN_PROGRESS.
+
+
 
 No full check or final handoff success is yet claimed. No executable changes may be
 included without a new identity and affected validation. Environment and

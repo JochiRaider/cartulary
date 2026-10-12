@@ -182,7 +182,7 @@ func (d *productionDriver) Execute(ctx context.Context, command string, request 
 	if len(o.Failures) > 0 {
 		err = nil
 	}
-	return Operation{Epoch: o.Epoch, Counts: o.Counts, Bundle: o.Bundle, Private: o.Private, Failures: o.Failures, Exit: o.Exit, Stop: o.Stop}, err
+	return Operation(o), err
 }
 func (d *productionDriver) Interrupt() {
 	if a := d.worker(); a != nil {
