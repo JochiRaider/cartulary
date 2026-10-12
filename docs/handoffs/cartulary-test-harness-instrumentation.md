@@ -1012,8 +1012,8 @@ before successor work begins. Prior completed graph/fixture work remains DONE.
 | WF-38 / S-038 native review lifecycle | DONE; E-044 | V-039: real IPC, recovery and physical boundaries in every mode |
 | WF-39 / S-039 remaining callers | DONE; E-045 | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
 | WF-40 / S-040 deletion/routing/docs | DONE; E-046 | V-041: import/build/generated closure and every assertion disposition closed |
-| WF-41 / S-041 public boundary validation | READY | V-042: installed public surface, producer interoperability and physical cleanup |
-| WF-42 / S-042 final validation/handoff | BLOCKED | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
+| WF-41 / S-041 public boundary validation | DONE; E-047 | V-042: installed public surface, producer interoperability and physical cleanup |
+| WF-42 / S-042 final validation/handoff | READY | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
 
 
 ### Previous functional iteration — current ordered workstreams (historical)
@@ -1996,7 +1996,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-045 / S-038 | Native review lifecycle | DONE; V-039/E-044 |
 | T-046 / S-039 | Remaining callers | DONE; V-040/E-045 |
 | T-047 / S-040 | Deletion/routing/documentation | DONE; V-041/E-046 |
-| T-048 / S-041 | Public boundaries | BLOCKED; V-042 |
+| T-048 / S-041 | Public boundaries | DONE; V-042/E-047 |
 | T-049 / S-042 | Final validation and handoff | BLOCKED; V-043 |
 
 
@@ -2072,6 +2072,59 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-047 — S-041/V-042 installed public boundaries — DONE
+
+Saved before S-042. Executable source is clean
+`081f5b0e6fb08ee822b4d99e6bcf030b3631cdd8`, source digest
+`sha256:4550a159bda71123d1c20e7fe23fb94fc770984eceacea92ac638e14b6db42c3`.
+Only this tracker changed during the slice; no executable repair was necessary.
+Environment remains Linux/WSL with pinned installed tools and Docker. Discovery
+through `make help`, `make help-all`, module-author task guides for
+`harness.browser` and `module.database_migrations`, and summary explanations for
+seeded/native-boundary routes all exited 0. Two guessed test filenames did not
+exist; actual import paths were inspected instead, without affecting any gate.
+
+Every writing command uses `CARTULARY_TEST_RUN_ID=lifecycle-s041-<suffix>`;
+root is `.cartulary/test-results/lifecycle-s041-<suffix>`. All commands below
+completed with observed owning exit 0 and reported pass, independently collected.
+
+| Suffix | Exact Make target and arguments | Outcome |
+| --- | --- | --- |
+| `command01` | `harness-command-surface-contract` | 42/42; actual Go/Node/shell/Vitest child failures, cancellation/capture, frontend staging, status without provisioning |
+| `ui01` | `harness-ui-review-contract` | 10/10; public input and preparation rejection |
+| `lifecycle01` | `harness-ui-review-lifecycle` | 31/31; artifact/dev, repeated stop, controller/parent loss, preparation drain and recovery |
+| `evidence01` | `harness-evidence-contract` | 90/90; hostile retained facts, scans/receipts, scope formatting, explicit export isolation and independent readers |
+| `seeded01` | `harness-ui-review-seeded-default` | Real seeded editor/viewer/capture/artifact workflow, interruption and complete private cleanup |
+| `service01` | `service-backed-test-slice OWNER=module.database_migrations ROWS=module.database_migrations.integration.schema_bootstrap HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off` | 3/3; 18,677 ms canonical wall |
+| `object01` | `service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.integration.object_store_fixture_roundtrip CARTULARY_HARNESS_CACHE_MODE=off` | 3/3; 28,241 ms |
+| `local01` | `test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.local_migration_activities HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off` | 1/1; 2,878 ms |
+| `https01` | `service-backed-test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.https_trust HARNESS_DIAGNOSTICS=basic CARTULARY_HARNESS_CACHE_MODE=off` | 11/11; 26,507 ms |
+| `design01` | `browser-design-review-smoke REVIEW_PROFILE=default` | Real design preparation/scenarios followed by closed review and 7/7 successful cleanup records |
+
+Read-only `make test-run-status RESULTS_DIR=<exact-root> JSON=1` for service01,
+seeded01 and https01 exited 0 and reported terminal pass. Observer limitations
+(current source not audited and outer exit not observed by the reader) remain
+explicit; the owning exits above were collected separately. For service01,
+`make harness-observability-check RESULTS_DIR=<root>` passed: one invocation,
+four sources, complete execution/diagnostic evidence. Separate
+`make explain-run RESULTS_DIR=<root> DETAIL=performance` and `DETAIL=resources`,
+each with and without `JSON=1`, exited 0. Both JSON views are the same immutable
+model; human timing/sample/scope/unavailable/omission values agree. Temporary
+views are `/tmp/cartulary-lifecycle-s041-views/{performance,resources}.{json,txt}`.
+The short service run legitimately has no sampled container identity; no workload
+extension or invented totals were used. Broader physical sampling remains ordinary
+diagnostic coverage, never a qualification claim.
+
+The design private root was absent after completion; `review-session.json` is
+closed and `cleanup-results.json` has no failures. Docker process inventory was
+empty after all calls. Prior S-040 boundary02 additionally covers actual borrowed
+service preservation, owned cleanup and intentionally failed exact recovery on
+the same production source. Public/retained acceptance sets are unchanged;
+expected negative outcomes in contract fixtures are assertions, not failed gates.
+No export command ran and local readers did not load export code (evidence suite).
+S-041/V-042 is DONE; S-042 is READY. Full warm check and finalization remain
+required; no current-source final handoff or qualification is claimed yet.
 
 ### E-046 — S-040/V-041 deletion, routing and documentation — DONE
 
@@ -3554,8 +3607,8 @@ document checkpoint, not a runtime-validation result.
 
 ### Current lifecycle entry gates
 
-S-036–S-040 are DONE. S-041 is READY after E-046; S-042 remains blocked
-on its saved predecessor checkpoint, not missing user authorization. Exact old-session
+S-036–S-041 are DONE. S-042 is READY after E-047. No user-authorization
+gate remains; finalization and final-source validation are still required. Exact old-session
 proof must be checked before protocol cutover; discovery of unresolved ownership
 blocks only the affected environment. Missing characterization or failed gates
 remain open and are never reported as passes. F-022/RB-006 remains explicitly
@@ -3627,7 +3680,7 @@ Pre-existing staged tracker content is preserved.
 | --- | --- |
 | Planning | Complete for selected lifecycle scope; no whole-repository behavior audit claimed |
 | Authorization | Current user explicitly authorizes S-036–S-042 implementation |
-| Readiness | S-036–S-040 DONE; S-041 READY; S-042 blocked on saved predecessor gate |
+| Readiness | S-036–S-041 DONE; S-042 READY after E-047 |
 | Prior functional scope | S-035/S-034/S-031A–F/S-032 remain DONE at historical sources |
 | Current completion | Pending S-042/V-043 and every individual checkpoint; one native shared owner, direct fixture coordination, no obsolete policy/oracle/wiring |
 | Handoff | Exact changed files, commands, process/harness outcomes, source identity, roots, failures, skips and compatibility effects |
