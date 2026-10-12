@@ -5924,7 +5924,10 @@ authored expected outcomes; a second scheduler implementation is not an oracle.
 No JavaScript scheduler fallback or permanent runtime-selection switch is admitted.
 Make remains the public entrypoint. The single installed `cartulary-harness`
 binary has a thin composition root and cohesive reusable runtime, fixture,
-admission, observation and secure-file libraries. Collection may remain an
+admission, observation, session and secure-file libraries. Shared private-runtime
+creation, borrowing, secret registration, recovery journals, stale cleanup and
+retained scanning have one Go owner below graph, fixture and review coordination.
+That owner MUST NOT depend on graph scheduling or fixture orchestration. Collection may remain an
 isolated run-owned child of that binary for fault isolation and quietness; it
 MUST NOT become a daemon or introduce an independent polling schedule. Read-only
 status MUST NOT build, install or initialize writer state.
@@ -5939,9 +5942,12 @@ Verified by: TH-HARNESS-AC-147
 
 **TH-HARNESS-REQ-853 — Shared fixture coordination.**
 One Go fixture implementation owns allocation, lease/reuse decisions, coordination,
-recovery and ordered cleanup for graph and UI-review callers. Graph calls it
-directly; UI-review uses a narrow private client carrying requests and outcomes,
-not a second lifecycle policy. Existing service and browser lifecycle adapters
+recovery and ordered cleanup for graph and review callers. Graph and the Go review
+coordinator call it directly. The Go review coordinator owns session admission,
+registry authority, stopping, recovery serialization, cleanup ordering and terminal
+transitions/publication. Browser actions, capture, analysis, report adaptation and
+preparation recipes may remain in Node adapters, which report facts and normalized
+outcomes rather than deciding session lifetimes. Existing service and browser lifecycle adapters
 retain physical acquisition/reset/termination responsibilities. Owned resources
 MUST drain before their dependencies close, borrowed resources MUST NOT be
 terminated, partial acquisitions MUST retain recovery proof, repeated release and
@@ -5950,7 +5956,7 @@ precedence. Client loss MUST initiate owned cleanup; failed cleanup remains
 explicit rather than inferring release from missing files or process names.
 Verified by: TH-HARNESS-AC-148
 
-**TH-HARNESS-REQ-854 — Private preparation and fixture interfaces.**
+**TH-HARNESS-REQ-854 — Private preparation and lifecycle interfaces.**
 `cartulary.harness_runtime_plan.v1` carries the existing graph, projections,
 provenance, capacity facts, validated launch bindings and cache inputs from the
 source-aware compiler over an inherited private descriptor. It is limited to
@@ -5961,20 +5967,24 @@ credentials may be retained as plan facts. The public surface MUST NOT accept
 arbitrary executable plans or command strings. Runtime credentials remain under
 existing private ownership and redaction boundaries.
 
-`cartulary.harness_fixture_session.v1` carries only acquire, release, recover and
-close operations, bounded request IDs, existing run/lease proof and closed
-outcomes. A frame is limited to 1,048,576 bytes. Session transport is private and
+Private lifecycle interfaces carry only closed owner operations, bounded request
+IDs, existing run/session/lease proof and closed outcomes. A frame is limited to
+1,048,576 bytes; UI operation requests retain their separate 65,536-byte bound.
+Session transport is private and
 bound to the invoking owner; forged proof, unknown operations, duplicate settlement,
 oversized/incomplete frames and late writes MUST fail closed. EOF or owner loss
 initiates owned cleanup, with unresolved resources preserved for recovery.
-Neither interface is a public general-purpose command runner. Typed schemas and
+No lifecycle interface is a public general-purpose command runner. Superseded
+fixture-session transport MUST be removed after callers use direct Go coordination;
+old live sessions drain with their running version, without a legacy recovery
+reader or historical receipt rewrite. Typed schemas and
 machine projections, not Markdown or a second authored validator registry, define
 its executable shape. Native and Node schema acceptance MUST agree on shared
 fixtures, including duplicate keys and prototype-like members.
 Verified by: TH-HARNESS-AC-147–148
 
 **TH-HARNESS-REQ-855 — Single-owner completion boundaries.**
-Graph execution and shared fixture coordination MUST each have one active policy
+Graph execution, shared sessions and fixture coordination MUST each have one active policy
 owner across their callers. Superseded runtime/broker policy, alternate dispatch,
 and compatibility forwarding interfaces MUST NOT remain active. Required graph
 publication precedes ordinary diagnostic drain; retained scanning begins only
@@ -5985,6 +5995,13 @@ Functional completion and deferred qualification MUST be reported separately.
 Historical failures MUST NOT be relabelled, qualification budgets MUST NOT be
 relaxed, and diagnostics remain default-off. Implementation sequencing and rollback
 transactions belong to the human tracker, not executable conformance inputs.
+Shared scanning does not merge graph and UI publication protocols: UI review
+retains REQ-502/616's terminal-publication and retained-boundary scan ordering.
+Standalone tools, smoke execution, frontend artifact producers and local-service
+adapters use the shared native private-runtime owner; borrowing never grants root
+deletion authority. Persistent service proof survives short-lived commands without
+a new resident supervisor. Tests use independently specified expected outcomes;
+a retired JavaScript implementation MUST NOT remain a native test oracle.
 Verified by: TH-HARNESS-AC-147–149
 
 
@@ -7501,7 +7518,7 @@ attempts a failed locator publication with a null terminal reference, reports
 remaining cleanup. Terminal status without a valid terminal receipt is an artifact
 failure; it does not fabricate a successful receipt.
 
-The lifecycle coordinator is the sole owner of admission and terminal transition.
+The Go review lifecycle coordinator is the sole owner of admission and terminal transition.
 An acquisition that completes after cancellation is registered and released before
 closure; it cannot publish ready state. Once stopping begins no operation may
 commit a bundle or publish a successful outcome. Each release is attempted within
@@ -8532,8 +8549,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-144 | REQ-847 | Wrapper startup, multiple/nested graphs, cancellation, scan failure, forged receipt, unsafe path and interrupted publication | Secure envelope/scan-bound structural receipt and preserved admission/signals/exits | Arbitrary post-scan data, rewritten evidence, false completion or multiplied outer duration fails. |
 | TH-HARNESS-AC-145 | REQ-848 | Independent process/thread CPU and memory arithmetic, all workload/reader treatments, instability, corrupt/mismatched evidence and lost measurements | Complete declared observer scope and every fixed budget pass at frozen clean source | Partial self-counters, peak substitution, missing coverage, altered thresholds or failed required cell cannot qualify. |
 | TH-HARNESS-AC-146 | REQ-835/849 | Strict JSON, malformed envelopes/receipts, secure paths, one/two samples, zero/unavailable, resets/gaps, shared/borrowed scopes, truncation and all public consumers | One immutable model and resource traversal; bounded human/JSON facts agree, with scope-correct metrics, units, intervals and omissions | Hidden members, partial aggregates, invented utilization/totals, RSS substituted for container memory, repeated reads, implicit export or divergent rejection fail. |
-| TH-HARNESS-AC-147 | REQ-852/854/855 | Independent scheduling/cache/plan fixtures, compiler lifetime, cancellation, publication and public dispatch | One native graph owner; compiler reaped before units; required selection/accounting preserved; status never provisions | Alternate engine, arbitrary plan execution, resident compiler, lost descendants or changed failure order fails. |
-| TH-HARNESS-AC-148 | REQ-853/854/855 | Graph/UI-review ownership, partial acquisition, concurrency, reset/recovery, owner loss, hostile frames and repeated close | One fixture policy, exact proof, ordered cleanup and unchanged physical owners | Duplicate policy, forged requests, borrowed-resource termination, leaked resources or hidden cleanup failure fails. |
+| TH-HARNESS-AC-147 | REQ-852/854/855 | Independent scheduling/cache/plan and private-runtime/scan fixtures, compiler lifetime, cancellation, publication, standalone producers and public dispatch | One native graph and shared private-runtime owner; compiler reaped before units; required selection/accounting preserved; status never provisions | Alternate engine, arbitrary plan execution, resident compiler, duplicate scan policy, lost descendants or changed failure order fails. |
+| TH-HARNESS-AC-148 | REQ-853/854/855, REQ-416/502/616 | Graph/review ownership, partial acquisition, concurrency, reset/recovery, owner loss, hostile frames, repeated close and immutable terminal outcomes | Direct native fixture coordination; Go review admission/registry/terminal ownership; exact proof, ordered cleanup and unchanged physical owners | Duplicate policy, forged requests, borrowed-resource termination, leaked resources, legacy fixture transport or hidden cleanup failure fails. |
 | TH-HARNESS-AC-149 | REQ-851 | Command/import closure, retired attachments and completion reporting | Experimental collection retired; independent validation retained; no qualification claim | Active probes/collection commands, weakened budgets or historical relabelling fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,

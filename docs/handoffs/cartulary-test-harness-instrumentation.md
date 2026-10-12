@@ -10,28 +10,27 @@ authority_boundary: Human implementation tracker and rationale; the Testing Harn
 
 ## Baseline and authorization
 
-The current user request authorizes implementation of the complete functional
-remediation plan on main, with a saved checkpoint after every workstream and
-before its successor. Starting main is clean `3781d9a4549050e110d3a699781cd78562e204fc`.
-The authoritative sequence is Section 6; S-032 is the required final handoff.
-This supersedes earlier planning-only and stop-before-next-phase instructions.
+The current user request authorizes implementation of **Complete Go lifecycle
+ownership and retire residual harness infrastructure**, starting from clean main
+`b0bc9737531c7feaf573e28715348fd81ae0584a`. This supersedes the preceding
+planning-only restriction. The sole active chain is **S-036 → S-037 → S-038 →
+S-039 → S-040 → S-041 → S-042**. Save a checkpoint after every workstream and
+before beginning its successor; a failed exit never counts as DONE.
 
-The salvage checkout remains at `79aecc1cae7a9474c92f4a9b8f77092bc4363662` with
-unfinished cutover changes. It is a source candidate only; historical passes do
-not establish current-source success. Its tracked/non-ignored content is
-fingerprinted in `/tmp/cartulary-remediation-salvage-baseline.json` (6,937 entries).
-No wholesale import, reset, source archive or evidence deletion is authorized.
+The prior graph/fixture cutover remains complete in its adopted scope:
+S-035, S-034, S-031/A–F and S-032/V-033 remain DONE. Its final executable source is
+`0725873db841e6db2a52013948d6982ffc392cf6`, digest
+`sha256:1bdb3547e772d5011e1bd7ab66b85264eb5a25fe4198ad860fe06a17c9103307`.
+E-040 remains historical final evidence, including 981/981 full-check units.
+No new validation is inferred from that pass. Salvage source and evidence remain
+untouched; this iteration requires no import, reset, archive or evidence deletion.
 
-At entry, Node owned public graph execution and fixture coordination.
-S-031/E switches both public callers together; its closure checks pass.
-The selected destination is short-lived Node compilation, one Go graph runtime
-and one shared Go fixture policy; Node rows and offline readers remain.
-REQ-852–855 state the adopted ownership contract. S-035, S-034, S-031/A–F and
-S-032/V-033 are DONE with individually saved checkpoints. **Functional remediation
-is complete.** Final executable source is `0725873db841e6db2a52013948d6982ffc392cf6`,
-digest `sha256:1bdb3547e772d5011e1bd7ab66b85264eb5a25fe4198ad860fe06a17c9103307`;
-the handoff-only commit does not change that source. E-040 records final results,
-failed attempts, compatibility effects and explicit qualification limits.
+Go will own shared private-runtime state, admission, recovery, ordered cleanup,
+retained scanning and terminal publication. Graph and review call the same native
+fixture owner. Node retains compilation/selection, row runners, browser operations,
+report adaptation and offline readers; physical service/browser adapters retain
+their distinct operations. This is lifecycle consolidation, not a whole-harness
+language rewrite. S-042 is the required completion and handoff gate.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -477,7 +476,27 @@ improvement or default-on claim.
 
 ## 1. Scope and Source Posture
 
-### Current mainline scope and baseline
+### Current lifecycle iteration scope and source
+
+Artifact mode: normal; implementation authorized. Repository and admitted tracker
+are unchanged. Testing Harness REQ-852–855 and REQ-416/502/616 own behavior;
+domain remains vocabulary/navigation. Executable checks consume typed inputs,
+never this tracker or other Markdown.
+
+| Baseline | Evidence / treatment |
+| --- | --- |
+| Main and index | Clean `b0bc9737531c7feaf573e28715348fd81ae0584a`; no staged or untracked work at entry |
+| Prior planning comparison | 6,917 tracked/nonignored files; aggregate `11c33deb2fe91d940aeaba6e54d3927b48a315bea2db82c4b98b45aceb24c53f`; tracker `a617e7fc008f29f19e709f22365f7954d85a12ddb83c4fd44df4d5b85715852b` |
+| Current source | Working changes are recorded per checkpoint; final executable identity freezes before S-042 verification |
+| Evidence | Prior primary/salvage/qualification roots preserved; each writing command uses a fresh explicit run ID |
+| Exclusions | Product behavior, compiler/reader rewrite, new daemons, performance qualification, golden refresh and Core 05 publication |
+
+Inspection covers the shared runtime/scanner, graph and fixture consumers, review
+controller/session/recovery, standalone callers, authored routing/schema generation
+and affected tests. Other browser/product internals are not claimed fully audited.
+
+
+### Previous functional iteration — current mainline scope and baseline (historical)
 
 Canonical target: `tools/harness/observability`, expanded through graph runtime,
 fixture callers, typed projections and owner tests named in Section 7. Sole
@@ -572,7 +591,21 @@ inventory. This is a bounded subsystem inspection, not a whole-repository audit.
 
 ## 2. Current-State Repository Inventory
 
-### Current mainline disposition and navigation
+### Current lifecycle inventory and ownership
+
+| Inspected seam | Current responsibility / callers | Disposition / finding |
+| --- | --- | --- |
+| `internal/testutil/harnessfixtures/runtime_linux.go`, `preservation_linux.go`; Node `runtime/suite-runtime.mjs`, `resource-recovery.mjs` | Private roots, proof, secrets, recovery and janitor; graph, review, tool wrappers, frontend, smoke and local services | Consolidate in `harnesssession`; F-037/F-039 |
+| `internal/testutil/harnessruntime/scan_linux.go`; Node suite-runtime scanner | Two retained scanners; graph and review terminal paths | Shared native scanner, preserve distinct publication protocols; F-037 |
+| `browser/ui-review/{controller,session,recovery,terminal,ownership,session-files,diagnostic-processes}.mjs`; `browser/review-preparation.mjs` | Node session authority around native fixture transport | Go `harnessreview` coordination; retain specialized browser/preparation adapters; F-038 |
+| `runtime/fixture-session.mjs`; native fixture session | Private broker-shaped transport | Remove after graph/review direct library integration; F-038/F-040 |
+| `execution/run-make-node-tool-cli.mjs`, `smoke/run-harness-smoke-cli.mjs`, `readiness/frontend-artifact.mjs`, `services/local-session.mjs` | Standalone Node private-runtime owners | Migrate private ownership, retain producer/physical responsibilities; F-039 |
+| Native observation/runtime tests; `tests/contract-suite-support.mjs`; `observability/tests/test-collection-engine.mjs` | Scanner comparison, direct runtime assertions, process-exit wakeup assertion | Independent owner fixtures; retain distinct producer boundary assertions; F-040 |
+| Task surface owner, helper ownership, test families, schema attachments and native schema generator | Authored executable routing and projections | Update owner inputs then generate; no hand-edited generated roots |
+| Active tracker/current owner guidance and historical handoffs | Some removed paths labeled LIVE; historical change lists remain valid at their source | Correct current navigation, preserve source-scoped history; F-041 |
+
+
+### Previous functional iteration — current mainline disposition and navigation (historical)
 
 The preserved S-033 baseline per-path ledger is
 `/home/jochi/.codex/worktrees/instrumentation-main-cleanup/cartulary/.cartulary/retained-work/main-cleanup/disposition.json`.
@@ -714,7 +747,21 @@ qualification workload roster, under the already specified owners and gates.
 
 ## 3. Module Boundary Diagnosis
 
-### Current diagnosis and architectural choice
+### Current lifecycle architecture
+
+`harnesssession` sits below graph, fixture and review coordination and depends on
+secure local files, schema validation and process identity. It must not import
+graph or fixture orchestration. `harnessreview` owns review lifecycle and calls
+`harnessfixtures` directly. The installed harness binary remains a thin composition
+root. Node adapters report facts/results and execute their specialized producer
+operations; they do not independently decide session terminal transitions.
+
+No generic command runner, plugin registry, engine selector, permanent legacy
+transport or background service is introduced. Borrowed resources retain their
+physical owner. Persistent service proof survives short-lived commands.
+
+
+### Previous functional iteration — current diagnosis and architectural choice (historical)
 
 F-022 did not establish a single shell RSS root cause. The fixture lifetime repair
 is useful independently; the rejected worker-thread variant increased measured
@@ -768,7 +815,22 @@ is justified.
 
 ## 4. Public Contract and Behavior Freeze Map
 
-### Current adopted contracts and validation boundary
+### Current lifecycle contract map
+
+| Contract | Owner and required behavior | Validation |
+| --- | --- | --- |
+| C-022 private runtime/scanner | REQ-852/855: one native root, secret, journal, stale cleanup and scan owner; ownership proof before deletion; unresolved proof survives | V-038/V-040 |
+| C-023 review coordination | REQ-853 and REQ-416/502/616: Go admission/registry/recovery/terminal owner; exact dependency order, primary cause, immutable terminal repetition | V-039/V-042 |
+| C-024 private interfaces/public freeze | REQ-854: 32 MiB graph plan, 1 MiB private frame, existing 64 KiB UI request; strict schema/reference/proof binding; no arbitrary commands or secret argv | V-037–V-042 |
+| C-025 deletion and evidence | REQ-855: independent expectations, no old policy/oracle or active compatibility forwarding; retained schemas and public behavior preserved | V-041/V-043 |
+
+Graph scanning follows producer quiescence with only its bounded outer receipt
+permitted afterward. UI terminal publication follows its own REQ-502/616 protocol.
+Public commands, selection, modes, failure precedence, deadlines and retained
+acceptance sets remain stable. No product API or domain concept changes.
+
+
+### Previous functional iteration — current adopted contracts and validation boundary (historical)
 
 | Contract | Owner / expected behavior | Disposition and gate |
 | --- | --- | --- |
@@ -850,7 +912,18 @@ are not applicable because no product contract changes.
 
 ## 5. Coupling and Boundary Findings
 
-### Current findings and final dispositions
+### Current lifecycle findings
+
+| ID | Remediation / areas | Benefit / unresolved risk | Migration / exit |
+| --- | --- | --- | --- |
+| F-037 | Shared native runtime and scanner; implementation/tests/spec | One security and lifetime policy; duplication permits divergent ownership/path decisions | Retained formats and scan identity stable; C-022, S-037/V-038 |
+| F-038 | Native review lifecycle and direct fixture library; implementation/projections/tests/spec | Single terminal authority; split ownership risks late publication and premature cleanup | Drain old sessions with running version; C-023/024, S-038/V-039 |
+| F-039 | Migrate standalone runtime callers; implementation/tests | Removes permanent dependency on Node policy; stranded roots or borrowed deletion otherwise remain possible | Preserve specialized adapters/persistent proof; C-022, S-039/V-040 |
+| F-040 | Relocate tests and delete old oracles/routing; tests/implementation/projections | Tests survive structural changes and detect independent faults | Explicit per-assertion disposition; C-025, S-036/S-040/V-037/V-041 |
+| F-041 | Correct current owner navigation; documentation | Prevents edits against retired owners | Preserve historical paths as source-scoped evidence; C-025, S-040/V-041 |
+
+
+### Previous functional iteration — current findings and final dispositions (historical)
 
 | Finding | Remediation / areas | Rationale and long-term benefit | Compatibility / migration | Risk if unresolved | Completion evidence |
 | --- | --- | --- | --- | --- | --- |
@@ -926,7 +999,24 @@ owner violation receives a new named correction and regression test.
 
 ## 6. Refactor Workstreams
 
-### Current ordered workstreams
+### Current lifecycle workstreams
+
+The sole active dependency chain is **S-036 → S-037 → S-038 → S-039 → S-040 →
+S-041 → S-042**. Every predecessor must pass and its checkpoint must be saved
+before successor work begins. Prior completed graph/fixture work remains DONE.
+
+| Workflow / slice | State | Required exit |
+| --- | --- | --- |
+| WF-36 / S-036 contracts and characterization | DONE | V-037: current owner, caller/test ledger, independent expectations and fresh baseline pass |
+| WF-37 / S-037 shared native runtime/scanner | TODO | V-038: native ownership/security/race checks and shared consumers |
+| WF-38 / S-038 native review lifecycle | BLOCKED | V-039: real IPC, recovery and physical boundaries in every mode |
+| WF-39 / S-039 remaining callers | BLOCKED | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
+| WF-40 / S-040 deletion/routing/docs | BLOCKED | V-041: import/build/generated closure and every assertion disposition closed |
+| WF-41 / S-041 public boundary validation | BLOCKED | V-042: installed public surface, producer interoperability and physical cleanup |
+| WF-42 / S-042 final validation/handoff | BLOCKED | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
+
+
+### Previous functional iteration — current ordered workstreams (historical)
 
 This is the sole dependency list for the current effort. Each saved checkpoint
 must precede any work on its successor. S-031 rolls up A–F; each is an independent
@@ -1022,7 +1112,46 @@ lists are historical and do not redefine the current sequence.
 
 ## 7. Remediation Slice Plan
 
-### Adopted workstream plan and completed test dispositions
+### Current lifecycle slice implementation and test dispositions
+
+**S-036:** adopt native shared/session/review ownership, enumerate callers and
+freeze independent expectations before moving production policy. Baseline native
+runtime/fixture and UI contract gates must pass. Specification review distinguishes
+required behavior from implementation accidents; missing characterization blocks
+movement. **S-037:** extract native runtime, journal, preservation and scanner into
+`harnesssession`; graph/fixtures call it directly; expose bounded private operations
+for Node callers. Test security, concurrency and independent scan expectations.
+**S-038:** move registry authority, admission, stopping, recovery serialization,
+cleanup and terminal publication to `harnessreview`; retain browser actions and
+preparation recipes as adapters. Test real IPC and service/browser boundaries.
+**S-039:** migrate smoke, wrapped tools, frontend producers and local-service root
+ownership; inherit existing authority or create owned native roots; no daemon.
+**S-040:** delete superseded policy and fixture transport, relocate tests, update
+routing/schema/helper owner inputs, regenerate, and repair active documentation.
+**S-041:** exercise public boundaries and repair defects at owners. **S-042:** run
+finalize before final contracts/lint/projections/full warm check, freeze source,
+and save exact evidence and remaining qualification limits.
+
+| Test group / obligation | Keep / move / remove disposition | Owner / route |
+| --- | --- | --- |
+| Native runtime private proof, preservation/janitor | MOVE unchanged obligations, extend concurrent/closed behavior | `harnesssession`; runtime contract |
+| Native scanner Node parity | REMOVE Node oracle; retain fixed expected accept/reject/count/policy identity and unsafe filesystem cases | native scanner; runtime contract |
+| Node suite-runtime contract group | MOVE ownership/scan assertions; retain Node producer umask boundary | native session plus command/evidence contracts |
+| Collection-engine-named process exit test | KEEP actual exit-wakeup versus identity proof obligation; relocate to process adapter test if still needed | producer boundary; evidence contract |
+| UI controller/preparation/seeded/lifecycle/recovery | MOVE policy assertions to actual Go owner; KEEP browser adapter and real IPC/physical tests | UI contract/lifecycle/seeded routes |
+| Fixture broker allocation/reuse/recovery and physical owners | KEEP; remove transport-only tests only when private protocol is deleted | fixture contract and native fixture row |
+| Frontend producer/private capture/command failure/local services/smoke | KEEP behavioral cases; use native runtime rather than legacy test constructor | exact owner selections and command surface |
+| Compiler, catalog, Node/Go schema, offline readers, qualification validator | KEEP distinct responsibilities; never reroute through legacy lifecycle policy | existing owner routes |
+
+Principal risks are unsafe deletion, lost independent cleanup, primary failure
+replacement, hidden callers and stale evidence. Every removed assertion receives
+an exact retained/relocated/obsolete disposition in the completion checkpoint.
+Rollback is a coherent source/projection transaction. A private protocol change
+requires old live sessions to drain with their running version; unverifiable
+ownership blocks that environment's cutover. No legacy reader or receipt rewrite.
+
+
+### Previous functional iteration — adopted workstream plan and completed test dispositions (historical)
 
 S-033 is complete. The following adopted sequence is complete through S-032;
 Sections 6, 9 and E-032–E-040 record its individual checkpoints and results.
@@ -1653,7 +1782,32 @@ S-014–S-022 or qualify its completed source. These rows retain prior stable ID
 
 ## 8. Validation Plan
 
-### Current validation and operating contract
+### Current lifecycle validation
+
+V-037–V-043 map in order to S-036–S-042. Use Make-owned runtime, fixture,
+runtime-boundary, evidence, command-surface, UI-review contract/lifecycle/seeded
+routes. Preserve three-role fast smoke; broad native suites remain owner gates.
+Extend authored package selections before extraction and regenerate projections.
+
+Required cases: ownership/permissions/containment; symlink/hardlink/inode changes;
+malformed proof; cross-chunk secrets; registration versus finalization; aged live
+owners; partial/late acquisition; cancellation before readiness; repeated/concurrent
+stop; stalled independent cleanup; parent/controller death and PID reuse; exact
+resource dependencies; borrowed protection; primary/secondary publication failure;
+immutable terminal repetition; no late writes; inherited/owned/persistent callers;
+quiet capture and frontend staging failure. Status neither provisions nor writes.
+
+After authored changes: `make generate`, then separately `make generate-drift`,
+`make generated-artifact-policy-check`, `make json-shape-check`. S-042 runs
+`make agent-finalize` before final `make harness-contract`, applicable lint,
+projection checks and full warm `make check`. Supply finalization RESULTS_DIR only
+for eligible successful full-warm evidence; otherwise record its maintenance skip.
+Every writing invocation uses a fresh explicit run ID. Record process exit
+independently of harness summary; inspect exact-run human/JSON evidence and local
+export isolation. No qualification acquisition is scheduled.
+
+
+### Previous functional iteration — current validation and operating contract (historical)
 
 | Signal / operation | Stable semantics and boundary | Acceptance |
 | --- | --- | --- |
@@ -1832,7 +1986,21 @@ Their commands/results are not current-source evidence for S-014–S-022.
 
 ## 9. Top-Level Work Tracker
 
-### Current work status on main
+### Current lifecycle work status
+
+| ID | Work | State / evidence |
+| --- | --- | --- |
+| T-042 | Adopt iteration and preserve prior history | DONE; E-041/E-042 |
+| T-043 / S-036 | Contracts and characterization | DONE; V-037/E-042 |
+| T-044 / S-037 | Native shared runtime/scanner | TODO; V-038 |
+| T-045 / S-038 | Native review lifecycle | BLOCKED; V-039 |
+| T-046 / S-039 | Remaining callers | BLOCKED; V-040 |
+| T-047 / S-040 | Deletion/routing/documentation | BLOCKED; V-041 |
+| T-048 / S-041 | Public boundaries | BLOCKED; V-042 |
+| T-049 / S-042 | Final validation and handoff | BLOCKED; V-043 |
+
+
+### Previous functional iteration — current work status on main (historical)
 
 | ID | Work | Status / evidence |
 | --- | --- | --- |
@@ -1904,6 +2072,57 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-042 — S-036/V-037 contracts and characterization — DONE
+
+Saved before S-037 begins. Owner REQ-852–855/AC-147–148 and REQ-502 now name the
+shared native private-runtime and Go review lifecycle boundaries. Graph and UI
+publication protocols stay distinct. Section 7 records the test disposition
+ledger and Section 2 the concrete caller inventory. Native scan characterization
+now uses fixed independent outcomes and policy digest rather than invoking Node.
+No production implementation or generated projection changed in this slice.
+
+Source: clean entry `b0bc9737531c7feaf573e28715348fd81ae0584a` plus the adopted owner,
+tracker and one test change. Non-tracker diff SHA-256:
+`35b09584ed64f7042ce5e135bbecc859c1d375d5a151074a4687d3f5b7526c07`.
+The scanner test file SHA-256 is
+`233f1ffcadd43a614dbda449c40187bbd158d055cf4e7788c11adeae4070fce2`.
+Existing Linux/WSL environment, Go launcher 1.27.1/effective pinned 1.27.2,
+Make-selected pinned Node and existing local caches. Roots below are under
+`.cartulary/test-results/`; each command had its own native process handle.
+
+| Exact command | Root suffix | Owning exit / harness result |
+| --- | --- | --- |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s036-runtime-01 make harness-runtime-contract` | `lifecycle-s036-runtime-01` | 0 / pass, 45,910 ms, race-enabled runtime/schema suites |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s036-fixture-01 make harness-fixture-contract` | `lifecycle-s036-fixture-01` | 0 / pass, 3,920 ms, race-enabled fixture suite |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s036-ui-01 make harness-ui-review-contract` | `lifecycle-s036-ui-01` | 0 / pass, 2,050 ms |
+| `CARTULARY_TEST_RUN_ID=lifecycle-s036-markdown-01 make lint-markdown` | `lifecycle-s036-markdown-01` | 0 / pass, 15,590 ms |
+| `git diff --check` | none | 0 |
+
+These direct contract routes publish target tool summaries, not an outer graph
+manifest; an early attempt to inspect a nonexistent outer manifest is not a test
+failure. Discovery of one nonexistent helper filename was corrected from actual
+imports. No gate failed. No service acquisition or qualification run was required
+for this characterization gate; real physical validation remains S-038/S-041.
+Current public behavior is unchanged; the normative destination is adopted, with
+implementation still pending. S-037 is ready after this saved checkpoint. Prior
+completion evidence and F-022/RB-006 remain unchanged.
+
+
+### E-041 — Lifecycle iteration admission and S-036 entry
+
+Implementation authorization supersedes the prior planning-only turn. Clean main
+is `b0bc9737531c7feaf573e28715348fd81ae0584a`. Inspection verified only the tracker
+differs from prior executable `0725873db`. The earlier planning pass compared
+6,917 file identities/content and the Git index unchanged; no tests ran then.
+Current discovery: `make help`, `make help-all`, module-author task guides for
+`harness.command_surface` and `harness.browser`, and summary explanations for
+runtime/UI contract routes all exit 0. Environment is the existing Linux/WSL
+checkout with pinned Make-selected toolchains. Baseline tests and their exact
+roots/exits will be recorded before S-036 is marked DONE. No historical evidence,
+salvage source or qualification inputs changed. An initial owner-text patch failed
+context matching without changing files; corrected using exact current clauses.
+
 
 ### E-040 — S-032 final validation and handoff — DONE
 
@@ -2926,7 +3145,17 @@ document checkpoint, not a runtime-validation result.
 
 ## 11. Open Questions and Blockers
 
-### Current blockers and stop decisions
+### Current lifecycle entry gates
+
+No unresolved product preference blocks S-036. S-037–S-042 are blocked on their
+saved predecessor checkpoints, not missing user authorization. Exact old-session
+proof must be checked before protocol cutover; discovery of unresolved ownership
+blocks only the affected environment. Missing characterization or failed gates
+remain open and are never reported as passes. F-022/RB-006 remains explicitly
+unresolved; qualification is outside this iteration.
+
+
+### Previous functional iteration — current blockers and stop decisions (historical)
 
 | Scope | State | Required resolution |
 | --- | --- | --- |
@@ -2985,7 +3214,20 @@ Pre-existing staged tracker content is preserved.
 
 ## 12. Binary Completion Criteria
 
-### Current completion boundary
+### Current lifecycle completion boundary
+
+| Outcome | Required / current state |
+| --- | --- |
+| Planning | Complete for selected lifecycle scope; no whole-repository behavior audit claimed |
+| Authorization | Current user explicitly authorizes S-036–S-042 implementation |
+| Readiness | S-036 DONE; S-037 ready after E-042; later successors blocked on saved predecessor gates |
+| Prior functional scope | S-035/S-034/S-031A–F/S-032 remain DONE at historical sources |
+| Current completion | Pending S-042/V-043 and every individual checkpoint; one native shared owner, direct fixture coordination, no obsolete policy/oracle/wiring |
+| Handoff | Exact changed files, commands, process/harness outcomes, source identity, roots, failures, skips and compatibility effects |
+| Qualification | DEFERRED; F-022/RB-006 and S-020–S-022 unchanged, 44.952/90 minutes, no RSS/CPU/default-on/Core 05 claim |
+
+
+### Previous functional iteration — current completion boundary (historical)
 
 | Outcome | Required / current state |
 | --- | --- |
