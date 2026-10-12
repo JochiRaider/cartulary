@@ -154,6 +154,9 @@ func (c *nativeCache) Lookup(ctx context.Context, u unit) (cacheResult, error) {
 		return result, nil
 	}
 	if err := c.Fresh(ctx, f); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return cacheResult{}, err
+		}
 		return cacheResult{}, failed("config", "configuration_error")
 	}
 	result.Outcome = "miss"
@@ -176,6 +179,9 @@ func (c *nativeCache) Lookup(ctx context.Context, u unit) (cacheResult, error) {
 	}
 	entry, err := c.readEntry(ctx, directory, u, f)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return cacheResult{}, err
+		}
 		result.Reason = "record_invalid"
 		if u.CachePolicy != "same_run" {
 			if err := c.quarantine(directory, f); err != nil {
@@ -191,6 +197,9 @@ func (c *nativeCache) Lookup(ctx context.Context, u unit) (cacheResult, error) {
 	if err := publishOutputs(ctx, c.root, c.run, append(entry.items, items...), c.BeforeRename); err != nil {
 		if errors.Is(err, errIncompletePublication) {
 			return cacheResult{}, failed("artifact", "artifact_error")
+		}
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return cacheResult{}, err
 		}
 		result.Reason = "restore_rejected"
 		return result, nil
@@ -245,7 +254,10 @@ func (c *nativeCache) readEntry(ctx context.Context, directory string, u unit, f
 			item.Source = filepath.Join(artifactsRoot, prefix, "0")
 			expected[prefix+"/0"] = "file"
 			digest, mode, err := streamRegular(ctx, item.Source, nil)
-			if err != nil || mode != 0600 || digest != manifest.Digest {
+			if err != nil {
+				return cacheEntry{}, err
+			}
+			if mode != 0600 || digest != manifest.Digest {
 				return cacheEntry{}, harnesslocal.ErrUnsafe
 			}
 		} else {
@@ -271,7 +283,10 @@ func (c *nativeCache) readEntry(ctx context.Context, directory string, u unit, f
 					expected[relative] = "file"
 					source := filepath.Join(artifactsRoot, relative)
 					digest, mode, err := streamRegular(ctx, source, nil)
-					if err != nil || mode != 0600 || digest != member.Digest {
+					if err != nil {
+						return cacheEntry{}, err
+					}
+					if mode != 0600 || digest != member.Digest {
 						return cacheEntry{}, harnesslocal.ErrUnsafe
 					}
 					item.Payloads[member.Path] = source

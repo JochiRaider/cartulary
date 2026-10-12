@@ -101,12 +101,16 @@ func TestRuntimeScheduling(t *testing.T) {
 }
 
 type testCache struct {
+	lookup func(context.Context, unit) (cacheResult, error)
 	mu     sync.Mutex
 	stored []string
 	hits   map[string]bool
 }
 
-func (c *testCache) Lookup(_ context.Context, u unit) (cacheResult, error) {
+func (c *testCache) Lookup(ctx context.Context, u unit) (cacheResult, error) {
+	if c.lookup != nil {
+		return c.lookup(ctx, u)
+	}
 	if c.hits[u.ID] {
 		return cacheResult{Outcome: "hit", Reason: "record_valid", OutputDigest: "sha256:" + strings.Repeat("a", 64)}, nil
 	}

@@ -163,6 +163,43 @@ func TestRuntimeCanonicalNodeParity(t *testing.T) {
 	}
 }
 func TestRuntimeRequiredPublication(t *testing.T) {
+	t.Run("cache_cancellation_publishes_terminal_without_execution", func(t *testing.T) {
+		p, err := decodePlan(planBytes(t, planFixture(t)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		root := t.TempDir()
+		if err := os.Chmod(root, 0700); err != nil {
+			t.Fatal(err)
+		}
+		publisher, err := newGraphPublication(p, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer publisher.Abort()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cache := &testCache{lookup: func(ctx context.Context, _ unit) (cacheResult, error) {
+			cancel()
+			return cacheResult{}, ctx.Err()
+		}}
+		result, err := executeGraph(ctx, p, enginePorts{Cache: cache, Event: publisher.Event, Terminal: publisher.Terminal, Execute: func(context.Context, executionRequest) unitResult {
+			t.Error("cancelled lookup launched a producer")
+			return unitResult{Status: "passed"}
+		}})
+		if err != nil {
+			t.Fatal("cancelled lookup aborted canonical publication", err)
+		}
+		summary, err := publisher.Finish(result)
+		if err != nil || summary["status"] != "cancelled" || summary["failure_class"] != "interrupted" {
+			t.Fatal(summary, err)
+		}
+		for _, name := range []string{"run-summary.json", "unit-events.ndjson", "cleanup-results.json"} {
+			if _, err := os.Stat(filepath.Join(root, name)); err != nil {
+				t.Fatal(name, err)
+			}
+		}
+	})
 	p, err := decodePlan(planBytes(t, planFixture(t)))
 	if err != nil {
 		t.Fatal(err)

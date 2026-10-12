@@ -595,15 +595,18 @@ inventory. This is a bounded subsystem inspection, not a whole-repository audit.
 
 | Inspected seam | Current responsibility / callers | Disposition / finding |
 | --- | --- | --- |
-| `internal/testutil/harnesssession/{runtime,preservation,protocol,tree,lock}_linux.go`; Node `runtime/suite-runtime.mjs`, `resource-recovery.mjs` | Native graph/fixtures/review and migrated callers share private roots, durable secrets, exact journals and janitor | Native extraction/caller migration DONE in E-043–E-045; obsolete Node policy removed and validated in E-046; F-037/F-039 |
-| `internal/testutil/harnesssession/scan_linux.go`; graph `scan_linux.go` publication adapter; Node suite-runtime scanner | Graph and review use the same native scanner; Node scanner removed in S-040 | Native policy/digest preserved; distinct publication protocols remain; F-037 |
-| `browser/ui-review/{controller,session,recovery,terminal,ownership,session-files,diagnostic-processes}.mjs`; `browser/review-preparation.mjs` | Historical Node session authority, deleted in S-040 after native caller migration | Go `harnessreview` coordination; retain specialized browser/preparation adapters; F-038 |
-| `runtime/fixture-session.mjs`; native fixture session | Retired private broker-shaped transport | Deleted after graph/review direct library integration; F-038/F-040 |
-| `execution/run-make-node-tool-cli.mjs`, `smoke/run-harness-smoke-cli.mjs`, `readiness/frontend-artifact.mjs`, `services/local-session.mjs` | Node producer/physical adapters using native runtime authority | Migration DONE in E-045; retain distinct producer/physical responsibilities; F-039 |
-| Native observation/runtime tests; `tests/contract-suite-support.mjs`; `observability/tests/test-collection-engine.mjs` | Scanner comparison, direct runtime assertions, process-exit wakeup assertion | Independent owner fixtures; retain distinct producer boundary assertions; F-040 |
-| Task surface owner, helper ownership, test families, schema attachments and native schema generator | Authored executable routing and projections | Update owner inputs then generate; no hand-edited generated roots |
-| Active tracker/current owner guidance and historical handoffs | Some removed paths labeled LIVE; historical change lists remain valid at their source | Correct current navigation, preserve source-scoped history; F-041 |
+| `internal/testutil/harnesssession/{runtime,preservation,protocol,tree,lock,physical}_linux.go`; Node `runtime/session-client.mjs` | Shared native private roots, secrets, exact journals, janitor and bounded private transactions for producer adapters | Extraction/caller migration E-043–E-045, deletion E-046; F-037/F-039 |
+| `internal/testutil/harnesssession/scan_linux.go`; graph `scan_linux.go` publication adapter | One native scanner shared by graph and review; distinct publication ordering | Policy/digest and retained schemas preserved; F-037 |
+| `internal/testutil/harnessreview`; `browser/ui-review/{native-client,adapter,ownership,diagnostic-processes,input-files}.mjs`; `browser/review-recipes.mjs` | Go registry, admission, cancellation, recovery and terminal authority; Node retains browser/process operations, input compilation and preparation recipes | Direct native fixture library, no parallel Node coordination; E-044/E-046, F-038 |
+| `internal/testutil/harnessfixtures` | Direct shared allocation/lease/reuse/recovery library for graph/review | Fixture-session transport, subcommand and private schema removed; F-038/F-040 |
+| `execution/run-make-node-tool-cli.mjs`, `smoke/run-harness-smoke-cli.mjs`, `readiness/frontend-artifact.mjs`, `services/local-session.mjs` | Distinct Node producers/physical adapters using native runtime authority | Migration E-045, physical public checks E-047; F-039 |
+| Native session/review/fixture/runtime tests; retained Node compiler/reader/producer/browser tests | Independent expected lifecycle/security facts and actual owner execution; no JavaScript scanner oracle | Assertion migration ledger closed at E-046; F-040 |
+| Task surface owner, helper ownership, test families, schema attachments and native schema generator | Authored executable routing and generated projections for the remaining owners | Generated and checked in E-046; no handwritten generated roots |
+| Active browser design/readiness guide and source-scoped historical handoffs | Current owner navigation and preserved historical evidence | Obsolete LIVE claims corrected and historical scope explicit; E-046, F-041 |
 
+Removed implementations are listed in E-046 and the historical inventory, not as
+current owners. Retained Node adapters have physical, compilation, producer or
+reader responsibilities; none owns shared runtime or review-session policy.
 
 ### Previous functional iteration — current mainline disposition and navigation (historical)
 
@@ -921,6 +924,7 @@ are not applicable because no product contract changes.
 | F-039 | Migrate standalone runtime callers; implementation/tests | Removes permanent dependency on Node policy; stranded roots or borrowed deletion otherwise remain possible | Preserve specialized adapters/persistent proof; C-022, S-039/V-040 |
 | F-040 | Relocate tests and delete old oracles/routing; tests/implementation/projections | Tests survive structural changes and detect independent faults | Explicit per-assertion disposition; C-025, S-036/S-040/V-037/V-041 |
 | F-041 | Correct current owner navigation; documentation | Prevents edits against retired owners | Preserve historical paths as source-scoped evidence; C-025, S-040/V-041 |
+| F-042 | Preserve cancellation through cache freshness and ordinary graph termination; implementation/tests | Prevents a user stop from becoming configuration failure and losing canonical evidence | No schema/public input changes; existing cancellation contract, C-024, S-042/V-043; final validation pending |
 
 
 ### Previous functional iteration — current findings and final dispositions (historical)
@@ -1013,7 +1017,7 @@ before successor work begins. Prior completed graph/fixture work remains DONE.
 | WF-39 / S-039 remaining callers | DONE; E-045 | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
 | WF-40 / S-040 deletion/routing/docs | DONE; E-046 | V-041: import/build/generated closure and every assertion disposition closed |
 | WF-41 / S-041 public boundary validation | DONE; E-047 | V-042: installed public surface, producer interoperability and physical cleanup |
-| WF-42 / S-042 final validation/handoff | READY | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
+| WF-42 / S-042 final validation/handoff | IN_PROGRESS | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
 
 
 ### Previous functional iteration — current ordered workstreams (historical)
@@ -1997,7 +2001,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-046 / S-039 | Remaining callers | DONE; V-040/E-045 |
 | T-047 / S-040 | Deletion/routing/documentation | DONE; V-041/E-046 |
 | T-048 / S-041 | Public boundaries | DONE; V-042/E-047 |
-| T-049 / S-042 | Final validation and handoff | BLOCKED; V-043 |
+| T-049 / S-042 | Final validation and handoff | IN_PROGRESS; V-043 |
 
 
 ### Previous functional iteration — current work status on main (historical)
@@ -2072,6 +2076,81 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-048 — S-042/V-043 final validation and handoff — IN_PROGRESS
+
+Finalization first: `env -u RESULTS_DIR CARTULARY_TEST_RUN_ID=lifecycle-s042-finalize01
+make agent-finalize` completed with owning exit 0, PASS, 21,794 ms. Its
+`unit-artifacts/finalize-summary.json` reports zero generated changes. Canonical
+retained-run and scheduler-drift maintenance were explicitly skipped because
+RESULTS_DIR was unset (`results-dir-not-provided`); there was no eligible current
+full-warm evidence to supply. No skipped maintenance is reported as a pass.
+
+Executable source is frozen at `2b800928c` (only the tracker differs from
+implementation commit `081f5b0e6`), digest
+`sha256:4550a159bda71123d1c20e7fe23fb94fc770984eceacea92ac638e14b6db42c3`.
+Final pre-check gates used fresh `lifecycle-s042-<suffix>` IDs under
+`.cartulary/test-results/`, with observed owning exit 0 and reported PASS:
+
+| Suffix | Make target | Evidence |
+| --- | --- | --- |
+| `contract01` | `harness-contract` | 2/2 graph units; 182/182 extended assertions; 100,025 ms |
+| `scripts01` | `lint-scripts` | 694 ms |
+| `shell01` | `lint-shell` | 16,982 ms |
+| `markdown01` | `lint-markdown` | 8,180 ms; final handoff prose will receive its own narrow check |
+| `drift01` | `generate-drift` | 18,632 ms |
+| `policy01` | `generated-artifact-policy-check` | 1,066 ms |
+| `json01` | `json-shape-check` | 3,696 ms |
+
+`CARTULARY_TEST_RUN_ID=lifecycle-s042-check01 make check` FAILED, owning exit 2.
+Frontend typecheck reported missing declaration for the shared incident-bundle
+fixture and an unused Buffer import left by S-038; Biome independently reported
+the unused import (not a formatter failure). The graph continued independent
+work, so the agent sent SIGINT through a pidfd after verifying the exact native
+graph owner's run identity. Cancellation exposed F-042: cache freshness mapped
+context cancellation to configuration failure; graph admission treated it as a
+required publication failure and discarded the canonical event stream. The public
+outer diagnostic was config/configuration_error. No run-summary or cleanup summary
+was published; the last live observation recorded 231 passed, 4 failed, 747
+cancelled of 982 units. These counts are a live observation, not completed evidence.
+The retained scan passed over 1,626 files. The native private root and Docker
+containers were absent afterward, but missing canonical cleanup evidence is not
+reported as a passed cleanup gate. This failed run remains intact.
+
+Repair scope: restore the typed shared fixture interface with an authored `.d.mts`
+and remove the unused import, without copying its implementation back into the
+browser helper. Independently reproduce cancelled freshness and interrupted cache
+admission/publication through the actual native owners, preserve context errors,
+and treat interrupted cache lookup as normal cancellation. No failure threshold,
+cache acceptance rule, deadline or schema is relaxed. New source identity and
+affected runtime/typecheck/lint/finalization/full-check gates are required.
+`runtime-repro01 make harness-runtime-contract` reproduced freshness cancellation
+as config/configuration_error (owning exit 2); its initial publication fixture
+also failed private directory permissions before exercising the owner. The fixture
+now explicitly sets 0700 as required. `runtime-repair01` then exposed the second
+part: cancellation inside synchronous cache admission reached the scheduler's
+no-progress check before pending units were settled. The owner loop now settles
+cancellation after the admission loop, before checking progress; cancelled cache
+reads/restores preserve existing entries and outputs rather than quarantining a
+valid record. Regression expectations cover all three cache phases and complete
+canonical cancellation publication. No gate failure is hidden.
+
+`format01`/`format02 make format` passed. `types01 make frontend-typecheck` passed
+(21,478 ms), and `biome01 make lint-biome` passed (2,044 ms); these close the typed
+fixture interface and unused import findings. `runtime-repair02 make harness-runtime-contract` passed with race checks for
+runtime/schema/session/review; all new cancellation regressions passed.
+`cancel01 make test-slice OWNER=harness.command_surface
+ROWS=harness.command_surface.unit.native_runtime CARTULARY_HARNESS_CACHE_MODE=off`
+then exercised the installed public graph: after observing its one running unit,
+SIGINT was sent to its exact verified owner. Native exit 130 / outer Make exit 2
+and canonical `cancelled` were expected. Run/events/cleanup/scan evidence exists;
+read-only observability audit and summary explanation both passed. This is an
+intentional negative boundary test, distinct from check01's publication failure.
+No source change was made while this invocation ran.
+
+No full check or final handoff success is yet claimed. No executable changes may be
+included without a new identity and affected validation. Environment and
+qualification exclusions remain as recorded in E-047.
 
 ### E-047 — S-041/V-042 installed public boundaries — DONE
 

@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import type { GetJobResponse } from "@cartulary/protocol-ts/http";
 import { incidentImportTestId } from "@cartulary/ui-contracts";
 import { expect, type Locator, type Page } from "@playwright/test";

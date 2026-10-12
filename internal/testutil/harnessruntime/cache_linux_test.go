@@ -66,6 +66,47 @@ func nativeCacheFixture(t *testing.T, mode string) (*nativeCache, unit) {
 	return c, u
 }
 func TestRuntimeCacheTransactions(t *testing.T) {
+	for _, phase := range []string{"read", "restore"} {
+		t.Run("cancelled_"+phase+"_preserves_cache_and_outputs", func(t *testing.T) {
+			c, u := nativeCacheFixture(t, "normal")
+			if err := c.Store(context.Background(), u); err != nil {
+				t.Fatal(err)
+			}
+			record := filepath.Join(c.directory(c.facts[u.ID]), "record.json")
+			before, err := os.ReadFile(record)
+			if err != nil {
+				t.Fatal(err)
+			}
+			output := filepath.Join(c.root, "bin/program")
+			writeFixtureFile(t, output, []byte("current output"), 0755)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if phase == "read" {
+				c.Fresh = func(context.Context, cacheFact) error { cancel(); return nil }
+			} else {
+				c.BeforeRename = func(int) error { cancel(); return ctx.Err() }
+			}
+			if _, err = c.Lookup(ctx, u); !errors.Is(err, context.Canceled) {
+				t.Fatal("cache cancellation lost", err)
+			}
+			after, err := os.ReadFile(record)
+			if err != nil || string(after) != string(before) {
+				t.Fatal("valid cache quarantined or changed", err)
+			}
+			data, err := os.ReadFile(output)
+			if err != nil || string(data) != "current output" {
+				t.Fatal("cancelled restore changed output", err)
+			}
+		})
+	}
+	t.Run("cancelled_freshness_is_not_configuration_failure", func(t *testing.T) {
+		c, u := nativeCacheFixture(t, "normal")
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if _, err := c.Lookup(ctx, u); !errors.Is(err, context.Canceled) {
+			t.Fatal("cache cancellation lost", err)
+		}
+	})
 	ctx := context.Background()
 	t.Run("round_trip_and_fresh_semantic_rows", func(t *testing.T) {
 		c, u := nativeCacheFixture(t, "normal")

@@ -202,9 +202,6 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 	}
 	for {
 		e.settleDependencies()
-		if ctx.Err() != nil || e.stopAdmission {
-			e.stopPending()
-		}
 		for ctx.Err() == nil && !e.stopAdmission && e.err == nil {
 			ready := e.ready()
 			for _, u := range ready {
@@ -221,6 +218,9 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 			}
 			e.admit(*chosen)
 			e.settleDependencies()
+		}
+		if ctx.Err() != nil || e.stopAdmission {
+			e.stopPending()
 		}
 		e.observe()
 		if len(e.running) == 0 {
@@ -529,6 +529,11 @@ func (e *graphEngine) admit(u unit) {
 	c := cacheResult{Outcome: "bypass", Reason: "cache_unconfigured"}
 	if e.ports.Cache != nil {
 		if err := e.directPhase(u, "cache_lookup", func() error { var err error; c, err = e.ports.Cache.Lookup(e.ctx, u); return err }); err != nil {
+			// The unit is still pending. Let ordinary cancellation close its wait
+			// and publish its terminal event instead of aborting required evidence.
+			if e.ctx.Err() != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
+				return
+			}
 			e.requiredError(err)
 			return
 		}
