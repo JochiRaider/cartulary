@@ -25,12 +25,19 @@ E-040 remains historical final evidence, including 981/981 full-check units.
 No new validation is inferred from that pass. Salvage source and evidence remain
 untouched; this iteration requires no import, reset, archive or evidence deletion.
 
-Go will own shared private-runtime state, admission, recovery, ordered cleanup,
+Go owns shared private-runtime state, admission, recovery, ordered cleanup,
 retained scanning and terminal publication. Graph and review call the same native
 fixture owner. Node retains compilation/selection, row runners, browser operations,
 report adaptation and offline readers; physical service/browser adapters retain
 their distinct operations. This is lifecycle consolidation, not a whole-harness
 language rewrite. S-042 is the required completion and handoff gate.
+
+**Functional remediation is complete.** S-036–S-042/V-037–V-043 are DONE, with
+individual checkpoints E-042–E-048. Final executable source
+`aed9737cbb77683451bdd4dfd47d97b42c3bb1ed` passed the full warm check, 982/982
+units, plus final contracts, lint and projection gates. The final tracker checkpoint
+changes documentation only. E-048 records source identity, successful evidence,
+failed attempts, repairs, skips and migration limits.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -487,7 +494,7 @@ never this tracker or other Markdown.
 | --- | --- |
 | Main and index | Clean `b0bc9737531c7feaf573e28715348fd81ae0584a`; no staged or untracked work at entry |
 | Prior planning comparison | 6,917 tracked/nonignored files; aggregate `11c33deb2fe91d940aeaba6e54d3927b48a315bea2db82c4b98b45aceb24c53f`; tracker `a617e7fc008f29f19e709f22365f7954d85a12ddb83c4fd44df4d5b85715852b` |
-| Current source | S-036 committed as `439f4665f`; S-037 committed as `f64bc88b771fcb523725bb207d92fb3d48b2fe40`; S-038 `2ae231627`, S-039 `f15f6c717`; S-040 completed source/projection transaction at E-046; final executable identity freezes before S-042 |
+| Current source | S-036 `439f4665f`, S-037 `f64bc88b7`, S-038 `2ae231627`, S-039 `f15f6c717`, S-040 `081f5b0e6`, S-041 `2b800928c`; S-042 repairs `ab2afb5e0` and final executable freeze `aed9737cbb77683451bdd4dfd47d97b42c3bb1ed`, digest `sha256:6dfb070d1f521a638b2121d285f6f5dd3e39ef20ebe700062933b5dbb010e7e8`; final checkpoint changes only this tracker |
 | Evidence | Prior primary/salvage/qualification roots preserved; each writing command uses a fresh explicit run ID |
 | Exclusions | Product behavior, compiler/reader rewrite, new daemons, performance qualification, golden refresh and Core 05 publication |
 
@@ -919,12 +926,12 @@ are not applicable because no product contract changes.
 
 | ID | Remediation / areas | Benefit / unresolved risk | Migration / exit |
 | --- | --- | --- | --- |
-| F-037 | Shared native runtime and scanner; implementation/tests/spec | One security and lifetime policy; duplication permits divergent ownership/path decisions | Retained formats and scan identity stable; C-022, S-037/V-038 |
-| F-038 | Native review lifecycle and direct fixture library; implementation/projections/tests/spec | Single terminal authority; split ownership risks late publication and premature cleanup | Drain old sessions with running version; C-023/024, S-038/V-039 |
-| F-039 | Migrate standalone runtime callers; implementation/tests | Removes permanent dependency on Node policy; stranded roots or borrowed deletion otherwise remain possible | Preserve specialized adapters/persistent proof; C-022, S-039/V-040 |
-| F-040 | Relocate tests and delete old oracles/routing; tests/implementation/projections | Tests survive structural changes and detect independent faults | Explicit per-assertion disposition; C-025, S-036/S-040/V-037/V-041 |
-| F-041 | Correct current owner navigation; documentation | Prevents edits against retired owners | Preserve historical paths as source-scoped evidence; C-025, S-040/V-041 |
-| F-042 | Preserve cancellation through cache freshness and ordinary graph termination; implementation/tests | Prevents a user stop from becoming configuration failure and losing canonical evidence | No schema/public input changes; existing cancellation contract, C-024, S-042/V-043; final validation pending |
+| F-037 | Shared native runtime and scanner; implementation/tests/spec | One security and lifetime policy; duplication permits divergent ownership/path decisions | CLOSED: C-022, S-037/V-038, E-043/E-046/E-048; retained formats and scan identity stable |
+| F-038 | Native review lifecycle and direct fixture library; implementation/projections/tests/spec | Single terminal authority; split ownership risks late publication and premature cleanup | CLOSED: C-023/024, S-038/V-039, E-044/E-047/E-048; other environments must drain old sessions with their running version |
+| F-039 | Migrate standalone runtime callers; implementation/tests | Removes permanent dependency on Node policy; stranded roots or borrowed deletion otherwise remain possible | CLOSED: C-022, S-039/V-040, E-045/E-047/E-048; specialized adapters and persistent proof preserved |
+| F-040 | Relocate tests and delete old oracles/routing; tests/implementation/projections | Tests survive structural changes and detect independent faults | CLOSED: C-025, S-036/S-040/V-037/V-041, E-042/E-046/E-048; per-assertion ledger complete |
+| F-041 | Correct current owner navigation; documentation | Prevents edits against retired owners | CLOSED: C-025, S-040/V-041, E-046/E-048; historical paths remain source-scoped evidence |
+| F-042 | Preserve cancellation through cache freshness and ordinary graph termination; implementation/tests | Prevents a user stop from becoming configuration failure and losing canonical evidence | CLOSED: existing cancellation contract, C-024, S-042/V-043/E-048; independent regressions, installed interruption and final check passed; no schema/public input changes |
 
 
 ### Previous functional iteration — current findings and final dispositions (historical)
@@ -1011,13 +1018,13 @@ before successor work begins. Prior completed graph/fixture work remains DONE.
 
 | Workflow / slice | State | Required exit |
 | --- | --- | --- |
-| WF-36 / S-036 contracts and characterization | DONE | V-037: current owner, caller/test ledger, independent expectations and fresh baseline pass |
+| WF-36 / S-036 contracts and characterization | DONE; E-042 | V-037: current owner, caller/test ledger, independent expectations and fresh baseline pass |
 | WF-37 / S-037 shared native runtime/scanner | DONE; E-043 | V-038: native ownership/security/race checks and shared consumers |
 | WF-38 / S-038 native review lifecycle | DONE; E-044 | V-039: real IPC, recovery and physical boundaries in every mode |
 | WF-39 / S-039 remaining callers | DONE; E-045 | V-040: owned/borrowed/persistent callers pass failure and interruption cases |
 | WF-40 / S-040 deletion/routing/docs | DONE; E-046 | V-041: import/build/generated closure and every assertion disposition closed |
 | WF-41 / S-041 public boundary validation | DONE; E-047 | V-042: installed public surface, producer interoperability and physical cleanup |
-| WF-42 / S-042 final validation/handoff | IN_PROGRESS | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
+| WF-42 / S-042 final validation/handoff | DONE; E-048 | V-043: finalize, frozen-source contracts/lint/projections/full warm check and saved handoff |
 
 
 ### Previous functional iteration — current ordered workstreams (historical)
@@ -2001,7 +2008,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-046 / S-039 | Remaining callers | DONE; V-040/E-045 |
 | T-047 / S-040 | Deletion/routing/documentation | DONE; V-041/E-046 |
 | T-048 / S-041 | Public boundaries | DONE; V-042/E-047 |
-| T-049 / S-042 | Final validation and handoff | IN_PROGRESS; V-043 |
+| T-049 / S-042 | Final validation and handoff | DONE; V-043/E-048 |
 
 
 ### Previous functional iteration — current work status on main (historical)
@@ -2077,7 +2084,7 @@ completed implementation slices do not establish successful qualification.
 
 ## 10. Session Handoff Log
 
-### E-048 — S-042/V-043 final validation and handoff — IN_PROGRESS
+### E-048 — S-042/V-043 final validation and handoff — DONE
 
 Finalization first: `env -u RESULTS_DIR CARTULARY_TEST_RUN_ID=lifecycle-s042-finalize01
 make agent-finalize` completed with owning exit 0, PASS, 21,794 ms. Its
@@ -2177,13 +2184,91 @@ harness-fixture-contract`, and `runtime-repair03 make harness-runtime-contract`
 all passed with observed owning exit 0. Runtime/schema/session/review and fixture
 race tests are complete; the selected graphs all report source digest
 `sha256:6dfb070d1f521a638b2121d285f6f5dd3e39ef20ebe700062933b5dbb010e7e8`.
-The final freeze and full check follow; S-042 remains IN_PROGRESS.
+Final executable freeze is `aed9737cbb77683451bdd4dfd47d97b42c3bb1ed`, with the
+same digest above. Only this tracker changes after that freeze.
+`env -u RESULTS_DIR CARTULARY_TEST_RUN_ID=lifecycle-s042-finalize03 make
+agent-finalize` passed (21,534 ms, owning exit 0), changing no generated files.
+The unset-RESULTS_DIR maintenance skip remains explicit. Final-source gates passed
+with observed owning exit 0 after this finalization. All rows use
+`CARTULARY_TEST_RUN_ID=lifecycle-s042-<suffix> make <target>` and retained roots
+`.cartulary/test-results/lifecycle-s042-<suffix>`:
 
+| Suffix | Make target | Final-source result |
+| --- | --- | --- |
+| `contract03` | `harness-contract` | PASS; 2/2 graph units, 182/182 assertions; 97,462 ms |
+| `scripts03` | `lint-scripts` | PASS; 562 ms |
+| `shell03` | `lint-shell` | PASS; 1,496 ms |
+| `markdown03` | `lint-markdown` | PASS; 7,810 ms |
+| `lintgo02` | `lint-go` | PASS |
+| `drift03` | `generate-drift` | PASS; 18,762 ms |
+| `policy03` | `generated-artifact-policy-check` | PASS; 1,050 ms |
+| `json03` | `json-shape-check` | PASS; 3,662 ms |
 
+`CARTULARY_TEST_RUN_ID=lifecycle-s042-check03 make check` PASSED on that frozen
+source: observed owning Make exit 0, canonical PASS, 982/982 units passed, zero
+failed/skipped/cancelled, 837,329 ms canonical wall. Retained root is
+`.cartulary/test-results/lifecycle-s042-check03`. Cache accounting is explicit:
+211 hits, 608 misses, 163 bypasses; cache hits are accepted reuse, not newly
+executed producer evidence. All 1,030 cleanup records completed with no failure or
+blocked cleanup. `retained-secret-scan.json` reports PASS over 6,063 files with
+unchanged policy digest
+`sha256:eaa74efae69ea73a6e0f18823a94ccc70a19b242e2cb2880e446611c3084ee11`.
+No check03 private runtime root remained; Docker's running-container inventory
+was empty. The earlier failed roots and exact recovery proof remain preserved.
 
-No full check or final handoff success is yet claimed. No executable changes may be
-included without a new identity and affected validation. Environment and
-qualification exclusions remain as recorded in E-047.
+Environment: Linux/WSL, effective Go 1.27.2 selected by launcher 1.27.1, repository
+pinned Node/tooling and Docker. Final manifest records clean executable source,
+toolchain digest
+`sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`
+and system digest
+`sha256:546793d134ea4063515a25068aa22b78078fc1613c1ee56fb5f9e41c5c550588`.
+Contract03 and check03 agree on executable commit and digest. Markdown-only
+checkpoint edits do not participate in those executable identities.
+
+Exact-run read-only commands all exited 0:
+`make test-run-status RESULTS_DIR=.cartulary/test-results/lifecycle-s042-check03 JSON=1`,
+`make explain-run RESULTS_DIR=.cartulary/test-results/lifecycle-s042-check03 TARGET=check DETAIL=summary`,
+and `make harness-observability-check RESULTS_DIR=.cartulary/test-results/lifecycle-s042-check03`.
+The independent audit passed one invocation/four sources. Separate
+`make explain-run RESULTS_DIR=.cartulary/test-results/lifecycle-s042-check03 DETAIL=performance`
+and `DETAIL=resources`, each with and without `JSON=1`, passed. Views are retained
+locally at `/tmp/cartulary-lifecycle-s042-views/`; both JSON views are the same
+immutable explanation model. Human canonical timing agrees (837,329 ms);
+resources/execution are explicitly `not_observed` and the terminal receipt is
+unavailable because diagnostics are off. The JSON model preserves the bounded
+20-unit view's 962 omitted units. No sample, consumption total or qualification
+result is inferred from this default-off run. Reader limitations remain explicit:
+they do not attest current source or observe the outer exit; those were separately
+captured above. E-047's diagnostic service run and E-046/E-048's contract fixtures
+supply the positive observation/receipt and local export-isolation coverage.
+No export command or external telemetry transmission ran.
+
+Final handoff: F-037–F-042 are CLOSED for this scope. Shared runtime, scanner,
+recovery and cleanup policy live in `harnesssession`; `harnessreview` owns review
+session transitions/publication and calls `harnessfixtures` directly, as graph
+does. Superseded Node policy, fixture-session transport/schema/subcommand, copied
+test coordinators and obsolete routing are removed. Retained Node compiler,
+selection, row/browser/physical adapters, preparation recipes and offline readers
+have distinct owners and obligations; no compatibility engine or daemon remains.
+Public commands, required failures, retained acceptance sets, scan policy identity
+and diagnostics defaults are preserved. The private session protocol change
+requires other environments to drain old sessions with their running version;
+unresolved ownership blocks that environment's cutover. Rollback restores the
+coherent source/projection transaction, without an old-reader shim or receipt
+rewrite. Graph final scan/outer receipt and UI terminal publication/scan remain
+separate contracts.
+
+Every predecessor checkpoint was saved before its successor. S-042/V-043 is DONE;
+functional remediation is complete. The final checkpoint changes this tracker
+only. `CARTULARY_TEST_RUN_ID=lifecycle-s042-markdown04 make lint-markdown` passed
+with observed owning exit 0 (7,930 ms); its retained root is
+`.cartulary/test-results/lifecycle-s042-markdown04`. Final `git diff --check`
+passed, twelve numbered sections remain, and executable files stayed unchanged
+through evidence inspection and handoff. All failed attempts and maintenance
+skips above remain part of the handoff.
+F-022/RB-006 and S-020–S-022 remain unresolved/deferred, with unchanged thresholds
+and 44.952/90-minute investigation ledger. No overhead, RSS/CPU improvement,
+default-on readiness, or Core 05 publication is claimed.
 
 ### E-047 — S-041/V-042 installed public boundaries — DONE
 
@@ -3719,12 +3804,12 @@ document checkpoint, not a runtime-validation result.
 
 ### Current lifecycle entry gates
 
-S-036–S-041 are DONE. S-042 is READY after E-047. No user-authorization
-gate remains; finalization and final-source validation are still required. Exact old-session
-proof must be checked before protocol cutover; discovery of unresolved ownership
-blocks only the affected environment. Missing characterization or failed gates
-remain open and are never reported as passes. F-022/RB-006 remains explicitly
-unresolved; qualification is outside this iteration.
+S-036–S-042 are DONE at E-042–E-048. No functional blocker remains in this scope.
+Other environments must check exact old-session proof before protocol cutover;
+unresolved ownership blocks that environment until its running version drains or
+recovers the resources. Historical failed attempts remain failed evidence, with
+their repairs and subsequent passes recorded separately. F-022/RB-006 remains
+explicitly unresolved; qualification is outside this iteration.
 
 
 ### Previous functional iteration — current blockers and stop decisions (historical)
@@ -3792,11 +3877,12 @@ Pre-existing staged tracker content is preserved.
 | --- | --- |
 | Planning | Complete for selected lifecycle scope; no whole-repository behavior audit claimed |
 | Authorization | Current user explicitly authorizes S-036–S-042 implementation |
-| Readiness | S-036–S-041 DONE; S-042 READY after E-047 |
+| Readiness | S-036–S-042 DONE with individual E-042–E-048 checkpoints |
 | Prior functional scope | S-035/S-034/S-031A–F/S-032 remain DONE at historical sources |
-| Current completion | Pending S-042/V-043 and every individual checkpoint; one native shared owner, direct fixture coordination, no obsolete policy/oracle/wiring |
-| Handoff | Exact changed files, commands, process/harness outcomes, source identity, roots, failures, skips and compatibility effects |
+| Current completion | Functional remediation complete; S-042/V-043/E-048: one native shared owner, direct fixture coordination, no obsolete policy/oracle/wiring; final full warm check 982/982 |
+| Handoff | E-042–E-048 record changed files, commands, process/harness outcomes, source identity, roots, failures, skips and compatibility effects; final checkpoint is documentation only |
 | Qualification | DEFERRED; F-022/RB-006 and S-020–S-022 unchanged, 44.952/90 minutes, no RSS/CPU/default-on/Core 05 claim |
+| Original effort status | IN_PROGRESS solely for deferred qualification; this does not reopen the completed functional lifecycle scope |
 
 
 ### Previous functional iteration — current completion boundary (historical)
